@@ -9,6 +9,9 @@
   <!-- CSS da página inicial (usa o iframe do menu) -->
   <link rel="stylesheet" href="/frontend/css/inicio.css" />
   <link rel="icon" type="image/png" href="/frontend/img/logo-favicon.png" />
+
+  <!-- JS da página (leva para propostas com ?nova=1) -->
+  <script src="/frontend/js/pages/inicio.js" type="module" defer></script>
 </head>
 <body>
   <div class="orca-shell">
@@ -26,7 +29,11 @@
           <h1>Início</h1>
           <p>Bem-vindo ao painel de orçamentos.</p>
         </div>
-        <button class="btn-primary" type="button">
+        <button
+          class="btn-primary"
+          type="button"
+          data-action="nova-proposta"
+        >
           + Nova proposta
         </button>
       </header>
