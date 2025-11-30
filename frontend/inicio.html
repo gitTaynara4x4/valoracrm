@@ -9,9 +9,6 @@
   <!-- CSS da página inicial (usa o iframe do menu) -->
   <link rel="stylesheet" href="/frontend/css/inicio.css" />
   <link rel="icon" type="image/png" href="/frontend/img/logo-favicon.png" />
-
-  <!-- JS da página (leva para propostas com ?nova=1) -->
-  <script src="/frontend/js/pages/inicio.js" type="module" defer></script>
 </head>
 <body>
   <div class="orca-shell">
@@ -29,11 +26,7 @@
           <h1>Início</h1>
           <p>Bem-vindo ao painel de orçamentos.</p>
         </div>
-        <button
-          class="btn-primary"
-          type="button"
-          data-action="nova-proposta"
-        >
+        <button class="btn-primary" type="button" id="btn-nova-proposta-inicio">
           + Nova proposta
         </button>
       </header>
@@ -53,5 +46,18 @@
       </section>
     </main>
   </div>
+
+  <script>
+    // Botão "+ Nova proposta" do INÍCIO:
+    // leva para /frontend/propostas.html?nova=1
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('btn-nova-proposta-inicio');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          window.location.href = '/frontend/propostas.html?nova=1';
+        });
+      }
+    });
+  </script>
 </body>
 </html>
