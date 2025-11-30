@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 # ============================================
@@ -13,6 +13,9 @@ from fastapi.staticfiles import StaticFiles
 BASE_DIR = Path(__file__).resolve().parent.parent  # pasta OrcaPro/
 FRONTEND_DIR = BASE_DIR / "frontend"
 
+# ============================================
+# App
+# ============================================
 app = FastAPI(
     title="4X OrçaPro API",
     version="0.1.0",
@@ -21,13 +24,32 @@ app = FastAPI(
 )
 
 # ============================================
-# Static: /frontend -> pasta frontend/
+# Static com NO-CACHE para HTML
 # ============================================
-# /frontend/inicio.html ficará acessível via:
-# http://localhost:2002/frontend/inicio.html
+
+class NoCacheHTMLStaticFiles(StaticFiles):
+    """
+    Igual StaticFiles, mas qualquer arquivo .html vai com Cache-Control
+    desabilitando cache no navegador.
+    """
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+
+        # Só mexe se achou o arquivo e se for .html
+        if response.status_code == 200 and path.lower().endswith(".html"):
+            response.headers["Cache-Control"] = (
+                "no-store, no-cache, must-revalidate, max-age=0"
+            )
+            # opcional: também pode limpar ETag / Last-Modified se quiser ficar hardcore
+            # response.headers.pop("ETag", None)
+            # response.headers.pop("Last-Modified", None)
+
+        return response
+
+# /frontend/inicio.html, /frontend/menu.html, etc.
 app.mount(
     "/frontend",
-    StaticFiles(directory=str(FRONTEND_DIR)),
+    NoCacheHTMLStaticFiles(directory=str(FRONTEND_DIR)),
     name="frontend",
 )
 
@@ -40,20 +62,16 @@ def ping():
     return {"status": "ok", "app": "4X OrçaPro"}
 
 
-@app.get("/", include_in_schema=False)
-def root():
-    """
-    Quando acessar apenas o domínio (/) redireciona para /orca.
-    Ex.: https://zapchats-orcapro.9ywrah.easypanel.host/ -> /orca
-    """
-    return RedirectResponse(url="/orca")
-
-
 @app.get("/orca", tags=["OrçaPro – UI"])
 def orcapro_inicio():
     """
-    Tela inicial do 4X OrçaPro (frontend/inicio.html)
-    Acessível em: http://localhost:2002/orca
+    Tela inicial: /orca -> frontend/inicio.html
+    Também com no-cache, pra garantir que o HTML novo sempre venha.
     """
-    inicio_path = FRONTEND_DIR / "inicio.html"
-    return FileResponse(inicio_path)
+    file_path = FRONTEND_DIR / "inicio.html"
+    return FileResponse(
+        file_path,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"
+        },
+    )
