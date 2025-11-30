@@ -123,8 +123,17 @@
               </div>
 
               <div class="orca-field">
-                <label for="campo-valor-proposta">Valor total (R$)</label>
-                <input type="number" step="0.01" id="campo-valor-proposta" />
+                <label for="campo-valor-proposta">Valor total</label>
+                <div class="orca-money-input">
+                  <span class="orca-money-prefix">R$</span>
+                  <input
+                    type="text"
+                    id="campo-valor-proposta"
+                    inputmode="decimal"
+                    placeholder="0,00"
+                    autocomplete="off"
+                  />
+                </div>
               </div>
 
               <div class="orca-field">
