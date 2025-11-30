@@ -62,9 +62,19 @@ function formatMoney(v) {
   return 'R$ ' + v.toFixed(2).replace('.', ',');
 }
 
+// Converte texto "R$ 1.234,56" para número 1234.56
+function parseMoneyString(str) {
+  if (!str) return 0;
+  let s = String(str)
+    .replace(/[R$\s]/g, '') // tira R$ e espaços
+    .replace(/\./g, '')     // tira pontos de milhar
+    .replace(',', '.');     // vírgula -> ponto
+  const n = Number(s);
+  return isNaN(n) ? 0 : n;
+}
+
 function formatDataISOParaBR(iso) {
   if (!iso) return '-';
-  // se vier "YYYY-MM-DD"
   const partes = iso.split('-');
   if (partes.length === 3) {
     return `${partes[2]}/${partes[1]}/${partes[0]}`;
@@ -177,7 +187,9 @@ function abrirModalProposta(novo = true, proposta = null) {
     campoNumero.value = proposta.numero || '';
     campoCliente.value = proposta.cliente || '';
     campoTipo.value = proposta.tipo || '';
-    campoValor.value = proposta.valorTotal ?? '';
+    campoValor.value = proposta.valorTotal != null
+      ? formatMoney(Number(proposta.valorTotal))
+      : '';
     campoStatus.value = proposta.status || 'rascunho';
 
     // data deve ficar em formato yyyy-mm-dd para input date
@@ -212,7 +224,7 @@ function salvarProposta() {
   const numero = (campoNumero.value || '').trim();
   const cliente = (campoCliente.value || '').trim();
   const tipo = (campoTipo.value || '').trim();
-  const valorTotal = Number(campoValor.value || 0);
+  const valorTotal = parseMoneyString(campoValor.value);
   const status = campoStatus.value;
   const data = campoData.value || null;
   const observacoes = (campoObs.value || '').trim();
@@ -265,6 +277,25 @@ function salvarProposta() {
   renderTabelaPropostas();
 }
 
+/* ===== MÁSCARA DO CAMPO DE VALOR ===== */
+
+function initMascaraValorProposta() {
+  const campoValor = document.getElementById('campo-valor-proposta');
+  if (!campoValor) return;
+
+  campoValor.addEventListener('input', () => {
+    // pega só dígitos
+    const digits = campoValor.value.replace(/\D/g, '');
+    if (!digits) {
+      campoValor.value = '';
+      return;
+    }
+
+    const num = Number(digits) / 100; // centavos -> reais
+    campoValor.value = formatMoney(num);
+  });
+}
+
 /* ===== INIT ===== */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -278,6 +309,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Render inicial
   renderTabelaPropostas();
 
+  // Máscara no campo de valor
+  initMascaraValorProposta();
+
   // Busca / filtro
   const inputBusca = document.getElementById('busca-propostas');
   const selectStatus = document.getElementById('filtro-status-proposta');
@@ -289,7 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectStatus.addEventListener('change', () => renderTabelaPropostas());
   }
 
-  // Nova proposta
+  // Nova proposta (dentro da página de Propostas)
   const btnNova = document.getElementById('btn-nova-proposta');
   if (btnNova) {
     btnNova.addEventListener('click', () => abrirModalProposta(true, null));
@@ -309,6 +343,12 @@ document.addEventListener('DOMContentLoaded', () => {
     backdrop.addEventListener('click', e => {
       if (e.target === backdrop) fecharModalProposta();
     });
+  }
+
+  // Se veio de /inicio.html com ?nova=1, já abre o modal
+  const params = new URLSearchParams(window.location.search || '');
+  if (params.get('nova') === '1') {
+    abrirModalProposta(true, null);
   }
 
   // Ações na tabela (editar / excluir)
