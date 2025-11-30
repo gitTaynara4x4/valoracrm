@@ -171,8 +171,7 @@
 </head>
 <body>
   <aside class="orca-sidebar">
-    <!-- só adicionei o id, o resto é idêntico -->
-    <header class="orca-sidebar-header" id="orca-logo-home">
+    <header class="orca-sidebar-header">
       <img src="/frontend/img/logo-white.png" alt="4X OrçaPro" class="orca-logo-full" />
       <span class="orca-logo-caption">Painel de orçamentos</span>
     </header>
@@ -180,7 +179,8 @@
     <nav class="orca-sidebar-section">
       <p class="orca-section-label">MENU</p>
 
-      <button class="orca-nav-item orca-nav-item--active" data-target="home">
+      <!-- TIRA o --active fixo, o JS que vai colocar -->
+      <button class="orca-nav-item" data-target="home">
         <span class="orca-nav-icon">
           <i class="fa-solid fa-chart-line"></i>
         </span>
@@ -260,20 +260,57 @@
       }
     }
 
+    // Descobre em qual página o PAI está pra saber qual item ativar
+    function resolveCurrentTargetFromParent() {
+      let path = '';
+      try {
+        if (window.parent && window.parent !== window && window.parent.location) {
+          path = window.parent.location.pathname || '';
+        } else {
+          path = window.location.pathname || '';
+        }
+      } catch (err) {
+        console.warn('[Menu OrçaPro] Não deu pra ler parent.location, usando location própria.', err);
+        path = window.location.pathname || '';
+      }
+
+      if (path === '/orca' || path === '/orca/') return 'home';
+      if (path.endsWith('/inicio.html')) return 'home';
+      if (path.endsWith('/clientes.html')) return 'clientes';
+      if (path.endsWith('/produtos.html')) return 'produtos';
+      if (path.endsWith('/propostas.html')) return 'propostas';
+      if (path.endsWith('/config.html')) return 'config';
+      if (path.endsWith('/ajuda.html')) return 'ajuda';
+
+      return 'home';
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-      // Clique nos itens do menu
-      document.querySelectorAll('.orca-nav-item').forEach(btn => {
+      const current = resolveCurrentTargetFromParent();
+
+      const itens = document.querySelectorAll('.orca-nav-item');
+      itens.forEach(btn => {
+        const target = btn.dataset.target;
+
+        // marca o atual
+        if (target === current) {
+          btn.classList.add('orca-nav-item--active');
+        } else {
+          btn.classList.remove('orca-nav-item--active');
+        }
+
+        // clique navega
         btn.addEventListener('click', () => {
-          const target = btn.dataset.target;
-          if (!target) return;
-          irPara(target);
+          if (!btn.dataset.target) return;
+          irPara(btn.dataset.target);
         });
       });
 
-      // Clique na logo / header volta pro início
-      const logoHeader = document.getElementById('orca-logo-home');
-      if (logoHeader) {
-        logoHeader.addEventListener('click', () => {
+      // Logo clicável volta pro início (/orca)
+      const logo = document.querySelector('.orca-logo-full');
+      if (logo) {
+        logo.style.cursor = 'pointer';
+        logo.addEventListener('click', () => {
           irPara('home');
         });
       }
