@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 # ============================================
@@ -20,18 +20,16 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
-
 # ============================================
 # Static: /frontend -> pasta frontend/
 # ============================================
 # /frontend/inicio.html ficará acessível via:
-# http://localhost:8000/frontend/inicio.html
+# http://localhost:2002/frontend/inicio.html
 app.mount(
     "/frontend",
     StaticFiles(directory=str(FRONTEND_DIR)),
     name="frontend",
 )
-
 
 # ============================================
 # Rotas básicas
@@ -42,11 +40,20 @@ def ping():
     return {"status": "ok", "app": "4X OrçaPro"}
 
 
+@app.get("/", include_in_schema=False)
+def root():
+    """
+    Quando acessar apenas o domínio (/) redireciona para /orca.
+    Ex.: https://zapchats-orcapro.9ywrah.easypanel.host/ -> /orca
+    """
+    return RedirectResponse(url="/orca")
+
+
 @app.get("/orca", tags=["OrçaPro – UI"])
 def orcapro_inicio():
     """
     Tela inicial do 4X OrçaPro (frontend/inicio.html)
-    Acessível em: http://localhost:8000/orca
+    Acessível em: http://localhost:2002/orca
     """
     inicio_path = FRONTEND_DIR / "inicio.html"
     return FileResponse(inicio_path)
