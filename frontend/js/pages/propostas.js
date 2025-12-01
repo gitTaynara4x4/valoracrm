@@ -6,6 +6,8 @@ const propostasFake = [
     id: 1,
     numero: 'PROP-0001',
     cliente: 'Padaria do Centro',
+    telefone: '(24) 98888-0001',
+    email: 'contato@padariadocentro.com',
     tipo: 'Alarme monitorado + Sensores',
     valorTotal: 3250.0,
     status: 'rascunho',
@@ -16,6 +18,8 @@ const propostasFake = [
     id: 2,
     numero: 'PROP-0002',
     cliente: 'Condomínio Residencial Jardins',
+    telefone: '(24) 97777-0002',
+    email: 'sindico@condjardins.com',
     tipo: 'CFTV 16 câmeras + NVR',
     valorTotal: 14890.0,
     status: 'enviada',
@@ -26,6 +30,8 @@ const propostasFake = [
     id: 3,
     numero: 'PROP-0003',
     cliente: 'João da Silva',
+    telefone: '(24) 96666-0003',
+    email: 'joao@gmail.com',
     tipo: 'Kit alarme residencial',
     valorTotal: 1890.0,
     status: 'aprovada',
@@ -36,6 +42,8 @@ const propostasFake = [
     id: 4,
     numero: 'PROP-0004',
     cliente: 'Auto Peças Avenida',
+    telefone: '(24) 95555-0004',
+    email: 'contato@autopecasavenida.com',
     tipo: 'CFTV 8 câmeras',
     valorTotal: 7590.0,
     status: 'recusada',
@@ -47,7 +55,36 @@ const propostasFake = [
 let propostas = [...propostasFake];
 let propostaEditandoId = null;
 
-/* ===== FORMATADORES ===== */
+// Etapa atual do modal: 1 = dados do cliente, 2 = produtos
+let modalStep = 1;
+
+// Catálogo fake para busca de produtos dentro do modal
+const catalogoProdutosModal = [
+  {
+    id: 1,
+    codigo: 'ALM-001',
+    descricao: 'Central de alarme 8 setores',
+    preco: 650.0
+  },
+  {
+    id: 2,
+    codigo: 'CFTV-CAM-2MP',
+    descricao: 'Câmera Bullet 2MP IR 20m',
+    preco: 390.0
+  },
+  {
+    id: 3,
+    codigo: 'SERV-MO-DIA',
+    descricao: 'Mão de obra diária (equipe)',
+    preco: 450.0
+  },
+  {
+    id: 4,
+    codigo: 'KIT-ALM-RES-8P',
+    descricao: 'Kit Alarme Residencial até 8 pontos',
+    preco: 1950.0
+  }
+];
 
 function formatStatus(status) {
   switch (status) {
@@ -61,7 +98,7 @@ function formatStatus(status) {
 
 function formatMoney(v) {
   if (v == null || isNaN(v)) return '-';
-  return 'R$ ' + Number(v).toFixed(2).replace('.', ',');
+  return 'R$ ' + v.toFixed(2).replace('.', ',');
 }
 
 // Converte texto "R$ 1.234,56" para número 1234.56
@@ -83,8 +120,6 @@ function formatDataISOParaBR(iso) {
   }
   return iso;
 }
-
-/* ===== TABELA ===== */
 
 function renderTabelaPropostas() {
   const tbody = document.getElementById('tbody-propostas');
@@ -126,7 +161,7 @@ function renderTabelaPropostas() {
       <td>${p.numero || '-'}</td>
       <td>${p.cliente || '-'}</td>
       <td>${p.tipo || '-'}</td>
-      <td>${formatMoney(p.valorTotal)}</td>
+      <td>${formatMoney(Number(p.valorTotal || 0))}</td>
       <td><span class="${statusClass}">${formatStatus(p.status)}</span></td>
       <td>${formatDataISOParaBR(p.data)}</td>
       <td>
@@ -150,7 +185,125 @@ function renderTabelaPropostas() {
   }
 }
 
-/* ===== MODAL ===== */
+/* ===== CONTROLE DAS ETAPAS DO MODAL ===== */
+
+function setModalStep(step) {
+  modalStep = step;
+
+  const stepCliente = document.getElementById('step-dados-cliente');
+  const stepProdutos = document.getElementById('step-produtos');
+  const label = document.getElementById('modal-etapa-label');
+  const btnVoltar = document.getElementById('btn-voltar-proposta');
+  const btnSalvar = document.getElementById('btn-salvar-proposta');
+
+  if (stepCliente && stepProdutos) {
+    if (step === 1) {
+      stepCliente.style.display = 'grid';
+      stepProdutos.style.display = 'none';
+    } else {
+      stepCliente.style.display = 'none';
+      stepProdutos.style.display = 'grid';
+    }
+  }
+
+  if (label) {
+    label.textContent =
+      step === 1
+        ? 'Etapa 1 de 2 — Dados do cliente'
+        : 'Etapa 2 de 2 — Produtos';
+  }
+
+  if (btnVoltar) {
+    btnVoltar.style.display = step === 1 ? 'none' : 'inline-flex';
+  }
+
+  if (btnSalvar) {
+    btnSalvar.textContent = step === 1 ? 'Avançar' : 'Salvar';
+  }
+}
+
+function validarEtapaDadosCliente() {
+  const campoCliente = document.getElementById('campo-cliente-proposta');
+  const campoNumero = document.getElementById('campo-numero-proposta');
+
+  const nome = (campoCliente?.value || '').trim();
+  const numero = (campoNumero?.value || '').trim();
+
+  if (!nome) {
+    alert('Informe o nome do cliente.');
+    if (campoCliente) campoCliente.focus();
+    return false;
+  }
+
+  if (!numero) {
+    alert('Número da proposta inválido.');
+    if (campoNumero) campoNumero.focus();
+    return false;
+  }
+
+  return true;
+}
+
+/* ===== LISTA DE PRODUTOS DENTRO DO MODAL ===== */
+
+function renderListaProdutosModal(filtroTexto = '') {
+  const lista = document.getElementById('lista-produtos-modal');
+  if (!lista) return;
+
+  const busca = (filtroTexto || '').toLowerCase().trim();
+
+  let filtrados = catalogoProdutosModal.filter(p => {
+    const texto = `${p.codigo} ${p.descricao}`.toLowerCase();
+    return !busca || texto.includes(busca);
+  });
+
+  lista.innerHTML = '';
+
+  if (filtrados.length === 0) {
+    lista.innerHTML = `
+      <p style="font-size:0.8rem;color:#9ca3af;margin:4px 6px;">
+        Nenhum produto encontrado para essa busca.
+      </p>
+    `;
+    return;
+  }
+
+  filtrados.forEach(prod => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.style.width = '100%';
+    btn.style.textAlign = 'left';
+    btn.style.display = 'flex';
+    btn.style.justifyContent = 'space-between';
+    btn.style.alignItems = 'center';
+    btn.style.padding = '6px 8px';
+    btn.style.borderRadius = '8px';
+    btn.style.border = 'none';
+    btn.style.background = 'transparent';
+    btn.style.color = '#e5e7eb';
+    btn.style.fontSize = '0.84rem';
+    btn.style.cursor = 'pointer';
+
+    btn.innerHTML = `
+      <span>
+        <strong>${prod.codigo}</strong> — ${prod.descricao}
+      </span>
+      <span style="opacity:.75;font-size:0.78rem;">
+        ${formatMoney(prod.preco)}
+      </span>
+    `;
+
+    btn.addEventListener('click', () => {
+      // Por enquanto só mostra um aviso.
+      // Depois a gente faz o "carrinho" de itens da proposta.
+      alert(`(Futuro) Adicionar produto: ${prod.codigo} — ${prod.descricao}`);
+    });
+
+    lista.appendChild(btn);
+  });
+}
+
+/* ===== MODAL: ABRIR / FECHAR / SALVAR ===== */
 
 function abrirModalProposta(novo = true, proposta = null) {
   const backdrop = document.getElementById('modal-proposta-backdrop');
@@ -164,6 +317,8 @@ function abrirModalProposta(novo = true, proposta = null) {
 
   const campoNumero = document.getElementById('campo-numero-proposta');
   const campoCliente = document.getElementById('campo-cliente-proposta');
+  const campoTelefone = document.getElementById('campo-telefone-cliente');
+  const campoEmail = document.getElementById('campo-email-cliente');
   const campoTipo = document.getElementById('campo-tipo-proposta');
   const campoValor = document.getElementById('campo-valor-proposta');
   const campoStatus = document.getElementById('campo-status-proposta');
@@ -177,34 +332,45 @@ function abrirModalProposta(novo = true, proposta = null) {
     const proximoId = propostas.length > 0 ? Math.max(...propostas.map(p => p.id)) + 1 : 1;
     const numeroSugerido = `PROP-${String(proximoId).padStart(4, '0')}`;
 
-    campoNumero.value = numeroSugerido;
-    campoCliente.value = '';
-    campoTipo.value = '';
-    campoValor.value = '';
-    campoStatus.value = 'rascunho';
-    campoData.value = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
-    campoObs.value = '';
+    if (campoNumero) campoNumero.value = numeroSugerido;
+    if (campoCliente) campoCliente.value = '';
+    if (campoTelefone) campoTelefone.value = '';
+    if (campoEmail) campoEmail.value = '';
+    if (campoTipo) campoTipo.value = '';
+    if (campoValor) campoValor.value = '';
+    if (campoStatus) campoStatus.value = 'rascunho';
+    if (campoData) campoData.value = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
+    if (campoObs) campoObs.value = '';
   } else if (proposta) {
     propostaEditandoId = proposta.id;
     titulo.textContent = 'Editar proposta';
 
-    campoNumero.value = proposta.numero || '';
-    campoCliente.value = proposta.cliente || '';
-    campoTipo.value = proposta.tipo || '';
-    campoValor.value = proposta.valorTotal != null
-      ? formatMoney(Number(proposta.valorTotal))
-      : '';
-    campoStatus.value = proposta.status || 'rascunho';
+    if (campoNumero) campoNumero.value = proposta.numero || '';
+    if (campoCliente) campoCliente.value = proposta.cliente || '';
+    if (campoTelefone) campoTelefone.value = proposta.telefone || '';
+    if (campoEmail) campoEmail.value = proposta.email || '';
+    if (campoTipo) campoTipo.value = proposta.tipo || '';
+    if (campoValor) {
+      campoValor.value =
+        proposta.valorTotal != null
+          ? formatMoney(Number(proposta.valorTotal))
+          : '';
+    }
+    if (campoStatus) campoStatus.value = proposta.status || 'rascunho';
 
-    // data deve ficar em formato yyyy-mm-dd para input date
-    if (proposta.data && proposta.data.includes('-')) {
-      campoData.value = proposta.data;
-    } else {
-      campoData.value = '';
+    if (campoData) {
+      if (proposta.data && proposta.data.includes('-')) {
+        campoData.value = proposta.data;
+      } else {
+        campoData.value = '';
+      }
     }
 
-    campoObs.value = proposta.observacoes || '';
+    if (campoObs) campoObs.value = proposta.observacoes || '';
   }
+
+  // Sempre começa na etapa 1 ao abrir
+  setModalStep(1);
 }
 
 function fecharModalProposta() {
@@ -214,39 +380,45 @@ function fecharModalProposta() {
     backdrop.style.display = 'none';
   }
   propostaEditandoId = null;
+  modalStep = 1;
 }
-
-/* ===== SALVAR ===== */
 
 function salvarProposta() {
   const campoNumero = document.getElementById('campo-numero-proposta');
   const campoCliente = document.getElementById('campo-cliente-proposta');
+  const campoTelefone = document.getElementById('campo-telefone-cliente');
+  const campoEmail = document.getElementById('campo-email-cliente');
   const campoTipo = document.getElementById('campo-tipo-proposta');
   const campoValor = document.getElementById('campo-valor-proposta');
   const campoStatus = document.getElementById('campo-status-proposta');
   const campoData = document.getElementById('campo-data-proposta');
   const campoObs = document.getElementById('campo-observacoes-proposta');
 
-  const numero = (campoNumero.value || '').trim();
-  const cliente = (campoCliente.value || '').trim();
-  const tipo = (campoTipo.value || '').trim();
-  const valorTotal = parseMoneyString(campoValor.value);
-  const status = campoStatus.value;
-  const data = campoData.value || null;
-  const observacoes = (campoObs.value || '').trim();
+  const numero = (campoNumero?.value || '').trim();
+  const cliente = (campoCliente?.value || '').trim();
+  const telefone = (campoTelefone?.value || '').trim();
+  const email = (campoEmail?.value || '').trim();
+  const tipo = (campoTipo?.value || '').trim();
+  const valorTotal = parseMoneyString(campoValor?.value || '');
+  const status = campoStatus?.value || 'rascunho';
+  const data = campoData?.value || null;
+  const observacoes = (campoObs?.value || '').trim();
 
   if (!cliente) {
-    alert('Informe o cliente da proposta.');
+    alert('Informe o nome do cliente.');
+    if (campoCliente) campoCliente.focus();
     return;
   }
 
   if (!tipo) {
     alert('Informe o tipo da proposta (Alarme, CFTV, etc.).');
+    if (campoTipo) campoTipo.focus();
     return;
   }
 
   if (!numero) {
     alert('Número da proposta inválido.');
+    if (campoNumero) campoNumero.focus();
     return;
   }
 
@@ -256,6 +428,8 @@ function salvarProposta() {
       id: novoId,
       numero,
       cliente,
+      telefone,
+      email,
       tipo,
       valorTotal,
       status,
@@ -269,6 +443,8 @@ function salvarProposta() {
             ...p,
             numero,
             cliente,
+            telefone,
+            email,
             tipo,
             valorTotal,
             status,
@@ -290,7 +466,6 @@ function initMascaraValorProposta() {
   if (!campoValor) return;
 
   campoValor.addEventListener('input', () => {
-    // pega só dígitos
     const digits = campoValor.value.replace(/\D/g, '');
     if (!digits) {
       campoValor.value = '';
@@ -318,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Máscara no campo de valor
   initMascaraValorProposta();
 
-  // Busca / filtro
+  // Busca / filtro da lista de propostas
   const inputBusca = document.getElementById('busca-propostas');
   const selectStatus = document.getElementById('filtro-status-proposta');
 
@@ -335,24 +510,32 @@ document.addEventListener('DOMContentLoaded', () => {
     btnNova.addEventListener('click', () => abrirModalProposta(true, null));
   }
 
-  // BOTÃO "MONTAR COM MODELO" (no modal)
-  const btnMontarModelo = document.getElementById('btn-montar-proposta-modelo');
-  if (btnMontarModelo) {
-    btnMontarModelo.addEventListener('click', () => {
-      // se quiser, pode salvar um rascunho antes aqui
-      fecharModalProposta();
-      window.location.href = '/frontend/proposta_detalhe.html';
-    });
-  }
-
-  // Fechar modal
+  // Botões do modal
   const btnFechar = document.getElementById('btn-fechar-modal-proposta');
   const btnCancelar = document.getElementById('btn-cancelar-proposta');
   const btnSalvar = document.getElementById('btn-salvar-proposta');
+  const btnVoltar = document.getElementById('btn-voltar-proposta');
 
   if (btnFechar) btnFechar.addEventListener('click', fecharModalProposta);
   if (btnCancelar) btnCancelar.addEventListener('click', fecharModalProposta);
-  if (btnSalvar) btnSalvar.addEventListener('click', salvarProposta);
+
+  if (btnVoltar) {
+    btnVoltar.addEventListener('click', () => {
+      if (modalStep > 1) setModalStep(modalStep - 1);
+    });
+  }
+
+  if (btnSalvar) {
+    btnSalvar.addEventListener('click', () => {
+      if (modalStep === 1) {
+        if (validarEtapaDadosCliente()) {
+          setModalStep(2);
+        }
+      } else {
+        salvarProposta();
+      }
+    });
+  }
 
   // Clique fora do modal fecha
   if (backdrop) {
@@ -367,25 +550,14 @@ document.addEventListener('DOMContentLoaded', () => {
     abrirModalProposta(true, null);
   }
 
-  // Ações na tabela (editar / excluir)
-  const tbody = document.getElementById('tbody-propostas');
-  if (tbody) {
-    tbody.addEventListener('click', e => {
-      const btn = e.target.closest('.orca-icon-btn');
-      if (!btn) return;
-      const action = btn.dataset.action;
-      const id = Number(btn.dataset.id);
-      const proposta = propostas.find(p => p.id === id);
-      if (!proposta) return;
-
-      if (action === 'editar') {
-        abrirModalProposta(false, proposta);
-      } else if (action === 'excluir') {
-        if (confirm('Deseja realmente excluir esta proposta?')) {
-          propostas = propostas.filter(p => p.id !== id);
-          renderTabelaPropostas();
-        }
-      }
+  // Busca de produtos dentro do modal (etapa 2)
+  const inputBuscaProdutosModal = document.getElementById('campo-busca-produtos-modal');
+  if (inputBuscaProdutosModal) {
+    inputBuscaProdutosModal.addEventListener('input', () => {
+      renderListaProdutosModal(inputBuscaProdutosModal.value);
     });
+
+    // ao abrir a página, já deixa carregado
+    renderListaProdutosModal('');
   }
 });
