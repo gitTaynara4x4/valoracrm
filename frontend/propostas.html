@@ -37,13 +37,11 @@
           <p>Emissão e controle de propostas comerciais.</p>
         </div>
 
-        <!-- Ações do cabeçalho -->
-        <div class="orca-main-header-actions">
+        <!-- AÇÕES DO CABEÇALHO: Montar com modelo + Nova proposta -->
+        <div style="display: flex; gap: 8px;">
           <button class="btn-secondary" type="button" id="btn-montar-proposta-modelo">
-            <i class="fa-solid fa-screwdriver-wrench"></i>&nbsp;
-            Montar com modelo
+            <i class="fa-solid fa-layer-group"></i>&nbsp; Montar com modelo
           </button>
-
           <button class="btn-primary" type="button" id="btn-nova-proposta">
             <i class="fa-solid fa-file-circle-plus"></i>&nbsp; Nova proposta
           </button>
@@ -104,7 +102,7 @@
         </div>
       </section>
 
-      <!-- Modal para cadastro/edição de proposta (cabeçalho simples, sem itens ainda) -->
+      <!-- Modal para cadastro/edição de proposta -->
       <div class="orca-modal-backdrop" id="modal-proposta-backdrop" hidden>
         <div class="orca-modal">
           <header class="orca-modal-header">
@@ -123,12 +121,20 @@
 
               <div class="orca-field">
                 <label for="campo-cliente-proposta">Cliente</label>
-                <input type="text" id="campo-cliente-proposta" placeholder="Nome / Fantasia do cliente" />
+                <input
+                  type="text"
+                  id="campo-cliente-proposta"
+                  placeholder="Nome / Fantasia do cliente"
+                />
               </div>
 
               <div class="orca-field">
                 <label for="campo-tipo-proposta">Tipo de proposta</label>
-                <input type="text" id="campo-tipo-proposta" placeholder="Alarme, CFTV, Cerca, Combo..." />
+                <input
+                  type="text"
+                  id="campo-tipo-proposta"
+                  placeholder="Alarme, CFTV, Cerca, Combo..."
+                />
               </div>
 
               <div class="orca-field">
