@@ -36,16 +36,9 @@
           <h1>Propostas</h1>
           <p>Emissão e controle de propostas comerciais.</p>
         </div>
-
-        <!-- AÇÕES DO CABEÇALHO: Montar com modelo + Nova proposta -->
-        <div style="display: flex; gap: 8px;">
-          <button class="btn-secondary" type="button" id="btn-montar-proposta-modelo">
-            <i class="fa-solid fa-layer-group"></i>&nbsp; Montar com modelo
-          </button>
-          <button class="btn-primary" type="button" id="btn-nova-proposta">
-            <i class="fa-solid fa-file-circle-plus"></i>&nbsp; Nova proposta
-          </button>
-        </div>
+        <button class="btn-primary" type="button" id="btn-nova-proposta">
+          <i class="fa-solid fa-file-circle-plus"></i>&nbsp; Nova proposta
+        </button>
       </header>
 
       <!-- Filtros / busca -->
@@ -102,33 +95,98 @@
         </div>
       </section>
 
-      <!-- Modal para cadastro/edição de proposta -->
+      <!-- Modal para cadastro/edição de proposta (2 etapas) -->
       <div class="orca-modal-backdrop" id="modal-proposta-backdrop" hidden>
         <div class="orca-modal">
           <header class="orca-modal-header">
-            <h2 id="modal-proposta-titulo">Nova proposta</h2>
+            <div>
+              <h2 id="modal-proposta-titulo">Nova proposta</h2>
+              <div id="modal-etapa-label"
+                   style="font-size:0.78rem;color:#9ca3af;margin-top:4px;">
+                Etapa 1 de 2 — Dados do cliente
+              </div>
+            </div>
             <button class="orca-modal-close" type="button" id="btn-fechar-modal-proposta">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </header>
 
           <div class="orca-modal-body">
-            <div class="orca-modal-grid">
+            <!-- ETAPA 1: DADOS DO CLIENTE -->
+            <div class="orca-modal-grid" id="step-dados-cliente">
               <div class="orca-field">
                 <label for="campo-numero-proposta">Nº Proposta</label>
                 <input type="text" id="campo-numero-proposta" placeholder="PROP-0001" />
               </div>
 
               <div class="orca-field">
-                <label for="campo-cliente-proposta">Cliente</label>
+                <label for="campo-cliente-proposta">Nome / Fantasia do cliente</label>
                 <input
                   type="text"
                   id="campo-cliente-proposta"
-                  placeholder="Nome / Fantasia do cliente"
+                  placeholder="Ex.: Padaria do Centro"
                 />
               </div>
 
               <div class="orca-field">
+                <label for="campo-telefone-cliente">Telefone / WhatsApp</label>
+                <input
+                  type="text"
+                  id="campo-telefone-cliente"
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-email-cliente">E-mail</label>
+                <input
+                  type="email"
+                  id="campo-email-cliente"
+                  placeholder="contato@cliente.com"
+                />
+              </div>
+            </div>
+
+            <!-- ETAPA 2: PRODUTOS + DADOS DA PROPOSTA -->
+            <div class="orca-modal-grid" id="step-produtos" style="display:none;">
+              <div class="orca-field" style="grid-column: 1 / -1;">
+                <label for="campo-busca-produtos-modal">Produtos da proposta</label>
+                <div class="orca-input-icon">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input
+                    type="text"
+                    id="campo-busca-produtos-modal"
+                    placeholder="Buscar por código ou descrição..."
+                  />
+                </div>
+              </div>
+
+              <div class="orca-field" style="grid-column: 1 / -1;">
+                <label>Resultados da busca</label>
+                <div
+                  id="lista-produtos-modal"
+                  style="
+                    border-radius:12px;
+                    border:1px solid #333;
+                    background:#111;
+                    padding:4px 4px;
+                    max-height:220px;
+                    overflow-y:auto;
+                  "
+                >
+                  <p
+                    style="
+                      font-size:0.8rem;
+                      color:#9ca3af;
+                      margin:4px 6px;
+                    "
+                  >
+                    Digite um nome ou código para buscar produtos...
+                  </p>
+                </div>
+              </div>
+
+              <div class="orca-field" style="grid-column: 1 / -1; margin-top:4px;">
                 <label for="campo-tipo-proposta">Tipo de proposta</label>
                 <input
                   type="text"
@@ -175,11 +233,14 @@
           </div>
 
           <footer class="orca-modal-footer">
+            <button class="btn-secondary" type="button" id="btn-voltar-proposta">
+              Voltar
+            </button>
             <button class="btn-secondary" type="button" id="btn-cancelar-proposta">
               Cancelar
             </button>
             <button class="btn-primary" type="button" id="btn-salvar-proposta">
-              Salvar
+              Avançar
             </button>
           </footer>
         </div>
