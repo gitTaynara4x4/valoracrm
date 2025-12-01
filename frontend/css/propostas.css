@@ -202,10 +202,12 @@ body {
   width: 220px;
 }
 
+/* campos padrão (inclui agora type="email") */
 .orca-field select,
 .orca-field input[type="number"],
 .orca-field input[type="text"],
-.orca-field input[type="date"] {
+.orca-field input[type="date"],
+.orca-field input[type="email"] {
   background: #1f1f1f;
   border-radius: 999px;
   border: 1px solid #333333;
@@ -213,6 +215,13 @@ body {
   color: var(--text-main);
   font-size: 0.85rem;
   outline: none;
+}
+
+/* corrigir autofill do Chrome / Opera para não ficar amarelo/branco */
+.orca-field input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 30px #1f1f1f inset !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+  border-radius: 999px;
 }
 
 /* ===== LISTA / TABELA ===== */
