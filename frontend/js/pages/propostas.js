@@ -47,6 +47,8 @@ const propostasFake = [
 let propostas = [...propostasFake];
 let propostaEditandoId = null;
 
+/* ===== FORMATADORES ===== */
+
 function formatStatus(status) {
   switch (status) {
     case 'rascunho': return 'Rascunho';
@@ -59,7 +61,7 @@ function formatStatus(status) {
 
 function formatMoney(v) {
   if (v == null || isNaN(v)) return '-';
-  return 'R$ ' + v.toFixed(2).replace('.', ',');
+  return 'R$ ' + Number(v).toFixed(2).replace('.', ',');
 }
 
 // Converte texto "R$ 1.234,56" para número 1234.56
@@ -81,6 +83,8 @@ function formatDataISOParaBR(iso) {
   }
   return iso;
 }
+
+/* ===== TABELA ===== */
 
 function renderTabelaPropostas() {
   const tbody = document.getElementById('tbody-propostas');
@@ -122,7 +126,7 @@ function renderTabelaPropostas() {
       <td>${p.numero || '-'}</td>
       <td>${p.cliente || '-'}</td>
       <td>${p.tipo || '-'}</td>
-      <td>${formatMoney(Number(p.valorTotal))}</td>
+      <td>${formatMoney(p.valorTotal)}</td>
       <td><span class="${statusClass}">${formatStatus(p.status)}</span></td>
       <td>${formatDataISOParaBR(p.data)}</td>
       <td>
@@ -211,6 +215,8 @@ function fecharModalProposta() {
   }
   propostaEditandoId = null;
 }
+
+/* ===== SALVAR ===== */
 
 function salvarProposta() {
   const campoNumero = document.getElementById('campo-numero-proposta');
@@ -323,18 +329,20 @@ document.addEventListener('DOMContentLoaded', () => {
     selectStatus.addEventListener('change', () => renderTabelaPropostas());
   }
 
-  // Botão "Montar com modelo" -> abre tela de montagem detalhada
-  const btnMontarModelo = document.getElementById('btn-montar-proposta-modelo');
-  if (btnMontarModelo) {
-    btnMontarModelo.addEventListener('click', () => {
-      window.location.href = '/frontend/proposta_detalhe.html';
-    });
-  }
-
   // Nova proposta (dentro da página de Propostas)
   const btnNova = document.getElementById('btn-nova-proposta');
   if (btnNova) {
     btnNova.addEventListener('click', () => abrirModalProposta(true, null));
+  }
+
+  // BOTÃO "MONTAR COM MODELO" (no modal)
+  const btnMontarModelo = document.getElementById('btn-montar-proposta-modelo');
+  if (btnMontarModelo) {
+    btnMontarModelo.addEventListener('click', () => {
+      // se quiser, pode salvar um rascunho antes aqui
+      fecharModalProposta();
+      window.location.href = '/frontend/proposta_detalhe.html';
+    });
   }
 
   // Fechar modal
