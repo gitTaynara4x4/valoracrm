@@ -323,6 +323,14 @@ document.addEventListener('DOMContentLoaded', () => {
     selectStatus.addEventListener('change', () => renderTabelaPropostas());
   }
 
+  // Botão "Montar com modelo" -> abre tela de montagem detalhada
+  const btnMontarModelo = document.getElementById('btn-montar-proposta-modelo');
+  if (btnMontarModelo) {
+    btnMontarModelo.addEventListener('click', () => {
+      window.location.href = '/frontend/proposta_detalhe.html';
+    });
+  }
+
   // Nova proposta (dentro da página de Propostas)
   const btnNova = document.getElementById('btn-nova-proposta');
   if (btnNova) {
