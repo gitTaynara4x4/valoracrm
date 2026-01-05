@@ -21,23 +21,28 @@ def only_digits(s: Optional[str]) -> Optional[str]:
     d = "".join(ch for ch in s if ch.isdigit())
     return d or None
 
+
 def norm_str(s: Optional[str]) -> Optional[str]:
     v = (s or "").strip()
     return v or None
 
+
 def norm_upper(s: Optional[str]) -> Optional[str]:
     v = (s or "").strip().upper()
     return v or None
+
 
 def date_to_dt_utc(d: Optional[date]) -> Optional[datetime]:
     if not d:
         return None
     return datetime.combine(d, time.min).replace(tzinfo=timezone.utc)
 
+
 def gerar_codigo_cliente(db: Session) -> str:
     ultimo = db.query(models.Cliente).order_by(models.Cliente.id.desc()).first()
     proximo = (int(ultimo.id) if ultimo else 0) + 1
     return f"CLI-{proximo:04d}"
+
 
 def build_onde_conheceu(onde: Optional[str], outro: Optional[str]) -> Optional[str]:
     onde = (onde or "").strip()
@@ -218,13 +223,17 @@ def cliente_to_out(c: models.Cliente) -> ClienteOut:
 # =========================
 # Endpoints
 # =========================
-@router.get("/", response_model=List[ClienteOut])
+# Aceita /api/clientes e /api/clientes/
+@router.get("", response_model=List[ClienteOut])
+@router.get("/", response_model=List[ClienteOut], include_in_schema=False)
 def listar_clientes(db: Session = Depends(get_db)):
     rows = db.query(models.Cliente).order_by(models.Cliente.nome_identificacao.asc()).all()
     return [cliente_to_out(c) for c in rows]
 
 
+# Aceita /api/clientes/123 e /api/clientes/123/
 @router.get("/{cliente_id}", response_model=ClienteOut)
+@router.get("/{cliente_id}/", response_model=ClienteOut, include_in_schema=False)
 def obter_cliente(cliente_id: int, db: Session = Depends(get_db)):
     c = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
     if not c:
@@ -232,7 +241,9 @@ def obter_cliente(cliente_id: int, db: Session = Depends(get_db)):
     return cliente_to_out(c)
 
 
-@router.post("/", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
+# Aceita /api/clientes e /api/clientes/
+@router.post("", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=ClienteOut, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
     codigo = (payload.codigo or "").strip() or gerar_codigo_cliente(db)
     onde = build_onde_conheceu(payload.onde_conheceu, payload.onde_conheceu_outro)
@@ -292,7 +303,9 @@ def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Código de cliente já existe.")
 
 
+# Aceita /api/clientes/123 e /api/clientes/123/
 @router.put("/{cliente_id}", response_model=ClienteOut)
+@router.put("/{cliente_id}/", response_model=ClienteOut, include_in_schema=False)
 def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Depends(get_db)):
     c = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
     if not c:
@@ -396,7 +409,9 @@ def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Dep
         raise HTTPException(status_code=409, detail="Código de cliente já existe.")
 
 
+# Aceita /api/clientes/123 e /api/clientes/123/
 @router.delete("/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{cliente_id}/", status_code=status.HTTP_204_NO_CONTENT, include_in_schema=False)
 def excluir_cliente(cliente_id: int, db: Session = Depends(get_db)):
     c = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
     if not c:

@@ -3,6 +3,8 @@
 let clientes = [];
 let clienteEditandoId = null;
 
+const API_CLIENTES = '/api/clientes';
+
 function onlyDigits(s){ return String(s||'').replace(/\D+/g,''); }
 function todayISODate(){
   const d=new Date(); const yyyy=d.getFullYear();
@@ -21,7 +23,7 @@ function formatTipo(tipo){
  * API
  * =======================*/
 async function carregarClientes(){
-  const resp = await fetch('/api/clientes');
+  const resp = await fetch(API_CLIENTES);
   if(!resp.ok) throw new Error(await resp.text());
   const data = await resp.json();
   clientes = Array.isArray(data) ? data : [];
@@ -29,13 +31,13 @@ async function carregarClientes(){
 }
 
 async function obterClienteNoServidor(id){
-  const resp = await fetch(`/api/clientes/${id}`);
+  const resp = await fetch(`${API_CLIENTES}/${id}`);
   if(!resp.ok) throw new Error(await resp.text());
   return resp.json();
 }
 
 async function salvarClienteNoServidor(payload, editandoId){
-  const url = editandoId == null ? '/api/clientes' : `/api/clientes/${editandoId}`;
+  const url = editandoId == null ? API_CLIENTES : `${API_CLIENTES}/${editandoId}`;
   const method = editandoId == null ? 'POST' : 'PUT';
 
   const resp = await fetch(url, {
@@ -55,7 +57,7 @@ async function salvarClienteNoServidor(payload, editandoId){
 }
 
 async function excluirClienteNoServidor(id){
-  const resp = await fetch(`/api/clientes/${id}`, { method:'DELETE' });
+  const resp = await fetch(`${API_CLIENTES}/${id}`, { method:'DELETE' });
   if(!resp.ok) throw new Error(await resp.text());
 }
 
@@ -460,7 +462,7 @@ async function salvarCliente(){
     fecharModal();
   }catch(err){
     console.error('[Clientes] salvar erro:', err);
-    alert('Erro ao salvar cliente no servidor.');
+    alert(err?.message || 'Erro ao salvar cliente no servidor.');
   }
 }
 
@@ -475,7 +477,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     await carregarClientes();
   }catch(err){
     console.error('[Clientes] carregar erro:', err);
-    alert('Erro ao carregar clientes.');
+    alert(err?.message || 'Erro ao carregar clientes.');
   }
 
   document.getElementById('busca-clientes')?.addEventListener('input', renderTabelaClientes);
@@ -532,7 +534,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
         abrirModalClienteEditar(full);
       }catch(err){
         console.error('[Clientes] obter/editar erro:', err);
-        alert('Não foi possível abrir o cliente para edição.');
+        alert(err?.message || 'Não foi possível abrir o cliente para edição.');
       }
       return;
     }
@@ -543,7 +545,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
           .then(()=>carregarClientes())
           .catch(err=>{
             console.error('[Clientes] excluir erro:', err);
-            alert('Erro ao excluir cliente.');
+            alert(err?.message || 'Erro ao excluir cliente.');
           });
       }
     }
