@@ -16,7 +16,6 @@ function formatTipo(tipo){
   if(tipo==='pj') return 'Jurídica';
   return '-';
 }
-
 /* API */
 async function carregarFornecedores(){
   const resp = await fetch('/api/fornecedores');
