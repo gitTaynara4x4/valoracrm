@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!-- /frontend/produtos.html -->
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -157,3 +158,150 @@
   </div>
 </body>
 </html>
+=======
+<!-- /frontend/produtos.html -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>4X OrçaPro – Produtos</title>
+
+  <!-- Ícones -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer" />
+
+  <link rel="stylesheet" href="/frontend/css/produtos.css" />
+  <link rel="icon" type="image/png" href="/frontend/img/logo-favicon.png" />
+  <script src="/frontend/js/pages/produtos.js" type="module" defer></script>
+</head>
+<body>
+  <div class="orca-shell">
+    <!-- menu em iframe -->
+    <iframe
+      class="orca-menu-frame"
+      src="/frontend/sidebar.html"
+      title="Menu 4X OrçaPro"
+    ></iframe>
+
+    <main class="orca-main">
+      <header class="orca-main-header">
+        <div>
+          <h1>Produtos</h1>
+          <p>Cadastro de produtos e serviços usados nas propostas.</p>
+        </div>
+        <button class="btn-primary" type="button" id="btn-novo-produto">
+          <i class="fa-solid fa-plus"></i>&nbsp; Novo produto
+        </button>
+      </header>
+
+      <section class="orca-filters">
+        <div class="orca-filters-left">
+          <div class="orca-field">
+            <label for="busca-produtos">Buscar</label>
+            <div class="orca-input-icon">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input
+                type="text"
+                id="busca-produtos"
+                placeholder="Nome, SKU, categoria..."
+              />
+            </div>
+          </div>
+
+          <div class="orca-field">
+            <label for="filtro-tipo-produto">Tipo</label>
+            <select id="filtro-tipo-produto">
+              <option value="">Todos</option>
+              <option value="produto">Produto</option>
+              <option value="servico">Serviço</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="orca-filters-right">
+          <span id="contagem-produtos" class="orca-counter">0 itens</span>
+        </div>
+      </section>
+
+      <section class="orca-main-list">
+        <div class="orca-table-wrapper">
+          <table class="orca-table-produtos">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Categoria</th>
+                <th>Preço</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-produtos">
+              <!-- preenchido pelo JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Modal de produto -->
+      <div class="orca-modal-backdrop" id="modal-produto-backdrop" hidden>
+        <div class="orca-modal">
+          <header class="orca-modal-header">
+            <h2 id="modal-produto-titulo">Novo produto</h2>
+            <button class="orca-modal-close" type="button" id="btn-fechar-modal-produto">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </header>
+
+          <div class="orca-modal-body">
+            <div class="orca-modal-grid">
+              <div class="orca-field">
+                <label for="campo-codigo-produto">Código</label>
+                <input type="text" id="campo-codigo-produto" placeholder="PRD-0001" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-tipo-produto">Tipo</label>
+                <select id="campo-tipo-produto">
+                  <option value="produto">Produto</option>
+                  <option value="servico">Serviço</option>
+                </select>
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-nome-produto">Nome</label>
+                <input type="text" id="campo-nome-produto" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-categoria-produto">Categoria</label>
+                <input type="text" id="campo-categoria-produto" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-preco-produto">Preço</label>
+                <input type="number" step="0.01" id="campo-preco-produto" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-observacao-produto">Observação</label>
+                <input type="text" id="campo-observacao-produto" />
+              </div>
+            </div>
+          </div>
+
+          <footer class="orca-modal-footer">
+            <button class="btn-secondary" type="button" id="btn-cancelar-produto">Cancelar</button>
+            <button class="btn-primary" type="button" id="btn-salvar-produto">Salvar</button>
+          </footer>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
+>>>>>>> b5237cd (Initial commit OrçaPro)

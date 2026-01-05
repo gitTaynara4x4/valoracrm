@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* /frontend/css/clientes.css */
 /* Layout geral (menu em iframe + conteúdo) – dark 212121 para Clientes */
 
@@ -410,3 +411,518 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+=======
+/* /frontend/css/clientes.css */
+
+:root {
+  --menu-w: 260px;
+
+  --bg-page: #212121;
+  --bg-main: #212121;
+
+  --text-main: #f5f5f5;
+  --text-muted: #b0b0b0;
+
+  --card-bg: #262626;
+  --card-border: #3a3a3a;
+
+  --accent: #10a37f;
+  --accent-soft: rgba(16, 163, 127, 0.16);
+
+  --radius-pill: 999px;
+  --radius-md: 16px;
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.7);
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; height: 100%; }
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg-page);
+  color: var(--text-main);
+}
+
+.orca-shell {
+  display: grid;
+  grid-template-columns: var(--menu-w) minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--bg-main);
+}
+
+.orca-menu-frame {
+  width: var(--menu-w);
+  height: 100vh;
+  border: none;
+  display: block;
+}
+
+.orca-main {
+  padding: 24px 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--bg-main);
+  min-width: 0;
+}
+
+.orca-main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #333333;
+}
+
+.orca-header-left { min-width: 0; }
+
+.orca-main-header h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.orca-main-header p {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* Buttons */
+.btn-primary {
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(16, 163, 127, 0.7);
+  background: #10a37f;
+  color: #f9fafb;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.08s ease;
+  white-space: nowrap;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.03);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75);
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid #4b5563;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.08s ease, border-color 0.08s ease, color 0.08s ease;
+}
+
+.btn-secondary:hover {
+  background: #303030;
+  border-color: #6b7280;
+  color: #e5e7eb;
+}
+
+/* Filters */
+.orca-filters {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  min-width: 0;
+}
+
+.orca-filters-left {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+
+.orca-filters-right {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.orca-counter { opacity: 0.9; }
+
+.orca-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.orca-field--busca {
+  min-width: 280px;
+  flex: 1 1 320px;
+}
+
+.orca-field--full { grid-column: 1 / -1; min-width: 0; }
+
+.orca-field label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.orca-input-icon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #1f1f1f;
+  border-radius: 999px;
+  padding: 6px 10px;
+  border: 1px solid #333333;
+  width: 100%;
+  min-width: 0;
+}
+
+.orca-input-icon i { font-size: 0.8rem; color: #9ca3af; }
+
+.orca-input-icon input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.orca-field select,
+.orca-field input[type="date"],
+.orca-field input[type="text"] {
+  background: #1f1f1f;
+  border-radius: 999px;
+  border: 1px solid #333333;
+  padding: 8px 10px;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  outline: none;
+  width: 100%;
+}
+
+.orca-field input[readonly] {
+  opacity: 0.9;
+  background: #1b1b1b;
+  border-color: #2f2f2f;
+  cursor: not-allowed;
+}
+
+.orca-help { font-size: 0.75rem; color: #9ca3af; min-height: 1em; }
+.orca-help.is-error { color: #fca5a5; }
+
+/* Table */
+.orca-main-list { margin-top: 18px; flex: 1; min-width: 0; }
+
+.orca-table-wrapper {
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.orca-table-clientes { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.orca-table-clientes thead { background: #1f1f1f; }
+
+.orca-table-clientes th,
+.orca-table-clientes td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid #333333;
+}
+
+.orca-table-clientes th { font-weight: 500; color: #d1d5db; white-space: nowrap; }
+.orca-table-clientes td { color: var(--text-muted); }
+.orca-table-clientes tbody tr:hover { background: #262626; }
+.orca-table-clientes td:last-child { text-align: right; }
+
+.orca-pill-tipo {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  border: 1px solid #4b5563;
+  color: #e5e7eb;
+  white-space: nowrap;
+}
+
+.orca-pill-tipo--pf { border-color: #3b82f6; color: #bfdbfe; }
+.orca-pill-tipo--pj { border-color: #22c55e; color: #bbf7d0; }
+
+.orca-table-actions { display: inline-flex; align-items: center; gap: 6px; }
+
+.orca-icon-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: #9ca3af;
+  transition: background 0.08s ease, border-color 0.08s ease, color 0.08s ease;
+}
+
+.orca-icon-btn:hover { background: #303030; border-color: #9ca3af; color: #e5e7eb; }
+
+/* Modal */
+.orca-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  padding: 14px;
+}
+
+.orca-modal {
+  width: 820px;
+  max-width: 96vw;
+  background: #181818;
+  border-radius: 18px;
+  border: 1px solid #3a3a3a;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+  padding: 16px 18px 14px;
+  max-height: 88vh;
+  overflow: auto;
+}
+
+.orca-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #333333;
+}
+
+.orca-modal-header h2 { margin: 0; font-size: 1rem; }
+
+.orca-modal-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #9ca3af;
+}
+
+.orca-modal-close:hover { background: #303030; border-color: #9ca3af; color: #e5e7eb; }
+
+.orca-modal-body { padding-top: 12px; padding-bottom: 12px; }
+
+.orca-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+
+.orca-modal-grid--addr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.orca-modal-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid #2b2b2b; }
+
+.orca-modal-section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.orca-modal-section-title strong { font-size: 0.92rem; color: #e5e7eb; }
+.orca-modal-section-title span { font-size: 0.78rem; color: #9ca3af; }
+
+/* Advanced block */
+.orca-advanced {
+  margin-top: 16px;
+  border-top: 1px solid #2b2b2b;
+  padding-top: 14px;
+}
+
+.orca-advanced-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.orca-advanced-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #e5e7eb;
+}
+
+.orca-advanced-title i { color: #9ca3af; }
+.orca-advanced-sub { font-size: 0.78rem; color: #9ca3af; }
+
+.orca-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #333333;
+}
+
+/* Responsive */
+@media (max-width: 860px) {
+  .orca-shell {
+    display: block;
+    min-height: 100vh;
+  }
+
+  /* no mobile o menu iframe fica escondido (o sidebar mobile já cuida disso no parent) */
+  .orca-menu-frame {
+    display: none;
+  }
+
+  .orca-main {
+    padding: 16px 14px 20px;
+    min-height: 100vh;
+  }
+
+  .orca-main-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .orca-filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .orca-filters-left {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .orca-field {
+    min-width: 0;
+  }
+
+  /* ✅ FIX DO "BURACO" NO BUSCAR */
+  .orca-field--busca {
+    flex: 0 0 auto; /* não cresce no eixo vertical quando vira coluna */
+    min-width: 0;
+  }
+
+  /* ===== tabela vira cards ===== */
+  .orca-table-wrapper {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .orca-table-clientes thead {
+    display: none;
+  }
+
+  .orca-table-clientes,
+  .orca-table-clientes tbody,
+  .orca-table-clientes tr,
+  .orca-table-clientes td {
+    display: block;
+    width: 100%;
+  }
+
+  .orca-table-clientes tbody tr {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    margin: 10px 0;
+    padding: 10px 12px;
+  }
+
+  .orca-table-clientes td {
+    border: none;
+    padding: 6px 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: left !important;
+  }
+
+  .orca-table-clientes td::before {
+    content: attr(data-label);
+    color: #9ca3af;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    flex: 0 0 40%;
+    max-width: 40%;
+  }
+
+  .orca-table-clientes td > * {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: right;
+  }
+
+  .orca-table-clientes td[data-label="Cliente"] > * {
+    font-weight: 650;
+    color: var(--text-main);
+  }
+
+  .orca-table-clientes td[data-label="Ações"]::before {
+    content: "";
+  }
+
+  /* modal */
+  .orca-modal {
+    width: 96vw;
+  }
+
+  .orca-modal-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .orca-modal-grid--addr {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .orca-modal-footer {
+    flex-direction: column;
+  }
+
+  .orca-modal-footer .btn-primary,
+  .orca-modal-footer .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+>>>>>>> b5237cd (Initial commit OrçaPro)

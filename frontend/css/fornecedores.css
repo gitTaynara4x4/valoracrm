@@ -1,0 +1,130 @@
+/* /frontend/css/fornecedores.css */
+
+:root{
+  --menu-w: 260px;
+
+  --bg-page:#212121;
+  --bg-main:#212121;
+
+  --text-main:#f5f5f5;
+  --text-muted:#b0b0b0;
+
+  --card-bg:#262626;
+  --card-border:#3a3a3a;
+
+  --accent:#10a37f;
+  --radius-pill:999px;
+  --radius-md:16px;
+  --shadow-card:0 8px 24px rgba(0,0,0,.7);
+}
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; height:100%; }
+body{
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg-page);
+  color: var(--text-main);
+}
+button,input,select{ font-family: inherit; }
+
+.orca-shell{
+  display:grid;
+  grid-template-columns: var(--menu-w) minmax(0,1fr);
+  min-height:100vh;
+}
+.orca-menu-frame{ width:var(--menu-w); height:100vh; border:none; }
+
+.orca-main{
+  padding:24px 32px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  min-width:0;
+}
+
+.orca-main-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding-bottom:14px;
+  border-bottom:1px solid #333;
+}
+.orca-main-header h1{ margin:0; font-size:1.2rem; font-weight:600; }
+.orca-main-header p{ margin:4px 0 0; color:var(--text-muted); font-size:.9rem; }
+
+.btn-primary{
+  padding:8px 18px;
+  border-radius: var(--radius-pill);
+  border:1px solid rgba(16,163,127,.7);
+  background:#10a37f;
+  color:#f9fafb;
+  font-size:.85rem;
+  font-weight:600;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  box-shadow:0 6px 18px rgba(0,0,0,.6);
+}
+.btn-primary:hover{ filter:brightness(1.03); transform:translateY(-1px); }
+
+.btn-secondary{
+  padding:8px 16px;
+  border-radius: var(--radius-pill);
+  border:1px solid #4b5563;
+  background:transparent;
+  color:var(--text-muted);
+  cursor:pointer;
+}
+.btn-secondary:hover{ background:#303030; color:#e5e7eb; }
+
+.orca-filters{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:16px;
+}
+.orca-filters-left{ display:flex; flex-wrap:wrap; gap:12px; min-width:0; }
+.orca-filters-right{ color:var(--text-muted); font-size:.85rem; }
+
+.orca-field{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:180px;
+}
+.orca-field--busca{
+  min-width:280px;
+  flex: 1 1 320px;
+}
+.orca-field--full{ grid-column: 1/-1; min-width:0; }
+
+.orca-field label{ color:var(--text-muted); font-size:.8rem; }
+
+.orca-input-icon{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border:1px solid #333;
+  background:#1f1f1f;
+  border-radius:999px;
+}
+.orca-input-icon i{ color:#9ca3af; font-size:.8rem; }
+.orca-input-icon input{
+  width:100%;
+  border:none;
+  outline:none;
+  background:transparent;
+  color:var(--text-main);
+  font-size:.85rem;
+}
+
+.orca-field input,
+.orca-field select{
+  width:100%;
+  padding:8px 10px;
+  border-radius:999px;
+  border:1px solid #333;
+  background:#1f1f1f;

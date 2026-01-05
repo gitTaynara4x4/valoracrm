@@ -1,0 +1,720 @@
+<!-- /frontend/sidebar.html -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Menu 4X OrçaPro</title>
+
+  <!-- Ícones (Font Awesome) - usado DENTRO do iframe (menu) -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer" />
+
+  <style>
+    :root {
+      /* Dark fixo do menu */
+      --sidebar-bg:        #181818;
+      --sidebar-border:    #262626;
+
+      --text-main:         #f5f5f5;
+      --text-muted:        #b0b0b0;
+      --nav-muted:         #8a8a8a;
+
+      /* Accent */
+      --accent:            #10a37f;
+      --accent-soft:       rgba(16, 163, 127, 0.16);
+
+      --radius-pill:       999px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--sidebar-bg);
+      color: var(--text-main);
+    }
+
+    /* =========================================================
+       DESKTOP (IGUAL AO SEU — NÃO MEXI)
+       ========================================================= */
+    .orca-sidebar {
+      width: 260px;
+      height: 100vh;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-border);
+      padding: 18px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .orca-sidebar-header {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 6px 2px 12px;
+      border-bottom: 1px solid var(--sidebar-border);
+      position: relative;
+    }
+
+    .orca-logo-full {
+      width: 130px;
+      height: auto;
+      display: block;
+      image-rendering: -webkit-optimize-contrast;
+    }
+
+    .orca-logo-caption {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .orca-sidebar-section {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .orca-section-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--nav-muted);
+      margin: 4px 4px 2px;
+    }
+
+    .orca-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: var(--radius-pill);
+      border: 1px solid transparent;
+      background: transparent;
+      padding: 7px 12px;
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-align: left;
+      transition:
+        background 0.12s ease,
+        border-color 0.12s ease,
+        color 0.12s ease,
+        transform 0.08s ease;
+    }
+
+    .orca-nav-item:hover {
+      background: #202020;
+      border-color: #2f2f2f;
+      color: var(--text-main);
+      transform: translateY(-1px);
+    }
+
+    .orca-nav-icon {
+      width: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      color: var(--nav-muted);
+    }
+
+    .orca-nav-item:hover .orca-nav-icon {
+      color: var(--text-main);
+    }
+
+    .orca-nav-item--active {
+      background: #202020;
+      border-color: var(--accent);
+      color: #fefefe;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.6);
+    }
+
+    .orca-nav-item--active .orca-nav-icon {
+      color: var(--accent);
+    }
+
+    .orca-sidebar-footer {
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid var(--sidebar-border);
+      font-size: 0.75rem;
+      color: var(--nav-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .orca-sidebar-version { opacity: 0.85; }
+
+    .orca-sidebar-badge {
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: #e5e7eb;
+      background: rgba(0, 0, 0, 0.4);
+    }
+
+    /* =========================================================
+       MOBILE (NOVO)
+       - topbar/overlay ficam no PARENT
+       - aqui no iframe só melhora toque + mostra botão fechar
+       ========================================================= */
+    .orca-mobile-close { display: none; }
+
+    body.orca-is-mobile .orca-mobile-close {
+      display: inline-flex;
+      position: absolute;
+      right: 6px;
+      top: 6px;
+      width: 40px;
+      height: 40px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      border: 1px solid #2f2f2f;
+      background: #202020;
+      color: var(--text-main);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    body.orca-is-mobile .orca-nav-item {
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      touch-action: manipulation;
+    }
+
+    body.orca-is-mobile .orca-nav-icon { font-size: 1rem; }
+  </style>
+</head>
+
+<body>
+  <aside class="orca-sidebar" id="orcaSidebar">
+    <header class="orca-sidebar-header">
+      <img src="/frontend/img/logo-white.png" alt="4X OrçaPro" class="orca-logo-full" />
+      <span class="orca-logo-caption">Painel de orçamentos</span>
+
+      <!-- fechar (só aparece no mobile) -->
+      <button class="orca-mobile-close" id="orcaMobileClose" aria-label="Fechar menu">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <nav class="orca-sidebar-section">
+      <p class="orca-section-label">MENU</p>
+
+      <button class="orca-nav-item" data-target="home">
+        <span class="orca-nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+        <span>Início</span>
+      </button>
+
+      <button class="orca-nav-item" data-target="clientes">
+        <span class="orca-nav-icon"><i class="fa-solid fa-user-group"></i></span>
+        <span>Clientes</span>
+      </button>
+
+      <!-- NOVO: Fornecedores (abaixo de Clientes) -->
+      <button class="orca-nav-item" data-target="fornecedores">
+        <span class="orca-nav-icon"><i class="fa-solid fa-truck"></i></span>
+        <span>Fornecedores</span>
+      </button>
+
+      <button class="orca-nav-item" data-target="produtos">
+        <span class="orca-nav-icon"><i class="fa-solid fa-box-open"></i></span>
+        <span>Produtos</span>
+      </button>
+
+      <button class="orca-nav-item" data-target="propostas">
+        <span class="orca-nav-icon"><i class="fa-solid fa-file-signature"></i></span>
+        <span>Propostas</span>
+      </button>
+    </nav>
+
+    <nav class="orca-sidebar-section">
+      <p class="orca-section-label">FERRAMENTAS</p>
+
+      <button class="orca-nav-item" data-target="config">
+        <span class="orca-nav-icon"><i class="fa-solid fa-gear"></i></span>
+        <span>Configurações</span>
+      </button>
+
+      <button class="orca-nav-item" data-target="ajuda">
+        <span class="orca-nav-icon"><i class="fa-regular fa-circle-question"></i></span>
+        <span>Ajuda</span>
+      </button>
+    </nav>
+
+    <footer class="orca-sidebar-footer">
+      <span class="orca-sidebar-version">v0.1 · 4X OrçaPro</span>
+      <span class="orca-sidebar-badge">Beta</span>
+    </footer>
+  </aside>
+
+  <script>
+    // =========================
+    // Navegação (parent)
+    // =========================
+    function irPara(target) {
+      switch (target) {
+        case 'home':         parent.location.href = '/orca'; break;
+        case 'clientes':     parent.location.href = '/frontend/clientes.html'; break;
+        case 'fornecedores': parent.location.href = '/frontend/fornecedores.html'; break; // <-- NOVO
+        case 'produtos':     parent.location.href = '/frontend/produtos.html'; break;
+        case 'propostas':    parent.location.href = '/frontend/propostas.html'; break;
+        case 'config':       parent.location.href = '/frontend/config.html'; break;
+        case 'ajuda':        parent.location.href = '/frontend/ajuda.html'; break;
+        default:
+          console.warn('[Menu OrçaPro] target desconhecido:', target);
+      }
+    }
+
+    function resolveCurrentTargetFromParent() {
+      let path = '';
+      try {
+        if (window.parent && window.parent !== window && window.parent.location) {
+          path = window.parent.location.pathname || '';
+        } else {
+          path = window.location.pathname || '';
+        }
+      } catch (err) {
+        path = window.location.pathname || '';
+      }
+
+      if (path === '/orca' || path === '/orca/') return 'home';
+      if (path.endsWith('/inicio.html')) return 'home';
+      if (path.endsWith('/clientes.html')) return 'clientes';
+      if (path.endsWith('/fornecedores.html')) return 'fornecedores'; // <-- NOVO
+      if (path.endsWith('/produtos.html')) return 'produtos';
+      if (path.endsWith('/propostas.html')) return 'propostas';
+      if (path.endsWith('/config.html')) return 'config';
+      if (path.endsWith('/ajuda.html')) return 'ajuda';
+      return 'home';
+    }
+
+    function labelFromTarget(t) {
+      switch (t) {
+        case 'home': return 'Início';
+        case 'clientes': return 'Clientes';
+        case 'fornecedores': return 'Fornecedores'; // <-- NOVO
+        case 'produtos': return 'Produtos';
+        case 'propostas': return 'Propostas';
+        case 'config': return 'Configurações';
+        case 'ajuda': return 'Ajuda';
+        default: return 'Menu';
+      }
+    }
+
+    // =========================
+    // MOBILE real (resolve iframe)
+    // =========================
+    const MOBILE_BREAKPOINT = 860;
+
+    function canTouchParent() {
+      try {
+        return !!(window.parent && window.parent !== window && window.parent.document && window.parent.document.body);
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function getBestWidth() {
+      try {
+        if (window.parent && window.parent !== window) {
+          if (window.parent.visualViewport && window.parent.visualViewport.width) return window.parent.visualViewport.width;
+          if (typeof window.parent.innerWidth === 'number') return window.parent.innerWidth;
+        }
+      } catch (e) {}
+      if (window.visualViewport && window.visualViewport.width) return window.visualViewport.width;
+      return window.innerWidth;
+    }
+
+    const PARENT_OK = canTouchParent();
+    const ROOT_DOC  = PARENT_OK ? window.parent.document : document;
+    const ROOT_WIN  = PARENT_OK ? window.parent : window;
+
+    const ID_STYLE  = 'orcaMobileInjectStyle';
+    const ID_TOPBAR = 'orcaMobileTopbar';
+    const ID_OVER   = 'orcaMobileOverlay';
+    const ID_BTN    = 'orcaMobileBtn';
+
+    function ensureParentCss() {
+      if (ROOT_DOC.getElementById(ID_STYLE)) return;
+
+      const st = ROOT_DOC.createElement('style');
+      st.id = ID_STYLE;
+      st.textContent = `
+        :root{
+          --orca-m-bg:#181818;
+          --orca-m-border:#262626;
+          --orca-m-text:#f5f5f5;
+          --orca-m-muted:#b0b0b0;
+          --orca-m-btn:#202020;
+          --orca-m-btn-border:#2f2f2f;
+
+          --orca-m-safe-top: env(safe-area-inset-top);
+          --orca-m-h: 54px;
+          --orca-m-topbar-h: calc(var(--orca-m-h) + var(--orca-m-safe-top));
+        }
+
+        #${ID_TOPBAR}{
+          position:fixed;
+          top:0; left:0; right:0;
+          height: var(--orca-m-topbar-h);
+          padding-top: var(--orca-m-safe-top);
+          display:flex;
+          align-items:center;
+          gap:10px;
+          padding-left: 12px;
+          padding-right: 12px;
+          background: var(--orca-m-bg);
+          border-bottom: 1px solid var(--orca-m-border);
+          z-index: 10020;
+        }
+
+        #${ID_BTN}{
+          width:40px; height:40px;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          border-radius:12px;
+          border: 1px solid var(--orca-m-btn-border);
+          background: var(--orca-m-btn);
+          color: var(--orca-m-text);
+          cursor:pointer;
+          -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
+          padding: 0;
+        }
+        #${ID_BTN} svg{
+          width: 20px;
+          height: 20px;
+          display:block;
+        }
+
+        #${ID_TOPBAR} .orca-m-title{
+          display:flex;
+          flex-direction:column;
+          line-height:1.05;
+          min-width:0;
+        }
+        #${ID_TOPBAR} .orca-m-title strong{
+          font-size:0.92rem;
+          color: var(--orca-m-text);
+          font-weight:650;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+        }
+        #${ID_TOPBAR} .orca-m-title span{
+          font-size:0.75rem;
+          color: var(--orca-m-muted);
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+        }
+
+        #${ID_OVER}{
+          position:fixed;
+          inset:0;
+          background: rgba(0,0,0,0.62);
+          opacity:0;
+          pointer-events:none;
+          transition: opacity 0.18s ease;
+          z-index: 10010;
+        }
+
+        html.orca-mobile-open #${ID_OVER}{
+          opacity:1;
+          pointer-events:auto;
+        }
+
+        /* empurra conteúdo pra não ficar por baixo da topbar */
+        html.orca-mobile-on body{
+          padding-top: var(--orca-m-topbar-h) !important;
+        }
+
+        /* trava scroll quando o menu abre */
+        html.orca-mobile-open body{
+          overflow: hidden !important;
+          touch-action: none;
+        }
+
+        @media (prefers-reduced-motion: reduce){
+          #${ID_OVER}{ transition:none; }
+        }
+      `;
+      ROOT_DOC.head.appendChild(st);
+    }
+
+    function ensureParentNodes() {
+      ensureParentCss();
+
+      // topbar
+      let tb = ROOT_DOC.getElementById(ID_TOPBAR);
+      if (!tb) {
+        tb = ROOT_DOC.createElement('div');
+        tb.id = ID_TOPBAR;
+        tb.setAttribute('data-orca-created', '1');
+
+        tb.innerHTML = `
+          <button id="${ID_BTN}" aria-label="Abrir menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"></path>
+            </svg>
+          </button>
+          <div class="orca-m-title">
+            <strong>4X OrçaPro</strong>
+            <span id="orcaMobileSubtitle">Menu</span>
+          </div>
+        `;
+        ROOT_DOC.body.appendChild(tb);
+      }
+
+      // overlay
+      let ov = ROOT_DOC.getElementById(ID_OVER);
+      if (!ov) {
+        ov = ROOT_DOC.createElement('div');
+        ov.id = ID_OVER;
+        ov.setAttribute('aria-hidden', 'true');
+        ov.setAttribute('data-orca-created', '1');
+        ROOT_DOC.body.appendChild(ov);
+      }
+
+      // eventos
+      const btn = ROOT_DOC.getElementById(ID_BTN);
+      if (btn && !btn.dataset.bound) {
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', toggleMobileMenu);
+      }
+      if (ov && !ov.dataset.bound) {
+        ov.dataset.bound = '1';
+        ov.addEventListener('click', closeMobileMenu);
+      }
+    }
+
+    function removeParentNodes() {
+      try {
+        ROOT_DOC.documentElement.classList.remove('orca-mobile-on');
+        ROOT_DOC.documentElement.classList.remove('orca-mobile-open');
+
+        const tb = ROOT_DOC.getElementById(ID_TOPBAR);
+        const ov = ROOT_DOC.getElementById(ID_OVER);
+
+        if (tb && tb.getAttribute('data-orca-created') === '1') tb.remove();
+        if (ov && ov.getAttribute('data-orca-created') === '1') ov.remove();
+      } catch (e) {}
+    }
+
+    function getTopbarHeightPx() {
+      try {
+        const tb = ROOT_DOC.getElementById(ID_TOPBAR);
+        if (!tb) return 54;
+        const h = tb.getBoundingClientRect().height;
+        return Math.max(48, Math.round(h || 54));
+      } catch (e) {
+        return 54;
+      }
+    }
+
+    function revealAncestorsForIframe(fe) {
+      try {
+        let el = fe;
+        while (el && el !== ROOT_DOC.body && el !== ROOT_DOC.documentElement) {
+          const cs = ROOT_WIN.getComputedStyle(el);
+          if (cs && cs.display === 'none') {
+            el.style.setProperty('display', 'contents', 'important');
+          }
+          el = el.parentElement;
+        }
+      } catch (e) {}
+    }
+
+    function applyIframeDrawerStyles(isMobile, topbarH) {
+      const fe = window.frameElement;
+      if (!fe) return;
+
+      if (isMobile) {
+        revealAncestorsForIframe(fe);
+
+        // salva estado anterior 1x
+        if (!fe.dataset.orcaPrevSaved) {
+          fe.dataset.orcaPrevSaved = '1';
+          fe.dataset.orcaPrevStyle = fe.getAttribute('style') || '';
+        }
+
+        const topPx = Number(topbarH || 54);
+
+        fe.style.setProperty('display', 'block', 'important');
+        fe.style.setProperty('visibility', 'visible', 'important');
+        fe.style.setProperty('position', 'fixed', 'important');
+        fe.style.setProperty('left', '0', 'important');
+        fe.style.setProperty('top', topPx + 'px', 'important');
+        fe.style.setProperty('height', 'calc(100vh - ' + topPx + 'px)', 'important');
+        fe.style.setProperty('width', 'min(86vw, 320px)', 'important');
+        fe.style.setProperty('max-width', '320px', 'important');
+        fe.style.setProperty('z-index', '10015', 'important');
+        fe.style.setProperty('border', '0', 'important');
+        fe.style.setProperty('background', 'transparent', 'important');
+
+        fe.style.setProperty('box-shadow', '12px 0 28px rgba(0,0,0,0.65)', 'important');
+        fe.style.setProperty('will-change', 'transform', 'important');
+        fe.style.setProperty('transition', 'transform 0.18s ease', 'important');
+
+        // fechado por padrão
+        if (!ROOT_DOC.documentElement.classList.contains('orca-mobile-open')) {
+          fe.style.setProperty('transform', 'translateX(-110%)', 'important');
+          fe.style.setProperty('pointer-events', 'none', 'important');
+        }
+      } else {
+        if (fe.dataset.orcaPrevSaved) {
+          fe.setAttribute('style', fe.dataset.orcaPrevStyle || '');
+          delete fe.dataset.orcaPrevSaved;
+          delete fe.dataset.orcaPrevStyle;
+        }
+      }
+    }
+
+    function openMobileMenu() {
+      if (!ROOT_DOC.documentElement.classList.contains('orca-mobile-on')) return;
+
+      ROOT_DOC.documentElement.classList.add('orca-mobile-open');
+
+      const fe = window.frameElement;
+      if (fe) {
+        fe.style.setProperty('transform', 'translateX(0)', 'important');
+        fe.style.setProperty('pointer-events', 'auto', 'important');
+      }
+
+      const ov = ROOT_DOC.getElementById(ID_OVER);
+      if (ov) ov.setAttribute('aria-hidden', 'false');
+
+      const btn = ROOT_DOC.getElementById(ID_BTN);
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeMobileMenu() {
+      ROOT_DOC.documentElement.classList.remove('orca-mobile-open');
+
+      const fe = window.frameElement;
+      if (fe) {
+        fe.style.setProperty('transform', 'translateX(-110%)', 'important');
+        fe.style.setProperty('pointer-events', 'none', 'important');
+      }
+
+      const ov = ROOT_DOC.getElementById(ID_OVER);
+      if (ov) ov.setAttribute('aria-hidden', 'true');
+
+      const btn = ROOT_DOC.getElementById(ID_BTN);
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleMobileMenu() {
+      if (ROOT_DOC.documentElement.classList.contains('orca-mobile-open')) closeMobileMenu();
+      else openMobileMenu();
+    }
+
+    function syncMobileMode() {
+      const w = getBestWidth();
+      const isMobile = w <= MOBILE_BREAKPOINT;
+
+      document.body.classList.toggle('orca-is-mobile', isMobile);
+
+      if (PARENT_OK && window.frameElement) {
+        if (isMobile) {
+          ensureParentNodes();
+          ROOT_DOC.documentElement.classList.add('orca-mobile-on');
+
+          // atualiza subtítulo
+          try {
+            const sub = ROOT_DOC.getElementById('orcaMobileSubtitle');
+            if (sub) sub.textContent = labelFromTarget(resolveCurrentTargetFromParent());
+          } catch (e) {}
+
+          const topbarH = getTopbarHeightPx();
+          applyIframeDrawerStyles(true, topbarH);
+
+          // entra no mobile fechado
+          closeMobileMenu();
+        } else {
+          removeParentNodes();
+          applyIframeDrawerStyles(false);
+        }
+      }
+    }
+
+    function initSidebar() {
+      // ativa item atual
+      const current = resolveCurrentTargetFromParent();
+      const itens = document.querySelectorAll('.orca-nav-item');
+
+      itens.forEach(btn => {
+        const target = btn.dataset.target;
+        if (target === current) btn.classList.add('orca-nav-item--active');
+        else btn.classList.remove('orca-nav-item--active');
+
+        btn.addEventListener('click', () => {
+          if (!btn.dataset.target) return;
+          closeMobileMenu();
+          irPara(btn.dataset.target);
+        });
+      });
+
+      // logo clicável
+      const logo = document.querySelector('.orca-logo-full');
+      if (logo) {
+        logo.style.cursor = 'pointer';
+        logo.addEventListener('click', () => {
+          closeMobileMenu();
+          irPara('home');
+        });
+      }
+
+      // fechar no mobile (botão X dentro do menu)
+      const closeBtn = document.getElementById('orcaMobileClose');
+      if (closeBtn) closeBtn.addEventListener('click', closeMobileMenu);
+
+      // sync inicial
+      syncMobileMode();
+
+      // resize/orientação
+      window.addEventListener('resize', syncMobileMode);
+      window.addEventListener('orientationchange', syncMobileMode);
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', syncMobileMode);
+
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.addEventListener('resize', syncMobileMode);
+          if (window.parent.visualViewport) window.parent.visualViewport.addEventListener('resize', syncMobileMode);
+        }
+      } catch (e) {}
+
+      // ESC fecha
+      try {
+        ROOT_DOC.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && ROOT_DOC.documentElement.classList.contains('orca-mobile-open')) {
+            closeMobileMenu();
+          }
+        });
+      } catch (e) {}
+    }
+
+    (function boot() {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSidebar, { once: true });
+      } else {
+        initSidebar();
+      }
+      window.addEventListener('load', syncMobileMode, { once: true });
+    })();
+  </script>
+</body>
+</html>
