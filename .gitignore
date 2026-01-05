@@ -1,0 +1,20 @@
+﻿# venv
+.venv/
+.venv-*/
+venv/
+ENV/
+env/
+.venv-orcapro/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# dotenv
+.env
+.env.*
+
+# logs
+*.log
