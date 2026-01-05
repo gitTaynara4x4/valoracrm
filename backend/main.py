@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.routers.clientes import router as clientes_router
+from backend.routers.fornecedores import router as fornecedores_router
 
 # ============================================
 # Paths básicos
@@ -59,6 +60,7 @@ app.mount(
 # Routers da API
 # ============================================
 app.include_router(clientes_router)
+app.include_router(fornecedores_router)
 
 # ============================================
 # Rotas básicas
