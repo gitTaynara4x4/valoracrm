@@ -1,70 +1,55 @@
 // /frontend/js/pages/inicio.js
+
 const $  = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-function irParaSecao(target) {
-  switch (target) {
-    case 'home':
-      // Home do OrçaPro
-      window.location.href = '/orca';
-      break;
-    case 'clientes':
-      window.location.href = '/frontend/clientes.html';
-      break;
-    case 'produtos':
-      window.location.href = '/frontend/produtos.html';
-      break;
-    case 'propostas':
-      window.location.href = '/frontend/propostas.html';
-      break;
-    case 'config':
-      window.location.href = '/frontend/config.html';
-      break;
-    case 'ajuda':
-      window.location.href = '/frontend/ajuda.html';
-      break;
-    default:
-      console.warn('[4X OrçaPro] target desconhecido:', target);
-  }
+function getHomeUrl() {
+  // Se você tiver um alias /orca no backend, ele continua funcionando.
+  // Senão, cai no arquivo do frontend.
+  if (window.location.pathname.startsWith('/orca')) return '/orca';
+  return '/frontend/inicio.html';
 }
 
-function initNav() {
-  // sidebar
-  $$('.orca-nav-item').forEach(btn => {
+function irParaSecao(target) {
+  const routes = {
+    home: getHomeUrl(),
+    clientes: '/frontend/clientes.html',
+    produtos: '/frontend/produtos.html',
+    propostas: '/frontend/propostas.html',
+    config: '/frontend/config.html',
+    ajuda: '/frontend/ajuda.html',
+  };
+
+  const url = routes[target];
+  if (!url) {
+    console.warn('[4X OrçaPro] target desconhecido:', target);
+    return;
+  }
+
+  window.location.href = url;
+}
+
+function initAtalhos() {
+  // Cards e botões com data-target
+  $$('[data-target]').forEach(el => {
+    el.addEventListener('click', () => {
+      const target = el.dataset.target;
+      if (!target) return;
+
+      // “Novo cliente / novo produto” ainda não tem modal aqui,
+      // então vai pra página do módulo (V1).
+      irParaSecao(target);
+    });
+  });
+
+  // Botões “Nova proposta”
+  $$('[data-action="nova-proposta"]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const target = btn.dataset.target;
-      if (!target) return;
-      irParaSecao(target);
-    });
-  });
-
-  // cards grandes (atalhos)
-  $$('.orca-home-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const target = card.dataset.target;
-      if (!target) return;
-      irParaSecao(target);
-    });
-  });
-
-  // botões de atalho nos side-cards
-  $$('.quick-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const target = btn.dataset.target;
-      if (!target) return;
-      irParaSecao(target);
-    });
-  });
-
-  // botão "Nova proposta"
-  const novaBtn = $('[data-action="nova-proposta"]');
-  if (novaBtn) {
-    novaBtn.addEventListener('click', () => {
       window.location.href = '/frontend/propostas.html?nova=1';
     });
-  }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  initNav();
+  initAtalhos();
 });

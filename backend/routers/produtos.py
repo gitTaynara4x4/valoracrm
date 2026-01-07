@@ -1,11 +1,12 @@
 # /backend/routers/produtos.py
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
+from sqlalchemy import String as SAString, cast
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -58,13 +59,67 @@ class ProdutoBase(BaseModel):
     utilizacao: Optional[int] = Field(default=None, ge=1, le=4)     # 1..4
     tipo_material: Optional[int] = Field(default=None, ge=1, le=3)  # 1..3
 
-    # CLASSIFICAÇÃO (novos)
+    # CLASSIFICAÇÃO
     prod_controlado: Optional[bool] = None
     segmentos: Optional[str] = Field(default=None, max_length=120)
     tipo_sistema: Optional[str] = Field(default=None, max_length=120)
     classe: Optional[str] = Field(default=None, max_length=120)
     categorias: Optional[str] = Field(default=None, max_length=120)
     subcategoria: Optional[str] = Field(default=None, max_length=120)
+
+    # DISTRIBUIDORES
+    fornecedor: Optional[str] = Field(default=None, max_length=120)
+    ultima_compra: Optional[date] = None
+
+    # DADOS LOGÍSTICO
+    tipo_armaz: Optional[str] = Field(default=None, max_length=30)
+    armaz_localiz: Optional[str] = Field(default=None, max_length=60)
+    tipo_logistico: Optional[str] = Field(default=None, max_length=30)
+    peso_logistico: Optional[float] = None
+    tamanho_logistico: Optional[str] = Field(default=None, max_length=60)
+    embalagem_compra: Optional[str] = Field(default=None, max_length=60)
+    embalagem_armazem: Optional[str] = Field(default=None, max_length=60)
+    embalagem_saida: Optional[str] = Field(default=None, max_length=60)
+    estoque_minimo: Optional[int] = None
+    estoque_maximo: Optional[int] = None
+    quantidade_atual: Optional[int] = None
+
+    # DADOS TÉCNICOS
+    possui_validade: Optional[bool] = None
+    tipo_tecnico: Optional[str] = Field(default=None, max_length=60)
+    peso_tecnico: Optional[float] = None
+    tamanho_tecnico: Optional[str] = Field(default=None, max_length=60)
+    cores_disponiveis: Optional[str] = None  # texto livre
+    imagens_produto: Optional[str] = None    # texto livre (links / nomes)
+    videos_produto: Optional[str] = None
+    fichas_tecnica: Optional[str] = None
+    manuais_instalacao: Optional[str] = None
+    manuais_programacao: Optional[str] = None
+    manuais_usuario: Optional[str] = None
+
+    # DADOS FISCAIS
+    classif_ncm_bbm: Optional[str] = Field(default=None, max_length=30)
+    aliq_ipi_entrada: Optional[float] = None
+    aliq_iva: Optional[float] = None
+    cst_icms: Optional[str] = Field(default=None, max_length=10)
+    cst_pis: Optional[str] = Field(default=None, max_length=10)
+    cst_cofins: Optional[str] = Field(default=None, max_length=10)
+
+    # FORMAÇÃO DE PREÇO
+    valor_custo: Optional[float] = None
+    mark_up: Optional[float] = None
+    custo_efetivo: Optional[float] = None
+    mc_lucro: Optional[float] = None
+    imp_importacao: Optional[float] = None
+    ipi: Optional[float] = None
+    icms: Optional[float] = None
+    simples: Optional[float] = None
+    luc_presumido: Optional[float] = None
+
+    # HISTÓRICO
+    entrada_estoque: Optional[int] = None
+    saida_estoque: Optional[int] = None
+    destino: Optional[str] = None  # text
 
 
 class ProdutoCreate(ProdutoBase):
@@ -92,8 +147,9 @@ router = APIRouter(prefix="/api/produtos", tags=["Produtos"])
 @router.get("", response_model=List[ProdutoOut])
 def listar_produtos(
     db: Session = Depends(get_db),
-    q: Optional[str] = Query(default=None, description="Busca geral (produto, ref, barras, fabricante, situação, classificação)"),
+    q: Optional[str] = Query(default=None, description="Busca geral"),
     origem: Optional[str] = Query(default=None),
+    fornecedor: Optional[str] = Query(default=None),
     status_atual: Optional[int] = Query(default=None, ge=1, le=4),
     tipo_mercado: Optional[int] = Query(default=None, ge=1, le=2),
     utilizacao: Optional[int] = Query(default=None, ge=1, le=4),
@@ -106,6 +162,9 @@ def listar_produtos(
 
     if origem:
         query = query.filter(models.Produto.origem == origem)
+
+    if fornecedor:
+        query = query.filter(models.Produto.fornecedor == fornecedor)
 
     if status_atual is not None:
         query = query.filter(models.Produto.status_atual == status_atual)
@@ -138,14 +197,18 @@ def listar_produtos(
             | (models.Produto.classe.ilike(like))
             | (models.Produto.categorias.ilike(like))
             | (models.Produto.subcategoria.ilike(like))
+            | (models.Produto.fornecedor.ilike(like))
+            | (cast(models.Produto.ultima_compra, SAString).ilike(like))
+            | (models.Produto.tipo_armaz.ilike(like))
+            | (models.Produto.armaz_localiz.ilike(like))
+            | (models.Produto.tipo_logistico.ilike(like))
+            | (models.Produto.tipo_tecnico.ilike(like))
+            | (models.Produto.cores_disponiveis.ilike(like))
+            | (models.Produto.classif_ncm_bbm.ilike(like))
+            | (models.Produto.destino.ilike(like))
         )
 
-    itens = (
-        query.order_by(models.Produto.id.asc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+    itens = query.order_by(models.Produto.id.asc()).offset(offset).limit(limit).all()
     return itens
 
 
@@ -159,28 +222,7 @@ def obter_produto(produto_id: int, db: Session = Depends(get_db)):
 
 @router.post("", response_model=ProdutoOut, status_code=status.HTTP_201_CREATED)
 def criar_produto(payload: ProdutoCreate, db: Session = Depends(get_db)):
-    produto = models.Produto(
-        cod_ref_id=payload.cod_ref_id,
-        codigo_barras=payload.codigo_barras,
-        nome_generico=payload.nome_generico,
-        nome_produto=payload.nome_produto,
-        fabricante=payload.fabricante,
-        modelo=payload.modelo,
-        cod_ref_fabric=payload.cod_ref_fabric,
-        origem=payload.origem,
-
-        status_atual=payload.status_atual,
-        tipo_mercado=payload.tipo_mercado,
-        utilizacao=payload.utilizacao,
-        tipo_material=payload.tipo_material,
-
-        prod_controlado=payload.prod_controlado,
-        segmentos=payload.segmentos,
-        tipo_sistema=payload.tipo_sistema,
-        classe=payload.classe,
-        categorias=payload.categorias,
-        subcategoria=payload.subcategoria,
-    )
+    produto = models.Produto(**payload.model_dump() if hasattr(payload, "model_dump") else payload.dict())
 
     db.add(produto)
     try:
@@ -198,26 +240,9 @@ def atualizar_produto(produto_id: int, payload: ProdutoCreate, db: Session = Dep
     if not produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado.")
 
-    produto.cod_ref_id = payload.cod_ref_id
-    produto.codigo_barras = payload.codigo_barras
-    produto.nome_generico = payload.nome_generico
-    produto.nome_produto = payload.nome_produto
-    produto.fabricante = payload.fabricante
-    produto.modelo = payload.modelo
-    produto.cod_ref_fabric = payload.cod_ref_fabric
-    produto.origem = payload.origem
-
-    produto.status_atual = payload.status_atual
-    produto.tipo_mercado = payload.tipo_mercado
-    produto.utilizacao = payload.utilizacao
-    produto.tipo_material = payload.tipo_material
-
-    produto.prod_controlado = payload.prod_controlado
-    produto.segmentos = payload.segmentos
-    produto.tipo_sistema = payload.tipo_sistema
-    produto.classe = payload.classe
-    produto.categorias = payload.categorias
-    produto.subcategoria = payload.subcategoria
+    data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+    for k, v in data.items():
+        setattr(produto, k, v)
 
     try:
         db.commit()

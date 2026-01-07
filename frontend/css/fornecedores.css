@@ -13,6 +13,8 @@
   --card-border:#3a3a3a;
 
   --accent:#10a37f;
+  --accent-soft: rgba(16,163,127,.16);
+
   --radius-pill:999px;
   --radius-md:16px;
   --shadow-card:0 8px 24px rgba(0,0,0,.7);
@@ -66,9 +68,9 @@ button,input,select,textarea{ font-family: inherit; }
   align-items:center;
   gap:6px;
   box-shadow:0 6px 18px rgba(0,0,0,.6);
-  transition: transform .12s ease, filter .12s ease;
+  transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
 }
-.btn-primary:hover{ filter:brightness(1.03); transform:translateY(-1px); }
+.btn-primary:hover{ filter:brightness(1.03); transform:translateY(-1px); box-shadow:0 8px 24px rgba(0,0,0,.75); }
 .btn-primary:active{ transform:translateY(0px); }
 
 .btn-secondary{
@@ -90,6 +92,7 @@ button,input,select,textarea{ font-family: inherit; }
 }
 .orca-filters-left{ display:flex; flex-wrap:wrap; gap:12px; min-width:0; }
 .orca-filters-right{ color:var(--text-muted); font-size:.85rem; }
+.orca-counter{ opacity:.9; }
 
 .orca-field{
   display:flex;
@@ -139,7 +142,7 @@ button,input,select,textarea{ font-family: inherit; }
 }
 
 .orca-field textarea{
-  border-radius:14px;          /* melhor para textarea */
+  border-radius:14px;
   resize: vertical;
   min-height:42px;
   padding:10px 12px;
@@ -208,7 +211,9 @@ button,input,select,textarea{ font-family: inherit; }
 .orca-icon-btn:hover{ background:#303030; color:#e5e7eb; border-color:#9ca3af; transform:translateY(-1px); }
 .orca-icon-btn:active{ transform:translateY(0px); }
 
-/* Modal */
+/* =========================
+   MODAL FORNECEDOR
+   ========================= */
 .orca-modal-backdrop[hidden]{ display:none !important; }
 
 .orca-modal-backdrop{
@@ -222,7 +227,7 @@ button,input,select,textarea{ font-family: inherit; }
   padding:14px;
 }
 
-/* scroll lock suave no modal (só visual) */
+/* scroll lock (visual) */
 body.modal-open{ overflow:hidden; }
 
 .orca-modal{
@@ -272,8 +277,6 @@ body.modal-open{ overflow:hidden; }
 .orca-modal-grid--addr{
   grid-template-columns: repeat(3, minmax(0,1fr));
 }
-
-/* garante que textarea grande fique bonita no grid */
 .orca-modal-grid textarea{ min-height:46px; }
 
 .orca-modal-section{
@@ -294,26 +297,6 @@ body.modal-open{ overflow:hidden; }
 .orca-help{ font-size:.75rem; color:#9ca3af; min-height:1em; margin-top:2px; }
 .orca-help.is-error{ color:#fca5a5; }
 
-.orca-advanced{
-  margin-top:16px;
-  border-top:1px solid #2b2b2b;
-  padding-top:14px;
-}
-.orca-advanced-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:baseline;
-  gap:10px;
-  margin-bottom:10px;
-}
-.orca-advanced-title{
-  display:inline-flex;
-  align-items:center;
-  gap:10px;
-  color:#e5e7eb;
-}
-.orca-advanced-sub{ color:#9ca3af; font-size:.78rem; }
-
 .orca-modal-footer{
   display:flex;
   justify-content:flex-end;
@@ -322,11 +305,139 @@ body.modal-open{ overflow:hidden; }
   border-top:1px solid #333;
 }
 
-/* Scrollbar (opcional, mas fica bonito no dark) */
+/* Scrollbar (opcional) */
 .orca-modal::-webkit-scrollbar{ width:10px; }
 .orca-modal::-webkit-scrollbar-track{ background:#141414; border-radius:999px; }
 .orca-modal::-webkit-scrollbar-thumb{ background:#2f2f2f; border-radius:999px; border:2px solid #141414; }
 .orca-modal::-webkit-scrollbar-thumb:hover{ background:#3a3a3a; }
+
+/* =========================
+   DIALOG (substitui alert)
+   ========================= */
+.orca-dialog-backdrop[hidden]{ display:none !important; }
+
+.orca-dialog-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.72);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:80;
+  padding:14px;
+}
+
+.orca-dialog{
+  width:560px;
+  max-width:96vw;
+  background:#181818;
+  border:1px solid #2f2f2f;
+  border-radius:18px;
+  box-shadow:0 20px 40px rgba(0,0,0,.8);
+  overflow:hidden;
+}
+
+.orca-dialog-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:14px 16px;
+  border-bottom:1px solid #2b2b2b;
+}
+.orca-dialog-header h3{ margin:0; font-size:1rem; }
+
+.orca-dialog-close{
+  width:30px; height:30px;
+  border-radius:999px;
+  border:1px solid #4b5563;
+  background:transparent;
+  color:#9ca3af;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.orca-dialog-close:hover{ background:#303030; color:#e5e7eb; border-color:#9ca3af; }
+
+.orca-dialog-body{
+  padding:14px 16px;
+  color:#d1d5db;
+  line-height:1.35;
+  white-space:pre-wrap;
+}
+
+.orca-dialog-footer{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  padding:12px 16px 14px;
+  border-top:1px solid #2b2b2b;
+}
+
+/* =========================
+   CONFIRM (substitui confirm)
+   ========================= */
+.orca-confirm-backdrop[hidden]{ display:none !important; }
+
+.orca-confirm-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.72);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:90;
+  padding:14px;
+}
+
+.orca-confirm{
+  width:700px;
+  max-width:96vw;
+  background:#181818;
+  border:1px solid #2f2f2f;
+  border-radius:18px;
+  box-shadow:0 20px 40px rgba(0,0,0,.85);
+  overflow:hidden;
+}
+
+.orca-confirm-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:14px 16px;
+  border-bottom:1px solid #2b2b2b;
+}
+.orca-confirm-header h3{ margin:0; font-size:1rem; }
+
+.orca-confirm-close{
+  width:30px; height:30px;
+  border-radius:999px;
+  border:1px solid #4b5563;
+  background:transparent;
+  color:#9ca3af;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.orca-confirm-close:hover{ background:#303030; color:#e5e7eb; border-color:#9ca3af; }
+
+.orca-confirm-body{
+  padding:14px 16px;
+  color:#d1d5db;
+  line-height:1.35;
+  white-space:pre-wrap;
+}
+
+.orca-confirm-footer{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  padding:12px 16px 14px;
+  border-top:1px solid #2b2b2b;
+}
 
 /* Mobile */
 @media (max-width: 860px){
@@ -395,6 +506,16 @@ body.modal-open{ overflow:hidden; }
   .orca-modal-footer{ flex-direction:column; }
   .orca-modal-footer .btn-primary,
   .orca-modal-footer .btn-secondary{
+    width:100%;
+    justify-content:center;
+  }
+
+  /* Dialog/Confirm no mobile */
+  .orca-confirm, .orca-dialog{ width:96vw; }
+  .orca-confirm-footer, .orca-dialog-footer{ flex-direction:column; }
+  .orca-confirm-footer .btn-primary,
+  .orca-confirm-footer .btn-secondary,
+  .orca-dialog-footer .btn-primary{
     width:100%;
     justify-content:center;
   }

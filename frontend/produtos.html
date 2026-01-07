@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>4X OrçaPro – Produtos</title>
 
-  <!-- Ícones -->
   <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
         integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
@@ -34,19 +33,17 @@
 
       <section class="orca-filters">
         <div class="orca-filters-left">
-          <div class="orca-field">
+          <div class="orca-field orca-field--busca">
             <label for="busca-produtos">Buscar</label>
             <div class="orca-input-icon">
               <i class="fa-solid fa-magnifying-glass"></i>
-              <input type="text" id="busca-produtos" placeholder="Produto, ref, barras, fabricante, categoria..." />
+              <input type="text" id="busca-produtos" placeholder="Produto, ref, barras, fabricante, categoria, fornecedor..." autocomplete="off" />
             </div>
           </div>
 
           <div class="orca-field">
             <label for="filtro-origem-produto">Origem</label>
-            <select id="filtro-origem-produto">
-              <option value="">Todas</option>
-            </select>
+            <select id="filtro-origem-produto"></select>
           </div>
         </div>
 
@@ -68,10 +65,14 @@
                 <th>Modelo</th>
                 <th>Cód. Fabric.</th>
                 <th>Origem</th>
+
                 <th>Status Atual</th>
                 <th>Tipo Mercado</th>
                 <th>Utilização</th>
                 <th>Tipo Material</th>
+
+                <th>Fornecedor</th>
+                <th>Última Compra</th>
                 <th></th>
               </tr>
             </thead>
@@ -95,7 +96,7 @@
 
             <div class="orca-modal-grid">
               <!-- ===== DADOS IDENTIFICAÇÃO ===== -->
-              <div class="orca-modal-section orca-field--full">Dados Identificação</div>
+              <div class="orca-modal-section">Dados Identificação</div>
 
               <div class="orca-field">
                 <label for="campo-cod-ref-id">Cod.Ref.Id</label>
@@ -134,78 +135,53 @@
 
               <div class="orca-field">
                 <label for="campo-origem">Origem</label>
-                <input type="text" id="campo-origem" placeholder="Nacional / Importado / ..." />
+                <select id="campo-origem"></select>
               </div>
 
               <!-- ===== SITUAÇÃO ===== -->
-              <div class="orca-modal-section orca-field--full">SITUAÇÃO</div>
+              <div class="orca-modal-section">Situação</div>
 
               <div class="orca-field">
                 <label for="campo-status-atual">Status Atual</label>
-                <select id="campo-status-atual">
-                  <option value="">—</option>
-                  <option value="1">01- Ativo</option>
-                  <option value="2">02- Inativo</option>
-                  <option value="3">03- Fora de Linha</option>
-                  <option value="4">04- Suspenso</option>
-                </select>
+                <select id="campo-status-atual"></select>
               </div>
 
               <div class="orca-field">
                 <label for="campo-tipo-mercado">Tipo Mercado</label>
-                <select id="campo-tipo-mercado">
-                  <option value="">—</option>
-                  <option value="1">01- Mercado Continuo</option>
-                  <option value="2">02- Mercado Sazional</option>
-                </select>
+                <select id="campo-tipo-mercado"></select>
               </div>
 
               <div class="orca-field">
                 <label for="campo-utilizacao">Utilização</label>
-                <select id="campo-utilizacao">
-                  <option value="">—</option>
-                  <option value="1">01- Revenda</option>
-                  <option value="2">02- Consumo Próprio</option>
-                  <option value="3">03- Patrimonio</option>
-                  <option value="4">04- Armazenamento p/ Terceiros</option>
-                </select>
+                <select id="campo-utilizacao"></select>
               </div>
 
               <div class="orca-field">
                 <label for="campo-tipo-material">Tipo Material</label>
-                <select id="campo-tipo-material">
-                  <option value="">—</option>
-                  <option value="1">01- Pronta Utilização (Acabado)</option>
-                  <option value="2">02- Semi Acabado</option>
-                  <option value="3">03- Materia Prima</option>
-                </select>
+                <select id="campo-tipo-material"></select>
               </div>
 
               <!-- ===== CLASSIFICAÇÃO ===== -->
-              <div class="orca-modal-section orca-field--full">CLASSIFICAÇÃO</div>
+              <div class="orca-modal-section">Classificação</div>
 
               <div class="orca-field">
                 <label for="campo-prod-controlado">Prod. Controlado</label>
-                <select id="campo-prod-controlado">
-                  <option value="">—</option>
-                  <option value="1">Sim</option>
-                  <option value="0">Não</option>
-                </select>
+                <select id="campo-prod-controlado"></select>
               </div>
 
               <div class="orca-field">
                 <label for="campo-segmentos">Segmentos</label>
-                <input type="text" id="campo-segmentos" placeholder="Ex: CFTV / Alarmes / Redes..." />
+                <select id="campo-segmentos"></select>
               </div>
 
               <div class="orca-field">
-                <label for="campo-tipo-sistema">tipo de sistema</label>
-                <input type="text" id="campo-tipo-sistema" placeholder="Ex: Monitoramento / Acesso / CFTV..." />
+                <label for="campo-tipo-sistema">Tipo de sistema</label>
+                <input type="text" id="campo-tipo-sistema" placeholder="Monitoramento / Acesso / CFTV..." />
               </div>
 
               <div class="orca-field">
                 <label for="campo-classe">Classe</label>
-                <input type="text" id="campo-classe" placeholder="Ex: Equipamento / Serviço..." />
+                <select id="campo-classe"></select>
               </div>
 
               <div class="orca-field">
@@ -216,6 +192,246 @@
               <div class="orca-field">
                 <label for="campo-subcategoria">SubCategoria</label>
                 <input type="text" id="campo-subcategoria" placeholder="Ex: Bullet / Dome" />
+              </div>
+
+              <!-- ===== DISTRIBUIDORES ===== -->
+              <div class="orca-modal-section">Distribuidores</div>
+
+              <div class="orca-field">
+                <label for="campo-fornecedor">Fornecedor</label>
+                <select id="campo-fornecedor"></select>
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-ultima-compra">Ultima Compra</label>
+                <input type="date" id="campo-ultima-compra" />
+              </div>
+
+              <!-- ===== DADOS LOGÍSTICO ===== -->
+              <div class="orca-modal-section">Dados Logístico</div>
+
+              <div class="orca-field">
+                <label for="campo-tipo-armaz">Tipo Armaz</label>
+                <select id="campo-tipo-armaz"></select>
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-armaz-localiz">Armaz. Localiz</label>
+                <input type="text" id="campo-armaz-localiz" placeholder="Corredor A / Prateleira 3" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-tipo-logistico">Tipo</label>
+                <input type="text" id="campo-tipo-logistico" placeholder="Normal / Frágil / Perigoso..." />
+              </div>
+
+              <div class="orca-inline">
+                <div class="orca-field">
+                  <label for="campo-peso-logistico">Peso</label>
+                  <input type="number" id="campo-peso-logistico" step="0.001" placeholder="0,000" />
+                </div>
+                <div class="orca-field orca-field--unit">
+                  <label for="campo-peso-logistico-unidade">Unidade</label>
+                  <select id="campo-peso-logistico-unidade"></select>
+                </div>
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-tamanho-logistico">Tamanho</label>
+                <input type="text" id="campo-tamanho-logistico" placeholder="10x20x30" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-embalagem-compra">Embalagem Compra</label>
+                <input type="text" id="campo-embalagem-compra" placeholder="Caixa 10 un" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-embalagem-armazem">Embalagem Armazem</label>
+                <input type="text" id="campo-embalagem-armazem" placeholder="Caixa / Saco / Palete" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-embalagem-saida">Embalagem Saida</label>
+                <input type="text" id="campo-embalagem-saida" placeholder="Unidade" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-estoque-minimo">Estoque Minimo</label>
+                <input type="number" id="campo-estoque-minimo" step="1" placeholder="0" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-estoque-maximo">Estoque Maximo</label>
+                <input type="number" id="campo-estoque-maximo" step="1" placeholder="0" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-quantidade-atual">Quantidade Atual</label>
+                <input type="number" id="campo-quantidade-atual" step="1" placeholder="0" />
+              </div>
+
+              <!-- ===== DADOS TÉCNICOS ===== -->
+              <div class="orca-modal-section">Dados Técnicos</div>
+
+              <div class="orca-field">
+                <label for="campo-possui-validade">Possui Validade</label>
+                <select id="campo-possui-validade"></select>
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-tipo-tecnico">Tipo</label>
+                <input type="text" id="campo-tipo-tecnico" placeholder="Eletrônico / Mecânico..." />
+              </div>
+
+              <div class="orca-inline">
+                <div class="orca-field">
+                  <label for="campo-peso-tecnico">Peso</label>
+                  <input type="number" id="campo-peso-tecnico" step="0.001" placeholder="0,000" />
+                </div>
+                <div class="orca-field orca-field--unit">
+                  <label for="campo-peso-tecnico-unidade">Unidade</label>
+                  <select id="campo-peso-tecnico-unidade"></select>
+                </div>
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-tamanho-tecnico">Tamanho</label>
+                <input type="text" id="campo-tamanho-tecnico" placeholder="10x20x30" />
+              </div>
+
+              <div class="orca-field orca-field--full">
+                <label for="campo-cores-disponiveis">Cores Disponíveis</label>
+                <select id="campo-cores-disponiveis"></select>
+              </div>
+
+              <div class="orca-field orca-field--full">
+                <label for="campo-imagens-produto">Imagens do Produto</label>
+                <textarea id="campo-imagens-produto" rows="2" placeholder="Links ou nomes (1 por linha)"></textarea>
+              </div>
+
+              <div class="orca-field orca-field--full">
+                <label for="campo-videos-produto">Videos Produto</label>
+                <textarea id="campo-videos-produto" rows="2" placeholder="Links (1 por linha)"></textarea>
+              </div>
+
+              <div class="orca-field orca-field--full">
+                <label for="campo-fichas-tecnica">Fichas Técnica</label>
+                <textarea id="campo-fichas-tecnica" rows="2" placeholder="Links (1 por linha)"></textarea>
+              </div>
+
+              <div class="orca-field orca-field--full">
+                <label for="campo-manuais-instalacao">Manuais de Instalação</label>
+                <textarea id="campo-manuais-instalacao" rows="2" placeholder="Links (1 por linha)"></textarea>
+              </div>
+
+              <div class="orca-field orca-field--full">
+                <label for="campo-manuais-programacao">Manuais Programação</label>
+                <textarea id="campo-manuais-programacao" rows="2" placeholder="Links (1 por linha)"></textarea>
+              </div>
+
+              <div class="orca-field orca-field--full">
+                <label for="campo-manuais-usuario">Manuais Usuario</label>
+                <textarea id="campo-manuais-usuario" rows="2" placeholder="Links (1 por linha)"></textarea>
+              </div>
+
+              <!-- ===== DADOS FISCAIS ===== -->
+              <div class="orca-modal-section">Dados Fiscais</div>
+
+              <div class="orca-field">
+                <label for="campo-classif-ncm-bbm">Classif. NCM-BBM</label>
+                <input type="text" id="campo-classif-ncm-bbm" placeholder="8525.80.29" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-aliq-ipi-entrada">Aliq. IPI Entrada</label>
+                <input type="number" id="campo-aliq-ipi-entrada" step="0.0001" placeholder="0,0000" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-aliq-iva">Aliq. IVA</label>
+                <input type="number" id="campo-aliq-iva" step="0.0001" placeholder="0,0000" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-cst-icms">CST ICMS</label>
+                <select id="campo-cst-icms"></select>
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-cst-pis">CST PIS</label>
+                <select id="campo-cst-pis"></select>
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-cst-cofins">CST COFINS</label>
+                <select id="campo-cst-cofins"></select>
+              </div>
+
+              <!-- ===== FORMAÇÃO DE PREÇO ===== -->
+              <div class="orca-modal-section">Formação de Preço</div>
+
+              <div class="orca-field">
+                <label for="campo-valor-custo">Valor de Custo</label>
+                <input type="number" id="campo-valor-custo" step="0.01" placeholder="0,00" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-mark-up">Mark Up</label>
+                <input type="number" id="campo-mark-up" step="0.0001" placeholder="0,0000" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-custo-efetivo">Custo Efetivo</label>
+                <input type="number" id="campo-custo-efetivo" step="0.01" placeholder="0,00" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-mc-lucro">M.C (Lucro)</label>
+                <input type="number" id="campo-mc-lucro" step="0.01" placeholder="0,00" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-imp-importacao">Imp. Importação</label>
+                <input type="number" id="campo-imp-importacao" step="0.01" placeholder="0,00" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-ipi">IPI</label>
+                <input type="number" id="campo-ipi" step="0.01" placeholder="0,00" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-icms">ICMS</label>
+                <input type="number" id="campo-icms" step="0.01" placeholder="0,00" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-simples">Simples</label>
+                <input type="number" id="campo-simples" step="0.01" placeholder="0,00" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-luc-presumido">Luc. Presumido</label>
+                <input type="number" id="campo-luc-presumido" step="0.01" placeholder="0,00" />
+              </div>
+
+              <!-- ===== HISTORICO ===== -->
+              <div class="orca-modal-section">Historico</div>
+
+              <div class="orca-field">
+                <label for="campo-entrada-estoque">Entrada Estoque</label>
+                <input type="number" id="campo-entrada-estoque" step="1" placeholder="0" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-saida-estoque">Saida Estoque</label>
+                <input type="number" id="campo-saida-estoque" step="1" placeholder="0" />
+              </div>
+
+              <div class="orca-field orca-field--full">
+                <label for="campo-destino">Destino</label>
+                <select id="campo-destino"></select>
               </div>
             </div>
           </div>

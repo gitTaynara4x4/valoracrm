@@ -1,5 +1,4 @@
 // /frontend/js/pages/fornecedores.js
-
 let fornecedores = [];
 let fornecedorEditandoId = null;
 
@@ -14,7 +13,6 @@ function todayISODate(){
 }
 
 function ymdFromBackendDateTime(v){
-  // backend manda datetime ISO. Para evitar bug de fuso, pega os 10 primeiros chars.
   if(!v) return '';
   if(typeof v === 'string' && v.length >= 10) return v.slice(0,10);
   return '';
@@ -26,7 +24,69 @@ function formatTipo(tipo){
   return '-';
 }
 
-/* API */
+/* =========================
+   Dialog/Confirm (custom)
+   ========================= */
+let _dialogResolve = null;
+let _confirmResolve = null;
+
+function orcaAlert(message, title='Aviso'){
+  const backdrop = document.getElementById('orca-dialog-backdrop');
+  const body = document.getElementById('orca-dialog-body');
+  const ttl = document.getElementById('orca-dialog-title');
+  if(!backdrop || !body || !ttl) return Promise.resolve();
+
+  ttl.textContent = title;
+  body.textContent = String(message ?? '');
+
+  backdrop.hidden = false;
+  return new Promise((resolve)=>{
+    _dialogResolve = resolve;
+    setTimeout(()=>{ document.getElementById('orca-dialog-ok')?.focus(); }, 0);
+  });
+}
+
+function closeOrcaAlert(){
+  const backdrop = document.getElementById('orca-dialog-backdrop');
+  if(backdrop) backdrop.hidden = true;
+  const r = _dialogResolve;
+  _dialogResolve = null;
+  if(typeof r === 'function') r();
+}
+
+function orcaConfirm(message, { title='Confirmar', okText='OK', cancelText='Cancelar' } = {}){
+  const backdrop = document.getElementById('orca-confirm-backdrop');
+  const body = document.getElementById('orca-confirm-body');
+  const ttl = document.getElementById('orca-confirm-title');
+  const okBtn = document.getElementById('orca-confirm-ok');
+  const cancelBtn = document.getElementById('orca-confirm-cancel');
+
+  if(!backdrop || !body || !ttl || !okBtn || !cancelBtn) return Promise.resolve(false);
+
+  ttl.textContent = title;
+  body.textContent = String(message ?? '');
+  okBtn.textContent = okText;
+  cancelBtn.textContent = cancelText;
+
+  backdrop.hidden = false;
+
+  return new Promise((resolve)=>{
+    _confirmResolve = resolve;
+    setTimeout(()=>{ okBtn.focus(); }, 0);
+  });
+}
+
+function closeOrcaConfirm(result){
+  const backdrop = document.getElementById('orca-confirm-backdrop');
+  if(backdrop) backdrop.hidden = true;
+  const r = _confirmResolve;
+  _confirmResolve = null;
+  if(typeof r === 'function') r(!!result);
+}
+
+/* =========================
+   API
+   ========================= */
 async function carregarFornecedores(){
   const resp = await fetch('/api/fornecedores');
   if(!resp.ok) throw new Error(await resp.text());
@@ -50,16 +110,25 @@ async function salvarFornecedorNoServidor(payload, editandoId){
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if(!resp.ok) throw new Error(await resp.text());
+
+  if(!resp.ok){
+    const txt = await resp.text();
+    throw new Error(txt || 'Erro ao salvar fornecedor.');
+  }
   return resp.json();
 }
 
 async function excluirFornecedorNoServidor(id){
   const resp = await fetch(`/api/fornecedores/${id}`, { method:'DELETE' });
-  if(!resp.ok) throw new Error(await resp.text());
+  if(!resp.ok){
+    const txt = await resp.text();
+    throw new Error(txt || 'Erro ao excluir fornecedor.');
+  }
 }
 
-/* Render */
+/* =========================
+   Render
+   ========================= */
 function renderTabelaFornecedores(){
   const tbody = document.getElementById('tbody-fornecedores');
   const spanCount = document.getElementById('contagem-fornecedores');
@@ -110,7 +179,9 @@ function renderTabelaFornecedores(){
   }
 }
 
-/* CEP (ViaCEP) */
+/* =========================
+   CEP (ViaCEP)
+   ========================= */
 let cepFetchController=null;
 
 function setCepHelp(msg='', isError=false){
@@ -164,16 +235,20 @@ async function buscarCep(cepRaw){
   }
 }
 
-/* Modal helpers */
+/* =========================
+   Modal fornecedor
+   ========================= */
 function abrirModal(){
   const backdrop = document.getElementById('modal-fornecedor-backdrop');
   if(!backdrop) return;
   backdrop.hidden = false;
+  document.body.classList.add('modal-open');
 }
 
 function fecharModal(){
   const backdrop = document.getElementById('modal-fornecedor-backdrop');
   if(backdrop) backdrop.hidden = true;
+  document.body.classList.remove('modal-open');
   fornecedorEditandoId = null;
 }
 
@@ -195,7 +270,6 @@ function abrirModalFornecedorNovo(){
   setVal('campo-tipo-fornecedor', 'pf');
   setVal('campo-nome-fornecedor', '');
 
-  // sequência PDF
   setVal('campo-razao-social','');
   setVal('campo-cnpj','');
   setVal('campo-inscricao-estadual','');
@@ -233,6 +307,7 @@ function abrirModalFornecedorNovo(){
   setVal('campo-informacoes-rma','');
 
   abrirModal();
+  setTimeout(()=>{ document.getElementById('campo-nome-fornecedor')?.focus(); }, 0);
 }
 
 function abrirModalFornecedorEditar(full){
@@ -264,7 +339,6 @@ function abrirModalFornecedorEditar(full){
   setVal('campo-home-page', full.home_page || '');
   setVal('campo-email-principal', full.email_principal || '');
 
-  // redes sociais: se vier dict, tenta texto, senão stringify
   let redesTxt = '';
   if(full.redes_sociais){
     if(typeof full.redes_sociais === 'object' && full.redes_sociais.texto) redesTxt = String(full.redes_sociais.texto);
@@ -280,7 +354,6 @@ function abrirModalFornecedorEditar(full){
   setVal('campo-rep-telefone-ramal', full.representante_telefone_ramal || '');
 
   setVal('campo-limite-creditos', (full.limite_creditos ?? ''));
-
   setVal('campo-opcao-transportadoras', full.opcao_transportadoras_fretes || '');
 
   setVal('campo-linha-produtos', full.linha_produtos || '');
@@ -291,7 +364,6 @@ function abrirModalFornecedorEditar(full){
 }
 
 function buildPayload(){
-  // redes sociais (PDF é campo “livre”)
   const redesTexto = getVal('campo-redes-sociais');
   const redes = redesTexto ? { texto: redesTexto } : null;
 
@@ -299,7 +371,6 @@ function buildPayload(){
   const limiteNorm = limite ? limite.replace(',', '.') : '';
 
   return {
-    // sequência do PDF
     data_cadastro: getVal('campo-data-cadastro') || null,
     tipo: getVal('campo-tipo-fornecedor') || 'pf',
     nome: getVal('campo-nome-fornecedor'),
@@ -326,7 +397,6 @@ function buildPayload(){
     redes_sociais: redes,
 
     codigo: getVal('campo-codigo-fornecedor'),
-
     tipo_categoria: getVal('campo-tipo-categoria'),
 
     contato_representante_comercial: getVal('campo-contato-representante'),
@@ -334,7 +404,6 @@ function buildPayload(){
     representante_telefone_ramal: getVal('campo-rep-telefone-ramal'),
 
     limite_creditos: limiteNorm ? limiteNorm : null,
-
     opcao_transportadoras_fretes: getVal('campo-opcao-transportadoras'),
 
     linha_produtos: getVal('campo-linha-produtos'),
@@ -347,7 +416,7 @@ async function salvarFornecedor(){
   const payload = buildPayload();
 
   if(!payload.nome){
-    alert('Preencha o nome do fornecedor.');
+    await orcaAlert('Preencha o nome do fornecedor.');
     return;
   }
 
@@ -357,17 +426,40 @@ async function salvarFornecedor(){
     fecharModal();
   }catch(err){
     console.error(err);
-    alert('Erro ao salvar fornecedor.');
+    await orcaAlert(err?.message || 'Erro ao salvar fornecedor.');
   }
 }
 
-/* INIT */
+/* =========================
+   INIT
+   ========================= */
 document.addEventListener('DOMContentLoaded', async ()=>{
-  const backdrop = document.getElementById('modal-fornecedor-backdrop');
-  if(backdrop) backdrop.hidden = true;
+  // garante que começa escondido
+  document.getElementById('modal-fornecedor-backdrop')?.setAttribute('hidden','');
+  document.getElementById('orca-dialog-backdrop')?.setAttribute('hidden','');
+  document.getElementById('orca-confirm-backdrop')?.setAttribute('hidden','');
 
-  try{ await carregarFornecedores(); }
-  catch(e){ console.error(e); }
+  // listeners do dialog (alert)
+  document.getElementById('orca-dialog-ok')?.addEventListener('click', closeOrcaAlert);
+  document.getElementById('orca-dialog-close')?.addEventListener('click', closeOrcaAlert);
+  document.getElementById('orca-dialog-backdrop')?.addEventListener('click', (e)=>{
+    if(e.target?.id === 'orca-dialog-backdrop') closeOrcaAlert();
+  });
+
+  // listeners do confirm
+  document.getElementById('orca-confirm-ok')?.addEventListener('click', ()=>closeOrcaConfirm(true));
+  document.getElementById('orca-confirm-cancel')?.addEventListener('click', ()=>closeOrcaConfirm(false));
+  document.getElementById('orca-confirm-close')?.addEventListener('click', ()=>closeOrcaConfirm(false));
+  document.getElementById('orca-confirm-backdrop')?.addEventListener('click', (e)=>{
+    if(e.target?.id === 'orca-confirm-backdrop') closeOrcaConfirm(false);
+  });
+
+  try{
+    await carregarFornecedores();
+  }catch(e){
+    console.error(e);
+    await orcaAlert(e?.message || 'Erro ao carregar fornecedores.');
+  }
 
   document.getElementById('busca-fornecedores')?.addEventListener('input', renderTabelaFornecedores);
   document.getElementById('filtro-tipo-fornecedor')?.addEventListener('change', renderTabelaFornecedores);
@@ -378,8 +470,22 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('btn-cancelar-fornecedor')?.addEventListener('click', fecharModal);
   document.getElementById('btn-salvar-fornecedor')?.addEventListener('click', salvarFornecedor);
 
-  backdrop?.addEventListener('click', (e)=>{ if(e.target===backdrop) fecharModal(); });
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') fecharModal(); });
+  const modalBackdrop = document.getElementById('modal-fornecedor-backdrop');
+  modalBackdrop?.addEventListener('click', (e)=>{ if(e.target===modalBackdrop) fecharModal(); });
+
+  // ESC fecha na ordem: confirm > dialog > modal fornecedor
+  document.addEventListener('keydown', (e)=>{
+    if(e.key !== 'Escape') return;
+
+    const confirmOpen = document.getElementById('orca-confirm-backdrop') && !document.getElementById('orca-confirm-backdrop').hidden;
+    if(confirmOpen){ closeOrcaConfirm(false); return; }
+
+    const dialogOpen = document.getElementById('orca-dialog-backdrop') && !document.getElementById('orca-dialog-backdrop').hidden;
+    if(dialogOpen){ closeOrcaAlert(); return; }
+
+    const modalOpen = document.getElementById('modal-fornecedor-backdrop') && !document.getElementById('modal-fornecedor-backdrop').hidden;
+    if(modalOpen) fecharModal();
+  });
 
   const campoCep = document.getElementById('campo-cep');
   if(campoCep){
@@ -398,6 +504,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('tbody-fornecedores')?.addEventListener('click', async (e)=>{
     const btn = e.target.closest('.orca-icon-btn');
     if(!btn) return;
+
     const action = btn.dataset.action;
     const id = Number(btn.dataset.id);
     if(!id) return;
@@ -408,19 +515,26 @@ document.addEventListener('DOMContentLoaded', async ()=>{
         abrirModalFornecedorEditar(full);
       }catch(err){
         console.error(err);
-        alert('Não foi possível abrir para editar.');
+        await orcaAlert(err?.message || 'Não foi possível abrir para editar.');
       }
       return;
     }
 
     if(action === 'excluir'){
-      if(confirm('Deseja realmente excluir este fornecedor?')){
-        excluirFornecedorNoServidor(id)
-          .then(()=>carregarFornecedores())
-          .catch(err=>{
-            console.error(err);
-            alert('Erro ao excluir fornecedor.');
-          });
+      const ok = await orcaConfirm('Deseja realmente excluir este fornecedor?', {
+        title: 'Confirmar',
+        okText: 'OK',
+        cancelText: 'Cancelar'
+      });
+
+      if(ok){
+        try{
+          await excluirFornecedorNoServidor(id);
+          await carregarFornecedores();
+        }catch(err){
+          console.error(err);
+          await orcaAlert(err?.message || 'Erro ao excluir fornecedor.');
+        }
       }
     }
   });

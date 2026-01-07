@@ -75,7 +75,7 @@
         </div>
       </section>
 
-      <!-- MODAL -->
+      <!-- MODAL CLIENTE -->
       <div class="orca-modal-backdrop" id="modal-cliente-backdrop" hidden>
         <div class="orca-modal" role="dialog" aria-modal="true" aria-labelledby="modal-cliente-titulo">
           <header class="orca-modal-header">
@@ -273,13 +273,11 @@
                     <input type="text" id="campo-inscricao-municipal" />
                   </div>
 
-                  <!-- ✅ NOVO: quebra linha e vem depois da inscrição municipal -->
                   <div class="orca-field orca-field--full">
                     <label for="campo-responsavel-contratante">Responsável contratante</label>
                     <input type="text" id="campo-responsavel-contratante" />
                   </div>
 
-                  <!-- ✅ já existia, só reposicionou logo depois -->
                   <div class="orca-field">
                     <label for="campo-cpf-resp-admin">CPF do responsável</label>
                     <input type="text" id="campo-cpf-resp-admin" />
@@ -372,5 +370,27 @@
       </div>
     </main>
   </div>
+
+  <!-- CONFIRM (substitui confirm()) -->
+  <div class="orca-confirm-backdrop" id="orca-confirm-backdrop" hidden>
+    <div class="orca-confirm" role="dialog" aria-modal="true" aria-labelledby="orca-confirm-title">
+      <header class="orca-confirm-header">
+        <h3 id="orca-confirm-title">Confirmar</h3>
+        <button class="orca-confirm-close" type="button" id="orca-confirm-close" aria-label="Fechar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
+
+      <div class="orca-confirm-body" id="orca-confirm-message"></div>
+
+      <footer class="orca-confirm-footer">
+        <button class="btn-secondary" type="button" id="orca-confirm-cancel">Cancelar</button>
+        <button class="btn-primary" type="button" id="orca-confirm-ok">OK</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- TOAST (substitui alert()) -->
+  <div id="orca-toast" class="orca-toast" hidden></div>
 </body>
 </html>

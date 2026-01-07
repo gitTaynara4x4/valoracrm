@@ -1,6 +1,4 @@
-
 /* /frontend/css/clientes.css */
-
 :root {
   --menu-w: 260px;
 
@@ -270,7 +268,7 @@ body {
 
 .orca-icon-btn:hover { background: #303030; border-color: #9ca3af; color: #e5e7eb; }
 
-/* Modal */
+/* Modal Cliente */
 .orca-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -376,6 +374,106 @@ body {
   border-top: 1px solid #333333;
 }
 
+/* =========================
+ * CONFIRM (custom)
+ * ========================= */
+.orca-confirm-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.72);
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  padding: 14px;
+  display: none; /* <- começa escondido */
+}
+
+.orca-confirm-backdrop:not([hidden]){
+  display: flex; /* <- só aparece quando hidden some */
+}
+
+.orca-confirm{
+  width: 520px;
+  max-width: 96vw;
+  background: #181818;
+  border-radius: 18px;
+  border: 1px solid #3a3a3a;
+  box-shadow: 0 22px 46px rgba(0,0,0,.85);
+  padding: 14px 16px 12px;
+}
+
+.orca-confirm-header{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #333;
+}
+
+.orca-confirm-header h3{
+  margin:0;
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--text-main);
+}
+
+.orca-confirm-close{
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #9ca3af;
+}
+
+.orca-confirm-close:hover{ background:#303030; border-color:#9ca3af; color:#e5e7eb; }
+
+.orca-confirm-body{
+  padding: 12px 2px 8px;
+  color: var(--text-muted);
+  font-size: .9rem;
+  line-height: 1.45;
+}
+
+.orca-confirm-footer{
+  display:flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #333;
+}
+
+.orca-confirm.is-danger .btn-primary{
+  background: #ef4444;
+  border-color: rgba(239,68,68,.75);
+}
+
+/* =========================
+ * TOAST
+ * ========================= */
+.orca-toast{
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  background: #181818;
+  border: 1px solid #3a3a3a;
+  color: var(--text-main);
+  padding: 10px 14px;
+  border-radius: 999px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.75);
+  z-index: 9999;
+  font-size: .9rem;
+  max-width: 92vw;
+  text-align: center;
+}
+.orca-toast.is-error{ border-color: rgba(239,68,68,.55); }
+
 /* Responsive */
 @media (max-width: 860px) {
   .orca-shell {
@@ -383,10 +481,7 @@ body {
     min-height: 100vh;
   }
 
-  /* no mobile o menu iframe fica escondido (o sidebar mobile já cuida disso no parent) */
-  .orca-menu-frame {
-    display: none;
-  }
+  .orca-menu-frame { display: none; }
 
   .orca-main {
     padding: 16px 14px 20px;
@@ -416,17 +511,14 @@ body {
     gap: 10px;
   }
 
-  .orca-field {
-    min-width: 0;
-  }
+  .orca-field { min-width: 0; }
 
-  /* ✅ FIX DO "BURACO" NO BUSCAR */
   .orca-field--busca {
-    flex: 0 0 auto; /* não cresce no eixo vertical quando vira coluna */
+    flex: 0 0 auto;
     min-width: 0;
   }
 
-  /* ===== tabela vira cards ===== */
+  /* tabela vira cards */
   .orca-table-wrapper {
     background: transparent;
     border: none;
@@ -434,9 +526,7 @@ body {
     overflow: visible;
   }
 
-  .orca-table-clientes thead {
-    display: none;
-  }
+  .orca-table-clientes thead { display: none; }
 
   .orca-table-clientes,
   .orca-table-clientes tbody,
@@ -485,29 +575,25 @@ body {
     color: var(--text-main);
   }
 
-  .orca-table-clientes td[data-label="Ações"]::before {
-    content: "";
-  }
+  .orca-table-clientes td[data-label="Ações"]::before { content: ""; }
 
-  /* modal */
-  .orca-modal {
-    width: 96vw;
-  }
+  .orca-modal { width: 96vw; }
 
-  .orca-modal-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  .orca-modal-grid { grid-template-columns: minmax(0, 1fr); }
+  .orca-modal-grid--addr { grid-template-columns: minmax(0, 1fr); }
 
-  .orca-modal-grid--addr {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .orca-modal-footer {
-    flex-direction: column;
-  }
+  .orca-modal-footer { flex-direction: column; }
 
   .orca-modal-footer .btn-primary,
   .orca-modal-footer .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .orca-confirm{ width: 96vw; }
+  .orca-confirm-footer{ flex-direction: column; }
+  .orca-confirm-footer .btn-primary,
+  .orca-confirm-footer .btn-secondary{
     width: 100%;
     justify-content: center;
   }

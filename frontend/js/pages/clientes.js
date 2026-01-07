@@ -19,6 +19,75 @@ function formatTipo(tipo){
 }
 
 /* ========================
+ * TOAST (sem “127.0.0.1:8000 diz”)
+ * =======================*/
+function toast(msg, { error=false, ms=2600 } = {}){
+  const el = document.getElementById('orca-toast');
+  if(!el) return; // sem fallback pra alert, pra nunca aparecer o popup do browser
+
+  el.textContent = msg || '';
+  el.classList.toggle('is-error', !!error);
+  el.hidden = false;
+
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ el.hidden = true; }, ms);
+}
+
+/* ========================
+ * CONFIRM (substitui confirm())
+ * =======================*/
+let _confirmResolver = null;
+
+function confirmDialog({
+  title='Confirmar',
+  message='Tem certeza?',
+  confirmText='OK',
+  cancelText='Cancelar',
+  danger=false,
+} = {}){
+  const backdrop = document.getElementById('orca-confirm-backdrop');
+  const box = backdrop?.querySelector('.orca-confirm');
+  const t = document.getElementById('orca-confirm-title');
+  const m = document.getElementById('orca-confirm-message');
+  const btnOk = document.getElementById('orca-confirm-ok');
+  const btnCancel = document.getElementById('orca-confirm-cancel');
+
+  if(!backdrop || !box || !btnOk || !btnCancel){
+    // se não achar modal, confirma como false pra evitar destruir dados
+    return Promise.resolve(false);
+  }
+
+  if(t) t.textContent = title;
+  if(m) m.textContent = message;
+
+  btnOk.textContent = confirmText || 'OK';
+  btnCancel.textContent = cancelText || 'Cancelar';
+
+  box.classList.toggle('is-danger', !!danger);
+
+  backdrop.hidden = false;
+  backdrop.style.display = 'flex';
+
+  return new Promise((resolve)=>{
+    _confirmResolver = resolve;
+    setTimeout(()=>{ try{ btnCancel.focus(); }catch{} }, 0);
+  });
+}
+
+function closeConfirm(result=false){
+  const backdrop = document.getElementById('orca-confirm-backdrop');
+  if(backdrop){
+    backdrop.hidden = true;
+    backdrop.style.display = 'none';
+  }
+  if(typeof _confirmResolver === 'function'){
+    const r = _confirmResolver;
+    _confirmResolver = null;
+    r(!!result);
+  }
+}
+
+/* ========================
  * API
  * =======================*/
 async function carregarClientes(){
@@ -197,7 +266,7 @@ function syncOndeConheceuOutro(){
 }
 
 /* ========================
- * MODAL
+ * MODAL CLIENTE
  * =======================*/
 function abrirModal(){
   const backdrop = document.getElementById('modal-cliente-backdrop');
@@ -243,30 +312,24 @@ function redesToInputs(redes){
 }
 
 function limparCompletos(){
-  // completos - contato extra
   setVal('campo-whatsapp-principal','');
-
-  // endereço extra
   setVal('campo-end-pais','BR');
 
-  // pj
   setVal('campo-razao-social','');
   setVal('campo-cnpj','');
+  setVal('campo-inscricao_estadual',''); // (não existe no HTML; mantive só por segurança)
   setVal('campo-inscricao-estadual','');
   setVal('campo-inscricao-municipal','');
   setVal('campo-responsavel-contratante','');
   setVal('campo-cpf-resp-admin','');
 
-  // pf
   setVal('campo-rg','');
   setVal('campo-data-nascimento','');
   setVal('campo-estado-civil','');
   setVal('campo-profissao','');
 
-  // cobrança
   setVal('campo-cep-cobranca','');
 
-  // web
   setVal('campo-home-page','');
   redesToInputs(null);
 }
@@ -277,7 +340,6 @@ function abrirModalClienteNovo(){
 
   clienteEditandoId = null;
 
-  // básico
   const proximoId = clientes.length > 0 ? Math.max(...clientes.map(c=>Number(c.id)||0)) + 1 : 1;
   setVal('campo-codigo-cliente', `CLI-${String(proximoId).padStart(4,'0')}`);
   setVal('campo-data-cadastro', todayISODate());
@@ -285,11 +347,9 @@ function abrirModalClienteNovo(){
   setVal('campo-nome-cliente', '');
   setVal('campo-whatsapp-cliente', '');
 
-  // ✅ básicos (subiram)
   setVal('campo-pessoa-contato','');
   setVal('campo-email-principal','');
 
-  // endereço
   setVal('campo-cep','');
   setVal('campo-logradouro','');
   setVal('campo-numero','');
@@ -298,13 +358,11 @@ function abrirModalClienteNovo(){
   setVal('campo-uf','');
   setCepHelp('');
 
-  // perfil
   setVal('campo-tipo-imovel','');
   setVal('campo-onde-conheceu','');
   setVal('campo-onde-outro','');
   syncOndeConheceuOutro();
 
-  // completos (sempre visível)
   limparCompletos();
   syncTipoSections();
 
@@ -318,7 +376,6 @@ function abrirModalClienteEditar(clienteFull){
 
   clienteEditandoId = clienteFull.id;
 
-  // básico
   setVal('campo-codigo-cliente', clienteFull.codigo || '');
 
   const dt = clienteFull.data_cadastro ? new Date(clienteFull.data_cadastro) : null;
@@ -335,11 +392,9 @@ function abrirModalClienteEditar(clienteFull){
   setVal('campo-nome-cliente', clienteFull.nome || '');
   setVal('campo-whatsapp-cliente', clienteFull.whatsapp || '');
 
-  // ✅ básicos (subiram)
   setVal('campo-pessoa-contato', clienteFull.pessoa_contato || '');
   setVal('campo-email-principal', clienteFull.email_principal || '');
 
-  // endereço
   setVal('campo-cep', clienteFull.cep || '');
   setVal('campo-logradouro', clienteFull.endereco_logradouro || '');
   setVal('campo-numero', clienteFull.endereco_numero || '');
@@ -348,17 +403,14 @@ function abrirModalClienteEditar(clienteFull){
   setVal('campo-uf', (clienteFull.uf || '').toUpperCase());
   setCepHelp('');
 
-  // perfil
   setVal('campo-tipo-imovel', clienteFull.tipo_imovel || '');
   setVal('campo-onde-conheceu', clienteFull.onde_conheceu || '');
   setVal('campo-onde-outro', clienteFull.onde_conheceu_outro || '');
   syncOndeConheceuOutro();
 
-  // completos
   setVal('campo-whatsapp-principal', clienteFull.whatsapp_principal || '');
   setVal('campo-end-pais', clienteFull.end_pais || 'BR');
 
-  // PJ
   setVal('campo-razao-social', clienteFull.razao_social || '');
   setVal('campo-cnpj', clienteFull.cnpj || '');
   setVal('campo-inscricao-estadual', clienteFull.inscricao_estadual || '');
@@ -366,19 +418,16 @@ function abrirModalClienteEditar(clienteFull){
   setVal('campo-responsavel-contratante', clienteFull.responsavel_contratante || '');
   setVal('campo-cpf-resp-admin', clienteFull.cpf_responsavel_administrador || '');
 
-  // PF
   setVal('campo-rg', clienteFull.rg || '');
   setVal('campo-data-nascimento', clienteFull.data_nascimento || '');
   setVal('campo-estado-civil', clienteFull.estado_civil || '');
   setVal('campo-profissao', clienteFull.profissao || '');
 
-  // cobrança / web
   setVal('campo-cep-cobranca', clienteFull.cep_cobranca || '');
   setVal('campo-home-page', clienteFull.home_page || '');
   redesToInputs(clienteFull.redes_sociais || null);
 
   syncTipoSections();
-
   abrirModal();
 }
 
@@ -386,18 +435,15 @@ function buildPayload(){
   const tipo = getVal('campo-tipo-cliente') || 'pf';
 
   return {
-    // básico
     codigo: getVal('campo-codigo-cliente'),
     tipo,
     nome: getVal('campo-nome-cliente'),
     whatsapp: getVal('campo-whatsapp-cliente'),
     data_cadastro: getVal('campo-data-cadastro') || null,
 
-    // ✅ básicos (subiram)
     pessoa_contato: getVal('campo-pessoa-contato'),
     email_principal: getVal('campo-email-principal'),
 
-    // endereço
     cep: getVal('campo-cep'),
     endereco_logradouro: getVal('campo-logradouro'),
     endereco_numero: getVal('campo-numero'),
@@ -405,16 +451,13 @@ function buildPayload(){
     cidade: getVal('campo-cidade'),
     uf: getVal('campo-uf'),
 
-    // perfil
     tipo_imovel: getVal('campo-tipo-imovel'),
     onde_conheceu: getVal('campo-onde-conheceu'),
     onde_conheceu_outro: getVal('campo-onde-outro'),
 
-    // completos
     whatsapp_principal: getVal('campo-whatsapp-principal'),
     end_pais: getVal('campo-end-pais') || 'BR',
 
-    // PJ
     razao_social: getVal('campo-razao-social'),
     cnpj: getVal('campo-cnpj'),
     inscricao_estadual: getVal('campo-inscricao-estadual'),
@@ -422,13 +465,11 @@ function buildPayload(){
     responsavel_contratante: getVal('campo-responsavel-contratante'),
     cpf_responsavel_administrador: getVal('campo-cpf-resp-admin'),
 
-    // PF
     rg: getVal('campo-rg'),
     data_nascimento: getVal('campo-data-nascimento') || null,
     estado_civil: getVal('campo-estado-civil'),
     profissao: getVal('campo-profissao'),
 
-    // Cobrança / web
     cep_cobranca: getVal('campo-cep-cobranca'),
     home_page: getVal('campo-home-page'),
     redes_sociais: redesFromInputs(),
@@ -439,15 +480,18 @@ async function salvarCliente(){
   const payload = buildPayload();
 
   if(!payload.nome){
-    alert('Preencha o nome do cliente.');
+    toast('Preencha o nome do cliente.', { error:true });
+    document.getElementById('campo-nome-cliente')?.focus();
     return;
   }
   if(!payload.tipo){
-    alert('Selecione o tipo de cliente.');
+    toast('Selecione o tipo de cliente.', { error:true });
+    document.getElementById('campo-tipo-cliente')?.focus();
     return;
   }
   if(payload.onde_conheceu === 'outro' && !payload.onde_conheceu_outro){
-    alert('Preencha o "Outro" em Onde conheceu.');
+    toast('Preencha o "Outro" em Onde conheceu.', { error:true });
+    document.getElementById('campo-onde-outro')?.focus();
     return;
   }
 
@@ -455,9 +499,10 @@ async function salvarCliente(){
     await salvarClienteNoServidor(payload, clienteEditandoId);
     await carregarClientes();
     fecharModal();
+    toast('Cliente salvo com sucesso.', { ms: 1800 });
   }catch(err){
     console.error('[Clientes] salvar erro:', err);
-    alert(err?.message || 'Erro ao salvar cliente no servidor.');
+    toast(err?.message || 'Erro ao salvar cliente no servidor.', { error:true, ms: 5000 });
   }
 }
 
@@ -465,14 +510,35 @@ async function salvarCliente(){
  * INIT
  * =======================*/
 document.addEventListener('DOMContentLoaded', async ()=>{
-  const backdrop = document.getElementById('modal-cliente-backdrop');
-  if(backdrop){ backdrop.hidden = true; backdrop.style.display='none'; }
+  // garante cliente modal fechado
+  const modalBackdrop = document.getElementById('modal-cliente-backdrop');
+  if(modalBackdrop){ modalBackdrop.hidden = true; modalBackdrop.style.display='none'; }
+
+  // setup confirm events
+  const confirmBackdrop = document.getElementById('orca-confirm-backdrop');
+  const btnX = document.getElementById('orca-confirm-close');
+  const btnCancel = document.getElementById('orca-confirm-cancel');
+  const btnOk = document.getElementById('orca-confirm-ok');
+
+  btnX?.addEventListener('click', ()=>closeConfirm(false));
+  btnCancel?.addEventListener('click', ()=>closeConfirm(false));
+  btnOk?.addEventListener('click', ()=>closeConfirm(true));
+  confirmBackdrop?.addEventListener('click', (e)=>{ if(e.target === confirmBackdrop) closeConfirm(false); });
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape'){
+      // fecha confirm se aberto
+      if(confirmBackdrop && !confirmBackdrop.hidden) closeConfirm(false);
+      // fecha modal cliente se aberto
+      if(modalBackdrop && !modalBackdrop.hidden) fecharModal();
+    }
+  });
 
   try{
     await carregarClientes();
   }catch(err){
     console.error('[Clientes] carregar erro:', err);
-    alert(err?.message || 'Erro ao carregar clientes.');
+    toast(err?.message || 'Erro ao carregar clientes.', { error:true, ms: 5000 });
   }
 
   document.getElementById('busca-clientes')?.addEventListener('input', renderTabelaClientes);
@@ -484,8 +550,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('btn-cancelar-cliente')?.addEventListener('click', fecharModal);
   document.getElementById('btn-salvar-cliente')?.addEventListener('click', salvarCliente);
 
-  backdrop?.addEventListener('click', (e)=>{ if(e.target===backdrop) fecharModal(); });
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') fecharModal(); });
+  modalBackdrop?.addEventListener('click', (e)=>{ if(e.target===modalBackdrop) fecharModal(); });
 
   document.getElementById('campo-onde-conheceu')?.addEventListener('change', syncOndeConheceuOutro);
   document.getElementById('campo-tipo-cliente')?.addEventListener('change', syncTipoSections);
@@ -527,18 +592,27 @@ document.addEventListener('DOMContentLoaded', async ()=>{
         abrirModalClienteEditar(full);
       }catch(err){
         console.error('[Clientes] obter/editar erro:', err);
-        alert(err?.message || 'Não foi possível abrir o cliente para edição.');
+        toast(err?.message || 'Não foi possível abrir o cliente para edição.', { error:true, ms: 5000 });
       }
       return;
     }
 
     if(action === 'excluir'){
-      if(confirm('Deseja realmente excluir este cliente?')){
+      const ok = await confirmDialog({
+        title: 'Excluir cliente',
+        message: 'Deseja realmente excluir este cliente?',
+        confirmText: 'Excluir',
+        cancelText: 'Cancelar',
+        danger: true,
+      });
+
+      if(ok){
         excluirClienteNoServidor(id)
           .then(()=>carregarClientes())
+          .then(()=>toast('Cliente excluído.', { ms: 1800 }))
           .catch(err=>{
             console.error('[Clientes] excluir erro:', err);
-            alert(err?.message || 'Erro ao excluir cliente.');
+            toast(err?.message || 'Erro ao excluir cliente.', { error:true, ms: 5000 });
           });
       }
     }

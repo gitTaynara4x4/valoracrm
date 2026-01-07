@@ -80,7 +80,7 @@
         </div>
       </section>
 
-      <!-- MODAL -->
+      <!-- MODAL FORNECEDOR -->
       <div class="orca-modal-backdrop" id="modal-fornecedor-backdrop" hidden>
         <div class="orca-modal" role="dialog" aria-modal="true" aria-labelledby="modal-fornecedor-titulo">
           <header class="orca-modal-header">
@@ -91,16 +91,12 @@
           </header>
 
           <div class="orca-modal-body">
-            <!-- SEM "Dados Básicos": abre tudo de uma vez (na sequência do PDF) -->
-
             <div class="orca-modal-grid">
-              <!-- Data Cadastro -->
               <div class="orca-field">
                 <label for="campo-data-cadastro">Data Cadastro</label>
                 <input type="date" id="campo-data-cadastro" readonly />
               </div>
 
-              <!-- Tipo Fornecedor (PF/PJ) -->
               <div class="orca-field">
                 <label for="campo-tipo-fornecedor">Tipo Fornecedor</label>
                 <select id="campo-tipo-fornecedor">
@@ -109,38 +105,32 @@
                 </select>
               </div>
 
-              <!-- Nome identificação -->
               <div class="orca-field orca-field--full">
                 <label for="campo-nome-fornecedor">Fornecedor (Nome identificação)</label>
                 <input type="text" id="campo-nome-fornecedor" placeholder="Ex.: Loja X / João" />
               </div>
 
-              <!-- Razão Social -->
               <div class="orca-field orca-field--full">
                 <label for="campo-razao-social">Razão Social</label>
                 <input type="text" id="campo-razao-social" />
               </div>
 
-              <!-- CNPJ -->
               <div class="orca-field">
                 <label for="campo-cnpj">CNPJ</label>
                 <input type="text" id="campo-cnpj" />
               </div>
 
-              <!-- IE -->
               <div class="orca-field">
                 <label for="campo-inscricao-estadual">Inscrição Estadual</label>
                 <input type="text" id="campo-inscricao-estadual" />
               </div>
 
-              <!-- IM -->
               <div class="orca-field">
                 <label for="campo-inscricao-municipal">Inscrição Municipal</label>
                 <input type="text" id="campo-inscricao-municipal" />
               </div>
             </div>
 
-            <!-- Endereço - CEP (mantém auto) -->
             <div class="orca-modal-section">
               <div class="orca-modal-section-title">
                 <strong>Endereço - CEP</strong>
@@ -181,7 +171,6 @@
               </div>
             </div>
 
-            <!-- Contatos (sequência do PDF) -->
             <div class="orca-modal-grid">
               <div class="orca-field orca-field--full">
                 <label for="campo-pessoa-contato">Pessoa Contato</label>
@@ -219,7 +208,6 @@
               </div>
             </div>
 
-            <!-- Código de Cadastro Fornecedor (sequência do PDF) -->
             <div class="orca-modal-section">
               <div class="orca-modal-section-title">
                 <strong>Código de Cadastro Fornecedor</strong>
@@ -254,7 +242,6 @@
               </div>
             </div>
 
-            <!-- Limite de Créditos -->
             <div class="orca-modal-grid">
               <div class="orca-field">
                 <label for="campo-limite-creditos">Limite de Créditos</label>
@@ -267,7 +254,6 @@
               </div>
             </div>
 
-            <!-- Linha de Produtos -->
             <div class="orca-modal-section">
               <div class="orca-modal-section-title">
                 <strong>Linha de Produtos</strong>
@@ -299,6 +285,44 @@
           </footer>
         </div>
       </div>
+
+      <!-- ===== MODAL AVISO (substitui alert) ===== -->
+      <div class="orca-dialog-backdrop" id="orca-dialog-backdrop" hidden>
+        <div class="orca-dialog" role="dialog" aria-modal="true" aria-labelledby="orca-dialog-title">
+          <header class="orca-dialog-header">
+            <h3 id="orca-dialog-title">Aviso</h3>
+            <button class="orca-dialog-close" type="button" id="orca-dialog-close" aria-label="Fechar">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </header>
+
+          <div class="orca-dialog-body" id="orca-dialog-body"></div>
+
+          <footer class="orca-dialog-footer">
+            <button class="btn-primary" type="button" id="orca-dialog-ok">OK</button>
+          </footer>
+        </div>
+      </div>
+
+      <!-- ===== MODAL CONFIRMAR (substitui confirm) ===== -->
+      <div class="orca-confirm-backdrop" id="orca-confirm-backdrop" hidden>
+        <div class="orca-confirm" role="dialog" aria-modal="true" aria-labelledby="orca-confirm-title">
+          <header class="orca-confirm-header">
+            <h3 id="orca-confirm-title">Confirmar</h3>
+            <button class="orca-confirm-close" type="button" id="orca-confirm-close" aria-label="Fechar">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </header>
+
+          <div class="orca-confirm-body" id="orca-confirm-body"></div>
+
+          <footer class="orca-confirm-footer">
+            <button class="btn-secondary" type="button" id="orca-confirm-cancel">Cancelar</button>
+            <button class="btn-primary" type="button" id="orca-confirm-ok">OK</button>
+          </footer>
+        </div>
+      </div>
+
     </main>
   </div>
 </body>
