@@ -163,6 +163,28 @@ button,input,select,textarea{ font-family: inherit; }
   cursor:not-allowed;
 }
 
+/* ===== Campo dinheiro (prefixo R$ quando preenchido) ===== */
+.orca-input-money{
+  position:relative;
+}
+.orca-input-money .orca-money-prefix{
+  position:absolute;
+  left:12px;
+  top:50%;
+  transform:translateY(-50%);
+  color:var(--text-muted);
+  font-weight:700;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .12s ease;
+}
+.orca-input-money.has-value .orca-money-prefix{
+  opacity:1;
+}
+.orca-input-money input{
+  padding-left:44px; /* espaço do R$ */
+}
+
 .orca-main-list{ margin-top:18px; flex:1; min-width:0; }
 .orca-table-wrapper{
   background:var(--card-bg);
@@ -519,4 +541,81 @@ body.modal-open{ overflow:hidden; }
     width:100%;
     justify-content:center;
   }
+}
+/* ===== Linha de Produtos (Fornecedor) ===== */
+.orca-linha-produtos-top{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.btn-mini{
+  padding:7px 12px;
+  font-size:.82rem;
+  white-space:nowrap;
+}
+
+.orca-checklist{
+  margin-top:10px;
+  padding:10px;
+  border:1px solid #3a3a3a;
+  border-radius:14px;
+  background:#1f1f1f;
+  max-height:240px;
+  overflow:auto;
+
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.orca-checklist-empty{
+  color: var(--text-muted);
+  font-size:.9rem;
+  padding:8px;
+}
+
+.orca-checkitem{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:8px 10px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.06);
+  background:rgba(255,255,255,.03);
+  cursor:pointer;
+}
+
+.orca-checkitem:hover{
+  background:rgba(255,255,255,.05);
+}
+
+.orca-checkitem input{
+  margin-top:2px;
+  width:16px;
+  height:16px;
+}
+
+.orca-checktext{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.orca-prod-nome{
+  font-size:.92rem;
+  color: var(--text-main);
+  line-height:1.2;
+}
+
+.orca-prod-meta{
+  font-size:.78rem;
+  color: var(--text-muted);
+}
+
+.orca-hint{
+  display:block;
+  margin-top:8px;
+  color: var(--text-muted);
+  font-size:.85rem;
 }

@@ -4,6 +4,318 @@ let fornecedorEditandoId = null;
 
 function onlyDigits(s){ return String(s||'').replace(/\D+/g,''); }
 
+// =========================
+// Linha de Produtos (checkbox) - pega TODOS produtos cadastrados
+// =========================
+const API_PRODUTOS = '/api/produtos';
+
+// tenta achar seus produtos no localStorage (fallback), em várias chaves possíveis
+const PRODUTOS_STORAGE_KEYS = [
+  'orcapro_produtos_v4',
+  'orcapro_produtos_v3',
+  'orcapro_produtos_v2',
+  'orcapro_produtos',
+];
+
+let _cacheProdutosAll = null;
+let _linhaProdutosSel = new Set(); // ids selecionados
+
+function _loadProdutosFromLocalStorage(){
+  for(const key of PRODUTOS_STORAGE_KEYS){
+    try{
+      const raw = localStorage.getItem(key);
+      if(!raw) continue;
+      const parsed = JSON.parse(raw);
+      if(Array.isArray(parsed)) return parsed;
+      if(Array.isArray(parsed?.items)) return parsed.items;
+    }catch(_e){}
+  }
+  return [];
+}
+
+function _normalizeProdutosResponse(data){
+  if(Array.isArray(data)) return data;
+  if(Array.isArray(data?.items)) return data.items;
+  return [];
+}
+
+function _produtoNome(p){
+  const n = String(p?.nome_produto || p?.nome_generico || '').trim();
+  return n || `Produto #${p?.id ?? ''}`.trim();
+}
+
+function _produtoMeta(p){
+  const parts = [];
+  if(p?.modelo) parts.push(String(p.modelo));
+  if(p?.fabricante) parts.push(String(p.fabricante));
+  return parts.join(' — ');
+}
+
+async function _carregarProdutosAll(){
+  if(_cacheProdutosAll) return _cacheProdutosAll;
+
+  // tenta API primeiro
+  try{
+    const resp = await fetch(`${API_PRODUTOS}?limit=2000&offset=0`);
+    if(resp.ok){
+      const data = await resp.json();
+      const arr = _normalizeProdutosResponse(data);
+      _cacheProdutosAll = Array.isArray(arr) ? arr : [];
+      return _cacheProdutosAll;
+    }
+  }catch(_e){}
+
+  // fallback localStorage
+  _cacheProdutosAll = _loadProdutosFromLocalStorage();
+  return _cacheProdutosAll;
+}
+
+function _updateCountLinhaProdutos(){
+  const el = document.getElementById('count-produtos-fornecedor');
+  if(el) el.textContent = String(_linhaProdutosSel.size);
+}
+
+function _renderLinhaProdutosChecklist(produtos){
+  const box = document.getElementById('lista-produtos-fornecedor');
+  if(!box) return;
+
+  box.innerHTML = '';
+
+  if(!produtos || !produtos.length){
+    box.innerHTML = `<div class="orca-checklist-empty">Nenhum produto cadastrado ainda.</div>`;
+    _updateCountLinhaProdutos();
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+
+  for(const p of produtos){
+    const id = Number(p?.id);
+    if(!Number.isFinite(id)) continue;
+
+    const nome = _produtoNome(p);
+    const meta = _produtoMeta(p);
+
+    const label = document.createElement('label');
+    label.className = 'orca-checkitem';
+
+    label.innerHTML = `
+      <input type="checkbox" value="${id}">
+      <div class="orca-checktext">
+        <div class="orca-prod-nome">${nome}</div>
+        ${meta ? `<div class="orca-prod-meta">${meta}</div>` : ``}
+      </div>
+    `;
+
+    const chk = label.querySelector('input');
+    chk.checked = _linhaProdutosSel.has(id);
+
+    chk.addEventListener('change', ()=>{
+      if(chk.checked) _linhaProdutosSel.add(id);
+      else _linhaProdutosSel.delete(id);
+      _updateCountLinhaProdutos();
+    });
+
+    frag.appendChild(label);
+  }
+
+  box.appendChild(frag);
+  _updateCountLinhaProdutos();
+}
+
+function _wireLinhaProdutosBusca(produtosAll){
+  const input = document.getElementById('busca-produtos-fornecedor');
+  if(!input) return;
+
+  input.value = '';
+  input.oninput = ()=>{
+    const q = String(input.value || '').toLowerCase().trim();
+
+    if(!q){
+      _renderLinhaProdutosChecklist(produtosAll);
+      return;
+    }
+
+    const filtrados = produtosAll.filter(p=>{
+      const alvo = `${_produtoNome(p)} ${p?.modelo||''} ${p?.fabricante||''}`.toLowerCase();
+      return alvo.includes(q);
+    });
+
+    _renderLinhaProdutosChecklist(filtrados);
+  };
+}
+
+function _wireLinhaProdutosBotoes(produtosAll){
+  const btnAll = document.getElementById('btn-selecionar-todos-produtos');
+  const btnClear = document.getElementById('btn-limpar-produtos');
+  const input = document.getElementById('busca-produtos-fornecedor');
+
+  if(btnAll){
+    btnAll.onclick = ()=>{
+      for(const p of produtosAll){
+        const id = Number(p?.id);
+        if(Number.isFinite(id)) _linhaProdutosSel.add(id);
+      }
+      if(input) input.value = '';
+      _renderLinhaProdutosChecklist(produtosAll);
+    };
+  }
+
+  if(btnClear){
+    btnClear.onclick = ()=>{
+      _linhaProdutosSel.clear();
+      if(input) input.value = '';
+      _renderLinhaProdutosChecklist(produtosAll);
+    };
+  }
+}
+
+// chamar ao abrir modal (novo/editar)
+async function initLinhaProdutosFornecedor(idsSelecionados = []){
+  _linhaProdutosSel = new Set(
+    (idsSelecionados || []).map(n=>Number(n)).filter(Number.isFinite)
+  );
+
+  const produtosAll = await _carregarProdutosAll();
+  _renderLinhaProdutosChecklist(produtosAll);
+  _wireLinhaProdutosBusca(produtosAll);
+  _wireLinhaProdutosBotoes(produtosAll);
+}
+
+// pegar ids para salvar
+function coletarLinhaProdutosIds(){
+  return Array.from(_linhaProdutosSel);
+}
+
+// =========================
+// Categorias do fornecedor (select + adicionar)
+// =========================
+const STORAGE_KEY_CATEGORIAS = 'orcapro_fornecedor_categorias_v1';
+
+const DEFAULT_CATEGORIAS = [
+  'Fabricante',
+  'Distribuidora',
+  'Importadora',
+  'Prestador de Serviços',
+  'Serviços Públicos',
+  'Profissional Autônomo',
+];
+
+function uniqStrings(arr){
+  const out = [];
+  const seen = new Set();
+  for(const v of (arr || [])){
+    const s = String(v ?? '').trim();
+    if(!s) continue;
+    const key = s.toLowerCase();
+    if(seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  return out;
+}
+
+function loadCategoriasCustom(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY_CATEGORIAS);
+    if(!raw) return [];
+    const parsed = JSON.parse(raw);
+    if(!Array.isArray(parsed)) return [];
+    return uniqStrings(parsed);
+  }catch(_e){
+    return [];
+  }
+}
+
+function saveCategoriasCustom(list){
+  try{
+    localStorage.setItem(STORAGE_KEY_CATEGORIAS, JSON.stringify(uniqStrings(list)));
+  }catch(_e){}
+}
+
+function addCategoriaCustom(value){
+  const v = String(value ?? '').trim();
+  if(!v) return;
+  const list = loadCategoriasCustom();
+  list.push(v);
+  saveCategoriasCustom(list);
+}
+
+function getCategoriasAll(){
+  return uniqStrings([...DEFAULT_CATEGORIAS, ...loadCategoriasCustom()]);
+}
+
+// monta/recarrega o select (e já seleciona um valor se quiser)
+function initCategoriaSelect(selectedValue = ''){
+  const sel = document.getElementById('campo-tipo-categoria');
+  if(!sel) return;
+
+  const vSel = String(selectedValue ?? '').trim();
+
+  // se veio valor do servidor que não existe, salva como custom
+  if(vSel){
+    const allLower = getCategoriasAll().map(x => x.toLowerCase());
+    if(!allLower.includes(vSel.toLowerCase())){
+      addCategoriaCustom(vSel);
+    }
+  }
+
+  const categorias = getCategoriasAll();
+
+  sel.innerHTML = '';
+
+  const opt0 = document.createElement('option');
+  opt0.value = '';
+  opt0.textContent = 'Selecione...';
+  sel.appendChild(opt0);
+
+  for(const c of categorias){
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    sel.appendChild(opt);
+  }
+
+  const optAdd = document.createElement('option');
+  optAdd.value = '__add__';
+  optAdd.textContent = '➕ Adicionar...';
+  sel.appendChild(optAdd);
+
+  sel.value = vSel || '';
+}
+
+let _categoriaPrev = '';
+
+function rememberCategoriaPrev(){
+  const sel = document.getElementById('campo-tipo-categoria');
+  if(!sel) return;
+  _categoriaPrev = sel.value;
+}
+
+// quando o usuário escolhe "➕ Adicionar..."
+async function handleCategoriaChange(){
+  const sel = document.getElementById('campo-tipo-categoria');
+  if(!sel) return;
+  if(sel.value !== '__add__') return;
+
+  const novo = window.prompt('Digite a nova categoria do fornecedor:');
+  const v = String(novo ?? '').trim();
+
+  if(!v){
+    sel.value = _categoriaPrev || '';
+    return;
+  }
+
+  if(v.length > 60){
+    await orcaAlert('Categoria muito longa. Use até 60 caracteres.');
+    sel.value = _categoriaPrev || '';
+    return;
+  }
+
+  addCategoriaCustom(v);
+  initCategoriaSelect(v); // recarrega e já seleciona a nova
+}
+
 function todayISODate(){
   const d=new Date();
   const yyyy=d.getFullYear();
@@ -22,6 +334,46 @@ function formatTipo(tipo){
   if(tipo==='pf') return 'Física';
   if(tipo==='pj') return 'Jurídica';
   return '-';
+}
+
+/* =========================
+   Money helpers (R$ prefix)
+   ========================= */
+function parseBRMoneyToDot(v){
+  if(!v) return '';
+  let s = String(v);
+
+  // remove "R$", espaços e tudo que não for dígito, vírgula, ponto ou sinal
+  s = s.replace(/[^\d,.\-]/g, '');
+
+  // se tiver vírgula, ela vira decimal e pontos viram milhar (remove)
+  if(s.includes(',')){
+    s = s.replace(/\./g, '').replace(',', '.');
+  }
+
+  return s;
+}
+
+function formatBRMoney(v){
+  if(v == null || v === '') return '';
+  const n = Number(String(v).replace(',', '.'));
+  if(!Number.isFinite(n)) return String(v);
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function setupMoneyPrefix(inputId){
+  const input = document.getElementById(inputId);
+  if(!input) return;
+
+  const wrap = input.closest('.orca-input-money');
+  if(!wrap) return;
+
+  const apply = () => {
+    wrap.classList.toggle('has-value', !!String(input.value || '').trim());
+  };
+
+  input.addEventListener('input', apply);
+  apply();
 }
 
 /* =========================
@@ -261,7 +613,7 @@ function getVal(id){
   return (document.getElementById(id)?.value ?? '').trim();
 }
 
-function abrirModalFornecedorNovo(){
+async function abrirModalFornecedorNovo(){
   document.getElementById('modal-fornecedor-titulo').textContent = 'Novo fornecedor';
   fornecedorEditandoId = null;
 
@@ -293,24 +645,32 @@ function abrirModalFornecedorNovo(){
   setVal('campo-redes-sociais','');
 
   setVal('campo-codigo-fornecedor', `FOR-${String(proximoId).padStart(4,'0')}`);
-  setVal('campo-tipo-categoria','');
+
+  // categoria: recarrega lista (default + custom)
+  initCategoriaSelect('');
 
   setVal('campo-contato-representante','');
   setVal('campo-rep-telefone-whatsapp','');
   setVal('campo-rep-telefone-ramal','');
 
   setVal('campo-limite-creditos','');
+  document.getElementById('campo-limite-creditos')?.dispatchEvent(new Event('input', { bubbles:true }));
+
   setVal('campo-opcao-transportadoras','');
 
+  // texto antigo (observações)
   setVal('campo-linha-produtos','');
   setVal('campo-contato-rma','');
   setVal('campo-informacoes-rma','');
+
+  // ✅ NOVO: inicializa checklist vazio
+  await initLinhaProdutosFornecedor([]);
 
   abrirModal();
   setTimeout(()=>{ document.getElementById('campo-nome-fornecedor')?.focus(); }, 0);
 }
 
-function abrirModalFornecedorEditar(full){
+async function abrirModalFornecedorEditar(full){
   document.getElementById('modal-fornecedor-titulo').textContent = 'Editar fornecedor';
   fornecedorEditandoId = full.id;
 
@@ -347,18 +707,26 @@ function abrirModalFornecedorEditar(full){
   setVal('campo-redes-sociais', redesTxt);
 
   setVal('campo-codigo-fornecedor', full.codigo || '');
-  setVal('campo-tipo-categoria', full.tipo_categoria || '');
+
+  // categoria
+  initCategoriaSelect(full.tipo_categoria || '');
 
   setVal('campo-contato-representante', full.contato_representante_comercial || '');
   setVal('campo-rep-telefone-whatsapp', full.representante_telefone_whatsapp || '');
   setVal('campo-rep-telefone-ramal', full.representante_telefone_ramal || '');
 
-  setVal('campo-limite-creditos', (full.limite_creditos ?? ''));
+  setVal('campo-limite-creditos', formatBRMoney(full.limite_creditos ?? ''));
+  document.getElementById('campo-limite-creditos')?.dispatchEvent(new Event('input', { bubbles:true }));
+
   setVal('campo-opcao-transportadoras', full.opcao_transportadoras_fretes || '');
 
+  // texto antigo (observações)
   setVal('campo-linha-produtos', full.linha_produtos || '');
   setVal('campo-contato-rma', full.contato_rma || '');
   setVal('campo-informacoes-rma', full.informacoes_rma || '');
+
+  // ✅ NOVO: inicializa checklist com os IDs que vierem do backend
+  await initLinhaProdutosFornecedor(full.linha_produtos_ids || []);
 
   abrirModal();
 }
@@ -368,7 +736,7 @@ function buildPayload(){
   const redes = redesTexto ? { texto: redesTexto } : null;
 
   const limite = getVal('campo-limite-creditos');
-  const limiteNorm = limite ? limite.replace(',', '.') : '';
+  const limiteNorm = parseBRMoneyToDot(limite);
 
   return {
     data_cadastro: getVal('campo-data-cadastro') || null,
@@ -406,6 +774,10 @@ function buildPayload(){
     limite_creditos: limiteNorm ? limiteNorm : null,
     opcao_transportadoras_fretes: getVal('campo-opcao-transportadoras'),
 
+    // ✅ NOVO: lista de IDs marcados
+    linha_produtos_ids: coletarLinhaProdutosIds(),
+
+    // mantido: observações antigas (se quiser)
     linha_produtos: getVal('campo-linha-produtos'),
     contato_rma: getVal('campo-contato-rma'),
     informacoes_rma: getVal('campo-informacoes-rma'),
@@ -413,7 +785,7 @@ function buildPayload(){
 }
 
 async function salvarFornecedor(){
-  const payload = buildPayload();
+  let payload = buildPayload();
 
   if(!payload.nome){
     await orcaAlert('Preencha o nome do fornecedor.');
@@ -425,8 +797,36 @@ async function salvarFornecedor(){
     await carregarFornecedores();
     fecharModal();
   }catch(err){
+    // fallback: se backend ainda não aceita linha_produtos_ids, tenta salvar sem ele
+    const msg = String(err?.message || '');
+    const m = msg.toLowerCase();
+
+    const pareceCampoDesconhecido =
+      m.includes('linha_produtos_ids') &&
+      (m.includes('extra') || m.includes('not permitted') || m.includes('unknown') || m.includes('field') || m.includes('invalid'));
+
+    if(pareceCampoDesconhecido){
+      try{
+        const ids = Array.isArray(payload.linha_produtos_ids) ? payload.linha_produtos_ids : [];
+        payload = { ...payload };
+        delete payload.linha_produtos_ids;
+
+        // guarda no texto como "1,2,3" só pra não perder
+        payload.linha_produtos = (ids || []).join(',');
+
+        await salvarFornecedorNoServidor(payload, fornecedorEditandoId);
+        await carregarFornecedores();
+        fecharModal();
+        return;
+      }catch(err2){
+        console.error(err2);
+        await orcaAlert(err2?.message || 'Erro ao salvar fornecedor.');
+        return;
+      }
+    }
+
     console.error(err);
-    await orcaAlert(err?.message || 'Erro ao salvar fornecedor.');
+    await orcaAlert(msg || 'Erro ao salvar fornecedor.');
   }
 }
 
@@ -439,7 +839,17 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('orca-dialog-backdrop')?.setAttribute('hidden','');
   document.getElementById('orca-confirm-backdrop')?.setAttribute('hidden','');
 
-  // listeners do dialog (alert)
+  // ativa o prefixo R$
+  setupMoneyPrefix('campo-limite-creditos');
+
+  // categoria
+  initCategoriaSelect('');
+  const selCat = document.getElementById('campo-tipo-categoria');
+  selCat?.addEventListener('focus', rememberCategoriaPrev);
+  selCat?.addEventListener('mousedown', rememberCategoriaPrev);
+  selCat?.addEventListener('change', handleCategoriaChange);
+
+  // listeners do dialog
   document.getElementById('orca-dialog-ok')?.addEventListener('click', closeOrcaAlert);
   document.getElementById('orca-dialog-close')?.addEventListener('click', closeOrcaAlert);
   document.getElementById('orca-dialog-backdrop')?.addEventListener('click', (e)=>{
@@ -453,6 +863,9 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('orca-confirm-backdrop')?.addEventListener('click', (e)=>{
     if(e.target?.id === 'orca-confirm-backdrop') closeOrcaConfirm(false);
   });
+
+  // opcional: pré-carregar produtos pra abrir modal mais rápido
+  _carregarProdutosAll().catch(()=>{});
 
   try{
     await carregarFornecedores();
@@ -512,7 +925,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     if(action === 'editar'){
       try{
         const full = await obterFornecedorNoServidor(id);
-        abrirModalFornecedorEditar(full);
+        await abrirModalFornecedorEditar(full);
       }catch(err){
         console.error(err);
         await orcaAlert(err?.message || 'Não foi possível abrir para editar.');

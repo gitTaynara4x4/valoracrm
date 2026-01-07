@@ -216,13 +216,21 @@
 
               <div class="orca-modal-grid">
                 <div class="orca-field">
-                  <label for="campo-codigo-fornecedor">Código</label>
-                  <input type="text" id="campo-codigo-fornecedor" placeholder="FOR-0001" />
+                  <labelch3.6?!### Não mexi
                 </div>
 
                 <div class="orca-field orca-field--full">
-                  <label for="campo-tipo-categoria">Tipo Fornecedor</label>
-                  <input type="text" id="campo-tipo-categoria" placeholder="Ex.: Distribuidor, Fabricante, Prestador..." />
+                  <label for="campo-tipo-categoria">Categoria do Fornecedor</label>
+                  <select id="campo-tipo-categoria">
+                    <option value="">Selecione...</option>
+                    <option value="Fabricante">Fabricante</option>
+                    <option value="Distribuidora">Distribuidora</option>
+                    <option value="Importadora">Importadora</option>
+                    <option value="Prestador de Serviços">Prestador de Serviços</option>
+                    <option value="Serviços Públicos">Serviços Públicos</option>
+                    <option value="Profissional Autônomo">Profissional Autônomo</option>
+                    <option value="__add__">➕ Adicionar...</option>
+                  </select>
                 </div>
 
                 <div class="orca-field orca-field--full">
@@ -245,7 +253,17 @@
             <div class="orca-modal-grid">
               <div class="orca-field">
                 <label for="campo-limite-creditos">Limite de Créditos</label>
-                <input type="number" id="campo-limite-creditos" step="0.01" placeholder="0,00" />
+
+                <div class="orca-input-money">
+                  <span class="orca-money-prefix">R$</span>
+                  <input
+                    type="text"
+                    id="campo-limite-creditos"
+                    inputmode="decimal"
+                    placeholder="0,00"
+                    autocomplete="off"
+                  />
+                </div>
               </div>
 
               <div class="orca-field orca-field--full">
@@ -257,12 +275,44 @@
             <div class="orca-modal-section">
               <div class="orca-modal-section-title">
                 <strong>Linha de Produtos</strong>
-                <span></span>
+                <span>Marque os produtos que este fornecedor trabalha</span>
               </div>
 
               <div class="orca-modal-grid">
+                <!-- ✅ NOVO: CHECKLIST DE PRODUTOS -->
                 <div class="orca-field orca-field--full">
-                  <label for="campo-linha-produtos">Linha de Produtos</label>
+                  <label for="busca-produtos-fornecedor">Produtos cadastrados (ticável)</label>
+
+                  <div class="orca-linha-produtos-top">
+                    <div class="orca-input-icon" style="flex:1">
+                      <i class="fa-solid fa-magnifying-glass"></i>
+                      <input
+                        id="busca-produtos-fornecedor"
+                        type="text"
+                        placeholder="Buscar produto..."
+                        autocomplete="off"
+                      />
+                    </div>
+
+                    <button type="button" class="btn-secondary btn-mini" id="btn-selecionar-todos-produtos">
+                      Selecionar tudo
+                    </button>
+
+                    <button type="button" class="btn-secondary btn-mini" id="btn-limpar-produtos">
+                      Limpar
+                    </button>
+                  </div>
+
+                  <div id="lista-produtos-fornecedor" class="orca-checklist"></div>
+
+                  <small class="orca-hint">
+                    <b id="count-produtos-fornecedor">0</b> selecionado(s)
+                  </small>
+                </div>
+
+                <!-- ✅ MANTIDO: texto antigo (opcional) -->
+                <div class="orca-field orca-field--full">
+                  <label for="campo-linha-produtos">Observações da Linha (opcional)</label>
                   <textarea id="campo-linha-produtos" rows="3" placeholder="Descreva a linha / categorias / marcas"></textarea>
                 </div>
 

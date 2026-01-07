@@ -15,6 +15,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    text,
     func,
 )
 from sqlalchemy import Date 
@@ -178,7 +179,7 @@ class Fornecedor(Base):
     representante_telefone_ramal: Optional[str] = Column(String(20))
 
     limite_creditos: Optional[Decimal] = Column(Numeric(12, 2))
-
+    linha_produtos_ids = Column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
     opcao_transportadoras_fretes: Optional[str] = Column(Text)
 
     linha_produtos: Optional[str] = Column(Text)
