@@ -1,13 +1,11 @@
 # backend/models.py
 from __future__ import annotations
-
 from datetime import datetime, date
 from decimal import Decimal
 from typing import List, Optional
-
 from sqlalchemy import (
     BigInteger,
-    Boolean,
+    Boolean, 
     Column,
     Date,
     DateTime,
@@ -19,9 +17,9 @@ from sqlalchemy import (
     Text,
     func,
 )
+from sqlalchemy import Date 
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
-
 from backend.database import Base
 
 
@@ -30,7 +28,7 @@ from backend.database import Base
 # =========================================================
 class Cliente(Base):
     __tablename__ = "clientes"
-    __allow_unmapped__ = True  # <- SQLAlchemy 2.x: ignora type hints "antigos"
+    __allow_unmapped__ = True  # SQLAlchemy 2.x: ignora type hints "antigos"
 
     id: int = Column(BigInteger, primary_key=True, index=True)
 
@@ -79,7 +77,7 @@ class Cliente(Base):
     data_nascimento: Optional[date] = Column(Date)
     estado_civil: Optional[str] = Column(String(30))
     profissao: Optional[str] = Column(String(80))
-
+    responsavel_contratante = Column(Text) 
     # Contato principal
     whatsapp_principal: Optional[str] = Column(String(20))
     email_principal: Optional[str] = Column(Text)
@@ -170,7 +168,22 @@ class Fornecedor(Base):
     # Web / redes
     home_page: Optional[str] = Column(Text)
     redes_sociais = Column(JSONB)
+    telefone_pabx: Optional[str] = Column(String(20))
+    telefone: Optional[str] = Column(String(20))
 
+    tipo_categoria: Optional[str] = Column(String(80))
+
+    contato_representante_comercial: Optional[str] = Column(Text)
+    representante_telefone_whatsapp: Optional[str] = Column(String(20))
+    representante_telefone_ramal: Optional[str] = Column(String(20))
+
+    limite_creditos: Optional[Decimal] = Column(Numeric(12, 2))
+
+    opcao_transportadoras_fretes: Optional[str] = Column(Text)
+
+    linha_produtos: Optional[str] = Column(Text)
+    contato_rma: Optional[str] = Column(Text)
+    informacoes_rma: Optional[str] = Column(Text)
     def __repr__(self) -> str:
         return (
             f"<Fornecedor id={self.id} codigo={self.codigo_cadastro_fornecedor!r} "
@@ -183,32 +196,50 @@ class Fornecedor(Base):
 # =========================================================
 class Produto(Base):
     __tablename__ = "produtos"
-    __allow_unmapped__ = True
+    __allow_unmapped__ = True  # SQLAlchemy 2.x: ignora type hints "antigos"
 
     id: int = Column(BigInteger, primary_key=True, index=True)
-    codigo: str = Column(String(30), nullable=False, unique=True)
-    descricao: str = Column(Text, nullable=False)
-    fabricante: Optional[str] = Column(String(100))
-    tipo: str = Column(String(20), nullable=False)  # 'equipamento', 'servico', 'kit'
 
-    custo: Optional[Decimal] = Column(Numeric(12, 2))
-    preco_venda: Optional[Decimal] = Column(Numeric(12, 2))
-
-    ativo: bool = Column(Boolean, nullable=False, server_default="true")
-
-    criado_em: datetime = Column(
+    data_cadastro: datetime = Column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
     )
-    atualizado_em: datetime = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-    )
 
-    # Relação com itens de proposta
+    cod_ref_id: Optional[str] = Column(String(50), nullable=True)
+    codigo_barras: Optional[str] = Column(String(50), nullable=True)
+
+    nome_generico: Optional[str] = Column(String(200), nullable=True)
+    nome_produto: Optional[str] = Column(Text, nullable=True)
+
+    modelo: Optional[str] = Column(String(100), nullable=True)
+    cod_ref_fabric: Optional[str] = Column(String(50), nullable=True)
+    origem: Optional[str] = Column(String(30), nullable=True)
+    status_atual: Optional[int] = Column(SmallInteger, nullable=True)   # 1..4
+    tipo_mercado: Optional[int] = Column(SmallInteger, nullable=True)   # 1..2
+    utilizacao: Optional[int] = Column(SmallInteger, nullable=True)     # 1..4
+    tipo_material: Optional[int] = Column(SmallInteger, nullable=True)  # 1..3
+    fabricante = Column(String(80), nullable=True)
+
+    # SITUAÇÃO
+    status_atual = Column(SmallInteger, nullable=True)   # 1..4
+    tipo_mercado = Column(SmallInteger, nullable=True)   # 1..2
+    utilizacao = Column(SmallInteger, nullable=True)     # 1..4
+    tipo_material = Column(SmallInteger, nullable=True)  # 1..3
+
+    # CLASSIFICAÇÃO (novos)
+    prod_controlado = Column(Boolean, nullable=True)
+    segmentos = Column(String(120), nullable=True)
+    tipo_sistema = Column(String(120), nullable=True)
+    classe = Column(String(120), nullable=True)
+    categorias = Column(String(120), nullable=True)
+    subcategoria = Column(String(120), nullable=True)
+    fornecedor = Column(String(120), nullable=True)
+    ultima_compra = Column(Date, nullable=True)
+
+
+    
+    # 🔥 FIX do erro: PropostaItem.back_populates="itens" exige Produto.itens
     itens: List["PropostaItem"] = relationship(
         "PropostaItem",
         back_populates="produto",
@@ -216,7 +247,7 @@ class Produto(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Produto id={self.id} codigo={self.codigo!r} tipo={self.tipo!r}>"
+        return f"<Produto id={self.id} nome={self.nome_produto!r} modelo={self.modelo!r}>"
 
 
 # =========================================================
@@ -231,7 +262,7 @@ class Proposta(Base):
     # Identificador human-readable
     numero: str = Column(String(30), nullable=False, unique=True)  # ex: PROP-0001
 
-    # Ligação com cliente (pode ser nulo se você permitir proposta sem cadastro)
+    # Ligação com cliente
     cliente_id: Optional[int] = Column(
         BigInteger,
         ForeignKey("clientes.id", ondelete="SET NULL"),

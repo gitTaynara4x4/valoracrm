@@ -87,7 +87,7 @@
 
           <div class="orca-modal-body">
 
-            <!-- ====== CAMPOS BÁSICOS (NOVO CLIENTE) ====== -->
+            <!-- ====== DADOS BÁSICOS ====== -->
             <div class="orca-modal-grid">
               <div class="orca-field">
                 <label for="campo-codigo-cliente">Código</label>
@@ -116,9 +116,21 @@
                 <label for="campo-whatsapp-cliente">Telefone Contato (WhatsApp)</label>
                 <input type="text" id="campo-whatsapp-cliente" placeholder="(DDD) 9XXXX-XXXX" inputmode="tel" />
               </div>
+
+              <!-- ✅ SUBIU PARA DADOS BÁSICOS -->
+              <div class="orca-field">
+                <label for="campo-pessoa-contato">Pessoa contato</label>
+                <input type="text" id="campo-pessoa-contato" placeholder="Nome do contato" />
+              </div>
+
+              <!-- ✅ SUBIU PARA DADOS BÁSICOS -->
+              <div class="orca-field">
+                <label for="campo-email-principal">E-mail principal</label>
+                <input type="text" id="campo-email-principal" placeholder="email@..." inputmode="email" />
+              </div>
             </div>
 
-            <!-- ENDEREÇO (básico) -->
+            <!-- ENDEREÇO -->
             <div class="orca-modal-section">
               <div class="orca-modal-section-title">
                 <strong>Endereço</strong>
@@ -193,34 +205,24 @@
               </div>
             </div>
 
-            <!-- ====== CAMPOS AVANÇADOS (SÓ NO EDITAR) ====== -->
-            <div class="orca-advanced" id="orca-advanced-fields" hidden>
+            <!-- ====== DADOS COMPLETOS (SEMPRE VISÍVEL) ====== -->
+            <div class="orca-advanced" id="orca-advanced-fields">
               <div class="orca-advanced-head">
                 <div class="orca-advanced-title">
-                  <i class="fa-solid fa-sliders"></i>
-                  <strong>Campos avançados (Editar)</strong>
+                  <i class="fa-solid fa-file-lines"></i>
+                  <strong>Dados completos</strong>
                 </div>
-                <span class="orca-advanced-sub">Aparecem automaticamente quando você edita</span>
+                <span class="orca-advanced-sub">Preencha apenas o que fizer sentido</span>
               </div>
 
-              <!-- Contato -->
+              <!-- Contato (extra) -->
               <div class="orca-modal-section">
                 <div class="orca-modal-section-title">
-                  <strong>Contato</strong>
-                  <span>Dados adicionais</span>
+                  <strong>Contato (extra)</strong>
+                  <span>Opcional</span>
                 </div>
 
                 <div class="orca-modal-grid">
-                  <div class="orca-field">
-                    <label for="campo-pessoa-contato">Pessoa contato</label>
-                    <input type="text" id="campo-pessoa-contato" placeholder="Nome do contato" />
-                  </div>
-
-                  <div class="orca-field">
-                    <label for="campo-email-principal">E-mail principal</label>
-                    <input type="text" id="campo-email-principal" placeholder="email@..." inputmode="email" />
-                  </div>
-
                   <div class="orca-field">
                     <label for="campo-whatsapp-principal">WhatsApp principal</label>
                     <input type="text" id="campo-whatsapp-principal" placeholder="(DDD) 9XXXX-XXXX" inputmode="tel" />
@@ -271,8 +273,15 @@
                     <input type="text" id="campo-inscricao-municipal" />
                   </div>
 
+                  <!-- ✅ NOVO: quebra linha e vem depois da inscrição municipal -->
+                  <div class="orca-field orca-field--full">
+                    <label for="campo-responsavel-contratante">Responsável contratante</label>
+                    <input type="text" id="campo-responsavel-contratante" />
+                  </div>
+
+                  <!-- ✅ já existia, só reposicionou logo depois -->
                   <div class="orca-field">
-                    <label for="campo-cpf-resp-admin">CPF responsável/administrador</label>
+                    <label for="campo-cpf-resp-admin">CPF do responsável</label>
                     <input type="text" id="campo-cpf-resp-admin" />
                   </div>
                 </div>
@@ -365,4 +374,3 @@
   </div>
 </body>
 </html>
->>>>>>> b5237cd (Initial commit OrçaPro)

@@ -78,11 +78,12 @@ class ClienteBase(BaseModel):
     onde_conheceu: Optional[str] = None
     onde_conheceu_outro: Optional[str] = None
 
-    # ===== avançados =====
+    # ===== dados completos =====
+    # (vai para "Dados Básicos" no front, mas no backend é só campo normal)
     pessoa_contato: Optional[str] = None
-    whatsapp_principal: Optional[str] = None
     email_principal: Optional[str] = None
 
+    whatsapp_principal: Optional[str] = None
     end_pais: Optional[str] = None
 
     # PJ
@@ -90,6 +91,11 @@ class ClienteBase(BaseModel):
     cnpj: Optional[str] = None
     inscricao_estadual: Optional[str] = None
     inscricao_municipal: Optional[str] = None
+
+    # NOVO: Responsável Contratante
+    responsavel_contratante: Optional[str] = None
+
+    # Já existe: CPF do responsável
     cpf_responsavel_administrador: Optional[str] = None
 
     # PF
@@ -138,10 +144,10 @@ class ClienteOut(BaseModel):
     onde_conheceu: Optional[str] = None
     onde_conheceu_outro: Optional[str] = None
 
-    # avançados
+    # contato/dados completos
     pessoa_contato: Optional[str] = None
-    whatsapp_principal: Optional[str] = None
     email_principal: Optional[str] = None
+    whatsapp_principal: Optional[str] = None
     end_pais: Optional[str] = None
 
     # PJ
@@ -149,6 +155,7 @@ class ClienteOut(BaseModel):
     cnpj: Optional[str] = None
     inscricao_estadual: Optional[str] = None
     inscricao_municipal: Optional[str] = None
+    responsavel_contratante: Optional[str] = None
     cpf_responsavel_administrador: Optional[str] = None
 
     # PF
@@ -198,14 +205,15 @@ def cliente_to_out(c: models.Cliente) -> ClienteOut:
         onde_conheceu_outro=onde_outro,
 
         pessoa_contato=c.pessoa_contato,
-        whatsapp_principal=c.whatsapp_principal,
         email_principal=c.email_principal,
+        whatsapp_principal=c.whatsapp_principal,
         end_pais=c.end_pais,
 
         razao_social=c.razao_social,
         cnpj=c.cnpj,
         inscricao_estadual=c.inscricao_estadual,
         inscricao_municipal=c.inscricao_municipal,
+        responsavel_contratante=getattr(c, "responsavel_contratante", None),
         cpf_responsavel_administrador=c.cpf_responsavel_administrador,
 
         rg=c.rg,
@@ -223,7 +231,6 @@ def cliente_to_out(c: models.Cliente) -> ClienteOut:
 # =========================
 # Endpoints
 # =========================
-# Aceita /api/clientes e /api/clientes/
 @router.get("", response_model=List[ClienteOut])
 @router.get("/", response_model=List[ClienteOut], include_in_schema=False)
 def listar_clientes(db: Session = Depends(get_db)):
@@ -231,7 +238,6 @@ def listar_clientes(db: Session = Depends(get_db)):
     return [cliente_to_out(c) for c in rows]
 
 
-# Aceita /api/clientes/123 e /api/clientes/123/
 @router.get("/{cliente_id}", response_model=ClienteOut)
 @router.get("/{cliente_id}/", response_model=ClienteOut, include_in_schema=False)
 def obter_cliente(cliente_id: int, db: Session = Depends(get_db)):
@@ -241,7 +247,6 @@ def obter_cliente(cliente_id: int, db: Session = Depends(get_db)):
     return cliente_to_out(c)
 
 
-# Aceita /api/clientes e /api/clientes/
 @router.post("", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=ClienteOut, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
@@ -255,6 +260,7 @@ def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
 
         pessoa_contato=norm_str(payload.pessoa_contato),
         whatsapp_contato=norm_str(payload.whatsapp),
+        email_principal=norm_str(payload.email_principal),
 
         end_cep=only_digits(payload.cep),
         end_rua=norm_str(payload.endereco_logradouro),
@@ -272,6 +278,7 @@ def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
         cnpj=norm_str(payload.cnpj),
         inscricao_estadual=norm_str(payload.inscricao_estadual),
         inscricao_municipal=norm_str(payload.inscricao_municipal),
+        responsavel_contratante=norm_str(payload.responsavel_contratante),
         cpf_responsavel_administrador=norm_str(payload.cpf_responsavel_administrador),
 
         # PF
@@ -281,7 +288,6 @@ def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
         profissao=norm_str(payload.profissao),
 
         whatsapp_principal=norm_str(payload.whatsapp_principal),
-        email_principal=norm_str(payload.email_principal),
 
         cep_cobranca=only_digits(payload.cep_cobranca),
 
@@ -303,7 +309,6 @@ def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Código de cliente já existe.")
 
 
-# Aceita /api/clientes/123 e /api/clientes/123/
 @router.put("/{cliente_id}", response_model=ClienteOut)
 @router.put("/{cliente_id}/", response_model=ClienteOut, include_in_schema=False)
 def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Depends(get_db)):
@@ -358,15 +363,15 @@ def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Dep
         onde = build_onde_conheceu(payload.onde_conheceu, payload.onde_conheceu_outro)
         c.onde_conheceu_empresa = norm_str(onde)
 
-    # avançados
+    # contato / dados completos
     if payload.pessoa_contato is not None:
         c.pessoa_contato = norm_str(payload.pessoa_contato)
 
-    if payload.whatsapp_principal is not None:
-        c.whatsapp_principal = norm_str(payload.whatsapp_principal)
-
     if payload.email_principal is not None:
         c.email_principal = norm_str(payload.email_principal)
+
+    if payload.whatsapp_principal is not None:
+        c.whatsapp_principal = norm_str(payload.whatsapp_principal)
 
     # PJ
     if payload.razao_social is not None:
@@ -377,6 +382,8 @@ def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Dep
         c.inscricao_estadual = norm_str(payload.inscricao_estadual)
     if payload.inscricao_municipal is not None:
         c.inscricao_municipal = norm_str(payload.inscricao_municipal)
+    if payload.responsavel_contratante is not None:
+        c.responsavel_contratante = norm_str(payload.responsavel_contratante)
     if payload.cpf_responsavel_administrador is not None:
         c.cpf_responsavel_administrador = norm_str(payload.cpf_responsavel_administrador)
 
@@ -409,7 +416,6 @@ def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Dep
         raise HTTPException(status_code=409, detail="Código de cliente já existe.")
 
 
-# Aceita /api/clientes/123 e /api/clientes/123/
 @router.delete("/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
 @router.delete("/{cliente_id}/", status_code=status.HTTP_204_NO_CONTENT, include_in_schema=False)
 def excluir_cliente(cliente_id: int, db: Session = Depends(get_db)):

@@ -4,6 +4,7 @@ let fornecedores = [];
 let fornecedorEditandoId = null;
 
 function onlyDigits(s){ return String(s||'').replace(/\D+/g,''); }
+
 function todayISODate(){
   const d=new Date();
   const yyyy=d.getFullYear();
@@ -11,11 +12,20 @@ function todayISODate(){
   const dd=String(d.getDate()).padStart(2,'0');
   return `${yyyy}-${mm}-${dd}`;
 }
+
+function ymdFromBackendDateTime(v){
+  // backend manda datetime ISO. Para evitar bug de fuso, pega os 10 primeiros chars.
+  if(!v) return '';
+  if(typeof v === 'string' && v.length >= 10) return v.slice(0,10);
+  return '';
+}
+
 function formatTipo(tipo){
   if(tipo==='pf') return 'Física';
   if(tipo==='pj') return 'Jurídica';
   return '-';
 }
+
 /* API */
 async function carregarFornecedores(){
   const resp = await fetch('/api/fornecedores');
@@ -111,10 +121,15 @@ function setCepHelp(msg='', isError=false){
 }
 
 function fillAddressFields(data){
-  document.getElementById('campo-logradouro').value = data?.logradouro || '';
-  document.getElementById('campo-bairro').value = data?.bairro || '';
-  document.getElementById('campo-cidade').value = data?.localidade || '';
-  document.getElementById('campo-uf').value = (data?.uf || '').toUpperCase();
+  const elLog = document.getElementById('campo-logradouro');
+  const elBai = document.getElementById('campo-bairro');
+  const elCid = document.getElementById('campo-cidade');
+  const elUf  = document.getElementById('campo-uf');
+
+  if(elLog) elLog.value = data?.logradouro || '';
+  if(elBai) elBai.value = data?.bairro || '';
+  if(elCid) elCid.value = data?.localidade || '';
+  if(elUf)  elUf.value  = (data?.uf || '').toUpperCase();
 }
 
 async function buscarCep(cepRaw){
@@ -149,27 +164,13 @@ async function buscarCep(cepRaw){
   }
 }
 
-/* UI */
-function setHidden(id, hidden){
-  const el = document.getElementById(id);
-  if(el) el.hidden = !!hidden;
-}
-function syncOndeConheceuOutro(){
-  const sel = document.getElementById('campo-onde-conheceu');
-  const wrap = document.getElementById('wrap-onde-outro');
-  const campo = document.getElementById('campo-onde-outro');
-  if(!sel || !wrap) return;
-  const isOutro = sel.value === 'outro';
-  wrap.hidden = !isOutro;
-  if(!isOutro && campo) campo.value = '';
-}
-
 /* Modal helpers */
 function abrirModal(){
   const backdrop = document.getElementById('modal-fornecedor-backdrop');
   if(!backdrop) return;
   backdrop.hidden = false;
 }
+
 function fecharModal(){
   const backdrop = document.getElementById('modal-fornecedor-backdrop');
   if(backdrop) backdrop.hidden = true;
@@ -180,6 +181,7 @@ function setVal(id, v){
   const el = document.getElementById(id);
   if(el) el.value = (v ?? '');
 }
+
 function getVal(id){
   return (document.getElementById(id)?.value ?? '').trim();
 }
@@ -189,11 +191,15 @@ function abrirModalFornecedorNovo(){
   fornecedorEditandoId = null;
 
   const proximoId = fornecedores.length ? (Math.max(...fornecedores.map(x=>Number(x.id)||0)) + 1) : 1;
-  setVal('campo-codigo-fornecedor', `FOR-${String(proximoId).padStart(4,'0')}`);
   setVal('campo-data-cadastro', todayISODate());
   setVal('campo-tipo-fornecedor', 'pf');
   setVal('campo-nome-fornecedor', '');
-  setVal('campo-whatsapp-contato', '');
+
+  // sequência PDF
+  setVal('campo-razao-social','');
+  setVal('campo-cnpj','');
+  setVal('campo-inscricao-estadual','');
+  setVal('campo-inscricao-municipal','');
 
   setVal('campo-cep','');
   setVal('campo-logradouro','');
@@ -203,13 +209,28 @@ function abrirModalFornecedorNovo(){
   setVal('campo-uf','');
   setCepHelp('');
 
-  setVal('campo-tipo-imovel','');
-  setVal('campo-onde-conheceu','');
-  setVal('campo-onde-outro','');
-  syncOndeConheceuOutro();
+  setVal('campo-pessoa-contato','');
+  setVal('campo-telefone-pabx','');
+  setVal('campo-telefone','');
+  setVal('campo-whatsapp-contato','');
 
-  // avançado escondido no NOVO (pra não aparecer CNPJ, redes, etc)
-  setHidden('orca-advanced-fields', true);
+  setVal('campo-home-page','');
+  setVal('campo-email-principal','');
+  setVal('campo-redes-sociais','');
+
+  setVal('campo-codigo-fornecedor', `FOR-${String(proximoId).padStart(4,'0')}`);
+  setVal('campo-tipo-categoria','');
+
+  setVal('campo-contato-representante','');
+  setVal('campo-rep-telefone-whatsapp','');
+  setVal('campo-rep-telefone-ramal','');
+
+  setVal('campo-limite-creditos','');
+  setVal('campo-opcao-transportadoras','');
+
+  setVal('campo-linha-produtos','');
+  setVal('campo-contato-rma','');
+  setVal('campo-informacoes-rma','');
 
   abrirModal();
 }
@@ -218,11 +239,14 @@ function abrirModalFornecedorEditar(full){
   document.getElementById('modal-fornecedor-titulo').textContent = 'Editar fornecedor';
   fornecedorEditandoId = full.id;
 
-  setVal('campo-codigo-fornecedor', full.codigo || '');
-  setVal('campo-data-cadastro', todayISODate());
+  setVal('campo-data-cadastro', ymdFromBackendDateTime(full.data_cadastro) || todayISODate());
   setVal('campo-tipo-fornecedor', full.tipo || 'pf');
   setVal('campo-nome-fornecedor', full.nome || '');
-  setVal('campo-whatsapp-contato', full.whatsapp || '');
+
+  setVal('campo-razao-social', full.razao_social || '');
+  setVal('campo-cnpj', full.cnpj || '');
+  setVal('campo-inscricao-estadual', full.inscricao_estadual || '');
+  setVal('campo-inscricao-municipal', full.inscricao_municipal || '');
 
   setVal('campo-cep', full.cep || '');
   setVal('campo-logradouro', full.endereco_logradouro || '');
@@ -232,33 +256,58 @@ function abrirModalFornecedorEditar(full){
   setVal('campo-uf', (full.uf || '').toUpperCase());
   setCepHelp('');
 
-  setVal('campo-tipo-imovel', full.tipo_imovel || '');
-  setVal('campo-onde-conheceu', full.onde_conheceu || '');
-  setVal('campo-onde-outro', full.onde_conheceu_outro || '');
-  syncOndeConheceuOutro();
-
-  // avançado aparece no EDITAR
-  setHidden('orca-advanced-fields', false);
-
   setVal('campo-pessoa-contato', full.pessoa_contato || '');
-  setVal('campo-email-principal', full.email_principal || '');
-  setVal('campo-home-page', full.home_page || '');
-  setVal('campo-cnpj', full.cnpj || '');
-  setVal('campo-razao-social', full.razao_social || '');
+  setVal('campo-telefone-pabx', full.telefone_pabx || '');
+  setVal('campo-telefone', full.telefone || '');
+  setVal('campo-whatsapp-contato', full.whatsapp || '');
 
-  setVal('campo-instagram', full.redes_sociais?.instagram || '');
-  setVal('campo-facebook', full.redes_sociais?.facebook || '');
-  setVal('campo-linkedin', full.redes_sociais?.linkedin || '');
+  setVal('campo-home-page', full.home_page || '');
+  setVal('campo-email-principal', full.email_principal || '');
+
+  // redes sociais: se vier dict, tenta texto, senão stringify
+  let redesTxt = '';
+  if(full.redes_sociais){
+    if(typeof full.redes_sociais === 'object' && full.redes_sociais.texto) redesTxt = String(full.redes_sociais.texto);
+    else redesTxt = JSON.stringify(full.redes_sociais);
+  }
+  setVal('campo-redes-sociais', redesTxt);
+
+  setVal('campo-codigo-fornecedor', full.codigo || '');
+  setVal('campo-tipo-categoria', full.tipo_categoria || '');
+
+  setVal('campo-contato-representante', full.contato_representante_comercial || '');
+  setVal('campo-rep-telefone-whatsapp', full.representante_telefone_whatsapp || '');
+  setVal('campo-rep-telefone-ramal', full.representante_telefone_ramal || '');
+
+  setVal('campo-limite-creditos', (full.limite_creditos ?? ''));
+
+  setVal('campo-opcao-transportadoras', full.opcao_transportadoras_fretes || '');
+
+  setVal('campo-linha-produtos', full.linha_produtos || '');
+  setVal('campo-contato-rma', full.contato_rma || '');
+  setVal('campo-informacoes-rma', full.informacoes_rma || '');
 
   abrirModal();
 }
 
 function buildPayload(){
-  const payload = {
-    codigo: getVal('campo-codigo-fornecedor'),
+  // redes sociais (PDF é campo “livre”)
+  const redesTexto = getVal('campo-redes-sociais');
+  const redes = redesTexto ? { texto: redesTexto } : null;
+
+  const limite = getVal('campo-limite-creditos');
+  const limiteNorm = limite ? limite.replace(',', '.') : '';
+
+  return {
+    // sequência do PDF
+    data_cadastro: getVal('campo-data-cadastro') || null,
     tipo: getVal('campo-tipo-fornecedor') || 'pf',
     nome: getVal('campo-nome-fornecedor'),
-    whatsapp: getVal('campo-whatsapp-contato'),
+
+    razao_social: getVal('campo-razao-social'),
+    cnpj: getVal('campo-cnpj'),
+    inscricao_estadual: getVal('campo-inscricao-estadual'),
+    inscricao_municipal: getVal('campo-inscricao-municipal'),
 
     cep: getVal('campo-cep'),
     endereco_logradouro: getVal('campo-logradouro'),
@@ -267,41 +316,38 @@ function buildPayload(){
     cidade: getVal('campo-cidade'),
     uf: getVal('campo-uf'),
 
-    tipo_imovel: getVal('campo-tipo-imovel'),
-    onde_conheceu: getVal('campo-onde-conheceu'),
-    onde_conheceu_outro: getVal('campo-onde-outro'),
+    pessoa_contato: getVal('campo-pessoa-contato'),
+    telefone_pabx: getVal('campo-telefone-pabx'),
+    telefone: getVal('campo-telefone'),
+    whatsapp: getVal('campo-whatsapp-contato'),
+
+    home_page: getVal('campo-home-page'),
+    email_principal: getVal('campo-email-principal'),
+    redes_sociais: redes,
+
+    codigo: getVal('campo-codigo-fornecedor'),
+
+    tipo_categoria: getVal('campo-tipo-categoria'),
+
+    contato_representante_comercial: getVal('campo-contato-representante'),
+    representante_telefone_whatsapp: getVal('campo-rep-telefone-whatsapp'),
+    representante_telefone_ramal: getVal('campo-rep-telefone-ramal'),
+
+    limite_creditos: limiteNorm ? limiteNorm : null,
+
+    opcao_transportadoras_fretes: getVal('campo-opcao-transportadoras'),
+
+    linha_produtos: getVal('campo-linha-produtos'),
+    contato_rma: getVal('campo-contato-rma'),
+    informacoes_rma: getVal('campo-informacoes-rma'),
   };
-
-  // só manda avançado se estiver visível (editar)
-  const advVisible = !document.getElementById('orca-advanced-fields')?.hidden;
-  if(advVisible){
-    payload.pessoa_contato = getVal('campo-pessoa-contato');
-    payload.email_principal = getVal('campo-email-principal');
-    payload.home_page = getVal('campo-home-page');
-    payload.cnpj = getVal('campo-cnpj');
-    payload.razao_social = getVal('campo-razao-social');
-
-    const redes = {};
-    const ig = getVal('campo-instagram');
-    const fb = getVal('campo-facebook');
-    const li = getVal('campo-linkedin');
-    if(ig) redes.instagram = ig;
-    if(fb) redes.facebook = fb;
-    if(li) redes.linkedin = li;
-    payload.redes_sociais = Object.keys(redes).length ? redes : null;
-  }
-
-  return payload;
 }
 
 async function salvarFornecedor(){
   const payload = buildPayload();
+
   if(!payload.nome){
     alert('Preencha o nome do fornecedor.');
-    return;
-  }
-  if(payload.onde_conheceu === 'outro' && !payload.onde_conheceu_outro){
-    alert('Preencha o "Outro" em Onde conheceu a empresa.');
     return;
   }
 
@@ -317,7 +363,6 @@ async function salvarFornecedor(){
 
 /* INIT */
 document.addEventListener('DOMContentLoaded', async ()=>{
-  // modal sempre começa fechado
   const backdrop = document.getElementById('modal-fornecedor-backdrop');
   if(backdrop) backdrop.hidden = true;
 
@@ -336,8 +381,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   backdrop?.addEventListener('click', (e)=>{ if(e.target===backdrop) fecharModal(); });
   document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') fecharModal(); });
 
-  document.getElementById('campo-onde-conheceu')?.addEventListener('change', syncOndeConheceuOutro);
-
   const campoCep = document.getElementById('campo-cep');
   if(campoCep){
     campoCep.addEventListener('input', ()=>{
@@ -352,7 +395,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     });
   }
 
-  // ações da tabela
   document.getElementById('tbody-fornecedores')?.addEventListener('click', async (e)=>{
     const btn = e.target.closest('.orca-icon-btn');
     if(!btn) return;

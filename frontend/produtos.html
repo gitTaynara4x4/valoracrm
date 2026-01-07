@@ -19,18 +19,13 @@
 </head>
 <body>
   <div class="orca-shell">
-    <!-- menu em iframe -->
-    <iframe
-      class="orca-menu-frame"
-      src="/frontend/sidebar.html"
-      title="Menu 4X OrçaPro"
-    ></iframe>
+    <iframe class="orca-menu-frame" src="/frontend/sidebar.html" title="Menu 4X OrçaPro"></iframe>
 
     <main class="orca-main">
       <header class="orca-main-header">
         <div>
           <h1>Produtos</h1>
-          <p>Cadastro de produtos e serviços usados nas propostas.</p>
+          <p>Cadastro de itens (campos reais da tabela <b>public.produtos</b>).</p>
         </div>
         <button class="btn-primary" type="button" id="btn-novo-produto">
           <i class="fa-solid fa-plus"></i>&nbsp; Novo produto
@@ -43,20 +38,14 @@
             <label for="busca-produtos">Buscar</label>
             <div class="orca-input-icon">
               <i class="fa-solid fa-magnifying-glass"></i>
-              <input
-                type="text"
-                id="busca-produtos"
-                placeholder="Nome, SKU, categoria..."
-              />
+              <input type="text" id="busca-produtos" placeholder="Produto, ref, barras, fabricante, categoria..." />
             </div>
           </div>
 
           <div class="orca-field">
-            <label for="filtro-tipo-produto">Tipo</label>
-            <select id="filtro-tipo-produto">
-              <option value="">Todos</option>
-              <option value="produto">Produto</option>
-              <option value="servico">Serviço</option>
+            <label for="filtro-origem-produto">Origem</label>
+            <select id="filtro-origem-produto">
+              <option value="">Todas</option>
             </select>
           </div>
         </div>
@@ -71,64 +60,162 @@
           <table class="orca-table-produtos">
             <thead>
               <tr>
-                <th>Código</th>
-                <th>Nome</th>
-                <th>Tipo</th>
-                <th>Categoria</th>
-                <th>Preço</th>
+                <th>Cód. Ref</th>
+                <th>Cód. Barras</th>
+                <th>Produto</th>
+                <th>Nome genérico</th>
+                <th>Fabricante</th>
+                <th>Modelo</th>
+                <th>Cód. Fabric.</th>
+                <th>Origem</th>
+                <th>Status Atual</th>
+                <th>Tipo Mercado</th>
+                <th>Utilização</th>
+                <th>Tipo Material</th>
                 <th></th>
               </tr>
             </thead>
-            <tbody id="tbody-produtos">
-              <!-- preenchido pelo JS -->
-            </tbody>
+            <tbody id="tbody-produtos"></tbody>
           </table>
         </div>
       </section>
 
-      <!-- Modal de produto -->
+      <!-- Modal -->
       <div class="orca-modal-backdrop" id="modal-produto-backdrop" hidden>
-        <div class="orca-modal">
+        <div class="orca-modal" role="dialog" aria-modal="true" aria-labelledby="modal-produto-titulo">
           <header class="orca-modal-header">
             <h2 id="modal-produto-titulo">Novo produto</h2>
-            <button class="orca-modal-close" type="button" id="btn-fechar-modal-produto">
+            <button class="orca-modal-close" type="button" id="btn-fechar-modal-produto" aria-label="Fechar">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </header>
 
           <div class="orca-modal-body">
+            <div class="orca-modal-hint" id="info-data-cadastro" hidden></div>
+
             <div class="orca-modal-grid">
+              <!-- ===== DADOS IDENTIFICAÇÃO ===== -->
+              <div class="orca-modal-section orca-field--full">Dados Identificação</div>
+
               <div class="orca-field">
-                <label for="campo-codigo-produto">Código</label>
-                <input type="text" id="campo-codigo-produto" placeholder="PRD-0001" />
+                <label for="campo-cod-ref-id">Cod.Ref.Id</label>
+                <input type="text" id="campo-cod-ref-id" placeholder="ALM-001" />
               </div>
 
               <div class="orca-field">
-                <label for="campo-tipo-produto">Tipo</label>
-                <select id="campo-tipo-produto">
-                  <option value="produto">Produto</option>
-                  <option value="servico">Serviço</option>
+                <label for="campo-codigo-barras">Código Barras</label>
+                <input type="text" id="campo-codigo-barras" placeholder="789..." />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-nome-generico">Nome Genérico</label>
+                <input type="text" id="campo-nome-generico" placeholder="Central de alarme" />
+              </div>
+
+              <div class="orca-field orca-field--full">
+                <label for="campo-nome-produto">Produto</label>
+                <input type="text" id="campo-nome-produto" placeholder="Central de alarme 8 setores" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-fabricante">Fabricante</label>
+                <input type="text" id="campo-fabricante" placeholder="Intelbras / Hikvision / 4X..." />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-modelo">Modelo</label>
+                <input type="text" id="campo-modelo" placeholder="AMT 2018 E" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-cod-ref-fabric">Cod.Ref.Fabric</label>
+                <input type="text" id="campo-cod-ref-fabric" placeholder="INT-2018E" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-origem">Origem</label>
+                <input type="text" id="campo-origem" placeholder="Nacional / Importado / ..." />
+              </div>
+
+              <!-- ===== SITUAÇÃO ===== -->
+              <div class="orca-modal-section orca-field--full">SITUAÇÃO</div>
+
+              <div class="orca-field">
+                <label for="campo-status-atual">Status Atual</label>
+                <select id="campo-status-atual">
+                  <option value="">—</option>
+                  <option value="1">01- Ativo</option>
+                  <option value="2">02- Inativo</option>
+                  <option value="3">03- Fora de Linha</option>
+                  <option value="4">04- Suspenso</option>
                 </select>
               </div>
 
               <div class="orca-field">
-                <label for="campo-nome-produto">Nome</label>
-                <input type="text" id="campo-nome-produto" />
+                <label for="campo-tipo-mercado">Tipo Mercado</label>
+                <select id="campo-tipo-mercado">
+                  <option value="">—</option>
+                  <option value="1">01- Mercado Continuo</option>
+                  <option value="2">02- Mercado Sazional</option>
+                </select>
               </div>
 
               <div class="orca-field">
-                <label for="campo-categoria-produto">Categoria</label>
-                <input type="text" id="campo-categoria-produto" />
+                <label for="campo-utilizacao">Utilização</label>
+                <select id="campo-utilizacao">
+                  <option value="">—</option>
+                  <option value="1">01- Revenda</option>
+                  <option value="2">02- Consumo Próprio</option>
+                  <option value="3">03- Patrimonio</option>
+                  <option value="4">04- Armazenamento p/ Terceiros</option>
+                </select>
               </div>
 
               <div class="orca-field">
-                <label for="campo-preco-produto">Preço</label>
-                <input type="number" step="0.01" id="campo-preco-produto" />
+                <label for="campo-tipo-material">Tipo Material</label>
+                <select id="campo-tipo-material">
+                  <option value="">—</option>
+                  <option value="1">01- Pronta Utilização (Acabado)</option>
+                  <option value="2">02- Semi Acabado</option>
+                  <option value="3">03- Materia Prima</option>
+                </select>
+              </div>
+
+              <!-- ===== CLASSIFICAÇÃO ===== -->
+              <div class="orca-modal-section orca-field--full">CLASSIFICAÇÃO</div>
+
+              <div class="orca-field">
+                <label for="campo-prod-controlado">Prod. Controlado</label>
+                <select id="campo-prod-controlado">
+                  <option value="">—</option>
+                  <option value="1">Sim</option>
+                  <option value="0">Não</option>
+                </select>
               </div>
 
               <div class="orca-field">
-                <label for="campo-observacao-produto">Observação</label>
-                <input type="text" id="campo-observacao-produto" />
+                <label for="campo-segmentos">Segmentos</label>
+                <input type="text" id="campo-segmentos" placeholder="Ex: CFTV / Alarmes / Redes..." />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-tipo-sistema">tipo de sistema</label>
+                <input type="text" id="campo-tipo-sistema" placeholder="Ex: Monitoramento / Acesso / CFTV..." />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-classe">Classe</label>
+                <input type="text" id="campo-classe" placeholder="Ex: Equipamento / Serviço..." />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-categorias">Categorias</label>
+                <input type="text" id="campo-categorias" placeholder="Ex: Câmeras" />
+              </div>
+
+              <div class="orca-field">
+                <label for="campo-subcategoria">SubCategoria</label>
+                <input type="text" id="campo-subcategoria" placeholder="Ex: Bullet / Dome" />
               </div>
             </div>
           </div>
@@ -143,4 +230,3 @@
   </div>
 </body>
 </html>
->>>>>>> b5237cd (Initial commit OrçaPro)

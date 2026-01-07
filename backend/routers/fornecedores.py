@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timezone
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -47,145 +48,142 @@ def gerar_codigo_fornecedor(db: Session) -> str:
     return f"FOR-{proximo:04d}"
 
 
-def build_onde_conheceu(onde: Optional[str], outro: Optional[str]) -> Optional[str]:
-    onde = (onde or "").strip()
-    outro = (outro or "").strip()
-    if not onde and not outro:
-        return None
-    if onde == "outro" and outro:
-        return f"outro: {outro}"
-    return onde or outro or None
-
-
 # =========================
-# Schemas
+# Schemas (na sequência do PDF)
 # =========================
 class FornecedorBase(BaseModel):
-    # básico
-    codigo: Optional[str] = None
+    # PDF: Data Cadastro
     data_cadastro: Optional[date] = None
-    tipo: Optional[str] = None  # pf | pj
-    nome: Optional[str] = None
-    whatsapp: Optional[str] = None
 
-    # endereço
+    # PDF: Tipo Fornecedor (PF/PJ)
+    tipo: Optional[str] = None  # 'pf' | 'pj'
+
+    # PDF: Razão Social / CNPJ / IE / IM
+    razao_social: Optional[str] = None
+    cnpj: Optional[str] = None
+    inscricao_estadual: Optional[str] = None
+    inscricao_municipal: Optional[str] = None
+
+    # PDF: Endereço - CEP (mantém auto-preenchimento como antes)
     cep: Optional[str] = None
     endereco_logradouro: Optional[str] = None
     endereco_numero: Optional[str] = None
     endereco_bairro: Optional[str] = None
     cidade: Optional[str] = None
     uf: Optional[str] = None
-
-    # perfil/origem
-    tipo_imovel: Optional[str] = None
-    onde_conheceu: Optional[str] = None
-    onde_conheceu_outro: Optional[str] = None
-
-    # avançados (no seu front só aparece no editar)
-    pessoa_contato: Optional[str] = None
-    whatsapp_principal: Optional[str] = None
-    email_principal: Optional[str] = None
     end_pais: Optional[str] = None
 
-    # PJ
-    razao_social: Optional[str] = None
-    cnpj: Optional[str] = None
-    inscricao_estadual: Optional[str] = None
-    inscricao_municipal: Optional[str] = None
-    cpf_responsavel_administrador: Optional[str] = None
+    # PDF: Pessoa Contato
+    pessoa_contato: Optional[str] = None
 
-    # PF
-    rg: Optional[str] = None
-    data_nascimento: Optional[date] = None
-    estado_civil: Optional[str] = None
-    profissao: Optional[str] = None
+    # PDF: Telefone PABX / Telefone / Telefone Contato (WhatsApp)
+    telefone_pabx: Optional[str] = None
+    telefone: Optional[str] = None
+    whatsapp: Optional[str] = None
 
-    # cobrança
-    cep_cobranca: Optional[str] = None
-
-    # web / redes
+    # PDF: Home Page / E-Mail / Redes Sociais
     home_page: Optional[str] = None
-    redes_sociais: Optional[Dict[str, Any]] = None
+    email_principal: Optional[str] = None
+    redes_sociais: Optional[Dict[str, Any]] = None  # ex: {"texto":"...", "instagram":"..."}
+
+    # PDF: Código de Cadastro Fornecedor
+    codigo: Optional[str] = None
+
+    # PDF: Tipo Fornecedor (categoria/segmento)
+    tipo_categoria: Optional[str] = None
+
+    # PDF: Contato Representante Comercial / Telefone/Whatsapp / Telefone/Ramal
+    contato_representante_comercial: Optional[str] = None
+    representante_telefone_whatsapp: Optional[str] = None
+    representante_telefone_ramal: Optional[str] = None
+
+    # PDF: Limite de Créditos
+    limite_creditos: Optional[Decimal] = None
+
+    # PDF: Opção de Transportadoras / Fretes
+    opcao_transportadoras_fretes: Optional[str] = None
+
+    # PDF: Linha de Produtos / Contato RMA / Informações RMA
+    linha_produtos: Optional[str] = None
+    contato_rma: Optional[str] = None
+    informacoes_rma: Optional[str] = None
 
 
 class FornecedorCreate(FornecedorBase):
+    # no mínimo precisa de tipo e nome (nome identificação)
     tipo: str
-    nome: str
+    nome: str  # Nome identificação (Fornecedor)
 
 
 class FornecedorUpdate(FornecedorBase):
-    pass
+    # nome identificação também pode ser alterado
+    nome: Optional[str] = None
 
 
 class FornecedorOut(BaseModel):
     id: int
 
-    # básico
-    codigo: str
+    # Nome identificação
+    nome: str
+
+    # PDF
     data_cadastro: datetime
     tipo: str
-    nome: str
-    whatsapp: Optional[str] = None
 
-    # endereço
+    razao_social: Optional[str] = None
+    cnpj: Optional[str] = None
+    inscricao_estadual: Optional[str] = None
+    inscricao_municipal: Optional[str] = None
+
     cep: Optional[str] = None
     endereco_logradouro: Optional[str] = None
     endereco_numero: Optional[str] = None
     endereco_bairro: Optional[str] = None
     cidade: Optional[str] = None
     uf: Optional[str] = None
-
-    # perfil/origem
-    tipo_imovel: Optional[str] = None
-    onde_conheceu: Optional[str] = None
-    onde_conheceu_outro: Optional[str] = None
-
-    # avançados
-    pessoa_contato: Optional[str] = None
-    whatsapp_principal: Optional[str] = None
-    email_principal: Optional[str] = None
     end_pais: Optional[str] = None
 
-    # PJ
-    razao_social: Optional[str] = None
-    cnpj: Optional[str] = None
-    inscricao_estadual: Optional[str] = None
-    inscricao_municipal: Optional[str] = None
-    cpf_responsavel_administrador: Optional[str] = None
+    pessoa_contato: Optional[str] = None
+    telefone_pabx: Optional[str] = None
+    telefone: Optional[str] = None
+    whatsapp: Optional[str] = None
 
-    # PF
-    rg: Optional[str] = None
-    data_nascimento: Optional[date] = None
-    estado_civil: Optional[str] = None
-    profissao: Optional[str] = None
-
-    # cobrança
-    cep_cobranca: Optional[str] = None
-
-    # web/redes
     home_page: Optional[str] = None
+    email_principal: Optional[str] = None
     redes_sociais: Optional[Dict[str, Any]] = None
+
+    codigo: str
+
+    tipo_categoria: Optional[str] = None
+
+    contato_representante_comercial: Optional[str] = None
+    representante_telefone_whatsapp: Optional[str] = None
+    representante_telefone_ramal: Optional[str] = None
+
+    limite_creditos: Optional[Decimal] = None
+    opcao_transportadoras_fretes: Optional[str] = None
+
+    linha_produtos: Optional[str] = None
+    contato_rma: Optional[str] = None
+    informacoes_rma: Optional[str] = None
 
     class Config:
         orm_mode = True
 
 
 def fornecedor_to_out(f: models.Fornecedor) -> FornecedorOut:
-    onde = f.onde_conheceu_empresa
-    onde_base = onde
-    onde_outro = None
-    if isinstance(onde, str) and onde.startswith("outro:"):
-        onde_base = "outro"
-        onde_outro = onde.split(":", 1)[1].strip() or None
-
     return FornecedorOut(
         id=int(f.id),
 
-        codigo=f.codigo_cadastro_fornecedor,
+        nome=f.nome_identificacao,
+
         data_cadastro=f.data_cadastro,
         tipo=f.tipo_fornecedor,
-        nome=f.nome_identificacao,
-        whatsapp=f.whatsapp_contato or f.whatsapp_principal,
+
+        razao_social=f.razao_social,
+        cnpj=f.cnpj,
+        inscricao_estadual=f.inscricao_estadual,
+        inscricao_municipal=f.inscricao_municipal,
 
         cep=f.end_cep,
         endereco_logradouro=f.end_rua,
@@ -193,31 +191,31 @@ def fornecedor_to_out(f: models.Fornecedor) -> FornecedorOut:
         endereco_bairro=f.end_bairro,
         cidade=f.end_cidade,
         uf=f.end_estado,
-
-        tipo_imovel=f.tipo_imovel,
-        onde_conheceu=onde_base,
-        onde_conheceu_outro=onde_outro,
-
-        pessoa_contato=f.pessoa_contato,
-        whatsapp_principal=f.whatsapp_principal,
-        email_principal=f.email_principal,
         end_pais=f.end_pais,
 
-        razao_social=f.razao_social,
-        cnpj=f.cnpj,
-        inscricao_estadual=f.inscricao_estadual,
-        inscricao_municipal=f.inscricao_municipal,
-        cpf_responsavel_administrador=f.cpf_responsavel_administrador,
-
-        rg=f.rg,
-        data_nascimento=f.data_nascimento,
-        estado_civil=f.estado_civil,
-        profissao=f.profissao,
-
-        cep_cobranca=f.cep_cobranca,
+        pessoa_contato=f.pessoa_contato,
+        telefone_pabx=getattr(f, "telefone_pabx", None),
+        telefone=getattr(f, "telefone", None),
+        whatsapp=f.whatsapp_contato or f.whatsapp_principal,
 
         home_page=f.home_page,
+        email_principal=f.email_principal,
         redes_sociais=f.redes_sociais,
+
+        codigo=f.codigo_cadastro_fornecedor,
+
+        tipo_categoria=getattr(f, "tipo_categoria", None),
+
+        contato_representante_comercial=getattr(f, "contato_representante_comercial", None),
+        representante_telefone_whatsapp=getattr(f, "representante_telefone_whatsapp", None),
+        representante_telefone_ramal=getattr(f, "representante_telefone_ramal", None),
+
+        limite_creditos=getattr(f, "limite_creditos", None),
+        opcao_transportadoras_fretes=getattr(f, "opcao_transportadoras_fretes", None),
+
+        linha_produtos=getattr(f, "linha_produtos", None),
+        contato_rma=getattr(f, "contato_rma", None),
+        informacoes_rma=getattr(f, "informacoes_rma", None),
     )
 
 
@@ -225,7 +223,6 @@ def fornecedor_to_out(f: models.Fornecedor) -> FornecedorOut:
 # Endpoints
 # =========================
 
-# Aceita /api/fornecedores e /api/fornecedores/
 @router.get("", response_model=List[FornecedorOut])
 @router.get("/", response_model=List[FornecedorOut], include_in_schema=False)
 def listar_fornecedores(db: Session = Depends(get_db)):
@@ -233,7 +230,6 @@ def listar_fornecedores(db: Session = Depends(get_db)):
     return [fornecedor_to_out(f) for f in rows]
 
 
-# Aceita /api/fornecedores/123 e /api/fornecedores/123/
 @router.get("/{fornecedor_id}", response_model=FornecedorOut)
 @router.get("/{fornecedor_id}/", response_model=FornecedorOut, include_in_schema=False)
 def obter_fornecedor(fornecedor_id: int, db: Session = Depends(get_db)):
@@ -243,21 +239,23 @@ def obter_fornecedor(fornecedor_id: int, db: Session = Depends(get_db)):
     return fornecedor_to_out(f)
 
 
-# Aceita /api/fornecedores e /api/fornecedores/
 @router.post("", response_model=FornecedorOut, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=FornecedorOut, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def criar_fornecedor(payload: FornecedorCreate, db: Session = Depends(get_db)):
     codigo = (payload.codigo or "").strip() or gerar_codigo_fornecedor(db)
-    onde = build_onde_conheceu(payload.onde_conheceu, payload.onde_conheceu_outro)
 
     f = models.Fornecedor(
         codigo_cadastro_fornecedor=codigo,
         tipo_fornecedor=payload.tipo,
         nome_identificacao=payload.nome,
 
-        pessoa_contato=norm_str(payload.pessoa_contato),
-        whatsapp_contato=norm_str(payload.whatsapp),
+        # PJ
+        razao_social=norm_str(payload.razao_social),
+        cnpj=norm_str(payload.cnpj),
+        inscricao_estadual=norm_str(payload.inscricao_estadual),
+        inscricao_municipal=norm_str(payload.inscricao_municipal),
 
+        # Endereço
         end_cep=only_digits(payload.cep),
         end_rua=norm_str(payload.endereco_logradouro),
         end_numero=norm_str(payload.endereco_numero),
@@ -266,29 +264,30 @@ def criar_fornecedor(payload: FornecedorCreate, db: Session = Depends(get_db)):
         end_estado=norm_upper(payload.uf),
         end_pais=norm_upper(payload.end_pais) or "BR",
 
-        tipo_imovel=norm_str(payload.tipo_imovel),
-        onde_conheceu_empresa=norm_str(onde),
+        # Contatos
+        pessoa_contato=norm_str(payload.pessoa_contato),
+        whatsapp_contato=norm_str(payload.whatsapp),
+        whatsapp_principal=None,  # opcional, se você quiser usar depois
 
-        # PJ
-        razao_social=norm_str(payload.razao_social),
-        cnpj=norm_str(payload.cnpj),
-        inscricao_estadual=norm_str(payload.inscricao_estadual),
-        inscricao_municipal=norm_str(payload.inscricao_municipal),
-        cpf_responsavel_administrador=norm_str(payload.cpf_responsavel_administrador),
-
-        # PF
-        rg=norm_str(payload.rg),
-        data_nascimento=payload.data_nascimento,
-        estado_civil=norm_str(payload.estado_civil),
-        profissao=norm_str(payload.profissao),
-
-        whatsapp_principal=norm_str(payload.whatsapp_principal),
-        email_principal=norm_str(payload.email_principal),
-
-        cep_cobranca=only_digits(payload.cep_cobranca),
+        # Novos campos PDF
+        telefone_pabx=norm_str(payload.telefone_pabx),
+        telefone=norm_str(payload.telefone),
 
         home_page=norm_str(payload.home_page),
+        email_principal=norm_str(payload.email_principal),
         redes_sociais=payload.redes_sociais,
+
+        tipo_categoria=norm_str(payload.tipo_categoria),
+        contato_representante_comercial=norm_str(payload.contato_representante_comercial),
+        representante_telefone_whatsapp=norm_str(payload.representante_telefone_whatsapp),
+        representante_telefone_ramal=norm_str(payload.representante_telefone_ramal),
+
+        limite_creditos=payload.limite_creditos,
+        opcao_transportadoras_fretes=norm_str(payload.opcao_transportadoras_fretes),
+
+        linha_produtos=norm_str(payload.linha_produtos),
+        contato_rma=norm_str(payload.contato_rma),
+        informacoes_rma=norm_str(payload.informacoes_rma),
     )
 
     dt = date_to_dt_utc(payload.data_cadastro)
@@ -305,7 +304,6 @@ def criar_fornecedor(payload: FornecedorCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Código de fornecedor já existe.")
 
 
-# Aceita /api/fornecedores/123 e /api/fornecedores/123/
 @router.put("/{fornecedor_id}", response_model=FornecedorOut)
 @router.put("/{fornecedor_id}/", response_model=FornecedorOut, include_in_schema=False)
 def atualizar_fornecedor(fornecedor_id: int, payload: FornecedorUpdate, db: Session = Depends(get_db)):
@@ -327,10 +325,17 @@ def atualizar_fornecedor(fornecedor_id: int, payload: FornecedorUpdate, db: Sess
     if payload.nome is not None and payload.nome.strip():
         f.nome_identificacao = payload.nome.strip()
 
-    if payload.whatsapp is not None:
-        f.whatsapp_contato = norm_str(payload.whatsapp)
+    # PJ
+    if payload.razao_social is not None:
+        f.razao_social = norm_str(payload.razao_social)
+    if payload.cnpj is not None:
+        f.cnpj = norm_str(payload.cnpj)
+    if payload.inscricao_estadual is not None:
+        f.inscricao_estadual = norm_str(payload.inscricao_estadual)
+    if payload.inscricao_municipal is not None:
+        f.inscricao_municipal = norm_str(payload.inscricao_municipal)
 
-    # endereço
+    # Endereço
     if payload.cep is not None:
         f.end_cep = only_digits(payload.cep)
     if payload.endereco_logradouro is not None:
@@ -346,51 +351,47 @@ def atualizar_fornecedor(fornecedor_id: int, payload: FornecedorUpdate, db: Sess
     if payload.end_pais is not None:
         f.end_pais = norm_upper(payload.end_pais) or "BR"
 
-    # perfil/origem
-    if payload.tipo_imovel is not None:
-        f.tipo_imovel = norm_str(payload.tipo_imovel)
-
-    if payload.onde_conheceu is not None or payload.onde_conheceu_outro is not None:
-        onde = build_onde_conheceu(payload.onde_conheceu, payload.onde_conheceu_outro)
-        f.onde_conheceu_empresa = norm_str(onde)
-
-    # avançados
+    # Contatos
     if payload.pessoa_contato is not None:
         f.pessoa_contato = norm_str(payload.pessoa_contato)
-    if payload.whatsapp_principal is not None:
-        f.whatsapp_principal = norm_str(payload.whatsapp_principal)
-    if payload.email_principal is not None:
-        f.email_principal = norm_str(payload.email_principal)
+    if payload.whatsapp is not None:
+        f.whatsapp_contato = norm_str(payload.whatsapp)
 
-    # PJ
-    if payload.razao_social is not None:
-        f.razao_social = norm_str(payload.razao_social)
-    if payload.cnpj is not None:
-        f.cnpj = norm_str(payload.cnpj)
-    if payload.inscricao_estadual is not None:
-        f.inscricao_estadual = norm_str(payload.inscricao_estadual)
-    if payload.inscricao_municipal is not None:
-        f.inscricao_municipal = norm_str(payload.inscricao_municipal)
-    if payload.cpf_responsavel_administrador is not None:
-        f.cpf_responsavel_administrador = norm_str(payload.cpf_responsavel_administrador)
+    if payload.telefone_pabx is not None:
+        f.telefone_pabx = norm_str(payload.telefone_pabx)
+    if payload.telefone is not None:
+        f.telefone = norm_str(payload.telefone)
 
-    # PF
-    if payload.rg is not None:
-        f.rg = norm_str(payload.rg)
-    if payload.data_nascimento is not None:
-        f.data_nascimento = payload.data_nascimento
-    if payload.estado_civil is not None:
-        f.estado_civil = norm_str(payload.estado_civil)
-    if payload.profissao is not None:
-        f.profissao = norm_str(payload.profissao)
-
-    # cobrança / web
-    if payload.cep_cobranca is not None:
-        f.cep_cobranca = only_digits(payload.cep_cobranca)
     if payload.home_page is not None:
         f.home_page = norm_str(payload.home_page)
+    if payload.email_principal is not None:
+        f.email_principal = norm_str(payload.email_principal)
     if payload.redes_sociais is not None:
         f.redes_sociais = payload.redes_sociais
+
+    # Novos campos PDF
+    if payload.tipo_categoria is not None:
+        f.tipo_categoria = norm_str(payload.tipo_categoria)
+
+    if payload.contato_representante_comercial is not None:
+        f.contato_representante_comercial = norm_str(payload.contato_representante_comercial)
+    if payload.representante_telefone_whatsapp is not None:
+        f.representante_telefone_whatsapp = norm_str(payload.representante_telefone_whatsapp)
+    if payload.representante_telefone_ramal is not None:
+        f.representante_telefone_ramal = norm_str(payload.representante_telefone_ramal)
+
+    if payload.limite_creditos is not None:
+        f.limite_creditos = payload.limite_creditos
+
+    if payload.opcao_transportadoras_fretes is not None:
+        f.opcao_transportadoras_fretes = norm_str(payload.opcao_transportadoras_fretes)
+
+    if payload.linha_produtos is not None:
+        f.linha_produtos = norm_str(payload.linha_produtos)
+    if payload.contato_rma is not None:
+        f.contato_rma = norm_str(payload.contato_rma)
+    if payload.informacoes_rma is not None:
+        f.informacoes_rma = norm_str(payload.informacoes_rma)
 
     try:
         db.commit()
@@ -401,7 +402,6 @@ def atualizar_fornecedor(fornecedor_id: int, payload: FornecedorUpdate, db: Sess
         raise HTTPException(status_code=409, detail="Código de fornecedor já existe.")
 
 
-# Aceita /api/fornecedores/123 e /api/fornecedores/123/
 @router.delete("/{fornecedor_id}", status_code=status.HTTP_204_NO_CONTENT)
 @router.delete("/{fornecedor_id}/", status_code=status.HTTP_204_NO_CONTENT, include_in_schema=False)
 def excluir_fornecedor(fornecedor_id: int, db: Session = Depends(get_db)):

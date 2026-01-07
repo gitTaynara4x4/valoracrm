@@ -60,30 +60,10 @@ let modalStep = 1;
 
 // Catálogo fake para busca de produtos dentro do modal
 const catalogoProdutosModal = [
-  {
-    id: 1,
-    codigo: 'ALM-001',
-    descricao: 'Central de alarme 8 setores',
-    preco: 650.0
-  },
-  {
-    id: 2,
-    codigo: 'CFTV-CAM-2MP',
-    descricao: 'Câmera Bullet 2MP IR 20m',
-    preco: 390.0
-  },
-  {
-    id: 3,
-    codigo: 'SERV-MO-DIA',
-    descricao: 'Mão de obra diária (equipe)',
-    preco: 450.0
-  },
-  {
-    id: 4,
-    codigo: 'KIT-ALM-RES-8P',
-    descricao: 'Kit Alarme Residencial até 8 pontos',
-    preco: 1950.0
-  }
+  { id: 1, codigo: 'ALM-001', descricao: 'Central de alarme 8 setores', preco: 650.0 },
+  { id: 2, codigo: 'CFTV-CAM-2MP', descricao: 'Câmera Bullet 2MP IR 20m', preco: 390.0 },
+  { id: 3, codigo: 'SERV-MO-DIA', descricao: 'Mão de obra diária (equipe)', preco: 450.0 },
+  { id: 4, codigo: 'KIT-ALM-RES-8P', descricao: 'Kit Alarme Residencial até 8 pontos', preco: 1950.0 }
 ];
 
 function formatStatus(status) {
@@ -98,16 +78,16 @@ function formatStatus(status) {
 
 function formatMoney(v) {
   if (v == null || isNaN(v)) return '-';
-  return 'R$ ' + v.toFixed(2).replace('.', ',');
+  return 'R$ ' + Number(v).toFixed(2).replace('.', ',');
 }
 
 // Converte texto "R$ 1.234,56" para número 1234.56
 function parseMoneyString(str) {
   if (!str) return 0;
   let s = String(str)
-    .replace(/[R$\s]/g, '') // tira R$ e espaços
-    .replace(/\./g, '')     // tira pontos de milhar
-    .replace(',', '.');     // vírgula -> ponto
+    .replace(/[R$\s]/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.');
   const n = Number(s);
   return isNaN(n) ? 0 : n;
 }
@@ -121,6 +101,14 @@ function formatDataISOParaBR(iso) {
   return iso;
 }
 
+function getHojeISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function renderTabelaPropostas() {
   const tbody = document.getElementById('tbody-propostas');
   const spanCount = document.getElementById('contagem-propostas');
@@ -129,13 +117,8 @@ function renderTabelaPropostas() {
 
   if (!tbody) return;
 
-  let filtradas = propostas.filter(p => {
-    const texto = [
-      p.numero,
-      p.cliente,
-      p.tipo,
-      p.status
-    ]
+  const filtradas = propostas.filter(p => {
+    const texto = [p.numero, p.cliente, p.tipo, p.status]
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
@@ -231,13 +214,13 @@ function validarEtapaDadosCliente() {
 
   if (!nome) {
     alert('Informe o nome do cliente.');
-    if (campoCliente) campoCliente.focus();
+    campoCliente?.focus();
     return false;
   }
 
   if (!numero) {
     alert('Número da proposta inválido.');
-    if (campoNumero) campoNumero.focus();
+    campoNumero?.focus();
     return false;
   }
 
@@ -252,7 +235,7 @@ function renderListaProdutosModal(filtroTexto = '') {
 
   const busca = (filtroTexto || '').toLowerCase().trim();
 
-  let filtrados = catalogoProdutosModal.filter(p => {
+  const filtrados = catalogoProdutosModal.filter(p => {
     const texto = `${p.codigo} ${p.descricao}`.toLowerCase();
     return !busca || texto.includes(busca);
   });
@@ -294,8 +277,6 @@ function renderListaProdutosModal(filtroTexto = '') {
     `;
 
     btn.addEventListener('click', () => {
-      // Por enquanto só mostra um aviso.
-      // Depois a gente faz o "carrinho" de itens da proposta.
       alert(`(Futuro) Adicionar produto: ${prod.codigo} — ${prod.descricao}`);
     });
 
@@ -308,10 +289,8 @@ function renderListaProdutosModal(filtroTexto = '') {
 function abrirModalProposta(novo = true, proposta = null) {
   const backdrop = document.getElementById('modal-proposta-backdrop');
   const titulo = document.getElementById('modal-proposta-titulo');
-
   if (!backdrop || !titulo) return;
 
-  // abre de verdade
   backdrop.hidden = false;
   backdrop.style.display = 'flex';
 
@@ -339,7 +318,7 @@ function abrirModalProposta(novo = true, proposta = null) {
     if (campoTipo) campoTipo.value = '';
     if (campoValor) campoValor.value = '';
     if (campoStatus) campoStatus.value = 'rascunho';
-    if (campoData) campoData.value = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
+    if (campoData) campoData.value = getHojeISO();
     if (campoObs) campoObs.value = '';
   } else if (proposta) {
     propostaEditandoId = proposta.id;
@@ -350,26 +329,17 @@ function abrirModalProposta(novo = true, proposta = null) {
     if (campoTelefone) campoTelefone.value = proposta.telefone || '';
     if (campoEmail) campoEmail.value = proposta.email || '';
     if (campoTipo) campoTipo.value = proposta.tipo || '';
+
     if (campoValor) {
       campoValor.value =
-        proposta.valorTotal != null
-          ? formatMoney(Number(proposta.valorTotal))
-          : '';
+        proposta.valorTotal != null ? formatMoney(Number(proposta.valorTotal)) : '';
     }
+
     if (campoStatus) campoStatus.value = proposta.status || 'rascunho';
-
-    if (campoData) {
-      if (proposta.data && proposta.data.includes('-')) {
-        campoData.value = proposta.data;
-      } else {
-        campoData.value = '';
-      }
-    }
-
+    if (campoData) campoData.value = (proposta.data && proposta.data.includes('-')) ? proposta.data : '';
     if (campoObs) campoObs.value = proposta.observacoes || '';
   }
 
-  // Sempre começa na etapa 1 ao abrir
   setModalStep(1);
 }
 
@@ -406,51 +376,29 @@ function salvarProposta() {
 
   if (!cliente) {
     alert('Informe o nome do cliente.');
-    if (campoCliente) campoCliente.focus();
+    campoCliente?.focus();
     return;
   }
 
   if (!tipo) {
     alert('Informe o tipo da proposta (Alarme, CFTV, etc.).');
-    if (campoTipo) campoTipo.focus();
+    campoTipo?.focus();
     return;
   }
 
   if (!numero) {
     alert('Número da proposta inválido.');
-    if (campoNumero) campoNumero.focus();
+    campoNumero?.focus();
     return;
   }
 
   if (propostaEditandoId == null) {
     const novoId = propostas.length > 0 ? Math.max(...propostas.map(p => p.id)) + 1 : 1;
-    propostas.push({
-      id: novoId,
-      numero,
-      cliente,
-      telefone,
-      email,
-      tipo,
-      valorTotal,
-      status,
-      data,
-      observacoes
-    });
+    propostas.push({ id: novoId, numero, cliente, telefone, email, tipo, valorTotal, status, data, observacoes });
   } else {
     propostas = propostas.map(p =>
       p.id === propostaEditandoId
-        ? {
-            ...p,
-            numero,
-            cliente,
-            telefone,
-            email,
-            tipo,
-            valorTotal,
-            status,
-            data,
-            observacoes
-          }
+        ? { ...p, numero, cliente, telefone, email, tipo, valorTotal, status, data, observacoes }
         : p
     );
   }
@@ -472,8 +420,40 @@ function initMascaraValorProposta() {
       return;
     }
 
-    const num = Number(digits) / 100; // centavos -> reais
+    const num = Number(digits) / 100;
     campoValor.value = formatMoney(num);
+  });
+}
+
+/* ===== AÇÕES TABELA (EDITAR/EXCLUIR) ===== */
+
+function initAcoesTabela() {
+  const tbody = document.getElementById('tbody-propostas');
+  if (!tbody) return;
+
+  tbody.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+
+    const action = btn.getAttribute('data-action');
+    const id = Number(btn.getAttribute('data-id') || 0);
+    if (!id) return;
+
+    if (action === 'editar') {
+      const proposta = propostas.find(p => p.id === id);
+      if (proposta) abrirModalProposta(false, proposta);
+      return;
+    }
+
+    if (action === 'excluir') {
+      const proposta = propostas.find(p => p.id === id);
+      const nome = proposta?.numero || `#${id}`;
+      const ok = confirm(`Excluir a proposta ${nome}?`);
+      if (!ok) return;
+
+      propostas = propostas.filter(p => p.id !== id);
+      renderTabelaPropostas();
+    }
   });
 }
 
@@ -482,35 +462,23 @@ function initMascaraValorProposta() {
 document.addEventListener('DOMContentLoaded', () => {
   const backdrop = document.getElementById('modal-proposta-backdrop');
   if (backdrop) {
-    // garante que SEMPRE começa fechado
     backdrop.hidden = true;
     backdrop.style.display = 'none';
   }
 
-  // Render inicial
   renderTabelaPropostas();
-
-  // Máscara no campo de valor
   initMascaraValorProposta();
+  initAcoesTabela();
 
-  // Busca / filtro da lista de propostas
   const inputBusca = document.getElementById('busca-propostas');
   const selectStatus = document.getElementById('filtro-status-proposta');
 
-  if (inputBusca) {
-    inputBusca.addEventListener('input', () => renderTabelaPropostas());
-  }
-  if (selectStatus) {
-    selectStatus.addEventListener('change', () => renderTabelaPropostas());
-  }
+  if (inputBusca) inputBusca.addEventListener('input', renderTabelaPropostas);
+  if (selectStatus) selectStatus.addEventListener('change', renderTabelaPropostas);
 
-  // Nova proposta (dentro da página de Propostas)
   const btnNova = document.getElementById('btn-nova-proposta');
-  if (btnNova) {
-    btnNova.addEventListener('click', () => abrirModalProposta(true, null));
-  }
+  if (btnNova) btnNova.addEventListener('click', () => abrirModalProposta(true, null));
 
-  // Botões do modal
   const btnFechar = document.getElementById('btn-fechar-modal-proposta');
   const btnCancelar = document.getElementById('btn-cancelar-proposta');
   const btnSalvar = document.getElementById('btn-salvar-proposta');
@@ -528,36 +496,38 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnSalvar) {
     btnSalvar.addEventListener('click', () => {
       if (modalStep === 1) {
-        if (validarEtapaDadosCliente()) {
-          setModalStep(2);
-        }
+        if (validarEtapaDadosCliente()) setModalStep(2);
       } else {
         salvarProposta();
       }
     });
   }
 
-  // Clique fora do modal fecha
+  // Clique fora fecha
   if (backdrop) {
     backdrop.addEventListener('click', e => {
       if (e.target === backdrop) fecharModalProposta();
     });
   }
 
-  // Se veio de /inicio.html com ?nova=1, já abre o modal
+  // ESC fecha
+  document.addEventListener('keydown', (e) => {
+    const bd = document.getElementById('modal-proposta-backdrop');
+    if (e.key === 'Escape' && bd && !bd.hidden) fecharModalProposta();
+  });
+
+  // ?nova=1 abre modal
   const params = new URLSearchParams(window.location.search || '');
   if (params.get('nova') === '1') {
     abrirModalProposta(true, null);
   }
 
-  // Busca de produtos dentro do modal (etapa 2)
+  // Busca de produtos (etapa 2)
   const inputBuscaProdutosModal = document.getElementById('campo-busca-produtos-modal');
   if (inputBuscaProdutosModal) {
     inputBuscaProdutosModal.addEventListener('input', () => {
       renderListaProdutosModal(inputBuscaProdutosModal.value);
     });
-
-    // ao abrir a página, já deixa carregado
     renderListaProdutosModal('');
   }
 });

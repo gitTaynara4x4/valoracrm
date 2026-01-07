@@ -14,7 +14,7 @@
   --card-bg:     #262626;
   --card-border: #3a3a3a;
 
-  /* Ação (verde estilo ChatGPT – troca se quiser) */
+  /* Ação */
   --accent:      #10a37f;
   --accent-soft: rgba(16, 163, 127, 0.16);
 
@@ -264,32 +264,6 @@ body {
   text-align: right;
 }
 
-/* badge tipo (equipamento, serviço, kit) */
-
-.orca-pill-tipo {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  border: 1px solid #4b5563;
-  color: #e5e7eb;
-}
-
-.orca-pill-tipo--equipamento {
-  border-color: #3b82f6;
-  color: #bfdbfe;
-}
-
-.orca-pill-tipo--servico {
-  border-color: #eab308;
-  color: #fef3c7;
-}
-
-.orca-pill-tipo--kit {
-  border-color: #22c55e;
-  color: #bbf7d0;
-}
-
 /* ações na tabela */
 
 .orca-table-actions {
@@ -340,7 +314,7 @@ body {
 }
 
 .orca-modal {
-  width: 520px;
+  width: 620px;
   max-width: 95vw;
   background: #181818;
   border-radius: 18px;
@@ -387,10 +361,25 @@ body {
   padding-bottom: 12px;
 }
 
+.orca-modal-hint {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+}
+
 .orca-modal-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px 14px;
+}
+
+/* campo ocupar a linha inteira */
+.orca-field--full {
+  grid-column: 1 / -1;
 }
 
 .orca-modal-footer {
@@ -419,4 +408,20 @@ body {
   .orca-modal-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .orca-field--full {
+    grid-column: auto;
+  }
+}
+.orca-modal-section {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #d1d5db;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  margin-top: 6px;
 }

@@ -1,5 +1,4 @@
 // /frontend/js/pages/clientes.js
-
 let clientes = [];
 let clienteEditandoId = null;
 
@@ -174,7 +173,7 @@ async function buscarCep(cepRaw){
 }
 
 /* ========================
- * UI helpers (PF/PJ + avançado)
+ * UI helpers (PF/PJ)
  * =======================*/
 function setHidden(id, hidden){
   const el = document.getElementById(id);
@@ -243,13 +242,11 @@ function redesToInputs(redes){
   setVal('campo-linkedin', redes?.linkedin || '');
 }
 
-function limparAvancado(){
-  // contato
-  setVal('campo-pessoa-contato','');
-  setVal('campo-email-principal','');
+function limparCompletos(){
+  // completos - contato extra
   setVal('campo-whatsapp-principal','');
 
-  // extra
+  // endereço extra
   setVal('campo-end-pais','BR');
 
   // pj
@@ -257,6 +254,7 @@ function limparAvancado(){
   setVal('campo-cnpj','');
   setVal('campo-inscricao-estadual','');
   setVal('campo-inscricao-municipal','');
+  setVal('campo-responsavel-contratante','');
   setVal('campo-cpf-resp-admin','');
 
   // pf
@@ -287,6 +285,10 @@ function abrirModalClienteNovo(){
   setVal('campo-nome-cliente', '');
   setVal('campo-whatsapp-cliente', '');
 
+  // ✅ básicos (subiram)
+  setVal('campo-pessoa-contato','');
+  setVal('campo-email-principal','');
+
   // endereço
   setVal('campo-cep','');
   setVal('campo-logradouro','');
@@ -302,9 +304,8 @@ function abrirModalClienteNovo(){
   setVal('campo-onde-outro','');
   syncOndeConheceuOutro();
 
-  // avançado: escondido no NOVO
-  setHidden('orca-advanced-fields', true);
-  limparAvancado();
+  // completos (sempre visível)
+  limparCompletos();
   syncTipoSections();
 
   abrirModal();
@@ -319,7 +320,7 @@ function abrirModalClienteEditar(clienteFull){
 
   // básico
   setVal('campo-codigo-cliente', clienteFull.codigo || '');
-  // data_cadastro vem datetime -> converte pra YYYY-MM-DD
+
   const dt = clienteFull.data_cadastro ? new Date(clienteFull.data_cadastro) : null;
   if(dt && !isNaN(dt.getTime())){
     const yyyy = dt.getFullYear();
@@ -333,6 +334,10 @@ function abrirModalClienteEditar(clienteFull){
   setVal('campo-tipo-cliente', clienteFull.tipo || 'pf');
   setVal('campo-nome-cliente', clienteFull.nome || '');
   setVal('campo-whatsapp-cliente', clienteFull.whatsapp || '');
+
+  // ✅ básicos (subiram)
+  setVal('campo-pessoa-contato', clienteFull.pessoa_contato || '');
+  setVal('campo-email-principal', clienteFull.email_principal || '');
 
   // endereço
   setVal('campo-cep', clienteFull.cep || '');
@@ -349,15 +354,8 @@ function abrirModalClienteEditar(clienteFull){
   setVal('campo-onde-outro', clienteFull.onde_conheceu_outro || '');
   syncOndeConheceuOutro();
 
-  // avançado: aparece no EDITAR
-  setHidden('orca-advanced-fields', false);
-
-  // contato extra
-  setVal('campo-pessoa-contato', clienteFull.pessoa_contato || '');
-  setVal('campo-email-principal', clienteFull.email_principal || '');
+  // completos
   setVal('campo-whatsapp-principal', clienteFull.whatsapp_principal || '');
-
-  // endereço extra
   setVal('campo-end-pais', clienteFull.end_pais || 'BR');
 
   // PJ
@@ -365,6 +363,7 @@ function abrirModalClienteEditar(clienteFull){
   setVal('campo-cnpj', clienteFull.cnpj || '');
   setVal('campo-inscricao-estadual', clienteFull.inscricao_estadual || '');
   setVal('campo-inscricao-municipal', clienteFull.inscricao_municipal || '');
+  setVal('campo-responsavel-contratante', clienteFull.responsavel_contratante || '');
   setVal('campo-cpf-resp-admin', clienteFull.cpf_responsavel_administrador || '');
 
   // PF
@@ -385,12 +384,18 @@ function abrirModalClienteEditar(clienteFull){
 
 function buildPayload(){
   const tipo = getVal('campo-tipo-cliente') || 'pf';
-  const payload = {
+
+  return {
+    // básico
     codigo: getVal('campo-codigo-cliente'),
     tipo,
     nome: getVal('campo-nome-cliente'),
     whatsapp: getVal('campo-whatsapp-cliente'),
     data_cadastro: getVal('campo-data-cadastro') || null,
+
+    // ✅ básicos (subiram)
+    pessoa_contato: getVal('campo-pessoa-contato'),
+    email_principal: getVal('campo-email-principal'),
 
     // endereço
     cep: getVal('campo-cep'),
@@ -404,40 +409,30 @@ function buildPayload(){
     tipo_imovel: getVal('campo-tipo-imovel'),
     onde_conheceu: getVal('campo-onde-conheceu'),
     onde_conheceu_outro: getVal('campo-onde-outro'),
+
+    // completos
+    whatsapp_principal: getVal('campo-whatsapp-principal'),
+    end_pais: getVal('campo-end-pais') || 'BR',
+
+    // PJ
+    razao_social: getVal('campo-razao-social'),
+    cnpj: getVal('campo-cnpj'),
+    inscricao_estadual: getVal('campo-inscricao-estadual'),
+    inscricao_municipal: getVal('campo-inscricao-municipal'),
+    responsavel_contratante: getVal('campo-responsavel-contratante'),
+    cpf_responsavel_administrador: getVal('campo-cpf-resp-admin'),
+
+    // PF
+    rg: getVal('campo-rg'),
+    data_nascimento: getVal('campo-data-nascimento') || null,
+    estado_civil: getVal('campo-estado-civil'),
+    profissao: getVal('campo-profissao'),
+
+    // Cobrança / web
+    cep_cobranca: getVal('campo-cep-cobranca'),
+    home_page: getVal('campo-home-page'),
+    redes_sociais: redesFromInputs(),
   };
-
-  // se estiver em edição, manda avançados (ou se o bloco estiver visível)
-  const advVisible = !document.getElementById('orca-advanced-fields')?.hidden;
-
-  if(advVisible){
-    Object.assign(payload, {
-      pessoa_contato: getVal('campo-pessoa-contato'),
-      email_principal: getVal('campo-email-principal'),
-      whatsapp_principal: getVal('campo-whatsapp-principal'),
-
-      end_pais: getVal('campo-end-pais') || 'BR',
-
-      // PJ
-      razao_social: getVal('campo-razao-social'),
-      cnpj: getVal('campo-cnpj'),
-      inscricao_estadual: getVal('campo-inscricao-estadual'),
-      inscricao_municipal: getVal('campo-inscricao-municipal'),
-      cpf_responsavel_administrador: getVal('campo-cpf-resp-admin'),
-
-      // PF
-      rg: getVal('campo-rg'),
-      data_nascimento: getVal('campo-data-nascimento') || null,
-      estado_civil: getVal('campo-estado-civil'),
-      profissao: getVal('campo-profissao'),
-
-      // Cobrança / web
-      cep_cobranca: getVal('campo-cep-cobranca'),
-      home_page: getVal('campo-home-page'),
-      redes_sociais: redesFromInputs(),
-    });
-  }
-
-  return payload;
 }
 
 async function salvarCliente(){
@@ -509,7 +504,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     });
   }
 
-  // máscara simples para CEP cobrança (só visual)
   const cepCob = document.getElementById('campo-cep-cobranca');
   if(cepCob){
     cepCob.addEventListener('input', ()=>{
@@ -518,7 +512,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     });
   }
 
-  // ações na tabela
   const tbody = document.getElementById('tbody-clientes');
   tbody?.addEventListener('click', async (e)=>{
     const btn = e.target.closest('.orca-icon-btn');
