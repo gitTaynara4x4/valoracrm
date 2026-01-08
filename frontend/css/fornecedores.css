@@ -542,6 +542,7 @@ body.modal-open{ overflow:hidden; }
     justify-content:center;
   }
 }
+
 /* ===== Linha de Produtos (Fornecedor) ===== */
 .orca-linha-produtos-top{
   display:flex;
@@ -619,3 +620,125 @@ body.modal-open{ overflow:hidden; }
   color: var(--text-muted);
   font-size:.85rem;
 }
+
+/* =====================================================
+   ✅ AJUSTE DE ESPAÇAMENTO — SOMENTE DENTRO DO MODAL
+   (não mexe na página fora do modal)
+   ===================================================== */
+.orca-modal{
+  padding:18px 20px 16px;
+}
+
+.orca-modal-body{
+  padding:14px 0;
+}
+
+/* mais respiro entre campos */
+.orca-modal .orca-modal-grid{
+  gap:14px 16px;
+}
+
+/* labels e campos mais “folgados” (só no modal) */
+.orca-modal .orca-field{
+  gap:6px;
+}
+
+.orca-modal .orca-field input,
+.orca-modal .orca-field select,
+.orca-modal .orca-field textarea{
+  padding:10px 12px;
+  font-size:.9rem;
+  line-height:1.25;
+}
+
+.orca-modal .orca-field textarea{
+  min-height:56px;
+  padding:12px 12px;
+  line-height:1.4;
+}
+
+/* seções do modal com mais separação */
+.orca-modal .orca-modal-section{
+  margin-top:18px;
+  padding-top:18px;
+}
+
+.orca-modal .orca-modal-section-title{
+  margin-bottom:12px;
+}
+
+/* dinheiro (R$) com mais espaço (só no modal) */
+.orca-modal .orca-input-money .orca-money-prefix{
+  left:14px;
+}
+
+.orca-modal .orca-input-money input{
+  padding-left:50px;
+}
+
+/* checklist com mais respiro (só no modal) */
+.orca-modal .orca-checklist{
+  padding:12px;
+  gap:10px;
+  max-height:280px;
+}
+
+.orca-modal .orca-checkitem{
+  padding:10px 12px;
+  gap:12px;
+}
+
+@media (max-width: 860px){
+  /* mantém o resto do mobile igual, só refina o modal */
+  .orca-modal{
+    padding:14px 14px 12px;
+  }
+  .orca-modal .orca-modal-grid{
+    gap:12px;
+  }
+  .orca-modal .orca-modal-section{
+    margin-top:16px;
+    padding-top:16px;
+  }
+}
+/* =====================================================
+   ✅ MAIS ESPAÇO ENTRE TÍTULOS/ BLOCOS (só no MODAL)
+   ===================================================== */
+
+/* mais distância entre um bloco e outro */
+.orca-modal .orca-modal-section{
+  margin-top: 26px;     /* antes: 18px */
+  padding-top: 22px;    /* antes: 18px */
+}
+
+/* título com mais espaço e “cara de bloco” */
+.orca-modal .orca-modal-section-title{
+  margin-bottom: 16px;  /* espaço entre título e campos */
+  padding-bottom: 10px; /* dá respiro + separa visualmente */
+  border-bottom: 1px solid #2b2b2b; /* opcional: linha leve */
+}
+
+/* deixa o título ocupar “linha própria” e respirar */
+.orca-modal .orca-modal-section-title strong{
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* subtítulo/ajuda mais afastado */
+.orca-modal .orca-modal-section-title span{
+  display: block;
+  margin-top: 2px;
+}
+
+/* no mobile, não exagera */
+@media (max-width: 860px){
+  .orca-modal .orca-modal-section{
+    margin-top: 22px;
+    padding-top: 18px;
+  }
+  .orca-modal .orca-modal-section-title{
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+  }
+}
+

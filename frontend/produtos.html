@@ -168,10 +168,45 @@
                 <label for="campo-prod-controlado">Prod. Controlado</label>
                 <select id="campo-prod-controlado"></select>
               </div>
+<!-- Campos extras (somente se Prod. Controlado = SIM) -->
+<div class="orca-modal-section" id="sec-prod-controlado-extra" hidden>Produto Controlado</div>
 
-              <div class="orca-field">
-                <label for="campo-segmentos">Segmentos</label>
-                <select id="campo-segmentos"></select>
+<div class="orca-field" id="wrap-tipo-fiscalizacao" hidden>
+  <label for="campo-tipo-fiscalizacao">Tipo de Fiscalização</label>
+  <select id="campo-tipo-fiscalizacao"></select>
+</div>
+
+<div class="orca-field orca-field--full" id="wrap-dados-identificacao-controlado" hidden>
+  <label for="campo-dados-identificacao-controlado">Dados de Identificação</label>
+  <textarea id="campo-dados-identificacao-controlado" rows="2"
+            placeholder="Ex: nº de série, lote, certificado, registro..."></textarea>
+</div>
+
+<div class="orca-field orca-field--full" id="wrap-observacoes-controlado" hidden>
+  <label for="campo-observacoes-controlado">Observações</label>
+  <textarea id="campo-observacoes-controlado" rows="2"
+            placeholder="Observações sobre fiscalização / controle..."></textarea>
+</div>
+
+
+              <div class="orca-field orca-field--full">
+                <label>Segmentos</label>
+
+                <div class="orca-multi" id="segmentos-multi">
+                  <div class="orca-multi__chips" id="chips-segmentos"></div>
+
+                  <div class="orca-multi__row">
+                    <select id="campo-segmentos-add"></select>
+
+                    <button type="button" class="orca-btn orca-btn--ghost orca-btn--icon"
+                            id="btn-gerenciar-segmentos"
+                            title="Gerenciar segmentos (apagar os cadastrados errado)">
+                      <i class="fa-solid fa-gear"></i>
+                    </button>
+                  </div>
+
+                  <div class="orca-help">Selecione vários. Para remover do produto, clique no ✕ no chip.</div>
+                </div>
               </div>
 
               <div class="orca-field">
@@ -197,15 +232,45 @@
               <!-- ===== DISTRIBUIDORES ===== -->
               <div class="orca-modal-section">Distribuidores</div>
 
-              <div class="orca-field">
-                <label for="campo-fornecedor">Fornecedor</label>
-                <select id="campo-fornecedor"></select>
+              <div class="orca-field orca-field--full">
+                <label>Fornecedores</label>
+
+                <div class="orca-multi" id="fornecedores-multi">
+                  <div class="orca-multi__chips" id="chips-fornecedores"></div>
+
+                  <div class="orca-multi__row">
+                    <select id="campo-fornecedores-add"></select>
+
+                    <button type="button" class="orca-btn orca-btn--ghost orca-btn--icon"
+                            id="btn-gerenciar-fornecedores"
+                            title="Gerenciar fornecedores">⚙️</button>
+                  </div>
+
+                  <div class="orca-multi__hint">
+                    Selecione vários fornecedores (distribuidores). Use ⚙️ para apagar cadastrados errado.
+                  </div>
+                </div>
               </div>
 
               <div class="orca-field">
                 <label for="campo-ultima-compra">Ultima Compra</label>
                 <input type="date" id="campo-ultima-compra" />
               </div>
+
+<div class="orca-inline">
+  <div class="orca-field">
+    <label for="campo-ultimo-fornecedor">Último Fornecedor do Produto</label>
+    <select id="campo-ultimo-fornecedor"></select>
+  </div>
+  <div class="orca-field">
+    <label>&nbsp;</label>
+    <button type="button" class="btn-secondary" id="btn-buscar-ultimo-pedido">Buscar Último Pedido de Compra</button>
+  </div>
+  <div class="orca-field">
+    <label>&nbsp;</label>
+    <button type="button" class="btn-secondary" id="btn-buscar-ultima-nf">Buscar Nota Fiscal do Último Pedido</button>
+  </div>
+</div>
 
               <!-- ===== DADOS LOGÍSTICO ===== -->
               <div class="orca-modal-section">Dados Logístico</div>
@@ -219,6 +284,21 @@
                 <label for="campo-armaz-localiz">Armaz. Localiz</label>
                 <input type="text" id="campo-armaz-localiz" placeholder="Corredor A / Prateleira 3" />
               </div>
+
+<div class="orca-inline">
+  <div class="orca-field">
+    <label for="campo-armaz-predio">Predio</label>
+    <input type="text" id="campo-armaz-predio" placeholder="A / B / 1" />
+  </div>
+  <div class="orca-field">
+    <label for="campo-armaz-corredor">Corredor</label>
+    <input type="text" id="campo-armaz-corredor" placeholder="A / B / 01" />
+  </div>
+  <div class="orca-field">
+    <label for="campo-armaz-prateleira">Prateleira</label>
+    <input type="text" id="campo-armaz-prateleira" placeholder="1 / 2 / 3" />
+  </div>
+</div>
 
               <div class="orca-field">
                 <label for="campo-tipo-logistico">Tipo</label>
@@ -283,24 +363,7 @@
                 <label for="campo-tipo-tecnico">Tipo</label>
                 <input type="text" id="campo-tipo-tecnico" placeholder="Eletrônico / Mecânico..." />
               </div>
-
-              <div class="orca-inline">
-                <div class="orca-field">
-                  <label for="campo-peso-tecnico">Peso</label>
-                  <input type="number" id="campo-peso-tecnico" step="0.001" placeholder="0,000" />
-                </div>
-                <div class="orca-field orca-field--unit">
-                  <label for="campo-peso-tecnico-unidade">Unidade</label>
-                  <select id="campo-peso-tecnico-unidade"></select>
-                </div>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-tamanho-tecnico">Tamanho</label>
-                <input type="text" id="campo-tamanho-tecnico" placeholder="10x20x30" />
-              </div>
-
-              <div class="orca-field orca-field--full">
+<div class="orca-field orca-field--full">
                 <label for="campo-cores-disponiveis">Cores Disponíveis</label>
                 <select id="campo-cores-disponiveis"></select>
               </div>
@@ -416,23 +479,155 @@
                 <input type="number" id="campo-luc-presumido" step="0.01" placeholder="0,00" />
               </div>
 
-              <!-- ===== HISTORICO ===== -->
-              <div class="orca-modal-section">Historico</div>
+              <!-- ===== MOVIMENTAÇÃO ===== -->
+<div class="orca-modal-section">Movimentação</div>
 
-              <div class="orca-field">
-                <label for="campo-entrada-estoque">Entrada Estoque</label>
-                <input type="number" id="campo-entrada-estoque" step="1" placeholder="0" />
-              </div>
+<div class="orca-inline">
+  <div class="orca-field">
+    <label for="campo-mov-data">Data Movimentação</label>
+    <input type="datetime-local" id="campo-mov-data" />
+  </div>
 
-              <div class="orca-field">
-                <label for="campo-saida-estoque">Saida Estoque</label>
-                <input type="number" id="campo-saida-estoque" step="1" placeholder="0" />
-              </div>
+  <div class="orca-field">
+    <label for="campo-mov-tipo">Tipo Movimento</label>
+    <select id="campo-mov-tipo">
+      <option value="">—</option>
+      <option value="Entrada">Entrada</option>
+      <option value="Saida">Saida</option>
+    </select>
+  </div>
+</div>
 
-              <div class="orca-field orca-field--full">
-                <label for="campo-destino">Destino</label>
-                <select id="campo-destino"></select>
-              </div>
+<div id="bloco-mov-entrada" hidden>
+  <div class="orca-inline">
+    <div class="orca-field">
+      <label for="campo-mov-entrada-tipo">Tipo de Entrada</label>
+      <select id="campo-mov-entrada-tipo">
+        <option value="">—</option>
+        <option value="Entrada">Entrada</option>
+        <option value="Ajuste de Entrada">Ajuste de Entrada</option>
+      </select>
+    </div>
+
+    <div class="orca-field">
+      <label for="campo-mov-qtd">Quantidade</label>
+      <input type="number" id="campo-mov-qtd" step="1" placeholder="0" />
+    </div>
+
+    <div class="orca-field">
+      <label for="campo-mov-fornecedor">Fornecedor</label>
+      <select id="campo-mov-fornecedor"></select>
+    </div>
+  </div>
+
+  <div class="orca-inline">
+    <div class="orca-field">
+      <label for="campo-mov-doc-tipo">Tipo de Documento</label>
+      <select id="campo-mov-doc-tipo">
+        <option value="">—</option>
+        <option value="Nota Fiscal">Nota Fiscal</option>
+        <option value="Romaneio">Romaneio</option>
+        <option value="Pedido">Pedido</option>
+      </select>
+    </div>
+
+    <div class="orca-field">
+      <label for="campo-mov-doc-numero">Número Doc.</label>
+      <input type="text" id="campo-mov-doc-numero" placeholder="Ex.: 12345" />
+    </div>
+
+    <div class="orca-field" id="bloco-mov-nfe-entrada" hidden>
+      <label for="campo-mov-nfe-chave">Chave de Acesso (NF-e)</label>
+      <input type="text" id="campo-mov-nfe-chave" placeholder="44 dígitos" />
+    </div>
+  </div>
+
+  <div class="orca-inline">
+    <button type="button" class="btn-secondary" id="btn-buscar-danfe-entrada">Buscar DANFE (Receita Federal)</button>
+  </div>
+</div>
+
+<div id="bloco-mov-saida" hidden>
+  <div class="orca-inline">
+    <div class="orca-field">
+      <label for="campo-mov-saida-tipo">Tipo de Saída</label>
+      <select id="campo-mov-saida-tipo">
+        <option value="">—</option>
+        <option value="Saida">Saida</option>
+        <option value="Ajuste de Saida">Ajuste de Saida</option>
+      </select>
+    </div>
+
+    <div class="orca-field">
+      <label for="campo-mov-qtd-saida">Quantidade</label>
+      <input type="number" id="campo-mov-qtd-saida" step="1" placeholder="0" />
+    </div>
+
+    <div class="orca-field">
+      <label for="campo-destino">Destino</label>
+      <select id="campo-destino"></select>
+    </div>
+  </div>
+
+  <div id="bloco-mov-saida-cliente" hidden>
+    <div class="orca-field orca-field--full">
+      <label for="campo-mov-cliente">Cliente (vincular por Cód. Barras)</label>
+      <input type="text" id="campo-mov-cliente" list="datalist-clientes" placeholder="Digite para buscar..." />
+      <datalist id="datalist-clientes"></datalist>
+    </div>
+  </div>
+
+  <div id="bloco-mov-saida-dep" hidden>
+    <div class="orca-field">
+      <label for="campo-mov-departamento">Departamento (uso interno)</label>
+      <select id="campo-mov-departamento"></select>
+    </div>
+  </div>
+
+  <div id="bloco-mov-saida-docs" hidden>
+    <div class="orca-field orca-field--full">
+      <label for="campo-mov-anexos">Documentos (importação - uso futuro)</label>
+      <input type="file" id="campo-mov-anexos" multiple />
+      <div class="orca-multi__hint">No localStorage salvamos apenas o nome dos arquivos. (Upload real fica para o módulo futuro.)</div>
+    </div>
+  </div>
+
+  <div class="orca-inline">
+    <div class="orca-field">
+      <label for="campo-mov-doc-tipo-saida">Tipo de Documento</label>
+      <select id="campo-mov-doc-tipo-saida">
+        <option value="">—</option>
+        <option value="Nota Fiscal">Nota Fiscal</option>
+        <option value="Romaneio">Romaneio</option>
+        <option value="Pedido">Pedido</option>
+      </select>
+    </div>
+
+    <div class="orca-field">
+      <label for="campo-mov-doc-numero-saida">Número Doc.</label>
+      <input type="text" id="campo-mov-doc-numero-saida" placeholder="Ex.: 12345" />
+    </div>
+
+    <div class="orca-field" id="bloco-mov-nfe-saida" hidden>
+      <label for="campo-mov-nfe-chave-saida">Chave de Acesso (NF-e)</label>
+      <input type="text" id="campo-mov-nfe-chave-saida" placeholder="44 dígitos" />
+    </div>
+  </div>
+
+  <div class="orca-inline">
+    <button type="button" class="btn-secondary" id="btn-buscar-danfe-saida">Buscar DANFE (Receita Federal)</button>
+  </div>
+</div>
+
+<div class="orca-inline">
+  <button type="button" class="btn-secondary" id="btn-add-mov">Adicionar Movimentação</button>
+  <button type="button" class="btn-secondary" id="btn-limpar-mov">Limpar</button>
+</div>
+
+<div class="orca-field orca-field--full">
+  <label>Movimentações Registradas</label>
+  <div id="lista-movimentacoes" class="orca-mov-list"></div>
+</div>
             </div>
           </div>
 

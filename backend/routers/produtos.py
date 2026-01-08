@@ -61,13 +61,17 @@ class ProdutoBase(BaseModel):
 
     # CLASSIFICAÇÃO
     prod_controlado: Optional[bool] = None
-    segmentos: Optional[str] = Field(default=None, max_length=120)
+    tipo_fiscalizacao: Optional[str] = Field(default=None, max_length=120)
+    dados_identificacao_controlado: Optional[str] = None
+    observacoes_controlado: Optional[str] = None
+    segmentos: Optional[List[str]] = None
     tipo_sistema: Optional[str] = Field(default=None, max_length=120)
     classe: Optional[str] = Field(default=None, max_length=120)
     categorias: Optional[str] = Field(default=None, max_length=120)
     subcategoria: Optional[str] = Field(default=None, max_length=120)
 
     # DISTRIBUIDORES
+    fornecedores: Optional[List[str]] = None
     fornecedor: Optional[str] = Field(default=None, max_length=120)
     ultima_compra: Optional[date] = None
 
@@ -222,7 +226,12 @@ def obter_produto(produto_id: int, db: Session = Depends(get_db)):
 
 @router.post("", response_model=ProdutoOut, status_code=status.HTTP_201_CREATED)
 def criar_produto(payload: ProdutoCreate, db: Session = Depends(get_db)):
-    produto = models.Produto(**payload.model_dump() if hasattr(payload, "model_dump") else payload.dict())
+    data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+    if data.get("segmentos") is None:
+        data.pop("segmentos", None)  # usa default do banco
+    if data.get("fornecedores") is None:
+        data.pop("fornecedores", None)  # usa default do banco
+    produto = models.Produto(**data)
 
     db.add(produto)
     try:
@@ -241,6 +250,10 @@ def atualizar_produto(produto_id: int, payload: ProdutoCreate, db: Session = Dep
         raise HTTPException(status_code=404, detail="Produto não encontrado.")
 
     data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+    if data.get("segmentos") is None:
+        data.pop("segmentos", None)
+    if data.get("fornecedores") is None:
+        data.pop("fornecedores", None)
     for k, v in data.items():
         setattr(produto, k, v)
 
@@ -260,6 +273,10 @@ def patch_produto(produto_id: int, payload: ProdutoUpdate, db: Session = Depends
         raise HTTPException(status_code=404, detail="Produto não encontrado.")
 
     data = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload.dict(exclude_unset=True)
+    if data.get("segmentos") is None:
+        data.pop("segmentos", None)
+    if data.get("fornecedores") is None:
+        data.pop("fornecedores", None)
     for k, v in data.items():
         setattr(produto, k, v)
 

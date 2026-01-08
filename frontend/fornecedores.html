@@ -91,6 +91,7 @@
           </header>
 
           <div class="orca-modal-body">
+            <!-- DADOS PRINCIPAIS -->
             <div class="orca-modal-grid">
               <div class="orca-field">
                 <label for="campo-data-cadastro">Data Cadastro</label>
@@ -131,6 +132,7 @@
               </div>
             </div>
 
+            <!-- ENDEREÇO -->
             <div class="orca-modal-section">
               <div class="orca-modal-section-title">
                 <strong>Endereço - CEP</strong>
@@ -171,6 +173,7 @@
               </div>
             </div>
 
+            <!-- CONTATO -->
             <div class="orca-modal-grid">
               <div class="orca-field orca-field--full">
                 <label for="campo-pessoa-contato">Pessoa Contato</label>
@@ -208,6 +211,7 @@
               </div>
             </div>
 
+            <!-- CÓDIGO / CATEGORIA / REPRESENTANTE -->
             <div class="orca-modal-section">
               <div class="orca-modal-section-title">
                 <strong>Código de Cadastro Fornecedor</strong>
@@ -216,7 +220,8 @@
 
               <div class="orca-modal-grid">
                 <div class="orca-field">
-                  <labelch3.6?!### Não mexi
+                  <label for="campo-codigo-fornecedor">Código</label>
+                  <input type="text" id="campo-codigo-fornecedor" readonly />
                 </div>
 
                 <div class="orca-field orca-field--full">
@@ -250,6 +255,7 @@
               </div>
             </div>
 
+            <!-- CRÉDITO / FRETE -->
             <div class="orca-modal-grid">
               <div class="orca-field">
                 <label for="campo-limite-creditos">Limite de Créditos</label>
@@ -272,6 +278,7 @@
               </div>
             </div>
 
+            <!-- LINHA DE PRODUTOS -->
             <div class="orca-modal-section">
               <div class="orca-modal-section-title">
                 <strong>Linha de Produtos</strong>
@@ -279,7 +286,7 @@
               </div>
 
               <div class="orca-modal-grid">
-                <!-- ✅ NOVO: CHECKLIST DE PRODUTOS -->
+                <!-- CHECKLIST DE PRODUTOS -->
                 <div class="orca-field orca-field--full">
                   <label for="busca-produtos-fornecedor">Produtos cadastrados (ticável)</label>
 
@@ -310,7 +317,7 @@
                   </small>
                 </div>
 
-                <!-- ✅ MANTIDO: texto antigo (opcional) -->
+                <!-- (opcional) observações antigas -->
                 <div class="orca-field orca-field--full">
                   <label for="campo-linha-produtos">Observações da Linha (opcional)</label>
                   <textarea id="campo-linha-produtos" rows="3" placeholder="Descreva a linha / categorias / marcas"></textarea>

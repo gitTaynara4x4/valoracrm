@@ -230,12 +230,16 @@ class Produto(Base):
 
     # CLASSIFICAÇÃO (novos)
     prod_controlado = Column(Boolean, nullable=True)
-    segmentos = Column(String(120), nullable=True)
+    tipo_fiscalizacao = Column(String(120), nullable=True)
+    dados_identificacao_controlado = Column(Text, nullable=True)
+    observacoes_controlado = Column(Text, nullable=True)
+    segmentos = Column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
     tipo_sistema = Column(String(120), nullable=True)
     classe = Column(String(120), nullable=True)
     categorias = Column(String(120), nullable=True)
     subcategoria = Column(String(120), nullable=True)
     fornecedor = Column(String(120), nullable=True)
+    fornecedores = Column(JSONB, nullable=False, server_default=text("\'[]\'::jsonb"))
     ultima_compra = Column(Date, nullable=True)
 
 
