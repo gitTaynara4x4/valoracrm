@@ -32,9 +32,23 @@
           <p>Cadastro de fornecedores (PF/PJ).</p>
         </div>
 
-        <button class="btn-primary" type="button" id="btn-novo-fornecedor">
-          <i class="fa-solid fa-truck-field"></i>&nbsp; Novo fornecedor
-        </button>
+        <div class="orca-header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <!-- ✅ Exportar / Importar -->
+          <button class="btn-secondary" type="button" id="btn-exportar-fornecedores" title="Exportar fornecedores">
+            <i class="fa-solid fa-file-export"></i>&nbsp; Exportar
+          </button>
+
+          <button class="btn-secondary" type="button" id="btn-importar-fornecedores" title="Importar fornecedores">
+            <i class="fa-solid fa-file-import"></i>&nbsp; Importar
+          </button>
+
+          <!-- input escondido (import) -->
+          <input id="input-import-file" type="file" accept="application/json" hidden />
+
+          <button class="btn-primary" type="button" id="btn-novo-fornecedor">
+            <i class="fa-solid fa-truck-field"></i>&nbsp; Novo fornecedor
+          </button>
+        </div>
       </header>
 
       <section class="orca-filters">

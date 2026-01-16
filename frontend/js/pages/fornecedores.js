@@ -1,15 +1,190 @@
 // /frontend/js/pages/fornecedores.js
+
 let fornecedores = [];
 let fornecedorEditandoId = null;
 
 function onlyDigits(s){ return String(s||'').replace(/\D+/g,''); }
 
-// =========================
-// Linha de Produtos (checkbox) - pega TODOS produtos cadastrados
-// =========================
+/* =========================
+   Exportar / Importar (JSON)
+   ========================= */
+function downloadBlob(filename, blob){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 500);
+}
+
+function toISODateTime(){
+  try{ return new Date().toISOString(); }catch{ return ''; }
+}
+
+async function exportarFornecedores(){
+  try{
+    // garante lista atualizada
+    await carregarFornecedores();
+
+    const payload = {
+      version: 1,
+      exported_at: toISODateTime(),
+      type: 'fornecedores',
+      items: fornecedores || []
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+    const name = `orcapro_fornecedores_${(new Date()).toISOString().slice(0,10)}.json`;
+    downloadBlob(name, blob);
+  }catch(err){
+    console.error(err);
+    await orcaAlert(err?.message || 'Erro ao exportar fornecedores.');
+  }
+}
+
+function normalizeImportItems(parsed){
+  if(Array.isArray(parsed)) return parsed;
+  if(Array.isArray(parsed?.items)) return parsed.items;
+  return [];
+}
+
+function mapImportFornecedorToPayload(f){
+  // aceita tanto formato do backend quanto “qualquer json”
+  // e monta payload compatível com sua API atual
+  const tipo = String(f?.tipo || f?.tipo_fornecedor || '').trim() || 'pf';
+
+  return {
+    data_cadastro: (String(f?.data_cadastro || '').slice(0,10) || null),
+
+    tipo,
+    nome: String(f?.nome || f?.nome_identificacao || '').trim(),
+
+    razao_social: f?.razao_social ?? '',
+    cnpj: f?.cnpj ?? '',
+    inscricao_estadual: f?.inscricao_estadual ?? '',
+    inscricao_municipal: f?.inscricao_municipal ?? '',
+
+    cep: f?.cep ?? f?.end_cep ?? '',
+    endereco_logradouro: f?.endereco_logradouro ?? f?.end_rua ?? '',
+    endereco_numero: f?.endereco_numero ?? f?.end_numero ?? '',
+    endereco_bairro: f?.endereco_bairro ?? f?.end_bairro ?? '',
+    cidade: f?.cidade ?? f?.end_cidade ?? '',
+    uf: f?.uf ?? f?.end_estado ?? '',
+
+    pessoa_contato: f?.pessoa_contato ?? '',
+
+    telefone_pabx: f?.telefone_pabx ?? '',
+    telefone: f?.telefone ?? '',
+    whatsapp: f?.whatsapp ?? f?.whatsapp_contato ?? '',
+
+    home_page: f?.home_page ?? '',
+    email_principal: f?.email_principal ?? '',
+    redes_sociais: f?.redes_sociais ?? null,
+
+    codigo: f?.codigo ?? f?.codigo_cadastro_fornecedor ?? '',
+
+    tipo_categoria: f?.tipo_categoria ?? '',
+
+    contato_representante_comercial: f?.contato_representante_comercial ?? '',
+    representante_telefone_whatsapp: f?.representante_telefone_whatsapp ?? '',
+    representante_telefone_ramal: f?.representante_telefone_ramal ?? '',
+
+    limite_creditos: (f?.limite_creditos ?? null),
+    opcao_transportadoras_fretes: f?.opcao_transportadoras_fretes ?? '',
+
+    linha_produtos_ids: Array.isArray(f?.linha_produtos_ids) ? f.linha_produtos_ids : undefined,
+
+    linha_produtos: f?.linha_produtos ?? '',
+    contato_rma: f?.contato_rma ?? '',
+    informacoes_rma: f?.informacoes_rma ?? '',
+  };
+}
+
+async function importarFornecedoresFromFile(file){
+  if(!file){
+    await orcaAlert('Selecione um arquivo JSON para importar.');
+    return;
+  }
+
+  try{
+    const txt = await file.text();
+    const parsed = JSON.parse(txt);
+    const items = normalizeImportItems(parsed);
+
+    if(!items.length){
+      await orcaAlert('Arquivo vazio ou inválido (sem itens).');
+      return;
+    }
+
+    const ok = await orcaConfirm(`Importar ${items.length} fornecedor(es)?`, {
+      title: 'Importar fornecedores',
+      okText: 'Importar',
+      cancelText: 'Cancelar'
+    });
+
+    if(!ok) return;
+
+    let okCount = 0;
+    let failCount = 0;
+
+    // IMPORTA UM POR UM (POST)
+    for(const f of items){
+      const payload = mapImportFornecedorToPayload(f);
+
+      // validação mínima
+      if(!payload.nome){
+        failCount++;
+        continue;
+      }
+      if(!payload.tipo) payload.tipo = 'pf';
+
+      try{
+        // tenta salvar com linha_produtos_ids; se o backend não aceitar, cai no fallback (igual salvarFornecedor)
+        await salvarFornecedorNoServidor(payload, null);
+        okCount++;
+      }catch(err){
+        // fallback: remove linha_produtos_ids (se der erro)
+        try{
+          const msg = String(err?.message || '').toLowerCase();
+          const pareceCampoDesconhecido =
+            msg.includes('linha_produtos_ids') &&
+            (msg.includes('extra') || msg.includes('not permitted') || msg.includes('unknown') || msg.includes('field') || msg.includes('invalid'));
+
+          if(pareceCampoDesconhecido){
+            const ids = Array.isArray(payload.linha_produtos_ids) ? payload.linha_produtos_ids : [];
+            const p2 = { ...payload };
+            delete p2.linha_produtos_ids;
+            p2.linha_produtos = (ids || []).join(',');
+            await salvarFornecedorNoServidor(p2, null);
+            okCount++;
+          }else{
+            failCount++;
+          }
+        }catch(_e2){
+          failCount++;
+        }
+      }
+    }
+
+    await carregarFornecedores();
+
+    await orcaAlert(
+      `Importação finalizada.\n\n✅ Importados: ${okCount}\n❌ Falharam: ${failCount}`,
+      'Importação'
+    );
+  }catch(err){
+    console.error(err);
+    await orcaAlert('JSON inválido ou arquivo corrompido.');
+  }
+}
+
+/* =========================
+   Linha de Produtos (checkbox) - pega TODOS produtos cadastrados
+   ========================= */
 const API_PRODUTOS = '/api/produtos';
 
-// tenta achar seus produtos no localStorage (fallback), em várias chaves possíveis
 const PRODUTOS_STORAGE_KEYS = [
   'orcapro_produtos_v4',
   'orcapro_produtos_v3',
@@ -54,7 +229,6 @@ function _produtoMeta(p){
 async function _carregarProdutosAll(){
   if(_cacheProdutosAll) return _cacheProdutosAll;
 
-  // tenta API primeiro
   try{
     const resp = await fetch(`${API_PRODUTOS}?limit=2000&offset=0`);
     if(resp.ok){
@@ -65,7 +239,6 @@ async function _carregarProdutosAll(){
     }
   }catch(_e){}
 
-  // fallback localStorage
   _cacheProdutosAll = _loadProdutosFromLocalStorage();
   return _cacheProdutosAll;
 }
@@ -187,9 +360,9 @@ function coletarLinhaProdutosIds(){
   return Array.from(_linhaProdutosSel);
 }
 
-// =========================
-// Categorias do fornecedor (select + adicionar)
-// =========================
+/* =========================
+   Categorias do fornecedor (select + adicionar)
+   ========================= */
 const STORAGE_KEY_CATEGORIAS = 'orcapro_fornecedor_categorias_v1';
 
 const DEFAULT_CATEGORIAS = [
@@ -292,13 +465,18 @@ function rememberCategoriaPrev(){
   _categoriaPrev = sel.value;
 }
 
-// quando o usuário escolhe "➕ Adicionar..."
 async function handleCategoriaChange(){
   const sel = document.getElementById('campo-tipo-categoria');
   if(!sel) return;
   if(sel.value !== '__add__') return;
 
-  const novo = window.prompt('Digite a nova categoria do fornecedor:');
+  const novo = await orcaPrompt('Digite a nova categoria do fornecedor:', {
+    title: 'Nova categoria',
+    okText: 'Adicionar',
+    cancelText: 'Cancelar',
+    placeholder: 'Ex: Distribuidora'
+  });
+
   const v = String(novo ?? '').trim();
 
   if(!v){
@@ -313,7 +491,7 @@ async function handleCategoriaChange(){
   }
 
   addCategoriaCustom(v);
-  initCategoriaSelect(v); // recarrega e já seleciona a nova
+  initCategoriaSelect(v);
 }
 
 function todayISODate(){
@@ -342,15 +520,10 @@ function formatTipo(tipo){
 function parseBRMoneyToDot(v){
   if(!v) return '';
   let s = String(v);
-
-  // remove "R$", espaços e tudo que não for dígito, vírgula, ponto ou sinal
   s = s.replace(/[^\d,.\-]/g, '');
-
-  // se tiver vírgula, ela vira decimal e pontos viram milhar (remove)
   if(s.includes(',')){
     s = s.replace(/\./g, '').replace(',', '.');
   }
-
   return s;
 }
 
@@ -377,10 +550,11 @@ function setupMoneyPrefix(inputId){
 }
 
 /* =========================
-   Dialog/Confirm (custom)
+   Dialog/Confirm/Prompt (custom)
    ========================= */
 let _dialogResolve = null;
 let _confirmResolve = null;
+let _promptResolve = null;
 
 function orcaAlert(message, title='Aviso'){
   const backdrop = document.getElementById('orca-dialog-backdrop');
@@ -434,6 +608,76 @@ function closeOrcaConfirm(result){
   const r = _confirmResolve;
   _confirmResolve = null;
   if(typeof r === 'function') r(!!result);
+}
+
+function orcaPrompt(message, { title='Digite', okText='OK', cancelText='Cancelar', placeholder='' } = {}){
+  const bd = document.createElement('div');
+  bd.id = 'orca-prompt-backdrop';
+  bd.className = 'orca-confirm-backdrop';
+
+  const modal = document.createElement('div');
+  modal.className = 'orca-confirm';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+
+  modal.innerHTML = `
+    <div class="orca-confirm__head">
+      <h3 class="orca-confirm__title">${String(title ?? 'Digite')}</h3>
+      <button class="orca-confirm__close" type="button" aria-label="Fechar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <p class="orca-confirm__msg">${String(message ?? '')}</p>
+    <input class="orca-confirm__input" type="text" placeholder="${String(placeholder ?? '')}">
+    <div class="orca-confirm__foot">
+      <button class="btn-secondary" type="button" data-act="cancel">${String(cancelText ?? 'Cancelar')}</button>
+      <button class="btn-primary" type="button" data-act="ok">${String(okText ?? 'OK')}</button>
+    </div>
+  `;
+
+  bd.appendChild(modal);
+  document.body.appendChild(bd);
+  document.body.classList.add('modal-open');
+
+  const input = modal.querySelector('input');
+  const btnOk = modal.querySelector('[data-act="ok"]');
+  const btnCancel = modal.querySelector('[data-act="cancel"]');
+  const btnClose = modal.querySelector('.orca-confirm__close');
+
+  const close = (val)=>{
+    document.body.classList.remove('modal-open');
+    if(bd.isConnected) bd.remove();
+    document.removeEventListener('keydown', onKey);
+    const r = _promptResolve;
+    _promptResolve = null;
+    if(typeof r === 'function') r(val);
+  };
+
+  const onKey = (e)=>{
+    if(e.key === 'Escape') close(null);
+    if(e.key === 'Enter'){
+      const v = String(input?.value ?? '').trim();
+      close(v || null);
+    }
+  };
+
+  document.addEventListener('keydown', onKey);
+
+  bd.addEventListener('click', (e)=>{
+    if(e.target === bd) close(null);
+  });
+
+  btnCancel?.addEventListener('click', ()=>close(null));
+  btnClose?.addEventListener('click', ()=>close(null));
+  btnOk?.addEventListener('click', ()=>{
+    const v = String(input?.value ?? '').trim();
+    close(v || null);
+  });
+
+  return new Promise((resolve)=>{
+    _promptResolve = resolve;
+    setTimeout(()=>{ input?.focus(); }, 0);
+  });
 }
 
 /* =========================
@@ -646,7 +890,6 @@ async function abrirModalFornecedorNovo(){
 
   setVal('campo-codigo-fornecedor', `FOR-${String(proximoId).padStart(4,'0')}`);
 
-  // categoria: recarrega lista (default + custom)
   initCategoriaSelect('');
 
   setVal('campo-contato-representante','');
@@ -658,12 +901,10 @@ async function abrirModalFornecedorNovo(){
 
   setVal('campo-opcao-transportadoras','');
 
-  // texto antigo (observações)
   setVal('campo-linha-produtos','');
   setVal('campo-contato-rma','');
   setVal('campo-informacoes-rma','');
 
-  // ✅ NOVO: inicializa checklist vazio
   await initLinhaProdutosFornecedor([]);
 
   abrirModal();
@@ -708,7 +949,6 @@ async function abrirModalFornecedorEditar(full){
 
   setVal('campo-codigo-fornecedor', full.codigo || '');
 
-  // categoria
   initCategoriaSelect(full.tipo_categoria || '');
 
   setVal('campo-contato-representante', full.contato_representante_comercial || '');
@@ -720,12 +960,10 @@ async function abrirModalFornecedorEditar(full){
 
   setVal('campo-opcao-transportadoras', full.opcao_transportadoras_fretes || '');
 
-  // texto antigo (observações)
   setVal('campo-linha-produtos', full.linha_produtos || '');
   setVal('campo-contato-rma', full.contato_rma || '');
   setVal('campo-informacoes-rma', full.informacoes_rma || '');
 
-  // ✅ NOVO: inicializa checklist com os IDs que vierem do backend
   await initLinhaProdutosFornecedor(full.linha_produtos_ids || []);
 
   abrirModal();
@@ -774,10 +1012,8 @@ function buildPayload(){
     limite_creditos: limiteNorm ? limiteNorm : null,
     opcao_transportadoras_fretes: getVal('campo-opcao-transportadoras'),
 
-    // ✅ NOVO: lista de IDs marcados
     linha_produtos_ids: coletarLinhaProdutosIds(),
 
-    // mantido: observações antigas (se quiser)
     linha_produtos: getVal('campo-linha-produtos'),
     contato_rma: getVal('campo-contato-rma'),
     informacoes_rma: getVal('campo-informacoes-rma'),
@@ -811,7 +1047,6 @@ async function salvarFornecedor(){
         payload = { ...payload };
         delete payload.linha_produtos_ids;
 
-        // guarda no texto como "1,2,3" só pra não perder
         payload.linha_produtos = (ids || []).join(',');
 
         await salvarFornecedorNoServidor(payload, fornecedorEditandoId);
@@ -834,29 +1069,39 @@ async function salvarFornecedor(){
    INIT
    ========================= */
 document.addEventListener('DOMContentLoaded', async ()=>{
-  // garante que começa escondido
   document.getElementById('modal-fornecedor-backdrop')?.setAttribute('hidden','');
   document.getElementById('orca-dialog-backdrop')?.setAttribute('hidden','');
   document.getElementById('orca-confirm-backdrop')?.setAttribute('hidden','');
 
-  // ativa o prefixo R$
+  // Export/Import
+  document.getElementById('btn-exportar-fornecedores')?.addEventListener('click', exportarFornecedores);
+
+  const inputFile = document.getElementById('input-import-file');
+  document.getElementById('btn-importar-fornecedores')?.addEventListener('click', ()=>{
+    inputFile?.click();
+  });
+
+  inputFile?.addEventListener('change', async ()=>{
+    const file = inputFile.files?.[0] || null;
+    // limpa pra permitir selecionar o mesmo arquivo novamente
+    inputFile.value = '';
+    await importarFornecedoresFromFile(file);
+  });
+
   setupMoneyPrefix('campo-limite-creditos');
 
-  // categoria
   initCategoriaSelect('');
   const selCat = document.getElementById('campo-tipo-categoria');
   selCat?.addEventListener('focus', rememberCategoriaPrev);
   selCat?.addEventListener('mousedown', rememberCategoriaPrev);
   selCat?.addEventListener('change', handleCategoriaChange);
 
-  // listeners do dialog
   document.getElementById('orca-dialog-ok')?.addEventListener('click', closeOrcaAlert);
   document.getElementById('orca-dialog-close')?.addEventListener('click', closeOrcaAlert);
   document.getElementById('orca-dialog-backdrop')?.addEventListener('click', (e)=>{
     if(e.target?.id === 'orca-dialog-backdrop') closeOrcaAlert();
   });
 
-  // listeners do confirm
   document.getElementById('orca-confirm-ok')?.addEventListener('click', ()=>closeOrcaConfirm(true));
   document.getElementById('orca-confirm-cancel')?.addEventListener('click', ()=>closeOrcaConfirm(false));
   document.getElementById('orca-confirm-close')?.addEventListener('click', ()=>closeOrcaConfirm(false));
@@ -864,7 +1109,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     if(e.target?.id === 'orca-confirm-backdrop') closeOrcaConfirm(false);
   });
 
-  // opcional: pré-carregar produtos pra abrir modal mais rápido
   _carregarProdutosAll().catch(()=>{});
 
   try{
@@ -886,17 +1130,28 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const modalBackdrop = document.getElementById('modal-fornecedor-backdrop');
   modalBackdrop?.addEventListener('click', (e)=>{ if(e.target===modalBackdrop) fecharModal(); });
 
-  // ESC fecha na ordem: confirm > dialog > modal fornecedor
   document.addEventListener('keydown', (e)=>{
     if(e.key !== 'Escape') return;
 
-    const confirmOpen = document.getElementById('orca-confirm-backdrop') && !document.getElementById('orca-confirm-backdrop').hidden;
+    const confirmEl = document.getElementById('orca-confirm-backdrop');
+    const confirmOpen = confirmEl && !confirmEl.hidden;
     if(confirmOpen){ closeOrcaConfirm(false); return; }
 
-    const dialogOpen = document.getElementById('orca-dialog-backdrop') && !document.getElementById('orca-dialog-backdrop').hidden;
+    const dialogEl = document.getElementById('orca-dialog-backdrop');
+    const dialogOpen = dialogEl && !dialogEl.hidden;
     if(dialogOpen){ closeOrcaAlert(); return; }
 
-    const modalOpen = document.getElementById('modal-fornecedor-backdrop') && !document.getElementById('modal-fornecedor-backdrop').hidden;
+    const promptEl = document.getElementById('orca-prompt-backdrop');
+    if(promptEl){
+      const r = _promptResolve;
+      _promptResolve = null;
+      document.body.classList.remove('modal-open');
+      promptEl.remove();
+      if(typeof r === 'function') r(null);
+      return;
+    }
+
+    const modalOpen = modalBackdrop && !modalBackdrop.hidden;
     if(modalOpen) fecharModal();
   });
 

@@ -1,6 +1,16 @@
 // /frontend/js/pages/produtos.js
-// V4: API opcional + fallback + sem alert/confirm/prompt do navegador (toast + confirm + input custom)
+// V4.1: API opcional + fallback + sem alert/confirm/prompt do navegador (toast + confirm + input custom)
 // + campos de LISTA com "Adicionar…"
+// + Segmentos/Fornecedores multi (criar + apagar)
+// + Movimentação (Entrada/Saída)
+// FIXES:
+// - escapeHtml alias
+// - toast suporta ok/warn/err/success/info
+// - lista correta: "fornecedor" (antes estava "fornecedores")
+// - lerFormProduto sem variáveis inexistentes (peso_tecnico/tamanho_tecnico/ultimo_fornecedor undefined)
+// - modais "Gerenciar" usando classes existentes (orca-confirm__*)
+// - initMovimentacaoUI não duplica listeners ao abrir modal várias vezes
+// - catch do init normaliza produtos
 
 const DEBUG = false;
 
@@ -23,13 +33,59 @@ function ensureInlineUIStyles() {
   const style = document.createElement('style');
   style.id = 'orca-ui-inline-style';
   style.textContent = `
+    /* ===== HEADER ACTIONS ===== */
+    .orca-main-header-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
+    }
+
     /* ===== MOVIMENTAÇÃO ===== */
-.orca-mov-list{ display:flex; flex-direction:column; gap:10px; }
-.orca-mov-item{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid #3a3a3a; border-radius:14px; background:#262626; }
-.orca-mov-item__title{ font-size: 14px; }
-.orca-mov-item__sub{ font-size: 12px; color:#b0b0b0; margin-top:4px; }
-.orca-mov-empty{ color:#b0b0b0; font-size:13px; padding:6px 0; }
-/* ===== TOAST ===== */
+    .orca-mov-list{ display:flex; flex-direction:column; gap:10px; }
+    .orca-mov-item{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid #3a3a3a; border-radius:14px; background:#262626; }
+    .orca-mov-item__title{ font-size: 14px; }
+    .orca-mov-item__sub{ font-size: 12px; color:#b0b0b0; margin-top:4px; }
+    .orca-mov-empty{ color:#b0b0b0; font-size:13px; padding:6px 0; }
+
+    /* ===== BOTÕES (orca-btn) ===== */
+    .orca-btn{
+      padding:8px 14px;
+      border-radius:999px;
+      border:1px solid #4b5563;
+      background: transparent;
+      color:#9ca3af;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      transition: background .12s ease, color .12s ease, border-color .12s ease, transform .12s ease;
+      user-select:none;
+    }
+    .orca-btn:hover{ background:#303030; color:#e5e7eb; border-color:#9ca3af; transform:translateY(-1px); }
+    .orca-btn:active{ transform:translateY(0px); }
+    .orca-btn--ghost{ background:transparent; }
+    .orca-btn--icon{ width:36px; height:36px; padding:0; justify-content:center; }
+    .orca-btn--danger{
+      border-color: rgba(239,68,68,.55);
+      color:#fecaca;
+    }
+    .orca-btn--danger:hover{
+      background: rgba(239,68,68,.12);
+      border-color: rgba(239,68,68,.8);
+      color:#fff;
+    }
+
+    .orca-help,
+    .orca-multi__hint,
+    .orca-multi__empty{
+      color:#b0b0b0;
+      font-size:13px;
+      line-height:1.3;
+    }
+
+    /* ===== TOAST ===== */
     .orca-toast-wrap{
       position: fixed;
       top: 14px;
@@ -69,9 +125,17 @@ function ensureInlineUIStyles() {
       border-color: rgba(16,163,127,.45);
       background: rgba(16,163,127,.12);
     }
+    .orca-toast--success .orca-toast__icon{
+      border-color: rgba(16,163,127,.45);
+      background: rgba(16,163,127,.12);
+    }
     .orca-toast--warn .orca-toast__icon{
       border-color: rgba(245,158,11,.45);
       background: rgba(245,158,11,.12);
+    }
+    .orca-toast--info .orca-toast__icon{
+      border-color: rgba(59,130,246,.45);
+      background: rgba(59,130,246,.12);
     }
     .orca-toast--err .orca-toast__icon{
       border-color: rgba(239,68,68,.45);
@@ -183,7 +247,8 @@ function ensureInlineUIStyles() {
       .orca-confirm__foot .btn-primary,
       .orca-confirm__foot .btn-secondary{ width:100%; justify-content:center; }
     }
-    /* ===== MULTI (SEGMENTOS) ===== */
+
+    /* ===== MULTI (SEGMENTOS/FORNECEDORES) ===== */
     .orca-multi{
       display:flex;
       flex-direction:column;
@@ -233,7 +298,7 @@ function ensureInlineUIStyles() {
     }
     .orca-chip__x:hover{ color:#fff; }
 
-    /* ===== GERENCIAR LISTA (SEGMENTOS) ===== */
+    /* ===== GERENCIAR LISTA ===== */
     .orca-manage-list{
       display:flex;
       flex-direction:column;
@@ -260,7 +325,6 @@ function ensureInlineUIStyles() {
       padding:14px 10px;
       color:#b0b0b0;
     }
-
   `;
   document.head.appendChild(style);
 }
@@ -280,14 +344,23 @@ function ensureToastWrap() {
 function toast(msg, type = 'ok', title = null, timeoutMs = 2800) {
   const wrap = ensureToastWrap();
 
+  const ttype = String(type || 'ok').toLowerCase();
+  const norm =
+    (ttype === 'success') ? 'success' :
+    (ttype === 'info') ? 'info' :
+    (ttype === 'warn' || ttype === 'warning') ? 'warn' :
+    (ttype === 'err' || ttype === 'error') ? 'err' :
+    'ok';
+
   const t = document.createElement('div');
-  t.className = `orca-toast orca-toast--${type}`;
+  t.className = `orca-toast orca-toast--${norm}`;
 
   const icon = document.createElement('div');
   icon.className = 'orca-toast__icon';
   icon.innerHTML =
-    type === 'ok' ? '<i class="fa-solid fa-check"></i>' :
-    type === 'warn' ? '<i class="fa-solid fa-triangle-exclamation"></i>' :
+    (norm === 'ok' || norm === 'success') ? '<i class="fa-solid fa-check"></i>' :
+    (norm === 'warn') ? '<i class="fa-solid fa-triangle-exclamation"></i>' :
+    (norm === 'info') ? '<i class="fa-solid fa-circle-info"></i>' :
     '<i class="fa-solid fa-circle-xmark"></i>';
 
   const body = document.createElement('div');
@@ -295,7 +368,12 @@ function toast(msg, type = 'ok', title = null, timeoutMs = 2800) {
 
   const h = document.createElement('p');
   h.className = 'orca-toast__title';
-  h.textContent = title || (type === 'warn' ? 'Atenção' : type === 'err' ? 'Erro' : 'OK');
+  h.textContent = title || (
+    norm === 'warn' ? 'Atenção' :
+    norm === 'info' ? 'Info' :
+    norm === 'err' ? 'Erro' :
+    'OK'
+  );
 
   const p = document.createElement('p');
   p.className = 'orca-toast__msg';
@@ -506,6 +584,8 @@ function escapeHTML(s) {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
 }
+function escapeHtml(s){ return escapeHTML(s); }
+
 function getEl(id) { return document.getElementById(id); }
 
 function isSim(v) {
@@ -543,11 +623,15 @@ function updateProdutoControladoUI() {
    Movimentação (Entrada/Saída)
 ========================= */
 
+function setVal(id, v) {
+  const el = getEl(id);
+  if (el) el.value = v ?? '';
+}
+
 function resetMovForm() {
   setVal('campo-mov-data', '');
   setVal('campo-mov-tipo', '');
 
-  // Entrada
   setVal('campo-mov-entrada-tipo', '');
   setVal('campo-mov-qtd', '');
   setVal('campo-mov-fornecedor', '');
@@ -555,7 +639,6 @@ function resetMovForm() {
   setVal('campo-mov-doc-numero', '');
   setVal('campo-mov-nfe-chave', '');
 
-  // Saída
   setVal('campo-mov-saida-tipo', '');
   setVal('campo-mov-qtd-saida', '');
   setVal('campo-destino', '');
@@ -580,7 +663,6 @@ function updateMovUI() {
   if (blocoEntrada) blocoEntrada.hidden = tipo !== 'Entrada';
   if (blocoSaida) blocoSaida.hidden = tipo !== 'Saida';
 
-  // NF-e: mostra chave quando doc = Nota Fiscal
   const docEntrada = (getEl('campo-mov-doc-tipo')?.value || '').trim();
   const nfeEntrada = getEl('bloco-mov-nfe-entrada');
   if (nfeEntrada) nfeEntrada.hidden = docEntrada !== 'Nota Fiscal';
@@ -589,7 +671,6 @@ function updateMovUI() {
   const nfeSaida = getEl('bloco-mov-nfe-saida');
   if (nfeSaida) nfeSaida.hidden = docSaida !== 'Nota Fiscal';
 
-  // Saída: destino condiciona cliente / departamento / docs
   const destino = (getEl('campo-destino')?.value || '').trim();
 
   const bCli = getEl('bloco-mov-saida-cliente');
@@ -625,7 +706,7 @@ function _formatMovItem(m, idx) {
   return `
     <div class="orca-mov-item">
       <div class="orca-mov-item__main">
-        <div class="orca-mov-item__title">${dt} • <b>${tipo}</b> • Qtd: ${qtd}${docTxt}</div>
+        <div class="orca-mov-item__title">${escapeHTML(dt)} • <b>${escapeHTML(tipo)}</b> • Qtd: ${escapeHTML(qtd)}${escapeHTML(docTxt)}</div>
         <div class="orca-mov-item__sub">${escapeHtml(extra || '')}</div>
       </div>
       <button type="button" class="orca-btn orca-btn--ghost orca-btn--icon" data-mov-del="${idx}" title="Apagar movimentação">✕</button>
@@ -646,7 +727,6 @@ function renderMovimentacoes() {
     .map((m, idx) => _formatMovItem(m, idx))
     .join('');
 
-  // bind delete
   wrap.querySelectorAll('[data-mov-del]').forEach(btn => {
     btn.addEventListener('click', () => {
       const i = Number(btn.getAttribute('data-mov-del'));
@@ -724,7 +804,6 @@ function lerMovForm() {
     };
   }
 
-  // Saída
   const tipo_saida = (getEl('campo-mov-saida-tipo')?.value || '').trim();
   const quantidade = intOrNull(getEl('campo-mov-qtd-saida')?.value);
   const destino = (getEl('campo-destino')?.value || '').trim();
@@ -760,6 +839,13 @@ function lerMovForm() {
 }
 
 function initMovimentacaoUI() {
+  if (initMovimentacaoUI._bound) {
+    updateMovUI();
+    _loadClientesToDatalist();
+    return;
+  }
+  initMovimentacaoUI._bound = true;
+
   const selTipo = getEl('campo-mov-tipo');
   const docEntrada = getEl('campo-mov-doc-tipo');
   const docSaida = getEl('campo-mov-doc-tipo-saida');
@@ -772,6 +858,7 @@ function initMovimentacaoUI() {
 
   const btnAdd = getEl('btn-add-mov');
   const btnLimpar = getEl('btn-limpar-mov');
+
   if (btnAdd) btnAdd.addEventListener('click', () => {
     const mov = lerMovForm();
     if (!mov) return;
@@ -779,15 +866,12 @@ function initMovimentacaoUI() {
     MOVIMENTACOES_ATUAIS.push(mov);
     renderMovimentacoes();
 
-    // Atualiza "Último Fornecedor" e "Última Compra" automaticamente na Entrada
     if (mov.tipo_mov === 'Entrada' && mov.fornecedor) {
       setVal('campo-ultimo-fornecedor', mov.fornecedor);
-      // data_ultima_compra = data_mov (data)
       try {
         const d = new Date(mov.data_mov);
         if (!Number.isNaN(d.getTime())) {
-          const isoDate = d.toISOString().slice(0,10);
-          setVal('campo-ultima-compra', isoDate);
+          setVal('campo-ultima-compra', d.toISOString().slice(0,10));
         }
       } catch (_e) {}
     }
@@ -800,10 +884,12 @@ function initMovimentacaoUI() {
 
   const btnDanfeE = getEl('btn-buscar-danfe-entrada');
   const btnDanfeS = getEl('btn-buscar-danfe-saida');
+
   if (btnDanfeE) btnDanfeE.addEventListener('click', () => {
     toast('Consulta DANFE é manual por enquanto (módulo futuro).', 'info', 'Em breve');
     window.open('https://www.nfe.fazenda.gov.br/portal/principal.aspx', '_blank');
   });
+
   if (btnDanfeS) btnDanfeS.addEventListener('click', () => {
     toast('Consulta DANFE é manual por enquanto (módulo futuro).', 'info', 'Em breve');
     window.open('https://www.nfe.fazenda.gov.br/portal/principal.aspx', '_blank');
@@ -811,6 +897,7 @@ function initMovimentacaoUI() {
 
   const btnUltPedido = getEl('btn-buscar-ultimo-pedido');
   const btnUltNF = getEl('btn-buscar-ultima-nf');
+
   if (btnUltPedido) btnUltPedido.addEventListener('click', () => toast('Módulo de Pedido de Compras ainda não implementado.', 'info', 'Uso futuro'));
   if (btnUltNF) btnUltNF.addEventListener('click', () => toast('Módulo de Pedido de Compras ainda não implementado.', 'info', 'Uso futuro'));
 
@@ -818,8 +905,7 @@ function initMovimentacaoUI() {
   _loadClientesToDatalist();
 }
 
-
-
+/* ===== nums/datas ===== */
 
 function numOrNull(v) {
   const s = String(v ?? '').trim();
@@ -857,7 +943,6 @@ const LISTS_DEFAULT = {
   utilizacao: ['Revenda', 'Consumo Próprio', 'Patrimonio', 'Armazenamento p/ Terceiros'],
   tipo_material: ['Pronta Utilização (Acabado)', 'Semi Acabado', 'Materia Prima'],
   tipo_fiscalizacao: ['Exército', 'Polícia Federal', 'ANATEL', 'ANVISA', 'Ibama', 'CNEN'],
-
 
   sim_nao: ['Sim', 'Não'],
 
@@ -928,13 +1013,11 @@ const LISTS_DEFAULT = {
   destino: ['Venda', 'Patrimônio/Comodato', 'Uso Interno', 'Baixa/Descarte', 'Doação'],
 
   departamentos: ['Administrativo', 'Operações', 'Financeiro', 'Comercial', 'TI']
-
 };
 
 let LISTS_STATE = null;
-let MOVIMENTACOES_ATUAIS = []; // lista de movimentações do produto (no modal)
-
-const BOUND_SELECTS = []; // { el, listKey, cfg }
+let MOVIMENTACOES_ATUAIS = [];
+const BOUND_SELECTS = [];
 
 function _dedupeKeepOrder(arr) {
   const seen = new Set();
@@ -1014,13 +1097,13 @@ function bindSelectList(selectId, listKey, cfg = {}) {
     }
 
     const prev = el.dataset._prev || '';
-    el.value = prev; // volta já
+    el.value = prev;
 
     const novo = await promptOrca('Digite a nova opção para esta lista:', {
       title: 'Adicionar opção',
       okText: 'Adicionar',
       cancelText: 'Cancelar',
-      placeholder: 'Ex: Talvez'
+      placeholder: 'Ex: Novo item'
     });
 
     if (!novo) return;
@@ -1114,7 +1197,6 @@ function setupSegmentosMulti() {
   const cfg = { placeholder: 'Selecione...', allowAdd: true };
   renderSelectOptions(sel, 'segmentos', cfg);
 
-  // permite atualizar este select quando a lista mudar
   BOUND_SELECTS.push({ el: sel, listKey: 'segmentos', cfg });
 
   sel.value = '';
@@ -1144,7 +1226,7 @@ function setupSegmentosMulti() {
         LISTS_STATE.segmentos = _dedupeKeepOrder(list);
       }
 
-      saveLists(LISTS_STATE);
+      saveLists();
       refreshAllSelectsOf('segmentos');
 
       addSegmentoToSelection(novo);
@@ -1167,37 +1249,51 @@ function setupSegmentosMulti() {
 
 async function openManageSegmentosModal() {
   ensureInlineUIStyles();
-
   const listKey = 'segmentos';
 
   const bd = document.createElement('div');
   bd.className = 'orca-confirm-backdrop';
 
   const modal = document.createElement('div');
-  modal.className = 'orca-confirm-modal';
-  modal.style.maxWidth = '560px';
+  modal.className = 'orca-confirm';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
 
   modal.innerHTML = `
-    <div class="orca-confirm-head">
-      <div class="orca-confirm-title">Gerenciar segmentos</div>
-      <div class="orca-confirm-sub">
-        Apague os segmentos cadastrados errado. Isso também remove do produto atual.
-      </div>
+    <div class="orca-confirm__head">
+      <h3 class="orca-confirm__title">Gerenciar segmentos</h3>
+      <button class="orca-confirm__close" type="button" aria-label="Fechar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
     </div>
+
+    <p class="orca-confirm__msg">
+      Apague os segmentos cadastrados errado. Isso também remove do produto atual.
+    </p>
 
     <div class="orca-manage-list" id="orca-manage-seg-list"></div>
 
-    <div class="orca-confirm-actions">
-      <button class="orca-btn orca-btn--ghost" data-act="fechar">Fechar</button>
+    <div class="orca-confirm__foot">
+      <button class="btn-secondary" type="button" data-act="fechar">Fechar</button>
     </div>
   `;
 
   bd.appendChild(modal);
   document.body.appendChild(bd);
+  document.body.classList.add('modal-open');
 
-  const close = () => { if (bd.isConnected) bd.remove(); };
+  const close = () => {
+    document.body.classList.remove('modal-open');
+    if (bd.isConnected) bd.remove();
+    document.removeEventListener('keydown', onKey);
+  };
+
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+
   bd.addEventListener('click', e => { if (e.target === bd) close(); });
   modal.querySelector('[data-act="fechar"]').addEventListener('click', close);
+  modal.querySelector('.orca-confirm__close').addEventListener('click', close);
 
   const listEl = modal.querySelector('#orca-manage-seg-list');
 
@@ -1234,17 +1330,14 @@ async function openManageSegmentosModal() {
         });
         if (!ok) return;
 
-        // remove do catálogo
         const rawNow = getRawList();
         LISTS_STATE[listKey] = rawNow.filter(x => String(toValue(x)) !== String(it.value));
-        saveLists(LISTS_STATE);
+        saveLists();
         refreshAllSelectsOf(listKey);
 
-        // remove do produto atual
         SELECTED_SEGMENTOS = SELECTED_SEGMENTOS.filter(s => String(s) !== String(it.value));
         renderSegmentosChips();
 
-        // remove do localStorage (se existir)
         removeSegmentoFromProdutosLocal(String(it.value));
 
         toast('Segmento apagado.', 'ok');
@@ -1262,7 +1355,6 @@ function removeSegmentoFromProdutosLocal(seg) {
   const alvo = String(seg || '').trim();
   if (!alvo) return;
 
-  // memória (tela)
   try {
     if (Array.isArray(produtos)) {
       let changed = false;
@@ -1274,9 +1366,8 @@ function removeSegmentoFromProdutosLocal(seg) {
       });
       if (changed) renderTabela();
     }
-  } catch { /* ignore */ }
+  } catch {}
 
-  // localStorage
   const local = loadLocal();
   if (Array.isArray(local)) {
     let changed = false;
@@ -1289,7 +1380,6 @@ function removeSegmentoFromProdutosLocal(seg) {
     if (changed) saveLocal(out);
   }
 }
-
 
 /* =========================
    Fornecedores (multi + criar + apagar)
@@ -1365,7 +1455,6 @@ function setupFornecedoresMulti() {
 
   renderSelectOptions(sel, listKey, cfg);
 
-  // permite atualizar este select quando a lista mudar
   BOUND_SELECTS.push({ el: sel, listKey, cfg });
 
   sel.value = '';
@@ -1383,6 +1472,7 @@ function setupFornecedoresMulti() {
       const cur = Array.isArray(LISTS_STATE?.[listKey]) ? LISTS_STATE[listKey].slice() : [];
       if (!cur.includes(val)) cur.push(val);
       LISTS_STATE[listKey] = _dedupeKeepOrder(cur);
+
       saveLists();
       refreshAllSelectsOf(listKey);
 
@@ -1406,7 +1496,6 @@ function setupFornecedoresMulti() {
 
 async function openManageFornecedoresModal() {
   ensureInlineUIStyles();
-
   const listKey = 'fornecedor';
 
   const bd = document.createElement('div');
@@ -1414,27 +1503,44 @@ async function openManageFornecedoresModal() {
 
   const modal = document.createElement('div');
   modal.className = 'orca-confirm';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+
   modal.innerHTML = `
-    <div class="orca-confirm-head">
-      <div class="orca-confirm-title">Gerenciar fornecedores</div>
-      <div class="orca-confirm-sub">
-        Apague fornecedores cadastrados errado. Isso também remove do produto atual.
-      </div>
+    <div class="orca-confirm__head">
+      <h3 class="orca-confirm__title">Gerenciar fornecedores</h3>
+      <button class="orca-confirm__close" type="button" aria-label="Fechar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
     </div>
+
+    <p class="orca-confirm__msg">
+      Apague fornecedores cadastrados errado. Isso também remove do produto atual.
+    </p>
 
     <div class="orca-manage-list" id="orca-manage-forn-list"></div>
 
-    <div class="orca-confirm-actions">
-      <button class="orca-btn orca-btn--ghost" data-act="fechar">Fechar</button>
+    <div class="orca-confirm__foot">
+      <button class="btn-secondary" type="button" data-act="fechar">Fechar</button>
     </div>
   `;
 
   bd.appendChild(modal);
   document.body.appendChild(bd);
+  document.body.classList.add('modal-open');
 
-  const close = () => { if (bd.isConnected) bd.remove(); };
+  const close = () => {
+    document.body.classList.remove('modal-open');
+    if (bd.isConnected) bd.remove();
+    document.removeEventListener('keydown', onKey);
+  };
+
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+
   bd.addEventListener('click', e => { if (e.target === bd) close(); });
   modal.querySelector('[data-act="fechar"]').addEventListener('click', close);
+  modal.querySelector('.orca-confirm__close').addEventListener('click', close);
 
   const listEl = modal.querySelector('#orca-manage-forn-list');
 
@@ -1446,12 +1552,13 @@ async function openManageFornecedoresModal() {
     const raw = getRawList();
     const items = raw.map(x => ({ value: toValue(x), label: toLabel(x) })).filter(x => x.value);
 
+    listEl.innerHTML = '';
+
     if (!items.length) {
-      listEl.innerHTML = `<div class="orca-multi__empty">Nenhum fornecedor cadastrado.</div>`;
+      listEl.innerHTML = `<div class="orca-manage-empty">Nenhum fornecedor cadastrado.</div>`;
       return;
     }
 
-    listEl.innerHTML = '';
     items.forEach(it => {
       const row = document.createElement('div');
       row.className = 'orca-manage-row';
@@ -1468,20 +1575,17 @@ async function openManageFornecedoresModal() {
         });
         if (!ok) return;
 
-        // remove do catálogo
         LISTS_STATE[listKey] = getRawList().filter(x => toValue(x) !== it.value);
         saveLists();
         refreshAllSelectsOf(listKey);
 
-        // remove do produto atual (seleção)
         SELECTED_FORNECEDORES = getSelectedFornecedores().filter(x => x !== String(it.value));
+        renderFornecedoresChips();
 
-        // remove de todos os produtos do localStorage (se existir)
         removeFornecedorFromProdutosLocal(String(it.value));
 
         toast('Fornecedor apagado.', 'ok');
         render();
-        renderFornecedoresChips();
       });
 
       listEl.appendChild(row);
@@ -1495,7 +1599,6 @@ function removeFornecedorFromProdutosLocal(nome) {
   const alvo = String(nome || '').trim();
   if (!alvo) return;
 
-  // memória (tela)
   try {
     if (Array.isArray(produtos)) {
       let changed = false;
@@ -1508,9 +1611,8 @@ function removeFornecedorFromProdutosLocal(nome) {
       });
       if (changed) renderTabela();
     }
-  } catch { /* ignore */ }
+  } catch {}
 
-  // localStorage
   const local = loadLocal();
   if (Array.isArray(local)) {
     let changed = false;
@@ -1530,20 +1632,418 @@ function formatFornecedoresDisplay(p) {
   return arr.length ? arr.join(', ') : '-';
 }
 
+/* =========================
+   ✅ Exportar / Importar / Limpar
+========================= */
 
+function _downloadBlob(filename, contentType, dataText) {
+  const blob = new Blob([dataText], { type: contentType });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 800);
+}
+
+function _csvEscape(v) {
+  const s = String(v ?? '');
+  if (/[",;\n\r]/.test(s)) return `"${s.replaceAll('"', '""')}"`;
+  return s;
+}
+
+function _produtoToExportRow(p) {
+  const segmentos = Array.isArray(p.segmentos) ? p.segmentos.join(' | ') : (p.segmentos || '');
+  const fornecedores = Array.isArray(p.fornecedores) ? p.fornecedores.join(' | ') : formatFornecedoresDisplay(p);
+
+  return {
+    id: p.id ?? '',
+    data_cadastro: p.data_cadastro ?? '',
+    cod_ref_id: p.cod_ref_id ?? '',
+    codigo_barras: p.codigo_barras ?? '',
+    nome_produto: p.nome_produto ?? '',
+    nome_generico: p.nome_generico ?? '',
+    fabricante: p.fabricante ?? '',
+    modelo: p.modelo ?? '',
+    cod_ref_fabric: p.cod_ref_fabric ?? '',
+    origem: p.origem ?? '',
+
+    status_atual: p.status_atual ?? '',
+    tipo_mercado: p.tipo_mercado ?? '',
+    utilizacao: p.utilizacao ?? '',
+    tipo_material: p.tipo_material ?? '',
+
+    prod_controlado: p.prod_controlado ?? '',
+    tipo_fiscalizacao: p.tipo_fiscalizacao ?? '',
+    dados_identificacao_controlado: p.dados_identificacao_controlado ?? '',
+    observacoes_controlado: p.observacoes_controlado ?? '',
+
+    segmentos,
+
+    tipo_sistema: p.tipo_sistema ?? '',
+    classe: p.classe ?? '',
+    categorias: p.categorias ?? '',
+    subcategoria: p.subcategoria ?? '',
+
+    fornecedores,
+    fornecedor: p.fornecedor ?? '',
+    ultima_compra: p.ultima_compra ?? '',
+    ultimo_fornecedor: p.ultimo_fornecedor ?? '',
+
+    tipo_armaz: p.tipo_armaz ?? '',
+    armaz_localiz: p.armaz_localiz ?? '',
+    armaz_predio: p.armaz_predio ?? '',
+    armaz_corredor: p.armaz_corredor ?? '',
+    armaz_prateleira: p.armaz_prateleira ?? '',
+    tipo_logistico: p.tipo_logistico ?? '',
+    peso_logistico: p.peso_logistico ?? '',
+    peso_logistico_unidade: p.peso_logistico_unidade ?? '',
+    tamanho_logistico: p.tamanho_logistico ?? '',
+    embalagem_compra: p.embalagem_compra ?? '',
+    embalagem_armazem: p.embalagem_armazem ?? '',
+    embalagem_saida: p.embalagem_saida ?? '',
+    estoque_minimo: p.estoque_minimo ?? '',
+    estoque_maximo: p.estoque_maximo ?? '',
+    quantidade_atual: p.quantidade_atual ?? '',
+
+    possui_validade: p.possui_validade ?? '',
+    tipo_tecnico: p.tipo_tecnico ?? '',
+    cores_disponiveis: p.cores_disponiveis ?? '',
+    imagens_produto: (p.imagens_produto || '').toString().replaceAll('\n', ' | '),
+    videos_produto: (p.videos_produto || '').toString().replaceAll('\n', ' | '),
+    fichas_tecnica: (p.fichas_tecnica || '').toString().replaceAll('\n', ' | '),
+    manuais_instalacao: (p.manuais_instalacao || '').toString().replaceAll('\n', ' | '),
+    manuais_programacao: (p.manuais_programacao || '').toString().replaceAll('\n', ' | '),
+    manuais_usuario: (p.manuais_usuario || '').toString().replaceAll('\n', ' | '),
+
+    classif_ncm_bbm: p.classif_ncm_bbm ?? '',
+    aliq_ipi_entrada: p.aliq_ipi_entrada ?? '',
+    aliq_iva: p.aliq_iva ?? '',
+    cst_icms: p.cst_icms ?? '',
+    cst_pis: p.cst_pis ?? '',
+    cst_cofins: p.cst_cofins ?? '',
+
+    valor_custo: p.valor_custo ?? '',
+    mark_up: p.mark_up ?? '',
+    custo_efetivo: p.custo_efetivo ?? '',
+    mc_lucro: p.mc_lucro ?? '',
+    imp_importacao: p.imp_importacao ?? '',
+    ipi: p.ipi ?? '',
+    icms: p.icms ?? '',
+    simples: p.simples ?? '',
+    luc_presumido: p.luc_presumido ?? ''
+  };
+}
+
+async function _escolherExportacao() {
+  const tipo = await promptOrca('Digite: JSON ou CSV', {
+    title: 'Exportar produtos',
+    okText: 'Exportar',
+    cancelText: 'Cancelar',
+    placeholder: 'json / csv'
+  });
+
+  if (!tipo) return null;
+  const t = tipo.trim().toLowerCase();
+  if (t.startsWith('c')) return 'csv';
+  return 'json';
+}
+
+function exportarProdutosJSON() {
+  const arr = (produtos || []).map(p => normalizeProduto(p));
+  const payload = {
+    exported_at: new Date().toISOString(),
+    count: arr.length,
+    items: arr
+  };
+
+  const name = `produtos_orcapro_${new Date().toISOString().slice(0,10)}.json`;
+  _downloadBlob(name, 'application/json;charset=utf-8', JSON.stringify(payload, null, 2));
+  toast('Exportado em JSON.', 'success', 'OK');
+}
+
+function exportarProdutosCSV() {
+  const rows = (produtos || []).map(p => _produtoToExportRow(p));
+  const headers = rows.length ? Object.keys(rows[0]) : ['id', 'nome_produto'];
+
+  const sep = ';';
+  const csv = [
+    headers.join(sep),
+    ...rows.map(r => headers.map(h => _csvEscape(r[h])).join(sep))
+  ].join('\n');
+
+  const name = `produtos_orcapro_${new Date().toISOString().slice(0,10)}.csv`;
+  _downloadBlob(name, 'text/csv;charset=utf-8', csv);
+  toast('Exportado em CSV.', 'success', 'OK');
+}
+
+function _parseCsv(text) {
+  const lines = String(text || '').split(/\r?\n/).filter(l => l.trim() !== '');
+  if (!lines.length) return [];
+
+  const sep = ';';
+  const headers = lines[0].split(sep).map(h => h.trim());
+  const out = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(sep);
+    const obj = {};
+    headers.forEach((h, idx) => obj[h] = (cols[idx] ?? '').trim());
+
+    if (obj.segmentos) obj.segmentos = obj.segmentos.split('|').map(s => s.trim()).filter(Boolean);
+    if (obj.fornecedores) obj.fornecedores = obj.fornecedores.split('|').map(s => s.trim()).filter(Boolean);
+
+    const intKeys = ['estoque_minimo','estoque_maximo','quantidade_atual','id'];
+    intKeys.forEach(k => {
+      if (obj[k] !== undefined && obj[k] !== '') {
+        const n = Number(String(obj[k]).replace(',', '.'));
+        if (Number.isFinite(n)) obj[k] = Math.trunc(n);
+      }
+    });
+
+    const floatKeys = [
+      'peso_logistico','aliq_ipi_entrada','aliq_iva','valor_custo','mark_up','custo_efetivo','mc_lucro',
+      'imp_importacao','ipi','icms','simples','luc_presumido'
+    ];
+    floatKeys.forEach(k => {
+      if (obj[k] !== undefined && obj[k] !== '') {
+        const n = Number(String(obj[k]).replace(',', '.'));
+        if (Number.isFinite(n)) obj[k] = n;
+      }
+    });
+
+    out.push(obj);
+  }
+
+  return out;
+}
+
+function _ensureUniqueIds(arr) {
+  const counts = new Map();
+  let maxId = 0;
+
+  arr.forEach(p => {
+    const id = Number(p?.id) || 0;
+    if (id > 0) counts.set(id, (counts.get(id) || 0) + 1);
+    if (id > maxId) maxId = id;
+  });
+
+  const used = new Set();
+  arr.forEach(p => {
+    let id = Number(p?.id) || 0;
+    const dup = id > 0 && ((counts.get(id) || 0) > 1 || used.has(id));
+    if (id <= 0 || dup) {
+      maxId += 1;
+      id = maxId;
+    }
+    p.id = id;
+    used.add(id);
+  });
+
+  return arr;
+}
+
+function _mergeById(existing, incoming) {
+  const map = new Map(existing.map(p => [Number(p.id), p]));
+  incoming.forEach(p => {
+    const id = Number(p.id) || 0;
+    if (!id) return;
+    map.set(id, p);
+  });
+  return _ensureUniqueIds(Array.from(map.values()));
+}
+
+function _isSameProduto(a, b) {
+  const barrasA = String(a.codigo_barras || '').trim();
+  const barrasB = String(b.codigo_barras || '').trim();
+  if (barrasA && barrasB && barrasA === barrasB) return true;
+
+  const refA = String(a.cod_ref_id || '').trim().toLowerCase();
+  const refB = String(b.cod_ref_id || '').trim().toLowerCase();
+  if (refA && refB && refA === refB) return true;
+
+  const nomeA = String(a.nome_produto || '').trim().toLowerCase();
+  const nomeB = String(b.nome_produto || '').trim().toLowerCase();
+  if (nomeA && nomeB && nomeA === nomeB) return true;
+
+  return false;
+}
+
+async function _escolherModoImportacao(qtd) {
+  const modo = await promptOrca(
+    `Arquivo tem ${qtd} itens.\nDigite: SUBSTITUIR / MESCLAR / NOVOS`,
+    {
+      title: 'Importar produtos',
+      okText: 'Importar',
+      cancelText: 'Cancelar',
+      placeholder: 'substituir / mesclar / novos'
+    }
+  );
+
+  if (!modo) return null;
+  const m = modo.trim().toLowerCase();
+  if (m.startsWith('s')) return 'substituir';
+  if (m.startsWith('m')) return 'mesclar';
+  return 'novos';
+}
+
+async function importarProdutosArray(arr) {
+  const incomingRaw = Array.isArray(arr) ? arr : [];
+  const incoming = incomingRaw
+    .map(x => normalizeProduto(x))
+    .filter(p => String(p.nome_produto || '').trim().length > 0);
+
+  if (!incoming.length) {
+    toast('Arquivo inválido ou vazio.', 'err', 'Importar');
+    return;
+  }
+
+  const modo = await _escolherModoImportacao(incoming.length);
+  if (!modo) return;
+
+  if (modo === 'substituir') {
+    produtos = _ensureUniqueIds(incoming);
+    saveLocal(produtos);
+    renderTabela();
+    toast('Importação concluída (substituiu tudo).', 'success', 'OK');
+    return;
+  }
+
+  if (modo === 'mesclar') {
+    const base = (Array.isArray(produtos) ? produtos : []).map(normalizeProduto);
+    produtos = _mergeById(base, incoming);
+    saveLocal(produtos);
+    renderTabela();
+    toast('Importação concluída (mesclado por ID).', 'success', 'OK');
+    return;
+  }
+
+  // NOVOS
+  {
+    const base = (Array.isArray(produtos) ? produtos : []).map(normalizeProduto);
+    const out = base.slice();
+
+    let maxId = out.length ? Math.max(...out.map(p => Number(p.id) || 0)) : 0;
+
+    incoming.forEach(p => {
+      const dup = out.some(x => _isSameProduto(x, p));
+      if (dup) return;
+
+      let id = Number(p.id) || 0;
+      if (!id || out.some(x => Number(x.id) === id)) {
+        maxId += 1;
+        id = maxId;
+      }
+      out.push({ ...p, id });
+    });
+
+    produtos = _ensureUniqueIds(out);
+    saveLocal(produtos);
+    renderTabela();
+    toast('Importação concluída (somente novos).', 'success', 'OK');
+  }
+}
+
+async function abrirImportadorDeArquivo() {
+  const input = getEl('file-import-produtos');
+  if (!input) return;
+  input.value = '';
+  input.click();
+}
+
+async function _handleFileImport(file) {
+  try {
+    const txt = await file.text();
+    const name = (file.name || '').toLowerCase();
+
+    if (name.endsWith('.csv')) {
+      const parsed = _parseCsv(txt);
+      await importarProdutosArray(parsed);
+      return;
+    }
+
+    const parsed = JSON.parse(txt);
+    const arr = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.items) ? parsed.items : null);
+
+    if (!arr) {
+      toast('JSON inválido. Esperado: array ou { items: [] }', 'err', 'Importar');
+      return;
+    }
+
+    await importarProdutosArray(arr);
+  } catch (e) {
+    toast('Falha ao importar arquivo.', 'err', 'Importar');
+    logWarn('Erro import:', e);
+  }
+}
+
+async function limparProdutosLocal() {
+  const ok = await confirmOrca('Deseja apagar TODOS os produtos do localStorage?', {
+    title: 'Limpar produtos',
+    okText: 'Apagar tudo',
+    cancelText: 'Cancelar'
+  });
+  if (!ok) return;
+
+  produtos = [];
+  saveLocal([]);
+  renderTabela();
+  toast('Produtos apagados (local).', 'ok');
+}
+
+function bindExportImportUI() {
+  const btnExp = getEl('btn-exportar-produtos');
+  const btnImp = getEl('btn-importar-produtos');
+  const btnClr = getEl('btn-limpar-produtos');
+  const fileInp = getEl('file-import-produtos');
+
+  if (btnExp && !btnExp.dataset._bound) {
+    btnExp.dataset._bound = '1';
+    btnExp.addEventListener('click', async () => {
+      const tipo = await _escolherExportacao();
+      if (!tipo) return;
+      if (tipo === 'csv') exportarProdutosCSV();
+      else exportarProdutosJSON();
+    });
+  }
+
+  if (btnImp && !btnImp.dataset._bound) {
+    btnImp.dataset._bound = '1';
+    btnImp.addEventListener('click', abrirImportadorDeArquivo);
+  }
+
+  if (btnClr && !btnClr.dataset._bound) {
+    btnClr.dataset._bound = '1';
+    btnClr.addEventListener('click', limparProdutosLocal);
+  }
+
+  if (fileInp && !fileInp.dataset._bound) {
+    fileInp.dataset._bound = '1';
+    fileInp.addEventListener('change', async () => {
+      const f = fileInp.files && fileInp.files[0];
+      if (!f) return;
+      await _handleFileImport(f);
+    });
+  }
+}
+
+/* =========================
+   Setup de selects do produto
+========================= */
 
 function setupProdutoLists() {
   LISTS_STATE = loadLists();
 
-  // filtros
   bindSelectList('filtro-origem-produto', 'origem', { placeholder: 'Todas', allowAdd: true });
 
-  // modal
   bindSelectList('campo-origem', 'origem', { placeholder: '—', allowAdd: true });
 
-  // Último fornecedor / movimentação
-  bindSelectList('campo-ultimo-fornecedor', 'fornecedores', { placeholder: '—', allowAdd: true });
-  bindSelectList('campo-mov-fornecedor', 'fornecedores', { placeholder: '—', allowAdd: true });
+  bindSelectList('campo-ultimo-fornecedor', 'fornecedor', { placeholder: '—', allowAdd: true });
+  bindSelectList('campo-mov-fornecedor', 'fornecedor', { placeholder: '—', allowAdd: true });
   bindSelectList('campo-mov-departamento', 'departamentos', { placeholder: '—', allowAdd: true });
 
   bindSelectList('campo-status-atual', 'status_atual', { placeholder: '—', allowAdd: true });
@@ -1564,7 +2064,7 @@ function setupProdutoLists() {
   bindSelectList('campo-cores-disponiveis', 'cores_disponiveis', { placeholder: '—', allowAdd: true });
 
   bindSelectList('campo-peso-logistico-unidade', 'unidade_peso', { placeholder: 'Selecione', allowAdd: true });
-bindSelectList('campo-cst-icms', 'cst_padrao', { placeholder: '—', allowAdd: true });
+  bindSelectList('campo-cst-icms', 'cst_padrao', { placeholder: '—', allowAdd: true });
   bindSelectList('campo-cst-pis', 'cst_padrao', { placeholder: '—', allowAdd: true });
   bindSelectList('campo-cst-cofins', 'cst_padrao', { placeholder: '—', allowAdd: true });
 
@@ -1603,11 +2103,16 @@ const produtosFake = [
     categorias: 'Central',
     subcategoria: '8 setores',
 
+    fornecedores: ['Distribuidora Houter'],
     fornecedor: 'Distribuidora Houter',
     ultima_compra: '2026-01-03',
+    ultimo_fornecedor: 'Distribuidora Houter',
 
     tipo_armaz: 'Fisico Local',
     armaz_localiz: 'Corredor A / Prat. 3',
+    armaz_predio: '',
+    armaz_corredor: '',
+    armaz_prateleira: '',
     tipo_logistico: 'Normal',
     peso_logistico: 1.25,
     peso_logistico_unidade: 'kg',
@@ -1621,9 +2126,6 @@ const produtosFake = [
 
     possui_validade: 'Não',
     tipo_tecnico: 'Eletrônico',
-    peso_tecnico: 1.2,
-    peso_tecnico_unidade: 'kg',
-    tamanho_tecnico: '20x15x10',
     cores_disponiveis: 'Branco',
     imagens_produto: 'https://exemplo.com/img1\nhttps://exemplo.com/img2',
     videos_produto: '',
@@ -1649,9 +2151,7 @@ const produtosFake = [
     simples: 0.0,
     luc_presumido: 0.0,
 
-    entrada_estoque: 10,
-    saida_estoque: 3,
-    destino: 'Cliente'
+    movimentacoes: []
   }
 ];
 
@@ -1673,7 +2173,6 @@ function normalizeProduto(p) {
   if (!obj.id) obj.id = 0;
   if (!obj.data_cadastro) obj.data_cadastro = null;
 
-  // Segmentos: aceita string (legado) ou array (novo)
   if (obj.segmentos == null) {
     obj.segmentos = [];
   } else if (Array.isArray(obj.segmentos)) {
@@ -1682,6 +2181,13 @@ function normalizeProduto(p) {
     const s = String(obj.segmentos || '').trim();
     obj.segmentos = s ? [s] : [];
   }
+
+  if (obj.fornecedores == null) {
+    obj.fornecedores = normalizeFornecedoresValue(obj.fornecedor);
+  } else {
+    obj.fornecedores = normalizeFornecedoresValue(obj.fornecedores);
+  }
+  obj.fornecedor = obj.fornecedores[0] || obj.fornecedor || '';
 
   return obj;
 }
@@ -1810,6 +2316,7 @@ function renderTabela() {
       p.categorias,
       p.subcategoria,
 
+      p.fornecedores,
       p.fornecedor,
       p.ultima_compra,
 
@@ -1832,9 +2339,7 @@ function renderTabela() {
 
       String(p.valor_custo ?? ''),
       String(p.custo_efetivo ?? ''),
-      String(p.mc_lucro ?? ''),
-
-      p.destino
+      String(p.mc_lucro ?? '')
     ].map(x => (Array.isArray(x) ? x.join(', ') : (x || '')).toString().toLowerCase()).join(' | ');
 
     const matchBusca = !busca || hay.includes(busca);
@@ -1889,11 +2394,6 @@ function renderTabela() {
    Modal
 ========================= */
 
-function setVal(id, v) {
-  const el = getEl(id);
-  if (el) el.value = v ?? '';
-}
-
 function abrirModal(novo = true, produto = null) {
   const backdrop = getEl('modal-produto-backdrop');
   const titulo = getEl('modal-produto-titulo');
@@ -1913,7 +2413,6 @@ function abrirModal(novo = true, produto = null) {
       infoData.textContent = '';
     }
 
-    // Identificação
     setVal('campo-cod-ref-id', '');
     setVal('campo-codigo-barras', '');
     setVal('campo-nome-generico', '');
@@ -1923,13 +2422,11 @@ function abrirModal(novo = true, produto = null) {
     setVal('campo-cod-ref-fabric', '');
     setVal('campo-origem', '');
 
-    // Situação
     setVal('campo-status-atual', '');
     setVal('campo-tipo-mercado', '');
     setVal('campo-utilizacao', '');
     setVal('campo-tipo-material', '');
 
-    // Classificação
     setVal('campo-prod-controlado', '');
     setVal('campo-tipo-fiscalizacao', '');
     setVal('campo-dados-identificacao-controlado', '');
@@ -1940,12 +2437,10 @@ function abrirModal(novo = true, produto = null) {
     setVal('campo-categorias', '');
     setVal('campo-subcategoria', '');
 
-    // Distribuidores
     setFornecedoresSelection([]);
     setVal('campo-ultima-compra', '');
     setVal('campo-ultimo-fornecedor', '');
 
-    // Logístico
     setVal('campo-tipo-armaz', '');
     setVal('campo-armaz-localiz', '');
     setVal('campo-armaz-predio', '');
@@ -1962,7 +2457,6 @@ function abrirModal(novo = true, produto = null) {
     setVal('campo-estoque-maximo', '');
     setVal('campo-quantidade-atual', '');
 
-    // Técnicos
     setVal('campo-possui-validade', '');
     setVal('campo-tipo-tecnico', '');
     setVal('campo-cores-disponiveis', '');
@@ -1973,7 +2467,6 @@ function abrirModal(novo = true, produto = null) {
     setVal('campo-manuais-programacao', '');
     setVal('campo-manuais-usuario', '');
 
-    // Fiscais
     setVal('campo-classif-ncm-bbm', '');
     setVal('campo-aliq-ipi-entrada', '');
     setVal('campo-aliq-iva', '');
@@ -1981,7 +2474,6 @@ function abrirModal(novo = true, produto = null) {
     setVal('campo-cst-pis', '');
     setVal('campo-cst-cofins', '');
 
-    // Preço
     setVal('campo-valor-custo', '');
     setVal('campo-mark-up', '');
     setVal('campo-custo-efetivo', '');
@@ -1992,13 +2484,13 @@ function abrirModal(novo = true, produto = null) {
     setVal('campo-simples', '');
     setVal('campo-luc-presumido', '');
 
-    // Movimentação
     MOVIMENTACOES_ATUAIS = [];
     renderMovimentacoes();
     resetMovForm();
 
     updateProdutoControladoUI();
-  initMovimentacaoUI();
+    initMovimentacaoUI();
+    updateMovUI();
 
     setTimeout(() => getEl('campo-nome-produto')?.focus(), 10);
     return;
@@ -2014,7 +2506,6 @@ function abrirModal(novo = true, produto = null) {
     infoData.textContent = `Cadastrado em: ${formatDateBR(produto.data_cadastro)}`;
   }
 
-  // Identificação
   setVal('campo-cod-ref-id', produto.cod_ref_id || '');
   setVal('campo-codigo-barras', produto.codigo_barras || '');
   setVal('campo-nome-generico', produto.nome_generico || '');
@@ -2024,13 +2515,11 @@ function abrirModal(novo = true, produto = null) {
   setVal('campo-cod-ref-fabric', produto.cod_ref_fabric || '');
   setVal('campo-origem', produto.origem || '');
 
-  // Situação
   setVal('campo-status-atual', produto.status_atual || '');
   setVal('campo-tipo-mercado', produto.tipo_mercado || '');
   setVal('campo-utilizacao', produto.utilizacao || '');
   setVal('campo-tipo-material', produto.tipo_material || '');
 
-  // Classificação
   setVal('campo-prod-controlado', produto.prod_controlado || '');
   setVal('campo-tipo-fiscalizacao', produto.tipo_fiscalizacao || '');
   setVal('campo-dados-identificacao-controlado', produto.dados_identificacao_controlado || '');
@@ -2041,13 +2530,15 @@ function abrirModal(novo = true, produto = null) {
   setVal('campo-categorias', produto.categorias || '');
   setVal('campo-subcategoria', produto.subcategoria || '');
 
-  // Distribuidores
   setFornecedoresSelection(produto.fornecedores ?? produto.fornecedor);
   setVal('campo-ultima-compra', produto.ultima_compra || '');
+  setVal('campo-ultimo-fornecedor', produto.ultimo_fornecedor || (normalizeFornecedoresValue(produto.fornecedores ?? produto.fornecedor)[0] || ''));
 
-  // Logístico
   setVal('campo-tipo-armaz', produto.tipo_armaz || '');
   setVal('campo-armaz-localiz', produto.armaz_localiz || '');
+  setVal('campo-armaz-predio', produto.armaz_predio || '');
+  setVal('campo-armaz-corredor', produto.armaz_corredor || '');
+  setVal('campo-armaz-prateleira', produto.armaz_prateleira || '');
   setVal('campo-tipo-logistico', produto.tipo_logistico || '');
   setVal('campo-peso-logistico', produto.peso_logistico ?? '');
   setVal('campo-peso-logistico-unidade', produto.peso_logistico_unidade || '');
@@ -2059,7 +2550,6 @@ function abrirModal(novo = true, produto = null) {
   setVal('campo-estoque-maximo', produto.estoque_maximo ?? '');
   setVal('campo-quantidade-atual', produto.quantidade_atual ?? '');
 
-  // Técnicos
   setVal('campo-possui-validade', produto.possui_validade || '');
   setVal('campo-tipo-tecnico', produto.tipo_tecnico || '');
   setVal('campo-cores-disponiveis', produto.cores_disponiveis || '');
@@ -2070,7 +2560,6 @@ function abrirModal(novo = true, produto = null) {
   setVal('campo-manuais-programacao', produto.manuais_programacao || '');
   setVal('campo-manuais-usuario', produto.manuais_usuario || '');
 
-  // Fiscais
   setVal('campo-classif-ncm-bbm', produto.classif_ncm_bbm || '');
   setVal('campo-aliq-ipi-entrada', produto.aliq_ipi_entrada ?? '');
   setVal('campo-aliq-iva', produto.aliq_iva ?? '');
@@ -2078,7 +2567,6 @@ function abrirModal(novo = true, produto = null) {
   setVal('campo-cst-pis', produto.cst_pis || '');
   setVal('campo-cst-cofins', produto.cst_cofins || '');
 
-  // Preço
   setVal('campo-valor-custo', produto.valor_custo ?? '');
   setVal('campo-mark-up', produto.mark_up ?? '');
   setVal('campo-custo-efetivo', produto.custo_efetivo ?? '');
@@ -2089,13 +2577,15 @@ function abrirModal(novo = true, produto = null) {
   setVal('campo-simples', produto.simples ?? '');
   setVal('campo-luc-presumido', produto.luc_presumido ?? '');
 
-  // Movimentação
   MOVIMENTACOES_ATUAIS = Array.isArray(produto.movimentacoes) ? [...produto.movimentacoes] : [];
   renderMovimentacoes();
   resetMovForm();
 
   updateProdutoControladoUI();
-setTimeout(() => getEl('campo-nome-produto')?.focus(), 10);
+  initMovimentacaoUI();
+  updateMovUI();
+
+  setTimeout(() => getEl('campo-nome-produto')?.focus(), 10);
 }
 
 function fecharModal() {
@@ -2138,6 +2628,7 @@ function lerFormProduto() {
   const fornecedores = getSelectedFornecedores();
   const fornecedor = fornecedores[0] || '';
   const ultima_compra = (getEl('campo-ultima-compra')?.value || '').trim() || null;
+  const ultimo_fornecedor = getEl('campo-ultimo-fornecedor')?.value || '';
 
   const tipo_armaz = getEl('campo-tipo-armaz')?.value || '';
   const armaz_localiz = getEl('campo-armaz-localiz')?.value.trim() || '';
@@ -2220,6 +2711,7 @@ function lerFormProduto() {
     fornecedores,
     fornecedor,
     ultima_compra,
+    ultimo_fornecedor,
 
     tipo_armaz,
     armaz_localiz,
@@ -2238,11 +2730,6 @@ function lerFormProduto() {
 
     possui_validade,
     tipo_tecnico,
-
-    peso_tecnico,
-    peso_tecnico_unidade,
-
-    tamanho_tecnico,
     cores_disponiveis,
 
     imagens_produto,
@@ -2269,8 +2756,6 @@ function lerFormProduto() {
     simples,
     luc_presumido,
 
-    ultimo_fornecedor,
-
     armaz_predio,
     armaz_corredor,
     armaz_prateleira,
@@ -2284,7 +2769,7 @@ function salvarLocal(payload) {
     const novoId = produtos.length > 0 ? Math.max(...produtos.map(p => Number(p.id) || 0)) + 1 : 1;
     produtos.push({ id: novoId, data_cadastro: new Date().toISOString(), ...payload });
   } else {
-    produtos = produtos.map(p => (p.id === produtoEditandoId ? { ...p, ...payload } : p));
+    produtos = produtos.map(p => (Number(p.id) === Number(produtoEditandoId) ? { ...p, ...payload } : p));
   }
   saveLocal(produtos);
   fecharModal();
@@ -2310,7 +2795,7 @@ async function salvarProduto() {
       const atualizado = await apiAtualizarProduto(produtoEditandoId, payload);
       API_DISPONIVEL = true;
       const up = normalizeProduto(atualizado);
-      produtos = produtos.map(p => (p.id === produtoEditandoId ? { ...p, ...up } : p));
+      produtos = produtos.map(p => (Number(p.id) === Number(produtoEditandoId) ? { ...p, ...up } : p));
     }
 
     fecharModal();
@@ -2333,7 +2818,7 @@ async function excluirProduto(id) {
   if (!ok) return;
 
   if (API_DISPONIVEL === false) {
-    produtos = produtos.filter(p => p.id !== id);
+    produtos = produtos.filter(p => Number(p.id) !== Number(id));
     saveLocal(produtos);
     renderTabela();
     toast('Excluído (local).', 'ok');
@@ -2343,13 +2828,13 @@ async function excluirProduto(id) {
   try {
     await apiExcluirProduto(id);
     API_DISPONIVEL = true;
-    produtos = produtos.filter(p => p.id !== id);
+    produtos = produtos.filter(p => Number(p.id) !== Number(id));
     renderTabela();
     toast('Produto excluído.', 'ok');
   } catch (err) {
     logWarn('Falha ao excluir via API (fallback local):', err);
     API_DISPONIVEL = false;
-    produtos = produtos.filter(p => p.id !== id);
+    produtos = produtos.filter(p => Number(p.id) !== Number(id));
     saveLocal(produtos);
     renderTabela();
     toast('API indisponível. Excluí localmente.', 'warn', 'Fallback');
@@ -2363,13 +2848,12 @@ async function excluirProduto(id) {
 async function initProdutosPage() {
   ensureInlineUIStyles();
   setupProdutoLists();
-// UI condicional (Produto Controlado)
-const selControlado = getEl('campo-prod-controlado');
-if (selControlado) {
-  selControlado.addEventListener('change', updateProdutoControladoUI);
-}
-updateProdutoControladoUI();
 
+  const selControlado = getEl('campo-prod-controlado');
+  if (selControlado) {
+    selControlado.addEventListener('change', updateProdutoControladoUI);
+  }
+  updateProdutoControladoUI();
 
   const backdrop = getEl('modal-produto-backdrop');
   if (backdrop) backdrop.hidden = true;
@@ -2382,6 +2866,9 @@ updateProdutoControladoUI();
   }
 
   renderTabela();
+
+  // ✅ EXPORTAR / IMPORTAR / LIMPAR
+  bindExportImportUI();
 
   const inputBusca = getEl('busca-produtos');
   const selectOrigem = getEl('filtro-origem-produto');
@@ -2433,7 +2920,7 @@ updateProdutoControladoUI();
 document.addEventListener('DOMContentLoaded', () => {
   initProdutosPage().catch(err => {
     logErr('Falha ao iniciar página de produtos:', err);
-    produtos = loadLocal() || produtosFake;
+    produtos = (loadLocal() || produtosFake).map(normalizeProduto);
     renderTabela();
     toast('Falha ao iniciar. Usei dados locais.', 'warn', 'Fallback');
   });

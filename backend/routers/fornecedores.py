@@ -49,22 +49,18 @@ def gerar_codigo_fornecedor(db: Session) -> str:
 
 
 # =========================
-# Schemas (na sequência do PDF)
+# Schemas
 # =========================
 class FornecedorBase(BaseModel):
-    # PDF: Data Cadastro
     data_cadastro: Optional[date] = None
-
-    # PDF: Tipo Fornecedor (PF/PJ)
     tipo: Optional[str] = None  # 'pf' | 'pj'
+    nome: Optional[str] = None  # Nome identificação (Fornecedor)
 
-    # PDF: Razão Social / CNPJ / IE / IM
     razao_social: Optional[str] = None
     cnpj: Optional[str] = None
     inscricao_estadual: Optional[str] = None
     inscricao_municipal: Optional[str] = None
 
-    # PDF: Endereço - CEP (mantém auto-preenchimento como antes)
     cep: Optional[str] = None
     endereco_logradouro: Optional[str] = None
     endereco_numero: Optional[str] = None
@@ -73,60 +69,49 @@ class FornecedorBase(BaseModel):
     uf: Optional[str] = None
     end_pais: Optional[str] = None
 
-    # PDF: Pessoa Contato
     pessoa_contato: Optional[str] = None
 
-    # PDF: Telefone PABX / Telefone / Telefone Contato (WhatsApp)
     telefone_pabx: Optional[str] = None
     telefone: Optional[str] = None
     whatsapp: Optional[str] = None
 
-    # PDF: Home Page / E-Mail / Redes Sociais
     home_page: Optional[str] = None
     email_principal: Optional[str] = None
-    redes_sociais: Optional[Dict[str, Any]] = None  # ex: {"texto":"...", "instagram":"..."}
+    redes_sociais: Optional[Dict[str, Any]] = None
 
-    # PDF: Código de Cadastro Fornecedor
     codigo: Optional[str] = None
 
-    # PDF: Tipo Fornecedor (categoria/segmento)
     tipo_categoria: Optional[str] = None
 
-    # PDF: Contato Representante Comercial / Telefone/Whatsapp / Telefone/Ramal
     contato_representante_comercial: Optional[str] = None
     representante_telefone_whatsapp: Optional[str] = None
     representante_telefone_ramal: Optional[str] = None
 
-    # PDF: Limite de Créditos
     limite_creditos: Optional[Decimal] = None
-
-    # PDF: Opção de Transportadoras / Fretes
     opcao_transportadoras_fretes: Optional[str] = None
 
-    # PDF: Linha de Produtos / Contato RMA / Informações RMA
+    # Linha de produtos (texto) + RMA
     linha_produtos: Optional[str] = None
     contato_rma: Optional[str] = None
     informacoes_rma: Optional[str] = None
 
+    # ✅ opcional: se existir na sua tabela, vai salvar/ler
+    linha_produtos_ids: Optional[List[int]] = None
+
 
 class FornecedorCreate(FornecedorBase):
-    # no mínimo precisa de tipo e nome (nome identificação)
     tipo: str
-    nome: str  # Nome identificação (Fornecedor)
+    nome: str
 
 
 class FornecedorUpdate(FornecedorBase):
-    # nome identificação também pode ser alterado
-    nome: Optional[str] = None
+    pass
 
 
 class FornecedorOut(BaseModel):
     id: int
-
-    # Nome identificação
     nome: str
 
-    # PDF
     data_cadastro: datetime
     tipo: str
 
@@ -153,7 +138,6 @@ class FornecedorOut(BaseModel):
     redes_sociais: Optional[Dict[str, Any]] = None
 
     codigo: str
-
     tipo_categoria: Optional[str] = None
 
     contato_representante_comercial: Optional[str] = None
@@ -167,6 +151,9 @@ class FornecedorOut(BaseModel):
     contato_rma: Optional[str] = None
     informacoes_rma: Optional[str] = None
 
+    # ✅ se existir no model
+    linha_produtos_ids: Optional[List[int]] = None
+
     class Config:
         orm_mode = True
 
@@ -174,7 +161,6 @@ class FornecedorOut(BaseModel):
 def fornecedor_to_out(f: models.Fornecedor) -> FornecedorOut:
     return FornecedorOut(
         id=int(f.id),
-
         nome=f.nome_identificacao,
 
         data_cadastro=f.data_cadastro,
@@ -203,7 +189,6 @@ def fornecedor_to_out(f: models.Fornecedor) -> FornecedorOut:
         redes_sociais=f.redes_sociais,
 
         codigo=f.codigo_cadastro_fornecedor,
-
         tipo_categoria=getattr(f, "tipo_categoria", None),
 
         contato_representante_comercial=getattr(f, "contato_representante_comercial", None),
@@ -216,13 +201,14 @@ def fornecedor_to_out(f: models.Fornecedor) -> FornecedorOut:
         linha_produtos=getattr(f, "linha_produtos", None),
         contato_rma=getattr(f, "contato_rma", None),
         informacoes_rma=getattr(f, "informacoes_rma", None),
+
+        linha_produtos_ids=getattr(f, "linha_produtos_ids", None),
     )
 
 
 # =========================
 # Endpoints
 # =========================
-
 @router.get("", response_model=List[FornecedorOut])
 @router.get("/", response_model=List[FornecedorOut], include_in_schema=False)
 def listar_fornecedores(db: Session = Depends(get_db)):
@@ -249,13 +235,11 @@ def criar_fornecedor(payload: FornecedorCreate, db: Session = Depends(get_db)):
         tipo_fornecedor=payload.tipo,
         nome_identificacao=payload.nome,
 
-        # PJ
         razao_social=norm_str(payload.razao_social),
         cnpj=norm_str(payload.cnpj),
         inscricao_estadual=norm_str(payload.inscricao_estadual),
         inscricao_municipal=norm_str(payload.inscricao_municipal),
 
-        # Endereço
         end_cep=only_digits(payload.cep),
         end_rua=norm_str(payload.endereco_logradouro),
         end_numero=norm_str(payload.endereco_numero),
@@ -264,12 +248,10 @@ def criar_fornecedor(payload: FornecedorCreate, db: Session = Depends(get_db)):
         end_estado=norm_upper(payload.uf),
         end_pais=norm_upper(payload.end_pais) or "BR",
 
-        # Contatos
         pessoa_contato=norm_str(payload.pessoa_contato),
         whatsapp_contato=norm_str(payload.whatsapp),
-        whatsapp_principal=None,  # opcional, se você quiser usar depois
+        whatsapp_principal=None,
 
-        # Novos campos PDF
         telefone_pabx=norm_str(payload.telefone_pabx),
         telefone=norm_str(payload.telefone),
 
@@ -289,6 +271,10 @@ def criar_fornecedor(payload: FornecedorCreate, db: Session = Depends(get_db)):
         contato_rma=norm_str(payload.contato_rma),
         informacoes_rma=norm_str(payload.informacoes_rma),
     )
+
+    # ✅ se existir na sua model/tabela, salva lista de ids
+    if hasattr(f, "linha_produtos_ids") and payload.linha_produtos_ids is not None:
+        setattr(f, "linha_produtos_ids", payload.linha_produtos_ids)
 
     dt = date_to_dt_utc(payload.data_cadastro)
     if dt:
@@ -325,7 +311,6 @@ def atualizar_fornecedor(fornecedor_id: int, payload: FornecedorUpdate, db: Sess
     if payload.nome is not None and payload.nome.strip():
         f.nome_identificacao = payload.nome.strip()
 
-    # PJ
     if payload.razao_social is not None:
         f.razao_social = norm_str(payload.razao_social)
     if payload.cnpj is not None:
@@ -335,7 +320,6 @@ def atualizar_fornecedor(fornecedor_id: int, payload: FornecedorUpdate, db: Sess
     if payload.inscricao_municipal is not None:
         f.inscricao_municipal = norm_str(payload.inscricao_municipal)
 
-    # Endereço
     if payload.cep is not None:
         f.end_cep = only_digits(payload.cep)
     if payload.endereco_logradouro is not None:
@@ -351,7 +335,6 @@ def atualizar_fornecedor(fornecedor_id: int, payload: FornecedorUpdate, db: Sess
     if payload.end_pais is not None:
         f.end_pais = norm_upper(payload.end_pais) or "BR"
 
-    # Contatos
     if payload.pessoa_contato is not None:
         f.pessoa_contato = norm_str(payload.pessoa_contato)
     if payload.whatsapp is not None:
@@ -369,7 +352,6 @@ def atualizar_fornecedor(fornecedor_id: int, payload: FornecedorUpdate, db: Sess
     if payload.redes_sociais is not None:
         f.redes_sociais = payload.redes_sociais
 
-    # Novos campos PDF
     if payload.tipo_categoria is not None:
         f.tipo_categoria = norm_str(payload.tipo_categoria)
 
@@ -392,6 +374,10 @@ def atualizar_fornecedor(fornecedor_id: int, payload: FornecedorUpdate, db: Sess
         f.contato_rma = norm_str(payload.contato_rma)
     if payload.informacoes_rma is not None:
         f.informacoes_rma = norm_str(payload.informacoes_rma)
+
+    # ✅ se existir na sua model/tabela, atualiza lista de ids
+    if hasattr(f, "linha_produtos_ids") and payload.linha_produtos_ids is not None:
+        setattr(f, "linha_produtos_ids", payload.linha_produtos_ids)
 
     try:
         db.commit()

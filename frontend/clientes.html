@@ -15,8 +15,12 @@
   <link rel="stylesheet" href="/frontend/css/clientes.css" />
   <link rel="icon" type="image/png" href="/frontend/img/logo-favicon.png" />
 
+  <!-- ✅ XLSX (Excel .xlsx) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <script src="/frontend/js/pages/clientes.js" type="module" defer></script>
 </head>
+
 <body>
   <div class="orca-shell">
     <iframe class="orca-menu-frame" src="/frontend/sidebar.html" title="Menu 4X OrçaPro"></iframe>
@@ -27,9 +31,33 @@
           <h1>Clientes</h1>
           <p>Cadastro de clientes para uso nas propostas.</p>
         </div>
-        <button class="btn-primary" type="button" id="btn-novo-cliente">
-          <i class="fa-solid fa-user-plus"></i>&nbsp; Novo cliente
-        </button>
+
+        <!-- ✅ AÇÕES (IMPORTAR / EXPORTAR / NOVO) -->
+        <div class="orca-header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <button class="btn-secondary" type="button" id="btn-importar-clientes" title="Importar clientes (JSON/CSV/XLSX)">
+            <i class="fa-solid fa-file-import"></i>&nbsp; Importar
+          </button>
+
+          <button class="btn-secondary" type="button" id="btn-exportar-clientes-csv" title="Exportar para CSV (Excel)">
+            <i class="fa-solid fa-file-csv"></i>&nbsp; Exportar CSV
+          </button>
+
+          <button class="btn-secondary" type="button" id="btn-exportar-clientes-json" title="Exportar para JSON">
+            <i class="fa-solid fa-file-code"></i>&nbsp; Exportar JSON
+          </button>
+
+          <button class="btn-primary" type="button" id="btn-novo-cliente">
+            <i class="fa-solid fa-user-plus"></i>&nbsp; Novo cliente
+          </button>
+
+          <!-- ✅ INPUT FILE (invisível) -->
+          <input
+            id="input-importar-clientes"
+            type="file"
+            accept=".json,.csv,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            hidden
+          />
+        </div>
       </header>
 
       <section class="orca-filters">
@@ -117,13 +145,11 @@
                 <input type="text" id="campo-whatsapp-cliente" placeholder="(DDD) 9XXXX-XXXX" inputmode="tel" />
               </div>
 
-              <!-- ✅ SUBIU PARA DADOS BÁSICOS -->
               <div class="orca-field">
                 <label for="campo-pessoa-contato">Pessoa contato</label>
                 <input type="text" id="campo-pessoa-contato" placeholder="Nome do contato" />
               </div>
 
-              <!-- ✅ SUBIU PARA DADOS BÁSICOS -->
               <div class="orca-field">
                 <label for="campo-email-principal">E-mail principal</label>
                 <input type="text" id="campo-email-principal" placeholder="email@..." inputmode="email" />

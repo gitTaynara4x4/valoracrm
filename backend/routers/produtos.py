@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 from datetime import datetime, date
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import String as SAString, cast
+from sqlalchemy import String as SAString, cast, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -26,20 +26,63 @@ def get_db():
 
 
 # =========================================================
-# Pydantic Schemas
+# Helpers
+# =========================================================
+def parse_bool_ptbr(v: Any) -> Optional[bool]:
+    """
+    Aceita:
+    - bool
+    - "sim"/"não" (pt-BR)
+    - "true"/"false"
+    - "1"/"0"
+    - "", None -> None
+    """
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return v
+
+    s = str(v).strip().lower()
+    if not s:
+        return None
+
+    if s in {"sim", "s", "true", "1", "yes", "y", "on"}:
+        return True
+    if s in {"nao", "não", "n", "false", "0", "no", "off"}:
+        return False
+
+    # se veio qualquer outra coisa, deixa None pra não “inventar”
+    return None
+
+
+def model_columns(model) -> set[str]:
+    try:
+        return set(model.__table__.columns.keys())  # type: ignore
+    except Exception:
+        # fallback
+        return set(dir(model))
+
+
+# =========================================================
+# Pydantic Schemas (compat v1/v2)
 # =========================================================
 try:
     # Pydantic v2
-    from pydantic import ConfigDict  # type: ignore
+    from pydantic import ConfigDict, field_validator  # type: ignore
 
     class _Cfg:
         model_config = ConfigDict(from_attributes=True)
 
+    _USE_V2 = True
 except Exception:
     # Pydantic v1
+    from pydantic import validator  # type: ignore
+
     class _Cfg:
         class Config:
             orm_mode = True
+
+    _USE_V2 = False
 
 
 class ProdutoBase(BaseModel):
@@ -53,13 +96,14 @@ class ProdutoBase(BaseModel):
     cod_ref_fabric: Optional[str] = Field(default=None, max_length=50)
     origem: Optional[str] = Field(default=None, max_length=30)
 
-    # SITUAÇÃO (códigos)
-    status_atual: Optional[int] = Field(default=None, ge=1, le=4)   # 1..4
-    tipo_mercado: Optional[int] = Field(default=None, ge=1, le=2)   # 1..2
-    utilizacao: Optional[int] = Field(default=None, ge=1, le=4)     # 1..4
-    tipo_material: Optional[int] = Field(default=None, ge=1, le=3)  # 1..3
+    # SITUAÇÃO (strings no front)
+    status_atual: Optional[str] = Field(default=None, max_length=60)
+    tipo_mercado: Optional[str] = Field(default=None, max_length=60)
+    utilizacao: Optional[str] = Field(default=None, max_length=80)
+    tipo_material: Optional[str] = Field(default=None, max_length=80)
 
     # CLASSIFICAÇÃO
+    # ✅ aceita "Sim/Não" vindos do front e converte pra bool
     prod_controlado: Optional[bool] = None
     tipo_fiscalizacao: Optional[str] = Field(default=None, max_length=120)
     dados_identificacao_controlado: Optional[str] = None
@@ -74,12 +118,18 @@ class ProdutoBase(BaseModel):
     fornecedores: Optional[List[str]] = None
     fornecedor: Optional[str] = Field(default=None, max_length=120)
     ultima_compra: Optional[date] = None
+    ultimo_fornecedor: Optional[str] = Field(default=None, max_length=120)
 
     # DADOS LOGÍSTICO
     tipo_armaz: Optional[str] = Field(default=None, max_length=30)
     armaz_localiz: Optional[str] = Field(default=None, max_length=60)
+    armaz_predio: Optional[str] = Field(default=None, max_length=30)
+    armaz_corredor: Optional[str] = Field(default=None, max_length=30)
+    armaz_prateleira: Optional[str] = Field(default=None, max_length=30)
+
     tipo_logistico: Optional[str] = Field(default=None, max_length=30)
     peso_logistico: Optional[float] = None
+    peso_logistico_unidade: Optional[str] = Field(default=None, max_length=12)
     tamanho_logistico: Optional[str] = Field(default=None, max_length=60)
     embalagem_compra: Optional[str] = Field(default=None, max_length=60)
     embalagem_armazem: Optional[str] = Field(default=None, max_length=60)
@@ -89,12 +139,11 @@ class ProdutoBase(BaseModel):
     quantidade_atual: Optional[int] = None
 
     # DADOS TÉCNICOS
+    # ✅ aceita "Sim/Não" vindos do front e converte pra bool
     possui_validade: Optional[bool] = None
     tipo_tecnico: Optional[str] = Field(default=None, max_length=60)
-    peso_tecnico: Optional[float] = None
-    tamanho_tecnico: Optional[str] = Field(default=None, max_length=60)
-    cores_disponiveis: Optional[str] = None  # texto livre
-    imagens_produto: Optional[str] = None    # texto livre (links / nomes)
+    cores_disponiveis: Optional[str] = None
+    imagens_produto: Optional[str] = None
     videos_produto: Optional[str] = None
     fichas_tecnica: Optional[str] = None
     manuais_instalacao: Optional[str] = None
@@ -120,10 +169,19 @@ class ProdutoBase(BaseModel):
     simples: Optional[float] = None
     luc_presumido: Optional[float] = None
 
-    # HISTÓRICO
-    entrada_estoque: Optional[int] = None
-    saida_estoque: Optional[int] = None
-    destino: Optional[str] = None  # text
+    # MOVIMENTAÇÕES (opcional: só salva se existir coluna no model)
+    movimentacoes: Optional[List[Dict[str, Any]]] = None
+
+    # ====== validators compat ======
+    if _USE_V2:
+        @field_validator("prod_controlado", "possui_validade", mode="before")  # type: ignore
+        @classmethod
+        def _v_parse_bool(cls, v):
+            return parse_bool_ptbr(v)
+    else:
+        @validator("prod_controlado", "possui_validade", pre=True)  # type: ignore
+        def _v_parse_bool(cls, v):
+            return parse_bool_ptbr(v)
 
 
 class ProdutoCreate(ProdutoBase):
@@ -145,6 +203,29 @@ class ProdutoOut(ProdutoBase, _Cfg):
 router = APIRouter(prefix="/api/produtos", tags=["Produtos"])
 
 
+def _clean_payload_for_model(data: dict) -> dict:
+    """
+    Remove campos que não existem no SQLAlchemy model,
+    evitando erro: __init__ got an unexpected keyword argument.
+    """
+    cols = model_columns(models.Produto)
+
+    # remove quaisquer chaves que o model não tem
+    data = {k: v for k, v in (data or {}).items() if k in cols or hasattr(models.Produto, k)}
+
+    # movimentacoes é opcional (só salva se existir no model)
+    if not hasattr(models.Produto, "movimentacoes"):
+        data.pop("movimentacoes", None)
+
+    # Se segmentos/fornecedores forem None, deixa o default do banco (se existir)
+    if data.get("segmentos") is None:
+        data.pop("segmentos", None)
+    if data.get("fornecedores") is None:
+        data.pop("fornecedores", None)
+
+    return data
+
+
 # =========================================================
 # CRUD
 # =========================================================
@@ -154,10 +235,10 @@ def listar_produtos(
     q: Optional[str] = Query(default=None, description="Busca geral"),
     origem: Optional[str] = Query(default=None),
     fornecedor: Optional[str] = Query(default=None),
-    status_atual: Optional[int] = Query(default=None, ge=1, le=4),
-    tipo_mercado: Optional[int] = Query(default=None, ge=1, le=2),
-    utilizacao: Optional[int] = Query(default=None, ge=1, le=4),
-    tipo_material: Optional[int] = Query(default=None, ge=1, le=3),
+    status_atual: Optional[str] = Query(default=None),
+    tipo_mercado: Optional[str] = Query(default=None),
+    utilizacao: Optional[str] = Query(default=None),
+    tipo_material: Optional[str] = Query(default=None),
     prod_controlado: Optional[bool] = Query(default=None),
     limit: int = Query(default=200, ge=1, le=2000),
     offset: int = Query(default=0, ge=0),
@@ -170,16 +251,16 @@ def listar_produtos(
     if fornecedor:
         query = query.filter(models.Produto.fornecedor == fornecedor)
 
-    if status_atual is not None:
+    if status_atual:
         query = query.filter(models.Produto.status_atual == status_atual)
 
-    if tipo_mercado is not None:
+    if tipo_mercado:
         query = query.filter(models.Produto.tipo_mercado == tipo_mercado)
 
-    if utilizacao is not None:
+    if utilizacao:
         query = query.filter(models.Produto.utilizacao == utilizacao)
 
-    if tipo_material is not None:
+    if tipo_material:
         query = query.filter(models.Produto.tipo_material == tipo_material)
 
     if prod_controlado is not None:
@@ -187,30 +268,36 @@ def listar_produtos(
 
     if q:
         like = f"%{q.strip()}%"
-        query = query.filter(
-            (models.Produto.nome_produto.ilike(like))
-            | (models.Produto.nome_generico.ilike(like))
-            | (models.Produto.cod_ref_id.ilike(like))
-            | (models.Produto.codigo_barras.ilike(like))
-            | (models.Produto.fabricante.ilike(like))
-            | (models.Produto.modelo.ilike(like))
-            | (models.Produto.cod_ref_fabric.ilike(like))
-            | (models.Produto.origem.ilike(like))
-            | (models.Produto.segmentos.ilike(like))
-            | (models.Produto.tipo_sistema.ilike(like))
-            | (models.Produto.classe.ilike(like))
-            | (models.Produto.categorias.ilike(like))
-            | (models.Produto.subcategoria.ilike(like))
-            | (models.Produto.fornecedor.ilike(like))
-            | (cast(models.Produto.ultima_compra, SAString).ilike(like))
-            | (models.Produto.tipo_armaz.ilike(like))
-            | (models.Produto.armaz_localiz.ilike(like))
-            | (models.Produto.tipo_logistico.ilike(like))
-            | (models.Produto.tipo_tecnico.ilike(like))
-            | (models.Produto.cores_disponiveis.ilike(like))
-            | (models.Produto.classif_ncm_bbm.ilike(like))
-            | (models.Produto.destino.ilike(like))
-        )
+
+        clauses = [
+            models.Produto.nome_produto.ilike(like),
+            models.Produto.nome_generico.ilike(like),
+            models.Produto.cod_ref_id.ilike(like),
+            models.Produto.codigo_barras.ilike(like),
+            models.Produto.fabricante.ilike(like),
+            models.Produto.modelo.ilike(like),
+            models.Produto.cod_ref_fabric.ilike(like),
+            models.Produto.origem.ilike(like),
+            models.Produto.tipo_sistema.ilike(like),
+            models.Produto.classe.ilike(like),
+            models.Produto.categorias.ilike(like),
+            models.Produto.subcategoria.ilike(like),
+            models.Produto.fornecedor.ilike(like),
+            models.Produto.tipo_armaz.ilike(like),
+            models.Produto.armaz_localiz.ilike(like),
+            models.Produto.tipo_logistico.ilike(like),
+            models.Produto.tipo_tecnico.ilike(like),
+            models.Produto.cores_disponiveis.ilike(like),
+            models.Produto.classif_ncm_bbm.ilike(like),
+        ]
+
+        # JSON / array: cast pra texto (se existir no model)
+        if hasattr(models.Produto, "segmentos"):
+            clauses.append(cast(models.Produto.segmentos, SAString).ilike(like))
+        if hasattr(models.Produto, "ultima_compra"):
+            clauses.append(cast(models.Produto.ultima_compra, SAString).ilike(like))
+
+        query = query.filter(or_(*clauses))
 
     itens = query.order_by(models.Produto.id.asc()).offset(offset).limit(limit).all()
     return itens
@@ -227,33 +314,30 @@ def obter_produto(produto_id: int, db: Session = Depends(get_db)):
 @router.post("", response_model=ProdutoOut, status_code=status.HTTP_201_CREATED)
 def criar_produto(payload: ProdutoCreate, db: Session = Depends(get_db)):
     data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
-    if data.get("segmentos") is None:
-        data.pop("segmentos", None)  # usa default do banco
-    if data.get("fornecedores") is None:
-        data.pop("fornecedores", None)  # usa default do banco
-    produto = models.Produto(**data)
+    data = _clean_payload_for_model(data)
 
+    produto = models.Produto(**data)
     db.add(produto)
+
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Erro ao salvar (integridade).")
+
     db.refresh(produto)
     return produto
 
 
 @router.put("/{produto_id}", response_model=ProdutoOut)
-def atualizar_produto(produto_id: int, payload: ProdutoCreate, db: Session = Depends(get_db)):
+def atualizar_produto(produto_id: int, payload: ProdutoUpdate, db: Session = Depends(get_db)):
     produto = db.query(models.Produto).filter(models.Produto.id == produto_id).first()
     if not produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado.")
 
     data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
-    if data.get("segmentos") is None:
-        data.pop("segmentos", None)
-    if data.get("fornecedores") is None:
-        data.pop("fornecedores", None)
+    data = _clean_payload_for_model(data)
+
     for k, v in data.items():
         setattr(produto, k, v)
 
@@ -262,6 +346,7 @@ def atualizar_produto(produto_id: int, payload: ProdutoCreate, db: Session = Dep
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Erro ao salvar (integridade).")
+
     db.refresh(produto)
     return produto
 
@@ -272,11 +357,13 @@ def patch_produto(produto_id: int, payload: ProdutoUpdate, db: Session = Depends
     if not produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado.")
 
-    data = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload.dict(exclude_unset=True)
-    if data.get("segmentos") is None:
-        data.pop("segmentos", None)
-    if data.get("fornecedores") is None:
-        data.pop("fornecedores", None)
+    data = (
+        payload.model_dump(exclude_unset=True)
+        if hasattr(payload, "model_dump")
+        else payload.dict(exclude_unset=True)
+    )
+    data = _clean_payload_for_model(data)
+
     for k, v in data.items():
         setattr(produto, k, v)
 
@@ -285,6 +372,7 @@ def patch_produto(produto_id: int, payload: ProdutoUpdate, db: Session = Depends
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Erro ao salvar (integridade).")
+
     db.refresh(produto)
     return produto
 

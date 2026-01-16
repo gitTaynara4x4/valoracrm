@@ -1,4 +1,12 @@
 // /frontend/js/pages/clientes.js
+// V1.0 — Clientes
+// - CRUD via /api/clientes
+// - Export JSON / CSV
+// - Import JSON / CSV / XLSX
+// - XLSX aceita com ou sem cabeçalho (por posição)
+// - ViaCEP auto preenchimento
+// - Confirm modal + Toast
+
 let clientes = [];
 let clienteEditandoId = null;
 
@@ -19,11 +27,11 @@ function formatTipo(tipo){
 }
 
 /* ========================
- * TOAST (sem “127.0.0.1:8000 diz”)
+ * TOAST
  * =======================*/
 function toast(msg, { error=false, ms=2600 } = {}){
   const el = document.getElementById('orca-toast');
-  if(!el) return; // sem fallback pra alert, pra nunca aparecer o popup do browser
+  if(!el) return;
 
   el.textContent = msg || '';
   el.classList.toggle('is-error', !!error);
@@ -53,7 +61,6 @@ function confirmDialog({
   const btnCancel = document.getElementById('orca-confirm-cancel');
 
   if(!backdrop || !box || !btnOk || !btnCancel){
-    // se não achar modal, confirma como false pra evitar destruir dados
     return Promise.resolve(false);
   }
 
@@ -127,6 +134,448 @@ async function salvarClienteNoServidor(payload, editandoId){
 async function excluirClienteNoServidor(id){
   const resp = await fetch(`${API_CLIENTES}/${id}`, { method:'DELETE' });
   if(!resp.ok) throw new Error(await resp.text());
+}
+
+/* ========================
+ * EXPORTAR / IMPORTAR
+ * =======================*/
+function downloadFile(filename, content, mime='application/octet-stream'){
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 3000);
+}
+
+function pickClientesForExport(){
+  return (clientes || []).map(c => ({
+    id: c.id ?? null,
+    codigo: c.codigo ?? '',
+    tipo: c.tipo ?? '',
+    nome: c.nome ?? '',
+    whatsapp: c.whatsapp ?? '',
+    data_cadastro: c.data_cadastro ?? null,
+
+    pessoa_contato: c.pessoa_contato ?? '',
+    email_principal: c.email_principal ?? '',
+
+    cep: c.cep ?? '',
+    endereco_logradouro: c.endereco_logradouro ?? '',
+    endereco_numero: c.endereco_numero ?? '',
+    endereco_bairro: c.endereco_bairro ?? '',
+    cidade: c.cidade ?? '',
+    uf: c.uf ?? '',
+
+    tipo_imovel: c.tipo_imovel ?? '',
+    onde_conheceu: c.onde_conheceu ?? '',
+    onde_conheceu_outro: c.onde_conheceu_outro ?? '',
+
+    whatsapp_principal: c.whatsapp_principal ?? '',
+    end_pais: c.end_pais ?? 'BR',
+
+    razao_social: c.razao_social ?? '',
+    cnpj: c.cnpj ?? '',
+    inscricao_estadual: c.inscricao_estadual ?? '',
+    inscricao_municipal: c.inscricao_municipal ?? '',
+    responsavel_contratante: c.responsavel_contratante ?? '',
+    cpf_responsavel_administrador: c.cpf_responsavel_administrador ?? '',
+
+    rg: c.rg ?? '',
+    data_nascimento: c.data_nascimento ?? null,
+    estado_civil: c.estado_civil ?? '',
+    profissao: c.profissao ?? '',
+
+    cep_cobranca: c.cep_cobranca ?? '',
+    home_page: c.home_page ?? '',
+
+    redes_sociais: c.redes_sociais ?? null
+  }));
+}
+
+function exportarClientesJSON(){
+  const dt = new Date();
+  const stamp = dt.toISOString().slice(0,19).replaceAll(':','-');
+  const payload = {
+    exported_at: dt.toISOString(),
+    total: (clientes || []).length,
+    items: pickClientesForExport()
+  };
+  const content = JSON.stringify(payload, null, 2);
+  downloadFile(`clientes_${stamp}.json`, content, 'application/json;charset=utf-8');
+  toast('Exportado JSON.', { ms: 1800 });
+}
+
+function csvEscape(v){
+  const s = String(v ?? '');
+  const must = /[;\n\r"]/g.test(s);
+  const out = s.replaceAll('"', '""');
+  return must ? `"${out}"` : out;
+}
+
+function clientesToCSV(items){
+  const cols = [
+    'codigo','tipo','nome','whatsapp','cidade','uf','cep',
+    'endereco_logradouro','endereco_numero','endereco_bairro',
+    'data_cadastro','email_principal','pessoa_contato',
+    'tipo_imovel','onde_conheceu','onde_conheceu_outro',
+    'whatsapp_principal','end_pais',
+    'razao_social','cnpj','inscricao_estadual','inscricao_municipal',
+    'responsavel_contratante','cpf_responsavel_administrador',
+    'rg','data_nascimento','estado_civil','profissao',
+    'cep_cobranca','home_page',
+    'redes_sociais.instagram','redes_sociais.facebook','redes_sociais.linkedin'
+  ];
+
+  const header = cols.join(';');
+  const lines = [header];
+
+  (items || []).forEach(c=>{
+    const redes = c.redes_sociais || {};
+    const row = cols.map(k=>{
+      if(k.startsWith('redes_sociais.')){
+        const key = k.split('.')[1];
+        return csvEscape(redes?.[key] || '');
+      }
+      return csvEscape(c?.[k] ?? '');
+    }).join(';');
+    lines.push(row);
+  });
+
+  return '\ufeff' + lines.join('\n'); // BOM pro Excel
+}
+
+function exportarClientesCSV(){
+  const dt = new Date();
+  const stamp = dt.toISOString().slice(0,19).replaceAll(':','-');
+  const csv = clientesToCSV(pickClientesForExport());
+  downloadFile(`clientes_${stamp}.csv`, csv, 'text/csv;charset=utf-8');
+  toast('Exportado CSV (Excel).', { ms: 1800 });
+}
+
+function readFileAsText(file){
+  return new Promise((resolve, reject)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>resolve(String(fr.result || ''));
+    fr.onerror = ()=>reject(fr.error || new Error('Falha ao ler arquivo.'));
+    fr.readAsText(file);
+  });
+}
+
+/* ✅ XLSX */
+function readFileAsArrayBuffer(file){
+  return new Promise((resolve, reject)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>resolve(fr.result);
+    fr.onerror = ()=>reject(fr.error || new Error('Falha ao ler arquivo.'));
+    fr.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * ✅ parseXLSX "inteligente"
+ * - aceita XLSX com cabeçalho (linha 1 com nomes tipo "codigo", "nome"...)
+ * - aceita XLSX SEM cabeçalho (linha 1 já é dado) => mapeia por POSIÇÃO
+ */
+function parseXLSX(arrayBuffer){
+  if(typeof XLSX === 'undefined'){
+    throw new Error('Biblioteca XLSX não carregou (cdn).');
+  }
+
+  const wb = XLSX.read(arrayBuffer, { type: 'array' });
+
+  for(const sheetName of wb.SheetNames){
+    const ws = wb.Sheets[sheetName];
+
+    // pega como "array de arrays" (não depende de cabeçalho)
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+    const rows = (aoa || []).filter(r =>
+      Array.isArray(r) && r.some(v => String(v ?? '').trim() !== '')
+    );
+
+    if(!rows.length) continue;
+
+    // detecta se a primeira linha parece cabeçalho
+    const first = rows[0].map(v => String(v ?? '').trim().toLowerCase());
+    const looksHeader =
+      first.includes('codigo') ||
+      first.includes('nome') ||
+      first.includes('tipo') ||
+      first.includes('whatsapp') ||
+      first.includes('cidade') ||
+      first.includes('uf');
+
+    // ✅ se tiver cabeçalho: transforma em objetos com chaves
+    if(looksHeader){
+      const headers = rows[0].map(v => String(v ?? '').trim());
+      return rows.slice(1).map(r=>{
+        const obj = {};
+        headers.forEach((h, i)=> obj[h] = r[i] ?? '');
+        return obj;
+      }).filter(obj => Object.values(obj).some(v => String(v ?? '').trim() !== ''));
+    }
+
+    // ✅ se NÃO tiver cabeçalho: importa por posição (A, B, C...)
+    // AJUSTE A ORDEM conforme sua planilha
+    const COLS = [
+      'codigo',                // A
+      'tipo',                  // B
+      'nome',                  // C
+      'whatsapp',              // D
+      'cidade',                // E
+      'uf',                    // F
+      'cep',                   // G
+      'endereco_logradouro',   // H
+      'endereco_numero',       // I
+      'endereco_bairro',       // J
+      'data_cadastro',         // K
+      'email_principal',       // L (opcional)
+      'pessoa_contato',        // M (opcional)
+    ];
+
+    return rows.map(r=>{
+      const obj = {};
+      COLS.forEach((k, i)=> obj[k] = r[i] ?? '');
+      return obj;
+    }).filter(obj => String(obj.nome || obj.codigo || '').trim() !== '');
+  }
+
+  return [];
+}
+
+function detectCSVDelimiter(firstLine){
+  const semi = (firstLine.match(/;/g) || []).length;
+  const comma = (firstLine.match(/,/g) || []).length;
+  return semi >= comma ? ';' : ',';
+}
+
+/**
+ * Parser CSV simples (aceita aspas "...") - suficiente pra Excel comum
+ */
+function parseCSV(text){
+  const raw = String(text || '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const lines = raw.split('\n').filter(l => l.trim().length);
+  if(!lines.length) return [];
+
+  const delim = detectCSVDelimiter(lines[0]);
+
+  function parseLine(line){
+    const out = [];
+    let cur = '';
+    let inQ = false;
+
+    for(let i=0;i<line.length;i++){
+      const ch = line[i];
+
+      if(ch === '"'){
+        const next = line[i+1];
+        if(inQ && next === '"'){ // escape ""
+          cur += '"';
+          i++;
+        } else {
+          inQ = !inQ;
+        }
+        continue;
+      }
+
+      if(!inQ && ch === delim){
+        out.push(cur);
+        cur = '';
+        continue;
+      }
+
+      cur += ch;
+    }
+
+    out.push(cur);
+    return out.map(s => String(s ?? '').trim());
+  }
+
+  const headers = parseLine(lines[0]).map(h => h.replace(/^\uFEFF/, '').trim());
+  const out = [];
+
+  for(let i=1;i<lines.length;i++){
+    const parts = parseLine(lines[i]);
+    const obj = {};
+    headers.forEach((h, idx)=>{ obj[h] = parts[idx] ?? ''; });
+    out.push(obj);
+  }
+
+  return out;
+}
+
+function normalizeTipoImport(v){
+  const s = String(v||'').trim().toLowerCase();
+  if(s === 'pf' || s === 'física' || s === 'fisica') return 'pf';
+  if(s === 'pj' || s === 'jurídica' || s === 'juridica') return 'pj';
+  return '';
+}
+
+function mapImportToPayload(obj){
+  const redes = {
+    instagram: obj['redes_sociais.instagram'] || obj.instagram || '',
+    facebook: obj['redes_sociais.facebook'] || obj.facebook || '',
+    linkedin: obj['redes_sociais.linkedin'] || obj.linkedin || '',
+  };
+  const redesFinal = {};
+  if(redes.instagram) redesFinal.instagram = redes.instagram;
+  if(redes.facebook) redesFinal.facebook = redes.facebook;
+  if(redes.linkedin) redesFinal.linkedin = redes.linkedin;
+
+  const tipo = normalizeTipoImport(obj.tipo) || 'pf';
+
+  return {
+    codigo: String(obj.codigo || '').trim(),
+    tipo,
+    nome: String(obj.nome || '').trim(),
+    whatsapp: String(obj.whatsapp || '').trim(),
+    data_cadastro: String(obj.data_cadastro || '').trim() || null,
+
+    pessoa_contato: String(obj.pessoa_contato || '').trim(),
+    email_principal: String(obj.email_principal || '').trim(),
+
+    cep: String(obj.cep || '').trim(),
+    endereco_logradouro: String(obj.endereco_logradouro || '').trim(),
+    endereco_numero: String(obj.endereco_numero || '').trim(),
+    endereco_bairro: String(obj.endereco_bairro || '').trim(),
+    cidade: String(obj.cidade || '').trim(),
+    uf: String(obj.uf || '').trim(),
+
+    tipo_imovel: String(obj.tipo_imovel || '').trim(),
+    onde_conheceu: String(obj.onde_conheceu || '').trim(),
+    onde_conheceu_outro: String(obj.onde_conheceu_outro || '').trim(),
+
+    whatsapp_principal: String(obj.whatsapp_principal || '').trim(),
+    end_pais: String(obj.end_pais || '').trim() || 'BR',
+
+    razao_social: String(obj.razao_social || '').trim(),
+    cnpj: String(obj.cnpj || '').trim(),
+    inscricao_estadual: String(obj.inscricao_estadual || '').trim(),
+    inscricao_municipal: String(obj.inscricao_municipal || '').trim(),
+    responsavel_contratante: String(obj.responsavel_contratante || '').trim(),
+    cpf_responsavel_administrador: String(obj.cpf_responsavel_administrador || '').trim(),
+
+    rg: String(obj.rg || '').trim(),
+    data_nascimento: String(obj.data_nascimento || '').trim() || null,
+    estado_civil: String(obj.estado_civil || '').trim(),
+    profissao: String(obj.profissao || '').trim(),
+
+    cep_cobranca: String(obj.cep_cobranca || '').trim(),
+    home_page: String(obj.home_page || '').trim(),
+    redes_sociais: Object.keys(redesFinal).length ? redesFinal : null,
+  };
+}
+
+function findExistingClienteIdByCodigoOrWhats(payload){
+  const codigo = String(payload?.codigo || '').trim().toLowerCase();
+  const wpp = onlyDigits(payload?.whatsapp || '');
+  let found = null;
+
+  if(codigo){
+    found = (clientes || []).find(c => String(c.codigo || '').trim().toLowerCase() === codigo);
+    if(found?.id) return found.id;
+  }
+
+  if(wpp){
+    found = (clientes || []).find(c => onlyDigits(c.whatsapp || '') === wpp);
+    if(found?.id) return found.id;
+  }
+
+  return null;
+}
+
+async function importarClientesFromItems(items){
+  if(!Array.isArray(items) || !items.length){
+    toast('Arquivo vazio ou inválido.', { error:true, ms: 4000 });
+    return;
+  }
+
+  const ok = await confirmDialog({
+    title: 'Importar clientes',
+    message: `Importar ${items.length} cliente(s)? (vai CRIAR ou ATUALIZAR pelo Código/WhatsApp)`,
+    confirmText: 'Importar',
+    cancelText: 'Cancelar',
+    danger: true,
+  });
+
+  if(!ok) return;
+
+  toast('Importando... aguarde.', { ms: 2200 });
+
+  let okCount = 0;
+  let failCount = 0;
+
+  try{ await carregarClientes(); }catch{}
+
+  for(const raw of items){
+    try{
+      const payload = mapImportToPayload(raw);
+      if(!payload.nome){
+        failCount++;
+        continue;
+      }
+
+      const existingId = findExistingClienteIdByCodigoOrWhats(payload);
+      await salvarClienteNoServidor(payload, existingId);
+      okCount++;
+    }catch(err){
+      console.error('[Clientes] import item erro:', err);
+      failCount++;
+    }
+  }
+
+  try{ await carregarClientes(); }catch{}
+
+  if(failCount === 0){
+    toast(`Importação concluída: ${okCount} OK.`, { ms: 2200 });
+  } else {
+    toast(`Importado: ${okCount} OK • ${failCount} falharam`, { error:true, ms: 5200 });
+  }
+}
+
+async function importarClientesArquivo(file){
+  if(!file){
+    toast('Selecione um arquivo para importar.', { error:true });
+    return;
+  }
+
+  const name = String(file.name || '').toLowerCase();
+
+  try{
+    // JSON
+    if(name.endsWith('.json')){
+      const text = await readFileAsText(file);
+      const data = JSON.parse(text || '{}');
+      const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+      await importarClientesFromItems(items);
+      return;
+    }
+
+    // CSV
+    if(name.endsWith('.csv') || name.endsWith('.txt')){
+      const text = await readFileAsText(file);
+      const rows = parseCSV(text);
+      await importarClientesFromItems(rows);
+      return;
+    }
+
+    // XLSX
+    if(name.endsWith('.xlsx')){
+      const buf = await readFileAsArrayBuffer(file);
+      const rows = parseXLSX(buf);
+      await importarClientesFromItems(rows);
+      return;
+    }
+
+    toast('Formato inválido. Use .JSON, .CSV ou .XLSX', { error:true, ms: 4200 });
+  }catch(err){
+    console.error('[Clientes] importar arquivo erro:', err);
+    toast('Erro ao importar arquivo.', { error:true, ms: 5000 });
+  }
 }
 
 /* ========================
@@ -317,7 +766,6 @@ function limparCompletos(){
 
   setVal('campo-razao-social','');
   setVal('campo-cnpj','');
-  setVal('campo-inscricao_estadual',''); // (não existe no HTML; mantive só por segurança)
   setVal('campo-inscricao-estadual','');
   setVal('campo-inscricao-municipal','');
   setVal('campo-responsavel-contratante','');
@@ -329,7 +777,6 @@ function limparCompletos(){
   setVal('campo-profissao','');
 
   setVal('campo-cep-cobranca','');
-
   setVal('campo-home-page','');
   redesToInputs(null);
 }
@@ -378,15 +825,9 @@ function abrirModalClienteEditar(clienteFull){
 
   setVal('campo-codigo-cliente', clienteFull.codigo || '');
 
-  const dt = clienteFull.data_cadastro ? new Date(clienteFull.data_cadastro) : null;
-  if(dt && !isNaN(dt.getTime())){
-    const yyyy = dt.getFullYear();
-    const mm = String(dt.getMonth()+1).padStart(2,'0');
-    const dd = String(dt.getDate()).padStart(2,'0');
-    setVal('campo-data-cadastro', `${yyyy}-${mm}-${dd}`);
-  } else {
-    setVal('campo-data-cadastro', todayISODate());
-  }
+  // ✅ CORRIGIDO: não usar new Date() (timezone pode voltar 1 dia)
+  const iso = String(clienteFull.data_cadastro || '');
+  setVal('campo-data-cadastro', iso ? iso.slice(0,10) : todayISODate());
 
   setVal('campo-tipo-cliente', clienteFull.tipo || 'pf');
   setVal('campo-nome-cliente', clienteFull.nome || '');
@@ -527,9 +968,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
   document.addEventListener('keydown', (e)=>{
     if(e.key === 'Escape'){
-      // fecha confirm se aberto
       if(confirmBackdrop && !confirmBackdrop.hidden) closeConfirm(false);
-      // fecha modal cliente se aberto
       if(modalBackdrop && !modalBackdrop.hidden) fecharModal();
     }
   });
@@ -577,6 +1016,25 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     });
   }
 
+  // ✅ EXPORT / IMPORT binds
+  document.getElementById('btn-exportar-clientes-json')?.addEventListener('click', exportarClientesJSON);
+  document.getElementById('btn-exportar-clientes-csv')?.addEventListener('click', exportarClientesCSV);
+
+  const btnImport = document.getElementById('btn-importar-clientes');
+  const inputImport = document.getElementById('input-importar-clientes');
+
+  btnImport?.addEventListener('click', ()=>{
+    if(inputImport) inputImport.click();
+    else toast('Faltou o input file: #input-importar-clientes', { error:true, ms: 4200 });
+  });
+
+  inputImport?.addEventListener('change', async ()=>{
+    const file = inputImport.files && inputImport.files[0] ? inputImport.files[0] : null;
+    await importarClientesArquivo(file);
+    inputImport.value = '';
+  });
+
+  // ações da tabela
   const tbody = document.getElementById('tbody-clientes');
   tbody?.addEventListener('click', async (e)=>{
     const btn = e.target.closest('.orca-icon-btn');

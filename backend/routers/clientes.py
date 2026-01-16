@@ -32,7 +32,18 @@ def norm_upper(s: Optional[str]) -> Optional[str]:
     return v or None
 
 
+def norm_tipo(s: Optional[str]) -> Optional[str]:
+    v = (s or "").strip().lower()
+    if v in ("pf", "pj"):
+        return v
+    return None
+
+
 def date_to_dt_utc(d: Optional[date]) -> Optional[datetime]:
+    """
+    Converte date -> datetime UTC (00:00).
+    OBS: No front, use ISO.slice(0,10) no input type=date para não virar -1 dia por timezone.
+    """
     if not d:
         return None
     return datetime.combine(d, time.min).replace(tzinfo=timezone.utc)
@@ -54,6 +65,19 @@ def build_onde_conheceu(onde: Optional[str], outro: Optional[str]) -> Optional[s
     return onde or outro or None
 
 
+def field_sent(model: BaseModel, name: str) -> bool:
+    """
+    Detecta se o campo foi enviado no payload.
+    - Pydantic v1: __fields_set__
+    - Pydantic v2: model_fields_set
+    """
+    fs = getattr(model, "__fields_set__", None)
+    if fs is not None:
+        return name in fs
+    fs = getattr(model, "model_fields_set", None)
+    return name in fs if fs is not None else False
+
+
 # =========================
 # Schemas
 # =========================
@@ -61,7 +85,7 @@ class ClienteBase(BaseModel):
     # básico
     codigo: Optional[str] = None
     data_cadastro: Optional[date] = None
-    tipo: Optional[str] = None          # pf | pj
+    tipo: Optional[str] = None  # pf | pj
     nome: Optional[str] = None
     whatsapp: Optional[str] = None
 
@@ -78,8 +102,7 @@ class ClienteBase(BaseModel):
     onde_conheceu: Optional[str] = None
     onde_conheceu_outro: Optional[str] = None
 
-    # ===== dados completos =====
-    # (vai para "Dados Básicos" no front, mas no backend é só campo normal)
+    # contato
     pessoa_contato: Optional[str] = None
     email_principal: Optional[str] = None
 
@@ -91,11 +114,7 @@ class ClienteBase(BaseModel):
     cnpj: Optional[str] = None
     inscricao_estadual: Optional[str] = None
     inscricao_municipal: Optional[str] = None
-
-    # NOVO: Responsável Contratante
     responsavel_contratante: Optional[str] = None
-
-    # Já existe: CPF do responsável
     cpf_responsavel_administrador: Optional[str] = None
 
     # PF
@@ -176,7 +195,7 @@ class ClienteOut(BaseModel):
 
 
 def cliente_to_out(c: models.Cliente) -> ClienteOut:
-    # tenta extrair "onde_conheceu_outro" se você estiver salvando como "outro: xxx"
+    # tenta extrair "onde_conheceu_outro" se estiver salvando como "outro: xxx"
     onde = c.onde_conheceu_empresa
     onde_base = onde
     onde_outro = None
@@ -184,12 +203,15 @@ def cliente_to_out(c: models.Cliente) -> ClienteOut:
         onde_base = "outro"
         onde_outro = onde.split(":", 1)[1].strip() or None
 
+    # ✅ garante pf/pj sempre
+    tipo = norm_tipo(getattr(c, "tipo_cliente", None)) or "pf"
+
     return ClienteOut(
         id=int(c.id),
 
         codigo=c.codigo_cadastro_cliente,
         data_cadastro=c.data_cadastro,
-        tipo=c.tipo_cliente,
+        tipo=tipo,
         nome=c.nome_identificacao,
         whatsapp=c.whatsapp_contato or c.whatsapp_principal,
 
@@ -253,9 +275,11 @@ def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
     codigo = (payload.codigo or "").strip() or gerar_codigo_cliente(db)
     onde = build_onde_conheceu(payload.onde_conheceu, payload.onde_conheceu_outro)
 
+    tipo = norm_tipo(payload.tipo) or "pf"
+
     c = models.Cliente(
         codigo_cadastro_cliente=codigo,
-        tipo_cliente=payload.tipo,
+        tipo_cliente=tipo,
         nome_identificacao=payload.nome,
 
         pessoa_contato=norm_str(payload.pessoa_contato),
@@ -324,8 +348,10 @@ def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Dep
         if dt:
             c.data_cadastro = dt
 
-    if payload.tipo is not None and payload.tipo.strip():
-        c.tipo_cliente = payload.tipo.strip()
+    if payload.tipo is not None:
+        t = norm_tipo(payload.tipo)
+        if t:
+            c.tipo_cliente = t
 
     if payload.nome is not None and payload.nome.strip():
         c.nome_identificacao = payload.nome.strip()
@@ -404,7 +430,8 @@ def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Dep
     if payload.home_page is not None:
         c.home_page = norm_str(payload.home_page)
 
-    if payload.redes_sociais is not None:
+    # ✅ IMPORTANTE: permitir limpar redes_sociais (null)
+    if field_sent(payload, "redes_sociais"):
         c.redes_sociais = payload.redes_sociais
 
     try:
