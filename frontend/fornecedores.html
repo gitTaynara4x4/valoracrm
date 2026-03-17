@@ -1,396 +1,202 @@
-<!-- /frontend/fornecedores.html -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>4X OrçaPro – Fornecedores</title>
+  <title>Fornecedores | Valora CRM</title>
 
-  <!-- Ícones (Font Awesome) -->
-  <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer" />
-
-  <!-- CSS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <link rel="stylesheet" href="/frontend/css/app.css" />
   <link rel="stylesheet" href="/frontend/css/fornecedores.css" />
-  <link rel="icon" type="image/png" href="/frontend/img/logo-favicon.png" />
 
-  <!-- JS -->
-  <script src="/frontend/js/pages/fornecedores.js" type="module" defer></script>
+  <script src="/frontend/js/pages/app.js" defer></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="/frontend/js/pages/fornecedores.js" defer></script>
 </head>
 
 <body>
-  <div class="orca-shell">
-    <iframe class="orca-menu-frame" src="/frontend/sidebar.html" title="Menu 4X OrçaPro"></iframe>
+  <div class="layout">
+    <iframe src="/frontend/partials/sidebar.html" class="sidebar-frame" title="Menu lateral"></iframe>
 
-    <main class="orca-main">
-      <header class="orca-main-header">
-        <div class="orca-header-left">
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Gestão de Base</span>
           <h1>Fornecedores</h1>
-          <p>Cadastro de fornecedores (PF/PJ).</p>
         </div>
 
-        <div class="orca-header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <!-- ✅ Exportar / Importar -->
-          <button class="btn-secondary" type="button" id="btn-exportar-fornecedores" title="Exportar fornecedores">
-            <i class="fa-solid fa-file-export"></i>&nbsp; Exportar
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" type="button" id="btn-importar-fornecedores">
+            <i class="fa-solid fa-file-import" style="margin-right: 6px;"></i> Importar
           </button>
-
-          <button class="btn-secondary" type="button" id="btn-importar-fornecedores" title="Importar fornecedores">
-            <i class="fa-solid fa-file-import"></i>&nbsp; Importar
+          <button class="btn btn-secondary" type="button" id="btn-exportar-fornecedores-csv">
+            <i class="fa-solid fa-file-csv" style="margin-right: 6px;"></i> CSV
           </button>
-
-          <!-- input escondido (import) -->
-          <input id="input-import-file" type="file" accept="application/json" hidden />
-
-          <button class="btn-primary" type="button" id="btn-novo-fornecedor">
-            <i class="fa-solid fa-truck-field"></i>&nbsp; Novo fornecedor
+          <button class="btn btn-secondary" type="button" id="btn-novo-campo">
+            <i class="fa-solid fa-sliders" style="margin-right: 6px;"></i> Novo campo
           </button>
+          <button class="btn btn-primary" type="button" id="btn-novo-fornecedor">
+            <i class="fa-solid fa-truck" style="margin-right: 6px;"></i> Novo Fornecedor
+          </button>
+          
+          <input id="input-importar-fornecedores" type="file" accept=".json,.csv,.xlsx,text/csv" hidden />
         </div>
       </header>
 
-      <section class="orca-filters">
-        <div class="orca-filters-left">
-          <div class="orca-field orca-field--busca">
-            <label for="busca-fornecedores">Buscar</label>
-            <div class="orca-input-icon">
-              <i class="fa-solid fa-magnifying-glass"></i>
-              <input id="busca-fornecedores" type="text" placeholder="Nome, código, WhatsApp..." autocomplete="off" />
-            </div>
-          </div>
-
-          <div class="orca-field">
-            <label for="filtro-tipo-fornecedor">Tipo</label>
-            <select id="filtro-tipo-fornecedor">
-              <option value="">Todos</option>
-              <option value="pf">Pessoa Física</option>
-              <option value="pj">Pessoa Jurídica</option>
-            </select>
-          </div>
+      <div class="search-row">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input id="busca-fornecedores" type="text" placeholder="Buscar por nome, código, WhatsApp..." autocomplete="off" />
         </div>
+        <span id="contagem-fornecedores" class="counter-text">0 fornecedores</span>
+      </div>
 
-        <div class="orca-filters-right">
-          <span id="contagem-fornecedores" class="orca-counter">0 fornecedores</span>
+      <article class="panel-card" style="margin-bottom: 24px;">
+        <div class="panel-head" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h3>Campos personalizados</h3>
+            <p>Campos exclusivos para o cadastro dos seus fornecedores.</p>
+          </div>
+          <button class="btn btn-secondary" type="button" id="btn-novo-campo-inline" style="padding: 6px 12px; min-height: auto;">
+            <i class="fa-solid fa-plus"></i>
+          </button>
         </div>
-      </section>
+        <div id="lista-campos-fornecedores" class="campos-grid">
+          <div class="empty-state">Nenhum campo personalizado criado ainda.</div>
+        </div>
+      </article>
 
-      <section class="orca-main-list">
-        <div class="orca-table-wrapper">
-          <table class="orca-table-fornecedores">
+      <article class="panel-card" style="padding: 0;">
+        <div class="valora-table-wrapper" style="overflow-x: auto;">
+          <table class="valora-table">
             <thead>
               <tr>
                 <th>Código</th>
                 <th>Fornecedor</th>
-                <th>Tipo</th>
-                <th>Cidade / UF</th>
                 <th>WhatsApp</th>
-                <th></th>
+                <th>E-mail</th>
+                <th style="text-align: right;">Ações</th>
               </tr>
             </thead>
-            <tbody id="tbody-fornecedores"></tbody>
+            <tbody id="tbody-fornecedores">
+              <tr><td colspan="5" class="empty-state" style="text-align: center; border:none;">Carregando...</td></tr>
+            </tbody>
           </table>
         </div>
-      </section>
+      </article>
 
-      <!-- MODAL FORNECEDOR -->
-      <div class="orca-modal-backdrop" id="modal-fornecedor-backdrop" hidden>
-        <div class="orca-modal" role="dialog" aria-modal="true" aria-labelledby="modal-fornecedor-titulo">
-          <header class="orca-modal-header">
-            <h2 id="modal-fornecedor-titulo">Novo fornecedor</h2>
-            <button class="orca-modal-close" type="button" id="btn-fechar-modal-fornecedor" aria-label="Fechar">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </header>
-
-          <div class="orca-modal-body">
-            <!-- DADOS PRINCIPAIS -->
-            <div class="orca-modal-grid">
-              <div class="orca-field">
-                <label for="campo-data-cadastro">Data Cadastro</label>
-                <input type="date" id="campo-data-cadastro" readonly />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-tipo-fornecedor">Tipo Fornecedor</label>
-                <select id="campo-tipo-fornecedor">
-                  <option value="pf">Pessoa Física</option>
-                  <option value="pj">Pessoa Jurídica</option>
-                </select>
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-nome-fornecedor">Fornecedor (Nome identificação)</label>
-                <input type="text" id="campo-nome-fornecedor" placeholder="Ex.: Loja X / João" />
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-razao-social">Razão Social</label>
-                <input type="text" id="campo-razao-social" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-cnpj">CNPJ</label>
-                <input type="text" id="campo-cnpj" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-inscricao-estadual">Inscrição Estadual</label>
-                <input type="text" id="campo-inscricao-estadual" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-inscricao-municipal">Inscrição Municipal</label>
-                <input type="text" id="campo-inscricao-municipal" />
-              </div>
-            </div>
-
-            <!-- ENDEREÇO -->
-            <div class="orca-modal-section">
-              <div class="orca-modal-section-title">
-                <strong>Endereço - CEP</strong>
-                <span>Busca automática via CEP</span>
-              </div>
-
-              <div class="orca-modal-grid orca-modal-grid--addr">
-                <div class="orca-field">
-                  <label for="campo-cep">CEP</label>
-                  <input type="text" id="campo-cep" placeholder="00000-000" inputmode="numeric" />
-                  <small class="orca-help" id="cep-help"></small>
-                </div>
-
-                <div class="orca-field">
-                  <label for="campo-logradouro">Rua/Av (auto)</label>
-                  <input type="text" id="campo-logradouro" readonly />
-                </div>
-
-                <div class="orca-field">
-                  <label for="campo-numero">Número</label>
-                  <input type="text" id="campo-numero" placeholder="Nº" />
-                </div>
-
-                <div class="orca-field">
-                  <label for="campo-bairro">Bairro (auto)</label>
-                  <input type="text" id="campo-bairro" readonly />
-                </div>
-
-                <div class="orca-field">
-                  <label for="campo-cidade">Cidade (auto)</label>
-                  <input type="text" id="campo-cidade" readonly />
-                </div>
-
-                <div class="orca-field">
-                  <label for="campo-uf">UF (auto)</label>
-                  <input type="text" id="campo-uf" maxlength="2" readonly />
-                </div>
-              </div>
-            </div>
-
-            <!-- CONTATO -->
-            <div class="orca-modal-grid">
-              <div class="orca-field orca-field--full">
-                <label for="campo-pessoa-contato">Pessoa Contato</label>
-                <input type="text" id="campo-pessoa-contato" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-telefone-pabx">Telefone PABX</label>
-                <input type="text" id="campo-telefone-pabx" inputmode="tel" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-telefone">Telefone</label>
-                <input type="text" id="campo-telefone" inputmode="tel" />
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-whatsapp-contato">Telefone Contato (WhatsApp)</label>
-                <input type="text" id="campo-whatsapp-contato" placeholder="(DDD) 9XXXX-XXXX" inputmode="tel" />
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-home-page">Home Page</label>
-                <input type="text" id="campo-home-page" placeholder="https://..." />
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-email-principal">E-Mail</label>
-                <input type="text" id="campo-email-principal" inputmode="email" />
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-redes-sociais">Redes Sociais</label>
-                <textarea id="campo-redes-sociais" rows="2" placeholder="Links / @ / observações"></textarea>
-              </div>
-            </div>
-
-            <!-- CÓDIGO / CATEGORIA / REPRESENTANTE -->
-            <div class="orca-modal-section">
-              <div class="orca-modal-section-title">
-                <strong>Código de Cadastro Fornecedor</strong>
-                <span></span>
-              </div>
-
-              <div class="orca-modal-grid">
-                <div class="orca-field">
-                  <label for="campo-codigo-fornecedor">Código</label>
-                  <input type="text" id="campo-codigo-fornecedor" readonly />
-                </div>
-
-                <div class="orca-field orca-field--full">
-                  <label for="campo-tipo-categoria">Categoria do Fornecedor</label>
-                  <select id="campo-tipo-categoria">
-                    <option value="">Selecione...</option>
-                    <option value="Fabricante">Fabricante</option>
-                    <option value="Distribuidora">Distribuidora</option>
-                    <option value="Importadora">Importadora</option>
-                    <option value="Prestador de Serviços">Prestador de Serviços</option>
-                    <option value="Serviços Públicos">Serviços Públicos</option>
-                    <option value="Profissional Autônomo">Profissional Autônomo</option>
-                    <option value="__add__">➕ Adicionar...</option>
-                  </select>
-                </div>
-
-                <div class="orca-field orca-field--full">
-                  <label for="campo-contato-representante">Contato Representante Comercial</label>
-                  <input type="text" id="campo-contato-representante" />
-                </div>
-
-                <div class="orca-field">
-                  <label for="campo-rep-telefone-whatsapp">Telefone/Whatsapp</label>
-                  <input type="text" id="campo-rep-telefone-whatsapp" inputmode="tel" />
-                </div>
-
-                <div class="orca-field">
-                  <label for="campo-rep-telefone-ramal">Telefone/Ramal</label>
-                  <input type="text" id="campo-rep-telefone-ramal" inputmode="tel" />
-                </div>
-              </div>
-            </div>
-
-            <!-- CRÉDITO / FRETE -->
-            <div class="orca-modal-grid">
-              <div class="orca-field">
-                <label for="campo-limite-creditos">Limite de Créditos</label>
-
-                <div class="orca-input-money">
-                  <span class="orca-money-prefix">R$</span>
-                  <input
-                    type="text"
-                    id="campo-limite-creditos"
-                    inputmode="decimal"
-                    placeholder="0,00"
-                    autocomplete="off"
-                  />
-                </div>
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-opcao-transportadoras">Opção de Transportadoras / Fretes</label>
-                <textarea id="campo-opcao-transportadoras" rows="2" placeholder="Preferências / observações"></textarea>
-              </div>
-            </div>
-
-            <!-- LINHA DE PRODUTOS -->
-            <div class="orca-modal-section">
-              <div class="orca-modal-section-title">
-                <strong>Linha de Produtos</strong>
-                <span>Marque os produtos que este fornecedor trabalha</span>
-              </div>
-
-              <div class="orca-modal-grid">
-                <!-- CHECKLIST DE PRODUTOS -->
-                <div class="orca-field orca-field--full">
-                  <label for="busca-produtos-fornecedor">Produtos cadastrados (ticável)</label>
-
-                  <div class="orca-linha-produtos-top">
-                    <div class="orca-input-icon" style="flex:1">
-                      <i class="fa-solid fa-magnifying-glass"></i>
-                      <input
-                        id="busca-produtos-fornecedor"
-                        type="text"
-                        placeholder="Buscar produto..."
-                        autocomplete="off"
-                      />
-                    </div>
-
-                    <button type="button" class="btn-secondary btn-mini" id="btn-selecionar-todos-produtos">
-                      Selecionar tudo
-                    </button>
-
-                    <button type="button" class="btn-secondary btn-mini" id="btn-limpar-produtos">
-                      Limpar
-                    </button>
-                  </div>
-
-                  <div id="lista-produtos-fornecedor" class="orca-checklist"></div>
-
-                  <small class="orca-hint">
-                    <b id="count-produtos-fornecedor">0</b> selecionado(s)
-                  </small>
-                </div>
-
-                <!-- (opcional) observações antigas -->
-                <div class="orca-field orca-field--full">
-                  <label for="campo-linha-produtos">Observações da Linha (opcional)</label>
-                  <textarea id="campo-linha-produtos" rows="3" placeholder="Descreva a linha / categorias / marcas"></textarea>
-                </div>
-
-                <div class="orca-field orca-field--full">
-                  <label for="campo-contato-rma">Contato RMA</label>
-                  <input type="text" id="campo-contato-rma" />
-                </div>
-
-                <div class="orca-field orca-field--full">
-                  <label for="campo-informacoes-rma">Informações RMA</label>
-                  <textarea id="campo-informacoes-rma" rows="3" placeholder="Procedimentos / prazos / e-mail / links"></textarea>
-                </div>
-              </div>
-            </div>
+      <div class="modal-overlay" id="modal-fornecedor-backdrop" hidden>
+        <div class="modal-content modal-lg">
+          <div class="modal-header">
+            <h3 id="modal-fornecedor-titulo">Novo fornecedor</h3>
+            <button class="btn-close" type="button" id="btn-fechar-modal-fornecedor"><i class="fa-solid fa-xmark"></i></button>
           </div>
 
-          <footer class="orca-modal-footer">
-            <button class="btn-secondary" type="button" id="btn-cancelar-fornecedor">Cancelar</button>
-            <button class="btn-primary" type="button" id="btn-salvar-fornecedor">Salvar</button>
-          </footer>
+          <div class="modal-body">
+            <form class="valora-form" id="formFornecedor">
+              <h4 class="section-title">Dados padrão</h4>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="campo-codigo-fornecedor">Código</label>
+                  <input type="text" id="campo-codigo-fornecedor" disabled />
+                </div>
+                <div class="form-group">
+                  <label for="campo-nome-fornecedor">Nome Completo / Empresa *</label>
+                  <input type="text" id="campo-nome-fornecedor" required placeholder="Ex: Distribuidora XYZ" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="campo-whatsapp-fornecedor">WhatsApp</label>
+                  <input type="text" id="campo-whatsapp-fornecedor" placeholder="(11) 99999-9999" />
+                </div>
+                <div class="form-group">
+                  <label for="campo-email-fornecedor">E-mail</label>
+                  <input type="email" id="campo-email-fornecedor" placeholder="contato@fornecedor.com" />
+                </div>
+              </div>
+
+              <h4 class="section-title" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">Campos Personalizados</h4>
+              <div id="custom-fields-container" class="form-row"></div>
+            </form>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-secondary" type="button" id="btn-cancelar-fornecedor">Cancelar</button>
+            <button class="btn btn-primary" type="button" id="btn-salvar-fornecedor">Salvar Fornecedor</button>
+          </div>
         </div>
       </div>
 
-      <!-- ===== MODAL AVISO (substitui alert) ===== -->
-      <div class="orca-dialog-backdrop" id="orca-dialog-backdrop" hidden>
-        <div class="orca-dialog" role="dialog" aria-modal="true" aria-labelledby="orca-dialog-title">
-          <header class="orca-dialog-header">
-            <h3 id="orca-dialog-title">Aviso</h3>
-            <button class="orca-dialog-close" type="button" id="orca-dialog-close" aria-label="Fechar">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </header>
+      <div class="modal-overlay" id="modal-campo-backdrop" hidden>
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 id="modal-campo-titulo">Novo campo</h3>
+            <button class="btn-close" type="button" id="btn-fechar-modal-campo"><i class="fa-solid fa-xmark"></i></button>
+          </div>
 
-          <div class="orca-dialog-body" id="orca-dialog-body"></div>
+          <div class="modal-body">
+            <form class="valora-form">
+              <div class="form-group">
+                <label for="campo-custom-nome">Nome do campo</label>
+                <input type="text" id="campo-custom-nome" placeholder="Ex.: Categoria de Produto" />
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="campo-custom-tipo">Tipo de resposta</label>
+                  <select id="campo-custom-tipo">
+                    <option value="texto">Texto curto</option>
+                    <option value="textarea">Texto longo</option>
+                    <option value="numero">Número</option>
+                    <option value="data">Data</option>
+                    <option value="select">Lista de opções</option>
+                    <option value="checkbox">Caixa de seleção</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="campo-custom-ordem">Ordem no formulário</label>
+                  <input type="number" id="campo-custom-ordem" min="0" step="1" placeholder="0" />
+                </div>
+              </div>
+              <div class="form-group" id="wrap-custom-opcoes" hidden>
+                <label for="campo-custom-opcoes">Opções da lista (uma por linha)</label>
+                <textarea id="campo-custom-opcoes" rows="4" placeholder="Opção A&#10;Opção B"></textarea>
+              </div>
+              <div class="form-row" style="margin-top: 12px;">
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="campo-custom-obrigatorio" />
+                  <span>Campo Obrigatório</span>
+                </label>
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="campo-custom-ativo" checked />
+                  <span>Mostrar no formulário</span>
+                </label>
+              </div>
+            </form>
+          </div>
 
-          <footer class="orca-dialog-footer">
-            <button class="btn-primary" type="button" id="orca-dialog-ok">OK</button>
-          </footer>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" type="button" id="btn-cancelar-campo">Cancelar</button>
+            <button class="btn btn-primary" type="button" id="btn-salvar-campo">Salvar Campo</button>
+          </div>
         </div>
       </div>
 
-      <!-- ===== MODAL CONFIRMAR (substitui confirm) ===== -->
-      <div class="orca-confirm-backdrop" id="orca-confirm-backdrop" hidden>
-        <div class="orca-confirm" role="dialog" aria-modal="true" aria-labelledby="orca-confirm-title">
-          <header class="orca-confirm-header">
-            <h3 id="orca-confirm-title">Confirmar</h3>
-            <button class="orca-confirm-close" type="button" id="orca-confirm-close" aria-label="Fechar">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </header>
-
-          <div class="orca-confirm-body" id="orca-confirm-body"></div>
-
-          <footer class="orca-confirm-footer">
-            <button class="btn-secondary" type="button" id="orca-confirm-cancel">Cancelar</button>
-            <button class="btn-primary" type="button" id="orca-confirm-ok">OK</button>
-          </footer>
+      <div class="modal-overlay" id="Valora-confirm-backdrop" hidden>
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+          <div class="modal-body" style="padding-top: 24px;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 40px; color: var(--danger); margin-bottom: 16px;"></i>
+            <h3 id="Valora-confirm-title" style="margin-bottom: 8px;">Confirmar</h3>
+            <p id="Valora-confirm-message" style="color: var(--muted); font-size: 14px; margin-bottom: 24px;"></p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+              <button class="btn btn-secondary" id="Valora-confirm-cancel">Cancelar</button>
+              <button class="btn btn-primary" id="Valora-confirm-ok" style="background: var(--danger); border-color: var(--danger);">Excluir</button>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -1,454 +1,347 @@
-# backend/routers/clientes.py
+# /backend/routers/clientes.py
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend.database import get_db
+from backend.database import SessionLocal
 from backend import models
 
-router = APIRouter(prefix="/api/clientes", tags=["Clientes"])
+# Retiramos o "prefix" daqui para podermos usar tanto /api/clientes quanto /api/campos-clientes no mesmo arquivo
+router = APIRouter(tags=["Clientes e Campos"])
 
 
-def only_digits(s: Optional[str]) -> Optional[str]:
-    if s is None:
-        return None
-    d = "".join(ch for ch in s if ch.isdigit())
-    return d or None
+# =========================================================
+# DEPENDÊNCIAS
+# =========================================================
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
+
+def get_empresa_id(user_id: Optional[str] = Cookie(default=None), db: Session = Depends(get_db)) -> int:
+    """
+    Dependência de Autenticação segura via Cookie (mesmo padrão do Perfil).
+    Pega o usuário logado e retorna o ID da empresa dele.
+    """
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Não autenticado.")
+    
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == int(user_id)).first()
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
+    
+    return int(usuario.empresa_id)
+
+
+# =========================================================
+# COMPATIBILIDADE PYDANTIC V1 / V2
+# =========================================================
+try:
+    from pydantic import ConfigDict  # type: ignore
+    class _Cfg:
+        model_config = ConfigDict(from_attributes=True)
+except Exception:
+    class _Cfg:
+        class Config:
+            orm_mode = True
 
 def norm_str(s: Optional[str]) -> Optional[str]:
     v = (s or "").strip()
     return v or None
 
 
-def norm_upper(s: Optional[str]) -> Optional[str]:
-    v = (s or "").strip().upper()
-    return v or None
-
-
-def norm_tipo(s: Optional[str]) -> Optional[str]:
-    v = (s or "").strip().lower()
-    if v in ("pf", "pj"):
-        return v
-    return None
-
-
-def date_to_dt_utc(d: Optional[date]) -> Optional[datetime]:
-    """
-    Converte date -> datetime UTC (00:00).
-    OBS: No front, use ISO.slice(0,10) no input type=date para não virar -1 dia por timezone.
-    """
-    if not d:
-        return None
-    return datetime.combine(d, time.min).replace(tzinfo=timezone.utc)
-
-
-def gerar_codigo_cliente(db: Session) -> str:
-    ultimo = db.query(models.Cliente).order_by(models.Cliente.id.desc()).first()
-    proximo = (int(ultimo.id) if ultimo else 0) + 1
-    return f"CLI-{proximo:04d}"
-
-
-def build_onde_conheceu(onde: Optional[str], outro: Optional[str]) -> Optional[str]:
-    onde = (onde or "").strip()
-    outro = (outro or "").strip()
-    if not onde and not outro:
-        return None
-    if onde == "outro" and outro:
-        return f"outro: {outro}"
-    return onde or outro or None
-
-
-def field_sent(model: BaseModel, name: str) -> bool:
-    """
-    Detecta se o campo foi enviado no payload.
-    - Pydantic v1: __fields_set__
-    - Pydantic v2: model_fields_set
-    """
-    fs = getattr(model, "__fields_set__", None)
-    if fs is not None:
-        return name in fs
-    fs = getattr(model, "model_fields_set", None)
-    return name in fs if fs is not None else False
-
-
-# =========================
-# Schemas
-# =========================
+# =========================================================
+# SCHEMAS - CLIENTES
+# =========================================================
 class ClienteBase(BaseModel):
-    # básico
     codigo: Optional[str] = None
-    data_cadastro: Optional[date] = None
-    tipo: Optional[str] = None  # pf | pj
     nome: Optional[str] = None
     whatsapp: Optional[str] = None
-
-    # endereço (front)
-    cep: Optional[str] = None
-    endereco_logradouro: Optional[str] = None
-    endereco_numero: Optional[str] = None
-    endereco_bairro: Optional[str] = None
-    cidade: Optional[str] = None
-    uf: Optional[str] = None
-
-    # perfil/origem (front)
-    tipo_imovel: Optional[str] = None
-    onde_conheceu: Optional[str] = None
-    onde_conheceu_outro: Optional[str] = None
-
-    # contato
-    pessoa_contato: Optional[str] = None
-    email_principal: Optional[str] = None
-
-    whatsapp_principal: Optional[str] = None
-    end_pais: Optional[str] = None
-
-    # PJ
-    razao_social: Optional[str] = None
-    cnpj: Optional[str] = None
-    inscricao_estadual: Optional[str] = None
-    inscricao_municipal: Optional[str] = None
-    responsavel_contratante: Optional[str] = None
-    cpf_responsavel_administrador: Optional[str] = None
-
-    # PF
-    rg: Optional[str] = None
-    data_nascimento: Optional[date] = None
-    estado_civil: Optional[str] = None
-    profissao: Optional[str] = None
-
-    # cobrança
-    cep_cobranca: Optional[str] = None
-
-    # web / redes
-    home_page: Optional[str] = None
-    redes_sociais: Optional[Dict[str, Any]] = None
-
+    email: Optional[str] = None
+    custom_fields: Optional[Dict[str, Any]] = None
 
 class ClienteCreate(ClienteBase):
-    tipo: str
     nome: str
-
 
 class ClienteUpdate(ClienteBase):
     pass
 
-
-class ClienteOut(BaseModel):
+class ClienteOut(ClienteBase, _Cfg):
     id: int
+    empresa_id: int
 
-    # básico
-    codigo: str
-    data_cadastro: datetime
-    tipo: str
+
+# =========================================================
+# SCHEMAS - CAMPOS PERSONALIZADOS
+# =========================================================
+class CampoClienteBase(BaseModel):
     nome: str
-    whatsapp: Optional[str] = None
+    slug: str
+    tipo: str
+    obrigatorio: bool = False
+    ativo: bool = True
+    opcoes_json: Optional[str] = None
+    ordem: int = 0
 
-    # endereço
-    cep: Optional[str] = None
-    endereco_logradouro: Optional[str] = None
-    endereco_numero: Optional[str] = None
-    endereco_bairro: Optional[str] = None
-    cidade: Optional[str] = None
-    uf: Optional[str] = None
+class CampoClienteCreate(CampoClienteBase):
+    pass
 
-    # perfil/origem
-    tipo_imovel: Optional[str] = None
-    onde_conheceu: Optional[str] = None
-    onde_conheceu_outro: Optional[str] = None
+class CampoClienteUpdate(CampoClienteBase):
+    pass
 
-    # contato/dados completos
-    pessoa_contato: Optional[str] = None
-    email_principal: Optional[str] = None
-    whatsapp_principal: Optional[str] = None
-    end_pais: Optional[str] = None
-
-    # PJ
-    razao_social: Optional[str] = None
-    cnpj: Optional[str] = None
-    inscricao_estadual: Optional[str] = None
-    inscricao_municipal: Optional[str] = None
-    responsavel_contratante: Optional[str] = None
-    cpf_responsavel_administrador: Optional[str] = None
-
-    # PF
-    rg: Optional[str] = None
-    data_nascimento: Optional[date] = None
-    estado_civil: Optional[str] = None
-    profissao: Optional[str] = None
-
-    # cobrança
-    cep_cobranca: Optional[str] = None
-
-    # web/redes
-    home_page: Optional[str] = None
-    redes_sociais: Optional[Dict[str, Any]] = None
-
-    class Config:
-        orm_mode = True
+class CampoClienteOut(CampoClienteBase, _Cfg):
+    id: int
+    empresa_id: int
 
 
-def cliente_to_out(c: models.Cliente) -> ClienteOut:
-    # tenta extrair "onde_conheceu_outro" se estiver salvando como "outro: xxx"
-    onde = c.onde_conheceu_empresa
-    onde_base = onde
-    onde_outro = None
-    if isinstance(onde, str) and onde.startswith("outro:"):
-        onde_base = "outro"
-        onde_outro = onde.split(":", 1)[1].strip() or None
+# =========================================================
+# FUNÇÕES DE APOIO
+# =========================================================
+def gerar_codigo_cliente(db: Session, empresa_id: int) -> str:
+    ultimo = (
+        db.query(models.Cliente)
+        .filter(models.Cliente.empresa_id == empresa_id)
+        .order_by(models.Cliente.id.desc())
+        .first()
+    )
+    proximo = (int(ultimo.id) if ultimo else 0) + 1
+    return f"CLI-{proximo:04d}"
 
-    # ✅ garante pf/pj sempre
-    tipo = norm_tipo(getattr(c, "tipo_cliente", None)) or "pf"
 
+def buscar_campos_empresa_map(db: Session, empresa_id: int) -> Dict[str, models.CampoCliente]:
+    campos = db.query(models.CampoCliente).filter(models.CampoCliente.empresa_id == empresa_id).all()
+    return {str(c.slug): c for c in campos}
+
+
+def buscar_custom_fields_cliente(db: Session, empresa_id: int, cliente_id: int) -> Dict[str, Any]:
+    rows = (
+        db.query(models.ClienteCampoValor, models.CampoCliente)
+        .join(models.CampoCliente, models.CampoCliente.id == models.ClienteCampoValor.campo_id)
+        .filter(models.ClienteCampoValor.cliente_id == cliente_id)
+        .filter(models.CampoCliente.empresa_id == empresa_id)
+        .all()
+    )
+    out: Dict[str, Any] = {}
+    for valor_row, campo_row in rows:
+        slug = str(campo_row.slug)
+        out[slug] = valor_row.valor
+    return out
+
+
+def salvar_custom_fields_cliente(db: Session, empresa_id: int, cliente_id: int, custom_fields: Optional[Dict[str, Any]]) -> None:
+    payload = custom_fields or {}
+    campos_map = buscar_campos_empresa_map(db, empresa_id)
+    slugs_payload = set(payload.keys())
+    slugs_validos = set(campos_map.keys())
+
+    slugs_invalidos = sorted(slugs_payload - slugs_validos)
+    if slugs_invalidos:
+        raise HTTPException(status_code=400, detail=f"Campos personalizados inválidos: {', '.join(slugs_invalidos)}")
+
+    valores_existentes = (
+        db.query(models.ClienteCampoValor)
+        .join(models.CampoCliente, models.CampoCliente.id == models.ClienteCampoValor.campo_id)
+        .filter(models.ClienteCampoValor.cliente_id == cliente_id)
+        .filter(models.CampoCliente.empresa_id == empresa_id)
+        .all()
+    )
+
+    existentes_por_campo_id = {int(v.campo_id): v for v in valores_existentes}
+
+    for slug, raw_value in payload.items():
+        campo = campos_map[slug]
+        campo_id = int(campo.id)
+        value_str = None if raw_value is None else str(raw_value).strip()
+
+        if not value_str:
+            existente = existentes_por_campo_id.get(campo_id)
+            if existente: db.delete(existente)
+            continue
+
+        existente = existentes_por_campo_id.get(campo_id)
+        if existente:
+            existente.valor = value_str
+        else:
+            novo = models.ClienteCampoValor(cliente_id=cliente_id, campo_id=campo_id, valor=value_str)
+            db.add(novo)
+
+
+def cliente_to_out(db: Session, c: models.Cliente) -> ClienteOut:
+    empresa_id = int(c.empresa_id)
     return ClienteOut(
         id=int(c.id),
-
-        codigo=c.codigo_cadastro_cliente,
-        data_cadastro=c.data_cadastro,
-        tipo=tipo,
-        nome=c.nome_identificacao,
-        whatsapp=c.whatsapp_contato or c.whatsapp_principal,
-
-        cep=c.end_cep,
-        endereco_logradouro=c.end_rua,
-        endereco_numero=c.end_numero,
-        endereco_bairro=c.end_bairro,
-        cidade=c.end_cidade,
-        uf=c.end_estado,
-
-        tipo_imovel=c.tipo_imovel,
-        onde_conheceu=onde_base,
-        onde_conheceu_outro=onde_outro,
-
-        pessoa_contato=c.pessoa_contato,
-        email_principal=c.email_principal,
-        whatsapp_principal=c.whatsapp_principal,
-        end_pais=c.end_pais,
-
-        razao_social=c.razao_social,
-        cnpj=c.cnpj,
-        inscricao_estadual=c.inscricao_estadual,
-        inscricao_municipal=c.inscricao_municipal,
-        responsavel_contratante=getattr(c, "responsavel_contratante", None),
-        cpf_responsavel_administrador=c.cpf_responsavel_administrador,
-
-        rg=c.rg,
-        data_nascimento=c.data_nascimento,
-        estado_civil=c.estado_civil,
-        profissao=c.profissao,
-
-        cep_cobranca=c.cep_cobranca,
-
-        home_page=c.home_page,
-        redes_sociais=c.redes_sociais,
+        empresa_id=empresa_id,
+        codigo=getattr(c, "codigo", None) or "",
+        nome=getattr(c, "nome", None) or "",
+        whatsapp=getattr(c, "whatsapp", None),
+        email=getattr(c, "email", None),
+        custom_fields=buscar_custom_fields_cliente(db, empresa_id, int(c.id)),
     )
 
 
-# =========================
-# Endpoints
-# =========================
-@router.get("", response_model=List[ClienteOut])
-@router.get("/", response_model=List[ClienteOut], include_in_schema=False)
-def listar_clientes(db: Session = Depends(get_db)):
-    rows = db.query(models.Cliente).order_by(models.Cliente.nome_identificacao.asc()).all()
-    return [cliente_to_out(c) for c in rows]
+def buscar_cliente_empresa(db: Session, cliente_id: int, empresa_id: int) -> Optional[models.Cliente]:
+    return db.query(models.Cliente).filter(models.Cliente.id == cliente_id, models.Cliente.empresa_id == empresa_id).first()
 
 
-@router.get("/{cliente_id}", response_model=ClienteOut)
-@router.get("/{cliente_id}/", response_model=ClienteOut, include_in_schema=False)
-def obter_cliente(cliente_id: int, db: Session = Depends(get_db)):
-    c = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
+# =========================================================
+# ROTAS - CAMPOS PERSONALIZADOS (/api/campos-clientes)
+# =========================================================
+@router.get("/api/campos-clientes", response_model=List[CampoClienteOut])
+def listar_campos(db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+    campos = db.query(models.CampoCliente).filter(models.CampoCliente.empresa_id == empresa_id).order_by(models.CampoCliente.ordem.asc()).all()
+    return campos
+
+
+@router.get("/api/campos-clientes/{campo_id}", response_model=CampoClienteOut)
+def obter_campo(campo_id: int, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+    campo = db.query(models.CampoCliente).filter(models.CampoCliente.id == campo_id, models.CampoCliente.empresa_id == empresa_id).first()
+    if not campo:
+        raise HTTPException(status_code=404, detail="Campo não encontrado")
+    return campo
+
+
+@router.post("/api/campos-clientes", response_model=CampoClienteOut, status_code=status.HTTP_201_CREATED)
+def criar_campo(payload: CampoClienteCreate, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+    data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+    novo_campo = models.CampoCliente(empresa_id=empresa_id, **data)
+    
+    try:
+        db.add(novo_campo)
+        db.commit()
+        db.refresh(novo_campo)
+        return novo_campo
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Identificador (slug) deste campo já existe.")
+
+
+@router.put("/api/campos-clientes/{campo_id}", response_model=CampoClienteOut)
+def atualizar_campo(campo_id: int, payload: CampoClienteUpdate, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+    campo = db.query(models.CampoCliente).filter(models.CampoCliente.id == campo_id, models.CampoCliente.empresa_id == empresa_id).first()
+    if not campo:
+        raise HTTPException(status_code=404, detail="Campo não encontrado")
+
+    data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+    for k, v in data.items():
+        setattr(campo, k, v)
+
+    db.commit()
+    db.refresh(campo)
+    return campo
+
+
+@router.delete("/api/campos-clientes/{campo_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_campo(campo_id: int, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+    campo = db.query(models.CampoCliente).filter(models.CampoCliente.id == campo_id, models.CampoCliente.empresa_id == empresa_id).first()
+    if not campo:
+        raise HTTPException(status_code=404, detail="Campo não encontrado")
+
+    db.delete(campo)
+    db.commit()
+    return None
+
+
+# =========================================================
+# ROTAS - CLIENTES (/api/clientes)
+# =========================================================
+@router.get("/api/clientes", response_model=List[ClienteOut])
+def listar_clientes(db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+    rows = db.query(models.Cliente).filter(models.Cliente.empresa_id == empresa_id).order_by(models.Cliente.nome.asc()).all()
+    return [cliente_to_out(db, c) for c in rows]
+
+
+@router.get("/api/clientes/{cliente_id}", response_model=ClienteOut)
+def obter_cliente(cliente_id: int, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+    c = buscar_cliente_empresa(db, cliente_id, empresa_id)
     if not c:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
-    return cliente_to_out(c)
+    return cliente_to_out(db, c)
 
 
-@router.post("", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
-@router.post("/", response_model=ClienteOut, status_code=status.HTTP_201_CREATED, include_in_schema=False)
-def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
-    codigo = (payload.codigo or "").strip() or gerar_codigo_cliente(db)
-    onde = build_onde_conheceu(payload.onde_conheceu, payload.onde_conheceu_outro)
-
-    tipo = norm_tipo(payload.tipo) or "pf"
+@router.post("/api/clientes", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
+def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+    codigo = (payload.codigo or "").strip() or gerar_codigo_cliente(db, empresa_id)
 
     c = models.Cliente(
-        codigo_cadastro_cliente=codigo,
-        tipo_cliente=tipo,
-        nome_identificacao=payload.nome,
-
-        pessoa_contato=norm_str(payload.pessoa_contato),
-        whatsapp_contato=norm_str(payload.whatsapp),
-        email_principal=norm_str(payload.email_principal),
-
-        end_cep=only_digits(payload.cep),
-        end_rua=norm_str(payload.endereco_logradouro),
-        end_numero=norm_str(payload.endereco_numero),
-        end_bairro=norm_str(payload.endereco_bairro),
-        end_cidade=norm_str(payload.cidade),
-        end_estado=norm_upper(payload.uf),
-        end_pais=norm_upper(payload.end_pais) or "BR",
-
-        tipo_imovel=norm_str(payload.tipo_imovel),
-        onde_conheceu_empresa=norm_str(onde),
-
-        # PJ
-        razao_social=norm_str(payload.razao_social),
-        cnpj=norm_str(payload.cnpj),
-        inscricao_estadual=norm_str(payload.inscricao_estadual),
-        inscricao_municipal=norm_str(payload.inscricao_municipal),
-        responsavel_contratante=norm_str(payload.responsavel_contratante),
-        cpf_responsavel_administrador=norm_str(payload.cpf_responsavel_administrador),
-
-        # PF
-        rg=norm_str(payload.rg),
-        data_nascimento=payload.data_nascimento,
-        estado_civil=norm_str(payload.estado_civil),
-        profissao=norm_str(payload.profissao),
-
-        whatsapp_principal=norm_str(payload.whatsapp_principal),
-
-        cep_cobranca=only_digits(payload.cep_cobranca),
-
-        home_page=norm_str(payload.home_page),
-        redes_sociais=payload.redes_sociais,
+        empresa_id=empresa_id,
+        codigo=codigo,
+        nome=payload.nome.strip(),
+        whatsapp=norm_str(payload.whatsapp),
+        email=norm_str(payload.email),
     )
-
-    dt = date_to_dt_utc(payload.data_cadastro)
-    if dt:
-        c.data_cadastro = dt
 
     try:
         db.add(c)
+        db.flush()
+
+        salvar_custom_fields_cliente(db=db, empresa_id=empresa_id, cliente_id=int(c.id), custom_fields=payload.custom_fields)
+
         db.commit()
         db.refresh(c)
-        return cliente_to_out(c)
+        return cliente_to_out(db, c)
+
+    except HTTPException:
+        db.rollback()
+        raise
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Código de cliente já existe.")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao criar cliente: {e}")
 
 
-@router.put("/{cliente_id}", response_model=ClienteOut)
-@router.put("/{cliente_id}/", response_model=ClienteOut, include_in_schema=False)
-def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Depends(get_db)):
-    c = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
+@router.put("/api/clientes/{cliente_id}", response_model=ClienteOut)
+def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+    c = buscar_cliente_empresa(db, cliente_id, empresa_id)
     if not c:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
     if payload.codigo is not None and payload.codigo.strip():
-        c.codigo_cadastro_cliente = payload.codigo.strip()
-
-    if payload.data_cadastro is not None:
-        dt = date_to_dt_utc(payload.data_cadastro)
-        if dt:
-            c.data_cadastro = dt
-
-    if payload.tipo is not None:
-        t = norm_tipo(payload.tipo)
-        if t:
-            c.tipo_cliente = t
+        c.codigo = payload.codigo.strip()
 
     if payload.nome is not None and payload.nome.strip():
-        c.nome_identificacao = payload.nome.strip()
+        c.nome = payload.nome.strip()
 
     if payload.whatsapp is not None:
-        c.whatsapp_contato = norm_str(payload.whatsapp)
+        c.whatsapp = norm_str(payload.whatsapp)
 
-    # endereço
-    if payload.cep is not None:
-        c.end_cep = only_digits(payload.cep)
-
-    if payload.endereco_logradouro is not None:
-        c.end_rua = norm_str(payload.endereco_logradouro)
-
-    if payload.endereco_numero is not None:
-        c.end_numero = norm_str(payload.endereco_numero)
-
-    if payload.endereco_bairro is not None:
-        c.end_bairro = norm_str(payload.endereco_bairro)
-
-    if payload.cidade is not None:
-        c.end_cidade = norm_str(payload.cidade)
-
-    if payload.uf is not None:
-        c.end_estado = norm_upper(payload.uf)
-
-    if payload.end_pais is not None:
-        c.end_pais = norm_upper(payload.end_pais) or "BR"
-
-    # perfil/origem
-    if payload.tipo_imovel is not None:
-        c.tipo_imovel = norm_str(payload.tipo_imovel)
-
-    if payload.onde_conheceu is not None or payload.onde_conheceu_outro is not None:
-        onde = build_onde_conheceu(payload.onde_conheceu, payload.onde_conheceu_outro)
-        c.onde_conheceu_empresa = norm_str(onde)
-
-    # contato / dados completos
-    if payload.pessoa_contato is not None:
-        c.pessoa_contato = norm_str(payload.pessoa_contato)
-
-    if payload.email_principal is not None:
-        c.email_principal = norm_str(payload.email_principal)
-
-    if payload.whatsapp_principal is not None:
-        c.whatsapp_principal = norm_str(payload.whatsapp_principal)
-
-    # PJ
-    if payload.razao_social is not None:
-        c.razao_social = norm_str(payload.razao_social)
-    if payload.cnpj is not None:
-        c.cnpj = norm_str(payload.cnpj)
-    if payload.inscricao_estadual is not None:
-        c.inscricao_estadual = norm_str(payload.inscricao_estadual)
-    if payload.inscricao_municipal is not None:
-        c.inscricao_municipal = norm_str(payload.inscricao_municipal)
-    if payload.responsavel_contratante is not None:
-        c.responsavel_contratante = norm_str(payload.responsavel_contratante)
-    if payload.cpf_responsavel_administrador is not None:
-        c.cpf_responsavel_administrador = norm_str(payload.cpf_responsavel_administrador)
-
-    # PF
-    if payload.rg is not None:
-        c.rg = norm_str(payload.rg)
-    if payload.data_nascimento is not None:
-        c.data_nascimento = payload.data_nascimento
-    if payload.estado_civil is not None:
-        c.estado_civil = norm_str(payload.estado_civil)
-    if payload.profissao is not None:
-        c.profissao = norm_str(payload.profissao)
-
-    # cobrança / web
-    if payload.cep_cobranca is not None:
-        c.cep_cobranca = only_digits(payload.cep_cobranca)
-
-    if payload.home_page is not None:
-        c.home_page = norm_str(payload.home_page)
-
-    # ✅ IMPORTANTE: permitir limpar redes_sociais (null)
-    if field_sent(payload, "redes_sociais"):
-        c.redes_sociais = payload.redes_sociais
+    if payload.email is not None:
+        c.email = norm_str(payload.email)
 
     try:
+        if payload.custom_fields is not None:
+            salvar_custom_fields_cliente(db=db, empresa_id=empresa_id, cliente_id=int(c.id), custom_fields=payload.custom_fields)
+
         db.commit()
         db.refresh(c)
-        return cliente_to_out(c)
+        return cliente_to_out(db, c)
+
+    except HTTPException:
+        db.rollback()
+        raise
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Código de cliente já existe.")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar cliente: {e}")
 
 
-@router.delete("/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
-@router.delete("/{cliente_id}/", status_code=status.HTTP_204_NO_CONTENT, include_in_schema=False)
-def excluir_cliente(cliente_id: int, db: Session = Depends(get_db)):
-    c = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
+@router.delete("/api/clientes/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_cliente(cliente_id: int, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+    c = buscar_cliente_empresa(db, cliente_id, empresa_id)
     if not c:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
+
     db.delete(c)
     db.commit()
     return None

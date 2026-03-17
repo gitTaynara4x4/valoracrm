@@ -1,600 +1,293 @@
-/* /frontend/css/clientes.css */
-:root {
-  --menu-w: 260px;
+/* =========================================
+   ESTILOS DA TELA DE CLIENTES
+   ========================================= */
 
-  --bg-page: #212121;
-  --bg-main: #212121;
-
-  --text-main: #f5f5f5;
-  --text-muted: #b0b0b0;
-
-  --card-bg: #262626;
-  --card-border: #3a3a3a;
-
-  --accent: #10a37f;
-  --accent-soft: rgba(16, 163, 127, 0.16);
-
-  --radius-pill: 999px;
-  --radius-md: 16px;
-  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.7);
-}
-
-*,
-*::before,
-*::after { box-sizing: border-box; }
-
-html, body { margin: 0; padding: 0; height: 100%; }
-
-body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: var(--bg-page);
-  color: var(--text-main);
-}
-
-.orca-shell {
-  display: grid;
-  grid-template-columns: var(--menu-w) minmax(0, 1fr);
-  min-height: 100vh;
-  background: var(--bg-main);
-}
-
-.orca-menu-frame {
-  width: var(--menu-w);
-  height: 100vh;
-  border: none;
-  display: block;
-}
-
-.orca-main {
-  padding: 24px 32px 24px;
+/* Layout Superior (Busca) */
+.topbar-actions {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-  background: var(--bg-main);
-  min-width: 0;
-}
-
-.orca-main-header {
-  display: flex;
+  gap: 10px;
   align-items: center;
+}
+
+.btn-sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.search-row {
+  display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #333333;
-}
-
-.orca-header-left { min-width: 0; }
-
-.orca-main-header h1 {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-.orca-main-header p {
-  margin: 4px 0 0;
-  font-size: 0.9rem;
-  color: var(--text-muted);
-}
-
-/* Buttons */
-.btn-primary {
-  padding: 8px 18px;
-  border-radius: var(--radius-pill);
-  border: 1px solid rgba(16, 163, 127, 0.7);
-  background: #10a37f;
-  color: #f9fafb;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.08s ease;
-  white-space: nowrap;
+  margin-bottom: 24px;
 }
 
-.btn-primary:hover {
-  filter: brightness(1.03);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75);
-}
-
-.btn-secondary {
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
   padding: 8px 16px;
-  border-radius: var(--radius-pill);
-  border: 1px solid #4b5563;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.08s ease, border-color 0.08s ease, color 0.08s ease;
-}
-
-.btn-secondary:hover {
-  background: #303030;
-  border-color: #6b7280;
-  color: #e5e7eb;
-}
-
-/* Filters */
-.orca-filters {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 12px;
-  min-width: 0;
-}
-
-.orca-filters-left {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  min-width: 0;
-}
-
-.orca-filters-right {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
-.orca-counter { opacity: 0.9; }
-
-.orca-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 180px;
-}
-
-.orca-field--busca {
-  min-width: 280px;
-  flex: 1 1 320px;
-}
-
-.orca-field--full { grid-column: 1 / -1; min-width: 0; }
-
-.orca-field label {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.orca-input-icon {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #1f1f1f;
-  border-radius: 999px;
-  padding: 6px 10px;
-  border: 1px solid #333333;
   width: 100%;
-  min-width: 0;
+  max-width: 400px;
+  transition: var(--transition);
 }
 
-.orca-input-icon i { font-size: 0.8rem; color: #9ca3af; }
+.search-box:focus-within {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
 
-.orca-input-icon input {
+.search-box i { color: var(--muted); }
+.search-box input {
   background: transparent;
   border: none;
   outline: none;
-  color: var(--text-main);
-  font-size: 0.85rem;
+  color: var(--text);
   width: 100%;
-  min-width: 0;
+  font-size: 14px;
 }
 
-.orca-field select,
-.orca-field input[type="date"],
-.orca-field input[type="text"] {
-  background: #1f1f1f;
-  border-radius: 999px;
-  border: 1px solid #333333;
-  padding: 8px 10px;
-  color: var(--text-main);
-  font-size: 0.85rem;
-  outline: none;
-  width: 100%;
+.counter-text {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
 }
 
-.orca-field input[readonly] {
-  opacity: 0.9;
-  background: #1b1b1b;
-  border-color: #2f2f2f;
-  cursor: not-allowed;
+/* Campos Personalizados (Grid) */
+.campos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
 }
 
-.orca-help { font-size: 0.75rem; color: #9ca3af; min-height: 1em; }
-.orca-help.is-error { color: #fca5a5; }
-
-/* Table */
-.orca-main-list { margin-top: 18px; flex: 1; min-width: 0; }
-
-.orca-table-wrapper {
-  background: var(--card-bg);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--card-border);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-  min-width: 0;
+.campo-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
-.orca-table-clientes { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.orca-table-clientes thead { background: #1f1f1f; }
-
-.orca-table-clientes th,
-.orca-table-clientes td {
-  padding: 8px 10px;
-  text-align: left;
-  border-bottom: 1px solid #333333;
+.campo-card strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
 }
 
-.orca-table-clientes th { font-weight: 500; color: #d1d5db; white-space: nowrap; }
-.orca-table-clientes td { color: var(--text-muted); }
-.orca-table-clientes tbody tr:hover { background: #262626; }
-.orca-table-clientes td:last-child { text-align: right; }
+.campo-card span {
+  font-size: 12px;
+  color: var(--muted);
+}
 
-.orca-pill-tipo {
+.badge-tag {
   display: inline-block;
+  font-size: 10px;
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 0.7rem;
-  border: 1px solid #4b5563;
-  color: #e5e7eb;
-  white-space: nowrap;
+  background: rgba(255,255,255,0.05);
+  color: var(--muted);
+  margin-top: 8px;
+  border: 1px solid var(--border);
 }
 
-.orca-pill-tipo--pf { border-color: #3b82f6; color: #bfdbfe; }
-.orca-pill-tipo--pj { border-color: #22c55e; color: #bbf7d0; }
-
-.orca-table-actions { display: inline-flex; align-items: center; gap: 6px; }
-
-.orca-icon-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  border: 1px solid #4b5563;
-  background: transparent;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 0.8rem;
-  color: #9ca3af;
-  transition: background 0.08s ease, border-color 0.08s ease, color 0.08s ease;
+.badge-tag.brand {
+  background: var(--brand-soft);
+  color: var(--brand);
+  border-color: rgba(16,163,127,0.3);
 }
 
-.orca-icon-btn:hover { background: #303030; border-color: #9ca3af; color: #e5e7eb; }
-
-/* Modal Cliente */
-.orca-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 40;
-  padding: 14px;
-}
-
-.orca-modal {
-  width: 820px;
-  max-width: 96vw;
-  background: #181818;
-  border-radius: 18px;
-  border: 1px solid #3a3a3a;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
-  padding: 16px 18px 14px;
-  max-height: 88vh;
-  overflow: auto;
-}
-
-.orca-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #333333;
-}
-
-.orca-modal-header h2 { margin: 0; font-size: 1rem; }
-
-.orca-modal-close {
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 1px solid #4b5563;
-  background: transparent;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #9ca3af;
-}
-
-.orca-modal-close:hover { background: #303030; border-color: #9ca3af; color: #e5e7eb; }
-
-.orca-modal-body { padding-top: 12px; padding-bottom: 12px; }
-
-.orca-modal-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 14px;
-}
-
-.orca-modal-grid--addr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-
-.orca-modal-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid #2b2b2b; }
-
-.orca-modal-section-title {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.orca-modal-section-title strong { font-size: 0.92rem; color: #e5e7eb; }
-.orca-modal-section-title span { font-size: 0.78rem; color: #9ca3af; }
-
-/* Advanced block */
-.orca-advanced {
-  margin-top: 16px;
-  border-top: 1px solid #2b2b2b;
-  padding-top: 14px;
-}
-
-.orca-advanced-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.orca-advanced-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: #e5e7eb;
-}
-
-.orca-advanced-title i { color: #9ca3af; }
-.orca-advanced-sub { font-size: 0.78rem; color: #9ca3af; }
-
-.orca-modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding-top: 10px;
-  border-top: 1px solid #333333;
-}
-
-/* =========================
- * CONFIRM (custom)
- * ========================= */
-.orca-confirm-backdrop{
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.72);
-  align-items: center;
-  justify-content: center;
-  z-index: 60;
-  padding: 14px;
-  display: none; /* <- começa escondido */
-}
-
-.orca-confirm-backdrop:not([hidden]){
-  display: flex; /* <- só aparece quando hidden some */
-}
-
-.orca-confirm{
-  width: 520px;
-  max-width: 96vw;
-  background: #181818;
-  border-radius: 18px;
-  border: 1px solid #3a3a3a;
-  box-shadow: 0 22px 46px rgba(0,0,0,.85);
-  padding: 14px 16px 12px;
-}
-
-.orca-confirm-header{
-  display:flex;
-  align-items:center;
-  justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #333;
-}
-
-.orca-confirm-header h3{
-  margin:0;
-  font-size: 1rem;
-  font-weight: 650;
-  color: var(--text-main);
-}
-
-.orca-confirm-close{
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 1px solid #4b5563;
-  background: transparent;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #9ca3af;
-}
-
-.orca-confirm-close:hover{ background:#303030; border-color:#9ca3af; color:#e5e7eb; }
-
-.orca-confirm-body{
-  padding: 12px 2px 8px;
-  color: var(--text-muted);
-  font-size: .9rem;
-  line-height: 1.45;
-}
-
-.orca-confirm-footer{
-  display:flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding-top: 10px;
-  border-top: 1px solid #333;
-}
-
-.orca-confirm.is-danger .btn-primary{
-  background: #ef4444;
-  border-color: rgba(239,68,68,.75);
-}
-
-/* =========================
- * TOAST
- * ========================= */
-.orca-toast{
-  position: fixed;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  background: #181818;
-  border: 1px solid #3a3a3a;
-  color: var(--text-main);
-  padding: 10px 14px;
-  border-radius: 999px;
-  box-shadow: 0 12px 30px rgba(0,0,0,.75);
-  z-index: 9999;
-  font-size: .9rem;
-  max-width: 92vw;
+.empty-state {
+  padding: 24px;
   text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
 }
-.orca-toast.is-error{ border-color: rgba(239,68,68,.55); }
 
-/* Responsive */
-@media (max-width: 860px) {
-  .orca-shell {
-    display: block;
-    min-height: 100vh;
-  }
+/* Tabela */
+.valora-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+.valora-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.valora-table th {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.valora-table td {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  vertical-align: middle;
+}
+.valora-table tr:hover td { background: var(--panel-hover); }
 
-  .orca-menu-frame { display: none; }
+.badge-codigo {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
 
-  .orca-main {
-    padding: 16px 14px 20px;
-    min-height: 100vh;
-  }
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: var(--transition);
+  font-size: 14px;
+}
+.btn-icon:hover { background: var(--border); color: #fff; }
+.btn-icon.danger:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
 
-  .orca-main-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
 
-  .btn-primary {
-    width: 100%;
-    justify-content: center;
-  }
+/* =========================================
+   MODAIS BASE (Animação Fluida a 60fps)
+   ========================================= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65); /* Fundo escuro liso (Sem blur para evitar lag) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease; /* Anima só a opacidade */
+}
+.modal-overlay.show { 
+  opacity: 1; 
+  pointer-events: auto; 
+}
 
-  .orca-filters {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
+.modal-content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 500px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  max-height: 90vh;
+  overflow-y: auto;
+  
+  /* Estado inicial: Levemente menor e transparente */
+  opacity: 0;
+  transform: scale(0.96) translateY(10px);
+  
+  /* Anima apenas propriedades de alta performance (Transform e Opacity) */
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
+}
+.modal-lg { max-width: 760px; }
 
-  .orca-filters-left {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
+.modal-overlay.show .modal-content { 
+  opacity: 1;
+  transform: scale(1) translateY(0); 
+}
 
-  .orca-field { min-width: 0; }
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.modal-header h3 { font-size: 18px; font-weight: 600; margin: 0; }
 
-  .orca-field--busca {
-    flex: 0 0 auto;
-    min-width: 0;
-  }
+.btn-close {
+  background: transparent; border: none; color: var(--muted); cursor: pointer;
+  font-size: 18px; transition: var(--transition);
+}
+.btn-close:hover { color: #fff; }
 
-  /* tabela vira cards */
-  .orca-table-wrapper {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    overflow: visible;
-  }
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
 
-  .orca-table-clientes thead { display: none; }
 
-  .orca-table-clientes,
-  .orca-table-clientes tbody,
-  .orca-table-clientes tr,
-  .orca-table-clientes td {
-    display: block;
-    width: 100%;
-  }
+/* =========================================
+   CORREÇÃO DOS FORMULÁRIOS
+   ========================================= */
+.valora-form select,
+.valora-form textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  transition: var(--transition);
+  outline: none;
+}
 
-  .orca-table-clientes tbody tr {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-card);
-    margin: 10px 0;
-    padding: 10px 12px;
-  }
+.valora-form select {
+  height: 42px;
+}
 
-  .orca-table-clientes td {
-    border: none;
-    padding: 6px 0;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    text-align: left !important;
-  }
+.valora-form textarea {
+  height: auto;
+  resize: vertical;
+}
 
-  .orca-table-clientes td::before {
-    content: attr(data-label);
-    color: #9ca3af;
-    font-size: 0.75rem;
-    line-height: 1.2;
-    flex: 0 0 40%;
-    max-width: 40%;
-  }
+.valora-form select:focus,
+.valora-form textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
 
-  .orca-table-clientes td > * {
-    flex: 1 1 auto;
-    min-width: 0;
-    text-align: right;
-  }
+.custom-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
 
-  .orca-table-clientes td[data-label="Cliente"] > * {
-    font-weight: 650;
-    color: var(--text-main);
-  }
+.custom-checkbox input[type="checkbox"] { 
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
 
-  .orca-table-clientes td[data-label="Ações"]::before { content: ""; }
+/* Estilo para campos bloqueados (Código do Cliente) */
+.valora-form input:disabled {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  cursor: not-allowed;
+  border-color: transparent;
+}
 
-  .orca-modal { width: 96vw; }
-
-  .orca-modal-grid { grid-template-columns: minmax(0, 1fr); }
-  .orca-modal-grid--addr { grid-template-columns: minmax(0, 1fr); }
-
-  .orca-modal-footer { flex-direction: column; }
-
-  .orca-modal-footer .btn-primary,
-  .orca-modal-footer .btn-secondary {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .orca-confirm{ width: 96vw; }
-  .orca-confirm-footer{ flex-direction: column; }
-  .orca-confirm-footer .btn-primary,
-  .orca-confirm-footer .btn-secondary{
-    width: 100%;
-    justify-content: center;
-  }
+/* Força o campo de Opções da Lista a sumir quando não for do tipo Select */
+#wrap-custom-opcoes[hidden] {
+  display: none !important;
 }

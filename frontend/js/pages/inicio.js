@@ -1,55 +1,123 @@
 // /frontend/js/pages/inicio.js
 
-const $  = (s, r = document) => r.querySelector(s);
+const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-function getHomeUrl() {
-  // Se você tiver um alias /orca no backend, ele continua funcionando.
-  // Senão, cai no arquivo do frontend.
-  if (window.location.pathname.startsWith('/orca')) return '/orca';
-  return '/frontend/inicio.html';
+function toggleMenu() {
+  const menu = $('#mobileMenu');
+  if (!menu) return;
+  menu.classList.toggle('active');
 }
 
-function irParaSecao(target) {
-  const routes = {
-    home: getHomeUrl(),
-    clientes: '/frontend/clientes.html',
-    produtos: '/frontend/produtos.html',
-    propostas: '/frontend/propostas.html',
-    config: '/frontend/config.html',
-    ajuda: '/frontend/ajuda.html',
+function closeMenu() {
+  const menu = $('#mobileMenu');
+  if (!menu) return;
+  menu.classList.remove('active');
+}
+
+function toggleFaq(button) {
+  const faqItem = button?.closest('.faq-item');
+  if (!faqItem) return;
+
+  const isActive = faqItem.classList.contains('active');
+
+  $$('.faq-item').forEach(item => item.classList.remove('active'));
+
+  if (!isActive) {
+    faqItem.classList.add('active');
+  }
+}
+
+function initSmoothScroll() {
+  $$('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+      const targetId = this.getAttribute('href');
+      if (!targetId || targetId === '#') return;
+
+      const targetElement = $(targetId);
+      if (!targetElement) return;
+
+      e.preventDefault();
+
+      window.scrollTo({
+        top: targetElement.offsetTop - 80,
+        behavior: 'smooth'
+      });
+
+      closeMenu();
+    });
+  });
+}
+
+function initHeaderScroll() {
+  const header = $('header');
+  if (!header) return;
+
+  const updateHeader = () => {
+    if (window.scrollY > 50) {
+      header.style.padding = '12px 0';
+      header.style.backdropFilter = 'blur(16px) saturate(180%)';
+      header.style.webkitBackdropFilter = 'blur(16px) saturate(180%)';
+    } else {
+      header.style.padding = '16px 0';
+      header.style.backdropFilter = 'blur(20px) saturate(180%)';
+      header.style.webkitBackdropFilter = 'blur(20px) saturate(180%)';
+    }
   };
 
-  const url = routes[target];
-  if (!url) {
-    console.warn('[4X OrçaPro] target desconhecido:', target);
+  updateHeader();
+  window.addEventListener('scroll', updateHeader, { passive: true });
+}
+
+function initFadeIn() {
+  const els = $$('.fade-in');
+  if (!els.length || !('IntersectionObserver' in window)) {
+    els.forEach(el => {
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+    });
     return;
   }
 
-  window.location.href = url;
-}
-
-function initAtalhos() {
-  // Cards e botões com data-target
-  $$('[data-target]').forEach(el => {
-    el.addEventListener('click', () => {
-      const target = el.dataset.target;
-      if (!target) return;
-
-      // “Novo cliente / novo produto” ainda não tem modal aqui,
-      // então vai pra página do módulo (V1).
-      irParaSecao(target);
+  const observer = new IntersectionObserver((entries, obs) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      entry.target.style.animationPlayState = 'running';
+      obs.unobserve(entry.target);
     });
+  }, {
+    threshold: 0.1,
+    rootMargin: '0px 0px -50px 0px'
   });
 
-  // Botões “Nova proposta”
-  $$('[data-action="nova-proposta"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      window.location.href = '/frontend/propostas.html?nova=1';
-    });
+  els.forEach(el => {
+    el.style.animationPlayState = 'paused';
+    observer.observe(el);
+  });
+}
+
+function initOutsideMenuClose() {
+  document.addEventListener('click', (e) => {
+    const menu = $('#mobileMenu');
+    const toggle = $('.mobile-toggle');
+    if (!menu || !toggle) return;
+    if (!menu.classList.contains('active')) return;
+
+    const clickedInsideMenu = menu.contains(e.target);
+    const clickedToggle = toggle.contains(e.target);
+
+    if (!clickedInsideMenu && !clickedToggle) {
+      closeMenu();
+    }
   });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  initAtalhos();
+  initSmoothScroll();
+  initHeaderScroll();
+  initFadeIn();
+  initOutsideMenuClose();
 });
+
+window.toggleMenu = toggleMenu;
+window.toggleFaq = toggleFaq;

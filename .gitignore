@@ -4,7 +4,7 @@
 venv/
 ENV/
 env/
-.venv-orcapro/
+.venv-Valorapro/
 
 # python
 __pycache__/

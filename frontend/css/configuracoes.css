@@ -1,0 +1,18 @@
+/* =========================================
+   ESTILOS ESPECÍFICOS DA PÁGINA DE CONFIGURAÇÕES
+   ========================================= */
+
+.empty-state-config {
+  border: 1px dashed var(--border);
+  padding: 24px;
+  text-align: center;
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* Caso o tema seja light, ajusta a transparência do fundo do empty state */
+html[data-theme="light"] .empty-state-config {
+  background: rgba(0, 0, 0, 0.02);
+}

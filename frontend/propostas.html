@@ -1,244 +1,229 @@
-<!-- /frontend/propostas.html -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>4X OrçaPro – Propostas</title>
+  <title>4X Valora – Propostas</title>
 
-  <!-- Ícones (Font Awesome) -->
   <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
         crossorigin="anonymous"
         referrerpolicy="no-referrer" />
 
-  <!-- CSS da página -->
   <link rel="stylesheet" href="/frontend/css/propostas.css" />
-  <link rel="icon" type="image/png" href="/frontend/img/logo-favicon.png" />
-
-  <!-- JS da página -->
-  <script src="/frontend/js/pages/propostas.js" type="module" defer></script>
+  <script src="/frontend/js/pages/propostas.js" defer></script>
 </head>
 <body>
-  <div class="orca-shell">
-    <!-- COLUNA ESQUERDA: sidebar em iframe -->
-    <iframe
-      class="orca-menu-frame"
-      src="/frontend/sidebar.html"
-      title="Menu 4X OrçaPro"
-    ></iframe>
+  <div class="Valora-shell">
+    <iframe class="Valora-menu-frame" src="/frontend/partials/sidebar.html" title="Menu 4X Valora"></iframe>
 
-    <!-- COLUNA DIREITA: conteúdo da página -->
-    <main class="orca-main">
-      <header class="orca-main-header">
-        <div>
+    <main class="Valora-main">
+      <header class="Valora-main-header">
+        <div class="Valora-header-left">
           <h1>Propostas</h1>
-          <p>Emissão e controle de propostas comerciais.</p>
+          <p>Gerencie e monte propostas comerciais.</p>
         </div>
-        <button class="btn-primary" type="button" id="btn-nova-proposta">
-          <i class="fa-solid fa-file-circle-plus"></i>&nbsp; Nova proposta
-        </button>
+
+        <div class="Valora-header-actions">
+          <button class="btn-primary" type="button" id="btn-nova-proposta">
+            <i class="fa-solid fa-file-circle-plus"></i>
+            <span>Nova proposta</span>
+          </button>
+        </div>
       </header>
 
-      <!-- Filtros / busca -->
-      <section class="orca-filters">
-        <div class="orca-filters-left">
-          <div class="orca-field">
-            <label for="busca-propostas">Buscar</label>
-            <div class="orca-input-icon">
-              <i class="fa-solid fa-magnifying-glass"></i>
-              <input
-                type="text"
-                id="busca-propostas"
-                placeholder="Número, cliente, tipo..."
-              />
-            </div>
-          </div>
-
-          <div class="orca-field">
-            <label for="filtro-status-proposta">Status</label>
-            <select id="filtro-status-proposta">
-              <option value="">Todos</option>
-              <option value="rascunho">Rascunho</option>
-              <option value="enviada">Enviada</option>
-              <option value="aprovada">Aprovada</option>
-              <option value="recusada">Recusada</option>
-            </select>
+      <section class="Valora-filters">
+        <div class="Valora-field Valora-field--busca">
+          <label for="busca-propostas">Buscar</label>
+          <div class="Valora-input-icon">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="busca-propostas" type="text" placeholder="Código, título, cliente, status..." autocomplete="off" />
           </div>
         </div>
 
-        <div class="orca-filters-right">
-          <span id="contagem-propostas" class="orca-counter">0 propostas</span>
+        <div class="Valora-filters-right">
+          <span id="contagem-propostas" class="Valora-counter">0 propostas</span>
         </div>
       </section>
 
-      <!-- Tabela -->
-      <section class="orca-main-list">
-        <div class="orca-table-wrapper">
-          <table class="orca-table-propostas">
+      <section class="Valora-main-list">
+        <div class="Valora-table-wrapper">
+          <table class="Valora-table-propostas">
             <thead>
               <tr>
-                <th>Nº Proposta</th>
+                <th>Código</th>
+                <th>Título</th>
                 <th>Cliente</th>
-                <th>Tipo</th>
-                <th>Valor Total</th>
                 <th>Status</th>
-                <th>Data</th>
+                <th>Total</th>
                 <th></th>
               </tr>
             </thead>
-            <tbody id="tbody-propostas">
-              <!-- preenchido pelo JS -->
-            </tbody>
+            <tbody id="tbody-propostas"></tbody>
           </table>
         </div>
       </section>
+    </main>
+  </div>
 
-      <!-- Modal (2 etapas) -->
-      <div class="orca-modal-backdrop" id="modal-proposta-backdrop" hidden>
-        <div class="orca-modal">
-          <header class="orca-modal-header">
-            <div>
-              <h2 id="modal-proposta-titulo">Nova proposta</h2>
-              <div id="modal-etapa-label"
-                   style="font-size:0.78rem;color:#9ca3af;margin-top:4px;">
-                Etapa 1 de 2 — Dados do cliente
-              </div>
-            </div>
-            <button class="orca-modal-close" type="button" id="btn-fechar-modal-proposta" title="Fechar">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </header>
+  <!-- MODAL CENTRAL -->
+  <div class="proposal-modal" id="proposal-modal" aria-hidden="true">
+    <div class="proposal-modal-backdrop" data-close-modal></div>
 
-          <div class="orca-modal-body">
-            <!-- ETAPA 1 -->
-            <div class="orca-modal-grid" id="step-dados-cliente">
-              <div class="orca-field">
-                <label for="campo-numero-proposta">Nº Proposta</label>
-                <input type="text" id="campo-numero-proposta" placeholder="PROP-0001" />
-              </div>
+    <div class="proposal-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="proposal-modal-title">
+      <div class="proposal-modal-header">
+        <div>
+          <h2 id="proposal-modal-title">Nova proposta</h2>
+          <p id="proposal-modal-subtitle">Preencha os dados da proposta e salve.</p>
+        </div>
 
-              <div class="orca-field">
-                <label for="campo-cliente-proposta">Nome / Fantasia do cliente</label>
-                <input
-                  type="text"
-                  id="campo-cliente-proposta"
-                  placeholder="Ex.: Padaria do Centro"
-                />
-              </div>
+        <div class="proposal-modal-top-actions">
+          <button type="button" class="btn-secondary" id="btn-fechar-modal">
+            <i class="fa-solid fa-xmark"></i>
+            <span>Fechar</span>
+          </button>
 
-              <div class="orca-field">
-                <label for="campo-telefone-cliente">Telefone / WhatsApp</label>
-                <input
-                  type="text"
-                  id="campo-telefone-cliente"
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-email-cliente">E-mail</label>
-                <input
-                  type="email"
-                  id="campo-email-cliente"
-                  placeholder="contato@cliente.com"
-                />
-              </div>
-            </div>
-
-            <!-- ETAPA 2 -->
-            <div class="orca-modal-grid" id="step-produtos" style="display:none;">
-              <div class="orca-field" style="grid-column: 1 / -1;">
-                <label for="campo-busca-produtos-modal">Produtos da proposta</label>
-                <div class="orca-input-icon">
-                  <i class="fa-solid fa-magnifying-glass"></i>
-                  <input
-                    type="text"
-                    id="campo-busca-produtos-modal"
-                    placeholder="Buscar por código ou descrição..."
-                  />
-                </div>
-              </div>
-
-              <div class="orca-field" style="grid-column: 1 / -1;">
-                <label>Resultados da busca</label>
-                <div
-                  id="lista-produtos-modal"
-                  style="
-                    border-radius:12px;
-                    border:1px solid #333;
-                    background:#111;
-                    padding:4px 4px;
-                    max-height:220px;
-                    overflow-y:auto;
-                  "
-                >
-                  <p style="font-size:0.8rem;color:#9ca3af;margin:4px 6px;">
-                    Digite um nome ou código para buscar produtos...
-                  </p>
-                </div>
-              </div>
-
-              <div class="orca-field" style="grid-column: 1 / -1; margin-top:4px;">
-                <label for="campo-tipo-proposta">Tipo de proposta</label>
-                <input
-                  type="text"
-                  id="campo-tipo-proposta"
-                  placeholder="Alarme, CFTV, Cerca, Combo..."
-                />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-valor-proposta">Valor total (R$)</label>
-                <input
-                  type="text"
-                  id="campo-valor-proposta"
-                  inputmode="decimal"
-                  placeholder="R$ 0,00"
-                />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-status-proposta">Status</label>
-                <select id="campo-status-proposta">
-                  <option value="rascunho">Rascunho</option>
-                  <option value="enviada">Enviada</option>
-                  <option value="aprovada">Aprovada</option>
-                  <option value="recusada">Recusada</option>
-                </select>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-data-proposta">Data</label>
-                <input type="date" id="campo-data-proposta" />
-              </div>
-
-              <div class="orca-field" style="grid-column: 1 / -1;">
-                <label for="campo-observacoes-proposta">Observações</label>
-                <textarea
-                  id="campo-observacoes-proposta"
-                  rows="3"
-                  placeholder="Condições comerciais, forma de pagamento, validade da proposta..."
-                ></textarea>
-              </div>
-            </div>
-          </div>
-
-          <footer class="orca-modal-footer">
-            <button class="btn-secondary" type="button" id="btn-voltar-proposta">
-              Voltar
-            </button>
-            <button class="btn-secondary" type="button" id="btn-cancelar-proposta">
-              Cancelar
-            </button>
-            <button class="btn-primary" type="button" id="btn-salvar-proposta">
-              Avançar
-            </button>
-          </footer>
+          <button type="button" class="btn-primary" id="btn-salvar-proposta">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Salvar</span>
+          </button>
         </div>
       </div>
-    </main>
+
+      <div class="proposal-modal-body">
+        <section class="proposal-card">
+          <div class="proposal-section-head">
+            <h3>Dados principais</h3>
+            <span class="proposal-status-chip" id="proposal-chip-status">Rascunho</span>
+          </div>
+
+          <div class="proposal-grid">
+            <div class="field">
+              <label for="proposta-codigo">Código</label>
+              <input id="proposta-codigo" type="text" placeholder="PROP-0001" />
+            </div>
+
+            <div class="field">
+              <label for="proposta-titulo">Título</label>
+              <input id="proposta-titulo" type="text" placeholder="Ex.: Sistema de CFTV" />
+            </div>
+
+            <div class="field">
+              <label for="proposta-cliente-id">ID do cliente</label>
+              <input id="proposta-cliente-id" type="number" placeholder="Opcional" />
+            </div>
+
+            <div class="field">
+              <label for="proposta-status">Status</label>
+              <select id="proposta-status">
+                <option value="rascunho">Rascunho</option>
+                <option value="enviada">Enviada</option>
+                <option value="aprovada">Aprovada</option>
+                <option value="rejeitada">Rejeitada</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="proposta-modelo">Modelo técnico</label>
+              <select id="proposta-modelo">
+                <option value="">Manual</option>
+                <option value="alarme">Alarme</option>
+                <option value="cerca">Cerca elétrica</option>
+                <option value="concertina">Concertina</option>
+                <option value="cftv">CFTV</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="proposta-validade">Validade (dias)</label>
+              <input id="proposta-validade" type="text" placeholder="7" />
+            </div>
+
+            <div class="field field-full">
+              <label for="proposta-observacoes">Observações</label>
+              <textarea id="proposta-observacoes" rows="4" placeholder="Observações gerais"></textarea>
+            </div>
+          </div>
+        </section>
+
+        <section class="proposal-card">
+          <div class="proposal-section-head">
+            <h3>Parâmetros do modelo</h3>
+            <button id="btn-gerar-itens" class="btn-secondary" type="button">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>Gerar itens</span>
+            </button>
+          </div>
+
+          <div class="proposal-grid">
+            <div class="field">
+              <label for="param-metragem">Metragem</label>
+              <input id="param-metragem" type="number" placeholder="0" />
+            </div>
+
+            <div class="field">
+              <label for="param-pontos">Pontos</label>
+              <input id="param-pontos" type="number" placeholder="0" />
+            </div>
+
+            <div class="field">
+              <label for="param-cameras">Câmeras</label>
+              <input id="param-cameras" type="number" placeholder="0" />
+            </div>
+
+            <div class="field">
+              <label for="param-cantos">Cantos</label>
+              <input id="param-cantos" type="number" placeholder="0" />
+            </div>
+          </div>
+        </section>
+
+        <section class="proposal-card">
+          <div class="proposal-section-head">
+            <h3>Itens da proposta</h3>
+            <button id="btn-add-item" class="btn-secondary" type="button">
+              <i class="fa-solid fa-plus"></i>
+              <span>Adicionar item</span>
+            </button>
+          </div>
+
+          <div class="proposal-table-wrap">
+            <table class="proposal-items-table">
+              <thead>
+                <tr>
+                  <th>Descrição</th>
+                  <th>Qtd</th>
+                  <th>Unid.</th>
+                  <th>Vlr. Unit.</th>
+                  <th>Vlr. Total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="proposal-items-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="proposal-card">
+          <div class="proposal-grid">
+            <div class="field">
+              <label for="proposta-subtotal">Subtotal</label>
+              <input id="proposta-subtotal" type="text" placeholder="0,00" />
+            </div>
+
+            <div class="field">
+              <label for="proposta-desconto">Desconto</label>
+              <input id="proposta-desconto" type="text" placeholder="0,00" />
+            </div>
+
+            <div class="field">
+              <label for="proposta-total">Total</label>
+              <input id="proposta-total" type="text" placeholder="0,00" />
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
   </div>
 </body>
 </html>

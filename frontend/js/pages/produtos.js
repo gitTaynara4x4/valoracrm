@@ -1,2927 +1,1114 @@
-// /frontend/js/pages/produtos.js
-// V4.1: API opcional + fallback + sem alert/confirm/prompt do navegador (toast + confirm + input custom)
-// + campos de LISTA com "Adicionar…"
-// + Segmentos/Fornecedores multi (criar + apagar)
-// + Movimentação (Entrada/Saída)
-// FIXES:
-// - escapeHtml alias
-// - toast suporta ok/warn/err/success/info
-// - lista correta: "fornecedor" (antes estava "fornecedores")
-// - lerFormProduto sem variáveis inexistentes (peso_tecnico/tamanho_tecnico/ultimo_fornecedor undefined)
-// - modais "Gerenciar" usando classes existentes (orca-confirm__*)
-// - initMovimentacaoUI não duplica listeners ao abrir modal várias vezes
-// - catch do init normaliza produtos
+let produtos = [];
+let camposProdutos = [];
+let produtoEditandoId = null;
+let campoEditandoId = null;
 
-const DEBUG = false;
+const API_PRODUTOS = '/api/produtos';
+const API_CAMPOS = '/api/produtos/campos';
 
-const API_BASE = '/api';
-const API_PRODUTOS = `${API_BASE}/produtos`;
-
-const STORAGE_KEY = 'orcapro_produtos_v4';
-const LISTS_KEY = 'orcapro_listas_produtos_v1';
-
-function logWarn(...a) { if (DEBUG) console.warn(...a); }
-function logErr(...a) { if (DEBUG) console.error(...a); }
-
-/* =========================
-   UI (Toast + Confirm + Prompt)
-========================= */
-
-function ensureInlineUIStyles() {
-  if (document.getElementById('orca-ui-inline-style')) return;
-
-  const style = document.createElement('style');
-  style.id = 'orca-ui-inline-style';
-  style.textContent = `
-    /* ===== HEADER ACTIONS ===== */
-    .orca-main-header-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:flex-end;
-    }
-
-    /* ===== MOVIMENTAÇÃO ===== */
-    .orca-mov-list{ display:flex; flex-direction:column; gap:10px; }
-    .orca-mov-item{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid #3a3a3a; border-radius:14px; background:#262626; }
-    .orca-mov-item__title{ font-size: 14px; }
-    .orca-mov-item__sub{ font-size: 12px; color:#b0b0b0; margin-top:4px; }
-    .orca-mov-empty{ color:#b0b0b0; font-size:13px; padding:6px 0; }
-
-    /* ===== BOTÕES (orca-btn) ===== */
-    .orca-btn{
-      padding:8px 14px;
-      border-radius:999px;
-      border:1px solid #4b5563;
-      background: transparent;
-      color:#9ca3af;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      transition: background .12s ease, color .12s ease, border-color .12s ease, transform .12s ease;
-      user-select:none;
-    }
-    .orca-btn:hover{ background:#303030; color:#e5e7eb; border-color:#9ca3af; transform:translateY(-1px); }
-    .orca-btn:active{ transform:translateY(0px); }
-    .orca-btn--ghost{ background:transparent; }
-    .orca-btn--icon{ width:36px; height:36px; padding:0; justify-content:center; }
-    .orca-btn--danger{
-      border-color: rgba(239,68,68,.55);
-      color:#fecaca;
-    }
-    .orca-btn--danger:hover{
-      background: rgba(239,68,68,.12);
-      border-color: rgba(239,68,68,.8);
-      color:#fff;
-    }
-
-    .orca-help,
-    .orca-multi__hint,
-    .orca-multi__empty{
-      color:#b0b0b0;
-      font-size:13px;
-      line-height:1.3;
-    }
-
-    /* ===== TOAST ===== */
-    .orca-toast-wrap{
-      position: fixed;
-      top: 14px;
-      right: 14px;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      width: min(420px, calc(100vw - 28px));
-      pointer-events: none;
-    }
-    .orca-toast{
-      pointer-events: auto;
-      background: #181818;
-      border: 1px solid #333;
-      color: #f5f5f5;
-      border-radius: 14px;
-      box-shadow: 0 18px 40px rgba(0,0,0,.75);
-      padding: 10px 12px;
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-    }
-    .orca-toast__icon{
-      width: 26px;
-      height: 26px;
-      border-radius: 999px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      border: 1px solid rgba(148,163,184,.25);
-      background: rgba(148,163,184,.08);
-      flex: 0 0 auto;
-      margin-top: 1px;
-    }
-    .orca-toast--ok .orca-toast__icon{
-      border-color: rgba(16,163,127,.45);
-      background: rgba(16,163,127,.12);
-    }
-    .orca-toast--success .orca-toast__icon{
-      border-color: rgba(16,163,127,.45);
-      background: rgba(16,163,127,.12);
-    }
-    .orca-toast--warn .orca-toast__icon{
-      border-color: rgba(245,158,11,.45);
-      background: rgba(245,158,11,.12);
-    }
-    .orca-toast--info .orca-toast__icon{
-      border-color: rgba(59,130,246,.45);
-      background: rgba(59,130,246,.12);
-    }
-    .orca-toast--err .orca-toast__icon{
-      border-color: rgba(239,68,68,.45);
-      background: rgba(239,68,68,.12);
-    }
-    .orca-toast__body{ flex: 1 1 auto; min-width:0; }
-    .orca-toast__title{ margin:0; font-weight:700; font-size:.85rem; }
-    .orca-toast__msg{ margin:2px 0 0; color:#cbd5e1; font-size:.85rem; line-height:1.25; }
-    .orca-toast__close{
-      border:1px solid #4b5563;
-      background: transparent;
-      color:#9ca3af;
-      width:26px; height:26px;
-      border-radius:999px;
-      cursor:pointer;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      transition: background .12s ease, color .12s ease, border-color .12s ease;
-      flex: 0 0 auto;
-    }
-    .orca-toast__close:hover{
-      background:#303030;
-      color:#e5e7eb;
-      border-color:#9ca3af;
-    }
-
-    /* ===== CONFIRM / PROMPT ===== */
-    .orca-confirm-backdrop{
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.72);
-      z-index: 9998;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 14px;
-    }
-    .orca-confirm{
-      width: 560px;
-      max-width: 96vw;
-      background:#181818;
-      border:1px solid #3a3a3a;
-      border-radius:18px;
-      box-shadow: 0 20px 50px rgba(0,0,0,.82);
-      padding: 14px 14px 12px;
-    }
-    .orca-confirm__head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding-bottom:10px;
-      border-bottom: 1px solid #333;
-    }
-    .orca-confirm__title{
-      margin:0;
-      font-size: 1rem;
-      font-weight: 700;
-      color:#f5f5f5;
-    }
-    .orca-confirm__close{
-      width:28px; height:28px;
-      border-radius:999px;
-      border:1px solid #4b5563;
-      background:transparent;
-      color:#9ca3af;
-      cursor:pointer;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
-    .orca-confirm__close:hover{ background:#303030; color:#e5e7eb; border-color:#9ca3af; }
-
-    .orca-confirm__msg{
-      margin: 12px 0 0;
-      color:#cbd5e1;
-      font-size:.92rem;
-      line-height:1.35;
-    }
-
-    .orca-confirm__input{
-      margin-top: 10px;
-      width: 100%;
-      border-radius: 14px;
-      border: 1px solid #333;
-      background: #1f1f1f;
-      color: #f5f5f5;
-      padding: 10px 12px;
-      outline: none;
-      font-size: .95rem;
-    }
-    .orca-confirm__input:focus{
-      border-color: rgba(16,163,127,.65);
-      box-shadow: 0 0 0 3px rgba(16,163,127,.15);
-    }
-
-    .orca-confirm__foot{
-      display:flex;
-      justify-content:flex-end;
-      gap:8px;
-      padding-top: 12px;
-      margin-top: 12px;
-      border-top: 1px solid #333;
-    }
-
-    @media (max-width: 520px){
-      .orca-confirm__foot{ flex-direction: column; }
-      .orca-confirm__foot .btn-primary,
-      .orca-confirm__foot .btn-secondary{ width:100%; justify-content:center; }
-    }
-
-    /* ===== MULTI (SEGMENTOS/FORNECEDORES) ===== */
-    .orca-multi{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      padding:12px;
-      border:1px solid #333;
-      border-radius:14px;
-      background: rgba(0,0,0,.08);
-    }
-    .orca-multi__row{
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-    .orca-multi__chips{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      min-height:40px;
-      align-items:center;
-    }
-    .orca-chip{
-      display:inline-flex;
-      align-items:center;
-      gap:10px;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid #333;
-      background:#181818;
-      color:#f5f5f5;
-      font-size:13px;
-    }
-    .orca-chip--empty{
-      opacity:.75;
-      background:transparent;
-      border:1px dashed #3a3a3a;
-    }
-    .orca-chip__x{
-      border:none;
-      background:transparent;
-      color:#cfcfcf;
-      cursor:pointer;
-      font-size:18px;
-      line-height:1;
-      padding:0;
-      margin:0;
-    }
-    .orca-chip__x:hover{ color:#fff; }
-
-    /* ===== GERENCIAR LISTA ===== */
-    .orca-manage-list{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      padding:10px 4px;
-      max-height:52vh;
-      overflow:auto;
-      border-top:1px solid rgba(255,255,255,.08);
-      border-bottom:1px solid rgba(255,255,255,.08);
-      margin:10px 0;
-    }
-    .orca-manage-row{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:10px 12px;
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:12px;
-      background: rgba(0,0,0,.14);
-    }
-    .orca-manage-label{ color:#f5f5f5; }
-    .orca-manage-empty{
-      padding:14px 10px;
-      color:#b0b0b0;
-    }
-  `;
-  document.head.appendChild(style);
+function slugify(value){
+  return String(value || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 120);
 }
 
-function ensureToastWrap() {
-  ensureInlineUIStyles();
-  let wrap = document.getElementById('orca-toast-wrap');
-  if (!wrap) {
-    wrap = document.createElement('div');
-    wrap.id = 'orca-toast-wrap';
-    wrap.className = 'orca-toast-wrap';
-    document.body.appendChild(wrap);
-  }
-  return wrap;
-}
-
-function toast(msg, type = 'ok', title = null, timeoutMs = 2800) {
-  const wrap = ensureToastWrap();
-
-  const ttype = String(type || 'ok').toLowerCase();
-  const norm =
-    (ttype === 'success') ? 'success' :
-    (ttype === 'info') ? 'info' :
-    (ttype === 'warn' || ttype === 'warning') ? 'warn' :
-    (ttype === 'err' || ttype === 'error') ? 'err' :
-    'ok';
-
-  const t = document.createElement('div');
-  t.className = `orca-toast orca-toast--${norm}`;
-
-  const icon = document.createElement('div');
-  icon.className = 'orca-toast__icon';
-  icon.innerHTML =
-    (norm === 'ok' || norm === 'success') ? '<i class="fa-solid fa-check"></i>' :
-    (norm === 'warn') ? '<i class="fa-solid fa-triangle-exclamation"></i>' :
-    (norm === 'info') ? '<i class="fa-solid fa-circle-info"></i>' :
-    '<i class="fa-solid fa-circle-xmark"></i>';
-
-  const body = document.createElement('div');
-  body.className = 'orca-toast__body';
-
-  const h = document.createElement('p');
-  h.className = 'orca-toast__title';
-  h.textContent = title || (
-    norm === 'warn' ? 'Atenção' :
-    norm === 'info' ? 'Info' :
-    norm === 'err' ? 'Erro' :
-    'OK'
-  );
-
-  const p = document.createElement('p');
-  p.className = 'orca-toast__msg';
-  p.textContent = msg;
-
-  const close = document.createElement('button');
-  close.className = 'orca-toast__close';
-  close.type = 'button';
-  close.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-
-  body.appendChild(h);
-  body.appendChild(p);
-
-  t.appendChild(icon);
-  t.appendChild(body);
-  t.appendChild(close);
-
-  wrap.appendChild(t);
-
-  const remove = () => { if (t.isConnected) t.remove(); };
-  close.addEventListener('click', remove);
-  if (timeoutMs > 0) setTimeout(remove, timeoutMs);
-}
-
-function confirmOrca(message, {
-  title = 'Confirmar',
-  okText = 'Confirmar',
-  cancelText = 'Cancelar'
-} = {}) {
-  ensureInlineUIStyles();
-
-  return new Promise(resolve => {
-    const bd = document.createElement('div');
-    bd.className = 'orca-confirm-backdrop';
-
-    const modal = document.createElement('div');
-    modal.className = 'orca-confirm';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-
-    const head = document.createElement('div');
-    head.className = 'orca-confirm__head';
-
-    const h = document.createElement('h3');
-    h.className = 'orca-confirm__title';
-    h.textContent = title;
-
-    const x = document.createElement('button');
-    x.className = 'orca-confirm__close';
-    x.type = 'button';
-    x.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-
-    head.appendChild(h);
-    head.appendChild(x);
-
-    const msg = document.createElement('p');
-    msg.className = 'orca-confirm__msg';
-    msg.textContent = message;
-
-    const foot = document.createElement('div');
-    foot.className = 'orca-confirm__foot';
-
-    const btnCancel = document.createElement('button');
-    btnCancel.className = 'btn-secondary';
-    btnCancel.type = 'button';
-    btnCancel.textContent = cancelText;
-
-    const btnOk = document.createElement('button');
-    btnOk.className = 'btn-primary';
-    btnOk.type = 'button';
-    btnOk.textContent = okText;
-
-    foot.appendChild(btnCancel);
-    foot.appendChild(btnOk);
-
-    modal.appendChild(head);
-    modal.appendChild(msg);
-    modal.appendChild(foot);
-
-    bd.appendChild(modal);
-    document.body.appendChild(bd);
-    document.body.classList.add('modal-open');
-
-    const cleanup = () => {
-      document.body.classList.remove('modal-open');
-      bd.remove();
-      document.removeEventListener('keydown', onKey);
-    };
-
-    const done = (v) => { cleanup(); resolve(v); };
-
-    const onKey = (e) => { if (e.key === 'Escape') done(false); };
-    document.addEventListener('keydown', onKey);
-
-    bd.addEventListener('click', (e) => { if (e.target === bd) done(false); });
-    x.addEventListener('click', () => done(false));
-    btnCancel.addEventListener('click', () => done(false));
-    btnOk.addEventListener('click', () => done(true));
-
-    setTimeout(() => btnOk.focus(), 0);
-  });
-}
-
-function promptOrca(message, {
-  title = 'Adicionar',
-  okText = 'Adicionar',
-  cancelText = 'Cancelar',
-  placeholder = 'Digite...'
-} = {}) {
-  ensureInlineUIStyles();
-
-  return new Promise(resolve => {
-    const bd = document.createElement('div');
-    bd.className = 'orca-confirm-backdrop';
-
-    const modal = document.createElement('div');
-    modal.className = 'orca-confirm';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-
-    const head = document.createElement('div');
-    head.className = 'orca-confirm__head';
-
-    const h = document.createElement('h3');
-    h.className = 'orca-confirm__title';
-    h.textContent = title;
-
-    const x = document.createElement('button');
-    x.className = 'orca-confirm__close';
-    x.type = 'button';
-    x.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-
-    head.appendChild(h);
-    head.appendChild(x);
-
-    const msg = document.createElement('p');
-    msg.className = 'orca-confirm__msg';
-    msg.textContent = message;
-
-    const input = document.createElement('input');
-    input.className = 'orca-confirm__input';
-    input.type = 'text';
-    input.placeholder = placeholder;
-
-    const foot = document.createElement('div');
-    foot.className = 'orca-confirm__foot';
-
-    const btnCancel = document.createElement('button');
-    btnCancel.className = 'btn-secondary';
-    btnCancel.type = 'button';
-    btnCancel.textContent = cancelText;
-
-    const btnOk = document.createElement('button');
-    btnOk.className = 'btn-primary';
-    btnOk.type = 'button';
-    btnOk.textContent = okText;
-
-    foot.appendChild(btnCancel);
-    foot.appendChild(btnOk);
-
-    modal.appendChild(head);
-    modal.appendChild(msg);
-    modal.appendChild(input);
-    modal.appendChild(foot);
-
-    bd.appendChild(modal);
-    document.body.appendChild(bd);
-    document.body.classList.add('modal-open');
-
-    const cleanup = () => {
-      document.body.classList.remove('modal-open');
-      bd.remove();
-      document.removeEventListener('keydown', onKey);
-    };
-
-    const done = (v) => { cleanup(); resolve(v); };
-
-    const onKey = (e) => {
-      if (e.key === 'Escape') done(null);
-      if (e.key === 'Enter') {
-        const val = (input.value || '').trim();
-        done(val || null);
-      }
-    };
-    document.addEventListener('keydown', onKey);
-
-    bd.addEventListener('click', (e) => { if (e.target === bd) done(null); });
-    x.addEventListener('click', () => done(null));
-    btnCancel.addEventListener('click', () => done(null));
-    btnOk.addEventListener('click', () => {
-      const val = (input.value || '').trim();
-      done(val || null);
-    });
-
-    setTimeout(() => input.focus(), 0);
-  });
-}
-
-/* =========================
-   Helpers
-========================= */
-
-function escapeHTML(s) {
-  return String(s ?? '')
+function escapeHtml(v){
+  return String(v ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
 }
-function escapeHtml(s){ return escapeHTML(s); }
 
-function getEl(id) { return document.getElementById(id); }
-
-function isSim(v) {
-  const s = String(v ?? '').trim().toLowerCase();
-  return s === 'sim' || s === 'true' || s === '1';
-}
-
-function updateProdutoControladoUI() {
-  const v = getEl('campo-prod-controlado')?.value;
-  const show = isSim(v);
-
-  const ids = [
-    'sec-prod-controlado-extra',
-    'wrap-tipo-fiscalizacao',
-    'wrap-dados-identificacao-controlado',
-    'wrap-observacoes-controlado',
-  ];
-
-  ids.forEach(id => {
-    const el = getEl(id);
-    if (el) el.hidden = !show;
-  });
-
-  if (!show) {
-    const tf = getEl('campo-tipo-fiscalizacao');
-    const di = getEl('campo-dados-identificacao-controlado');
-    const ob = getEl('campo-observacoes-controlado');
-    if (tf) tf.value = '';
-    if (di) di.value = '';
-    if (ob) ob.value = '';
-  }
-}
-
-/* =========================
-   Movimentação (Entrada/Saída)
-========================= */
-
-function setVal(id, v) {
-  const el = getEl(id);
-  if (el) el.value = v ?? '';
-}
-
-function resetMovForm() {
-  setVal('campo-mov-data', '');
-  setVal('campo-mov-tipo', '');
-
-  setVal('campo-mov-entrada-tipo', '');
-  setVal('campo-mov-qtd', '');
-  setVal('campo-mov-fornecedor', '');
-  setVal('campo-mov-doc-tipo', '');
-  setVal('campo-mov-doc-numero', '');
-  setVal('campo-mov-nfe-chave', '');
-
-  setVal('campo-mov-saida-tipo', '');
-  setVal('campo-mov-qtd-saida', '');
-  setVal('campo-destino', '');
-  setVal('campo-mov-cliente', '');
-  setVal('campo-mov-departamento', '');
-  setVal('campo-mov-doc-tipo-saida', '');
-  setVal('campo-mov-doc-numero-saida', '');
-  setVal('campo-mov-nfe-chave-saida', '');
-
-  const anexos = getEl('campo-mov-anexos');
-  if (anexos) anexos.value = '';
-
-  updateMovUI();
-}
-
-function updateMovUI() {
-  const tipo = (getEl('campo-mov-tipo')?.value || '').trim();
-
-  const blocoEntrada = getEl('bloco-mov-entrada');
-  const blocoSaida = getEl('bloco-mov-saida');
-
-  if (blocoEntrada) blocoEntrada.hidden = tipo !== 'Entrada';
-  if (blocoSaida) blocoSaida.hidden = tipo !== 'Saida';
-
-  const docEntrada = (getEl('campo-mov-doc-tipo')?.value || '').trim();
-  const nfeEntrada = getEl('bloco-mov-nfe-entrada');
-  if (nfeEntrada) nfeEntrada.hidden = docEntrada !== 'Nota Fiscal';
-
-  const docSaida = (getEl('campo-mov-doc-tipo-saida')?.value || '').trim();
-  const nfeSaida = getEl('bloco-mov-nfe-saida');
-  if (nfeSaida) nfeSaida.hidden = docSaida !== 'Nota Fiscal';
-
-  const destino = (getEl('campo-destino')?.value || '').trim();
-
-  const bCli = getEl('bloco-mov-saida-cliente');
-  const bDep = getEl('bloco-mov-saida-dep');
-  const bDocs = getEl('bloco-mov-saida-docs');
-
-  const precisaCliente = destino === 'Venda' || destino === 'Patrimônio/Comodato';
-  const precisaDep = destino === 'Uso Interno';
-  const precisaDocs = destino === 'Baixa/Descarte' || destino === 'Doação';
-
-  if (bCli) bCli.hidden = !precisaCliente;
-  if (bDep) bDep.hidden = !precisaDep;
-  if (bDocs) bDocs.hidden = !precisaDocs;
-}
-
-function _formatMovItem(m, idx) {
-  const dt = m.data_mov ? formatDateBR(m.data_mov) : '-';
-  const tipo = m.tipo_mov || '-';
-  const qtd = (m.quantidade != null && m.quantidade !== '') ? String(m.quantidade) : '-';
-
-  let extra = '';
-  if (tipo === 'Entrada') {
-    extra = [m.fornecedor, m.tipo_entrada].filter(Boolean).join(' • ');
-  } else if (tipo === 'Saida') {
-    extra = [m.destino, m.tipo_saida].filter(Boolean).join(' • ');
-    if (m.cliente) extra += ` • Cliente: ${m.cliente}`;
-    if (m.departamento) extra += ` • Dep: ${m.departamento}`;
-  }
-
-  const doc = [m.tipo_documento, m.numero_doc].filter(Boolean).join(' ');
-  const docTxt = doc ? ` • Doc: ${doc}` : '';
-
-  return `
-    <div class="orca-mov-item">
-      <div class="orca-mov-item__main">
-        <div class="orca-mov-item__title">${escapeHTML(dt)} • <b>${escapeHTML(tipo)}</b> • Qtd: ${escapeHTML(qtd)}${escapeHTML(docTxt)}</div>
-        <div class="orca-mov-item__sub">${escapeHtml(extra || '')}</div>
-      </div>
-      <button type="button" class="orca-btn orca-btn--ghost orca-btn--icon" data-mov-del="${idx}" title="Apagar movimentação">✕</button>
-    </div>
-  `;
-}
-
-function renderMovimentacoes() {
-  const wrap = getEl('lista-movimentacoes');
-  if (!wrap) return;
-
-  if (!Array.isArray(MOVIMENTACOES_ATUAIS) || MOVIMENTACOES_ATUAIS.length === 0) {
-    wrap.innerHTML = '<div class="orca-mov-empty">Sem movimentações registradas.</div>';
-    return;
-  }
-
-  wrap.innerHTML = MOVIMENTACOES_ATUAIS
-    .map((m, idx) => _formatMovItem(m, idx))
-    .join('');
-
-  wrap.querySelectorAll('[data-mov-del]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const i = Number(btn.getAttribute('data-mov-del'));
-      if (Number.isNaN(i)) return;
-      MOVIMENTACOES_ATUAIS.splice(i, 1);
-      renderMovimentacoes();
-    });
-  });
-}
-
-function _loadClientesToDatalist() {
-  const dl = getEl('datalist-clientes');
-  if (!dl) return;
-
-  const keys = [
-    'orcapro_clientes_v2',
-    'orcapro_clientes_v1',
-    'orcapro_clientes',
-    'orcapro_clientes_v0'
-  ];
-
-  let arr = [];
-  for (const k of keys) {
-    try {
-      const raw = localStorage.getItem(k);
-      if (!raw) continue;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) { arr = parsed; break; }
-      if (parsed && Array.isArray(parsed.items)) { arr = parsed.items; break; }
-    } catch (_e) {}
-  }
-
-  const nomes = [];
-  (arr || []).forEach(c => {
-    if (!c || typeof c !== 'object') return;
-    const n = (c.razao_social || c.nome_fantasia || c.nome || c.nome_cliente || '').toString().trim();
-    if (n) nomes.push(n);
-  });
-
-  const uniq = Array.from(new Set(nomes.map(n => n.trim()))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
-  dl.innerHTML = uniq.map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
-}
-
-function lerMovForm() {
-  const data_mov = getEl('campo-mov-data')?.value || '';
-  const tipo_mov = (getEl('campo-mov-tipo')?.value || '').trim();
-
-  if (!data_mov || !tipo_mov) {
-    toast('Preencha Data e Tipo de Movimento.', 'warn', 'Movimentação');
-    return null;
-  }
-
-  if (tipo_mov === 'Entrada') {
-    const tipo_entrada = (getEl('campo-mov-entrada-tipo')?.value || '').trim();
-    const quantidade = intOrNull(getEl('campo-mov-qtd')?.value);
-    const fornecedor = (getEl('campo-mov-fornecedor')?.value || '').trim();
-    const tipo_documento = (getEl('campo-mov-doc-tipo')?.value || '').trim();
-    const numero_doc = (getEl('campo-mov-doc-numero')?.value || '').trim();
-    const chave_nfe = (getEl('campo-mov-nfe-chave')?.value || '').trim();
-
-    if (!quantidade || quantidade <= 0) {
-      toast('Informe a Quantidade (Entrada).', 'warn', 'Movimentação');
-      return null;
-    }
-
-    return {
-      data_mov,
-      tipo_mov,
-      tipo_entrada,
-      quantidade,
-      fornecedor,
-      tipo_documento,
-      numero_doc,
-      chave_nfe
-    };
-  }
-
-  const tipo_saida = (getEl('campo-mov-saida-tipo')?.value || '').trim();
-  const quantidade = intOrNull(getEl('campo-mov-qtd-saida')?.value);
-  const destino = (getEl('campo-destino')?.value || '').trim();
-
-  const cliente = (getEl('campo-mov-cliente')?.value || '').trim();
-  const departamento = (getEl('campo-mov-departamento')?.value || '').trim();
-
-  const tipo_documento = (getEl('campo-mov-doc-tipo-saida')?.value || '').trim();
-  const numero_doc = (getEl('campo-mov-doc-numero-saida')?.value || '').trim();
-  const chave_nfe = (getEl('campo-mov-nfe-chave-saida')?.value || '').trim();
-
-  const anexosEl = getEl('campo-mov-anexos');
-  const anexos = anexosEl && anexosEl.files ? Array.from(anexosEl.files).map(f => f.name) : [];
-
-  if (!quantidade || quantidade <= 0) {
-    toast('Informe a Quantidade (Saída).', 'warn', 'Movimentação');
-    return null;
-  }
-
-  return {
-    data_mov,
-    tipo_mov,
-    tipo_saida,
-    quantidade,
-    destino,
-    cliente,
-    departamento,
-    tipo_documento,
-    numero_doc,
-    chave_nfe,
-    anexos
+function formatTipoCampo(tipo){
+  const map = {
+    texto: 'Texto curto',
+    textarea: 'Texto longo',
+    numero: 'Número',
+    data: 'Data',
+    select: 'Lista de opções',
+    checkbox: 'Caixa de seleção',
   };
+  return map[tipo] || tipo || '-';
 }
 
-function initMovimentacaoUI() {
-  if (initMovimentacaoUI._bound) {
-    updateMovUI();
-    _loadClientesToDatalist();
-    return;
-  }
-  initMovimentacaoUI._bound = true;
-
-  const selTipo = getEl('campo-mov-tipo');
-  const docEntrada = getEl('campo-mov-doc-tipo');
-  const docSaida = getEl('campo-mov-doc-tipo-saida');
-  const destino = getEl('campo-destino');
-
-  if (selTipo) selTipo.addEventListener('change', updateMovUI);
-  if (docEntrada) docEntrada.addEventListener('change', updateMovUI);
-  if (docSaida) docSaida.addEventListener('change', updateMovUI);
-  if (destino) destino.addEventListener('change', updateMovUI);
-
-  const btnAdd = getEl('btn-add-mov');
-  const btnLimpar = getEl('btn-limpar-mov');
-
-  if (btnAdd) btnAdd.addEventListener('click', () => {
-    const mov = lerMovForm();
-    if (!mov) return;
-
-    MOVIMENTACOES_ATUAIS.push(mov);
-    renderMovimentacoes();
-
-    if (mov.tipo_mov === 'Entrada' && mov.fornecedor) {
-      setVal('campo-ultimo-fornecedor', mov.fornecedor);
-      try {
-        const d = new Date(mov.data_mov);
-        if (!Number.isNaN(d.getTime())) {
-          setVal('campo-ultima-compra', d.toISOString().slice(0,10));
-        }
-      } catch (_e) {}
-    }
-
-    resetMovForm();
-    toast('Movimentação adicionada.', 'success', 'OK');
-  });
-
-  if (btnLimpar) btnLimpar.addEventListener('click', resetMovForm);
-
-  const btnDanfeE = getEl('btn-buscar-danfe-entrada');
-  const btnDanfeS = getEl('btn-buscar-danfe-saida');
-
-  if (btnDanfeE) btnDanfeE.addEventListener('click', () => {
-    toast('Consulta DANFE é manual por enquanto (módulo futuro).', 'info', 'Em breve');
-    window.open('https://www.nfe.fazenda.gov.br/portal/principal.aspx', '_blank');
-  });
-
-  if (btnDanfeS) btnDanfeS.addEventListener('click', () => {
-    toast('Consulta DANFE é manual por enquanto (módulo futuro).', 'info', 'Em breve');
-    window.open('https://www.nfe.fazenda.gov.br/portal/principal.aspx', '_blank');
-  });
-
-  const btnUltPedido = getEl('btn-buscar-ultimo-pedido');
-  const btnUltNF = getEl('btn-buscar-ultima-nf');
-
-  if (btnUltPedido) btnUltPedido.addEventListener('click', () => toast('Módulo de Pedido de Compras ainda não implementado.', 'info', 'Uso futuro'));
-  if (btnUltNF) btnUltNF.addEventListener('click', () => toast('Módulo de Pedido de Compras ainda não implementado.', 'info', 'Uso futuro'));
-
-  updateMovUI();
-  _loadClientesToDatalist();
+function toast(msg, { error=false, ms=2600 } = {}){
+  const el = document.getElementById('Valora-toast');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.classList.toggle('is-error', !!error);
+  el.hidden = false;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ el.hidden = true; }, ms);
 }
 
-/* ===== nums/datas ===== */
+let _confirmResolver = null;
 
-function numOrNull(v) {
-  const s = String(v ?? '').trim();
-  if (!s) return null;
-  const n = Number(s.replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
-}
-function intOrNull(v) {
-  const n = numOrNull(v);
-  return n == null ? null : Math.trunc(n);
-}
+function confirmDialog({
+  title='Confirmar',
+  message='Tem certeza?',
+  confirmText='OK',
+  cancelText='Cancelar',
+  danger=false,
+} = {}){
+  const backdrop = document.getElementById('Valora-confirm-backdrop');
+  const box = backdrop?.querySelector('.Valora-confirm');
+  const t = document.getElementById('Valora-confirm-title');
+  const m = document.getElementById('Valora-confirm-message');
+  const btnOk = document.getElementById('Valora-confirm-ok');
+  const btnCancel = document.getElementById('Valora-confirm-cancel');
 
-function formatDateOnlyBR(yyyyMMdd) {
-  const s = String(yyyyMMdd || '').trim();
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return s ? s : '-';
-  return `${m[3]}/${m[2]}/${m[1]}`;
-}
-function formatDateBR(iso) {
-  if (!iso) return '-';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '-';
-  return d.toLocaleString('pt-BR');
-}
-
-/* =========================
-   Listas (SELECT) + Adicionar…
-========================= */
-
-const LISTS_DEFAULT = {
-  origem: ['Nacional', 'Importado'],
-
-  status_atual: ['Ativo', 'Inativo', 'Fora de Linha', 'Suspenso'],
-  tipo_mercado: ['Mercado Continuo', 'Mercado Sazional'],
-  utilizacao: ['Revenda', 'Consumo Próprio', 'Patrimonio', 'Armazenamento p/ Terceiros'],
-  tipo_material: ['Pronta Utilização (Acabado)', 'Semi Acabado', 'Materia Prima'],
-  tipo_fiscalizacao: ['Exército', 'Polícia Federal', 'ANATEL', 'ANVISA', 'Ibama', 'CNEN'],
-
-  sim_nao: ['Sim', 'Não'],
-
-  segmentos: [
-    'Segurança Predial',
-    'Prevenção Incendio',
-    'Controle de Acesso',
-    'Automação (IOT)',
-    'Automatização',
-    'Prevenção Perdas',
-    'Proteção Individual',
-    'Telemetria / Supervisão Remota',
-    'Segurança Veicular',
-    'Soluções PET',
-    'Soluções AgroNegocios',
-    'Monitoramento Patriminial 24hs',
-    'Tele Assistencia Pessoal',
-    'Portaria Remota',
-    'Rastreamento Veicular',
-    'Acompanhamento e Localização PET',
-    'Chegada /Saida Assistida Pessoal',
-    'Acompanhamento Proteção Individual'
-  ],
-
-  classe: [
-    'Centrais de Comando',
-    'Sensores',
-    'Atudores',
-    'Acumuladores de Energia',
-    'Sinalizadores',
-    'Cabeamento',
-    'Terminais / Conexões',
-    'Tubulações',
-    'Transmissão Remota'
-  ],
-
-  fornecedor: [
-    'Distribuidora Só Portões - Taubaté',
-    'Distribuidora Só Portões - SJC',
-    'Distribuidora BJ Taubaté',
-    'Distribuidora BJ SJC',
-    'Distribuidora Route 66 - SJC',
-    'Distribuidora Farias',
-    'Distribuidora Houter'
-  ],
-
-  tipo_armaz: [
-    'Fisico Local',
-    'Fisico Remoto',
-    'Dropshipping (Fornecedor)',
-    'Virtual'
-  ],
-
-  cores_disponiveis: ['Variadas', 'Cinza', 'Preto', 'Branco', 'Creme'],
-
-  unidade_peso: ['kg', 'g', 'L', 'm³', 'mL', 'm', 'cm', 'mm'],
-
-  cst_padrao: [
-    { value: '00', label: 'Tributada Integralmente' },
-    { value: '10', label: 'Tributada com ICMS por Substituição' },
-    { value: '20', label: 'Tributada com Redução Base Calc.' },
-    { value: '30', label: 'Isenta Tribut. c/Base ICMS Subist.' },
-    { value: '40', label: 'Isenta de Tributação' },
-    { value: '41', label: 'Não Tributada' },
-    { value: '50', label: 'Tributação Suspensa' }
-  ],
-
-  destino: ['Venda', 'Patrimônio/Comodato', 'Uso Interno', 'Baixa/Descarte', 'Doação'],
-
-  departamentos: ['Administrativo', 'Operações', 'Financeiro', 'Comercial', 'TI']
-};
-
-let LISTS_STATE = null;
-let MOVIMENTACOES_ATUAIS = [];
-const BOUND_SELECTS = [];
-
-function _dedupeKeepOrder(arr) {
-  const seen = new Set();
-  const out = [];
-  (arr || []).forEach(x => {
-    const s = String(x ?? '').trim();
-    if (!s) return;
-    const k = s.toLowerCase();
-    if (seen.has(k)) return;
-    seen.add(k);
-    out.push(s);
-  });
-  return out;
-}
-
-function loadLists() {
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(LISTS_KEY) || '{}') || {}; } catch { saved = {}; }
-
-  const merged = { ...LISTS_DEFAULT, ...saved };
-
-  for (const k of Object.keys(merged)) {
-    if (Array.isArray(merged[k]) && merged[k].length && typeof merged[k][0] === 'string') {
-      merged[k] = _dedupeKeepOrder(merged[k]);
-    }
-  }
-  return merged;
-}
-
-function saveLists() {
-  try { localStorage.setItem(LISTS_KEY, JSON.stringify(LISTS_STATE || {})); } catch {}
-}
-
-function renderSelectOptions(selectEl, listKey, { placeholder = '—', allowAdd = true } = {}) {
-  const list = LISTS_STATE?.[listKey] || [];
-  const current = selectEl.value;
-
-  const opts = [];
-  opts.push(`<option value="">${escapeHTML(placeholder)}</option>`);
-
-  list.forEach(item => {
-    if (typeof item === 'string') {
-      const v = item;
-      opts.push(`<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`);
-    } else if (item && typeof item === 'object') {
-      const v = String(item.value ?? '').trim();
-      const l = String(item.label ?? '').trim() || v;
-      if (v) opts.push(`<option value="${escapeHTML(v)}">${escapeHTML(l)}</option>`);
-    }
-  });
-
-  if (allowAdd) opts.push(`<option value="__add__">➕ Adicionar…</option>`);
-
-  selectEl.innerHTML = opts.join('');
-  selectEl.value = current;
-}
-
-function refreshAllSelectsOf(listKey) {
-  BOUND_SELECTS.forEach(b => {
-    if (b.listKey === listKey) renderSelectOptions(b.el, b.listKey, b.cfg);
-  });
-}
-
-function bindSelectList(selectId, listKey, cfg = {}) {
-  const el = getEl(selectId);
-  if (!el) return;
-
-  renderSelectOptions(el, listKey, cfg);
-  el.dataset._prev = el.value || '';
-
-  BOUND_SELECTS.push({ el, listKey, cfg });
-
-  el.addEventListener('change', async () => {
-    if (el.value !== '__add__') {
-      el.dataset._prev = el.value || '';
-      return;
-    }
-
-    const prev = el.dataset._prev || '';
-    el.value = prev;
-
-    const novo = await promptOrca('Digite a nova opção para esta lista:', {
-      title: 'Adicionar opção',
-      okText: 'Adicionar',
-      cancelText: 'Cancelar',
-      placeholder: 'Ex: Novo item'
-    });
-
-    if (!novo) return;
-
-    if (!Array.isArray(LISTS_STATE[listKey])) LISTS_STATE[listKey] = [];
-    const list = LISTS_STATE[listKey];
-
-    if (list.length && typeof list[0] === 'object') {
-      list.push({ value: novo, label: novo });
-    } else {
-      list.push(novo);
-      LISTS_STATE[listKey] = _dedupeKeepOrder(list);
-    }
-
-    saveLists();
-    refreshAllSelectsOf(listKey);
-
-    el.value = novo;
-    el.dataset._prev = novo;
-    toast('Opção adicionada na lista.', 'ok');
-  });
-}
-
-/* =========================
-   Segmentos (multi + criar + apagar)
-========================= */
-
-let SELECTED_SEGMENTOS = [];
-
-function normalizeSegmentosValue(v) {
-  if (v == null) return [];
-  if (Array.isArray(v)) {
-    return v.map(x => String(x || '').trim()).filter(Boolean);
-  }
-  const s = String(v || '').trim();
-  return s ? [s] : [];
-}
-
-function setSegmentosSelection(v) {
-  SELECTED_SEGMENTOS = _dedupeKeepOrder(normalizeSegmentosValue(v));
-  renderSegmentosChips();
-}
-
-function getSelectedSegmentos() {
-  return (SELECTED_SEGMENTOS || []).slice();
-}
-
-function addSegmentoToSelection(v) {
-  const s = String(v || '').trim();
-  if (!s) return;
-  if (!SELECTED_SEGMENTOS.includes(s)) SELECTED_SEGMENTOS.push(s);
-  SELECTED_SEGMENTOS = _dedupeKeepOrder(SELECTED_SEGMENTOS);
-  renderSegmentosChips();
-}
-
-function renderSegmentosChips() {
-  const wrap = getEl('chips-segmentos');
-  if (!wrap) return;
-
-  wrap.innerHTML = '';
-
-  if (!SELECTED_SEGMENTOS.length) {
-    const empty = document.createElement('div');
-    empty.className = 'orca-chip orca-chip--empty';
-    empty.textContent = 'Nenhum segmento selecionado';
-    wrap.appendChild(empty);
-    return;
+  if(!backdrop || !box || !btnOk || !btnCancel){
+    return Promise.resolve(false);
   }
 
-  SELECTED_SEGMENTOS.forEach(seg => {
-    const chip = document.createElement('span');
-    chip.className = 'orca-chip';
-    chip.innerHTML = `
-      <span class="orca-chip__txt">${escapeHTML(seg)}</span>
-      <button type="button" class="orca-chip__x" title="Remover">×</button>
-    `;
-    chip.querySelector('button').addEventListener('click', () => {
-      SELECTED_SEGMENTOS = SELECTED_SEGMENTOS.filter(x => x !== seg);
-      renderSegmentosChips();
-    });
-    wrap.appendChild(chip);
+  t.textContent = title || 'Confirmar';
+  m.textContent = message || 'Tem certeza?';
+  btnOk.textContent = confirmText || 'OK';
+  btnCancel.textContent = cancelText || 'Cancelar';
+  box.classList.toggle('is-danger', !!danger);
+
+  backdrop.hidden = false;
+  backdrop.style.display = 'flex';
+
+  return new Promise((resolve)=>{
+    _confirmResolver = resolve;
+    setTimeout(()=>{ try{ btnCancel.focus(); }catch{} }, 0);
   });
 }
 
-function setupSegmentosMulti() {
-  const sel = getEl('campo-segmentos-add');
-  if (!sel) return;
-
-  ensureInlineUIStyles();
-
-  const cfg = { placeholder: 'Selecione...', allowAdd: true };
-  renderSelectOptions(sel, 'segmentos', cfg);
-
-  BOUND_SELECTS.push({ el: sel, listKey: 'segmentos', cfg });
-
-  sel.value = '';
-
-  sel.addEventListener('change', async () => {
-    const v = sel.value;
-    if (!v) return;
-
-    if (v === '__add__') {
-      sel.value = '';
-      const novo = await promptOrca('Digite o novo segmento:', {
-        title: 'Novo segmento',
-        okText: 'Criar',
-        cancelText: 'Cancelar',
-        placeholder: 'Ex: Segurança Predial'
-      });
-
-      if (!novo) return;
-
-      if (!Array.isArray(LISTS_STATE.segmentos)) LISTS_STATE.segmentos = [];
-      const list = LISTS_STATE.segmentos;
-
-      if (list.length && typeof list[0] === 'object') {
-        list.push({ value: novo, label: novo });
-      } else {
-        list.push(novo);
-        LISTS_STATE.segmentos = _dedupeKeepOrder(list);
-      }
-
-      saveLists();
-      refreshAllSelectsOf('segmentos');
-
-      addSegmentoToSelection(novo);
-      toast('Segmento criado.', 'ok');
-      return;
-    }
-
-    addSegmentoToSelection(v);
-    sel.value = '';
-  });
-
-  const btn = getEl('btn-gerenciar-segmentos');
-  if (btn && !btn.dataset._bound) {
-    btn.dataset._bound = '1';
-    btn.addEventListener('click', () => openManageSegmentosModal());
+function closeConfirm(result=false){
+  const backdrop = document.getElementById('Valora-confirm-backdrop');
+  if(backdrop){
+    backdrop.hidden = true;
+    backdrop.style.display = 'none';
   }
 
-  renderSegmentosChips();
-}
-
-async function openManageSegmentosModal() {
-  ensureInlineUIStyles();
-  const listKey = 'segmentos';
-
-  const bd = document.createElement('div');
-  bd.className = 'orca-confirm-backdrop';
-
-  const modal = document.createElement('div');
-  modal.className = 'orca-confirm';
-  modal.setAttribute('role', 'dialog');
-  modal.setAttribute('aria-modal', 'true');
-
-  modal.innerHTML = `
-    <div class="orca-confirm__head">
-      <h3 class="orca-confirm__title">Gerenciar segmentos</h3>
-      <button class="orca-confirm__close" type="button" aria-label="Fechar">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-
-    <p class="orca-confirm__msg">
-      Apague os segmentos cadastrados errado. Isso também remove do produto atual.
-    </p>
-
-    <div class="orca-manage-list" id="orca-manage-seg-list"></div>
-
-    <div class="orca-confirm__foot">
-      <button class="btn-secondary" type="button" data-act="fechar">Fechar</button>
-    </div>
-  `;
-
-  bd.appendChild(modal);
-  document.body.appendChild(bd);
-  document.body.classList.add('modal-open');
-
-  const close = () => {
-    document.body.classList.remove('modal-open');
-    if (bd.isConnected) bd.remove();
-    document.removeEventListener('keydown', onKey);
-  };
-
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-  document.addEventListener('keydown', onKey);
-
-  bd.addEventListener('click', e => { if (e.target === bd) close(); });
-  modal.querySelector('[data-act="fechar"]').addEventListener('click', close);
-  modal.querySelector('.orca-confirm__close').addEventListener('click', close);
-
-  const listEl = modal.querySelector('#orca-manage-seg-list');
-
-  const getRawList = () => (Array.isArray(LISTS_STATE?.[listKey]) ? LISTS_STATE[listKey] : []);
-  const toValue = (x) => (typeof x === 'object' ? (x.value || x.label || '') : String(x || '')).trim();
-  const toLabel = (x) => (typeof x === 'object' ? (x.label || x.value || '') : String(x || '')).trim();
-
-  const render = () => {
-    const raw = getRawList();
-    const items = raw.map(x => ({ value: toValue(x), label: toLabel(x) })).filter(x => x.value);
-
-    listEl.innerHTML = '';
-
-    if (!items.length) {
-      listEl.innerHTML = `<div class="orca-manage-empty">Nenhum segmento cadastrado.</div>`;
-      return;
-    }
-
-    items.forEach(it => {
-      const row = document.createElement('div');
-      row.className = 'orca-manage-row';
-      row.innerHTML = `
-        <div class="orca-manage-label">${escapeHTML(it.label)}</div>
-        <button type="button" class="orca-icon-btn" title="Apagar">
-          <i class="fa-solid fa-trash"></i>
-        </button>
-      `;
-
-      row.querySelector('button').addEventListener('click', async () => {
-        const ok = await confirmOrca(`Apagar o segmento "${it.label}"?`, {
-          title: 'Apagar segmento',
-          okText: 'Apagar',
-          cancelText: 'Cancelar'
-        });
-        if (!ok) return;
-
-        const rawNow = getRawList();
-        LISTS_STATE[listKey] = rawNow.filter(x => String(toValue(x)) !== String(it.value));
-        saveLists();
-        refreshAllSelectsOf(listKey);
-
-        SELECTED_SEGMENTOS = SELECTED_SEGMENTOS.filter(s => String(s) !== String(it.value));
-        renderSegmentosChips();
-
-        removeSegmentoFromProdutosLocal(String(it.value));
-
-        toast('Segmento apagado.', 'ok');
-        render();
-      });
-
-      listEl.appendChild(row);
-    });
-  };
-
-  render();
-}
-
-function removeSegmentoFromProdutosLocal(seg) {
-  const alvo = String(seg || '').trim();
-  if (!alvo) return;
-
-  try {
-    if (Array.isArray(produtos)) {
-      let changed = false;
-      produtos = produtos.map(p => {
-        const arr = normalizeSegmentosValue(p.segmentos);
-        if (!arr.includes(alvo)) return p;
-        changed = true;
-        return { ...p, segmentos: arr.filter(x => x !== alvo) };
-      });
-      if (changed) renderTabela();
-    }
-  } catch {}
-
-  const local = loadLocal();
-  if (Array.isArray(local)) {
-    let changed = false;
-    const out = local.map(p => {
-      const arr = normalizeSegmentosValue(p.segmentos);
-      if (!arr.includes(alvo)) return p;
-      changed = true;
-      return { ...p, segmentos: arr.filter(x => x !== alvo) };
-    });
-    if (changed) saveLocal(out);
+  if(typeof _confirmResolver === 'function'){
+    const fn = _confirmResolver;
+    _confirmResolver = null;
+    fn(!!result);
   }
 }
 
-/* =========================
-   Fornecedores (multi + criar + apagar)
-========================= */
-
-let SELECTED_FORNECEDORES = [];
-
-function normalizeFornecedoresValue(v) {
-  if (v == null) return [];
-  if (Array.isArray(v)) {
-    return v.map(x => String(x || '').trim()).filter(Boolean);
+async function apiJson(url, options = {}){
+  const resp = await fetch(url, options);
+  if(!resp.ok){
+    const txt = await resp.text();
+    throw new Error(txt || 'Erro na requisição.');
   }
-  const s = String(v || '').trim();
-  return s ? [s] : [];
+  if(resp.status === 204) return null;
+  return resp.json();
 }
 
-function setFornecedoresSelection(v) {
-  SELECTED_FORNECEDORES = _dedupeKeepOrder(normalizeFornecedoresValue(v));
-  renderFornecedoresChips();
+async function carregarProdutos(){
+  const data = await apiJson(API_PRODUTOS);
+  produtos = Array.isArray(data) ? data : [];
+  renderTabelaProdutos();
 }
 
-function getSelectedFornecedores() {
-  return _dedupeKeepOrder(SELECTED_FORNECEDORES || []);
+async function obterProdutoNoServidor(id){
+  return apiJson(`${API_PRODUTOS}/${id}`);
 }
 
-function addFornecedorToSelection(v) {
-  const val = String(v || '').trim();
-  if (!val) return;
-  const cur = getSelectedFornecedores();
-  if (!cur.includes(val)) cur.push(val);
-  SELECTED_FORNECEDORES = cur;
-  renderFornecedoresChips();
-}
+async function salvarProdutoNoServidor(payload, editandoId){
+  const url = editandoId == null ? API_PRODUTOS : `${API_PRODUTOS}/${editandoId}`;
+  const method = editandoId == null ? 'POST' : 'PUT';
 
-function renderFornecedoresChips() {
-  const wrap = getEl('chips-fornecedores');
-  if (!wrap) return;
-
-  wrap.innerHTML = '';
-  const list = getSelectedFornecedores();
-
-  if (!list.length) {
-    const empty = document.createElement('div');
-    empty.className = 'orca-multi__empty';
-    empty.textContent = 'Nenhum fornecedor selecionado.';
-    wrap.appendChild(empty);
-    return;
-  }
-
-  list.forEach(nome => {
-    const chip = document.createElement('span');
-    chip.className = 'orca-chip';
-    chip.innerHTML = `
-      <span class="orca-chip__text">${escapeHTML(nome)}</span>
-      <button type="button" class="orca-chip__x" title="Remover">×</button>
-    `;
-    chip.querySelector('button').addEventListener('click', () => {
-      SELECTED_FORNECEDORES = SELECTED_FORNECEDORES.filter(x => x !== nome);
-      renderFornecedoresChips();
-    });
-    wrap.appendChild(chip);
+  return apiJson(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
 }
 
-function setupFornecedoresMulti() {
-  const sel = getEl('campo-fornecedores-add');
-  if (!sel) return;
+async function excluirProdutoNoServidor(id){
+  return apiJson(`${API_PRODUTOS}/${id}`, { method:'DELETE' });
+}
 
-  ensureInlineUIStyles();
+async function carregarCamposProdutos(){
+  const data = await apiJson(`${API_CAMPOS}/lista`);
+  camposProdutos = Array.isArray(data) ? data : [];
+  camposProdutos.sort((a, b) => (Number(a.ordem || 0) - Number(b.ordem || 0)) || String(a.nome || '').localeCompare(String(b.nome || '')));
+  renderListaCamposProdutos();
+}
 
-  const listKey = 'fornecedor';
-  const cfg = { placeholder: '—', allowAdd: true };
+async function obterCampoProduto(id){
+  return apiJson(`${API_CAMPOS}/${id}`);
+}
 
-  renderSelectOptions(sel, listKey, cfg);
+async function salvarCampoProduto(payload, editandoId){
+  const url = editandoId == null ? API_CAMPOS : `${API_CAMPOS}/${editandoId}`;
+  const method = editandoId == null ? 'POST' : 'PUT';
 
-  BOUND_SELECTS.push({ el: sel, listKey, cfg });
-
-  sel.value = '';
-
-  sel.addEventListener('change', async () => {
-    const v = sel.value;
-    if (!v) return;
-
-    if (v === '__add__') {
-      sel.value = '';
-      const novo = await promptOrca('Digite o nome do fornecedor:', { title: 'Novo fornecedor' });
-      const val = String(novo || '').trim();
-      if (!val) return;
-
-      const cur = Array.isArray(LISTS_STATE?.[listKey]) ? LISTS_STATE[listKey].slice() : [];
-      if (!cur.includes(val)) cur.push(val);
-      LISTS_STATE[listKey] = _dedupeKeepOrder(cur);
-
-      saveLists();
-      refreshAllSelectsOf(listKey);
-
-      addFornecedorToSelection(val);
-      toast('Fornecedor adicionado na lista.', 'ok');
-      return;
-    }
-
-    addFornecedorToSelection(v);
-    sel.value = '';
+  return apiJson(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
-
-  const btn = getEl('btn-gerenciar-fornecedores');
-  if (btn && !btn.dataset._bound) {
-    btn.dataset._bound = '1';
-    btn.addEventListener('click', () => openManageFornecedoresModal());
-  }
-
-  renderFornecedoresChips();
 }
 
-async function openManageFornecedoresModal() {
-  ensureInlineUIStyles();
-  const listKey = 'fornecedor';
-
-  const bd = document.createElement('div');
-  bd.className = 'orca-confirm-backdrop';
-
-  const modal = document.createElement('div');
-  modal.className = 'orca-confirm';
-  modal.setAttribute('role', 'dialog');
-  modal.setAttribute('aria-modal', 'true');
-
-  modal.innerHTML = `
-    <div class="orca-confirm__head">
-      <h3 class="orca-confirm__title">Gerenciar fornecedores</h3>
-      <button class="orca-confirm__close" type="button" aria-label="Fechar">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-
-    <p class="orca-confirm__msg">
-      Apague fornecedores cadastrados errado. Isso também remove do produto atual.
-    </p>
-
-    <div class="orca-manage-list" id="orca-manage-forn-list"></div>
-
-    <div class="orca-confirm__foot">
-      <button class="btn-secondary" type="button" data-act="fechar">Fechar</button>
-    </div>
-  `;
-
-  bd.appendChild(modal);
-  document.body.appendChild(bd);
-  document.body.classList.add('modal-open');
-
-  const close = () => {
-    document.body.classList.remove('modal-open');
-    if (bd.isConnected) bd.remove();
-    document.removeEventListener('keydown', onKey);
-  };
-
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-  document.addEventListener('keydown', onKey);
-
-  bd.addEventListener('click', e => { if (e.target === bd) close(); });
-  modal.querySelector('[data-act="fechar"]').addEventListener('click', close);
-  modal.querySelector('.orca-confirm__close').addEventListener('click', close);
-
-  const listEl = modal.querySelector('#orca-manage-forn-list');
-
-  const getRawList = () => (Array.isArray(LISTS_STATE?.[listKey]) ? LISTS_STATE[listKey] : []);
-  const toValue = (x) => (typeof x === 'object' ? (x.value || x.label || '') : String(x || '')).trim();
-  const toLabel = (x) => (typeof x === 'object' ? (x.label || x.value || '') : String(x || '')).trim();
-
-  const render = () => {
-    const raw = getRawList();
-    const items = raw.map(x => ({ value: toValue(x), label: toLabel(x) })).filter(x => x.value);
-
-    listEl.innerHTML = '';
-
-    if (!items.length) {
-      listEl.innerHTML = `<div class="orca-manage-empty">Nenhum fornecedor cadastrado.</div>`;
-      return;
-    }
-
-    items.forEach(it => {
-      const row = document.createElement('div');
-      row.className = 'orca-manage-row';
-      row.innerHTML = `
-        <div class="orca-manage-label">${escapeHTML(it.label || it.value)}</div>
-        <button class="orca-btn orca-btn--danger" type="button">Apagar</button>
-      `;
-
-      row.querySelector('button').addEventListener('click', async () => {
-        const ok = await confirmOrca(`Apagar o fornecedor “${it.label || it.value}”?`, {
-          title: 'Confirmar exclusão',
-          okText: 'Apagar',
-          cancelText: 'Cancelar'
-        });
-        if (!ok) return;
-
-        LISTS_STATE[listKey] = getRawList().filter(x => toValue(x) !== it.value);
-        saveLists();
-        refreshAllSelectsOf(listKey);
-
-        SELECTED_FORNECEDORES = getSelectedFornecedores().filter(x => x !== String(it.value));
-        renderFornecedoresChips();
-
-        removeFornecedorFromProdutosLocal(String(it.value));
-
-        toast('Fornecedor apagado.', 'ok');
-        render();
-      });
-
-      listEl.appendChild(row);
-    });
-  };
-
-  render();
+async function excluirCampoProduto(id){
+  return apiJson(`${API_CAMPOS}/${id}`, { method:'DELETE' });
 }
 
-function removeFornecedorFromProdutosLocal(nome) {
-  const alvo = String(nome || '').trim();
-  if (!alvo) return;
-
-  try {
-    if (Array.isArray(produtos)) {
-      let changed = false;
-      produtos = produtos.map(p => {
-        const arr = normalizeFornecedoresValue(p.fornecedores ?? p.fornecedor);
-        if (!arr.includes(alvo)) return p;
-        changed = true;
-        const outArr = arr.filter(x => x !== alvo);
-        return { ...p, fornecedores: outArr, fornecedor: (outArr[0] || '') };
-      });
-      if (changed) renderTabela();
-    }
-  } catch {}
-
-  const local = loadLocal();
-  if (Array.isArray(local)) {
-    let changed = false;
-    const out = local.map(p => {
-      const arr = normalizeFornecedoresValue(p.fornecedores ?? p.fornecedor);
-      if (!arr.includes(alvo)) return p;
-      changed = true;
-      const outArr = arr.filter(x => x !== alvo);
-      return { ...p, fornecedores: outArr, fornecedor: (outArr[0] || '') };
-    });
-    if (changed) saveLocal(out);
-  }
-}
-
-function formatFornecedoresDisplay(p) {
-  const arr = normalizeFornecedoresValue(p?.fornecedores ?? p?.fornecedor);
-  return arr.length ? arr.join(', ') : '-';
-}
-
-/* =========================
-   ✅ Exportar / Importar / Limpar
-========================= */
-
-function _downloadBlob(filename, contentType, dataText) {
-  const blob = new Blob([dataText], { type: contentType });
+function downloadFile(filename, content, mime='application/octet-stream'){
+  const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
-
-  setTimeout(() => URL.revokeObjectURL(url), 800);
+  setTimeout(()=>URL.revokeObjectURL(url), 3000);
 }
 
-function _csvEscape(v) {
-  const s = String(v ?? '');
-  if (/[",;\n\r]/.test(s)) return `"${s.replaceAll('"', '""')}"`;
-  return s;
+function normalizeCustomFieldsForExport(cf){
+  return cf && typeof cf === 'object' ? cf : {};
 }
 
-function _produtoToExportRow(p) {
-  const segmentos = Array.isArray(p.segmentos) ? p.segmentos.join(' | ') : (p.segmentos || '');
-  const fornecedores = Array.isArray(p.fornecedores) ? p.fornecedores.join(' | ') : formatFornecedoresDisplay(p);
+function pickProdutosForExport(){
+  return (produtos || []).map(p => ({
+    id: p.id ?? null,
+    codigo: p.codigo ?? '',
+    nome: p.nome ?? '',
+    descricao: p.descricao ?? '',
+    categoria: p.categoria ?? '',
+    unidade: p.unidade ?? '',
+    preco_venda: p.preco_venda ?? '',
+    custo: p.custo ?? '',
+    estoque_atual: p.estoque_atual ?? '',
+    ativo: p.ativo ?? true,
+    custom_fields: normalizeCustomFieldsForExport(p.custom_fields),
+  }));
+}
 
-  return {
-    id: p.id ?? '',
-    data_cadastro: p.data_cadastro ?? '',
-    cod_ref_id: p.cod_ref_id ?? '',
-    codigo_barras: p.codigo_barras ?? '',
-    nome_produto: p.nome_produto ?? '',
-    nome_generico: p.nome_generico ?? '',
-    fabricante: p.fabricante ?? '',
-    modelo: p.modelo ?? '',
-    cod_ref_fabric: p.cod_ref_fabric ?? '',
-    origem: p.origem ?? '',
-
-    status_atual: p.status_atual ?? '',
-    tipo_mercado: p.tipo_mercado ?? '',
-    utilizacao: p.utilizacao ?? '',
-    tipo_material: p.tipo_material ?? '',
-
-    prod_controlado: p.prod_controlado ?? '',
-    tipo_fiscalizacao: p.tipo_fiscalizacao ?? '',
-    dados_identificacao_controlado: p.dados_identificacao_controlado ?? '',
-    observacoes_controlado: p.observacoes_controlado ?? '',
-
-    segmentos,
-
-    tipo_sistema: p.tipo_sistema ?? '',
-    classe: p.classe ?? '',
-    categorias: p.categorias ?? '',
-    subcategoria: p.subcategoria ?? '',
-
-    fornecedores,
-    fornecedor: p.fornecedor ?? '',
-    ultima_compra: p.ultima_compra ?? '',
-    ultimo_fornecedor: p.ultimo_fornecedor ?? '',
-
-    tipo_armaz: p.tipo_armaz ?? '',
-    armaz_localiz: p.armaz_localiz ?? '',
-    armaz_predio: p.armaz_predio ?? '',
-    armaz_corredor: p.armaz_corredor ?? '',
-    armaz_prateleira: p.armaz_prateleira ?? '',
-    tipo_logistico: p.tipo_logistico ?? '',
-    peso_logistico: p.peso_logistico ?? '',
-    peso_logistico_unidade: p.peso_logistico_unidade ?? '',
-    tamanho_logistico: p.tamanho_logistico ?? '',
-    embalagem_compra: p.embalagem_compra ?? '',
-    embalagem_armazem: p.embalagem_armazem ?? '',
-    embalagem_saida: p.embalagem_saida ?? '',
-    estoque_minimo: p.estoque_minimo ?? '',
-    estoque_maximo: p.estoque_maximo ?? '',
-    quantidade_atual: p.quantidade_atual ?? '',
-
-    possui_validade: p.possui_validade ?? '',
-    tipo_tecnico: p.tipo_tecnico ?? '',
-    cores_disponiveis: p.cores_disponiveis ?? '',
-    imagens_produto: (p.imagens_produto || '').toString().replaceAll('\n', ' | '),
-    videos_produto: (p.videos_produto || '').toString().replaceAll('\n', ' | '),
-    fichas_tecnica: (p.fichas_tecnica || '').toString().replaceAll('\n', ' | '),
-    manuais_instalacao: (p.manuais_instalacao || '').toString().replaceAll('\n', ' | '),
-    manuais_programacao: (p.manuais_programacao || '').toString().replaceAll('\n', ' | '),
-    manuais_usuario: (p.manuais_usuario || '').toString().replaceAll('\n', ' | '),
-
-    classif_ncm_bbm: p.classif_ncm_bbm ?? '',
-    aliq_ipi_entrada: p.aliq_ipi_entrada ?? '',
-    aliq_iva: p.aliq_iva ?? '',
-    cst_icms: p.cst_icms ?? '',
-    cst_pis: p.cst_pis ?? '',
-    cst_cofins: p.cst_cofins ?? '',
-
-    valor_custo: p.valor_custo ?? '',
-    mark_up: p.mark_up ?? '',
-    custo_efetivo: p.custo_efetivo ?? '',
-    mc_lucro: p.mc_lucro ?? '',
-    imp_importacao: p.imp_importacao ?? '',
-    ipi: p.ipi ?? '',
-    icms: p.icms ?? '',
-    simples: p.simples ?? '',
-    luc_presumido: p.luc_presumido ?? ''
+function exportarProdutosJSON(){
+  const dt = new Date();
+  const stamp = dt.toISOString().slice(0,19).replaceAll(':','-');
+  const payload = {
+    exported_at: dt.toISOString(),
+    total: (produtos || []).length,
+    items: pickProdutosForExport(),
   };
+
+  downloadFile(
+    `produtos_${stamp}.json`,
+    JSON.stringify(payload, null, 2),
+    'application/json;charset=utf-8'
+  );
+
+  toast('Exportado JSON.', { ms: 1800 });
 }
 
-async function _escolherExportacao() {
-  const tipo = await promptOrca('Digite: JSON ou CSV', {
-    title: 'Exportar produtos',
-    okText: 'Exportar',
-    cancelText: 'Cancelar',
-    placeholder: 'json / csv'
+function csvEscape(v){
+  const s = String(v ?? '');
+  const must = /[;\n\r"]/g.test(s);
+  const out = s.replaceAll('"', '""');
+  return must ? `"${out}"` : out;
+}
+
+function produtosToCSV(items){
+  const baseCols = ['codigo', 'nome', 'descricao', 'categoria', 'unidade', 'preco_venda', 'custo', 'estoque_atual', 'ativo'];
+  const customCols = camposProdutos.map(c => c.slug);
+  const cols = [...baseCols, ...customCols];
+
+  const lines = [cols.join(';')];
+
+  (items || []).forEach(p=>{
+    const custom = normalizeCustomFieldsForExport(p.custom_fields);
+    lines.push(cols.map(k => {
+      if (baseCols.includes(k)) return csvEscape(p?.[k] ?? '');
+      return csvEscape(custom?.[k] ?? '');
+    }).join(';'));
   });
 
-  if (!tipo) return null;
-  const t = tipo.trim().toLowerCase();
-  if (t.startsWith('c')) return 'csv';
-  return 'json';
+  return '\ufeff' + lines.join('\n');
 }
 
-function exportarProdutosJSON() {
-  const arr = (produtos || []).map(p => normalizeProduto(p));
-  const payload = {
-    exported_at: new Date().toISOString(),
-    count: arr.length,
-    items: arr
-  };
-
-  const name = `produtos_orcapro_${new Date().toISOString().slice(0,10)}.json`;
-  _downloadBlob(name, 'application/json;charset=utf-8', JSON.stringify(payload, null, 2));
-  toast('Exportado em JSON.', 'success', 'OK');
+function exportarProdutosCSV(){
+  const dt = new Date();
+  const stamp = dt.toISOString().slice(0,19).replaceAll(':','-');
+  const csv = produtosToCSV(pickProdutosForExport());
+  downloadFile(`produtos_${stamp}.csv`, csv, 'text/csv;charset=utf-8');
+  toast('Exportado CSV.', { ms: 1800 });
 }
 
-function exportarProdutosCSV() {
-  const rows = (produtos || []).map(p => _produtoToExportRow(p));
-  const headers = rows.length ? Object.keys(rows[0]) : ['id', 'nome_produto'];
-
-  const sep = ';';
-  const csv = [
-    headers.join(sep),
-    ...rows.map(r => headers.map(h => _csvEscape(r[h])).join(sep))
-  ].join('\n');
-
-  const name = `produtos_orcapro_${new Date().toISOString().slice(0,10)}.csv`;
-  _downloadBlob(name, 'text/csv;charset=utf-8', csv);
-  toast('Exportado em CSV.', 'success', 'OK');
+function readFileAsText(file){
+  return new Promise((resolve, reject)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>resolve(String(fr.result || ''));
+    fr.onerror = ()=>reject(fr.error || new Error('Falha ao ler arquivo.'));
+    fr.readAsText(file);
+  });
 }
 
-function _parseCsv(text) {
-  const lines = String(text || '').split(/\r?\n/).filter(l => l.trim() !== '');
-  if (!lines.length) return [];
+function readFileAsArrayBuffer(file){
+  return new Promise((resolve, reject)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>resolve(fr.result);
+    fr.onerror = ()=>reject(fr.error || new Error('Falha ao ler arquivo.'));
+    fr.readAsArrayBuffer(file);
+  });
+}
 
-  const sep = ';';
-  const headers = lines[0].split(sep).map(h => h.trim());
+function detectCSVDelimiter(firstLine){
+  const semi = (firstLine.match(/;/g) || []).length;
+  const comma = (firstLine.match(/,/g) || []).length;
+  return semi >= comma ? ';' : ',';
+}
+
+function parseCSV(text){
+  const raw = String(text || '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const lines = raw.split('\n').filter(l => l.trim().length);
+  if(!lines.length) return [];
+
+  const delim = detectCSVDelimiter(lines[0]);
+
+  function parseLine(line){
+    const out = [];
+    let cur = '';
+    let inQ = false;
+
+    for(let i=0;i<line.length;i++){
+      const ch = line[i];
+
+      if(ch === '"'){
+        const next = line[i+1];
+        if(inQ && next === '"'){
+          cur += '"';
+          i++;
+        } else {
+          inQ = !inQ;
+        }
+        continue;
+      }
+
+      if(!inQ && ch === delim){
+        out.push(cur);
+        cur = '';
+        continue;
+      }
+
+      cur += ch;
+    }
+
+    out.push(cur);
+    return out.map(s => String(s ?? '').trim());
+  }
+
+  const headers = parseLine(lines[0]).map(h => h.replace(/^\uFEFF/, '').trim());
   const out = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(sep);
+  for(let i=1;i<lines.length;i++){
+    const parts = parseLine(lines[i]);
     const obj = {};
-    headers.forEach((h, idx) => obj[h] = (cols[idx] ?? '').trim());
-
-    if (obj.segmentos) obj.segmentos = obj.segmentos.split('|').map(s => s.trim()).filter(Boolean);
-    if (obj.fornecedores) obj.fornecedores = obj.fornecedores.split('|').map(s => s.trim()).filter(Boolean);
-
-    const intKeys = ['estoque_minimo','estoque_maximo','quantidade_atual','id'];
-    intKeys.forEach(k => {
-      if (obj[k] !== undefined && obj[k] !== '') {
-        const n = Number(String(obj[k]).replace(',', '.'));
-        if (Number.isFinite(n)) obj[k] = Math.trunc(n);
-      }
-    });
-
-    const floatKeys = [
-      'peso_logistico','aliq_ipi_entrada','aliq_iva','valor_custo','mark_up','custo_efetivo','mc_lucro',
-      'imp_importacao','ipi','icms','simples','luc_presumido'
-    ];
-    floatKeys.forEach(k => {
-      if (obj[k] !== undefined && obj[k] !== '') {
-        const n = Number(String(obj[k]).replace(',', '.'));
-        if (Number.isFinite(n)) obj[k] = n;
-      }
-    });
-
+    headers.forEach((h, idx)=>{ obj[h] = parts[idx] ?? ''; });
     out.push(obj);
   }
 
   return out;
 }
 
-function _ensureUniqueIds(arr) {
-  const counts = new Map();
-  let maxId = 0;
+function parseXLSX(arrayBuffer){
+  if(typeof XLSX === 'undefined'){
+    throw new Error('Biblioteca XLSX não carregou.');
+  }
 
-  arr.forEach(p => {
-    const id = Number(p?.id) || 0;
-    if (id > 0) counts.set(id, (counts.get(id) || 0) + 1);
-    if (id > maxId) maxId = id;
-  });
+  const wb = XLSX.read(arrayBuffer, { type:'array' });
 
-  const used = new Set();
-  arr.forEach(p => {
-    let id = Number(p?.id) || 0;
-    const dup = id > 0 && ((counts.get(id) || 0) > 1 || used.has(id));
-    if (id <= 0 || dup) {
-      maxId += 1;
-      id = maxId;
+  for(const sheetName of wb.SheetNames){
+    const ws = wb.Sheets[sheetName];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+
+    const rows = (aoa || []).filter(r =>
+      Array.isArray(r) && r.some(v => String(v ?? '').trim() !== '')
+    );
+
+    if(!rows.length) continue;
+
+    const first = rows[0].map(v => String(v ?? '').trim().toLowerCase());
+    const looksHeader =
+      first.includes('codigo') ||
+      first.includes('nome') ||
+      first.includes('categoria');
+
+    if(looksHeader){
+      const headers = rows[0].map(v => String(v ?? '').trim());
+      return rows.slice(1).map(r=>{
+        const obj = {};
+        headers.forEach((h, i)=> obj[h] = r[i] ?? '');
+        return obj;
+      }).filter(obj => Object.values(obj).some(v => String(v ?? '').trim() !== ''));
     }
-    p.id = id;
-    used.add(id);
-  });
 
-  return arr;
+    const cols = ['codigo', 'nome', 'descricao', 'categoria', 'unidade', 'preco_venda', 'custo', 'estoque_atual'];
+
+    return rows.map(r=>{
+      const obj = {};
+      cols.forEach((k, i)=> obj[k] = r[i] ?? '');
+      return obj;
+    }).filter(obj => String(obj.nome || obj.codigo || '').trim() !== '');
+  }
+
+  return [];
 }
 
-function _mergeById(existing, incoming) {
-  const map = new Map(existing.map(p => [Number(p.id), p]));
-  incoming.forEach(p => {
-    const id = Number(p.id) || 0;
-    if (!id) return;
-    map.set(id, p);
-  });
-  return _ensureUniqueIds(Array.from(map.values()));
-}
+function mapImportToPayload(obj){
+  const base = {
+    codigo: String(obj.codigo || '').trim(),
+    nome: String(obj.nome || '').trim(),
+    descricao: String(obj.descricao || '').trim(),
+    categoria: String(obj.categoria || '').trim(),
+    unidade: String(obj.unidade || '').trim(),
+    preco_venda: String(obj.preco_venda || '').trim(),
+    custo: String(obj.custo || '').trim(),
+    estoque_atual: String(obj.estoque_atual || '').trim(),
+    ativo: String(obj.ativo || 'true').toLowerCase() !== 'false',
+  };
 
-function _isSameProduto(a, b) {
-  const barrasA = String(a.codigo_barras || '').trim();
-  const barrasB = String(b.codigo_barras || '').trim();
-  if (barrasA && barrasB && barrasA === barrasB) return true;
-
-  const refA = String(a.cod_ref_id || '').trim().toLowerCase();
-  const refB = String(b.cod_ref_id || '').trim().toLowerCase();
-  if (refA && refB && refA === refB) return true;
-
-  const nomeA = String(a.nome_produto || '').trim().toLowerCase();
-  const nomeB = String(b.nome_produto || '').trim().toLowerCase();
-  if (nomeA && nomeB && nomeA === nomeB) return true;
-
-  return false;
-}
-
-async function _escolherModoImportacao(qtd) {
-  const modo = await promptOrca(
-    `Arquivo tem ${qtd} itens.\nDigite: SUBSTITUIR / MESCLAR / NOVOS`,
-    {
-      title: 'Importar produtos',
-      okText: 'Importar',
-      cancelText: 'Cancelar',
-      placeholder: 'substituir / mesclar / novos'
+  const custom_fields = {};
+  for(const campo of camposProdutos){
+    const slug = String(campo.slug || '').trim();
+    if(!slug) continue;
+    const value = obj[slug];
+    if(value !== undefined && value !== null && String(value).trim() !== ''){
+      custom_fields[slug] = value;
     }
-  );
+  }
 
-  if (!modo) return null;
-  const m = modo.trim().toLowerCase();
-  if (m.startsWith('s')) return 'substituir';
-  if (m.startsWith('m')) return 'mesclar';
-  return 'novos';
+  if(Object.keys(custom_fields).length){
+    base.custom_fields = custom_fields;
+  }
+
+  return base;
 }
 
-async function importarProdutosArray(arr) {
-  const incomingRaw = Array.isArray(arr) ? arr : [];
-  const incoming = incomingRaw
-    .map(x => normalizeProduto(x))
-    .filter(p => String(p.nome_produto || '').trim().length > 0);
+function findExistingProdutoIdByCodigo(payload){
+  const codigo = String(payload?.codigo || '').trim().toLowerCase();
+  if(!codigo) return null;
 
-  if (!incoming.length) {
-    toast('Arquivo inválido ou vazio.', 'err', 'Importar');
+  const found = (produtos || []).find(p => String(p.codigo || '').trim().toLowerCase() === codigo);
+  return found?.id || null;
+}
+
+async function importarProdutosFromItems(items){
+  if(!Array.isArray(items) || !items.length){
+    toast('Arquivo vazio ou inválido.', { error:true, ms:4000 });
     return;
   }
 
-  const modo = await _escolherModoImportacao(incoming.length);
-  if (!modo) return;
+  const ok = await confirmDialog({
+    title:'Importar produtos',
+    message:`Importar ${items.length} produto(s)? O sistema vai criar ou atualizar por código.`,
+    confirmText:'Importar',
+    cancelText:'Cancelar',
+    danger:true,
+  });
 
-  if (modo === 'substituir') {
-    produtos = _ensureUniqueIds(incoming);
-    saveLocal(produtos);
-    renderTabela();
-    toast('Importação concluída (substituiu tudo).', 'success', 'OK');
-    return;
-  }
+  if(!ok) return;
 
-  if (modo === 'mesclar') {
-    const base = (Array.isArray(produtos) ? produtos : []).map(normalizeProduto);
-    produtos = _mergeById(base, incoming);
-    saveLocal(produtos);
-    renderTabela();
-    toast('Importação concluída (mesclado por ID).', 'success', 'OK');
-    return;
-  }
+  toast('Importando produtos...', { ms:2200 });
 
-  // NOVOS
-  {
-    const base = (Array.isArray(produtos) ? produtos : []).map(normalizeProduto);
-    const out = base.slice();
+  let okCount = 0;
+  let failCount = 0;
 
-    let maxId = out.length ? Math.max(...out.map(p => Number(p.id) || 0)) : 0;
+  try{ await carregarProdutos(); }catch{}
 
-    incoming.forEach(p => {
-      const dup = out.some(x => _isSameProduto(x, p));
-      if (dup) return;
-
-      let id = Number(p.id) || 0;
-      if (!id || out.some(x => Number(x.id) === id)) {
-        maxId += 1;
-        id = maxId;
+  for(const raw of items){
+    try{
+      const payload = mapImportToPayload(raw);
+      if(!payload.nome){
+        failCount++;
+        continue;
       }
-      out.push({ ...p, id });
-    });
 
-    produtos = _ensureUniqueIds(out);
-    saveLocal(produtos);
-    renderTabela();
-    toast('Importação concluída (somente novos).', 'success', 'OK');
+      const existingId = findExistingProdutoIdByCodigo(payload);
+      await salvarProdutoNoServidor(payload, existingId);
+      okCount++;
+    }catch(err){
+      console.error('[Produtos] import item erro:', err);
+      failCount++;
+    }
+  }
+
+  try{ await carregarProdutos(); }catch{}
+
+  if(failCount === 0){
+    toast(`Importação concluída: ${okCount} OK.`, { ms:2200 });
+  } else {
+    toast(`Importado: ${okCount} OK • ${failCount} falharam`, { error:true, ms:5200 });
   }
 }
 
-async function abrirImportadorDeArquivo() {
-  const input = getEl('file-import-produtos');
-  if (!input) return;
-  input.value = '';
-  input.click();
-}
+async function importarProdutosArquivo(file){
+  if(!file){
+    toast('Selecione um arquivo para importar.', { error:true });
+    return;
+  }
 
-async function _handleFileImport(file) {
-  try {
-    const txt = await file.text();
-    const name = (file.name || '').toLowerCase();
+  const name = String(file.name || '').toLowerCase();
 
-    if (name.endsWith('.csv')) {
-      const parsed = _parseCsv(txt);
-      await importarProdutosArray(parsed);
+  try{
+    if(name.endsWith('.json')){
+      const text = await readFileAsText(file);
+      const data = JSON.parse(text || '{}');
+      const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+      await importarProdutosFromItems(items);
       return;
     }
 
-    const parsed = JSON.parse(txt);
-    const arr = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.items) ? parsed.items : null);
-
-    if (!arr) {
-      toast('JSON inválido. Esperado: array ou { items: [] }', 'err', 'Importar');
+    if(name.endsWith('.csv') || name.endsWith('.txt')){
+      const text = await readFileAsText(file);
+      await importarProdutosFromItems(parseCSV(text));
       return;
     }
 
-    await importarProdutosArray(arr);
-  } catch (e) {
-    toast('Falha ao importar arquivo.', 'err', 'Importar');
-    logWarn('Erro import:', e);
-  }
-}
-
-async function limparProdutosLocal() {
-  const ok = await confirmOrca('Deseja apagar TODOS os produtos do localStorage?', {
-    title: 'Limpar produtos',
-    okText: 'Apagar tudo',
-    cancelText: 'Cancelar'
-  });
-  if (!ok) return;
-
-  produtos = [];
-  saveLocal([]);
-  renderTabela();
-  toast('Produtos apagados (local).', 'ok');
-}
-
-function bindExportImportUI() {
-  const btnExp = getEl('btn-exportar-produtos');
-  const btnImp = getEl('btn-importar-produtos');
-  const btnClr = getEl('btn-limpar-produtos');
-  const fileInp = getEl('file-import-produtos');
-
-  if (btnExp && !btnExp.dataset._bound) {
-    btnExp.dataset._bound = '1';
-    btnExp.addEventListener('click', async () => {
-      const tipo = await _escolherExportacao();
-      if (!tipo) return;
-      if (tipo === 'csv') exportarProdutosCSV();
-      else exportarProdutosJSON();
-    });
-  }
-
-  if (btnImp && !btnImp.dataset._bound) {
-    btnImp.dataset._bound = '1';
-    btnImp.addEventListener('click', abrirImportadorDeArquivo);
-  }
-
-  if (btnClr && !btnClr.dataset._bound) {
-    btnClr.dataset._bound = '1';
-    btnClr.addEventListener('click', limparProdutosLocal);
-  }
-
-  if (fileInp && !fileInp.dataset._bound) {
-    fileInp.dataset._bound = '1';
-    fileInp.addEventListener('change', async () => {
-      const f = fileInp.files && fileInp.files[0];
-      if (!f) return;
-      await _handleFileImport(f);
-    });
-  }
-}
-
-/* =========================
-   Setup de selects do produto
-========================= */
-
-function setupProdutoLists() {
-  LISTS_STATE = loadLists();
-
-  bindSelectList('filtro-origem-produto', 'origem', { placeholder: 'Todas', allowAdd: true });
-
-  bindSelectList('campo-origem', 'origem', { placeholder: '—', allowAdd: true });
-
-  bindSelectList('campo-ultimo-fornecedor', 'fornecedor', { placeholder: '—', allowAdd: true });
-  bindSelectList('campo-mov-fornecedor', 'fornecedor', { placeholder: '—', allowAdd: true });
-  bindSelectList('campo-mov-departamento', 'departamentos', { placeholder: '—', allowAdd: true });
-
-  bindSelectList('campo-status-atual', 'status_atual', { placeholder: '—', allowAdd: true });
-  bindSelectList('campo-tipo-mercado', 'tipo_mercado', { placeholder: '—', allowAdd: true });
-  bindSelectList('campo-utilizacao', 'utilizacao', { placeholder: '—', allowAdd: true });
-  bindSelectList('campo-tipo-material', 'tipo_material', { placeholder: '—', allowAdd: true });
-
-  bindSelectList('campo-prod-controlado', 'sim_nao', { placeholder: '—', allowAdd: true });
-  bindSelectList('campo-tipo-fiscalizacao', 'tipo_fiscalizacao', { placeholder: '—', allowAdd: true });
-  bindSelectList('campo-possui-validade', 'sim_nao', { placeholder: '—', allowAdd: true });
-
-  setupSegmentosMulti();
-
-  bindSelectList('campo-classe', 'classe', { placeholder: '—', allowAdd: true });
-  setupFornecedoresMulti();
-  bindSelectList('campo-tipo-armaz', 'tipo_armaz', { placeholder: '—', allowAdd: true });
-
-  bindSelectList('campo-cores-disponiveis', 'cores_disponiveis', { placeholder: '—', allowAdd: true });
-
-  bindSelectList('campo-peso-logistico-unidade', 'unidade_peso', { placeholder: 'Selecione', allowAdd: true });
-  bindSelectList('campo-cst-icms', 'cst_padrao', { placeholder: '—', allowAdd: true });
-  bindSelectList('campo-cst-pis', 'cst_padrao', { placeholder: '—', allowAdd: true });
-  bindSelectList('campo-cst-cofins', 'cst_padrao', { placeholder: '—', allowAdd: true });
-
-  bindSelectList('campo-destino', 'destino', { placeholder: '—', allowAdd: true });
-}
-
-/* =========================
-   Dados (seed)
-========================= */
-
-const produtosFake = [
-  {
-    id: 1,
-    data_cadastro: '2026-01-05T10:12:00Z',
-    cod_ref_id: 'ALM-001',
-    codigo_barras: '7890000000001',
-    nome_generico: 'Central de alarme',
-    nome_produto: 'Central de alarme 8 setores',
-    fabricante: 'Intelbras',
-    modelo: 'AMT 2018 E',
-    cod_ref_fabric: 'INT-2018E',
-    origem: 'Nacional',
-
-    status_atual: 'Ativo',
-    tipo_mercado: 'Mercado Continuo',
-    utilizacao: 'Revenda',
-    tipo_material: 'Pronta Utilização (Acabado)',
-
-    prod_controlado: 'Não',
-    tipo_fiscalizacao: '',
-    dados_identificacao_controlado: '',
-    observacoes_controlado: '',
-    segmentos: ['Segurança Predial'],
-    tipo_sistema: 'Alarme',
-    classe: 'Centrais de Comando',
-    categorias: 'Central',
-    subcategoria: '8 setores',
-
-    fornecedores: ['Distribuidora Houter'],
-    fornecedor: 'Distribuidora Houter',
-    ultima_compra: '2026-01-03',
-    ultimo_fornecedor: 'Distribuidora Houter',
-
-    tipo_armaz: 'Fisico Local',
-    armaz_localiz: 'Corredor A / Prat. 3',
-    armaz_predio: '',
-    armaz_corredor: '',
-    armaz_prateleira: '',
-    tipo_logistico: 'Normal',
-    peso_logistico: 1.25,
-    peso_logistico_unidade: 'kg',
-    tamanho_logistico: '20x15x10',
-    embalagem_compra: 'Caixa 1 un',
-    embalagem_armazem: 'Caixa',
-    embalagem_saida: 'Unidade',
-    estoque_minimo: 2,
-    estoque_maximo: 20,
-    quantidade_atual: 7,
-
-    possui_validade: 'Não',
-    tipo_tecnico: 'Eletrônico',
-    cores_disponiveis: 'Branco',
-    imagens_produto: 'https://exemplo.com/img1\nhttps://exemplo.com/img2',
-    videos_produto: '',
-    fichas_tecnica: '',
-    manuais_instalacao: '',
-    manuais_programacao: '',
-    manuais_usuario: '',
-
-    classif_ncm_bbm: '8531.10.90',
-    aliq_ipi_entrada: 0.0,
-    aliq_iva: 0.0,
-    cst_icms: '00',
-    cst_pis: '01',
-    cst_cofins: '01',
-
-    valor_custo: 450.0,
-    mark_up: 1.8,
-    custo_efetivo: 480.0,
-    mc_lucro: 120.0,
-    imp_importacao: 0.0,
-    ipi: 0.0,
-    icms: 0.0,
-    simples: 0.0,
-    luc_presumido: 0.0,
-
-    movimentacoes: []
-  }
-];
-
-function loadLocal() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : null;
-  } catch { return null; }
-}
-function saveLocal(arr) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr || [])); } catch {}
-}
-
-function normalizeProduto(p) {
-  const obj = { ...(p || {}) };
-
-  if (!obj.id) obj.id = 0;
-  if (!obj.data_cadastro) obj.data_cadastro = null;
-
-  if (obj.segmentos == null) {
-    obj.segmentos = [];
-  } else if (Array.isArray(obj.segmentos)) {
-    obj.segmentos = obj.segmentos.map(x => String(x || '').trim()).filter(Boolean);
-  } else {
-    const s = String(obj.segmentos || '').trim();
-    obj.segmentos = s ? [s] : [];
-  }
-
-  if (obj.fornecedores == null) {
-    obj.fornecedores = normalizeFornecedoresValue(obj.fornecedor);
-  } else {
-    obj.fornecedores = normalizeFornecedoresValue(obj.fornecedores);
-  }
-  obj.fornecedor = obj.fornecedores[0] || obj.fornecedor || '';
-
-  return obj;
-}
-
-/* =========================
-   API (fallback)
-========================= */
-
-let API_DISPONIVEL = null;
-
-async function safeReadJson(res) {
-  const ct = (res.headers.get('content-type') || '').toLowerCase();
-  if (ct.includes('application/json')) {
-    try { return await res.json(); } catch { return null; }
-  }
-  try { return await res.text(); } catch { return null; }
-}
-
-async function carregarProdutos() {
-  if (API_DISPONIVEL === false) {
-    const local = loadLocal();
-    if (local && local.length) return local.map(normalizeProduto);
-    saveLocal(produtosFake);
-    return produtosFake.map(normalizeProduto);
-  }
-
-  try {
-    const res = await fetch(API_PRODUTOS, { method: 'GET' });
-
-    if (res.ok) {
-      API_DISPONIVEL = true;
-      const data = await res.json();
-      const arr = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
-      return arr.map(normalizeProduto);
+    if(name.endsWith('.xlsx')){
+      const buf = await readFileAsArrayBuffer(file);
+      await importarProdutosFromItems(parseXLSX(buf));
+      return;
     }
 
-    if (res.status === 404) {
-      API_DISPONIVEL = false;
-      const local = loadLocal();
-      if (local && local.length) return local.map(normalizeProduto);
-      saveLocal(produtosFake);
-      return produtosFake.map(normalizeProduto);
-    }
-
-    const detalhe = await safeReadJson(res);
-    logWarn('Falha ao carregar via API:', res.status, detalhe);
-    API_DISPONIVEL = false;
-
-    const local = loadLocal();
-    if (local && local.length) return local.map(normalizeProduto);
-    saveLocal(produtosFake);
-    return produtosFake.map(normalizeProduto);
-  } catch (err) {
-    logWarn('Erro de rede ao carregar via API:', err);
-    API_DISPONIVEL = false;
-
-    const local = loadLocal();
-    if (local && local.length) return local.map(normalizeProduto);
-    saveLocal(produtosFake);
-    return produtosFake.map(normalizeProduto);
+    toast('Formato inválido. Use .JSON, .CSV ou .XLSX', { error:true, ms:4200 });
+  }catch(err){
+    console.error('[Produtos] importar arquivo erro:', err);
+    toast('Erro ao importar arquivo.', { error:true, ms:5000 });
   }
 }
 
-async function apiCriarProduto(payload) {
-  const res = await fetch(API_PRODUTOS, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) throw await safeReadJson(res);
-  return await res.json();
-}
+function renderTabelaProdutos(){
+  const tbody = document.getElementById('tbody-produtos');
+  const spanCount = document.getElementById('contagem-produtos');
+  const busca = (document.getElementById('busca-produtos')?.value || '').toLowerCase();
 
-async function apiAtualizarProduto(id, payload) {
-  const res = await fetch(`${API_PRODUTOS}/${encodeURIComponent(id)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) throw await safeReadJson(res);
-  return await res.json();
-}
+  if(!tbody) return;
 
-async function apiExcluirProduto(id) {
-  const res = await fetch(`${API_PRODUTOS}/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  if (!res.ok) throw await safeReadJson(res);
-  return true;
-}
+  const filtrados = produtos.filter(p=>{
+    const texto = [p.codigo, p.nome, p.categoria, p.descricao]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
 
-/* =========================
-   Estado + UI
-========================= */
-
-let produtos = [];
-let produtoEditandoId = null;
-
-function renderTabela() {
-  const tbody = getEl('tbody-produtos');
-  const spanCount = getEl('contagem-produtos');
-
-  const busca = (getEl('busca-produtos')?.value || '').toLowerCase().trim();
-  const origemFiltro = (getEl('filtro-origem-produto')?.value || '').trim();
-
-  if (!tbody) return;
-
-  const filtrados = produtos.filter(p => {
-    const hay = [
-      p.cod_ref_id,
-      p.codigo_barras,
-      p.nome_generico,
-      p.nome_produto,
-      p.fabricante,
-      p.modelo,
-      p.cod_ref_fabric,
-      p.origem,
-
-      p.status_atual,
-      p.tipo_mercado,
-      p.utilizacao,
-      p.tipo_material,
-
-      p.prod_controlado,
-      p.segmentos,
-      p.tipo_sistema,
-      p.classe,
-      p.categorias,
-      p.subcategoria,
-
-      p.fornecedores,
-      p.fornecedor,
-      p.ultima_compra,
-
-      p.tipo_armaz,
-      p.armaz_localiz,
-      p.tipo_logistico,
-
-      String(p.estoque_minimo ?? ''),
-      String(p.estoque_maximo ?? ''),
-      String(p.quantidade_atual ?? ''),
-
-      p.possui_validade,
-      p.tipo_tecnico,
-      p.cores_disponiveis,
-
-      p.classif_ncm_bbm,
-      p.cst_icms,
-      p.cst_pis,
-      p.cst_cofins,
-
-      String(p.valor_custo ?? ''),
-      String(p.custo_efetivo ?? ''),
-      String(p.mc_lucro ?? '')
-    ].map(x => (Array.isArray(x) ? x.join(', ') : (x || '')).toString().toLowerCase()).join(' | ');
-
-    const matchBusca = !busca || hay.includes(busca);
-    const matchOrigem = !origemFiltro || (p.origem || '').trim() === origemFiltro;
-    return matchBusca && matchOrigem;
+    return !busca || texto.includes(busca);
   });
 
   tbody.innerHTML = '';
 
-  filtrados.forEach(p => {
+  filtrados.forEach(p=>{
     const tr = document.createElement('tr');
-
     tr.innerHTML = `
-      <td data-label="Cód. Ref">${escapeHTML(p.cod_ref_id || '-')}</td>
-      <td data-label="Cód. Barras">${escapeHTML(p.codigo_barras || '-')}</td>
-      <td data-label="Produto">${escapeHTML(p.nome_produto || '-')}</td>
-      <td data-label="Nome genérico">${escapeHTML(p.nome_generico || '-')}</td>
-      <td data-label="Fabricante">${escapeHTML(p.fabricante || '-')}</td>
-      <td data-label="Modelo">${escapeHTML(p.modelo || '-')}</td>
-      <td data-label="Cód. Fabric.">${escapeHTML(p.cod_ref_fabric || '-')}</td>
-      <td data-label="Origem">${escapeHTML(p.origem || '-')}</td>
-
-      <td data-label="Status Atual">${escapeHTML(p.status_atual || '-')}</td>
-      <td data-label="Tipo Mercado">${escapeHTML(p.tipo_mercado || '-')}</td>
-      <td data-label="Utilização">${escapeHTML(p.utilizacao || '-')}</td>
-      <td data-label="Tipo Material">${escapeHTML(p.tipo_material || '-')}</td>
-
-      <td data-label="Fornecedor">${escapeHTML(formatFornecedoresDisplay(p))}</td>
-      <td data-label="Última Compra">${escapeHTML(formatDateOnlyBR(p.ultima_compra))}</td>
-
+      <td data-label="Código"><span>${escapeHtml(p.codigo || '-')}</span></td>
+      <td data-label="Produto"><span>${escapeHtml(p.nome || '-')}</span></td>
+      <td data-label="Categoria"><span>${escapeHtml(p.categoria || '-')}</span></td>
+      <td data-label="Preço"><span>${escapeHtml(p.preco_venda || '-')}</span></td>
+      <td data-label="Estoque"><span>${escapeHtml(p.estoque_atual || '-')}</span></td>
       <td data-label="Ações">
-        <div class="orca-table-actions">
-          <button class="orca-icon-btn" data-action="editar" data-id="${p.id}" title="Editar produto">
+        <div class="Valora-table-actions">
+          <button class="Valora-icon-btn" data-action="editar" data-id="${p.id}" title="Editar produto">
             <i class="fa-solid fa-pen"></i>
           </button>
-          <button class="orca-icon-btn" data-action="excluir" data-id="${p.id}" title="Excluir produto">
+          <button class="Valora-icon-btn" data-action="excluir" data-id="${p.id}" title="Excluir produto">
             <i class="fa-solid fa-trash"></i>
           </button>
         </div>
       </td>
     `;
-
     tbody.appendChild(tr);
   });
 
-  if (spanCount) {
-    spanCount.textContent = filtrados.length === 1 ? '1 item' : `${filtrados.length} itens`;
+  if(spanCount){
+    spanCount.textContent = filtrados.length === 1 ? '1 produto' : `${filtrados.length} produtos`;
   }
 }
 
-/* =========================
-   Modal
-========================= */
+function renderListaCamposProdutos(){
+  const wrap = document.getElementById('lista-campos-produtos');
+  if(!wrap) return;
 
-function abrirModal(novo = true, produto = null) {
-  const backdrop = getEl('modal-produto-backdrop');
-  const titulo = getEl('modal-produto-titulo');
-  if (!backdrop || !titulo) return;
-
-  backdrop.hidden = false;
-  document.body.classList.add('modal-open');
-
-  const infoData = getEl('info-data-cadastro');
-
-  if (novo) {
-    produtoEditandoId = null;
-    titulo.textContent = 'Novo produto';
-
-    if (infoData) {
-      infoData.hidden = true;
-      infoData.textContent = '';
-    }
-
-    setVal('campo-cod-ref-id', '');
-    setVal('campo-codigo-barras', '');
-    setVal('campo-nome-generico', '');
-    setVal('campo-nome-produto', '');
-    setVal('campo-fabricante', '');
-    setVal('campo-modelo', '');
-    setVal('campo-cod-ref-fabric', '');
-    setVal('campo-origem', '');
-
-    setVal('campo-status-atual', '');
-    setVal('campo-tipo-mercado', '');
-    setVal('campo-utilizacao', '');
-    setVal('campo-tipo-material', '');
-
-    setVal('campo-prod-controlado', '');
-    setVal('campo-tipo-fiscalizacao', '');
-    setVal('campo-dados-identificacao-controlado', '');
-    setVal('campo-observacoes-controlado', '');
-    setSegmentosSelection([]);
-    setVal('campo-tipo-sistema', '');
-    setVal('campo-classe', '');
-    setVal('campo-categorias', '');
-    setVal('campo-subcategoria', '');
-
-    setFornecedoresSelection([]);
-    setVal('campo-ultima-compra', '');
-    setVal('campo-ultimo-fornecedor', '');
-
-    setVal('campo-tipo-armaz', '');
-    setVal('campo-armaz-localiz', '');
-    setVal('campo-armaz-predio', '');
-    setVal('campo-armaz-corredor', '');
-    setVal('campo-armaz-prateleira', '');
-    setVal('campo-tipo-logistico', '');
-    setVal('campo-peso-logistico', '');
-    setVal('campo-peso-logistico-unidade', '');
-    setVal('campo-tamanho-logistico', '');
-    setVal('campo-embalagem-compra', '');
-    setVal('campo-embalagem-armazem', '');
-    setVal('campo-embalagem-saida', '');
-    setVal('campo-estoque-minimo', '');
-    setVal('campo-estoque-maximo', '');
-    setVal('campo-quantidade-atual', '');
-
-    setVal('campo-possui-validade', '');
-    setVal('campo-tipo-tecnico', '');
-    setVal('campo-cores-disponiveis', '');
-    setVal('campo-imagens-produto', '');
-    setVal('campo-videos-produto', '');
-    setVal('campo-fichas-tecnica', '');
-    setVal('campo-manuais-instalacao', '');
-    setVal('campo-manuais-programacao', '');
-    setVal('campo-manuais-usuario', '');
-
-    setVal('campo-classif-ncm-bbm', '');
-    setVal('campo-aliq-ipi-entrada', '');
-    setVal('campo-aliq-iva', '');
-    setVal('campo-cst-icms', '');
-    setVal('campo-cst-pis', '');
-    setVal('campo-cst-cofins', '');
-
-    setVal('campo-valor-custo', '');
-    setVal('campo-mark-up', '');
-    setVal('campo-custo-efetivo', '');
-    setVal('campo-mc-lucro', '');
-    setVal('campo-imp-importacao', '');
-    setVal('campo-ipi', '');
-    setVal('campo-icms', '');
-    setVal('campo-simples', '');
-    setVal('campo-luc-presumido', '');
-
-    MOVIMENTACOES_ATUAIS = [];
-    renderMovimentacoes();
-    resetMovForm();
-
-    updateProdutoControladoUI();
-    initMovimentacaoUI();
-    updateMovUI();
-
-    setTimeout(() => getEl('campo-nome-produto')?.focus(), 10);
+  if(!camposProdutos.length){
+    wrap.innerHTML = `<div class="Valora-empty">Nenhum campo personalizado criado ainda.</div>`;
     return;
   }
 
-  if (!produto) return;
-
-  produtoEditandoId = produto.id;
-  titulo.textContent = 'Editar produto';
-
-  if (infoData) {
-    infoData.hidden = false;
-    infoData.textContent = `Cadastrado em: ${formatDateBR(produto.data_cadastro)}`;
-  }
-
-  setVal('campo-cod-ref-id', produto.cod_ref_id || '');
-  setVal('campo-codigo-barras', produto.codigo_barras || '');
-  setVal('campo-nome-generico', produto.nome_generico || '');
-  setVal('campo-nome-produto', produto.nome_produto || '');
-  setVal('campo-fabricante', produto.fabricante || '');
-  setVal('campo-modelo', produto.modelo || '');
-  setVal('campo-cod-ref-fabric', produto.cod_ref_fabric || '');
-  setVal('campo-origem', produto.origem || '');
-
-  setVal('campo-status-atual', produto.status_atual || '');
-  setVal('campo-tipo-mercado', produto.tipo_mercado || '');
-  setVal('campo-utilizacao', produto.utilizacao || '');
-  setVal('campo-tipo-material', produto.tipo_material || '');
-
-  setVal('campo-prod-controlado', produto.prod_controlado || '');
-  setVal('campo-tipo-fiscalizacao', produto.tipo_fiscalizacao || '');
-  setVal('campo-dados-identificacao-controlado', produto.dados_identificacao_controlado || '');
-  setVal('campo-observacoes-controlado', produto.observacoes_controlado || '');
-  setSegmentosSelection(produto.segmentos);
-  setVal('campo-tipo-sistema', produto.tipo_sistema || '');
-  setVal('campo-classe', produto.classe || '');
-  setVal('campo-categorias', produto.categorias || '');
-  setVal('campo-subcategoria', produto.subcategoria || '');
-
-  setFornecedoresSelection(produto.fornecedores ?? produto.fornecedor);
-  setVal('campo-ultima-compra', produto.ultima_compra || '');
-  setVal('campo-ultimo-fornecedor', produto.ultimo_fornecedor || (normalizeFornecedoresValue(produto.fornecedores ?? produto.fornecedor)[0] || ''));
-
-  setVal('campo-tipo-armaz', produto.tipo_armaz || '');
-  setVal('campo-armaz-localiz', produto.armaz_localiz || '');
-  setVal('campo-armaz-predio', produto.armaz_predio || '');
-  setVal('campo-armaz-corredor', produto.armaz_corredor || '');
-  setVal('campo-armaz-prateleira', produto.armaz_prateleira || '');
-  setVal('campo-tipo-logistico', produto.tipo_logistico || '');
-  setVal('campo-peso-logistico', produto.peso_logistico ?? '');
-  setVal('campo-peso-logistico-unidade', produto.peso_logistico_unidade || '');
-  setVal('campo-tamanho-logistico', produto.tamanho_logistico || '');
-  setVal('campo-embalagem-compra', produto.embalagem_compra || '');
-  setVal('campo-embalagem-armazem', produto.embalagem_armazem || '');
-  setVal('campo-embalagem-saida', produto.embalagem_saida || '');
-  setVal('campo-estoque-minimo', produto.estoque_minimo ?? '');
-  setVal('campo-estoque-maximo', produto.estoque_maximo ?? '');
-  setVal('campo-quantidade-atual', produto.quantidade_atual ?? '');
-
-  setVal('campo-possui-validade', produto.possui_validade || '');
-  setVal('campo-tipo-tecnico', produto.tipo_tecnico || '');
-  setVal('campo-cores-disponiveis', produto.cores_disponiveis || '');
-  setVal('campo-imagens-produto', produto.imagens_produto || '');
-  setVal('campo-videos-produto', produto.videos_produto || '');
-  setVal('campo-fichas-tecnica', produto.fichas_tecnica || '');
-  setVal('campo-manuais-instalacao', produto.manuais_instalacao || '');
-  setVal('campo-manuais-programacao', produto.manuais_programacao || '');
-  setVal('campo-manuais-usuario', produto.manuais_usuario || '');
-
-  setVal('campo-classif-ncm-bbm', produto.classif_ncm_bbm || '');
-  setVal('campo-aliq-ipi-entrada', produto.aliq_ipi_entrada ?? '');
-  setVal('campo-aliq-iva', produto.aliq_iva ?? '');
-  setVal('campo-cst-icms', produto.cst_icms || '');
-  setVal('campo-cst-pis', produto.cst_pis || '');
-  setVal('campo-cst-cofins', produto.cst_cofins || '');
-
-  setVal('campo-valor-custo', produto.valor_custo ?? '');
-  setVal('campo-mark-up', produto.mark_up ?? '');
-  setVal('campo-custo-efetivo', produto.custo_efetivo ?? '');
-  setVal('campo-mc-lucro', produto.mc_lucro ?? '');
-  setVal('campo-imp-importacao', produto.imp_importacao ?? '');
-  setVal('campo-ipi', produto.ipi ?? '');
-  setVal('campo-icms', produto.icms ?? '');
-  setVal('campo-simples', produto.simples ?? '');
-  setVal('campo-luc-presumido', produto.luc_presumido ?? '');
-
-  MOVIMENTACOES_ATUAIS = Array.isArray(produto.movimentacoes) ? [...produto.movimentacoes] : [];
-  renderMovimentacoes();
-  resetMovForm();
-
-  updateProdutoControladoUI();
-  initMovimentacaoUI();
-  updateMovUI();
-
-  setTimeout(() => getEl('campo-nome-produto')?.focus(), 10);
+  wrap.innerHTML = camposProdutos.map(campo=>{
+    const badgeObrigatorio = campo.obrigatorio ? `<span class="Valora-badge">Obrigatório</span>` : '';
+    const badgeInativo = campo.ativo === false ? `<span class="Valora-badge Valora-badge--muted">Oculto</span>` : '';
+    return `
+      <div class="Valora-campo-card">
+        <div class="Valora-campo-card-head">
+          <div>
+            <strong>${escapeHtml(campo.nome || '')}</strong>
+            <div class="Valora-campo-meta">
+              <span>${escapeHtml(formatTipoCampo(campo.tipo))}</span>
+              <span>•</span>
+              <span>ordem ${Number(campo.ordem || 0)}</span>
+            </div>
+          </div>
+          <div class="Valora-table-actions">
+            <button class="Valora-icon-btn" data-campo-action="editar" data-id="${campo.id}" title="Editar campo">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+            <button class="Valora-icon-btn" data-campo-action="excluir" data-id="${campo.id}" title="Excluir campo">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div class="Valora-campo-badges">
+          ${badgeObrigatorio}
+          ${badgeInativo}
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
-function fecharModal() {
-  const backdrop = getEl('modal-produto-backdrop');
-  if (backdrop) backdrop.hidden = true;
-  document.body.classList.remove('modal-open');
+function parseCampoOpcoes(campo){
+  if(!campo || !campo.opcoes_json) return [];
+  try{
+    const parsed = JSON.parse(campo.opcoes_json);
+    return Array.isArray(parsed) ? parsed : [];
+  }catch{
+    return [];
+  }
+}
+
+function renderCustomFieldsInputs(values = {}){
+  const container = document.getElementById('custom-fields-container');
+  if(!container) return;
+
+  if(!camposProdutos.length){
+    container.innerHTML = `<div class="Valora-empty">Nenhum campo personalizado cadastrado.</div>`;
+    return;
+  }
+
+  const ativos = camposProdutos.filter(c => c.ativo !== false);
+  if(!ativos.length){
+    container.innerHTML = `<div class="Valora-empty">Todos os campos personalizados estão ocultos.</div>`;
+    return;
+  }
+
+  container.innerHTML = '';
+
+  ativos.forEach(campo=>{
+    const slug = String(campo.slug || '').trim();
+    const id = `custom-field-${slug}`;
+    const label = campo.nome || slug;
+    const tipo = campo.tipo || 'texto';
+    const obrigatorio = !!campo.obrigatorio;
+    const valor = values?.[slug] ?? '';
+    const field = document.createElement('div');
+    field.className = 'Valora-field';
+
+    let html = `<label for="${id}">${escapeHtml(label)}${obrigatorio ? ' *' : ''}</label>`;
+
+    if(tipo === 'textarea'){
+      html += `<textarea id="${id}" data-custom-field="${escapeHtml(slug)}" rows="4" placeholder="${escapeHtml(label)}">${escapeHtml(valor)}</textarea>`;
+    } else if(tipo === 'numero'){
+      html += `<input type="number" id="${id}" data-custom-field="${escapeHtml(slug)}" value="${escapeHtml(valor)}" placeholder="${escapeHtml(label)}" />`;
+    } else if(tipo === 'data'){
+      html += `<input type="date" id="${id}" data-custom-field="${escapeHtml(slug)}" value="${escapeHtml(valor)}" />`;
+    } else if(tipo === 'checkbox'){
+      const checked = String(valor).toLowerCase() === 'true' || valor === true ? 'checked' : '';
+      html = `
+        <label class="Valora-check Valora-check--custom">
+          <input type="checkbox" id="${id}" data-custom-field="${escapeHtml(slug)}" ${checked} />
+          <span>${escapeHtml(label)}</span>
+        </label>
+      `;
+    } else if(tipo === 'select'){
+      const opcoes = parseCampoOpcoes(campo);
+      html += `<select id="${id}" data-custom-field="${escapeHtml(slug)}">
+        <option value="">Selecione</option>
+        ${opcoes.map(opt => {
+          const sel = String(valor) === String(opt) ? 'selected' : '';
+          return `<option value="${escapeHtml(opt)}" ${sel}>${escapeHtml(opt)}</option>`;
+        }).join('')}
+      </select>`;
+    } else {
+      html += `<input type="text" id="${id}" data-custom-field="${escapeHtml(slug)}" value="${escapeHtml(valor)}" placeholder="${escapeHtml(label)}" />`;
+    }
+
+    field.innerHTML = html;
+    container.appendChild(field);
+  });
+}
+
+function abrirModalProduto(){
+  const backdrop = document.getElementById('modal-produto-backdrop');
+  if(!backdrop) return;
+  backdrop.hidden = false;
+  backdrop.style.display = 'flex';
+}
+
+function fecharModalProduto(){
+  const backdrop = document.getElementById('modal-produto-backdrop');
+  if(backdrop){
+    backdrop.hidden = true;
+    backdrop.style.display = 'none';
+  }
   produtoEditandoId = null;
 }
 
-/* =========================
-   Form / salvar / excluir
-========================= */
+function abrirModalCampo(){
+  const backdrop = document.getElementById('modal-campo-backdrop');
+  if(!backdrop) return;
+  backdrop.hidden = false;
+  backdrop.style.display = 'flex';
+}
 
-function lerFormProduto() {
-  const cod_ref_id = getEl('campo-cod-ref-id')?.value.trim() || '';
-  const codigo_barras = getEl('campo-codigo-barras')?.value.trim() || '';
-  const nome_generico = getEl('campo-nome-generico')?.value.trim() || '';
-  const nome_produto = getEl('campo-nome-produto')?.value.trim() || '';
-  const fabricante = getEl('campo-fabricante')?.value.trim() || '';
-  const modelo = getEl('campo-modelo')?.value.trim() || '';
-  const cod_ref_fabric = getEl('campo-cod-ref-fabric')?.value.trim() || '';
-  const origem = getEl('campo-origem')?.value || '';
-
-  const status_atual = getEl('campo-status-atual')?.value || '';
-  const tipo_mercado = getEl('campo-tipo-mercado')?.value || '';
-  const utilizacao = getEl('campo-utilizacao')?.value || '';
-  const tipo_material = getEl('campo-tipo-material')?.value || '';
-
-  const prod_controlado = getEl('campo-prod-controlado')?.value || '';
-  const tipo_fiscalizacao = getEl('campo-tipo-fiscalizacao')?.value || '';
-  const dados_identificacao_controlado = getEl('campo-dados-identificacao-controlado')?.value.trim() || '';
-  const observacoes_controlado = getEl('campo-observacoes-controlado')?.value.trim() || '';
-
-  const segmentos = getSelectedSegmentos();
-  const tipo_sistema = getEl('campo-tipo-sistema')?.value.trim() || '';
-  const classe = getEl('campo-classe')?.value || '';
-  const categorias = getEl('campo-categorias')?.value.trim() || '';
-  const subcategoria = getEl('campo-subcategoria')?.value.trim() || '';
-
-  const fornecedores = getSelectedFornecedores();
-  const fornecedor = fornecedores[0] || '';
-  const ultima_compra = (getEl('campo-ultima-compra')?.value || '').trim() || null;
-  const ultimo_fornecedor = getEl('campo-ultimo-fornecedor')?.value || '';
-
-  const tipo_armaz = getEl('campo-tipo-armaz')?.value || '';
-  const armaz_localiz = getEl('campo-armaz-localiz')?.value.trim() || '';
-  const armaz_predio = getEl('campo-armaz-predio')?.value.trim() || '';
-  const armaz_corredor = getEl('campo-armaz-corredor')?.value.trim() || '';
-  const armaz_prateleira = getEl('campo-armaz-prateleira')?.value.trim() || '';
-  const tipo_logistico = getEl('campo-tipo-logistico')?.value.trim() || '';
-
-  const peso_logistico = numOrNull(getEl('campo-peso-logistico')?.value);
-  const peso_logistico_unidade = getEl('campo-peso-logistico-unidade')?.value || '';
-
-  const tamanho_logistico = getEl('campo-tamanho-logistico')?.value.trim() || '';
-  const embalagem_compra = getEl('campo-embalagem-compra')?.value.trim() || '';
-  const embalagem_armazem = getEl('campo-embalagem-armazem')?.value.trim() || '';
-  const embalagem_saida = getEl('campo-embalagem-saida')?.value.trim() || '';
-  const estoque_minimo = intOrNull(getEl('campo-estoque-minimo')?.value);
-  const estoque_maximo = intOrNull(getEl('campo-estoque-maximo')?.value);
-  const quantidade_atual = intOrNull(getEl('campo-quantidade-atual')?.value);
-
-  const possui_validade = getEl('campo-possui-validade')?.value || '';
-  const tipo_tecnico = getEl('campo-tipo-tecnico')?.value.trim() || '';
-  const cores_disponiveis = getEl('campo-cores-disponiveis')?.value || '';
-
-  const imagens_produto = getEl('campo-imagens-produto')?.value || '';
-  const videos_produto = getEl('campo-videos-produto')?.value || '';
-  const fichas_tecnica = getEl('campo-fichas-tecnica')?.value || '';
-  const manuais_instalacao = getEl('campo-manuais-instalacao')?.value || '';
-  const manuais_programacao = getEl('campo-manuais-programacao')?.value || '';
-  const manuais_usuario = getEl('campo-manuais-usuario')?.value || '';
-
-  const classif_ncm_bbm = getEl('campo-classif-ncm-bbm')?.value.trim() || '';
-  const aliq_ipi_entrada = numOrNull(getEl('campo-aliq-ipi-entrada')?.value);
-  const aliq_iva = numOrNull(getEl('campo-aliq-iva')?.value);
-  const cst_icms = getEl('campo-cst-icms')?.value || '';
-  const cst_pis = getEl('campo-cst-pis')?.value || '';
-  const cst_cofins = getEl('campo-cst-cofins')?.value || '';
-
-  const valor_custo = numOrNull(getEl('campo-valor-custo')?.value);
-  const mark_up = numOrNull(getEl('campo-mark-up')?.value);
-  const custo_efetivo = numOrNull(getEl('campo-custo-efetivo')?.value);
-  const mc_lucro = numOrNull(getEl('campo-mc-lucro')?.value);
-  const imp_importacao = numOrNull(getEl('campo-imp-importacao')?.value);
-  const ipi = numOrNull(getEl('campo-ipi')?.value);
-  const icms = numOrNull(getEl('campo-icms')?.value);
-  const simples = numOrNull(getEl('campo-simples')?.value);
-  const luc_presumido = numOrNull(getEl('campo-luc-presumido')?.value);
-
-  if (!nome_produto) {
-    toast('Preencha pelo menos o Produto.', 'warn', 'Campo obrigatório');
-    getEl('campo-nome-produto')?.focus();
-    return null;
+function fecharModalCampo(){
+  const backdrop = document.getElementById('modal-campo-backdrop');
+  if(backdrop){
+    backdrop.hidden = true;
+    backdrop.style.display = 'none';
   }
+  campoEditandoId = null;
+}
 
+function setVal(id, v){
+  const el = document.getElementById(id);
+  if(el) el.value = (v ?? '');
+}
+
+function getVal(id){
+  const el = document.getElementById(id);
+  return (el?.value ?? '').trim();
+}
+
+function setCheck(id, v){
+  const el = document.getElementById(id);
+  if(el) el.checked = !!v;
+}
+
+function getCheck(id){
+  const el = document.getElementById(id);
+  return !!el?.checked;
+}
+
+function limparCamposProduto(){
+  setVal('campo-codigo-produto', '');
+  setVal('campo-nome-produto', '');
+  setVal('campo-descricao-produto', '');
+  setVal('campo-categoria-produto', '');
+  setVal('campo-unidade-produto', '');
+  setVal('campo-preco-venda-produto', '');
+  setVal('campo-custo-produto', '');
+  setVal('campo-estoque-produto', '');
+  setCheck('campo-ativo-produto', true);
+  renderCustomFieldsInputs({});
+}
+
+function abrirModalProdutoNovo(){
+  const titulo = document.getElementById('modal-produto-titulo');
+  if(titulo) titulo.textContent = 'Novo produto';
+
+  produtoEditandoId = null;
+  limparCamposProduto();
+
+  const proximoId = produtos.length > 0 ? Math.max(...produtos.map(p=>Number(p.id) || 0)) + 1 : 1;
+  setVal('campo-codigo-produto', `PRO-${String(proximoId).padStart(4,'0')}`);
+
+  abrirModalProduto();
+  setTimeout(()=>{ try{ document.getElementById('campo-nome-produto')?.focus(); }catch{} }, 0);
+}
+
+function abrirModalProdutoEditar(produto){
+  const titulo = document.getElementById('modal-produto-titulo');
+  if(titulo) titulo.textContent = 'Editar produto';
+
+  produtoEditandoId = produto.id;
+
+  setVal('campo-codigo-produto', produto.codigo || '');
+  setVal('campo-nome-produto', produto.nome || '');
+  setVal('campo-descricao-produto', produto.descricao || '');
+  setVal('campo-categoria-produto', produto.categoria || '');
+  setVal('campo-unidade-produto', produto.unidade || '');
+  setVal('campo-preco-venda-produto', produto.preco_venda || '');
+  setVal('campo-custo-produto', produto.custo || '');
+  setVal('campo-estoque-produto', produto.estoque_atual || '');
+  setCheck('campo-ativo-produto', produto.ativo !== false);
+
+  renderCustomFieldsInputs(produto.custom_fields || {});
+  abrirModalProduto();
+}
+
+function collectCustomFieldsValues(){
+  const values = {};
+  const nodes = document.querySelectorAll('[data-custom-field]');
+
+  nodes.forEach(el=>{
+    const slug = el.getAttribute('data-custom-field');
+    if(!slug) return;
+
+    let value = '';
+
+    if(el.type === 'checkbox'){
+      value = el.checked ? 'true' : 'false';
+    } else {
+      value = String(el.value ?? '').trim();
+    }
+
+    if(value !== ''){
+      values[slug] = value;
+    }
+  });
+
+  return values;
+}
+
+function validarCamposPersonalizados(custom_fields){
+  for(const campo of camposProdutos.filter(c => c.ativo !== false && c.obrigatorio)){
+    const slug = String(campo.slug || '').trim();
+    const tipo = campo.tipo || 'texto';
+    const valor = custom_fields?.[slug];
+
+    if(tipo === 'checkbox'){
+      if(valor !== 'true' && valor !== true){
+        return `Preencha o campo obrigatório: ${campo.nome}`;
+      }
+    } else {
+      if(valor == null || String(valor).trim() === ''){
+        return `Preencha o campo obrigatório: ${campo.nome}`;
+      }
+    }
+  }
+  return null;
+}
+
+function buildPayloadProduto(){
   return {
-    cod_ref_id,
-    codigo_barras,
-    nome_generico,
-    nome_produto,
-    fabricante,
-    modelo,
-    cod_ref_fabric,
-    origem,
-
-    status_atual,
-    tipo_mercado,
-    utilizacao,
-    tipo_material,
-
-    prod_controlado,
-    tipo_fiscalizacao: isSim(prod_controlado) ? (tipo_fiscalizacao || null) : null,
-    dados_identificacao_controlado: isSim(prod_controlado) ? (dados_identificacao_controlado || null) : null,
-    observacoes_controlado: isSim(prod_controlado) ? (observacoes_controlado || null) : null,
-
-    segmentos,
-    tipo_sistema,
-    classe,
-    categorias,
-    subcategoria,
-
-    fornecedores,
-    fornecedor,
-    ultima_compra,
-    ultimo_fornecedor,
-
-    tipo_armaz,
-    armaz_localiz,
-    tipo_logistico,
-
-    peso_logistico,
-    peso_logistico_unidade,
-
-    tamanho_logistico,
-    embalagem_compra,
-    embalagem_armazem,
-    embalagem_saida,
-    estoque_minimo,
-    estoque_maximo,
-    quantidade_atual,
-
-    possui_validade,
-    tipo_tecnico,
-    cores_disponiveis,
-
-    imagens_produto,
-    videos_produto,
-    fichas_tecnica,
-    manuais_instalacao,
-    manuais_programacao,
-    manuais_usuario,
-
-    classif_ncm_bbm,
-    aliq_ipi_entrada,
-    aliq_iva,
-    cst_icms,
-    cst_pis,
-    cst_cofins,
-
-    valor_custo,
-    mark_up,
-    custo_efetivo,
-    mc_lucro,
-    imp_importacao,
-    ipi,
-    icms,
-    simples,
-    luc_presumido,
-
-    armaz_predio,
-    armaz_corredor,
-    armaz_prateleira,
-
-    movimentacoes: MOVIMENTACOES_ATUAIS
+    codigo: getVal('campo-codigo-produto'),
+    nome: getVal('campo-nome-produto'),
+    descricao: getVal('campo-descricao-produto'),
+    categoria: getVal('campo-categoria-produto'),
+    unidade: getVal('campo-unidade-produto'),
+    preco_venda: getVal('campo-preco-venda-produto'),
+    custo: getVal('campo-custo-produto'),
+    estoque_atual: getVal('campo-estoque-produto'),
+    ativo: getCheck('campo-ativo-produto'),
+    custom_fields: collectCustomFieldsValues(),
   };
 }
 
-function salvarLocal(payload) {
-  if (produtoEditandoId == null) {
-    const novoId = produtos.length > 0 ? Math.max(...produtos.map(p => Number(p.id) || 0)) + 1 : 1;
-    produtos.push({ id: novoId, data_cadastro: new Date().toISOString(), ...payload });
-  } else {
-    produtos = produtos.map(p => (Number(p.id) === Number(produtoEditandoId) ? { ...p, ...payload } : p));
-  }
-  saveLocal(produtos);
-  fecharModal();
-  renderTabela();
-}
+async function salvarProduto(){
+  const payload = buildPayloadProduto();
 
-async function salvarProduto() {
-  const payload = lerFormProduto();
-  if (!payload) return;
-
-  if (API_DISPONIVEL === false) {
-    salvarLocal(payload);
-    toast('Salvo (local).', 'ok');
+  if(!payload.nome){
+    toast('Preencha o nome do produto.', { error:true });
+    document.getElementById('campo-nome-produto')?.focus();
     return;
   }
 
-  try {
-    if (produtoEditandoId == null) {
-      const criado = await apiCriarProduto(payload);
-      API_DISPONIVEL = true;
-      produtos.push(normalizeProduto(criado));
-    } else {
-      const atualizado = await apiAtualizarProduto(produtoEditandoId, payload);
-      API_DISPONIVEL = true;
-      const up = normalizeProduto(atualizado);
-      produtos = produtos.map(p => (Number(p.id) === Number(produtoEditandoId) ? { ...p, ...up } : p));
-    }
-
-    fecharModal();
-    renderTabela();
-    toast('Produto salvo.', 'ok');
-  } catch (err) {
-    logWarn('Falha ao salvar via API (fallback local):', err);
-    API_DISPONIVEL = false;
-    salvarLocal(payload);
-    toast('API indisponível. Salvei localmente.', 'warn', 'Fallback');
-  }
-}
-
-async function excluirProduto(id) {
-  const ok = await confirmOrca('Deseja realmente excluir este produto?', {
-    title: 'Excluir produto',
-    okText: 'Excluir',
-    cancelText: 'Cancelar'
-  });
-  if (!ok) return;
-
-  if (API_DISPONIVEL === false) {
-    produtos = produtos.filter(p => Number(p.id) !== Number(id));
-    saveLocal(produtos);
-    renderTabela();
-    toast('Excluído (local).', 'ok');
+  const erroCustom = validarCamposPersonalizados(payload.custom_fields);
+  if(erroCustom){
+    toast(erroCustom, { error:true, ms:4500 });
     return;
   }
 
-  try {
-    await apiExcluirProduto(id);
-    API_DISPONIVEL = true;
-    produtos = produtos.filter(p => Number(p.id) !== Number(id));
-    renderTabela();
-    toast('Produto excluído.', 'ok');
-  } catch (err) {
-    logWarn('Falha ao excluir via API (fallback local):', err);
-    API_DISPONIVEL = false;
-    produtos = produtos.filter(p => Number(p.id) !== Number(id));
-    saveLocal(produtos);
-    renderTabela();
-    toast('API indisponível. Excluí localmente.', 'warn', 'Fallback');
+  try{
+    await salvarProdutoNoServidor(payload, produtoEditandoId);
+    await carregarProdutos();
+    fecharModalProduto();
+    toast('Produto salvo com sucesso.', { ms:1800 });
+  }catch(err){
+    console.error('[Produtos] salvar erro:', err);
+    toast(err?.message || 'Erro ao salvar produto.', { error:true, ms:5000 });
   }
 }
 
-/* =========================
-   INIT
-========================= */
+function syncCampoTipo(){
+  const tipo = getVal('campo-custom-tipo') || 'texto';
+  const wrap = document.getElementById('wrap-custom-opcoes');
+  const campoOpcoes = document.getElementById('campo-custom-opcoes');
 
-async function initProdutosPage() {
-  ensureInlineUIStyles();
-  setupProdutoLists();
+  if(!wrap) return;
 
-  const selControlado = getEl('campo-prod-controlado');
-  if (selControlado) {
-    selControlado.addEventListener('change', updateProdutoControladoUI);
+  const mostrar = tipo === 'select';
+
+  wrap.hidden = !mostrar;
+  wrap.style.display = mostrar ? '' : 'none';
+
+  if(!mostrar && campoOpcoes){
+    campoOpcoes.value = '';
   }
-  updateProdutoControladoUI();
+}
 
-  const backdrop = getEl('modal-produto-backdrop');
-  if (backdrop) backdrop.hidden = true;
+function limparCamposModalCampo(){
+  setVal('campo-custom-nome', '');
+  setVal('campo-custom-tipo', 'texto');
+  setVal('campo-custom-ordem', '0');
+  setVal('campo-custom-opcoes', '');
+  setCheck('campo-custom-obrigatorio', false);
+  setCheck('campo-custom-ativo', true);
 
-  produtos = await carregarProdutos();
-
-  if (API_DISPONIVEL === false) {
-    const local = loadLocal();
-    if (!local) saveLocal(produtos);
-  }
-
-  renderTabela();
-
-  // ✅ EXPORTAR / IMPORTAR / LIMPAR
-  bindExportImportUI();
-
-  const inputBusca = getEl('busca-produtos');
-  const selectOrigem = getEl('filtro-origem-produto');
-
-  if (inputBusca) inputBusca.addEventListener('input', renderTabela);
-  if (selectOrigem) selectOrigem.addEventListener('change', renderTabela);
-
-  const btnNovo = getEl('btn-novo-produto');
-  if (btnNovo) btnNovo.addEventListener('click', () => abrirModal(true, null));
-
-  const btnFechar = getEl('btn-fechar-modal-produto');
-  const btnCancelar = getEl('btn-cancelar-produto');
-  const btnSalvar = getEl('btn-salvar-produto');
-
-  if (btnFechar) btnFechar.addEventListener('click', fecharModal);
-  if (btnCancelar) btnCancelar.addEventListener('click', fecharModal);
-  if (btnSalvar) btnSalvar.addEventListener('click', salvarProduto);
-
-  if (backdrop) {
-    backdrop.addEventListener('click', e => {
-      if (e.target === backdrop) fecharModal();
-    });
+  const wrap = document.getElementById('wrap-custom-opcoes');
+  if(wrap){
+    wrap.hidden = true;
+    wrap.style.display = 'none';
   }
 
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      const bd = getEl('modal-produto-backdrop');
-      if (bd && !bd.hidden) fecharModal();
+  syncCampoTipo();
+}
+
+function abrirModalCampoNovo(){
+  const titulo = document.getElementById('modal-campo-titulo');
+  if(titulo) titulo.textContent = 'Novo campo';
+
+  campoEditandoId = null;
+  limparCamposModalCampo();
+  abrirModalCampo();
+  syncCampoTipo();
+
+  setTimeout(()=>{ try{ document.getElementById('campo-custom-nome')?.focus(); }catch{} }, 0);
+}
+
+function abrirModalCampoEditar(campo){
+  const titulo = document.getElementById('modal-campo-titulo');
+  if(titulo) titulo.textContent = 'Editar campo';
+
+  campoEditandoId = campo.id;
+
+  setVal('campo-custom-nome', campo.nome || '');
+  setVal('campo-custom-tipo', campo.tipo || 'texto');
+  setVal('campo-custom-ordem', String(campo.ordem ?? 0));
+  setVal('campo-custom-opcoes', parseCampoOpcoes(campo).join('\n'));
+  setCheck('campo-custom-obrigatorio', !!campo.obrigatorio);
+  setCheck('campo-custom-ativo', campo.ativo !== false);
+
+  abrirModalCampo();
+  syncCampoTipo();
+}
+
+function buildPayloadCampo(){
+  const nome = getVal('campo-custom-nome');
+  const tipo = getVal('campo-custom-tipo') || 'texto';
+  const ordemRaw = getVal('campo-custom-ordem');
+  const obrigatorio = getCheck('campo-custom-obrigatorio');
+  const ativo = getCheck('campo-custom-ativo');
+
+  const slug = slugify(nome);
+  const ordem = Number.isFinite(Number(ordemRaw)) ? Number(ordemRaw) : 0;
+
+  let opcoes_json = null;
+  if(tipo === 'select'){
+    const linhas = getVal('campo-custom-opcoes')
+      .split('\n')
+      .map(s => s.trim())
+      .filter(Boolean);
+    opcoes_json = JSON.stringify(linhas);
+  }
+
+  return {
+    nome,
+    slug,
+    tipo,
+    obrigatorio,
+    ativo,
+    ordem,
+    opcoes_json,
+  };
+}
+
+async function salvarCampo(){
+  const payload = buildPayloadCampo();
+
+  if(!payload.nome){
+    toast('Preencha o nome do campo.', { error:true });
+    document.getElementById('campo-custom-nome')?.focus();
+    return;
+  }
+
+  if(!payload.slug){
+    toast('Não foi possível gerar o identificador do campo.', { error:true });
+    document.getElementById('campo-custom-nome')?.focus();
+    return;
+  }
+
+  if(payload.tipo === 'select'){
+    try{
+      const parsed = JSON.parse(payload.opcoes_json || '[]');
+      if(!Array.isArray(parsed) || !parsed.length){
+        toast('Adicione pelo menos uma opção na lista.', { error:true, ms:4200 });
+        document.getElementById('campo-custom-opcoes')?.focus();
+        return;
+      }
+    }catch{
+      toast('As opções da lista estão inválidas.', { error:true });
+      return;
+    }
+  }
+
+  try{
+    await salvarCampoProduto(payload, campoEditandoId);
+    await carregarCamposProdutos();
+    fecharModalCampo();
+    toast('Campo salvo com sucesso.', { ms:1800 });
+  }catch(err){
+    console.error('[CamposProdutos] salvar erro:', err);
+    toast(err?.message || 'Erro ao salvar campo.', { error:true, ms:5000 });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async ()=>{
+  const modalProdutoBackdrop = document.getElementById('modal-produto-backdrop');
+  if(modalProdutoBackdrop){
+    modalProdutoBackdrop.hidden = true;
+    modalProdutoBackdrop.style.display = 'none';
+  }
+
+  const modalCampoBackdrop = document.getElementById('modal-campo-backdrop');
+  if(modalCampoBackdrop){
+    modalCampoBackdrop.hidden = true;
+    modalCampoBackdrop.style.display = 'none';
+  }
+
+  const confirmBackdrop = document.getElementById('Valora-confirm-backdrop');
+  const btnX = document.getElementById('Valora-confirm-close');
+  const btnCancel = document.getElementById('Valora-confirm-cancel');
+  const btnOk = document.getElementById('Valora-confirm-ok');
+
+  btnX?.addEventListener('click', ()=>closeConfirm(false));
+  btnCancel?.addEventListener('click', ()=>closeConfirm(false));
+  btnOk?.addEventListener('click', ()=>closeConfirm(true));
+  confirmBackdrop?.addEventListener('click', (e)=>{ if(e.target === confirmBackdrop) closeConfirm(false); });
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape'){
+      if(confirmBackdrop && !confirmBackdrop.hidden) closeConfirm(false);
+      if(modalProdutoBackdrop && !modalProdutoBackdrop.hidden) fecharModalProduto();
+      if(modalCampoBackdrop && !modalCampoBackdrop.hidden) fecharModalCampo();
     }
   });
 
-  const tbody = getEl('tbody-produtos');
-  if (tbody) {
-    tbody.addEventListener('click', e => {
-      const btn = e.target.closest('.orca-icon-btn');
-      if (!btn) return;
-
-      const action = btn.dataset.action;
-      const id = Number(btn.dataset.id);
-      const produto = produtos.find(p => Number(p.id) === id);
-      if (!produto) return;
-
-      if (action === 'editar') abrirModal(false, produto);
-      if (action === 'excluir') excluirProduto(id);
-    });
+  try{
+    await Promise.all([
+      carregarCamposProdutos(),
+      carregarProdutos(),
+    ]);
+  }catch(err){
+    console.error('[Produtos] init erro:', err);
+    toast(err?.message || 'Erro ao carregar dados.', { error:true, ms:5000 });
   }
-}
 
-document.addEventListener('DOMContentLoaded', () => {
-  initProdutosPage().catch(err => {
-    logErr('Falha ao iniciar página de produtos:', err);
-    produtos = (loadLocal() || produtosFake).map(normalizeProduto);
-    renderTabela();
-    toast('Falha ao iniciar. Usei dados locais.', 'warn', 'Fallback');
+  document.getElementById('busca-produtos')?.addEventListener('input', renderTabelaProdutos);
+
+  document.getElementById('btn-novo-produto')?.addEventListener('click', abrirModalProdutoNovo);
+  document.getElementById('btn-fechar-modal-produto')?.addEventListener('click', fecharModalProduto);
+  document.getElementById('btn-cancelar-produto')?.addEventListener('click', fecharModalProduto);
+  document.getElementById('btn-salvar-produto')?.addEventListener('click', salvarProduto);
+  modalProdutoBackdrop?.addEventListener('click', (e)=>{ if(e.target === modalProdutoBackdrop) fecharModalProduto(); });
+
+  document.getElementById('btn-novo-campo')?.addEventListener('click', abrirModalCampoNovo);
+  document.getElementById('btn-novo-campo-inline')?.addEventListener('click', abrirModalCampoNovo);
+  document.getElementById('btn-fechar-modal-campo')?.addEventListener('click', fecharModalCampo);
+  document.getElementById('btn-cancelar-campo')?.addEventListener('click', fecharModalCampo);
+  document.getElementById('btn-salvar-campo')?.addEventListener('click', salvarCampo);
+  modalCampoBackdrop?.addEventListener('click', (e)=>{ if(e.target === modalCampoBackdrop) fecharModalCampo(); });
+
+  document.getElementById('campo-custom-tipo')?.addEventListener('change', syncCampoTipo);
+
+  document.getElementById('btn-exportar-produtos-json')?.addEventListener('click', exportarProdutosJSON);
+  document.getElementById('btn-exportar-produtos-csv')?.addEventListener('click', exportarProdutosCSV);
+
+  const btnImport = document.getElementById('btn-importar-produtos');
+  const inputImport = document.getElementById('input-importar-produtos');
+
+  btnImport?.addEventListener('click', ()=>{
+    if(inputImport) inputImport.click();
+    else toast('Faltou o input file para importação.', { error:true, ms:4200 });
+  });
+
+  inputImport?.addEventListener('change', async ()=>{
+    const file = inputImport.files && inputImport.files[0] ? inputImport.files[0] : null;
+    await importarProdutosArquivo(file);
+    inputImport.value = '';
+  });
+
+  const tbody = document.getElementById('tbody-produtos');
+  tbody?.addEventListener('click', async (e)=>{
+    const btn = e.target.closest('.Valora-icon-btn');
+    if(!btn) return;
+
+    const action = btn.dataset.action;
+    const id = Number(btn.dataset.id);
+    if(!id) return;
+
+    if(action === 'editar'){
+      try{
+        const full = await obterProdutoNoServidor(id);
+        abrirModalProdutoEditar(full);
+      }catch(err){
+        console.error('[Produtos] obter/editar erro:', err);
+        toast(err?.message || 'Não foi possível abrir o produto.', { error:true, ms:5000 });
+      }
+      return;
+    }
+
+    if(action === 'excluir'){
+      const ok = await confirmDialog({
+        title:'Excluir produto',
+        message:'Deseja realmente excluir este produto?',
+        confirmText:'Excluir',
+        cancelText:'Cancelar',
+        danger:true,
+      });
+
+      if(ok){
+        excluirProdutoNoServidor(id)
+          .then(()=>carregarProdutos())
+          .then(()=>toast('Produto excluído.', { ms:1800 }))
+          .catch(err=>{
+            console.error('[Produtos] excluir erro:', err);
+            toast(err?.message || 'Erro ao excluir produto.', { error:true, ms:5000 });
+          });
+      }
+    }
+  });
+
+  const listaCampos = document.getElementById('lista-campos-produtos');
+  listaCampos?.addEventListener('click', async (e)=>{
+    const btn = e.target.closest('.Valora-icon-btn');
+    if(!btn) return;
+
+    const action = btn.dataset.campoAction;
+    const id = Number(btn.dataset.id);
+    if(!id) return;
+
+    if(action === 'editar'){
+      try{
+        const campo = await obterCampoProduto(id);
+        abrirModalCampoEditar(campo);
+      }catch(err){
+        console.error('[CamposProdutos] editar erro:', err);
+        toast(err?.message || 'Não foi possível abrir o campo.', { error:true, ms:5000 });
+      }
+      return;
+    }
+
+    if(action === 'excluir'){
+      const ok = await confirmDialog({
+        title:'Excluir campo',
+        message:'Deseja realmente excluir este campo personalizado?',
+        confirmText:'Excluir',
+        cancelText:'Cancelar',
+        danger:true,
+      });
+
+      if(ok){
+        excluirCampoProduto(id)
+          .then(()=>carregarCamposProdutos())
+          .then(()=>toast('Campo excluído.', { ms:1800 }))
+          .catch(err=>{
+            console.error('[CamposProdutos] excluir erro:', err);
+            toast(err?.message || 'Erro ao excluir campo.', { error:true, ms:5000 });
+          });
+      }
+    }
   });
 });

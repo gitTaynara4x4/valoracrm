@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visão Geral | Valora CRM</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <link rel="stylesheet" href="/frontend/css/app.css" />
+  <script src="/frontend/js/pages/app.js" defer></script>
+</head>
+<body>
+  <div class="layout">
+    <iframe src="/frontend/partials/sidebar.html" class="sidebar-frame" title="Menu lateral"></iframe>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Dashboard</span>
+          <h1>Visão Geral</h1>
+        </div>
+      </header>
+
+      <section class="hero-card">
+        <div class="hero-content">
+          <div class="status-indicator">
+            <span class="dot"></span> Sistema Online e Sincronizado
+          </div>
+          <h2 id="welcomeTitle">Olá, Usuário 👋</h2>
+          <p id="welcomeText">Bem-vindo ao Valora CRM. Acompanhe o resumo da sua operação, cadastre novos clientes e gerencie suas propostas de forma rápida e inteligente.</p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" onclick="window.location.href='/frontend/propostas.html'">
+              <i class="fa-solid fa-plus" style="margin-right: 8px;"></i> Nova Proposta
+            </button>
+            <button class="btn btn-secondary" onclick="window.location.href='/frontend/clientes.html'">
+              Ver Clientes
+            </button>
+          </div>
+        </div>
+        <div class="plan-card">
+          <span class="plan-label">Seu Plano Atual</span>
+          <strong id="planName">Profissional</strong>
+          <small id="companyIdInfo">Empresa #--</small>
+        </div>
+      </section>
+
+      <section class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Total de Clientes</span>
+          <span class="stat-value">124</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Propostas Enviadas (Mês)</span>
+          <span class="stat-value">32</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Taxa de Aprovação</span>
+          <span class="stat-value online">68%</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Faturamento Estimado</span>
+          <span class="stat-value">R$ 45.200</span>
+        </div>
+      </section>
+
+      <section class="content-grid">
+        
+        <article class="panel-card">
+          <div class="panel-head">
+            <h3>Ações Rápidas</h3>
+            <p>Atalhos para as funções mais usadas do sistema.</p>
+          </div>
+          <div class="quick-grid">
+            <div class="quick-card" onclick="window.location.href='/frontend/clientes.html'" style="cursor: pointer;">
+              <i class="fa-solid fa-user-plus" style="color: var(--brand); font-size: 20px; margin-bottom: 8px;"></i>
+              <strong>Cadastrar Cliente</strong>
+              <small>Adicionar à base</small>
+            </div>
+            <div class="quick-card" onclick="window.location.href='/frontend/produtos.html'" style="cursor: pointer;">
+              <i class="fa-solid fa-box-open" style="color: var(--brand); font-size: 20px; margin-bottom: 8px;"></i>
+              <strong>Novo Produto</strong>
+              <small>Catálogo de itens</small>
+            </div>
+            <div class="quick-card" onclick="window.location.href='/frontend/fornecedores.html'" style="cursor: pointer;">
+              <i class="fa-solid fa-truck" style="color: var(--brand); font-size: 20px; margin-bottom: 8px;"></i>
+              <strong>Fornecedor</strong>
+              <small>Rede de parceiros</small>
+            </div>
+            <div class="quick-card" onclick="window.location.href='/frontend/configuracoes.html'" style="cursor: pointer;">
+              <i class="fa-solid fa-sliders" style="color: var(--brand); font-size: 20px; margin-bottom: 8px;"></i>
+              <strong>Ajustes</strong>
+              <small>Configurar sistema</small>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel-card">
+          <div class="panel-head">
+            <h3>Passos Iniciais</h3>
+            <p>Configure sua conta para tirar o máximo proveito.</p>
+          </div>
+          <div class="checklist">
+            <label class="check-item">
+              <input type="checkbox" checked />
+              <div class="fake-check"></div>
+              <span class="check-text">Criar conta e acessar o painel</span>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" checked />
+              <div class="fake-check"></div>
+              <span class="check-text">Personalizar a aparência no Modo Claro/Escuro</span>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" />
+              <div class="fake-check"></div>
+              <span class="check-text">Cadastrar o primeiro Cliente da base</span>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" />
+              <div class="fake-check"></div>
+              <span class="check-text">Gerar e enviar a primeira Proposta</span>
+            </label>
+          </div>
+        </article>
+
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // Puxa o nome do usuário logado e coloca na mensagem de Bom Dia/Boa Tarde
+    document.addEventListener("DOMContentLoaded", () => {
+      const nomeSalvo = localStorage.getItem('nome') || 'Usuário';
+      const primeiroNome = nomeSalvo.split(' ')[0];
+      
+      const welcomeTitle = document.getElementById('welcomeTitle');
+      if(welcomeTitle) {
+        welcomeTitle.textContent = `Olá, ${primeiroNome} 👋`;
+      }
+    });
+  </script>
+</body>
+</html>

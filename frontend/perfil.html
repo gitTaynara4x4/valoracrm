@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meu Perfil | Valora CRM</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/frontend/css/app.css" />
+  <script src="/frontend/js/pages/app.js" defer></script> 
+</head>
+<body>
+  <div class="layout">
+    <iframe
+      src="/frontend/partials/sidebar.html"
+      class="sidebar-frame"
+      title="Menu lateral"
+      loading="eager">
+    </iframe>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Configurações de Conta</span>
+          <h1>Meu Perfil</h1>
+        </div>
+      </header>
+
+      <div class="settings-layout">
+        
+        <div class="settings-col">
+          
+          <article class="panel-card">
+            <div class="panel-head">
+              <h3>Foto de Perfil</h3>
+              <p>Esta imagem será exibida na barra lateral e nas suas propostas.</p>
+            </div>
+            
+            <div class="avatar-upload-box">
+              <div class="avatar-preview" id="avatarPreviewBox">
+                <span id="avatarInitials">T</span>
+              </div>
+              <div class="avatar-actions">
+                <input type="file" id="avatarInput" accept="image/png, image/jpeg, image/webp" style="display: none;" />
+                <button type="button" class="btn btn-secondary" id="btnUploadAvatar">
+                  <i class="fa-solid fa-upload" style="margin-right: 8px;"></i> Carregar nova
+                </button>
+                <button type="button" class="btn btn-text" id="btnRemoveAvatar">Remover</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel-card">
+            <div class="panel-head">
+              <h3>Informações Pessoais</h3>
+              <p>Atualize seus dados básicos de contato.</p>
+            </div>
+
+            <form class="valora-form" id="formPerfil">
+              <div class="form-group">
+                <label for="nome">Nome completo</label>
+                <input type="text" id="nome" required />
+              </div>
+
+              <div class="form-group">
+                <label for="email">Endereço de e-mail</label>
+                <input type="email" id="email" required />
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="telefone">Telefone (WhatsApp)</label>
+                  <input type="tel" id="telefone" />
+                </div>
+                <div class="form-group">
+                  <label for="cargo">Cargo</label>
+                  <input type="text" id="cargo" />
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="btnSalvarPerfil">Salvar alterações</button>
+              </div>
+            </form>
+          </article>
+
+        </div>
+
+        <div class="settings-col">
+          
+          <article class="panel-card">
+            <div class="panel-head">
+              <h3>Segurança</h3>
+              <p>Gerencie sua senha e métodos de acesso.</p>
+            </div>
+
+            <form class="valora-form" id="formSenha">
+              <div class="form-group">
+                <label for="senha_atual">Senha atual</label>
+                <input type="password" id="senha_atual" required />
+              </div>
+
+              <div class="form-group">
+                <label for="nova_senha">Nova senha</label>
+                <input type="password" id="nova_senha" required />
+              </div>
+
+              <div class="form-group">
+                <label for="confirma_senha">Confirmar nova senha</label>
+                <input type="password" id="confirma_senha" required />
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn btn-secondary" id="btnSalvarSenha">Atualizar senha</button>
+              </div>
+            </form>
+          </article>
+
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      // Carregar dados
+      try {
+        const res = await fetch("/api/perfil");
+        if (res.ok) {
+          const user = await res.json();
+          document.getElementById("nome").value = user.nome || "";
+          document.getElementById("email").value = user.email || "";
+          document.getElementById("telefone").value = user.telefone || "";
+          document.getElementById("cargo").value = user.cargo || "";
+          
+          if (user.avatar_url) {
+            document.getElementById("avatarPreviewBox").innerHTML = `<img src="${user.avatar_url}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+          } else {
+            document.getElementById("avatarInitials").textContent = (user.nome || "U").charAt(0).toUpperCase();
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao carregar perfil:", err);
+      }
+
+      // UPLOAD DE FOTO
+      const btnUpload = document.getElementById("btnUploadAvatar");
+      const avatarInput = document.getElementById("avatarInput");
+
+      btnUpload.addEventListener("click", () => avatarInput.click());
+
+      avatarInput.addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          document.getElementById("avatarPreviewBox").innerHTML = `<img src="${ev.target.result}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+        };
+        reader.readAsDataURL(file);
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const btn = btnUpload;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
+        btn.disabled = true;
+
+        try {
+          const res = await fetch("/api/perfil/avatar", {
+            method: "POST",
+            body: formData
+          });
+          const data = await res.json();
+          
+          if (!res.ok) throw new Error(data.detail || "Erro ao salvar foto");
+          
+          // Chama a função global diretamente!
+          showToast("Foto de perfil atualizada!", "success");
+
+          try {
+             const iframe = document.querySelector('.sidebar-frame');
+             if(iframe && iframe.contentWindow) {
+                 const sidebarAvatar = iframe.contentWindow.document.querySelector('.Valora-user-avatar');
+                 if(sidebarAvatar) sidebarAvatar.innerHTML = `<img src="${data.avatar_url}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+             }
+          } catch(e) {}
+
+        } catch (err) {
+          showToast(err.message, "error");
+        } finally {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        }
+      });
+
+      // SALVAR DADOS PESSOAIS
+      document.getElementById("formPerfil").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById("btnSalvarPerfil");
+        btn.textContent = "Salvando...";
+        btn.disabled = true;
+
+        const payload = {
+          nome: document.getElementById("nome").value,
+          email: document.getElementById("email").value,
+          telefone: document.getElementById("telefone").value,
+          cargo: document.getElementById("cargo").value
+        };
+
+        try {
+          const res = await fetch("/api/perfil", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showToast("Perfil atualizado com sucesso!", "success");
+            document.cookie = `user_nome=${payload.nome}; path=/`;
+          } else {
+            showToast(data.detail || "Erro ao atualizar perfil", "error");
+          }
+        } catch (err) {
+          showToast("Erro de conexão.", "error");
+        } finally {
+          btn.textContent = "Salvar alterações";
+          btn.disabled = false;
+        }
+      });
+
+      // ATUALIZAR SENHA
+      document.getElementById("formSenha").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById("btnSalvarSenha");
+        btn.textContent = "Validando...";
+        btn.disabled = true;
+
+        const payload = {
+          senha_atual: document.getElementById("senha_atual").value,
+          nova_senha: document.getElementById("nova_senha").value,
+          confirma_senha: document.getElementById("confirma_senha").value
+        };
+
+        try {
+          const res = await fetch("/api/perfil/senha", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showToast("Senha atualizada com segurança!", "success");
+            document.getElementById("formSenha").reset();
+          } else {
+            showToast(data.detail || "Erro ao atualizar senha", "error");
+          }
+        } catch (err) {
+          showToast("Erro de conexão.", "error");
+        } finally {
+          btn.textContent = "Atualizar senha";
+          btn.disabled = false;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,97 +1,109 @@
-<!-- /frontend/produtos.html -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>4X OrçaPro – Produtos</title>
+  <title>4X Valora – Produtos</title>
 
   <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
         crossorigin="anonymous"
         referrerpolicy="no-referrer" />
 
   <link rel="stylesheet" href="/frontend/css/produtos.css" />
-  <link rel="icon" type="image/png" href="/frontend/img/logo-favicon.png" />
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="/frontend/js/pages/produtos.js" type="module" defer></script>
 </head>
-<body>
-  <div class="orca-shell">
-    <iframe class="orca-menu-frame" src="/frontend/sidebar.html" title="Menu 4X OrçaPro"></iframe>
 
-    <main class="orca-main">
-      <header class="orca-main-header">
-        <div>
+<body>
+  <div class="Valora-shell">
+    <iframe class="Valora-menu-frame" src="/frontend/partials/sidebar.html" title="Menu 4X Valora"></iframe>
+
+    <main class="Valora-main">
+      <header class="Valora-main-header">
+        <div class="Valora-header-left">
           <h1>Produtos</h1>
-          <p>Cadastro de itens (campos reais da tabela <b>public.produtos</b>).</p>
+          <p>Cadastro padrão com campos personalizados por empresa.</p>
         </div>
 
-        <!-- ✅ AÇÕES: Exportar / Importar / Limpar / Novo -->
-        <div class="orca-main-header-actions">
-          <button class="btn-secondary" type="button" id="btn-exportar-produtos">
-            <i class="fa-solid fa-file-export"></i>&nbsp; Exportar
-          </button>
-
+        <div class="Valora-header-actions">
           <button class="btn-secondary" type="button" id="btn-importar-produtos">
-            <i class="fa-solid fa-file-import"></i>&nbsp; Importar
+            <i class="fa-solid fa-file-import"></i>
+            <span>Importar</span>
           </button>
 
-          <button class="btn-secondary" type="button" id="btn-limpar-produtos">
-            <i class="fa-solid fa-broom"></i>&nbsp; Limpar
+          <button class="btn-secondary" type="button" id="btn-exportar-produtos-csv">
+            <i class="fa-solid fa-file-csv"></i>
+            <span>Exportar CSV</span>
+          </button>
+
+          <button class="btn-secondary" type="button" id="btn-exportar-produtos-json">
+            <i class="fa-solid fa-file-code"></i>
+            <span>Exportar JSON</span>
+          </button>
+
+          <button class="btn-secondary" type="button" id="btn-novo-campo">
+            <i class="fa-solid fa-sliders"></i>
+            <span>Novo campo</span>
           </button>
 
           <button class="btn-primary" type="button" id="btn-novo-produto">
-            <i class="fa-solid fa-plus"></i>&nbsp; Novo produto
+            <i class="fa-solid fa-box-open"></i>
+            <span>Novo produto</span>
           </button>
+
+          <input
+            id="input-importar-produtos"
+            type="file"
+            accept=".json,.csv,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            hidden
+          />
         </div>
       </header>
 
-      <!-- ✅ input escondido para Importar arquivo -->
-      <input type="file" id="file-import-produtos" accept=".json,.csv" hidden />
-
-      <section class="orca-filters">
-        <div class="orca-filters-left">
-          <div class="orca-field orca-field--busca">
+      <section class="Valora-filters">
+        <div class="Valora-filters-left">
+          <div class="Valora-field Valora-field--busca">
             <label for="busca-produtos">Buscar</label>
-            <div class="orca-input-icon">
+            <div class="Valora-input-icon">
               <i class="fa-solid fa-magnifying-glass"></i>
-              <input type="text" id="busca-produtos" placeholder="Produto, ref, barras, fabricante, categoria, fornecedor..." autocomplete="off" />
+              <input id="busca-produtos" type="text" placeholder="Nome, código, categoria..." autocomplete="off" />
             </div>
-          </div>
-
-          <div class="orca-field">
-            <label for="filtro-origem-produto">Origem</label>
-            <select id="filtro-origem-produto"></select>
           </div>
         </div>
 
-        <div class="orca-filters-right">
-          <span id="contagem-produtos" class="orca-counter">0 itens</span>
+        <div class="Valora-filters-right">
+          <span id="contagem-produtos" class="Valora-counter">0 produtos</span>
         </div>
       </section>
 
-      <section class="orca-main-list">
-        <div class="orca-table-wrapper">
-          <table class="orca-table-produtos">
+      <section class="Valora-custom-fields-panel">
+        <div class="Valora-panel-head">
+          <div>
+            <h3>Campos personalizados</h3>
+            <p>Esses campos aparecem somente para sua empresa.</p>
+          </div>
+          <button class="btn-secondary btn-secondary--small" type="button" id="btn-novo-campo-inline">
+            <i class="fa-solid fa-plus"></i>
+            <span>Adicionar campo</span>
+          </button>
+        </div>
+
+        <div id="lista-campos-produtos" class="Valora-campos-lista">
+          <div class="Valora-empty">Nenhum campo personalizado criado ainda.</div>
+        </div>
+      </section>
+
+      <section class="Valora-main-list">
+        <div class="Valora-table-wrapper">
+          <table class="Valora-table-produtos">
             <thead>
               <tr>
-                <th>Cód. Ref</th>
-                <th>Cód. Barras</th>
+                <th>Código</th>
                 <th>Produto</th>
-                <th>Nome genérico</th>
-                <th>Fabricante</th>
-                <th>Modelo</th>
-                <th>Cód. Fabric.</th>
-                <th>Origem</th>
-
-                <th>Status Atual</th>
-                <th>Tipo Mercado</th>
-                <th>Utilização</th>
-                <th>Tipo Material</th>
-
-                <th>Fornecedor</th>
-                <th>Última Compra</th>
+                <th>Categoria</th>
+                <th>Preço</th>
+                <th>Estoque</th>
                 <th></th>
               </tr>
             </thead>
@@ -100,564 +112,189 @@
         </div>
       </section>
 
-      <!-- Modal -->
-      <div class="orca-modal-backdrop" id="modal-produto-backdrop" hidden>
-        <div class="orca-modal" role="dialog" aria-modal="true" aria-labelledby="modal-produto-titulo">
-          <header class="orca-modal-header">
+      <div class="Valora-modal-backdrop" id="modal-produto-backdrop" hidden>
+        <div class="Valora-modal Valora-modal--lg" role="dialog" aria-modal="true" aria-labelledby="modal-produto-titulo">
+          <header class="Valora-modal-header">
             <h2 id="modal-produto-titulo">Novo produto</h2>
-            <button class="orca-modal-close" type="button" id="btn-fechar-modal-produto" aria-label="Fechar">
+            <button class="Valora-modal-close" type="button" id="btn-fechar-modal-produto" aria-label="Fechar">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </header>
 
-          <div class="orca-modal-body">
-            <div class="orca-modal-hint" id="info-data-cadastro" hidden></div>
+          <div class="Valora-modal-body">
+            <div class="Valora-info-box">
+              <i class="fa-solid fa-circle-info"></i>
+              <div>
+                <strong>Cadastro enxuto + flexível</strong>
+                <span>Os campos abaixo são o padrão do sistema. Os campos extras são criados pela sua empresa.</span>
+              </div>
+            </div>
 
-            <div class="orca-modal-grid">
-              <!-- ===== DADOS IDENTIFICAÇÃO ===== -->
-              <div class="orca-modal-section">Dados Identificação</div>
-
-              <div class="orca-field">
-                <label for="campo-cod-ref-id">Cod.Ref.Id</label>
-                <input type="text" id="campo-cod-ref-id" placeholder="ALM-001" />
+            <div class="Valora-modal-section is-first">
+              <div class="Valora-modal-section-title">
+                <strong>Dados padrão</strong>
+                <span>Campos nativos do sistema</span>
               </div>
 
-              <div class="orca-field">
-                <label for="campo-codigo-barras">Código Barras</label>
-                <input type="text" id="campo-codigo-barras" placeholder="789..." />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-nome-generico">Nome Genérico</label>
-                <input type="text" id="campo-nome-generico" placeholder="Central de alarme" />
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-nome-produto">Produto</label>
-                <input type="text" id="campo-nome-produto" placeholder="Central de alarme 8 setores" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-fabricante">Fabricante</label>
-                <input type="text" id="campo-fabricante" placeholder="Intelbras / Hikvision / 4X..." />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-modelo">Modelo</label>
-                <input type="text" id="campo-modelo" placeholder="AMT 2018 E" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-cod-ref-fabric">Cod.Ref.Fabric</label>
-                <input type="text" id="campo-cod-ref-fabric" placeholder="INT-2018E" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-origem">Origem</label>
-                <select id="campo-origem"></select>
-              </div>
-
-              <!-- ===== SITUAÇÃO ===== -->
-              <div class="orca-modal-section">Situação</div>
-
-              <div class="orca-field">
-                <label for="campo-status-atual">Status Atual</label>
-                <select id="campo-status-atual"></select>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-tipo-mercado">Tipo Mercado</label>
-                <select id="campo-tipo-mercado"></select>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-utilizacao">Utilização</label>
-                <select id="campo-utilizacao"></select>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-tipo-material">Tipo Material</label>
-                <select id="campo-tipo-material"></select>
-              </div>
-
-              <!-- ===== CLASSIFICAÇÃO ===== -->
-              <div class="orca-modal-section">Classificação</div>
-
-              <div class="orca-field">
-                <label for="campo-prod-controlado">Prod. Controlado</label>
-                <select id="campo-prod-controlado"></select>
-              </div>
-
-              <!-- Campos extras (somente se Prod. Controlado = SIM) -->
-              <div class="orca-modal-section" id="sec-prod-controlado-extra" hidden>Produto Controlado</div>
-
-              <div class="orca-field" id="wrap-tipo-fiscalizacao" hidden>
-                <label for="campo-tipo-fiscalizacao">Tipo de Fiscalização</label>
-                <select id="campo-tipo-fiscalizacao"></select>
-              </div>
-
-              <div class="orca-field orca-field--full" id="wrap-dados-identificacao-controlado" hidden>
-                <label for="campo-dados-identificacao-controlado">Dados de Identificação</label>
-                <textarea id="campo-dados-identificacao-controlado" rows="2"
-                          placeholder="Ex: nº de série, lote, certificado, registro..."></textarea>
-              </div>
-
-              <div class="orca-field orca-field--full" id="wrap-observacoes-controlado" hidden>
-                <label for="campo-observacoes-controlado">Observações</label>
-                <textarea id="campo-observacoes-controlado" rows="2"
-                          placeholder="Observações sobre fiscalização / controle..."></textarea>
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label>Segmentos</label>
-
-                <div class="orca-multi" id="segmentos-multi">
-                  <div class="orca-multi__chips" id="chips-segmentos"></div>
-
-                  <div class="orca-multi__row">
-                    <select id="campo-segmentos-add"></select>
-
-                    <button type="button" class="orca-btn orca-btn--ghost orca-btn--icon"
-                            id="btn-gerenciar-segmentos"
-                            title="Gerenciar segmentos (apagar os cadastrados errado)">
-                      <i class="fa-solid fa-gear"></i>
-                    </button>
-                  </div>
-
-                  <div class="orca-help">Selecione vários. Para remover do produto, clique no ✕ no chip.</div>
-                </div>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-tipo-sistema">Tipo de sistema</label>
-                <input type="text" id="campo-tipo-sistema" placeholder="Monitoramento / Acesso / CFTV..." />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-classe">Classe</label>
-                <select id="campo-classe"></select>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-categorias">Categorias</label>
-                <input type="text" id="campo-categorias" placeholder="Ex: Câmeras" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-subcategoria">SubCategoria</label>
-                <input type="text" id="campo-subcategoria" placeholder="Ex: Bullet / Dome" />
-              </div>
-
-              <!-- ===== DISTRIBUIDORES ===== -->
-              <div class="orca-modal-section">Distribuidores</div>
-
-              <div class="orca-field orca-field--full">
-                <label>Fornecedores</label>
-
-                <div class="orca-multi" id="fornecedores-multi">
-                  <div class="orca-multi__chips" id="chips-fornecedores"></div>
-
-                  <div class="orca-multi__row">
-                    <select id="campo-fornecedores-add"></select>
-
-                    <button type="button" class="orca-btn orca-btn--ghost orca-btn--icon"
-                            id="btn-gerenciar-fornecedores"
-                            title="Gerenciar fornecedores">⚙️</button>
-                  </div>
-
-                  <div class="orca-multi__hint">
-                    Selecione vários fornecedores (distribuidores). Use ⚙️ para apagar cadastrados errado.
-                  </div>
-                </div>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-ultima-compra">Ultima Compra</label>
-                <input type="date" id="campo-ultima-compra" />
-              </div>
-
-              <div class="orca-inline">
-                <div class="orca-field">
-                  <label for="campo-ultimo-fornecedor">Último Fornecedor do Produto</label>
-                  <select id="campo-ultimo-fornecedor"></select>
-                </div>
-                <div class="orca-field">
-                  <label>&nbsp;</label>
-                  <button type="button" class="btn-secondary" id="btn-buscar-ultimo-pedido">Buscar Último Pedido de Compra</button>
-                </div>
-                <div class="orca-field">
-                  <label>&nbsp;</label>
-                  <button type="button" class="btn-secondary" id="btn-buscar-ultima-nf">Buscar Nota Fiscal do Último Pedido</button>
-                </div>
-              </div>
-
-              <!-- ===== DADOS LOGÍSTICO ===== -->
-              <div class="orca-modal-section">Dados Logístico</div>
-
-              <div class="orca-field">
-                <label for="campo-tipo-armaz">Tipo Armaz</label>
-                <select id="campo-tipo-armaz"></select>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-armaz-localiz">Armaz. Localiz</label>
-                <input type="text" id="campo-armaz-localiz" placeholder="Corredor A / Prateleira 3" />
-              </div>
-
-              <div class="orca-inline">
-                <div class="orca-field">
-                  <label for="campo-armaz-predio">Predio</label>
-                  <input type="text" id="campo-armaz-predio" placeholder="A / B / 1" />
-                </div>
-                <div class="orca-field">
-                  <label for="campo-armaz-corredor">Corredor</label>
-                  <input type="text" id="campo-armaz-corredor" placeholder="A / B / 01" />
-                </div>
-                <div class="orca-field">
-                  <label for="campo-armaz-prateleira">Prateleira</label>
-                  <input type="text" id="campo-armaz-prateleira" placeholder="1 / 2 / 3" />
-                </div>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-tipo-logistico">Tipo</label>
-                <input type="text" id="campo-tipo-logistico" placeholder="Normal / Frágil / Perigoso..." />
-              </div>
-
-              <div class="orca-inline">
-                <div class="orca-field">
-                  <label for="campo-peso-logistico">Peso</label>
-                  <input type="number" id="campo-peso-logistico" step="0.001" placeholder="0,000" />
-                </div>
-                <div class="orca-field orca-field--unit">
-                  <label for="campo-peso-logistico-unidade">Unidade</label>
-                  <select id="campo-peso-logistico-unidade"></select>
-                </div>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-tamanho-logistico">Tamanho</label>
-                <input type="text" id="campo-tamanho-logistico" placeholder="10x20x30" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-embalagem-compra">Embalagem Compra</label>
-                <input type="text" id="campo-embalagem-compra" placeholder="Caixa 10 un" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-embalagem-armazem">Embalagem Armazem</label>
-                <input type="text" id="campo-embalagem-armazem" placeholder="Caixa / Saco / Palete" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-embalagem-saida">Embalagem Saida</label>
-                <input type="text" id="campo-embalagem-saida" placeholder="Unidade" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-estoque-minimo">Estoque Minimo</label>
-                <input type="number" id="campo-estoque-minimo" step="1" placeholder="0" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-estoque-maximo">Estoque Maximo</label>
-                <input type="number" id="campo-estoque-maximo" step="1" placeholder="0" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-quantidade-atual">Quantidade Atual</label>
-                <input type="number" id="campo-quantidade-atual" step="1" placeholder="0" />
-              </div>
-
-              <!-- ===== DADOS TÉCNICOS ===== -->
-              <div class="orca-modal-section">Dados Técnicos</div>
-
-              <div class="orca-field">
-                <label for="campo-possui-validade">Possui Validade</label>
-                <select id="campo-possui-validade"></select>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-tipo-tecnico">Tipo</label>
-                <input type="text" id="campo-tipo-tecnico" placeholder="Eletrônico / Mecânico..." />
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-cores-disponiveis">Cores Disponíveis</label>
-                <select id="campo-cores-disponiveis"></select>
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-imagens-produto">Imagens do Produto</label>
-                <textarea id="campo-imagens-produto" rows="2" placeholder="Links ou nomes (1 por linha)"></textarea>
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-videos-produto">Videos Produto</label>
-                <textarea id="campo-videos-produto" rows="2" placeholder="Links (1 por linha)"></textarea>
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-fichas-tecnica">Fichas Técnica</label>
-                <textarea id="campo-fichas-tecnica" rows="2" placeholder="Links (1 por linha)"></textarea>
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-manuais-instalacao">Manuais de Instalação</label>
-                <textarea id="campo-manuais-instalacao" rows="2" placeholder="Links (1 por linha)"></textarea>
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-manuais-programacao">Manuais Programação</label>
-                <textarea id="campo-manuais-programacao" rows="2" placeholder="Links (1 por linha)"></textarea>
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label for="campo-manuais-usuario">Manuais Usuario</label>
-                <textarea id="campo-manuais-usuario" rows="2" placeholder="Links (1 por linha)"></textarea>
-              </div>
-
-              <!-- ===== DADOS FISCAIS ===== -->
-              <div class="orca-modal-section">Dados Fiscais</div>
-
-              <div class="orca-field">
-                <label for="campo-classif-ncm-bbm">Classif. NCM-BBM</label>
-                <input type="text" id="campo-classif-ncm-bbm" placeholder="8525.80.29" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-aliq-ipi-entrada">Aliq. IPI Entrada</label>
-                <input type="number" id="campo-aliq-ipi-entrada" step="0.0001" placeholder="0,0000" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-aliq-iva">Aliq. IVA</label>
-                <input type="number" id="campo-aliq-iva" step="0.0001" placeholder="0,0000" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-cst-icms">CST ICMS</label>
-                <select id="campo-cst-icms"></select>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-cst-pis">CST PIS</label>
-                <select id="campo-cst-pis"></select>
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-cst-cofins">CST COFINS</label>
-                <select id="campo-cst-cofins"></select>
-              </div>
-
-              <!-- ===== FORMAÇÃO DE PREÇO ===== -->
-              <div class="orca-modal-section">Formação de Preço</div>
-
-              <div class="orca-field">
-                <label for="campo-valor-custo">Valor de Custo</label>
-                <input type="number" id="campo-valor-custo" step="0.01" placeholder="0,00" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-mark-up">Mark Up</label>
-                <input type="number" id="campo-mark-up" step="0.0001" placeholder="0,0000" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-custo-efetivo">Custo Efetivo</label>
-                <input type="number" id="campo-custo-efetivo" step="0.01" placeholder="0,00" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-mc-lucro">M.C (Lucro)</label>
-                <input type="number" id="campo-mc-lucro" step="0.01" placeholder="0,00" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-imp-importacao">Imp. Importação</label>
-                <input type="number" id="campo-imp-importacao" step="0.01" placeholder="0,00" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-ipi">IPI</label>
-                <input type="number" id="campo-ipi" step="0.01" placeholder="0,00" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-icms">ICMS</label>
-                <input type="number" id="campo-icms" step="0.01" placeholder="0,00" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-simples">Simples</label>
-                <input type="number" id="campo-simples" step="0.01" placeholder="0,00" />
-              </div>
-
-              <div class="orca-field">
-                <label for="campo-luc-presumido">Luc. Presumido</label>
-                <input type="number" id="campo-luc-presumido" step="0.01" placeholder="0,00" />
-              </div>
-
-              <!-- ===== MOVIMENTAÇÃO ===== -->
-              <div class="orca-modal-section">Movimentação</div>
-
-              <div class="orca-inline">
-                <div class="orca-field">
-                  <label for="campo-mov-data">Data Movimentação</label>
-                  <input type="datetime-local" id="campo-mov-data" />
+              <div class="Valora-modal-grid">
+                <div class="Valora-field">
+                  <label for="campo-codigo-produto">Código</label>
+                  <input type="text" id="campo-codigo-produto" placeholder="PRO-0001" />
                 </div>
 
-                <div class="orca-field">
-                  <label for="campo-mov-tipo">Tipo Movimento</label>
-                  <select id="campo-mov-tipo">
-                    <option value="">—</option>
-                    <option value="Entrada">Entrada</option>
-                    <option value="Saida">Saida</option>
-                  </select>
+                <div class="Valora-field">
+                  <label for="campo-nome-produto">Nome</label>
+                  <input type="text" id="campo-nome-produto" placeholder="Nome do produto" />
+                </div>
+
+                <div class="Valora-field Valora-field--full">
+                  <label for="campo-descricao-produto">Descrição</label>
+                  <textarea id="campo-descricao-produto" rows="4" placeholder="Descrição do produto"></textarea>
+                </div>
+
+                <div class="Valora-field">
+                  <label for="campo-categoria-produto">Categoria</label>
+                  <input type="text" id="campo-categoria-produto" placeholder="Ex.: Câmeras" />
+                </div>
+
+                <div class="Valora-field">
+                  <label for="campo-unidade-produto">Unidade</label>
+                  <input type="text" id="campo-unidade-produto" placeholder="Ex.: UN" />
+                </div>
+
+                <div class="Valora-field">
+                  <label for="campo-preco-venda-produto">Preço de venda</label>
+                  <input type="text" id="campo-preco-venda-produto" placeholder="0,00" />
+                </div>
+
+                <div class="Valora-field">
+                  <label for="campo-custo-produto">Custo</label>
+                  <input type="text" id="campo-custo-produto" placeholder="0,00" />
+                </div>
+
+                <div class="Valora-field">
+                  <label for="campo-estoque-produto">Estoque atual</label>
+                  <input type="text" id="campo-estoque-produto" placeholder="0" />
+                </div>
+
+                <div class="Valora-field Valora-field--check">
+                  <label class="Valora-check">
+                    <input type="checkbox" id="campo-ativo-produto" checked />
+                    <span>Produto ativo</span>
+                  </label>
                 </div>
               </div>
+            </div>
 
-              <div id="bloco-mov-entrada" hidden>
-                <div class="orca-inline">
-                  <div class="orca-field">
-                    <label for="campo-mov-entrada-tipo">Tipo de Entrada</label>
-                    <select id="campo-mov-entrada-tipo">
-                      <option value="">—</option>
-                      <option value="Entrada">Entrada</option>
-                      <option value="Ajuste de Entrada">Ajuste de Entrada</option>
-                    </select>
-                  </div>
-
-                  <div class="orca-field">
-                    <label for="campo-mov-qtd">Quantidade</label>
-                    <input type="number" id="campo-mov-qtd" step="1" placeholder="0" />
-                  </div>
-
-                  <div class="orca-field">
-                    <label for="campo-mov-fornecedor">Fornecedor</label>
-                    <select id="campo-mov-fornecedor"></select>
-                  </div>
-                </div>
-
-                <div class="orca-inline">
-                  <div class="orca-field">
-                    <label for="campo-mov-doc-tipo">Tipo de Documento</label>
-                    <select id="campo-mov-doc-tipo">
-                      <option value="">—</option>
-                      <option value="Nota Fiscal">Nota Fiscal</option>
-                      <option value="Romaneio">Romaneio</option>
-                      <option value="Pedido">Pedido</option>
-                    </select>
-                  </div>
-
-                  <div class="orca-field">
-                    <label for="campo-mov-doc-numero">Número Doc.</label>
-                    <input type="text" id="campo-mov-doc-numero" placeholder="Ex.: 12345" />
-                  </div>
-
-                  <div class="orca-field" id="bloco-mov-nfe-entrada" hidden>
-                    <label for="campo-mov-nfe-chave">Chave de Acesso (NF-e)</label>
-                    <input type="text" id="campo-mov-nfe-chave" placeholder="44 dígitos" />
-                  </div>
-                </div>
-
-                <div class="orca-inline">
-                  <button type="button" class="btn-secondary" id="btn-buscar-danfe-entrada">Buscar DANFE (Receita Federal)</button>
-                </div>
+            <div class="Valora-modal-section">
+              <div class="Valora-modal-section-title">
+                <strong>Campos personalizados</strong>
+                <span>Criados pela sua empresa</span>
               </div>
 
-              <div id="bloco-mov-saida" hidden>
-                <div class="orca-inline">
-                  <div class="orca-field">
-                    <label for="campo-mov-saida-tipo">Tipo de Saída</label>
-                    <select id="campo-mov-saida-tipo">
-                      <option value="">—</option>
-                      <option value="Saida">Saida</option>
-                      <option value="Ajuste de Saida">Ajuste de Saida</option>
-                    </select>
-                  </div>
-
-                  <div class="orca-field">
-                    <label for="campo-mov-qtd-saida">Quantidade</label>
-                    <input type="number" id="campo-mov-qtd-saida" step="1" placeholder="0" />
-                  </div>
-
-                  <div class="orca-field">
-                    <label for="campo-destino">Destino</label>
-                    <select id="campo-destino"></select>
-                  </div>
-                </div>
-
-                <div id="bloco-mov-saida-cliente" hidden>
-                  <div class="orca-field orca-field--full">
-                    <label for="campo-mov-cliente">Cliente (vincular por Cód. Barras)</label>
-                    <input type="text" id="campo-mov-cliente" list="datalist-clientes" placeholder="Digite para buscar..." />
-                    <datalist id="datalist-clientes"></datalist>
-                  </div>
-                </div>
-
-                <div id="bloco-mov-saida-dep" hidden>
-                  <div class="orca-field">
-                    <label for="campo-mov-departamento">Departamento (uso interno)</label>
-                    <select id="campo-mov-departamento"></select>
-                  </div>
-                </div>
-
-                <div id="bloco-mov-saida-docs" hidden>
-                  <div class="orca-field orca-field--full">
-                    <label for="campo-mov-anexos">Documentos (importação - uso futuro)</label>
-                    <input type="file" id="campo-mov-anexos" multiple />
-                    <div class="orca-multi__hint">No localStorage salvamos apenas o nome dos arquivos. (Upload real fica para o módulo futuro.)</div>
-                  </div>
-                </div>
-
-                <div class="orca-inline">
-                  <div class="orca-field">
-                    <label for="campo-mov-doc-tipo-saida">Tipo de Documento</label>
-                    <select id="campo-mov-doc-tipo-saida">
-                      <option value="">—</option>
-                      <option value="Nota Fiscal">Nota Fiscal</option>
-                      <option value="Romaneio">Romaneio</option>
-                      <option value="Pedido">Pedido</option>
-                    </select>
-                  </div>
-
-                  <div class="orca-field">
-                    <label for="campo-mov-doc-numero-saida">Número Doc.</label>
-                    <input type="text" id="campo-mov-doc-numero-saida" placeholder="Ex.: 12345" />
-                  </div>
-
-                  <div class="orca-field" id="bloco-mov-nfe-saida" hidden>
-                    <label for="campo-mov-nfe-chave-saida">Chave de Acesso (NF-e)</label>
-                    <input type="text" id="campo-mov-nfe-chave-saida" placeholder="44 dígitos" />
-                  </div>
-                </div>
-
-                <div class="orca-inline">
-                  <button type="button" class="btn-secondary" id="btn-buscar-danfe-saida">Buscar DANFE (Receita Federal)</button>
-                </div>
-              </div>
-
-              <div class="orca-inline">
-                <button type="button" class="btn-secondary" id="btn-add-mov">Adicionar Movimentação</button>
-                <button type="button" class="btn-secondary" id="btn-limpar-mov">Limpar</button>
-              </div>
-
-              <div class="orca-field orca-field--full">
-                <label>Movimentações Registradas</label>
-                <div id="lista-movimentacoes" class="orca-mov-list"></div>
+              <div id="custom-fields-container" class="Valora-modal-grid">
+                <div class="Valora-empty">Nenhum campo personalizado cadastrado.</div>
               </div>
             </div>
           </div>
 
-          <footer class="orca-modal-footer">
+          <footer class="Valora-modal-footer">
             <button class="btn-secondary" type="button" id="btn-cancelar-produto">Cancelar</button>
             <button class="btn-primary" type="button" id="btn-salvar-produto">Salvar</button>
           </footer>
         </div>
       </div>
+
+      <div class="Valora-modal-backdrop" id="modal-campo-backdrop" hidden>
+        <div class="Valora-modal" role="dialog" aria-modal="true" aria-labelledby="modal-campo-titulo">
+          <header class="Valora-modal-header">
+            <h2 id="modal-campo-titulo">Novo campo</h2>
+            <button class="Valora-modal-close" type="button" id="btn-fechar-modal-campo" aria-label="Fechar">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </header>
+
+          <div class="Valora-modal-body">
+            <div class="Valora-info-box Valora-info-box--compact">
+              <i class="fa-solid fa-lightbulb"></i>
+              <div>
+                <strong>Crie campos do jeito do seu negócio</strong>
+                <span>Exemplos: Marca, Voltagem, Cor, Garantia, Código do fabricante.</span>
+              </div>
+            </div>
+
+            <div class="Valora-modal-grid">
+              <div class="Valora-field">
+                <label for="campo-custom-nome">Nome do campo</label>
+                <input type="text" id="campo-custom-nome" placeholder="Ex.: Marca" />
+              </div>
+
+              <div class="Valora-field">
+                <label for="campo-custom-tipo">Tipo de resposta</label>
+                <select id="campo-custom-tipo">
+                  <option value="texto">Texto curto</option>
+                  <option value="textarea">Texto longo</option>
+                  <option value="numero">Número</option>
+                  <option value="data">Data</option>
+                  <option value="select">Lista de opções</option>
+                  <option value="checkbox">Caixa de seleção</option>
+                </select>
+              </div>
+
+              <div class="Valora-field">
+                <label for="campo-custom-ordem">Ordem no formulário</label>
+                <input type="number" id="campo-custom-ordem" min="0" step="1" placeholder="0" />
+              </div>
+
+              <div class="Valora-field Valora-field--full" id="wrap-custom-opcoes" hidden>
+                <label for="campo-custom-opcoes">Opções da lista</label>
+                <textarea id="campo-custom-opcoes" rows="5" placeholder="Uma opção por linha&#10;Branco&#10;Preto&#10;Cinza"></textarea>
+                <small class="Valora-help-inline">Use uma linha para cada opção.</small>
+              </div>
+
+              <div class="Valora-field Valora-field--check">
+                <label class="Valora-check">
+                  <input type="checkbox" id="campo-custom-obrigatorio" />
+                  <span>Tornar este campo obrigatório</span>
+                </label>
+              </div>
+
+              <div class="Valora-field Valora-field--check">
+                <label class="Valora-check">
+                  <input type="checkbox" id="campo-custom-ativo" checked />
+                  <span>Mostrar este campo no cadastro</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <footer class="Valora-modal-footer">
+            <button class="btn-secondary" type="button" id="btn-cancelar-campo">Cancelar</button>
+            <button class="btn-primary" type="button" id="btn-salvar-campo">Salvar campo</button>
+          </footer>
+        </div>
+      </div>
     </main>
   </div>
+
+  <div class="Valora-confirm-backdrop" id="Valora-confirm-backdrop" hidden>
+    <div class="Valora-confirm" role="dialog" aria-modal="true" aria-labelledby="Valora-confirm-title">
+      <header class="Valora-confirm-header">
+        <h3 id="Valora-confirm-title">Confirmar</h3>
+        <button class="Valora-confirm-close" type="button" id="Valora-confirm-close" aria-label="Fechar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
+
+      <div class="Valora-confirm-body" id="Valora-confirm-message"></div>
+
+      <footer class="Valora-confirm-footer">
+        <button class="btn-secondary" type="button" id="Valora-confirm-cancel">Cancelar</button>
+        <button class="btn-primary" type="button" id="Valora-confirm-ok">OK</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="Valora-toast" class="Valora-toast" hidden></div>
 </body>
 </html>

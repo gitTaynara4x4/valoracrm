@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | Valora CRM</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem('valora_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
+
+  <link rel="stylesheet" href="/frontend/css/login.css" />
+  <link rel="icon" type="image/png" href="/frontend/img/logo-favicon.png" />
+</head>
+<body>
+  
+  <div class="login-wrapper">
+    
+    <div class="login-visual">
+      <div class="visual-content">
+        <div class="brand-display">
+          <div class="logo-icon">V</div>
+          <span>Valora CRM</span>
+        </div>
+      </div>
+
+      <div class="testimonial-box">
+        <div class="testimonial-stars">
+          <i class="fa-solid fa-star"></i>
+          <i class="fa-solid fa-star"></i>
+          <i class="fa-solid fa-star"></i>
+          <i class="fa-solid fa-star"></i>
+          <i class="fa-solid fa-star"></i>
+        </div>
+        <p class="testimonial-quote">"A Valora reduziu nosso tempo de fechamento de propostas de 2 horas para apenas 5 minutos. O sistema literalmente se pagou no nosso primeiro dia de uso."</p>
+        <div class="testimonial-author">
+          <img src="https://i.pravatar.cc/150?img=33" alt="Foto do Cliente" />
+          <div class="testimonial-author-info">
+            <strong>Ricardo Gomes</strong>
+            <span>Diretor Comercial, TechSolutions</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="visual-footer">
+        <p>© 2026 Valora Tecnologia. Todos os direitos reservados.</p>
+      </div>
+    </div>
+
+    <div class="login-form-container">
+      <div class="form-box">
+        <header>
+          <h2>Bem-vindo de volta</h2>
+          <p>Acesse seu painel de controle comercial.</p>
+        </header>
+
+        <div class="sso-buttons">
+          <button type="button" class="btn-sso" onclick="showLoginAlert()">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google">
+            Entrar com Google
+          </button>
+          <button type="button" class="btn-sso" onclick="showLoginAlert()">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft">
+            Entrar com Microsoft
+          </button>
+        </div>
+
+        <div class="divider"><span>ou continue com seu e-mail</span></div>
+
+        <form id="form-login">
+          <div id="step1-fields">
+            <div class="input-group">
+              <label for="email">E-mail corporativo</label>
+              <input type="email" id="email" placeholder="ex: seu.nome@empresa.com.br" required />
+            </div>
+
+            <div class="input-group">
+              <label for="senha">Senha segura</label>
+              <div class="password-wrapper">
+                <input type="password" id="senha" placeholder="••••••••" required />
+                <button type="button" id="togglePassBtn" aria-label="Mostrar senha">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <label class="custom-checkbox">
+                <input type="checkbox" id="remember">
+                <span class="checkmark"></span>
+                <span class="label-text">Manter conectado</span>
+              </label>
+              <a href="#" class="link-forgot">Esqueceu a senha?</a>
+            </div>
+          </div>
+
+          <div id="step2-fields" class="hidden">
+            <div class="token-alert">
+              <div class="icon">🔒</div>
+              <p id="token-info">Enviamos um código de segurança para o seu e-mail.</p>
+            </div>
+            
+            <div class="input-group">
+              <label for="login-token">Código de 6 dígitos</label>
+              <input type="text" id="login-token" placeholder="000000" maxlength="6" style="letter-spacing: 4px; text-align: center; font-size: 18px;" />
+            </div>
+            
+            <button type="button" id="btn-token-back" class="link-back">Voltar para o e-mail</button>
+          </div>
+
+          <div id="erro" class="error-box hidden"></div>
+
+          <button type="submit" id="btn-login" class="btn-primary">Acessar plataforma</button>
+        </form>
+
+        <footer>
+          <p>Ainda não é cliente? <a href="#">Fale com nossos especialistas</a></p>
+        </footer>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/frontend/js/pages/login.js"></script>
+</body>
+</html>

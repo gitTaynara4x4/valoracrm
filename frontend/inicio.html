@@ -1,130 +1,556 @@
-<!-- /frontend/inicio.html -->
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>4X OrçaPro – Início</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Valora CRM — Transforme Orçamentos em Faturamento</title>
+  <meta name="description" content="CRM especializado em propostas comerciais que aumenta conversões em 43%. Ideal para consultores, freelancers e pequenas empresas." />
 
-  <!-- Ícones -->
-  <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer" />
+  <meta property="og:title" content="Valora CRM — Propostas que Convertem">
+  <meta property="og:description" content="Sistema profissional de propostas comerciais com IA integrada.">
+  <meta property="og:type" content="website">
 
-  <link rel="stylesheet" href="/frontend/css/inicio.css" />
-  <link rel="icon" type="image/png" href="/frontend/img/logo-favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- JS do início -->
-  <script src="/frontend/js/pages/inicio.js" type="module" defer></script>
+  <link rel="stylesheet" href="/frontend/css/inicio.css">
 </head>
 <body>
-  <div class="orca-shell">
-    <!-- Sidebar em iframe -->
-    <iframe
-      class="orca-menu-frame"
-      src="/frontend/sidebar.html"
-      title="Menu 4X OrçaPro"
-    ></iframe>
 
-    <!-- Conteúdo -->
-    <main class="orca-main">
-      <header class="orca-main-header">
-        <div>
-          <h1>Início</h1>
-          <p>Painel rápido — atalhos e visão geral.</p>
-        </div>
-
-        <button class="btn-primary" type="button" data-action="nova-proposta">
-          <i class="fa-solid fa-file-circle-plus"></i>
-          Nova proposta
-        </button>
-      </header>
-
-      <section class="orca-dashboard">
-        <!-- Coluna esquerda -->
-        <div class="orca-card">
-          <h2 class="orca-card-title">Atalhos</h2>
-          <p class="orca-card-subtitle">Acesse os módulos principais em 1 clique.</p>
-
-          <div class="orca-home-grid">
-            <div class="orca-home-card" data-target="clientes">
-              <div class="orca-home-card-top">
-                <div class="orca-home-card-ic"><i class="fa-solid fa-user-group"></i></div>
-                <h3>Clientes</h3>
-              </div>
-              <p>Cadastre, edite e organize seus clientes e contatos.</p>
-            </div>
-
-            <div class="orca-home-card" data-target="produtos">
-              <div class="orca-home-card-top">
-                <div class="orca-home-card-ic"><i class="fa-solid fa-box-open"></i></div>
-                <h3>Produtos</h3>
-              </div>
-              <p>Itens, serviços e mão de obra com preço e referência.</p>
-            </div>
-
-            <div class="orca-home-card" data-target="propostas">
-              <div class="orca-home-card-top">
-                <div class="orca-home-card-ic"><i class="fa-solid fa-file-invoice"></i></div>
-                <h3>Propostas</h3>
-              </div>
-              <p>Crie e acompanhe propostas — rascunho, enviada, aprovada.</p>
-            </div>
-          </div>
-
-          <div class="orca-quick-actions">
-            <button class="btn-secondary" type="button" data-target="clientes">
-              <i class="fa-solid fa-user-plus"></i>
-              Novo cliente
-            </button>
-
-            <button class="btn-secondary" type="button" data-target="produtos">
-              <i class="fa-solid fa-plus"></i>
-              Novo produto
-            </button>
-
-            <button class="btn-primary" type="button" data-action="nova-proposta">
-              <i class="fa-solid fa-file-circle-plus"></i>
-              Nova proposta
-            </button>
-          </div>
-        </div>
-
-        <!-- Coluna direita -->
-        <div class="orca-card">
-          <h2 class="orca-card-title">Últimas propostas (V1)</h2>
-          <p class="orca-card-subtitle">Placeholder — depois liga na API.</p>
-
-          <div class="orca-mini-list">
-            <div class="orca-mini-item">
-              <div>
-                <strong>PROP-0004</strong>
-                <small>Auto Peças Avenida</small>
-              </div>
-              <span>Recusada</span>
-            </div>
-
-            <div class="orca-mini-item">
-              <div>
-                <strong>PROP-0003</strong>
-                <small>João da Silva</small>
-              </div>
-              <span>Aprovada</span>
-            </div>
-
-            <div class="orca-mini-item">
-              <div>
-                <strong>PROP-0002</strong>
-                <small>Condomínio Jardins</small>
-              </div>
-              <span>Enviada</span>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
+  <div class="top-bar">
+    <div class="container">
+      🚀 <strong>Aumente suas conversões em 43%</strong> com propostas profissionais.
+      <span>Teste gratuito de 7 dias</span>
+      <a href="#planos">Experimente agora →</a>
+    </div>
   </div>
+
+  <header>
+    <div class="container nav-wrapper">
+      <a href="/frontend/inicio.html" class="logo" aria-label="Valora CRM">
+        <svg class="logo-svg" viewBox="0 0 1500 360" role="img" aria-label="VALORA CRM">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#0D63FF"/>
+              <stop offset="100%" stop-color="#15D0A5"/>
+            </linearGradient>
+          </defs>
+
+          <path d="M140 114 L176 114 L160 140 L124 140 Z" fill="url(#g)" opacity="0.95"/>
+
+          <text
+            x="90"
+            y="190"
+            font-family="Manrope, Inter, Poppins, Arial, sans-serif"
+            font-size="136"
+            font-weight="700"
+            letter-spacing="11"
+            fill="currentColor"
+            dominant-baseline="alphabetic"
+          >VALORA</text>
+        </svg>
+      </a>
+
+      <nav class="nav-links">
+        <a href="#recursos">Recursos</a>
+        <a href="#depoimentos">Depoimentos</a>
+        <a href="#planos">Planos</a>
+        <a href="#faq">FAQ</a>
+        <a href="/frontend/login.html" class="nav-login">Login</a>
+        <a href="/frontend/cadastro.html?plano=essencial" class="nav-login">Cadastrar</a>
+      </nav>
+
+      <div class="nav-actions">
+        <button class="theme-toggle" type="button" onclick="toggleTheme()" aria-label="Alternar tema">
+          <span class="theme-icon theme-icon-sun">☀</span>
+          <span class="theme-icon theme-icon-moon">🌙</span>
+        </button>
+        <a href="/frontend/cadastro.html?plano=essencial" class="btn btn-primary btn-header">Começar Agora</a>
+        <button class="mobile-toggle" type="button" onclick="toggleMenu()" aria-label="Abrir menu">☰</button>
+      </div>
+    </div>
+
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="#recursos" onclick="toggleMenu()">Recursos</a>
+      <a href="#depoimentos" onclick="toggleMenu()">Depoimentos</a>
+      <a href="#planos" onclick="toggleMenu()">Planos</a>
+      <a href="#faq" onclick="toggleMenu()">FAQ</a>
+      <a href="/frontend/login.html" class="mobile-login">Login</a>
+      <a href="/frontend/cadastro.html?plano=essencial" class="mobile-login">Cadastrar</a>
+      <a href="/frontend/cadastro.html?plano=essencial" class="btn btn-primary mobile-cta">Começar Gratuitamente</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-content fade-in">
+          <span class="badge">✨ Nova IA de Vendas</span>
+          <h1 class="hero-title">
+            Propostas que fecham,
+            <span class="text-gradient">resultados que impressionam</span>
+          </h1>
+          <p class="hero-desc">
+            O sistema profissional de propostas comerciais que combina design sofisticado, automação inteligente e análise de dados para transformar orçamentos em faturamento recorrente.
+          </p>
+
+          <div class="hero-actions">
+            <a href="/frontend/cadastro.html?plano=essencial" class="btn btn-primary btn-lg">Experimente Grátis</a>
+            <a href="#recursos" class="btn btn-secondary btn-lg">Ver Demonstração</a>
+          </div>
+
+          <div class="hero-stats">
+            <div class="stat-item">
+              <h4>+43%</h4>
+              <p>Conversão média</p>
+            </div>
+            <div class="stat-item">
+              <h4>850+</h4>
+              <p>Empresas clientes</p>
+            </div>
+            <div class="stat-item">
+              <h4>4.9★</h4>
+              <p>Satisfação dos clientes</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="app-preview-container fade-in delay-2">
+          <div class="app-window">
+            <div class="window-header">
+              <div class="window-controls">
+                <div class="window-dot red"></div>
+                <div class="window-dot yellow"></div>
+                <div class="window-dot green"></div>
+              </div>
+              <div class="window-url">clientes.valora.com</div>
+            </div>
+
+            <div class="app-content">
+              <div class="clientes-mockup">
+                <div class="sidebar">
+                  <div class="mock-top-line"></div>
+                  <div class="mock-line mock-line-primary w-80"></div>
+                  <div class="mock-line w-60"></div>
+                  <div class="mock-line w-70"></div>
+                </div>
+
+                <div class="main-content">
+                  <div class="metric-card">
+                    <div class="metric-label">Faturamento Mensal</div>
+                    <div class="metric-value metric-success">R$ 82.450</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-label">Taxa de Conversão</div>
+                    <div class="metric-value metric-primary">43.2%</div>
+                  </div>
+                  <div class="metric-card metric-wide">
+                    <div class="metric-label">Propostas Pendentes</div>
+                    <div class="metric-progress-row">
+                      <div class="metric-progress-track">
+                        <div class="metric-progress-bar"></div>
+                      </div>
+                      <span class="metric-progress-text">12/24</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="float-card">
+              <div class="float-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <div>
+                <strong class="float-title">Proposta aceita agora</strong>
+                <span class="float-subtitle">Cliente: Tech Solutions Inc.</span>
+                <div class="float-price">R$ 12.800,00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features-section" id="recursos">
+      <div class="container">
+        <div class="section-head fade-in">
+          <h2>Potencialize seu processo comercial</h2>
+          <p>Recursos projetados para profissionais sérios que buscam eficiência e resultados mensuráveis.</p>
+        </div>
+
+        <div class="features-grid">
+          <div class="feature-card fade-in delay-1">
+            <div class="feature-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
+            </div>
+            <h3>Propostas Seguras</h3>
+            <p>Assinatura digital, validade jurídica e proteção contra alterações não autorizadas. Seu cliente tem total confiança.</p>
+          </div>
+
+          <div class="feature-card fade-in delay-2">
+            <div class="feature-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+            </div>
+            <h3>IA de Otimização</h3>
+            <p>Nossa inteligência artificial analisa e sugere melhorias no texto, valor e estrutura da sua proposta para maximizar conversões.</p>
+          </div>
+
+          <div class="feature-card fade-in delay-3">
+            <div class="feature-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+            </div>
+            <h3>Rastreamento Inteligente</h3>
+            <p>Saiba exatamente quando sua proposta foi aberta, quanto tempo foi gasto em cada seção e quais páginas foram mais visualizadas.</p>
+          </div>
+
+          <div class="feature-card fade-in delay-1">
+            <div class="feature-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+            </div>
+            <h3>Pagamento Integrado</h3>
+            <p>Ofereça Pix, cartão, boleto e transferência com fluxo profissional e simples para o cliente aprovar e pagar mais rápido.</p>
+          </div>
+
+          <div class="feature-card fade-in delay-2">
+            <div class="feature-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+                <line x1="7" y1="2" x2="7" y2="22"/>
+                <line x1="17" y1="2" x2="17" y2="22"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <line x1="2" y1="7" x2="7" y2="7"/>
+                <line x1="2" y1="17" x2="7" y2="17"/>
+                <line x1="17" y1="17" x2="22" y2="17"/>
+                <line x1="17" y1="7" x2="22" y2="7"/>
+              </svg>
+            </div>
+            <h3>Dashboards Avançados</h3>
+            <p>Visualize KPIs essenciais: tempo médio de resposta, valor médio das propostas, taxa de conversão por segmento e muito mais.</p>
+          </div>
+
+          <div class="feature-card fade-in delay-3">
+            <div class="feature-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+            </div>
+            <h3>Gestão de Equipe</h3>
+            <p>Compartilhe templates, defina permissões por cargo e monitore o desempenho de cada membro do seu time comercial.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="testimonials-section" id="depoimentos">
+      <div class="container">
+        <div class="section-head fade-in">
+          <h2>Confiança de quem faz acontecer</h2>
+          <p>Profissionais e empresas que transformaram seus resultados com a Valora.</p>
+        </div>
+
+        <div class="testimonials-grid">
+          <div class="testimonial-card fade-in delay-1">
+            <div class="testimonial-content">
+              "Implementamos a Valora em nossa equipe de vendas e em 3 meses aumentamos nossa taxa de fechamento em 47%. O rastreamento de propostas nos deu insights valiosos."
+            </div>
+            <div class="testimonial-author">
+              <div class="author-avatar">RC</div>
+              <div class="author-info">
+                <h4>Ricardo Costa</h4>
+                <p>CEO, TechSolutions</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="testimonial-card fade-in delay-2">
+            <div class="testimonial-content">
+              "Como consultora independente, a Valora me deu a credibilidade que faltava. Meus clientes ficam impressionados com a profissionalização das propostas."
+            </div>
+            <div class="testimonial-author">
+              <div class="author-avatar">AM</div>
+              <div class="author-info">
+                <h4>Amanda Mendes</h4>
+                <p>Consultora de Marketing</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="testimonial-card fade-in delay-3">
+            <div class="testimonial-content">
+              "A integração com WhatsApp mudou nosso jogo. Agora enviamos propostas no mesmo canal que o cliente prefere, com notificação de leitura em tempo real."
+            </div>
+            <div class="testimonial-author">
+              <div class="author-avatar">LS</div>
+              <div class="author-info">
+                <h4>Leonardo Silva</h4>
+                <p>Diretor Comercial, Construct Inc.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pricing-section" id="planos">
+      <div class="container">
+        <div class="section-head fade-in">
+          <h2>Planos que escalam com seu negócio</h2>
+          <p>Escolha a solução ideal para suas necessidades. Todos os planos incluem teste gratuito de 7 dias.</p>
+        </div>
+
+        <div class="pricing-grid">
+          <div class="pricing-card fade-in delay-1">
+            <div class="price-header">
+              <h3>Essencial</h3>
+              <div class="price-amount">R$ 0</div>
+              <div class="price-period">para sempre</div>
+            </div>
+            <p>Ideal para freelancers e profissionais individuais que estão começando.</p>
+            <ul class="price-features">
+              <li><span class="check">✓</span> 5 propostas por mês</li>
+              <li><span class="check">✓</span> 1 usuário</li>
+              <li><span class="check">✓</span> Templates básicos</li>
+              <li><span class="check">✓</span> Rastreamento simples</li>
+            </ul>
+            <a href="/frontend/cadastro.html?plano=essencial" class="btn btn-secondary btn-full">Começar Gratuitamente</a>
+          </div>
+
+          <div class="pricing-card popular fade-in delay-2">
+            <div class="popular-badge">Mais Popular</div>
+            <div class="price-header">
+              <h3>Profissional</h3>
+              <div class="price-amount">R$ 97</div>
+              <div class="price-period">por mês</div>
+            </div>
+            <p>Para consultores e pequenas equipes que buscam resultados consistentes.</p>
+            <ul class="price-features">
+              <li><span class="check">✓</span> Propostas ilimitadas</li>
+              <li><span class="check">✓</span> IA de otimização</li>
+              <li><span class="check">✓</span> Integração WhatsApp</li>
+              <li><span class="check">✓</span> Domínio personalizado</li>
+              <li><span class="check">✓</span> Dashboards avançados</li>
+            </ul>
+            <a href="/frontend/cadastro.html?plano=profissional" class="btn btn-primary btn-full">Testar 7 Dias Grátis</a>
+          </div>
+
+          <div class="pricing-card fade-in delay-3">
+            <div class="price-header">
+              <h3>Empresarial</h3>
+              <div class="price-amount">R$ 197</div>
+              <div class="price-period">por mês</div>
+            </div>
+            <p>Para empresas que precisam de controle total e múltiplas equipes.</p>
+            <ul class="price-features">
+              <li><span class="check">✓</span> Tudo do Profissional</li>
+              <li><span class="check">✓</span> Até 10 usuários</li>
+              <li><span class="check">✓</span> API completa</li>
+              <li><span class="check">✓</span> Treinamento dedicado</li>
+              <li><span class="check">✓</span> Suporte prioritário</li>
+            </ul>
+            <a href="/frontend/cadastro.html?plano=empresarial" class="btn btn-secondary btn-full">Falar com Vendas</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq-section" id="faq">
+      <div class="container faq-container">
+        <div class="section-head fade-in">
+          <h2>Perguntas Frequentes</h2>
+          <p>Tire suas dúvidas sobre a plataforma e seus recursos.</p>
+        </div>
+
+        <div class="faq-list">
+          <div class="faq-item fade-in delay-1">
+            <button class="faq-question" type="button" onclick="toggleFaq(this)">
+              Como funciona o período de teste gratuito?
+              <span class="icon">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p>Oferecemos 7 dias gratuitos com acesso completo ao plano Profissional. Não é necessário cadastrar cartão de crédito para iniciar. Após o período, você pode escolher continuar com um plano pago ou migrar para a versão gratuita.</p>
+            </div>
+          </div>
+
+          <div class="faq-item fade-in delay-2">
+            <button class="faq-question" type="button" onclick="toggleFaq(this)">
+              Posso usar meu domínio próprio?
+              <span class="icon">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p>Sim. Nos planos Profissional e Empresarial você pode conectar seu domínio personalizado, como propostas.suaempresa.com. Fornecemos instruções detalhadas para configuração do DNS.</p>
+            </div>
+          </div>
+
+          <div class="faq-item fade-in delay-3">
+            <button class="faq-question" type="button" onclick="toggleFaq(this)">
+              A plataforma é compatível com quais meios de pagamento?
+              <span class="icon">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p>Você pode trabalhar com cartão, Pix, boleto e transferência, oferecendo uma experiência mais prática para o cliente aprovar e pagar sem fricção.</p>
+            </div>
+          </div>
+
+          <div class="faq-item fade-in delay-4">
+            <button class="faq-question" type="button" onclick="toggleFaq(this)">
+              Como é feito o suporte técnico?
+              <span class="icon">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p>Oferecemos suporte por chat em horário comercial, atendimento por email e materiais de apoio. No plano Empresarial, o suporte é prioritário.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-section">
+      <div class="container">
+        <div class="cta-content fade-in">
+          <h2>Pronto para transformar suas vendas?</h2>
+          <p>Junte-se a mais de 850 empresas que já otimizaram seu processo comercial com a Valora. Resultados reais começam com as ferramentas certas.</p>
+          <div class="cta-buttons">
+            <a href="/frontend/cadastro.html?plano=profissional" class="btn btn-primary btn-lg">Começar Teste Grátis</a>
+            <a href="/frontend/cadastro.html?plano=empresarial" class="btn btn-secondary btn-lg btn-cta-outline">Agendar Demonstração</a>
+          </div>
+          <p class="cta-note">
+            Teste gratuito de 7 dias • Não precisa de cartão de crédito
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <svg class="footer-logo" viewBox="0 0 1500 360" role="img" aria-label="VALORA CRM">
+            <defs>
+              <linearGradient id="g2" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#0D63FF"/>
+                <stop offset="100%" stop-color="#15D0A5"/>
+              </linearGradient>
+            </defs>
+
+            <path d="M140 114 L176 114 L160 140 L124 140 Z" fill="url(#g2)" opacity="0.95"/>
+
+            <text
+              x="90"
+              y="190"
+              font-family="Manrope, Inter, Poppins, Arial, sans-serif"
+              font-size="136"
+              font-weight="700"
+              letter-spacing="11"
+              fill="#FFFFFF"
+              dominant-baseline="alphabetic"
+            >VALORA</text>
+
+            <text
+              x="98"
+              y="252"
+              font-family="Manrope, Inter, Poppins, Arial, sans-serif"
+              font-size="44"
+              font-weight="650"
+              letter-spacing="14"
+              fill="#9CA3AF"
+              dominant-baseline="alphabetic"
+            >CRM</text>
+
+            <path d="M98 270 L255 270" stroke="url(#g2)" stroke-width="6" stroke-linecap="round"/>
+          </svg>
+
+          <p>Soluções profissionais para propostas comerciais que convertem. Tecnologia avançada, resultados mensuráveis.</p>
+        </div>
+
+        <div class="footer-links">
+          <h4>Produto</h4>
+          <ul>
+            <li><a href="#recursos">Recursos</a></li>
+            <li><a href="#planos">Preços</a></li>
+            <li><a href="#">API</a></li>
+            <li><a href="#">Status</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-links">
+          <h4>Empresa</h4>
+          <ul>
+            <li><a href="#">Sobre</a></li>
+            <li><a href="#">Blog</a></li>
+            <li><a href="#">Carreiras</a></li>
+            <li><a href="#">Contato</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-links">
+          <h4>Jurídico</h4>
+          <ul>
+            <li><a href="#">Privacidade</a></li>
+            <li><a href="#">Termos</a></li>
+            <li><a href="#">Segurança</a></li>
+            <li><a href="#">LGPD</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>&copy; 2024 Valora Tecnologia Ltda. Todos os direitos reservados.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      const savedTheme = localStorage.getItem('valora-theme');
+      if (savedTheme === 'dark' || savedTheme === 'light') {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      }
+    })();
+
+    function toggleMenu() {
+      const menu = document.getElementById('mobileMenu');
+      menu.classList.toggle('active');
+    }
+
+    function toggleFaq(button) {
+      const item = button.closest('.faq-item');
+      item.classList.toggle('active');
+    }
+
+    function toggleTheme() {
+      const root = document.documentElement;
+      const current = root.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      localStorage.setItem('valora-theme', next);
+    }
+
+    document.addEventListener('click', function (e) {
+      const menu = document.getElementById('mobileMenu');
+      const toggle = document.querySelector('.mobile-toggle');
+      if (!menu || !toggle) return;
+
+      if (
+        menu.classList.contains('active') &&
+        !menu.contains(e.target) &&
+        !toggle.contains(e.target)
+      ) {
+        menu.classList.remove('active');
+      }
+    });
+  </script>
 </body>
 </html>

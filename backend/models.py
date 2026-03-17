@@ -1,422 +1,599 @@
 # backend/models.py
 from __future__ import annotations
-from datetime import datetime, date
-from decimal import Decimal
-from typing import List, Optional
+
+from datetime import datetime
+
 from sqlalchemy import (
     BigInteger,
-    Boolean, 
+    Boolean,
     Column,
-    Date,
     DateTime,
     ForeignKey,
-    Integer,
-    Numeric,
-    SmallInteger,
     String,
     Text,
-    text,
     func,
 )
-from sqlalchemy import Date 
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship
 from backend.database import Base
 
 
-# =========================================================
-# CLIENTES (OrçaPro - versão final)
-# =========================================================
-class Cliente(Base):
-    __tablename__ = "clientes"
-    __allow_unmapped__ = True  # SQLAlchemy 2.x: ignora type hints "antigos"
-
-    id: int = Column(BigInteger, primary_key=True, index=True)
-
-    # Código de Cadastro Cliente
-    codigo_cadastro_cliente: str = Column(String(20), nullable=False, unique=True)
-
-    # Data Cadastro
-    data_cadastro: datetime = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-    )
-
-    # Tipo Cliente
-    tipo_cliente: str = Column(String(2), nullable=False)  # 'pf' | 'pj'
-
-    # Cliente (Nome de Identificação)
-    nome_identificacao: str = Column(Text, nullable=False)
-
-    # Contato
-    pessoa_contato: Optional[str] = Column(Text)
-    whatsapp_contato: Optional[str] = Column(String(20))  # Telefone contato (WhatsApp)
-
-    # Endereço principal (completo)
-    end_rua: Optional[str] = Column(Text)
-    end_numero: Optional[str] = Column(String(20))
-    end_bairro: Optional[str] = Column(String(80))
-    end_cidade: Optional[str] = Column(String(80))
-    end_estado: Optional[str] = Column(String(2))
-    end_pais: str = Column(String(60), nullable=False, server_default="BR")
-    end_cep: Optional[str] = Column(String(12))
-
-    # Perfil / origem
-    tipo_imovel: Optional[str] = Column(String(50))
-    onde_conheceu_empresa: Optional[str] = Column(String(80))
-
-    # PJ
-    razao_social: Optional[str] = Column(Text)
-    cnpj: Optional[str] = Column(String(18))
-    inscricao_estadual: Optional[str] = Column(String(30))
-    inscricao_municipal: Optional[str] = Column(String(30))
-    cpf_responsavel_administrador: Optional[str] = Column(String(14))
-
-    # PF
-    rg: Optional[str] = Column(String(20))
-    data_nascimento: Optional[date] = Column(Date)
-    estado_civil: Optional[str] = Column(String(30))
-    profissao: Optional[str] = Column(String(80))
-    responsavel_contratante = Column(Text) 
-    # Contato principal
-    whatsapp_principal: Optional[str] = Column(String(20))
-    email_principal: Optional[str] = Column(Text)
-
-    # Cobrança (fatura) - só CEP
-    cep_cobranca: Optional[str] = Column(String(12))
-
-    # Web / redes
-    home_page: Optional[str] = Column(Text)
-    redes_sociais = Column(JSONB)  # ex: {"instagram":"...", "facebook":"..."}
-
-    # Relação com propostas (um cliente pode ter várias propostas)
-    propostas: List["Proposta"] = relationship(
-        "Proposta",
-        back_populates="cliente",
-        lazy="selectin",
-    )
-
-    def __repr__(self) -> str:
-        return (
-            f"<Cliente id={self.id} codigo={self.codigo_cadastro_cliente!r} "
-            f"nome={self.nome_identificacao!r}>"
-        )
-
-
-# =========================================================
-# FORNECEDORES (mesmos campos do Cliente - versão final)
-# =========================================================
-class Fornecedor(Base):
-    __tablename__ = "fornecedores"
+class Empresa(Base):
+    __tablename__ = "empresas"
     __allow_unmapped__ = True
 
-    id: int = Column(BigInteger, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
 
-    # Código de Cadastro Fornecedor
-    codigo_cadastro_fornecedor: str = Column(String(20), nullable=False, unique=True)
+    nome = Column(String(180), nullable=False, index=True)
+    email = Column(String(255), nullable=True, index=True)
+    telefone = Column(String(20), nullable=True)
 
-    # Data Cadastro
-    data_cadastro: datetime = Column(
+    # --- NOVOS CAMPOS ADICIONADOS ---
+    cnpj = Column(String(20), nullable=True)
+    cep = Column(String(10), nullable=True)
+    estado = Column(String(2), nullable=True)
+    cidade = Column(String(120), nullable=True)
+    rua = Column(String(200), nullable=True)
+    numero = Column(String(20), nullable=True)
+    complemento = Column(String(120), nullable=True)
+    logo_url = Column(Text, nullable=True)
+    # --------------------------------
+
+    plano = Column(String(30), nullable=False, server_default="essencial", index=True)
+    ativo = Column(Boolean, nullable=False, server_default="true")
+
+    criado_em = Column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
     )
 
-    # Tipo Fornecedor
-    tipo_fornecedor: str = Column(String(2), nullable=False)  # 'pf' | 'pj'
-
-    # Fornecedor (Nome de Identificação)
-    nome_identificacao: str = Column(Text, nullable=False)
-
-    # Contato
-    pessoa_contato: Optional[str] = Column(Text)
-    whatsapp_contato: Optional[str] = Column(String(20))
-
-    # Endereço principal (completo)
-    end_rua: Optional[str] = Column(Text)
-    end_numero: Optional[str] = Column(String(20))
-    end_bairro: Optional[str] = Column(String(80))
-    end_cidade: Optional[str] = Column(String(80))
-    end_estado: Optional[str] = Column(String(2))
-    end_pais: str = Column(String(60), nullable=False, server_default="BR")
-    end_cep: Optional[str] = Column(String(12))
-
-    # Perfil / origem
-    tipo_imovel: Optional[str] = Column(String(50))
-    onde_conheceu_empresa: Optional[str] = Column(String(80))
-
-    # PJ
-    razao_social: Optional[str] = Column(Text)
-    cnpj: Optional[str] = Column(String(18))
-    inscricao_estadual: Optional[str] = Column(String(30))
-    inscricao_municipal: Optional[str] = Column(String(30))
-    cpf_responsavel_administrador: Optional[str] = Column(String(14))
-
-    # PF
-    rg: Optional[str] = Column(String(20))
-    data_nascimento: Optional[date] = Column(Date)
-    estado_civil: Optional[str] = Column(String(30))
-    profissao: Optional[str] = Column(String(80))
-
-    # Contato principal
-    whatsapp_principal: Optional[str] = Column(String(20))
-    email_principal: Optional[str] = Column(Text)
-
-    # Cobrança (fatura) - só CEP
-    cep_cobranca: Optional[str] = Column(String(12))
-
-    # Web / redes
-    home_page: Optional[str] = Column(Text)
-    redes_sociais = Column(JSONB)
-    telefone_pabx: Optional[str] = Column(String(20))
-    telefone: Optional[str] = Column(String(20))
-
-    tipo_categoria: Optional[str] = Column(String(80))
-
-    contato_representante_comercial: Optional[str] = Column(Text)
-    representante_telefone_whatsapp: Optional[str] = Column(String(20))
-    representante_telefone_ramal: Optional[str] = Column(String(20))
-
-    limite_creditos: Optional[Decimal] = Column(Numeric(12, 2))
-    linha_produtos_ids = Column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
-    opcao_transportadoras_fretes: Optional[str] = Column(Text)
-
-    linha_produtos: Optional[str] = Column(Text)
-    contato_rma: Optional[str] = Column(Text)
-    informacoes_rma: Optional[str] = Column(Text)
-    def __repr__(self) -> str:
-        return (
-            f"<Fornecedor id={self.id} codigo={self.codigo_cadastro_fornecedor!r} "
-            f"nome={self.nome_identificacao!r}>"
-        )
-
-
-# =========================================================
-# PRODUTOS
-# =========================================================
-class Produto(Base):
-    __tablename__ = "produtos"
-    __allow_unmapped__ = True  # SQLAlchemy 2.x: ignora type hints "antigos"
-
-    id: int = Column(BigInteger, primary_key=True, index=True)
-
-    data_cadastro: datetime = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-    )
-
-    cod_ref_id: Optional[str] = Column(String(50), nullable=True)
-    codigo_barras: Optional[str] = Column(String(50), nullable=True)
-
-    nome_generico: Optional[str] = Column(String(200), nullable=True)
-    nome_produto: Optional[str] = Column(Text, nullable=True)
-
-    modelo: Optional[str] = Column(String(100), nullable=True)
-    cod_ref_fabric: Optional[str] = Column(String(50), nullable=True)
-    origem: Optional[str] = Column(String(30), nullable=True)
-    status_atual: Optional[int] = Column(SmallInteger, nullable=True)   # 1..4
-    tipo_mercado: Optional[int] = Column(SmallInteger, nullable=True)   # 1..2
-    utilizacao: Optional[int] = Column(SmallInteger, nullable=True)     # 1..4
-    tipo_material: Optional[int] = Column(SmallInteger, nullable=True)  # 1..3
-    fabricante = Column(String(80), nullable=True)
-
-    # SITUAÇÃO
-    status_atual = Column(SmallInteger, nullable=True)   # 1..4
-    tipo_mercado = Column(SmallInteger, nullable=True)   # 1..2
-    utilizacao = Column(SmallInteger, nullable=True)     # 1..4
-    tipo_material = Column(SmallInteger, nullable=True)  # 1..3
-
-    # CLASSIFICAÇÃO (novos)
-    prod_controlado = Column(Boolean, nullable=True)
-    tipo_fiscalizacao = Column(String(120), nullable=True)
-    dados_identificacao_controlado = Column(Text, nullable=True)
-    observacoes_controlado = Column(Text, nullable=True)
-    segmentos = Column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
-    tipo_sistema = Column(String(120), nullable=True)
-    classe = Column(String(120), nullable=True)
-    categorias = Column(String(120), nullable=True)
-    subcategoria = Column(String(120), nullable=True)
-    fornecedor = Column(String(120), nullable=True)
-    fornecedores = Column(JSONB, nullable=False, server_default=text("\'[]\'::jsonb"))
-    ultima_compra = Column(Date, nullable=True)
-
-
-    
-    # 🔥 FIX do erro: PropostaItem.back_populates="itens" exige Produto.itens
-    itens: List["PropostaItem"] = relationship(
-        "PropostaItem",
-        back_populates="produto",
-        lazy="selectin",
-    )
-
-    def __repr__(self) -> str:
-        return f"<Produto id={self.id} nome={self.nome_produto!r} modelo={self.modelo!r}>"
-
-
-# =========================================================
-# PROPOSTAS (cabeçalho)
-# =========================================================
-class Proposta(Base):
-    __tablename__ = "propostas"
-    __allow_unmapped__ = True
-
-    id: int = Column(BigInteger, primary_key=True, index=True)
-
-    # Identificador human-readable
-    numero: str = Column(String(30), nullable=False, unique=True)  # ex: PROP-0001
-
-    # Ligação com cliente
-    cliente_id: Optional[int] = Column(
-        BigInteger,
-        ForeignKey("clientes.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-
-    # Snapshot do cliente na época da proposta
-    cliente_nome: str = Column(Text, nullable=False)
-    cliente_telefone: Optional[str] = Column(String(20))
-    cliente_email: Optional[str] = Column(Text)
-
-    # Dados da proposta
-    tipo_proposta: Optional[str] = Column(Text)  # ex: "Alarme monitorado + Sensores"
-    status: str = Column(
-        String(20),
-        nullable=False,
-        server_default="rascunho",
-    )  # 'rascunho','enviada','aprovada','recusada'
-
-    valor_total: Decimal = Column(
-        Numeric(12, 2),
-        nullable=False,
-        server_default="0",
-    )
-
-    data_proposta: date = Column(
-        Date,
-        nullable=False,
-        server_default=func.current_date(),
-    )
-    validade_dias: Optional[int] = Column(SmallInteger)
-
-    observacoes: Optional[str] = Column(Text)
-
-    criado_em: datetime = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-    )
-    atualizado_em: datetime = Column(
+    atualizado_em = Column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
     )
 
-    # Relações
-    cliente: Optional[Cliente] = relationship(
-        "Cliente",
-        back_populates="propostas",
-        lazy="joined",
+    def __repr__(self) -> str:
+        return f"<Empresa id={self.id} nome={self.nome!r} plano={self.plano!r}>"
+    
+
+    
+class Usuario(Base):
+    __tablename__ = "usuarios"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
-    itens: List["PropostaItem"] = relationship(
-        "PropostaItem",
-        back_populates="proposta",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-        lazy="selectin",
-        order_by="PropostaItem.ordem",
+    nome = Column(String(120), nullable=False)
+    email = Column(String(255), nullable=False, unique=True, index=True)
+    telefone = Column(String(20), nullable=True)
+
+    senha_hash = Column(String(255), nullable=False)
+
+    cargo = Column(String(80), nullable=True)
+    avatar_url = Column(Text, nullable=True)
+
+    exigir_token_login = Column(Boolean, nullable=False, server_default="false")
+    ativo = Column(Boolean, nullable=False, server_default="true")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
     def __repr__(self) -> str:
-        return f"<Proposta id={self.id} numero={self.numero!r} status={self.status!r}>"
+        return f"<Usuario id={self.id} email={self.email!r} nome={self.nome!r} empresa_id={self.empresa_id}>"
 
 
-# =========================================================
-# PROPOSTA_ITENS (itens da proposta)
-# =========================================================
-class PropostaItem(Base):
-    __tablename__ = "proposta_itens"
+class LoginToken(Base):
+    __tablename__ = "login_tokens"
     __allow_unmapped__ = True
 
-    id: int = Column(BigInteger, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
 
-    proposta_id: int = Column(
+    email = Column(String(255), nullable=False, index=True)
+    token = Column(String(6), nullable=False, index=True)
+    expires_at = Column(DateTime(timezone=False), nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=False),
+        nullable=False,
+        default=datetime.utcnow,
+        server_default=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<LoginToken id={self.id} email={self.email!r}>"
+
+
+class CadastroToken(Base):
+    __tablename__ = "cadastro_tokens"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_nome = Column(String(180), nullable=False)
+    responsavel_nome = Column(String(120), nullable=False)
+
+    email = Column(String(255), nullable=False, index=True)
+    telefone = Column(String(20), nullable=True)
+
+    senha_hash = Column(String(255), nullable=False)
+    cargo = Column(String(80), nullable=True)
+
+    plano = Column(String(30), nullable=False, server_default="essencial", index=True)
+    exigir_token_login = Column(Boolean, nullable=False, server_default="false")
+
+    token = Column(String(6), nullable=False, index=True)
+    expires_at = Column(DateTime(timezone=False), nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=False),
+        nullable=False,
+        default=datetime.utcnow,
+        server_default=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CadastroToken id={self.id} email={self.email!r} plano={self.plano!r}>"
+
+
+class Cliente(Base):
+    __tablename__ = "clientes"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    codigo = Column(String(50), nullable=False, index=True)
+    nome = Column(String(180), nullable=False, index=True)
+    whatsapp = Column(String(30), nullable=True, index=True)
+    email = Column(String(255), nullable=True, index=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Cliente id={self.id} codigo={self.codigo!r} nome={self.nome!r} empresa_id={self.empresa_id}>"
+
+
+class CampoCliente(Base):
+    __tablename__ = "campos_clientes"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    nome = Column(String(120), nullable=False)
+    slug = Column(String(120), nullable=False, index=True)
+    tipo = Column(String(30), nullable=False, index=True)
+
+    obrigatorio = Column(Boolean, nullable=False, server_default="false")
+    ativo = Column(Boolean, nullable=False, server_default="true")
+
+    opcoes_json = Column(Text, nullable=True)
+    ordem = Column(BigInteger, nullable=False, server_default="0")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CampoCliente id={self.id} empresa_id={self.empresa_id} slug={self.slug!r} tipo={self.tipo!r}>"
+
+
+class ClienteCampoValor(Base):
+    __tablename__ = "clientes_campos_valores"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    cliente_id = Column(
+        BigInteger,
+        ForeignKey("clientes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    campo_id = Column(
+        BigInteger,
+        ForeignKey("campos_clientes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    valor = Column(Text, nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ClienteCampoValor id={self.id} cliente_id={self.cliente_id} campo_id={self.campo_id}>"
+
+class Fornecedor(Base):
+    __tablename__ = "fornecedores"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    codigo = Column(String(50), nullable=False, index=True)
+    nome = Column(String(180), nullable=False, index=True)
+    whatsapp = Column(String(30), nullable=True, index=True)
+    email = Column(String(255), nullable=True, index=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Fornecedor id={self.id} codigo={self.codigo!r} nome={self.nome!r} empresa_id={self.empresa_id}>"
+
+
+class CampoFornecedor(Base):
+    __tablename__ = "campos_fornecedores"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    nome = Column(String(120), nullable=False)
+    slug = Column(String(120), nullable=False, index=True)
+    tipo = Column(String(30), nullable=False, index=True)
+
+    obrigatorio = Column(Boolean, nullable=False, server_default="false")
+    ativo = Column(Boolean, nullable=False, server_default="true")
+
+    opcoes_json = Column(Text, nullable=True)
+    ordem = Column(BigInteger, nullable=False, server_default="0")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CampoFornecedor id={self.id} empresa_id={self.empresa_id} slug={self.slug!r} tipo={self.tipo!r}>"
+
+
+class FornecedorCampoValor(Base):
+    __tablename__ = "fornecedores_campos_valores"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    fornecedor_id = Column(
+        BigInteger,
+        ForeignKey("fornecedores.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    campo_id = Column(
+        BigInteger,
+        ForeignKey("campos_fornecedores.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    valor = Column(Text, nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<FornecedorCampoValor id={self.id} fornecedor_id={self.fornecedor_id} campo_id={self.campo_id}>"
+
+class Produto(Base):
+    __tablename__ = "produtos"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    codigo = Column(String(50), nullable=False, index=True)
+    nome = Column(String(180), nullable=False, index=True)
+    descricao = Column(Text, nullable=True)
+
+    categoria = Column(String(120), nullable=True, index=True)
+    unidade = Column(String(30), nullable=True)
+    preco_venda = Column(String(40), nullable=True)
+    custo = Column(String(40), nullable=True)
+
+    estoque_atual = Column(String(40), nullable=True)
+    ativo = Column(Boolean, nullable=False, server_default="true")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Produto id={self.id} codigo={self.codigo!r} nome={self.nome!r} empresa_id={self.empresa_id}>"
+
+
+class CampoProduto(Base):
+    __tablename__ = "campos_produtos"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    nome = Column(String(120), nullable=False)
+    slug = Column(String(120), nullable=False, index=True)
+    tipo = Column(String(30), nullable=False, index=True)
+
+    obrigatorio = Column(Boolean, nullable=False, server_default="false")
+    ativo = Column(Boolean, nullable=False, server_default="true")
+
+    opcoes_json = Column(Text, nullable=True)
+    ordem = Column(BigInteger, nullable=False, server_default="0")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CampoProduto id={self.id} empresa_id={self.empresa_id} slug={self.slug!r} tipo={self.tipo!r}>"
+
+
+class ProdutoCampoValor(Base):
+    __tablename__ = "produtos_campos_valores"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    produto_id = Column(
+        BigInteger,
+        ForeignKey("produtos.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    campo_id = Column(
+        BigInteger,
+        ForeignKey("campos_produtos.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    valor = Column(Text, nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ProdutoCampoValor id={self.id} produto_id={self.produto_id} campo_id={self.campo_id}>"
+
+
+class Proposta(Base):
+    __tablename__ = "propostas"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    cliente_id = Column(
+        BigInteger,
+        ForeignKey("clientes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    codigo = Column(String(50), nullable=False, index=True)
+    titulo = Column(String(180), nullable=False, index=True)
+    status = Column(String(40), nullable=False, server_default="rascunho", index=True)
+
+    modelo = Column(String(50), nullable=True, index=True)
+    observacoes = Column(Text, nullable=True)
+    validade_dias = Column(String(20), nullable=True)
+
+    subtotal = Column(String(40), nullable=True)
+    desconto = Column(String(40), nullable=True)
+    total = Column(String(40), nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Proposta id={self.id} codigo={self.codigo!r} titulo={self.titulo!r} empresa_id={self.empresa_id}>"
+
+
+class PropostaItem(Base):
+    __tablename__ = "propostas_itens"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    proposta_id = Column(
         BigInteger,
         ForeignKey("propostas.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
 
-    produto_id: Optional[int] = Column(
+    produto_id = Column(
         BigInteger,
         ForeignKey("produtos.id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
     )
 
-    # Snapshot do item na época da proposta
-    codigo: str = Column(String(30), nullable=False)
-    descricao: str = Column(Text, nullable=False)
-    unid: Optional[str] = Column(String(10))  # 'un', 'm', 'kit', 'dia', etc.
+    origem = Column(String(30), nullable=False, server_default="manual", index=True)
 
-    quantidade: Decimal = Column(
-        Numeric(12, 2),
-        nullable=False,
-        server_default="1",
-    )
-    valor_unitario: Decimal = Column(
-        Numeric(12, 2),
-        nullable=False,
-        server_default="0",
-    )
-    desconto_percent: Decimal = Column(
-        Numeric(5, 2),
-        nullable=False,
-        server_default="0",
-    )
-    valor_total: Decimal = Column(
-        Numeric(12, 2),
-        nullable=False,
-        server_default="0",
-    )
+    codigo = Column(String(50), nullable=True, index=True)
+    descricao = Column(Text, nullable=False)
+    unidade = Column(String(20), nullable=True)
 
-    origem: str = Column(
-        String(20),
-        nullable=False,
-        server_default="catalogo",
-    )  # 'catalogo', 'modelo', 'manual'
+    quantidade = Column(String(40), nullable=True)
+    valor_unitario = Column(String(40), nullable=True)
+    valor_total = Column(String(40), nullable=True)
 
-    observacoes: Optional[str] = Column(Text)
-    ordem: int = Column(Integer, nullable=False, server_default="0")
+    observacao = Column(Text, nullable=True)
+    ordem = Column(BigInteger, nullable=False, server_default="0")
 
-    criado_em: datetime = Column(
+    criado_em = Column(#
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
     )
-    atualizado_em: datetime = Column(
+
+    atualizado_em = Column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
     )
 
-    # Relações
-    proposta: Proposta = relationship(
-        "Proposta",
-        back_populates="itens",
-        lazy="joined",
-    )
-    produto: Optional[Produto] = relationship(
-        "Produto",
-        back_populates="itens",
-        lazy="joined",
-    )
-
     def __repr__(self) -> str:
-        return (
-            f"<PropostaItem id={self.id} proposta_id={self.proposta_id} "
-            f"codigo={self.codigo!r} qtd={self.quantidade}>"
-        )
+        return f"<PropostaItem id={self.id} proposta_id={self.proposta_id} descricao={self.descricao!r}>"
