@@ -1,10 +1,13 @@
+// /frontend/js/pages/propostas.js
+
 let propostas = [];
-
 const API_PROPOSTAS = '/api/propostas';
-
 let propostaId = null;
 let itens = [];
 
+// ==========================================
+// LÓGICA MÁGICA DA SUA EQUIPE MANTIDA INTACTA!
+// ==========================================
 const MODELOS = {
   alarme(params){
     const pontos = Number(params.pontos || 0);
@@ -43,86 +46,71 @@ const MODELOS = {
   }
 };
 
-function qs(id){
-  return document.getElementById(id);
-}
+function qs(id){ return document.getElementById(id); }
 
 function escapeHtml(v){
-  return String(v ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+  return String(v ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 }
-
 function escapeAttr(v){
-  return String(v ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+  return String(v ?? '').replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
-function getErrorMessage(text, fallback){
-  try{
-    const data = JSON.parse(text);
-    if(typeof data?.detail === 'string' && data.detail.trim()) return data.detail.trim();
-    if(typeof data?.message === 'string' && data.message.trim()) return data.message.trim();
-  }catch{}
-  return text?.trim() || fallback;
+let _confirmResolver = null;
+function confirmDialog({ title='Confirmar', message='Tem certeza?', confirmText='OK', cancelText='Cancelar' } = {}){
+  const backdrop = document.getElementById('Valora-confirm-backdrop');
+  document.getElementById('Valora-confirm-title').textContent = title;
+  document.getElementById('Valora-confirm-message').textContent = message;
+  document.getElementById('Valora-confirm-ok').textContent = confirmText;
+  document.getElementById('Valora-confirm-cancel').textContent = cancelText;
+
+  if(!backdrop) return Promise.resolve(false);
+  backdrop.hidden = false;
+  setTimeout(() => backdrop.classList.add('show'), 10);
+  return new Promise((resolve)=>{ _confirmResolver = resolve; });
 }
 
-function redirectToLogin(){
-  const next = encodeURIComponent(window.location.pathname + window.location.search);
-  window.location.href = `/inicio?next=${next}`;
+function closeConfirm(result=false){
+  const backdrop = document.getElementById('Valora-confirm-backdrop');
+  if(backdrop){
+    backdrop.classList.remove('show');
+    setTimeout(() => backdrop.hidden = true, 200);
+  }
+  if(typeof _confirmResolver === 'function'){
+    const fn = _confirmResolver;
+    _confirmResolver = null;
+    fn(!!result);
+  }
 }
 
 async function apiJson(url, options = {}){
   const resp = await fetch(url, {
     credentials: 'include',
     ...options,
-    headers: {
-      Accept: 'application/json',
-      ...(options.headers || {}),
-    },
+    headers: { Accept: 'application/json', ...(options.headers || {}) },
   });
 
-  if(resp.status === 401){
-    redirectToLogin();
-    throw new Error('Sua sessão expirou. Faça login novamente.');
+  if(resp.status === 401) {
+     window.showToast("Sessão expirada. Faça login.", "error");
+     throw new Error("Sessão expirada");
   }
-
   if(resp.status === 204) return null;
 
   const text = await resp.text();
-
-  if(!resp.ok){
-    throw new Error(getErrorMessage(text, 'Erro na requisição.'));
-  }
-
+  if(!resp.ok) throw new Error(text || 'Erro na requisição.');
   if(!text) return null;
-
-  try{
-    return JSON.parse(text);
-  }catch{
-    return text;
-  }
+  try{ return JSON.parse(text); }catch{ return text; }
 }
 
 function capitalizeStatus(status){
-  const map = {
-    rascunho: 'Rascunho',
-    enviada: 'Enviada',
-    aprovada: 'Aprovada',
-    rejeitada: 'Rejeitada',
-  };
+  const map = { rascunho: 'Rascunho', enviada: 'Enviada', aprovada: 'Aprovada', rejeitada: 'Rejeitada' };
   return map[String(status || '').toLowerCase()] || status || '-';
 }
 
 async function carregarPropostas(){
-  const data = await apiJson(API_PROPOSTAS);
-  propostas = Array.isArray(data) ? data : [];
+  try {
+    const data = await apiJson(API_PROPOSTAS);
+    propostas = Array.isArray(data) ? data : [];
+  } catch { propostas = []; }
   renderTabela();
 }
 
@@ -134,72 +122,44 @@ function renderTabela(){
   if(!tbody) return;
 
   const filtradas = propostas.filter((p) => {
-    const texto = [
-      p.codigo,
-      p.titulo,
-      p.cliente_nome,
-      p.status,
-      p.total,
-    ].filter(Boolean).join(' ').toLowerCase();
-
+    const texto = [p.codigo, p.titulo, p.cliente_nome, p.status, p.total].filter(Boolean).join(' ').toLowerCase();
     return !busca || texto.includes(busca);
   });
 
   tbody.innerHTML = '';
 
   if(!filtradas.length){
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" class="Valora-empty">Nenhuma proposta encontrada.</td>
-      </tr>
-    `;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state" style="text-align: center; border:none;">Nenhuma proposta encontrada.</td></tr>`;
   } else {
     filtradas.forEach((p) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${escapeHtml(p.codigo || '-')}</td>
-        <td>${escapeHtml(p.titulo || '-')}</td>
+        <td><span class="badge-codigo" style="font-family: monospace; background: var(--panel-hover); padding: 4px 8px; border-radius: 6px; font-size: 12px;">${escapeHtml(p.codigo || '-')}</span></td>
+        <td style="font-weight: 500; color: var(--text);">${escapeHtml(p.titulo || '-')}</td>
         <td>${escapeHtml(p.cliente_nome || '-')}</td>
-        <td>${escapeHtml(capitalizeStatus(p.status || '-'))}</td>
-        <td>${escapeHtml(p.total || '-')}</td>
-        <td>
-          <div class="Valora-table-actions">
-            <button class="Valora-icon-btn" data-action="abrir" data-id="${p.id}" title="Abrir proposta" type="button">
-              <i class="fa-solid fa-pen-to-square"></i>
-            </button>
-            <button class="Valora-icon-btn" data-action="excluir" data-id="${p.id}" title="Excluir proposta" type="button">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </div>
+        <td><span class="proposal-status-chip">${escapeHtml(capitalizeStatus(p.status || '-'))}</span></td>
+        <td>R$ ${escapeHtml(p.total || '0,00')}</td>
+        <td style="text-align: right; display: flex; justify-content: flex-end; gap: 8px;">
+          <button class="btn-icon" data-action="abrir" data-id="${p.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn-icon danger" data-action="excluir" data-id="${p.id}" title="Excluir"><i class="fa-solid fa-trash"></i></button>
         </td>
       `;
       tbody.appendChild(tr);
     });
   }
-
-  if(count){
-    count.textContent = filtradas.length === 1 ? '1 proposta' : `${filtradas.length} propostas`;
-  }
+  if(count) count.textContent = filtradas.length === 1 ? '1 proposta' : `${filtradas.length} propostas`;
 }
-
-async function excluirProposta(id){
-  if(!confirm('Deseja realmente excluir esta proposta?')) return;
-  await apiJson(`${API_PROPOSTAS}/${id}`, { method: 'DELETE' });
-  await carregarPropostas();
-}
-
-/* MODAL */
 
 function openModal(){
-  qs('proposal-modal')?.classList.add('is-open');
-  qs('proposal-modal')?.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('modal-open');
+  const modal = document.getElementById('proposal-modal');
+  modal.hidden = false;
+  setTimeout(()=>modal.classList.add('show'), 10);
 }
 
 function closeModal(){
-  qs('proposal-modal')?.classList.remove('is-open');
-  qs('proposal-modal')?.setAttribute('aria-hidden', 'true');
-  document.body.classList.remove('modal-open');
+  const modal = document.getElementById('proposal-modal');
+  modal.classList.remove('show');
+  setTimeout(() => modal.hidden = true, 200);
 }
 
 function updateStatusChip(){
@@ -213,8 +173,6 @@ function resetFormulario(){
   itens = [];
 
   qs('proposal-modal-title').textContent = 'Nova proposta';
-  qs('proposal-modal-subtitle').textContent = 'Preencha os dados da proposta e salve.';
-
   qs('proposta-codigo').value = '';
   qs('proposta-titulo').value = '';
   qs('proposta-cliente-id').value = '';
@@ -222,12 +180,10 @@ function resetFormulario(){
   qs('proposta-modelo').value = '';
   qs('proposta-validade').value = '';
   qs('proposta-observacoes').value = '';
-
   qs('param-metragem').value = '';
   qs('param-pontos').value = '';
   qs('param-cameras').value = '';
   qs('param-cantos').value = '';
-
   qs('proposta-subtotal').value = '';
   qs('proposta-desconto').value = '';
   qs('proposta-total').value = '';
@@ -244,20 +200,15 @@ async function openNovaProposta(){
 async function openEditarProposta(id){
   resetFormulario();
   openModal();
-
   qs('proposal-modal-title').textContent = 'Editar proposta';
-  qs('proposal-modal-subtitle').textContent = 'Carregando dados da proposta...';
 
   try{
     await carregarProposta(id);
-    qs('proposal-modal-subtitle').textContent = 'Altere os dados e salve.';
   }catch(err){
     closeModal();
-    throw err;
+    window.showToast("Erro ao carregar proposta.", "error");
   }
 }
-
-/* ITENS */
 
 function addItemRow(item = {}){
   itens.push({
@@ -273,7 +224,6 @@ function addItemRow(item = {}){
     observacao: item.observacao || '',
     ordem: Number.isFinite(item.ordem) ? item.ordem : itens.length,
   });
-
   renderItens();
 }
 
@@ -285,15 +235,10 @@ function removeItemRow(index){
 function renderItens(){
   const tbody = qs('proposal-items-body');
   if(!tbody) return;
-
   tbody.innerHTML = '';
 
   if(!itens.length){
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" class="Valora-empty">Nenhum item adicionado.</td>
-      </tr>
-    `;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state" style="text-align: center; border:none;">Nenhum item adicionado.</td></tr>`;
     return;
   }
 
@@ -301,11 +246,11 @@ function renderItens(){
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><input type="text" data-field="descricao" value="${escapeAttr(item.descricao || '')}"></td>
-      <td><input type="text" data-field="quantidade" value="${escapeAttr(item.quantidade || '')}"></td>
-      <td><input type="text" data-field="unidade" value="${escapeAttr(item.unidade || '')}"></td>
-      <td><input type="text" data-field="valor_unitario" value="${escapeAttr(item.valor_unitario || '')}"></td>
-      <td><input type="text" data-field="valor_total" value="${escapeAttr(item.valor_total || '')}"></td>
-      <td><button type="button" class="btn-icon-danger" data-remove="${index}">×</button></td>
+      <td><input type="text" style="width: 60px; text-align: center;" data-field="quantidade" value="${escapeAttr(item.quantidade || '')}"></td>
+      <td><input type="text" style="width: 60px; text-align: center;" data-field="unidade" value="${escapeAttr(item.unidade || '')}"></td>
+      <td><input type="text" data-field="valor_unitario" placeholder="R$" value="${escapeAttr(item.valor_unitario || '')}"></td>
+      <td><input type="text" data-field="valor_total" placeholder="R$" value="${escapeAttr(item.valor_total || '')}"></td>
+      <td style="text-align: center; vertical-align: middle;"><button type="button" class="btn-icon-danger" data-remove="${index}"><i class="fa-solid fa-trash"></i></button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -314,12 +259,10 @@ function renderItens(){
 function collectItensFromDOM(){
   const body = qs('proposal-items-body');
   if(!body) return [];
-
   const rows = [...body.querySelectorAll('tr')];
 
   return rows.map((row, index) => {
     const get = (field) => row.querySelector(`[data-field="${field}"]`)?.value?.trim() || '';
-
     return {
       ...itens[index],
       descricao: get('descricao'),
@@ -333,8 +276,6 @@ function collectItensFromDOM(){
 }
 
 function buildPayload(){
-  itens = collectItensFromDOM();
-
   return {
     codigo: qs('proposta-codigo')?.value?.trim() || '',
     cliente_id: qs('proposta-cliente-id')?.value ? Number(qs('proposta-cliente-id').value) : null,
@@ -346,43 +287,36 @@ function buildPayload(){
     subtotal: qs('proposta-subtotal')?.value?.trim() || '',
     desconto: qs('proposta-desconto')?.value?.trim() || '',
     total: qs('proposta-total')?.value?.trim() || '',
-    itens,
+    itens: collectItensFromDOM(),
   };
 }
 
 async function salvarProposta(){
   const payload = buildPayload();
+  const btn = qs('btn-salvar-proposta');
 
-  if(!payload.titulo){
-    alert('Preencha o título da proposta.');
-    qs('proposta-titulo')?.focus();
-    return;
+  if(!payload.titulo){ window.showToast('Preencha o título da proposta.', 'error'); return; }
+  if(!payload.itens.length){ window.showToast('Adicione pelo menos um item.', 'error'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = 'Salvando...';
+
+  try{
+    if(propostaId){
+      await apiJson(`${API_PROPOSTAS}/${propostaId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    } else {
+      const criada = await apiJson(API_PROPOSTAS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      propostaId = criada?.id || null;
+    }
+    await carregarPropostas();
+    closeModal();
+    window.showToast('Proposta salva com sucesso!', 'success');
+  } catch(err) {
+    window.showToast('Erro ao salvar proposta.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i> Salvar';
   }
-
-  if(!payload.itens.length){
-    alert('Adicione pelo menos um item na proposta.');
-    return;
-  }
-
-  if(propostaId){
-    await apiJson(`${API_PROPOSTAS}/${propostaId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-  } else {
-    const criada = await apiJson(API_PROPOSTAS, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    propostaId = criada?.id || null;
-  }
-
-  await carregarPropostas();
-  closeModal();
-  alert('Proposta salva com sucesso.');
 }
 
 async function carregarProposta(id){
@@ -407,11 +341,7 @@ async function carregarProposta(id){
 
 function gerarItensDoModelo(){
   const modelo = qs('proposta-modelo')?.value || '';
-
-  if(!modelo || !MODELOS[modelo]){
-    alert('Selecione um modelo técnico.');
-    return;
-  }
+  if(!modelo || !MODELOS[modelo]){ window.showToast('Selecione um modelo técnico.', 'error'); return; }
 
   const params = {
     metragem: qs('param-metragem')?.value || 0,
@@ -420,85 +350,60 @@ function gerarItensDoModelo(){
     cantos: qs('param-cantos')?.value || 0,
   };
 
-  itens = MODELOS[modelo](params).map((item, idx) => ({
-    ...item,
-    ordem: idx,
-  }));
-
+  itens = MODELOS[modelo](params).map((item, idx) => ({ ...item, ordem: idx }));
   renderItens();
+  window.showToast('Itens gerados com sucesso!', 'success');
 }
 
 /* EVENTOS */
-
 document.addEventListener('DOMContentLoaded', async () => {
-  qs('busca-propostas')?.addEventListener('input', renderTabela);
+  
+  // Confirm Modals setup
+  document.getElementById('Valora-confirm-cancel')?.addEventListener('click', () => closeConfirm(false));
+  document.getElementById('Valora-confirm-ok')?.addEventListener('click', () => closeConfirm(true));
 
-  qs('btn-nova-proposta')?.addEventListener('click', async () => {
-    await openNovaProposta();
-  });
+  qs('busca-propostas')?.addEventListener('input', renderTabela);
+  qs('btn-nova-proposta')?.addEventListener('click', openNovaProposta);
+  qs('btn-fechar-modal')?.addEventListener('click', closeModal);
 
   qs('tbody-propostas')?.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.Valora-icon-btn');
+    const btn = e.target.closest('.btn-icon');
     if(!btn) return;
-
     const action = btn.dataset.action;
     const id = Number(btn.dataset.id);
     if(!id) return;
 
-    if(action === 'abrir'){
-      try{
-        await openEditarProposta(id);
-      }catch(err){
-        alert(err?.message || 'Erro ao abrir proposta.');
-      }
-      return;
-    }
-
-    if(action === 'excluir'){
-      try{
-        await excluirProposta(id);
-      }catch(err){
-        alert(err?.message || 'Erro ao excluir proposta.');
+    if(action === 'abrir') {
+      await openEditarProposta(id);
+    } else if(action === 'excluir') {
+      if(await confirmDialog({title: 'Excluir Proposta', message: 'Deseja mesmo excluir esta proposta?'})){
+        await apiJson(`${API_PROPOSTAS}/${id}`, { method: 'DELETE' });
+        await carregarPropostas();
+        window.showToast('Proposta excluída.', 'success');
       }
     }
   });
 
-  qs('btn-fechar-modal')?.addEventListener('click', closeModal);
-
   qs('proposal-modal')?.addEventListener('click', (e) => {
-    if(e.target.closest('[data-close-modal]')){
-      closeModal();
-    }
+    // Se clicou fora do modal-content, fecha.
+    if(e.target === qs('proposal-modal')){ closeModal(); }
   });
 
   document.addEventListener('keydown', (e) => {
-    if(e.key === 'Escape' && qs('proposal-modal')?.classList.contains('is-open')){
-      closeModal();
-    }
+    if(e.key === 'Escape' && !qs('proposal-modal')?.hidden){ closeModal(); }
   });
 
   qs('btn-add-item')?.addEventListener('click', () => addItemRow({}));
   qs('btn-gerar-itens')?.addEventListener('click', gerarItensDoModelo);
 
   qs('proposal-items-body')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-remove]');
+    const btn = e.target.closest('.btn-icon-danger');
     if(!btn) return;
     removeItemRow(Number(btn.dataset.remove));
   });
 
-  qs('btn-salvar-proposta')?.addEventListener('click', async () => {
-    try{
-      await salvarProposta();
-    }catch(err){
-      alert(err?.message || 'Erro ao salvar proposta.');
-    }
-  });
-
+  qs('btn-salvar-proposta')?.addEventListener('click', salvarProposta);
   qs('proposta-status')?.addEventListener('change', updateStatusChip);
 
-  try{
-    await carregarPropostas();
-  }catch(err){
-    alert(err?.message || 'Erro ao carregar propostas.');
-  }
+  await carregarPropostas();
 });

@@ -3,52 +3,55 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>4X Valora – Propostas</title>
+  <title>Propostas | Valora CRM</title>
 
-  <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="icon" type="image/png" href="/frontend/img/logo-favicon.png" />
 
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem('valora_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
+
+  <link rel="stylesheet" href="/frontend/css/app.css" />
   <link rel="stylesheet" href="/frontend/css/propostas.css" />
+  <script src="/frontend/js/pages/app.js" defer></script>
   <script src="/frontend/js/pages/propostas.js" defer></script>
 </head>
 <body>
-  <div class="Valora-shell">
-    <iframe class="Valora-menu-frame" src="/frontend/partials/sidebar.html" title="Menu 4X Valora"></iframe>
+  <div class="layout">
+    <iframe src="/frontend/partials/sidebar.html" class="sidebar-frame" title="Menu lateral"></iframe>
 
-    <main class="Valora-main">
-      <header class="Valora-main-header">
-        <div class="Valora-header-left">
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Comercial</span>
           <h1>Propostas</h1>
-          <p>Gerencie e monte propostas comerciais.</p>
         </div>
 
-        <div class="Valora-header-actions">
-          <button class="btn-primary" type="button" id="btn-nova-proposta">
-            <i class="fa-solid fa-file-circle-plus"></i>
-            <span>Nova proposta</span>
+        <div class="topbar-actions">
+          <button class="btn btn-primary" type="button" id="btn-nova-proposta">
+            <i class="fa-solid fa-file-circle-plus" style="margin-right: 6px;"></i> Nova proposta
           </button>
         </div>
       </header>
 
-      <section class="Valora-filters">
-        <div class="Valora-field Valora-field--busca">
-          <label for="busca-propostas">Buscar</label>
-          <div class="Valora-input-icon">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input id="busca-propostas" type="text" placeholder="Código, título, cliente, status..." autocomplete="off" />
-          </div>
+      <div class="search-row">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input id="busca-propostas" type="text" placeholder="Código, título, cliente, status..." autocomplete="off" />
         </div>
+        <span id="contagem-propostas" class="counter-text">0 propostas</span>
+      </div>
 
-        <div class="Valora-filters-right">
-          <span id="contagem-propostas" class="Valora-counter">0 propostas</span>
-        </div>
-      </section>
-
-      <section class="Valora-main-list">
-        <div class="Valora-table-wrapper">
-          <table class="Valora-table-propostas">
+      <article class="panel-card" style="padding: 0;">
+        <div class="valora-table-wrapper" style="overflow-x: auto;">
+          <table class="valora-table">
             <thead>
               <tr>
                 <th>Código</th>
@@ -56,174 +59,156 @@
                 <th>Cliente</th>
                 <th>Status</th>
                 <th>Total</th>
-                <th></th>
+                <th style="text-align: right;">Ações</th>
               </tr>
             </thead>
-            <tbody id="tbody-propostas"></tbody>
+            <tbody id="tbody-propostas">
+              <tr><td colspan="6" class="empty-state" style="text-align: center; border:none;">Carregando...</td></tr>
+            </tbody>
           </table>
         </div>
-      </section>
+      </article>
+
+      <div class="modal-overlay" id="proposal-modal" hidden>
+        <div class="modal-content modal-lg" style="max-width: 900px;" data-close-target="false">
+          <div class="modal-header" style="align-items: flex-start;">
+            <div>
+              <h3 id="proposal-modal-title">Nova proposta</h3>
+              <p id="proposal-modal-subtitle" style="font-size: 13px; color: var(--muted); margin-top: 4px;">Preencha os dados da proposta e salve.</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn btn-secondary" id="btn-fechar-modal">Cancelar</button>
+              <button type="button" class="btn btn-primary" id="btn-salvar-proposta">
+                <i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i> Salvar
+              </button>
+            </div>
+          </div>
+
+          <div class="modal-body">
+            <form class="valora-form">
+              <section class="proposal-card">
+                <div class="proposal-section-head">
+                  <h3>Dados principais</h3>
+                  <span class="proposal-status-chip" id="proposal-chip-status">Rascunho</span>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="proposta-codigo">Código</label>
+                    <input id="proposta-codigo" type="text" placeholder="PROP-0001" disabled />
+                  </div>
+                  <div class="form-group">
+                    <label for="proposta-titulo">Título *</label>
+                    <input id="proposta-titulo" type="text" placeholder="Ex.: Sistema de CFTV" />
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="proposta-cliente-id">ID do cliente</label>
+                    <input id="proposta-cliente-id" type="number" placeholder="Opcional" />
+                  </div>
+                  <div class="form-group">
+                    <label for="proposta-status">Status</label>
+                    <select id="proposta-status">
+                      <option value="rascunho">Rascunho</option>
+                      <option value="enviada">Enviada</option>
+                      <option value="aprovada">Aprovada</option>
+                      <option value="rejeitada">Rejeitada</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="proposta-modelo">Modelo técnico (Mágica)</label>
+                    <select id="proposta-modelo">
+                      <option value="">Criar Manualmente</option>
+                      <option value="alarme">Kit Alarme</option>
+                      <option value="cerca">Kit Cerca elétrica</option>
+                      <option value="concertina">Kit Concertina</option>
+                      <option value="cftv">Kit CFTV</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="proposta-validade">Validade (dias)</label>
+                    <input id="proposta-validade" type="number" placeholder="7" />
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="proposta-observacoes">Observações para o cliente</label>
+                  <textarea id="proposta-observacoes" rows="3" placeholder="Observações gerais que aparecerão no PDF"></textarea>
+                </div>
+              </section>
+
+              <section class="proposal-card">
+                <div class="proposal-section-head">
+                  <h3>Parâmetros do modelo (Gerador de Itens)</h3>
+                  <button id="btn-gerar-itens" class="btn btn-secondary btn-sm" type="button">
+                    <i class="fa-solid fa-wand-magic-sparkles" style="margin-right: 6px; color: #fbbf24;"></i> Gerar Itens
+                  </button>
+                </div>
+                <div class="form-row" style="grid-template-columns: repeat(4, 1fr);">
+                  <div class="form-group"><label>Metragem</label><input id="param-metragem" type="number" placeholder="0" /></div>
+                  <div class="form-group"><label>Pontos</label><input id="param-pontos" type="number" placeholder="0" /></div>
+                  <div class="form-group"><label>Câmeras</label><input id="param-cameras" type="number" placeholder="0" /></div>
+                  <div class="form-group"><label>Cantos</label><input id="param-cantos" type="number" placeholder="0" /></div>
+                </div>
+              </section>
+
+              <section class="proposal-card">
+                <div class="proposal-section-head">
+                  <h3>Itens da proposta</h3>
+                  <button id="btn-add-item" class="btn btn-secondary btn-sm" type="button">
+                    <i class="fa-solid fa-plus" style="margin-right: 6px;"></i> Adicionar linha
+                  </button>
+                </div>
+                <div class="proposal-table-wrap">
+                  <table class="proposal-items-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 40%;">Descrição</th>
+                        <th>Qtd</th>
+                        <th>Unid.</th>
+                        <th>Vlr. Unit.</th>
+                        <th>Vlr. Total</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="proposal-items-body"></tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section class="proposal-card">
+                <div class="form-row" style="grid-template-columns: repeat(3, 1fr);">
+                  <div class="form-group"><label>Subtotal (R$)</label><input id="proposta-subtotal" type="text" placeholder="0,00" /></div>
+                  <div class="form-group"><label>Desconto (R$)</label><input id="proposta-desconto" type="text" placeholder="0,00" /></div>
+                  <div class="form-group"><label>Total Final (R$)</label><input id="proposta-total" type="text" placeholder="0,00" style="font-weight: bold; color: var(--brand);" /></div>
+                </div>
+              </section>
+
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" id="Valora-confirm-backdrop" hidden>
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+          <div class="modal-body" style="padding-top: 24px;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 40px; color: var(--danger); margin-bottom: 16px;"></i>
+            <h3 id="Valora-confirm-title" style="margin-bottom: 8px;">Confirmar</h3>
+            <p id="Valora-confirm-message" style="color: var(--muted); font-size: 14px; margin-bottom: 24px;"></p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+              <button class="btn btn-secondary" id="Valora-confirm-cancel">Cancelar</button>
+              <button class="btn btn-primary" id="Valora-confirm-ok" style="background: var(--danger); border-color: var(--danger);">Confirmar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </main>
-  </div>
-
-  <!-- MODAL CENTRAL -->
-  <div class="proposal-modal" id="proposal-modal" aria-hidden="true">
-    <div class="proposal-modal-backdrop" data-close-modal></div>
-
-    <div class="proposal-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="proposal-modal-title">
-      <div class="proposal-modal-header">
-        <div>
-          <h2 id="proposal-modal-title">Nova proposta</h2>
-          <p id="proposal-modal-subtitle">Preencha os dados da proposta e salve.</p>
-        </div>
-
-        <div class="proposal-modal-top-actions">
-          <button type="button" class="btn-secondary" id="btn-fechar-modal">
-            <i class="fa-solid fa-xmark"></i>
-            <span>Fechar</span>
-          </button>
-
-          <button type="button" class="btn-primary" id="btn-salvar-proposta">
-            <i class="fa-solid fa-floppy-disk"></i>
-            <span>Salvar</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="proposal-modal-body">
-        <section class="proposal-card">
-          <div class="proposal-section-head">
-            <h3>Dados principais</h3>
-            <span class="proposal-status-chip" id="proposal-chip-status">Rascunho</span>
-          </div>
-
-          <div class="proposal-grid">
-            <div class="field">
-              <label for="proposta-codigo">Código</label>
-              <input id="proposta-codigo" type="text" placeholder="PROP-0001" />
-            </div>
-
-            <div class="field">
-              <label for="proposta-titulo">Título</label>
-              <input id="proposta-titulo" type="text" placeholder="Ex.: Sistema de CFTV" />
-            </div>
-
-            <div class="field">
-              <label for="proposta-cliente-id">ID do cliente</label>
-              <input id="proposta-cliente-id" type="number" placeholder="Opcional" />
-            </div>
-
-            <div class="field">
-              <label for="proposta-status">Status</label>
-              <select id="proposta-status">
-                <option value="rascunho">Rascunho</option>
-                <option value="enviada">Enviada</option>
-                <option value="aprovada">Aprovada</option>
-                <option value="rejeitada">Rejeitada</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="proposta-modelo">Modelo técnico</label>
-              <select id="proposta-modelo">
-                <option value="">Manual</option>
-                <option value="alarme">Alarme</option>
-                <option value="cerca">Cerca elétrica</option>
-                <option value="concertina">Concertina</option>
-                <option value="cftv">CFTV</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="proposta-validade">Validade (dias)</label>
-              <input id="proposta-validade" type="text" placeholder="7" />
-            </div>
-
-            <div class="field field-full">
-              <label for="proposta-observacoes">Observações</label>
-              <textarea id="proposta-observacoes" rows="4" placeholder="Observações gerais"></textarea>
-            </div>
-          </div>
-        </section>
-
-        <section class="proposal-card">
-          <div class="proposal-section-head">
-            <h3>Parâmetros do modelo</h3>
-            <button id="btn-gerar-itens" class="btn-secondary" type="button">
-              <i class="fa-solid fa-wand-magic-sparkles"></i>
-              <span>Gerar itens</span>
-            </button>
-          </div>
-
-          <div class="proposal-grid">
-            <div class="field">
-              <label for="param-metragem">Metragem</label>
-              <input id="param-metragem" type="number" placeholder="0" />
-            </div>
-
-            <div class="field">
-              <label for="param-pontos">Pontos</label>
-              <input id="param-pontos" type="number" placeholder="0" />
-            </div>
-
-            <div class="field">
-              <label for="param-cameras">Câmeras</label>
-              <input id="param-cameras" type="number" placeholder="0" />
-            </div>
-
-            <div class="field">
-              <label for="param-cantos">Cantos</label>
-              <input id="param-cantos" type="number" placeholder="0" />
-            </div>
-          </div>
-        </section>
-
-        <section class="proposal-card">
-          <div class="proposal-section-head">
-            <h3>Itens da proposta</h3>
-            <button id="btn-add-item" class="btn-secondary" type="button">
-              <i class="fa-solid fa-plus"></i>
-              <span>Adicionar item</span>
-            </button>
-          </div>
-
-          <div class="proposal-table-wrap">
-            <table class="proposal-items-table">
-              <thead>
-                <tr>
-                  <th>Descrição</th>
-                  <th>Qtd</th>
-                  <th>Unid.</th>
-                  <th>Vlr. Unit.</th>
-                  <th>Vlr. Total</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="proposal-items-body"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="proposal-card">
-          <div class="proposal-grid">
-            <div class="field">
-              <label for="proposta-subtotal">Subtotal</label>
-              <input id="proposta-subtotal" type="text" placeholder="0,00" />
-            </div>
-
-            <div class="field">
-              <label for="proposta-desconto">Desconto</label>
-              <input id="proposta-desconto" type="text" placeholder="0,00" />
-            </div>
-
-            <div class="field">
-              <label for="proposta-total">Total</label>
-              <input id="proposta-total" type="text" placeholder="0,00" />
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
   </div>
 </body>
 </html>
