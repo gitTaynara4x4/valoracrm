@@ -482,15 +482,15 @@
 
     function irPara(target) {
       switch (target) {
-        case 'home':         parent.location.href = '/frontend/dashboard.html'; break;
-        case 'clientes':     parent.location.href = '/frontend/clientes.html'; break;
-        case 'fornecedores': parent.location.href = '/frontend/fornecedores.html'; break;
-        case 'produtos':     parent.location.href = '/frontend/produtos.html'; break;
-        case 'propostas':    parent.location.href = '/frontend/propostas.html'; break;
-        case 'config':       parent.location.href = '/frontend/configuracoes.html'; break;
-        case 'ajuda':        parent.location.href = '/frontend/ajuda.html'; break;
-        case 'perfil':       parent.location.href = '/frontend/perfil.html'; break;
-        case 'empresa':      parent.location.href = '/frontend/empresa.html'; break;
+        case 'home':         parent.location.href = '/dashboard'; break;
+        case 'clientes':     parent.location.href = '/clientes'; break;
+        case 'fornecedores': parent.location.href = '/fornecedores'; break;
+        case 'produtos':     parent.location.href = '/produtos'; break;
+        case 'propostas':    parent.location.href = '/propostas'; break;
+        case 'config':       parent.location.href = '/configuracoes'; break;
+        case 'ajuda':        parent.location.href = '/ajuda'; break;
+        case 'perfil':       parent.location.href = '/perfil'; break;
+        case 'empresa':      parent.location.href = '/empresa'; break;
         default:
           console.warn('[Menu Valora] target desconhecido:', target);
       }
@@ -508,7 +508,7 @@
         path = window.location.pathname || '';
       }
 
-      if (path === '/frontend/dashboard.html') return 'home';
+      if (path === '/dashboard') return 'home';
       if (path.endsWith('/clientes.html')) return 'clientes';
       if (path.endsWith('/fornecedores.html')) return 'fornecedores';
       if (path.endsWith('/produtos.html')) return 'produtos';

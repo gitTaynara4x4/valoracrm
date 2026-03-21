@@ -13,7 +13,7 @@
   function redirectHome(){
     var params = new URLSearchParams(location.search || '');
     var next = params.get('next');
-    var target = (next && /^\/[^\s]*$/.test(next)) ? next : '/frontend/dashboard.html';
+    var target = (next && /^\/[^\s]*$/.test(next)) ? next : '/dashboard';
     window.location.replace(target);
   }
 
@@ -127,7 +127,7 @@ window.showLoginAlert = showLoginAlert;
 
     var params = new URLSearchParams(window.location.search || '');
     var next = params.get('next');
-    var target = (next && /^\/[^\s]*$/.test(next)) ? next : '/frontend/dashboard.html';
+    var target = (next && /^\/[^\s]*$/.test(next)) ? next : '/dashboard';
     window.location.replace(target);
   }
 

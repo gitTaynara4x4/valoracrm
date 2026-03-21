@@ -3,100 +3,78 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>4X Valora – Produtos</title>
+  <title>Produtos | Valora CRM</title>
 
-  <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
+  <link rel="stylesheet" href="/frontend/css/app.css" />
   <link rel="stylesheet" href="/frontend/css/produtos.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="/frontend/js/pages/produtos.js" type="module" defer></script>
+  <script src="/frontend/js/pages/app.js" defer></script>
+  <script src="/frontend/js/pages/produtos.js" defer></script>
 </head>
 
 <body>
-  <div class="Valora-shell">
-    <iframe class="Valora-menu-frame" src="/frontend/partials/sidebar.html" title="Menu 4X Valora"></iframe>
+  <div class="layout">
+    <iframe src="/frontend/partials/sidebar.html" class="sidebar-frame" title="Menu lateral"></iframe>
 
-    <main class="Valora-main">
-      <header class="Valora-main-header">
-        <div class="Valora-header-left">
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Catálogo</span>
           <h1>Produtos</h1>
-          <p>Cadastro padrão com campos personalizados por empresa.</p>
         </div>
 
-        <div class="Valora-header-actions">
-          <button class="btn-secondary" type="button" id="btn-importar-produtos">
-            <i class="fa-solid fa-file-import"></i>
-            <span>Importar</span>
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" type="button" id="btn-importar-produtos" title="Importar produtos">
+            <i class="fa-solid fa-file-import" style="margin-right: 6px;"></i> Importar
           </button>
-
-          <button class="btn-secondary" type="button" id="btn-exportar-produtos-csv">
-            <i class="fa-solid fa-file-csv"></i>
-            <span>Exportar CSV</span>
+          <button class="btn btn-secondary" type="button" id="btn-exportar-produtos-csv">
+            <i class="fa-solid fa-file-csv" style="margin-right: 6px;"></i> Exportar CSV
           </button>
-
-          <button class="btn-secondary" type="button" id="btn-exportar-produtos-json">
-            <i class="fa-solid fa-file-code"></i>
-            <span>Exportar JSON</span>
+          <button class="btn btn-secondary" type="button" id="btn-exportar-produtos-json">
+            <i class="fa-solid fa-file-code" style="margin-right: 6px;"></i> Exportar JSON
           </button>
-
-          <button class="btn-secondary" type="button" id="btn-novo-campo">
-            <i class="fa-solid fa-sliders"></i>
-            <span>Novo campo</span>
+          <button class="btn btn-secondary" type="button" id="btn-novo-campo">
+            <i class="fa-solid fa-sliders" style="margin-right: 6px;"></i> Novo campo
           </button>
-
-          <button class="btn-primary" type="button" id="btn-novo-produto">
-            <i class="fa-solid fa-box-open"></i>
-            <span>Novo produto</span>
+          <button class="btn btn-primary" type="button" id="btn-novo-produto">
+            <i class="fa-solid fa-box-open" style="margin-right: 6px;"></i> Novo produto
           </button>
-
-          <input
-            id="input-importar-produtos"
-            type="file"
-            accept=".json,.csv,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            hidden
-          />
+          
+          <input id="input-importar-produtos" type="file" accept=".json,.csv,.xlsx,text/csv,application/json" hidden />
         </div>
       </header>
 
-      <section class="Valora-filters">
-        <div class="Valora-filters-left">
-          <div class="Valora-field Valora-field--busca">
-            <label for="busca-produtos">Buscar</label>
-            <div class="Valora-input-icon">
-              <i class="fa-solid fa-magnifying-glass"></i>
-              <input id="busca-produtos" type="text" placeholder="Nome, código, categoria..." autocomplete="off" />
-            </div>
-          </div>
+      <div class="search-row">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input id="busca-produtos" type="text" placeholder="Buscar por nome, código, categoria..." autocomplete="off" />
         </div>
+        <span id="contagem-produtos" class="counter-text">0 produtos</span>
+      </div>
 
-        <div class="Valora-filters-right">
-          <span id="contagem-produtos" class="Valora-counter">0 produtos</span>
-        </div>
-      </section>
-
-      <section class="Valora-custom-fields-panel">
-        <div class="Valora-panel-head">
+      <article class="panel-card" style="margin-bottom: 24px;">
+        <div class="panel-head" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <div>
-            <h3>Campos personalizados</h3>
-            <p>Esses campos aparecem somente para sua empresa.</p>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Campos personalizados</h3>
+            <p style="margin: 4px 0 0; font-size: 13px; color: var(--muted);">Esses campos aparecem somente para sua empresa.</p>
           </div>
-          <button class="btn-secondary btn-secondary--small" type="button" id="btn-novo-campo-inline">
-            <i class="fa-solid fa-plus"></i>
-            <span>Adicionar campo</span>
+          <button class="btn btn-secondary btn-sm" type="button" id="btn-novo-campo-inline">
+            <i class="fa-solid fa-plus" style="margin-right: 6px;"></i> Adicionar campo
           </button>
         </div>
-
-        <div id="lista-campos-produtos" class="Valora-campos-lista">
-          <div class="Valora-empty">Nenhum campo personalizado criado ainda.</div>
+        <div id="lista-campos-produtos" class="campos-grid">
+          <div class="empty-state">Nenhum campo personalizado criado ainda.</div>
         </div>
-      </section>
+      </article>
 
-      <section class="Valora-main-list">
-        <div class="Valora-table-wrapper">
-          <table class="Valora-table-produtos">
+      <article class="panel-card" style="padding: 0;">
+        <div class="valora-table-wrapper">
+          <table class="valora-table">
             <thead>
               <tr>
                 <th>Código</th>
@@ -104,197 +82,169 @@
                 <th>Categoria</th>
                 <th>Preço</th>
                 <th>Estoque</th>
-                <th></th>
+                <th style="text-align: right;">Ações</th>
               </tr>
             </thead>
-            <tbody id="tbody-produtos"></tbody>
+            <tbody id="tbody-produtos">
+              <tr>
+                <td colspan="6" class="empty-state" style="border: none; text-align: center;">Carregando...</td>
+              </tr>
+            </tbody>
           </table>
         </div>
-      </section>
+      </article>
 
-      <div class="Valora-modal-backdrop" id="modal-produto-backdrop" hidden>
-        <div class="Valora-modal Valora-modal--lg" role="dialog" aria-modal="true" aria-labelledby="modal-produto-titulo">
-          <header class="Valora-modal-header">
-            <h2 id="modal-produto-titulo">Novo produto</h2>
-            <button class="Valora-modal-close" type="button" id="btn-fechar-modal-produto" aria-label="Fechar">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </header>
+      <div class="modal-overlay" id="modal-produto-backdrop">
+        <div class="modal-content modal-lg">
+          <div class="modal-header">
+            <h3 id="modal-produto-titulo">Novo produto</h3>
+            <button class="btn-close" type="button" id="btn-fechar-modal-produto"><i class="fa-solid fa-xmark"></i></button>
+          </div>
 
-          <div class="Valora-modal-body">
-            <div class="Valora-info-box">
-              <i class="fa-solid fa-circle-info"></i>
-              <div>
-                <strong>Cadastro enxuto + flexível</strong>
-                <span>Os campos abaixo são o padrão do sistema. Os campos extras são criados pela sua empresa.</span>
-              </div>
-            </div>
-
-            <div class="Valora-modal-section is-first">
-              <div class="Valora-modal-section-title">
-                <strong>Dados padrão</strong>
-                <span>Campos nativos do sistema</span>
-              </div>
-
-              <div class="Valora-modal-grid">
-                <div class="Valora-field">
+          <div class="modal-body">
+            <form class="valora-form" id="formProduto">
+              <h4 class="section-title">Dados padrão</h4>
+              
+              <div class="form-row">
+                <div class="form-group">
                   <label for="campo-codigo-produto">Código</label>
                   <input type="text" id="campo-codigo-produto" placeholder="PRO-0001" />
                 </div>
-
-                <div class="Valora-field">
-                  <label for="campo-nome-produto">Nome</label>
-                  <input type="text" id="campo-nome-produto" placeholder="Nome do produto" />
+                <div class="form-group">
+                  <label for="campo-nome-produto">Nome *</label>
+                  <input type="text" id="campo-nome-produto" required placeholder="Nome do produto" />
                 </div>
+              </div>
 
-                <div class="Valora-field Valora-field--full">
+              <div class="form-row">
+                <div class="form-group" style="grid-column: 1 / -1;">
                   <label for="campo-descricao-produto">Descrição</label>
-                  <textarea id="campo-descricao-produto" rows="4" placeholder="Descrição do produto"></textarea>
+                  <textarea id="campo-descricao-produto" rows="3" placeholder="Descrição do produto"></textarea>
                 </div>
+              </div>
 
-                <div class="Valora-field">
+              <div class="form-row">
+                <div class="form-group">
                   <label for="campo-categoria-produto">Categoria</label>
                   <input type="text" id="campo-categoria-produto" placeholder="Ex.: Câmeras" />
                 </div>
-
-                <div class="Valora-field">
+                <div class="form-group">
                   <label for="campo-unidade-produto">Unidade</label>
                   <input type="text" id="campo-unidade-produto" placeholder="Ex.: UN" />
                 </div>
+              </div>
 
-                <div class="Valora-field">
+              <div class="form-row">
+                <div class="form-group">
                   <label for="campo-preco-venda-produto">Preço de venda</label>
                   <input type="text" id="campo-preco-venda-produto" placeholder="0,00" />
                 </div>
-
-                <div class="Valora-field">
+                <div class="form-group">
                   <label for="campo-custo-produto">Custo</label>
                   <input type="text" id="campo-custo-produto" placeholder="0,00" />
                 </div>
-
-                <div class="Valora-field">
+                <div class="form-group">
                   <label for="campo-estoque-produto">Estoque atual</label>
                   <input type="text" id="campo-estoque-produto" placeholder="0" />
                 </div>
+              </div>
 
-                <div class="Valora-field Valora-field--check">
-                  <label class="Valora-check">
-                    <input type="checkbox" id="campo-ativo-produto" checked />
-                    <span>Produto ativo</span>
-                  </label>
+              <div class="form-row" style="margin-top: 12px;">
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="campo-ativo-produto" checked />
+                  <span>Produto ativo</span>
+                </label>
+              </div>
+
+              <h4 class="section-title" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">Campos Personalizados</h4>
+              <div id="custom-fields-container" class="form-row">
+                <div class="empty-state" style="grid-column: 1 / -1;">Nenhum campo personalizado cadastrado.</div>
+              </div>
+            </form>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-secondary" type="button" id="btn-cancelar-produto">Cancelar</button>
+            <button class="btn btn-primary" type="button" id="btn-salvar-produto">Salvar Produto</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" id="modal-campo-backdrop">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 id="modal-campo-titulo">Novo campo</h3>
+            <button class="btn-close" type="button" id="btn-fechar-modal-campo"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+
+          <div class="modal-body">
+            <form class="valora-form">
+              <div class="form-group">
+                <label for="campo-custom-nome">Nome do campo</label>
+                <input type="text" id="campo-custom-nome" placeholder="Ex.: Marca, Voltagem" />
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="campo-custom-tipo">Tipo de resposta</label>
+                  <select id="campo-custom-tipo">
+                    <option value="texto">Texto curto</option>
+                    <option value="textarea">Texto longo</option>
+                    <option value="numero">Número</option>
+                    <option value="data">Data</option>
+                    <option value="select">Lista de opções</option>
+                    <option value="checkbox">Caixa de seleção</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="campo-custom-ordem">Ordem no formulário</label>
+                  <input type="number" id="campo-custom-ordem" min="0" step="1" placeholder="0" />
                 </div>
               </div>
-            </div>
 
-            <div class="Valora-modal-section">
-              <div class="Valora-modal-section-title">
-                <strong>Campos personalizados</strong>
-                <span>Criados pela sua empresa</span>
+              <div class="form-group" id="wrap-custom-opcoes" hidden>
+                <label for="campo-custom-opcoes">Opções da lista (uma por linha)</label>
+                <textarea id="campo-custom-opcoes" rows="4" placeholder="Branco&#10;Preto&#10;Cinza"></textarea>
               </div>
 
-              <div id="custom-fields-container" class="Valora-modal-grid">
-                <div class="Valora-empty">Nenhum campo personalizado cadastrado.</div>
-              </div>
-            </div>
-          </div>
-
-          <footer class="Valora-modal-footer">
-            <button class="btn-secondary" type="button" id="btn-cancelar-produto">Cancelar</button>
-            <button class="btn-primary" type="button" id="btn-salvar-produto">Salvar</button>
-          </footer>
-        </div>
-      </div>
-
-      <div class="Valora-modal-backdrop" id="modal-campo-backdrop" hidden>
-        <div class="Valora-modal" role="dialog" aria-modal="true" aria-labelledby="modal-campo-titulo">
-          <header class="Valora-modal-header">
-            <h2 id="modal-campo-titulo">Novo campo</h2>
-            <button class="Valora-modal-close" type="button" id="btn-fechar-modal-campo" aria-label="Fechar">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </header>
-
-          <div class="Valora-modal-body">
-            <div class="Valora-info-box Valora-info-box--compact">
-              <i class="fa-solid fa-lightbulb"></i>
-              <div>
-                <strong>Crie campos do jeito do seu negócio</strong>
-                <span>Exemplos: Marca, Voltagem, Cor, Garantia, Código do fabricante.</span>
-              </div>
-            </div>
-
-            <div class="Valora-modal-grid">
-              <div class="Valora-field">
-                <label for="campo-custom-nome">Nome do campo</label>
-                <input type="text" id="campo-custom-nome" placeholder="Ex.: Marca" />
-              </div>
-
-              <div class="Valora-field">
-                <label for="campo-custom-tipo">Tipo de resposta</label>
-                <select id="campo-custom-tipo">
-                  <option value="texto">Texto curto</option>
-                  <option value="textarea">Texto longo</option>
-                  <option value="numero">Número</option>
-                  <option value="data">Data</option>
-                  <option value="select">Lista de opções</option>
-                  <option value="checkbox">Caixa de seleção</option>
-                </select>
-              </div>
-
-              <div class="Valora-field">
-                <label for="campo-custom-ordem">Ordem no formulário</label>
-                <input type="number" id="campo-custom-ordem" min="0" step="1" placeholder="0" />
-              </div>
-
-              <div class="Valora-field Valora-field--full" id="wrap-custom-opcoes" hidden>
-                <label for="campo-custom-opcoes">Opções da lista</label>
-                <textarea id="campo-custom-opcoes" rows="5" placeholder="Uma opção por linha&#10;Branco&#10;Preto&#10;Cinza"></textarea>
-                <small class="Valora-help-inline">Use uma linha para cada opção.</small>
-              </div>
-
-              <div class="Valora-field Valora-field--check">
-                <label class="Valora-check">
+              <div class="form-row" style="margin-top: 12px;">
+                <label class="custom-checkbox">
                   <input type="checkbox" id="campo-custom-obrigatorio" />
-                  <span>Tornar este campo obrigatório</span>
+                  <span>Campo Obrigatório</span>
                 </label>
-              </div>
-
-              <div class="Valora-field Valora-field--check">
-                <label class="Valora-check">
+                <label class="custom-checkbox">
                   <input type="checkbox" id="campo-custom-ativo" checked />
-                  <span>Mostrar este campo no cadastro</span>
+                  <span>Mostrar no formulário</span>
                 </label>
               </div>
-            </div>
+            </form>
           </div>
 
-          <footer class="Valora-modal-footer">
-            <button class="btn-secondary" type="button" id="btn-cancelar-campo">Cancelar</button>
-            <button class="btn-primary" type="button" id="btn-salvar-campo">Salvar campo</button>
-          </footer>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" type="button" id="btn-cancelar-campo">Cancelar</button>
+            <button class="btn btn-primary" type="button" id="btn-salvar-campo">Salvar Campo</button>
+          </div>
         </div>
       </div>
+
+      <div class="modal-overlay" id="Valora-confirm-backdrop">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+          <div class="modal-body" style="padding-top: 24px;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 40px; color: #ef4444; margin-bottom: 16px;"></i>
+            <h3 id="Valora-confirm-title" style="margin-bottom: 8px; font-size: 18px;">Confirmar</h3>
+            <p id="Valora-confirm-message" style="color: var(--muted); font-size: 14px; margin-bottom: 24px;"></p>
+            
+            <div style="display: flex; gap: 12px; justify-content: center;">
+              <button class="btn btn-secondary" id="Valora-confirm-cancel">Cancelar</button>
+              <button class="btn btn-primary" id="Valora-confirm-ok" style="background: #ef4444; border-color: #ef4444;">Excluir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="valora-toast" class="toast-message"></div>
+
     </main>
   </div>
-
-  <div class="Valora-confirm-backdrop" id="Valora-confirm-backdrop" hidden>
-    <div class="Valora-confirm" role="dialog" aria-modal="true" aria-labelledby="Valora-confirm-title">
-      <header class="Valora-confirm-header">
-        <h3 id="Valora-confirm-title">Confirmar</h3>
-        <button class="Valora-confirm-close" type="button" id="Valora-confirm-close" aria-label="Fechar">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </header>
-
-      <div class="Valora-confirm-body" id="Valora-confirm-message"></div>
-
-      <footer class="Valora-confirm-footer">
-        <button class="btn-secondary" type="button" id="Valora-confirm-cancel">Cancelar</button>
-        <button class="btn-primary" type="button" id="Valora-confirm-ok">OK</button>
-      </footer>
-    </div>
-  </div>
-
-  <div id="Valora-toast" class="Valora-toast" hidden></div>
 </body>
 </html>
