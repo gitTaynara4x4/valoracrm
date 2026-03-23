@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
+
   <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
         integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
@@ -24,23 +24,16 @@
 
   <style>
     :root {
-      /* MODO ESCURO (PADRÃO) */
       --sidebar-bg:        #181818;
       --sidebar-border:    #262626;
-
       --text-main:         #f5f5f5;
       --text-muted:        #b0b0b0;
       --nav-muted:         #8a8a8a;
-
       --accent:            #10a37f;
       --accent-soft:       rgba(16, 163, 127, 0.16);
-      
       --danger:            #ef4444;
       --danger-soft:       rgba(239, 68, 68, 0.1);
-
       --radius:            8px;
-      
-      /* Variáveis de Interação */
       --hover-bg:          #222222;
       --dropdown-bg:       #1e1e1e;
       --dropdown-shadow:   0 10px 25px rgba(0,0,0,0.5);
@@ -48,15 +41,12 @@
       --mobile-btn-bg:     #202020;
     }
 
-    /* MODO CLARO (INVERSÃO DE CORES) */
     html[data-theme="light"] {
       --sidebar-bg:        #ffffff;
       --sidebar-border:    #e5e7eb;
-      
       --text-main:         #111827;
       --text-muted:        #6b7280;
       --nav-muted:         #9ca3af;
-      
       --hover-bg:          #f3f4f6;
       --dropdown-bg:       #ffffff;
       --dropdown-shadow:   0 10px 25px rgba(0,0,0,0.08);
@@ -117,7 +107,11 @@
       overflow: visible;
     }
 
-    .Valora-logo-full text { fill: currentColor; transition: fill 0.2s ease; }
+    .Valora-logo-full text {
+      fill: currentColor;
+      transition: fill 0.2s ease;
+    }
+
     .Valora-logo-caption {
       font-size: 14px;
       color: var(--text-muted);
@@ -172,7 +166,9 @@
       transition: all 0.2s ease;
     }
 
-    .Valora-nav-item:hover .Valora-nav-icon { color: var(--text-main); }
+    .Valora-nav-item:hover .Valora-nav-icon {
+      color: var(--text-main);
+    }
 
     .Valora-nav-item--active {
       background: var(--accent-soft);
@@ -180,7 +176,9 @@
       color: var(--accent);
     }
 
-    .Valora-nav-item--active .Valora-nav-icon { color: var(--accent); }
+    .Valora-nav-item--active .Valora-nav-icon {
+      color: var(--accent);
+    }
 
     .Valora-user-container {
       margin-top: auto;
@@ -198,7 +196,7 @@
       transition: background 0.2s ease;
     }
 
-    .Valora-user-profile:hover, 
+    .Valora-user-profile:hover,
     .Valora-user-profile.active {
       background: var(--hover-bg);
     }
@@ -319,7 +317,9 @@
       background: var(--danger-soft);
     }
 
-    .Valora-mobile-close { display: none; }
+    .Valora-mobile-close {
+      display: none;
+    }
 
     body.Valora-is-mobile .Valora-mobile-close {
       display: inline-flex;
@@ -344,7 +344,9 @@
       font-size: 15px;
     }
 
-    body.Valora-is-mobile .Valora-nav-icon { font-size: 16px; }
+    body.Valora-is-mobile .Valora-nav-icon {
+      font-size: 16px;
+    }
   </style>
 </head>
 
@@ -399,6 +401,11 @@
         <span class="Valora-nav-icon"><i class="fa-solid fa-file-signature"></i></span>
         <span>Propostas</span>
       </button>
+      
+      <button class="Valora-nav-item" data-target="usuarios">
+        <span class="Valora-nav-icon"><i class="fa-solid fa-id-badge"></i></span>
+        <span>Usuários</span>
+      </button>
     </nav>
 
     <nav class="Valora-sidebar-section">
@@ -416,19 +423,19 @@
     </nav>
 
     <div class="Valora-user-container">
-      
       <div class="Valora-user-dropdown" id="userDropdown">
         <button class="Valora-dropdown-item" onclick="irPara('perfil')">
           <i class="fa-regular fa-user"></i>
           Meu Perfil
         </button>
+
         <button class="Valora-dropdown-item" onclick="irPara('empresa')">
           <i class="fa-solid fa-building"></i>
           Minha Empresa
         </button>
-        
+
         <div class="Valora-dropdown-divider"></div>
-        
+
         <button class="Valora-dropdown-item danger" onclick="fazerLogout()">
           <i class="fa-solid fa-arrow-right-from-bracket"></i>
           Sair do Sistema
@@ -449,7 +456,7 @@
   <script>
     const nomeSalvo = localStorage.getItem('nome') || 'Usuário';
     const emailSalvo = localStorage.getItem('email') || 'email@empresa.com';
-    
+
     document.getElementById('sidebarUserName').textContent = nomeSalvo;
     document.getElementById('sidebarUserEmail').textContent = emailSalvo;
     document.getElementById('sidebarUserInitials').textContent = nomeSalvo.charAt(0).toUpperCase();
@@ -470,51 +477,111 @@
       }
     });
 
-    function fazerLogout() {
-      console.log('Limpando sessão...');
-      localStorage.clear(); 
-      if(window.parent) {
-         window.parent.location.href = '/frontend/login.html';
-      } else {
-         window.location.href = '/frontend/login.html';
+    function goTo(url) {
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+      } catch (e) {
+        window.location.href = url;
+      }
+    }
+
+    async function fazerLogout() {
+      try {
+        const response = await fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Falha no logout: HTTP ${response.status}`);
+        }
+
+        localStorage.clear();
+        sessionStorage.clear();
+
+        userDropdown.classList.remove('show');
+        userProfileBtn.classList.remove('active');
+
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.location.replace('/login');
+          } else {
+            window.location.replace('/login');
+          }
+        } catch (e) {
+          window.location.replace('/login');
+        }
+      } catch (error) {
+        console.error('Erro ao fazer logout:', error);
+        alert('Não foi possível encerrar a sessão. Tente novamente.');
       }
     }
 
     function irPara(target) {
       switch (target) {
-        case 'home':         parent.location.href = '/dashboard'; break;
-        case 'clientes':     parent.location.href = '/clientes'; break;
-        case 'fornecedores': parent.location.href = '/fornecedores'; break;
-        case 'produtos':     parent.location.href = '/produtos'; break;
-        case 'propostas':    parent.location.href = '/propostas'; break;
-        case 'config':       parent.location.href = '/configuracoes'; break;
-        case 'ajuda':        parent.location.href = '/ajuda'; break;
-        case 'perfil':       parent.location.href = '/perfil'; break;
-        case 'empresa':      parent.location.href = '/empresa'; break;
+        case 'home':         goTo('/dashboard'); break;
+        case 'clientes':     goTo('/clientes'); break;
+        case 'fornecedores': goTo('/fornecedores'); break;
+        case 'produtos':     goTo('/produtos'); break;
+        case 'propostas':    goTo('/propostas'); break;
+        case 'usuarios':     goTo('/usuarios'); break;
+        case 'config':       goTo('/configuracoes'); break;
+        case 'ajuda':        goTo('/ajuda'); break;
+        case 'perfil':       goTo('/perfil'); break;
+        case 'empresa':      goTo('/empresa'); break;
         default:
           console.warn('[Menu Valora] target desconhecido:', target);
       }
     }
 
+    function normalizePath(path) {
+      path = (path || '').toLowerCase().trim();
+
+      if (!path) return '/';
+
+      path = path.split('?')[0].split('#')[0];
+      path = path.replace(/\/+$/, '');
+
+      if (path === '') return '/';
+      return path;
+    }
+
     function resolveCurrentTargetFromParent() {
-      let path = '';
+      let path = '/';
+
       try {
         if (window.parent && window.parent !== window && window.parent.location) {
-          path = window.parent.location.pathname || '';
+          path = window.parent.location.pathname || '/';
         } else {
-          path = window.location.pathname || '';
+          path = window.location.pathname || '/';
         }
       } catch (err) {
-        path = window.location.pathname || '';
+        path = window.location.pathname || '/';
       }
 
-      if (path === '/dashboard') return 'home';
-      if (path.endsWith('/clientes.html')) return 'clientes';
-      if (path.endsWith('/fornecedores.html')) return 'fornecedores';
-      if (path.endsWith('/produtos.html')) return 'produtos';
-      if (path.endsWith('/propostas.html')) return 'propostas';
-      if (path.endsWith('/configuracoes.html') || path.endsWith('/config.html')) return 'config';
-      if (path.endsWith('/ajuda.html')) return 'ajuda';
+      path = normalizePath(path);
+
+      if (path === '/' || path === '/dashboard' || path === '/home' || path === '/inicio' || path === '/frontend/dashboard.html' || path === '/frontend/inicio.html') {
+        return 'home';
+      }
+
+      if (path === '/clientes' || path === '/frontend/clientes.html') return 'clientes';
+      if (path === '/fornecedores' || path === '/frontend/fornecedores.html') return 'fornecedores';
+      if (path === '/produtos' || path === '/frontend/produtos.html') return 'produtos';
+      if (path === '/propostas' || path === '/frontend/propostas.html') return 'propostas';
+      if (path === '/usuarios' || path === '/frontend/usuarios.html') return 'usuarios';
+      if (path === '/configuracoes' || path === '/config' || path === '/frontend/configuracoes.html' || path === '/frontend/config.html') return 'config';
+      if (path === '/ajuda' || path === '/frontend/ajuda.html') return 'ajuda';
+      if (path === '/perfil' || path === '/frontend/perfil.html') return 'perfil';
+      if (path === '/empresa' || path === '/frontend/empresa.html') return 'empresa';
+
       return 'home';
     }
 
@@ -525,8 +592,11 @@
         case 'fornecedores': return 'Fornecedores';
         case 'produtos': return 'Produtos';
         case 'propostas': return 'Propostas';
+        case 'usuarios': return 'Usuários';
         case 'config': return 'Configurações';
         case 'ajuda': return 'Ajuda';
+        case 'perfil': return 'Meu Perfil';
+        case 'empresa': return 'Minha Empresa';
         default: return 'Menu';
       }
     }
@@ -622,8 +692,11 @@
           padding: 0;
           transition: all 0.2s ease;
         }
-        #${ID_BTN}:hover { background: var(--Valora-m-btn-border); }
-        
+
+        #${ID_BTN}:hover {
+          background: var(--Valora-m-btn-border);
+        }
+
         #${ID_BTN} svg{
           width: 20px;
           height: 20px;
@@ -636,6 +709,7 @@
           line-height:1.2;
           min-width:0;
         }
+
         #${ID_TOPBAR} .Valora-m-title strong{
           font-size:14px;
           color: var(--Valora-m-text);
@@ -644,6 +718,7 @@
           overflow:hidden;
           text-overflow:ellipsis;
         }
+
         #${ID_TOPBAR} .Valora-m-title span{
           font-size:12px;
           color: var(--Valora-m-muted);
@@ -720,6 +795,7 @@
         btn.dataset.bound = '1';
         btn.addEventListener('click', toggleMobileMenu);
       }
+
       if (ov && !ov.dataset.bound) {
         ov.dataset.bound = '1';
         ov.addEventListener('click', closeMobileMenu);
@@ -788,7 +864,6 @@
         fe.style.setProperty('z-index', '10015', 'important');
         fe.style.setProperty('border', '0', 'important');
         fe.style.setProperty('background', 'transparent', 'important');
-
         fe.style.setProperty('box-shadow', '12px 0 28px rgba(0,0,0,0.65)', 'important');
         fe.style.setProperty('will-change', 'transform', 'important');
         fe.style.setProperty('transition', 'transform 0.18s ease', 'important');
@@ -845,6 +920,24 @@
       else openMobileMenu();
     }
 
+    function updateMobileSubtitle() {
+      try {
+        const sub = ROOT_DOC.getElementById('ValoraMobileSubtitle');
+        if (sub) sub.textContent = labelFromTarget(resolveCurrentTargetFromParent());
+      } catch (e) {}
+    }
+
+    function syncActiveMenu() {
+      const current = resolveCurrentTargetFromParent();
+      const itens = document.querySelectorAll('.Valora-nav-item');
+
+      itens.forEach(btn => {
+        btn.classList.toggle('Valora-nav-item--active', btn.dataset.target === current);
+      });
+
+      updateMobileSubtitle();
+    }
+
     function syncMobileMode() {
       const w = getBestWidth();
       const isMobile = w <= MOBILE_BREAKPOINT;
@@ -856,10 +949,7 @@
           ensureParentNodes();
           ROOT_DOC.documentElement.classList.add('Valora-mobile-on');
 
-          try {
-            const sub = ROOT_DOC.getElementById('ValoraMobileSubtitle');
-            if (sub) sub.textContent = labelFromTarget(resolveCurrentTargetFromParent());
-          } catch (e) {}
+          updateMobileSubtitle();
 
           const topbarH = getTopbarHeightPx();
           applyIframeDrawerStyles(true, topbarH);
@@ -873,14 +963,10 @@
     }
 
     function initSidebar() {
-      const current = resolveCurrentTargetFromParent();
+      syncActiveMenu();
+
       const itens = document.querySelectorAll('.Valora-nav-item');
-
       itens.forEach(btn => {
-        const target = btn.dataset.target;
-        if (target === current) btn.classList.add('Valora-nav-item--active');
-        else btn.classList.remove('Valora-nav-item--active');
-
         btn.addEventListener('click', () => {
           if (!btn.dataset.target) return;
           closeMobileMenu();
@@ -902,14 +988,36 @@
 
       syncMobileMode();
 
-      window.addEventListener('resize', syncMobileMode);
-      window.addEventListener('orientationchange', syncMobileMode);
-      if (window.visualViewport) window.visualViewport.addEventListener('resize', syncMobileMode);
+      window.addEventListener('resize', () => {
+        syncMobileMode();
+        syncActiveMenu();
+      });
+
+      window.addEventListener('orientationchange', () => {
+        syncMobileMode();
+        syncActiveMenu();
+      });
+
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+          syncMobileMode();
+          syncActiveMenu();
+        });
+      }
 
       try {
         if (window.parent && window.parent !== window) {
-          window.parent.addEventListener('resize', syncMobileMode);
-          if (window.parent.visualViewport) window.parent.visualViewport.addEventListener('resize', syncMobileMode);
+          window.parent.addEventListener('resize', () => {
+            syncMobileMode();
+            syncActiveMenu();
+          });
+
+          if (window.parent.visualViewport) {
+            window.parent.visualViewport.addEventListener('resize', () => {
+              syncMobileMode();
+              syncActiveMenu();
+            });
+          }
         }
       } catch (e) {}
 
@@ -928,7 +1036,11 @@
       } else {
         initSidebar();
       }
-      window.addEventListener('load', syncMobileMode, { once: true });
+
+      window.addEventListener('load', () => {
+        syncMobileMode();
+        syncActiveMenu();
+      }, { once: true });
     })();
   </script>
 </body>

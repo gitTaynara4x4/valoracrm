@@ -12,9 +12,6 @@
   const confirmarSenha = document.getElementById('confirmar_senha');
   const exigirTokenLogin = document.getElementById('exigir_token_login');
 
-  const erro = document.getElementById('erro');
-  const sucesso = document.getElementById('sucesso');
-
   const step1 = document.getElementById('step1-fields');
   const step2 = document.getElementById('step2-fields');
   const tokenInput = document.getElementById('cadastro-token');
@@ -26,37 +23,33 @@
   let currentStep = 1;
   let currentEmail = '';
 
-  function showError(msg) {
-    sucesso.classList.add('hidden');
-    sucesso.textContent = '';
-    erro.textContent = msg;
-    erro.classList.remove('hidden');
-  }
-
-  function showSuccess(msg) {
-    erro.classList.add('hidden');
-    erro.textContent = '';
-    sucesso.textContent = msg;
-    sucesso.classList.remove('hidden');
-  }
-
-  function clearMessages() {
-    erro.classList.add('hidden');
-    erro.textContent = '';
-    sucesso.classList.add('hidden');
-    sucesso.textContent = '';
+  // Função Padrão de Notificação do Valora CRM
+  function toast(msg, error = false, ms = 3500) {
+    const el = document.getElementById("valora-toast");
+    if (!el) return;
+    el.textContent = msg || "";
+    if (error) el.classList.add("is-error");
+    else el.classList.remove("is-error");
+    
+    el.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => { el.classList.remove("show"); }, ms);
   }
 
   function setLoading(state, text) {
     btn.disabled = !!state;
-    btn.textContent = text || (currentStep === 1 ? 'Enviar código' : 'Confirmar cadastro');
+    if(state) {
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${text}`;
+    } else {
+      btn.textContent = text || (currentStep === 1 ? 'Enviar código' : 'Confirmar cadastro');
+    }
   }
 
   function goToStep(step) {
     currentStep = step;
     step1.classList.toggle('hidden', step !== 1);
     step2.classList.toggle('hidden', step !== 2);
-    btn.textContent = step === 1 ? 'Enviar código' : 'Confirmar cadastro';
+    setLoading(false, step === 1 ? 'Enviar código' : 'Confirmar cadastro');
     if (step === 2 && tokenInput) {
       tokenInput.value = '';
       tokenInput.focus();
@@ -124,17 +117,22 @@
     b.addEventListener('click', function () {
       const targetId = this.getAttribute('data-target');
       const input = document.getElementById(targetId);
+      const icon = this.querySelector('i');
       if (!input) return;
-      input.type = input.type === 'password' ? 'text' : 'password';
-      this.style.opacity = input.type === 'text' ? '1' : '.7';
+      
+      if(input.type === 'password') {
+        input.type = 'text';
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+      }
     });
   });
 
   if (btnBack) {
     btnBack.addEventListener('click', () => {
-      clearMessages();
       goToStep(1);
-      setLoading(false, 'Enviar código');
     });
   }
 
@@ -142,7 +140,6 @@
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    clearMessages();
 
     if (currentStep === 1) {
       const payload = {
@@ -157,14 +154,14 @@
         plano: planoSelecionado
       };
 
-      if (!payload.empresa_nome) return showError('Digite o nome da empresa.');
-      if (!payload.responsavel_nome) return showError('Digite o nome do responsável.');
-      if (!payload.email) return showError('Digite o e-mail.');
-      if (!payload.telefone) return showError('Digite o telefone.');
-      if (onlyDigits(payload.telefone).length < 10) return showError('Digite um telefone válido.');
-      if (!payload.senha) return showError('Digite a senha.');
-      if (payload.senha.length < 6) return showError('A senha deve ter no mínimo 6 caracteres.');
-      if (payload.senha !== payload.confirmar_senha) return showError('As senhas não conferem.');
+      if (!payload.empresa_nome) return toast('Digite o nome da empresa.', true);
+      if (!payload.responsavel_nome) return toast('Digite o nome do responsável.', true);
+      if (!payload.email) return toast('Digite o e-mail.', true);
+      if (!payload.telefone) return toast('Digite o telefone.', true);
+      if (onlyDigits(payload.telefone).length < 10) return toast('Digite um telefone válido.', true);
+      if (!payload.senha) return toast('Digite a senha.', true);
+      if (payload.senha.length < 6) return toast('A senha deve ter no mínimo 6 caracteres.', true);
+      if (payload.senha !== payload.confirmar_senha) return toast('As senhas não conferem.', true);
 
       try {
         setLoading(true, 'Enviando código...');
@@ -179,29 +176,29 @@
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          showError(data.detail || 'Não foi possível enviar o código.');
+          toast(data.detail || 'Não foi possível enviar o código.', true);
           setLoading(false, 'Enviar código');
           return;
         }
 
         currentEmail = payload.email;
-        showSuccess('Código enviado com sucesso.');
+        toast('Código enviado para o seu e-mail!');
         goToStep(2);
-        setLoading(false, 'Confirmar cadastro');
         return;
 
       } catch (err) {
         console.error(err);
-        showError('Erro de conexão com o servidor.');
+        toast('Erro de conexão com o servidor.', true);
         setLoading(false, 'Enviar código');
         return;
       }
     }
 
+    // Step 2: Confirmação do Token
     const codigo = (tokenInput.value || '').trim();
 
     if (!codigo) {
-      showError('Digite o código de confirmação.');
+      toast('Digite o código de confirmação.', true);
       return;
     }
 
@@ -221,22 +218,21 @@
       const data2 = await res2.json().catch(() => ({}));
 
       if (!res2.ok) {
-        showError(data2.detail || 'Código inválido ou expirado.');
+        toast(data2.detail || 'Código inválido ou expirado.', true);
         setLoading(false, 'Confirmar cadastro');
         return;
       }
 
-      showSuccess('Conta criada com sucesso. Redirecionando para o login...');
+      toast('Conta criada com sucesso! Redirecionando...');
       form.reset();
-      setLoading(false, 'Confirmar cadastro');
-
+      
       setTimeout(() => {
         window.location.href = '/login';
       }, 1500);
 
     } catch (err2) {
       console.error(err2);
-      showError('Erro de conexão com o servidor.');
+      toast('Erro de conexão com o servidor.', true);
       setLoading(false, 'Confirmar cadastro');
     }
   });

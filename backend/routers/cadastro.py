@@ -103,7 +103,7 @@ class CadastroConfirmarIn(BaseModel):
 
 @router.get("/cadastro")
 def cadastro_page():
-    return FileResponse(BASE_DIR / "frontend" / "cadastro.html")
+    return FileResponse(BASE_DIR / "cadastro.html")
 
 
 @router.post("/api/auth/cadastro/iniciar")

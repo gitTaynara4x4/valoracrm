@@ -37,13 +37,18 @@ function formatTipoCampo(tipo){
 }
 
 function toast(msg, { error=false, ms=2600 } = {}){
-  const el = document.getElementById('Valora-toast');
+  const el = document.getElementById('valora-toast');
   if(!el) return;
   el.textContent = msg || '';
-  el.classList.toggle('is-error', !!error);
-  el.hidden = false;
+  if(error) {
+      el.classList.add('is-error');
+  } else {
+      el.classList.remove('is-error');
+  }
+  el.classList.add('show');
+  
   clearTimeout(toast._t);
-  toast._t = setTimeout(()=>{ el.hidden = true; }, ms);
+  toast._t = setTimeout(()=>{ el.classList.remove('show'); }, ms);
 }
 
 let _confirmResolver = null;
@@ -56,24 +61,27 @@ function confirmDialog({
   danger=false,
 } = {}){
   const backdrop = document.getElementById('Valora-confirm-backdrop');
-  const box = backdrop?.querySelector('.Valora-confirm');
   const t = document.getElementById('Valora-confirm-title');
   const m = document.getElementById('Valora-confirm-message');
   const btnOk = document.getElementById('Valora-confirm-ok');
   const btnCancel = document.getElementById('Valora-confirm-cancel');
 
-  if(!backdrop || !box || !btnOk || !btnCancel){
-    return Promise.resolve(false);
-  }
+  if(!backdrop || !btnOk || !btnCancel) return Promise.resolve(false);
 
   t.textContent = title || 'Confirmar';
   m.textContent = message || 'Tem certeza?';
   btnOk.textContent = confirmText || 'OK';
   btnCancel.textContent = cancelText || 'Cancelar';
-  box.classList.toggle('is-danger', !!danger);
 
-  backdrop.hidden = false;
-  backdrop.style.display = 'flex';
+  if(danger){
+      btnOk.style.background = '#ef4444';
+      btnOk.style.borderColor = '#ef4444';
+  } else {
+      btnOk.style.background = '';
+      btnOk.style.borderColor = '';
+  }
+
+  backdrop.classList.add('show');
 
   return new Promise((resolve)=>{
     _confirmResolver = resolve;
@@ -83,10 +91,7 @@ function confirmDialog({
 
 function closeConfirm(result=false){
   const backdrop = document.getElementById('Valora-confirm-backdrop');
-  if(backdrop){
-    backdrop.hidden = true;
-    backdrop.style.display = 'none';
-  }
+  if(backdrop) backdrop.classList.remove('show');
 
   if(typeof _confirmResolver === 'function'){
     const fn = _confirmResolver;
@@ -197,12 +202,7 @@ function exportarProdutosJSON(){
     items: pickProdutosForExport(),
   };
 
-  downloadFile(
-    `produtos_${stamp}.json`,
-    JSON.stringify(payload, null, 2),
-    'application/json;charset=utf-8'
-  );
-
+  downloadFile(`produtos_${stamp}.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
   toast('Exportado JSON.', { ms: 1800 });
 }
 
@@ -277,7 +277,6 @@ function parseCSV(text){
 
     for(let i=0;i<line.length;i++){
       const ch = line[i];
-
       if(ch === '"'){
         const next = line[i+1];
         if(inQ && next === '"'){
@@ -288,16 +287,13 @@ function parseCSV(text){
         }
         continue;
       }
-
       if(!inQ && ch === delim){
         out.push(cur);
         cur = '';
         continue;
       }
-
       cur += ch;
     }
-
     out.push(cur);
     return out.map(s => String(s ?? '').trim());
   }
@@ -316,27 +312,18 @@ function parseCSV(text){
 }
 
 function parseXLSX(arrayBuffer){
-  if(typeof XLSX === 'undefined'){
-    throw new Error('Biblioteca XLSX não carregou.');
-  }
-
+  if(typeof XLSX === 'undefined') throw new Error('Biblioteca XLSX não carregou.');
   const wb = XLSX.read(arrayBuffer, { type:'array' });
 
   for(const sheetName of wb.SheetNames){
     const ws = wb.Sheets[sheetName];
     const aoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
-
-    const rows = (aoa || []).filter(r =>
-      Array.isArray(r) && r.some(v => String(v ?? '').trim() !== '')
-    );
+    const rows = (aoa || []).filter(r => Array.isArray(r) && r.some(v => String(v ?? '').trim() !== ''));
 
     if(!rows.length) continue;
 
     const first = rows[0].map(v => String(v ?? '').trim().toLowerCase());
-    const looksHeader =
-      first.includes('codigo') ||
-      first.includes('nome') ||
-      first.includes('categoria');
+    const looksHeader = first.includes('codigo') || first.includes('nome') || first.includes('categoria');
 
     if(looksHeader){
       const headers = rows[0].map(v => String(v ?? '').trim());
@@ -348,14 +335,12 @@ function parseXLSX(arrayBuffer){
     }
 
     const cols = ['codigo', 'nome', 'descricao', 'categoria', 'unidade', 'preco_venda', 'custo', 'estoque_atual'];
-
     return rows.map(r=>{
       const obj = {};
       cols.forEach((k, i)=> obj[k] = r[i] ?? '');
       return obj;
     }).filter(obj => String(obj.nome || obj.codigo || '').trim() !== '');
   }
-
   return [];
 }
 
@@ -382,17 +367,13 @@ function mapImportToPayload(obj){
     }
   }
 
-  if(Object.keys(custom_fields).length){
-    base.custom_fields = custom_fields;
-  }
-
+  if(Object.keys(custom_fields).length) base.custom_fields = custom_fields;
   return base;
 }
 
 function findExistingProdutoIdByCodigo(payload){
   const codigo = String(payload?.codigo || '').trim().toLowerCase();
   if(!codigo) return null;
-
   const found = (produtos || []).find(p => String(p.codigo || '').trim().toLowerCase() === codigo);
   return found?.id || null;
 }
@@ -423,11 +404,7 @@ async function importarProdutosFromItems(items){
   for(const raw of items){
     try{
       const payload = mapImportToPayload(raw);
-      if(!payload.nome){
-        failCount++;
-        continue;
-      }
-
+      if(!payload.nome){ failCount++; continue; }
       const existingId = findExistingProdutoIdByCodigo(payload);
       await salvarProdutoNoServidor(payload, existingId);
       okCount++;
@@ -447,11 +424,7 @@ async function importarProdutosFromItems(items){
 }
 
 async function importarProdutosArquivo(file){
-  if(!file){
-    toast('Selecione um arquivo para importar.', { error:true });
-    return;
-  }
-
+  if(!file){ toast('Selecione um arquivo para importar.', { error:true }); return; }
   const name = String(file.name || '').toLowerCase();
 
   try{
@@ -462,19 +435,16 @@ async function importarProdutosArquivo(file){
       await importarProdutosFromItems(items);
       return;
     }
-
     if(name.endsWith('.csv') || name.endsWith('.txt')){
       const text = await readFileAsText(file);
       await importarProdutosFromItems(parseCSV(text));
       return;
     }
-
     if(name.endsWith('.xlsx')){
       const buf = await readFileAsArrayBuffer(file);
       await importarProdutosFromItems(parseXLSX(buf));
       return;
     }
-
     toast('Formato inválido. Use .JSON, .CSV ou .XLSX', { error:true, ms:4200 });
   }catch(err){
     console.error('[Produtos] importar arquivo erro:', err);
@@ -490,41 +460,37 @@ function renderTabelaProdutos(){
   if(!tbody) return;
 
   const filtrados = produtos.filter(p=>{
-    const texto = [p.codigo, p.nome, p.categoria, p.descricao]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-
+    const texto = [p.codigo, p.nome, p.categoria, p.descricao].filter(Boolean).join(' ').toLowerCase();
     return !busca || texto.includes(busca);
   });
 
   tbody.innerHTML = '';
 
-  filtrados.forEach(p=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td data-label="Código"><span>${escapeHtml(p.codigo || '-')}</span></td>
-      <td data-label="Produto"><span>${escapeHtml(p.nome || '-')}</span></td>
-      <td data-label="Categoria"><span>${escapeHtml(p.categoria || '-')}</span></td>
-      <td data-label="Preço"><span>${escapeHtml(p.preco_venda || '-')}</span></td>
-      <td data-label="Estoque"><span>${escapeHtml(p.estoque_atual || '-')}</span></td>
-      <td data-label="Ações">
-        <div class="Valora-table-actions">
-          <button class="Valora-icon-btn" data-action="editar" data-id="${p.id}" title="Editar produto">
+  if(filtrados.length === 0){
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state" style="border: none; text-align: center;">Nenhum produto encontrado.</td></tr>`;
+  } else {
+    filtrados.forEach(p=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="badge-codigo">${escapeHtml(p.codigo || '-')}</span></td>
+        <td><strong>${escapeHtml(p.nome || '-')}</strong></td>
+        <td>${escapeHtml(p.categoria || '-')}</td>
+        <td>R$ ${escapeHtml(p.preco_venda || '-')}</td>
+        <td>${escapeHtml(p.estoque_atual || '-')}</td>
+        <td style="text-align: right;">
+          <button class="btn-icon" data-action="editar" data-id="${p.id}" title="Editar produto">
             <i class="fa-solid fa-pen"></i>
           </button>
-          <button class="Valora-icon-btn" data-action="excluir" data-id="${p.id}" title="Excluir produto">
+          <button class="btn-icon danger" data-action="excluir" data-id="${p.id}" title="Excluir produto">
             <i class="fa-solid fa-trash"></i>
           </button>
-        </div>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  if(spanCount){
-    spanCount.textContent = filtrados.length === 1 ? '1 produto' : `${filtrados.length} produtos`;
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
   }
+
+  if(spanCount) spanCount.textContent = filtrados.length === 1 ? '1 produto' : `${filtrados.length} produtos`;
 }
 
 function renderListaCamposProdutos(){
@@ -532,36 +498,30 @@ function renderListaCamposProdutos(){
   if(!wrap) return;
 
   if(!camposProdutos.length){
-    wrap.innerHTML = `<div class="Valora-empty">Nenhum campo personalizado criado ainda.</div>`;
+    wrap.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;">Nenhum campo personalizado criado ainda.</div>`;
     return;
   }
 
   wrap.innerHTML = camposProdutos.map(campo=>{
-    const badgeObrigatorio = campo.obrigatorio ? `<span class="Valora-badge">Obrigatório</span>` : '';
-    const badgeInativo = campo.ativo === false ? `<span class="Valora-badge Valora-badge--muted">Oculto</span>` : '';
+    const badgeObrigatorio = campo.obrigatorio ? `<span class="badge-tag brand">Obrigatório</span>` : '';
+    const badgeInativo = campo.ativo === false ? `<span class="badge-tag">Oculto</span>` : '';
     return `
-      <div class="Valora-campo-card">
-        <div class="Valora-campo-card-head">
+      <div class="campo-card">
+        <div>
+          <strong>${escapeHtml(campo.nome || '')}</strong>
+          <span>${escapeHtml(formatTipoCampo(campo.tipo))} • ordem ${Number(campo.ordem || 0)}</span>
           <div>
-            <strong>${escapeHtml(campo.nome || '')}</strong>
-            <div class="Valora-campo-meta">
-              <span>${escapeHtml(formatTipoCampo(campo.tipo))}</span>
-              <span>•</span>
-              <span>ordem ${Number(campo.ordem || 0)}</span>
-            </div>
-          </div>
-          <div class="Valora-table-actions">
-            <button class="Valora-icon-btn" data-campo-action="editar" data-id="${campo.id}" title="Editar campo">
-              <i class="fa-solid fa-pen"></i>
-            </button>
-            <button class="Valora-icon-btn" data-campo-action="excluir" data-id="${campo.id}" title="Excluir campo">
-              <i class="fa-solid fa-trash"></i>
-            </button>
+            ${badgeObrigatorio}
+            ${badgeInativo}
           </div>
         </div>
-        <div class="Valora-campo-badges">
-          ${badgeObrigatorio}
-          ${badgeInativo}
+        <div>
+          <button class="btn-icon" data-campo-action="editar" data-id="${campo.id}" title="Editar campo">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button class="btn-icon danger" data-campo-action="excluir" data-id="${campo.id}" title="Excluir campo">
+            <i class="fa-solid fa-trash"></i>
+          </button>
         </div>
       </div>
     `;
@@ -583,13 +543,13 @@ function renderCustomFieldsInputs(values = {}){
   if(!container) return;
 
   if(!camposProdutos.length){
-    container.innerHTML = `<div class="Valora-empty">Nenhum campo personalizado cadastrado.</div>`;
+    container.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;">Nenhum campo personalizado cadastrado.</div>`;
     return;
   }
 
   const ativos = camposProdutos.filter(c => c.ativo !== false);
   if(!ativos.length){
-    container.innerHTML = `<div class="Valora-empty">Todos os campos personalizados estão ocultos.</div>`;
+    container.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;">Todos os campos personalizados estão ocultos.</div>`;
     return;
   }
 
@@ -602,13 +562,15 @@ function renderCustomFieldsInputs(values = {}){
     const tipo = campo.tipo || 'texto';
     const obrigatorio = !!campo.obrigatorio;
     const valor = values?.[slug] ?? '';
+    
     const field = document.createElement('div');
-    field.className = 'Valora-field';
+    field.className = 'form-group';
+    if(tipo === 'textarea') field.style.gridColumn = '1 / -1';
 
     let html = `<label for="${id}">${escapeHtml(label)}${obrigatorio ? ' *' : ''}</label>`;
 
     if(tipo === 'textarea'){
-      html += `<textarea id="${id}" data-custom-field="${escapeHtml(slug)}" rows="4" placeholder="${escapeHtml(label)}">${escapeHtml(valor)}</textarea>`;
+      html += `<textarea id="${id}" data-custom-field="${escapeHtml(slug)}" rows="3" placeholder="${escapeHtml(label)}">${escapeHtml(valor)}</textarea>`;
     } else if(tipo === 'numero'){
       html += `<input type="number" id="${id}" data-custom-field="${escapeHtml(slug)}" value="${escapeHtml(valor)}" placeholder="${escapeHtml(label)}" />`;
     } else if(tipo === 'data'){
@@ -616,7 +578,7 @@ function renderCustomFieldsInputs(values = {}){
     } else if(tipo === 'checkbox'){
       const checked = String(valor).toLowerCase() === 'true' || valor === true ? 'checked' : '';
       html = `
-        <label class="Valora-check Valora-check--custom">
+        <label class="custom-checkbox" style="margin-top:24px;">
           <input type="checkbox" id="${id}" data-custom-field="${escapeHtml(slug)}" ${checked} />
           <span>${escapeHtml(label)}</span>
         </label>
@@ -641,55 +603,30 @@ function renderCustomFieldsInputs(values = {}){
 
 function abrirModalProduto(){
   const backdrop = document.getElementById('modal-produto-backdrop');
-  if(!backdrop) return;
-  backdrop.hidden = false;
-  backdrop.style.display = 'flex';
+  if(backdrop) backdrop.classList.add('show');
 }
 
 function fecharModalProduto(){
   const backdrop = document.getElementById('modal-produto-backdrop');
-  if(backdrop){
-    backdrop.hidden = true;
-    backdrop.style.display = 'none';
-  }
+  if(backdrop) backdrop.classList.remove('show');
   produtoEditandoId = null;
 }
 
 function abrirModalCampo(){
   const backdrop = document.getElementById('modal-campo-backdrop');
-  if(!backdrop) return;
-  backdrop.hidden = false;
-  backdrop.style.display = 'flex';
+  if(backdrop) backdrop.classList.add('show');
 }
 
 function fecharModalCampo(){
   const backdrop = document.getElementById('modal-campo-backdrop');
-  if(backdrop){
-    backdrop.hidden = true;
-    backdrop.style.display = 'none';
-  }
+  if(backdrop) backdrop.classList.remove('show');
   campoEditandoId = null;
 }
 
-function setVal(id, v){
-  const el = document.getElementById(id);
-  if(el) el.value = (v ?? '');
-}
-
-function getVal(id){
-  const el = document.getElementById(id);
-  return (el?.value ?? '').trim();
-}
-
-function setCheck(id, v){
-  const el = document.getElementById(id);
-  if(el) el.checked = !!v;
-}
-
-function getCheck(id){
-  const el = document.getElementById(id);
-  return !!el?.checked;
-}
+function setVal(id, v){ const el = document.getElementById(id); if(el) el.value = (v ?? ''); }
+function getVal(id){ const el = document.getElementById(id); return (el?.value ?? '').trim(); }
+function setCheck(id, v){ const el = document.getElementById(id); if(el) el.checked = !!v; }
+function getCheck(id){ const el = document.getElementById(id); return !!el?.checked; }
 
 function limparCamposProduto(){
   setVal('campo-codigo-produto', '');
@@ -745,20 +682,14 @@ function collectCustomFieldsValues(){
   nodes.forEach(el=>{
     const slug = el.getAttribute('data-custom-field');
     if(!slug) return;
-
     let value = '';
-
     if(el.type === 'checkbox'){
       value = el.checked ? 'true' : 'false';
     } else {
       value = String(el.value ?? '').trim();
     }
-
-    if(value !== ''){
-      values[slug] = value;
-    }
+    if(value !== '') values[slug] = value;
   });
-
   return values;
 }
 
@@ -769,13 +700,9 @@ function validarCamposPersonalizados(custom_fields){
     const valor = custom_fields?.[slug];
 
     if(tipo === 'checkbox'){
-      if(valor !== 'true' && valor !== true){
-        return `Preencha o campo obrigatório: ${campo.nome}`;
-      }
+      if(valor !== 'true' && valor !== true) return `Preencha o campo obrigatório: ${campo.nome}`;
     } else {
-      if(valor == null || String(valor).trim() === ''){
-        return `Preencha o campo obrigatório: ${campo.nome}`;
-      }
+      if(valor == null || String(valor).trim() === '') return `Preencha o campo obrigatório: ${campo.nome}`;
     }
   }
   return null;
@@ -830,13 +757,8 @@ function syncCampoTipo(){
   if(!wrap) return;
 
   const mostrar = tipo === 'select';
-
   wrap.hidden = !mostrar;
-  wrap.style.display = mostrar ? '' : 'none';
-
-  if(!mostrar && campoOpcoes){
-    campoOpcoes.value = '';
-  }
+  if(!mostrar && campoOpcoes) campoOpcoes.value = '';
 }
 
 function limparCamposModalCampo(){
@@ -846,13 +768,6 @@ function limparCamposModalCampo(){
   setVal('campo-custom-opcoes', '');
   setCheck('campo-custom-obrigatorio', false);
   setCheck('campo-custom-ativo', true);
-
-  const wrap = document.getElementById('wrap-custom-opcoes');
-  if(wrap){
-    wrap.hidden = true;
-    wrap.style.display = 'none';
-  }
-
   syncCampoTipo();
 }
 
@@ -897,22 +812,11 @@ function buildPayloadCampo(){
 
   let opcoes_json = null;
   if(tipo === 'select'){
-    const linhas = getVal('campo-custom-opcoes')
-      .split('\n')
-      .map(s => s.trim())
-      .filter(Boolean);
+    const linhas = getVal('campo-custom-opcoes').split('\n').map(s => s.trim()).filter(Boolean);
     opcoes_json = JSON.stringify(linhas);
   }
 
-  return {
-    nome,
-    slug,
-    tipo,
-    obrigatorio,
-    ativo,
-    ordem,
-    opcoes_json,
-  };
+  return { nome, slug, tipo, obrigatorio, ativo, ordem, opcoes_json };
 }
 
 async function salvarCampo(){
@@ -923,7 +827,6 @@ async function salvarCampo(){
     document.getElementById('campo-custom-nome')?.focus();
     return;
   }
-
   if(!payload.slug){
     toast('Não foi possível gerar o identificador do campo.', { error:true });
     document.getElementById('campo-custom-nome')?.focus();
@@ -957,19 +860,10 @@ async function salvarCampo(){
 
 document.addEventListener('DOMContentLoaded', async ()=>{
   const modalProdutoBackdrop = document.getElementById('modal-produto-backdrop');
-  if(modalProdutoBackdrop){
-    modalProdutoBackdrop.hidden = true;
-    modalProdutoBackdrop.style.display = 'none';
-  }
-
   const modalCampoBackdrop = document.getElementById('modal-campo-backdrop');
-  if(modalCampoBackdrop){
-    modalCampoBackdrop.hidden = true;
-    modalCampoBackdrop.style.display = 'none';
-  }
-
   const confirmBackdrop = document.getElementById('Valora-confirm-backdrop');
-  const btnX = document.getElementById('Valora-confirm-close');
+  
+  const btnX = document.getElementById('Valora-confirm-close'); // Modificado caso use X
   const btnCancel = document.getElementById('Valora-confirm-cancel');
   const btnOk = document.getElementById('Valora-confirm-ok');
 
@@ -980,17 +874,14 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
   document.addEventListener('keydown', (e)=>{
     if(e.key === 'Escape'){
-      if(confirmBackdrop && !confirmBackdrop.hidden) closeConfirm(false);
-      if(modalProdutoBackdrop && !modalProdutoBackdrop.hidden) fecharModalProduto();
-      if(modalCampoBackdrop && !modalCampoBackdrop.hidden) fecharModalCampo();
+      if(confirmBackdrop && confirmBackdrop.classList.contains('show')) closeConfirm(false);
+      if(modalProdutoBackdrop && modalProdutoBackdrop.classList.contains('show')) fecharModalProduto();
+      if(modalCampoBackdrop && modalCampoBackdrop.classList.contains('show')) fecharModalCampo();
     }
   });
 
   try{
-    await Promise.all([
-      carregarCamposProdutos(),
-      carregarProdutos(),
-    ]);
+    await Promise.all([ carregarCamposProdutos(), carregarProdutos() ]);
   }catch(err){
     console.error('[Produtos] init erro:', err);
     toast(err?.message || 'Erro ao carregar dados.', { error:true, ms:5000 });
@@ -1032,7 +923,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
   const tbody = document.getElementById('tbody-produtos');
   tbody?.addEventListener('click', async (e)=>{
-    const btn = e.target.closest('.Valora-icon-btn');
+    const btn = e.target.closest('.btn-icon');
     if(!btn) return;
 
     const action = btn.dataset.action;
@@ -1073,7 +964,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
   const listaCampos = document.getElementById('lista-campos-produtos');
   listaCampos?.addEventListener('click', async (e)=>{
-    const btn = e.target.closest('.Valora-icon-btn');
+    const btn = e.target.closest('.btn-icon');
     if(!btn) return;
 
     const action = btn.dataset.campoAction;

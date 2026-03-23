@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.routers import cadastro
@@ -13,9 +13,12 @@ from backend.routers.fornecedores import router as fornecedores_router
 from backend.routers.auth import router as auth_router
 from backend.routers.perfil import router as perfil_router
 from backend.routers.produtos import router as produtos_router
-from backend.routers import clientes, empresa
 from backend.routers.propostas import router as propostas_router
-
+from backend.routers.dashboard import router as dashboard_router
+from backend.routers.usuarios import router as usuarios_router
+from backend.routers.permissoes import router as permissoes_router
+from backend.routers import empresa
+from backend.routers import propostas, campos_propostas
 
 # ============================================
 # Paths básicos
@@ -24,7 +27,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent  # pasta ValoraPro/
 FRONTEND_DIR = BASE_DIR / "frontend"
 UPLOADS_DIR = BASE_DIR / "uploads"
 
-# Garante que a pasta uploads principal exista
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -44,6 +46,89 @@ app = FastAPI(
 # ============================================
 FAVICON_TAG = '<link rel="icon" type="image/jpeg" href="/frontend/img/logo-favicon.jpg">'
 FAVICON_TAG_ALT = '<link rel="shortcut icon" type="image/jpeg" href="/frontend/img/logo-favicon.jpg">'
+
+
+# ============================================
+# Auth global
+# Bloqueia tudo sem cookie "user_id",
+# exceto login e assets necessários do login
+# ============================================
+PUBLIC_EXACT_PATHS = {
+    "/",
+    "/login",
+    "/login/",
+    "/frontend/login.html",
+    "/frontend/login.html/",
+    "/ping",
+    "/favicon.ico",
+
+    # assets básicos do login
+    "/frontend/js/pages/login.js",
+    "/frontend/css/login.css",
+    "/frontend/img/logo-favicon.jpg",
+}
+
+PUBLIC_PREFIXES = (
+    "/api/auth",          # login/logout/refresh/etc
+    "/frontend/img/",     # logo/favicon usados no login
+    "/frontend/fonts/",   # fontes locais, se houver
+)
+
+
+def normalize_path(path: str) -> str:
+    path = (path or "/").strip()
+    if not path:
+        return "/"
+    path = path.split("?")[0].split("#")[0]
+    path = path.rstrip("/")
+    return path or "/"
+
+
+def is_public_path(path: str) -> bool:
+    raw = path or "/"
+    norm = normalize_path(raw)
+
+    if raw in PUBLIC_EXACT_PATHS or norm in PUBLIC_EXACT_PATHS:
+        return True
+
+    return any(
+        raw.startswith(prefix) or norm.startswith(prefix)
+        for prefix in PUBLIC_PREFIXES
+    )
+
+
+def has_auth_cookie(request: Request) -> bool:
+    user_id = request.cookies.get("user_id")
+    return bool(user_id and str(user_id).strip())
+
+
+@app.middleware("http")
+async def require_auth_globally(request: Request, call_next):
+    raw_path = request.url.path or "/"
+    path = normalize_path(raw_path)
+    authenticated = has_auth_cookie(request)
+
+    # Se já estiver logado e tentar abrir login, manda pro dashboard
+    if authenticated and path in {"/login", "/frontend/login.html"}:
+        return RedirectResponse(url="/dashboard", status_code=302)
+
+    # Caminhos públicos
+    if is_public_path(raw_path):
+        return await call_next(request)
+
+    # Usuário autenticado segue normal
+    if authenticated:
+        return await call_next(request)
+
+    # API sem autenticação => 401 json
+    if path.startswith("/api/"):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Não autenticado."}
+        )
+
+    # Qualquer página/arquivo sem autenticação => login
+    return RedirectResponse(url="/login", status_code=302)
 
 
 # ============================================
@@ -87,7 +172,6 @@ async def inject_global_favicon(request: Request, call_next):
                 media_type=response.media_type,
             )
 
-    # Evita duplicar favicon
     if 'rel="icon"' not in html and 'rel="shortcut icon"' not in html:
         inject_html = f"    {FAVICON_TAG}\n    {FAVICON_TAG_ALT}\n"
 
@@ -107,14 +191,15 @@ async def inject_global_favicon(request: Request, call_next):
     )
 
 
-# Monta o frontend
+# ============================================
+# Static files
+# ============================================
 app.mount(
     "/frontend",
     NoCacheHTMLStaticFiles(directory=str(FRONTEND_DIR)),
     name="frontend",
 )
 
-# Monta uploads
 app.mount(
     "/uploads",
     StaticFiles(directory=str(UPLOADS_DIR)),
@@ -133,7 +218,11 @@ app.include_router(perfil_router)
 app.include_router(produtos_router)
 app.include_router(empresa.router)
 app.include_router(propostas_router)
-
+app.include_router(dashboard_router)
+app.include_router(usuarios_router)
+app.include_router(permissoes_router)
+app.include_router(propostas.router)
+app.include_router(campos_propostas.router)
 
 # ============================================
 # Helpers
@@ -180,11 +269,16 @@ def ping():
 
 @app.get("/", include_in_schema=False)
 def root():
-    return RedirectResponse(url="/Valora", status_code=302)
+    return RedirectResponse(url="/login", status_code=302)
+
+
+@app.get("/login", include_in_schema=False, tags=["Valora – Auth"])
+def login_page():
+    return serve_html("login")
 
 
 @app.get("/Valora", include_in_schema=False, tags=["Valora – UI"])
-def Valora():
+def valora():
     return serve_html("inicio")
 
 
@@ -194,7 +288,10 @@ def inicio():
 
 
 # ============================================
-# Rota genérica
+# Rota genérica para páginas HTML
+# Ex.: /dashboard -> frontend/dashboard.html
+#      /clientes  -> frontend/clientes.html
+#      /usuarios  -> frontend/usuarios.html
 # ============================================
 @app.get("/{page_name}", include_in_schema=False)
 def page(page_name: str):

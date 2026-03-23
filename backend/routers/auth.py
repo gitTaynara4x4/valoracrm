@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response, Cookie
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -16,6 +17,16 @@ from backend.models import Usuario, LoginToken
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+
+# =========================================================
+# CONFIG COOKIES
+# =========================================================
+COOKIE_PATH = "/"
+COOKIE_DOMAIN = None
+COOKIE_SAMESITE = "lax"
+COOKIE_SECURE = False   # em produção com HTTPS, troque para True
+COOKIE_HTTPONLY_USER_ID = False  # deixe False se você quiser manter compatibilidade atual
 
 
 # =========================================================
@@ -64,40 +75,6 @@ def make_access_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-def issue_login_cookies(response: Response, user: Usuario, remember: bool):
-    max_age = 60 * 60 * 24 * 30 if remember else 60 * 60 * 8
-
-    response.set_cookie(
-        key="empresa_id",
-        value=str(user.empresa_id or 1),
-        max_age=max_age,
-        httponly=False,
-        samesite="lax",
-        secure=False,
-        path="/",
-    )
-
-    response.set_cookie(
-        key="user_id",
-        value=str(user.id),
-        max_age=max_age,
-        httponly=False,
-        samesite="lax",
-        secure=False,
-        path="/",
-    )
-
-    response.set_cookie(
-        key="user_nome",
-        value=user.nome or "",
-        max_age=max_age,
-        httponly=False,
-        samesite="lax",
-        secure=False,
-        path="/",
-    )
-
-
 def generate_6digit_token() -> str:
     return f"{secrets.randbelow(1000000):06d}"
 
@@ -106,11 +83,99 @@ def send_token_email(email: str, token: str):
     print(f"[LOGIN TOKEN] email={email} token={token}")
 
 
+def set_cookie_safe(
+    response: Response,
+    key: str,
+    value: str,
+    max_age: int,
+    httponly: bool = False,
+):
+    response.set_cookie(
+        key=key,
+        value=value,
+        max_age=max_age,
+        httponly=httponly,
+        samesite=COOKIE_SAMESITE,
+        secure=COOKIE_SECURE,
+        path=COOKIE_PATH,
+        domain=COOKIE_DOMAIN,
+    )
+
+
+def delete_cookie_safe(
+    response: Response,
+    key: str,
+    httponly: bool = False,
+):
+    response.delete_cookie(
+        key=key,
+        path=COOKIE_PATH,
+        domain=COOKIE_DOMAIN,
+        secure=COOKIE_SECURE,
+        httponly=httponly,
+        samesite=COOKIE_SAMESITE,
+    )
+
+
+def issue_login_cookies(response: Response, user: Usuario, remember: bool):
+    max_age = 60 * 60 * 24 * 30 if remember else 60 * 60 * 8
+
+    set_cookie_safe(
+        response=response,
+        key="empresa_id",
+        value=str(user.empresa_id or 1),
+        max_age=max_age,
+        httponly=False,
+    )
+
+    set_cookie_safe(
+        response=response,
+        key="user_id",
+        value=str(user.id),
+        max_age=max_age,
+        httponly=COOKIE_HTTPONLY_USER_ID,
+    )
+
+    set_cookie_safe(
+        response=response,
+        key="user_nome",
+        value=user.nome or "",
+        max_age=max_age,
+        httponly=False,
+    )
+
+
+def clear_login_cookies(response: Response):
+    delete_cookie_safe(response, "empresa_id", httponly=False)
+    delete_cookie_safe(response, "user_id", httponly=COOKIE_HTTPONLY_USER_ID)
+    delete_cookie_safe(response, "user_nome", httponly=False)
+
+
+def build_login_response(user: Usuario, remember: bool):
+    access_token = make_access_token()
+
+    response = JSONResponse(
+        content={
+            "ok": True,
+            "access_token": access_token,
+            "token": access_token,
+            "nome": user.nome,
+            "cargo": user.cargo,
+            "empresa_id": user.empresa_id or 1,
+            "empresaId": user.empresa_id or 1,
+            "user_id": user.id,
+        }
+    )
+
+    issue_login_cookies(response, user, remember)
+    return response
+
+
 # =========================================================
 # LOGIN PASSO 1
 # =========================================================
 @router.post("/login")
-def login(data: LoginIn, response: Response, db: Session = Depends(get_db)):
+def login(data: LoginIn, db: Session = Depends(get_db)):
     email = (data.email or "").strip().lower()
     senha = (data.senha or "").strip()
 
@@ -157,26 +222,14 @@ def login(data: LoginIn, response: Response, db: Session = Depends(get_db)):
             "email": user.email,
         }
 
-    access_token = make_access_token()
-    issue_login_cookies(response, user, data.remember)
-
-    return {
-        "ok": True,
-        "access_token": access_token,
-        "token": access_token,
-        "nome": user.nome,
-        "cargo": user.cargo,
-        "empresa_id": user.empresa_id or 1,
-        "empresaId": user.empresa_id or 1,
-        "user_id": user.id,
-    }
+    return build_login_response(user, data.remember)
 
 
 # =========================================================
 # LOGIN PASSO 2
 # =========================================================
 @router.post("/login/token")
-def login_token(data: TokenIn, response: Response, db: Session = Depends(get_db)):
+def login_token(data: TokenIn, db: Session = Depends(get_db)):
     user = (
         db.query(Usuario)
         .filter(Usuario.email == data.email.lower().strip())
@@ -204,31 +257,22 @@ def login_token(data: TokenIn, response: Response, db: Session = Depends(get_db)
     db.delete(row)
     db.commit()
 
-    access_token = make_access_token()
-    issue_login_cookies(response, user, data.remember)
-
-    return {
-        "ok": True,
-        "access_token": access_token,
-        "token": access_token,
-        "nome": user.nome,
-        "cargo": user.cargo,
-        "empresa_id": user.empresa_id or 1,
-        "empresaId": user.empresa_id or 1,
-        "user_id": user.id,
-    }
+    return build_login_response(user, data.remember)
 
 
 # =========================================================
 # LOGOUT
 # =========================================================
 @router.post("/logout")
-def logout(response: Response):
-    response.delete_cookie("empresa_id", path="/")
-    response.delete_cookie("user_id", path="/")
-    response.delete_cookie("user_nome", path="/")
-
-    return {"ok": True}
+def logout():
+    response = JSONResponse(
+        content={
+            "ok": True,
+            "message": "Logout realizado com sucesso."
+        }
+    )
+    clear_login_cookies(response)
+    return response
 
 
 # =========================================================

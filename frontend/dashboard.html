@@ -9,13 +9,21 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  
+
   <link rel="stylesheet" href="/frontend/css/app.css" />
+  <link rel="stylesheet" href="/frontend/css/dashboard.css" />
+
   <script src="/frontend/js/pages/app.js" defer></script>
+  <script src="/frontend/js/pages/dashboard.js" defer></script>
 </head>
 <body>
   <div class="layout">
-    <iframe src="/frontend/partials/sidebar.html" class="sidebar-frame" title="Menu lateral"></iframe>
+    <iframe
+      src="/frontend/partials/sidebar.html"
+      class="sidebar-frame"
+      title="Menu lateral"
+      loading="eager">
+    </iframe>
 
     <main class="main">
       <header class="topbar">
@@ -23,78 +31,97 @@
           <span class="eyebrow">Dashboard</span>
           <h1>Visão Geral</h1>
         </div>
+
+        <div class="dashboard-topbar-meta">
+          <span class="dashboard-badge" id="dashboardModeBadge">Carregando...</span>
+        </div>
       </header>
 
-      <section class="hero-card">
+      <section class="hero-card dashboard-hero">
         <div class="hero-content">
-          <div class="status-indicator">
-            <span class="dot"></span> Sistema Online e Sincronizado
+          <div class="status-indicator" id="dashboardStatus">
+            <span class="dot"></span>
+            <span id="dashboardStatusText">Carregando status do sistema...</span>
           </div>
+
           <h2 id="welcomeTitle">Olá, Usuário 👋</h2>
-          <p id="welcomeText">Bem-vindo ao Valora CRM. Acompanhe o resumo da sua operação, cadastre novos clientes e gerencie suas propostas de forma rápida e inteligente.</p>
+          <p id="welcomeText">
+            Bem-vindo ao Valora CRM. Acompanhe o resumo da sua operação, cadastre novos clientes e gerencie suas propostas de forma rápida e inteligente.
+          </p>
+
           <div class="hero-actions">
             <button class="btn btn-primary" onclick="window.location.href='/propostas'">
-              <i class="fa-solid fa-plus" style="margin-right: 8px;"></i> Nova Proposta
+              <i class="fa-solid fa-plus"></i>
+              Nova Proposta
             </button>
+
             <button class="btn btn-secondary" onclick="window.location.href='/clientes'">
               Ver Clientes
             </button>
           </div>
         </div>
-        <div class="plan-card">
+
+        <div class="plan-card dashboard-plan-card">
           <span class="plan-label">Seu Plano Atual</span>
           <strong id="planName">Profissional</strong>
           <small id="companyIdInfo">Empresa #--</small>
+          <small id="lastUpdateInfo">Atualizado agora</small>
         </div>
       </section>
 
-      <section class="stats-grid">
-        <div class="stat-card">
+      <section class="stats-grid dashboard-stats-grid">
+        <article class="stat-card">
           <span class="stat-label">Total de Clientes</span>
-          <span class="stat-value">124</span>
-        </div>
-        <div class="stat-card">
+          <strong class="stat-value" id="statClientes">0</strong>
+        </article>
+
+        <article class="stat-card">
           <span class="stat-label">Propostas Enviadas (Mês)</span>
-          <span class="stat-value">32</span>
-        </div>
-        <div class="stat-card">
+          <strong class="stat-value" id="statPropostasMes">0</strong>
+        </article>
+
+        <article class="stat-card">
           <span class="stat-label">Taxa de Aprovação</span>
-          <span class="stat-value online">68%</span>
-        </div>
-        <div class="stat-card">
+          <strong class="stat-value online" id="statTaxaAprovacao">0%</strong>
+        </article>
+
+        <article class="stat-card">
           <span class="stat-label">Faturamento Estimado</span>
-          <span class="stat-value">R$ 45.200</span>
-        </div>
+          <strong class="stat-value" id="statFaturamento">R$ 0,00</strong>
+        </article>
       </section>
 
-      <section class="content-grid">
-        
+      <section class="content-grid dashboard-content-grid">
         <article class="panel-card">
           <div class="panel-head">
             <h3>Ações Rápidas</h3>
             <p>Atalhos para as funções mais usadas do sistema.</p>
           </div>
+
           <div class="quick-grid">
-            <div class="quick-card" onclick="window.location.href='/clientes'" style="cursor: pointer;">
-              <i class="fa-solid fa-user-plus" style="color: var(--brand); font-size: 20px; margin-bottom: 8px;"></i>
+            <button class="quick-card" type="button" onclick="window.location.href='/clientes'">
+              <i class="fa-solid fa-user-plus"></i>
               <strong>Cadastrar Cliente</strong>
               <small>Adicionar à base</small>
-            </div>
-            <div class="quick-card" onclick="window.location.href='/produtos'" style="cursor: pointer;">
-              <i class="fa-solid fa-box-open" style="color: var(--brand); font-size: 20px; margin-bottom: 8px;"></i>
+            </button>
+
+            <button class="quick-card" type="button" onclick="window.location.href='/produtos'">
+              <i class="fa-solid fa-box-open"></i>
               <strong>Novo Produto</strong>
               <small>Catálogo de itens</small>
-            </div>
-            <div class="quick-card" onclick="window.location.href='/fornecedores'" style="cursor: pointer;">
-              <i class="fa-solid fa-truck" style="color: var(--brand); font-size: 20px; margin-bottom: 8px;"></i>
+            </button>
+
+            <button class="quick-card" type="button" onclick="window.location.href='/fornecedores'">
+              <i class="fa-solid fa-truck"></i>
               <strong>Fornecedor</strong>
               <small>Rede de parceiros</small>
-            </div>
-            <div class="quick-card" onclick="window.location.href='/configuracoes'" style="cursor: pointer;">
-              <i class="fa-solid fa-sliders" style="color: var(--brand); font-size: 20px; margin-bottom: 8px;"></i>
+            </button>
+
+            <button class="quick-card" type="button" onclick="window.location.href='/configuracoes'">
+              <i class="fa-solid fa-sliders"></i>
               <strong>Ajustes</strong>
               <small>Configurar sistema</small>
-            </div>
+            </button>
           </div>
         </article>
 
@@ -103,45 +130,64 @@
             <h3>Passos Iniciais</h3>
             <p>Configure sua conta para tirar o máximo proveito.</p>
           </div>
+
           <div class="checklist">
             <label class="check-item">
               <input type="checkbox" checked />
               <div class="fake-check"></div>
               <span class="check-text">Criar conta e acessar o painel</span>
             </label>
+
             <label class="check-item">
               <input type="checkbox" checked />
               <div class="fake-check"></div>
-              <span class="check-text">Personalizar a aparência no Modo Claro/Escuro</span>
+              <span class="check-text">Personalizar a aparência no modo claro/escuro</span>
             </label>
+
             <label class="check-item">
-              <input type="checkbox" />
+              <input type="checkbox" id="checkClientes" />
               <div class="fake-check"></div>
-              <span class="check-text">Cadastrar o primeiro Cliente da base</span>
+              <span class="check-text">Cadastrar o primeiro cliente da base</span>
             </label>
+
             <label class="check-item">
-              <input type="checkbox" />
+              <input type="checkbox" id="checkPropostas" />
               <div class="fake-check"></div>
-              <span class="check-text">Gerar e enviar a primeira Proposta</span>
+              <span class="check-text">Gerar e enviar a primeira proposta</span>
             </label>
           </div>
         </article>
 
+        <article class="panel-card dashboard-summary-card">
+          <div class="panel-head">
+            <h3>Resumo Operacional</h3>
+            <p>Visão rápida da conta e da empresa.</p>
+          </div>
+
+          <div class="summary-list">
+            <div class="summary-row">
+              <span>Usuário</span>
+              <strong id="summaryUserName">Usuário</strong>
+            </div>
+
+            <div class="summary-row">
+              <span>E-mail</span>
+              <strong id="summaryUserEmail">email@empresa.com</strong>
+            </div>
+
+            <div class="summary-row">
+              <span>Plano</span>
+              <strong id="summaryPlan">Profissional</strong>
+            </div>
+
+            <div class="summary-row">
+              <span>Empresa</span>
+              <strong id="summaryCompany">Empresa #--</strong>
+            </div>
+          </div>
+        </article>
       </section>
     </main>
   </div>
-
-  <script>
-    // Puxa o nome do usuário logado e coloca na mensagem de Bom Dia/Boa Tarde
-    document.addEventListener("DOMContentLoaded", () => {
-      const nomeSalvo = localStorage.getItem('nome') || 'Usuário';
-      const primeiroNome = nomeSalvo.split(' ')[0];
-      
-      const welcomeTitle = document.getElementById('welcomeTitle');
-      if(welcomeTitle) {
-        welcomeTitle.textContent = `Olá, ${primeiroNome} 👋`;
-      }
-    });
-  </script>
 </body>
 </html>

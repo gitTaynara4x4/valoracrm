@@ -11,10 +11,32 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
   <link rel="stylesheet" href="/frontend/css/app.css" />
-  <script src="/frontend/js/pages/app.js" defer></script>
-  
   <link rel="stylesheet" href="/frontend/css/configuracoes.css" />
+  
+  <script src="/frontend/js/pages/app.js" defer></script>
   <script src="/frontend/js/pages/configuracoes.js" defer></script>
+
+  <style>
+    /* Estilo do Toast caso não esteja no seu app.css global */
+    .toast-message {
+      position: fixed;
+      bottom: -60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      transition: bottom 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+      z-index: 10000;
+      pointer-events: none;
+    }
+    .toast-message.show { bottom: 24px; }
+    .toast-message.is-error { background: #ef4444; }
+  </style>
 </head>
 <body>
   <div class="layout">
@@ -28,40 +50,63 @@
         </div>
       </header>
 
-      <div class="settings-layout">
+      <div class="settings-layout" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-top: 24px;">
         
-        <div class="settings-col">
-          <article class="panel-card">
-            <div class="panel-head">
-              <h3>Aparência</h3>
-              <p>Personalize como o Valora CRM é exibido no seu dispositivo.</p>
+        <div class="settings-col" style="display: flex; flex-direction: column; gap: 24px;">
+          <article class="panel-card" style="padding: 24px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;">
+            <div class="panel-head" style="margin-bottom: 20px;">
+              <h3 style="margin: 0; font-size: 16px;">Aparência</h3>
+              <p style="margin: 4px 0 0; font-size: 13px; color: var(--muted);">Personalize como o Valora CRM é exibido no seu dispositivo.</p>
             </div>
             
             <div class="valora-form">
-              <div class="form-group">
-                <label for="select-tema">Tema do Sistema</label>
-                <select id="select-tema">
+              <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+                <label for="select-tema" style="font-size: 14px; color: var(--text);">Tema do Sistema</label>
+                <select id="select-tema" style="width: 100%; height: 42px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 0 12px; outline: none;">
                   <option value="dark">🌙 Escuro (Padrão)</option>
                   <option value="light">☀️ Claro</option>
                 </select>
               </div>
             </div>
           </article>
+
+          <article class="panel-card" style="padding: 24px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;">
+            <div class="panel-head" style="margin-bottom: 20px;">
+              <h3 style="margin: 0; font-size: 16px;">Relatar um Bug / Sugestão</h3>
+              <p style="margin: 4px 0 0; font-size: 13px; color: var(--muted);">Encontrou algum erro ou tem uma ideia? Avise a equipe de desenvolvimento.</p>
+            </div>
+            
+            <form id="form-bug" class="valora-form">
+              <div class="form-group" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+                <label for="bug-descricao" style="font-size: 14px; color: var(--text);">Descrição do problema *</label>
+                <textarea id="bug-descricao" rows="4" placeholder="Descreva o que aconteceu, onde foi e como podemos reproduzir o erro..." required style="width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 12px; outline: none; resize: vertical; font-family: inherit;"></textarea>
+              </div>
+              <div style="display: flex; justify-content: flex-end;">
+                <button type="submit" class="btn btn-primary" id="btn-enviar-bug">
+                  <i class="fa-solid fa-paper-plane" style="margin-right: 6px;"></i> Enviar Relato
+                </button>
+              </div>
+            </form>
+          </article>
         </div>
 
         <div class="settings-col">
-          <article class="panel-card">
-            <div class="panel-head">
-              <h3>Empresa</h3>
-              <p>Configurações gerais da sua conta corporativa.</p>
+          <article class="panel-card" style="padding: 24px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;">
+            <div class="panel-head" style="margin-bottom: 20px;">
+              <h3 style="margin: 0; font-size: 16px;">Empresa</h3>
+              <p style="margin: 4px 0 0; font-size: 13px; color: var(--muted);">Configurações gerais da sua conta corporativa.</p>
             </div>
-            <div class="empty-state-config">
+            <div class="empty-state-config" style="padding: 32px; text-align: center; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); font-size: 13px;">
+              <i class="fa-solid fa-person-digging" style="font-size: 24px; margin-bottom: 12px; display: block;"></i>
               Em breve: Dados do CNPJ, logo da empresa e integrações.
             </div>
           </article>
         </div>
 
       </div>
+
+      <div id="valora-toast" class="toast-message"></div>
+
     </main>
   </div>
 </body>

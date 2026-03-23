@@ -1,4 +1,3 @@
-# backend/models.py
 from __future__ import annotations
 
 from datetime import datetime
@@ -11,6 +10,7 @@ from sqlalchemy import (
     ForeignKey,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from backend.database import Base
@@ -26,7 +26,6 @@ class Empresa(Base):
     email = Column(String(255), nullable=True, index=True)
     telefone = Column(String(20), nullable=True)
 
-    # --- NOVOS CAMPOS ADICIONADOS ---
     cnpj = Column(String(20), nullable=True)
     cep = Column(String(10), nullable=True)
     estado = Column(String(2), nullable=True)
@@ -35,7 +34,6 @@ class Empresa(Base):
     numero = Column(String(20), nullable=True)
     complemento = Column(String(120), nullable=True)
     logo_url = Column(Text, nullable=True)
-    # --------------------------------
 
     plano = Column(String(30), nullable=False, server_default="essencial", index=True)
     ativo = Column(Boolean, nullable=False, server_default="true")
@@ -55,9 +53,8 @@ class Empresa(Base):
 
     def __repr__(self) -> str:
         return f"<Empresa id={self.id} nome={self.nome!r} plano={self.plano!r}>"
-    
 
-    
+
 class Usuario(Base):
     __tablename__ = "usuarios"
     __allow_unmapped__ = True
@@ -80,6 +77,8 @@ class Usuario(Base):
     cargo = Column(String(80), nullable=True)
     avatar_url = Column(Text, nullable=True)
 
+    papel = Column(String(20), nullable=False, server_default="colaborador", index=True)
+
     exigir_token_login = Column(Boolean, nullable=False, server_default="false")
     ativo = Column(Boolean, nullable=False, server_default="true")
 
@@ -97,7 +96,61 @@ class Usuario(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Usuario id={self.id} email={self.email!r} nome={self.nome!r} empresa_id={self.empresa_id}>"
+        return (
+            f"<Usuario id={self.id} email={self.email!r} "
+            f"papel={self.papel!r} empresa_id={self.empresa_id}>"
+        )
+
+
+class UsuarioPermissao(Base):
+    __tablename__ = "usuarios_permissoes"
+    __allow_unmapped__ = True
+
+    __table_args__ = (
+        UniqueConstraint("usuario_id", "modulo", name="uq_usuarios_permissoes_usuario_modulo"),
+    )
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    usuario_id = Column(
+        BigInteger,
+        ForeignKey("usuarios.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    modulo = Column(String(50), nullable=False, index=True)
+
+    pode_ver = Column(Boolean, nullable=False, server_default="false")
+    pode_criar = Column(Boolean, nullable=False, server_default="false")
+    pode_editar = Column(Boolean, nullable=False, server_default="false")
+    pode_excluir = Column(Boolean, nullable=False, server_default="false")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<UsuarioPermissao id={self.id} usuario_id={self.usuario_id} "
+            f"modulo={self.modulo!r}>"
+        )
 
 
 class LoginToken(Base):
@@ -266,6 +319,7 @@ class ClienteCampoValor(Base):
     def __repr__(self) -> str:
         return f"<ClienteCampoValor id={self.id} cliente_id={self.cliente_id} campo_id={self.campo_id}>"
 
+
 class Fornecedor(Base):
     __tablename__ = "fornecedores"
     __allow_unmapped__ = True
@@ -378,6 +432,7 @@ class FornecedorCampoValor(Base):
 
     def __repr__(self) -> str:
         return f"<FornecedorCampoValor id={self.id} fornecedor_id={self.fornecedor_id} campo_id={self.campo_id}>"
+
 
 class Produto(Base):
     __tablename__ = "produtos"
@@ -524,7 +579,6 @@ class Proposta(Base):
     titulo = Column(String(180), nullable=False, index=True)
     status = Column(String(40), nullable=False, server_default="rascunho", index=True)
 
-    modelo = Column(String(50), nullable=True, index=True)
     observacoes = Column(Text, nullable=True)
     validade_dias = Column(String(20), nullable=True)
 
@@ -582,7 +636,7 @@ class PropostaItem(Base):
     observacao = Column(Text, nullable=True)
     ordem = Column(BigInteger, nullable=False, server_default="0")
 
-    criado_em = Column(#
+    criado_em = Column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
@@ -597,3 +651,86 @@ class PropostaItem(Base):
 
     def __repr__(self) -> str:
         return f"<PropostaItem id={self.id} proposta_id={self.proposta_id} descricao={self.descricao!r}>"
+
+
+class CampoProposta(Base):
+    __tablename__ = "campos_propostas"
+    __allow_unmapped__ = True
+
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "slug", name="uq_campos_propostas_empresa_slug"),
+    )
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    nome = Column(String(120), nullable=False)
+    slug = Column(String(120), nullable=False, index=True)
+    tipo = Column(String(30), nullable=False, index=True)
+
+    obrigatorio = Column(Boolean, nullable=False, server_default="false")
+    ativo = Column(Boolean, nullable=False, server_default="true")
+
+    opcoes_json = Column(Text, nullable=True)
+    ordem = Column(BigInteger, nullable=False, server_default="0")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CampoProposta id={self.id} empresa_id={self.empresa_id} slug={self.slug!r} tipo={self.tipo!r}>"
+
+
+class PropostaCampoValor(Base):
+    __tablename__ = "propostas_campos_valores"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    proposta_id = Column(
+        BigInteger,
+        ForeignKey("propostas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    campo_id = Column(
+        BigInteger,
+        ForeignKey("campos_propostas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    valor = Column(Text, nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<PropostaCampoValor id={self.id} proposta_id={self.proposta_id} campo_id={self.campo_id}>"

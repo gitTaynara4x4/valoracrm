@@ -1,4 +1,3 @@
-# /backend/routers/clientes.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -11,7 +10,6 @@ from sqlalchemy.orm import Session
 from backend.database import SessionLocal
 from backend import models
 
-# Retiramos o "prefix" daqui para podermos usar tanto /api/clientes quanto /api/campos-clientes no mesmo arquivo
 router = APIRouter(tags=["Clientes e Campos"])
 
 
@@ -26,18 +24,29 @@ def get_db():
         db.close()
 
 
-def get_empresa_id(user_id: Optional[str] = Cookie(default=None), db: Session = Depends(get_db)) -> int:
+def get_empresa_id(
+    user_id: Optional[str] = Cookie(default=None),
+    db: Session = Depends(get_db)
+) -> int:
     """
-    Dependência de Autenticação segura via Cookie (mesmo padrão do Perfil).
+    Dependência de autenticação via cookie.
     Pega o usuário logado e retorna o ID da empresa dele.
     """
-    if not user_id:
+    if not user_id or not str(user_id).strip():
         raise HTTPException(status_code=401, detail="Não autenticado.")
-    
-    usuario = db.query(models.Usuario).filter(models.Usuario.id == int(user_id)).first()
+
+    try:
+        user_id_int = int(str(user_id).strip())
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Sessão inválida.")
+
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == user_id_int).first()
     if not usuario:
         raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-    
+
+    if getattr(usuario, "empresa_id", None) is None:
+        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
+
     return int(usuario.empresa_id)
 
 
@@ -46,12 +55,14 @@ def get_empresa_id(user_id: Optional[str] = Cookie(default=None), db: Session = 
 # =========================================================
 try:
     from pydantic import ConfigDict  # type: ignore
+
     class _Cfg:
         model_config = ConfigDict(from_attributes=True)
 except Exception:
     class _Cfg:
         class Config:
             orm_mode = True
+
 
 def norm_str(s: Optional[str]) -> Optional[str]:
     v = (s or "").strip()
@@ -68,11 +79,14 @@ class ClienteBase(BaseModel):
     email: Optional[str] = None
     custom_fields: Optional[Dict[str, Any]] = None
 
+
 class ClienteCreate(ClienteBase):
     nome: str
 
+
 class ClienteUpdate(ClienteBase):
     pass
+
 
 class ClienteOut(ClienteBase, _Cfg):
     id: int
@@ -91,11 +105,14 @@ class CampoClienteBase(BaseModel):
     opcoes_json: Optional[str] = None
     ordem: int = 0
 
+
 class CampoClienteCreate(CampoClienteBase):
     pass
 
+
 class CampoClienteUpdate(CampoClienteBase):
     pass
+
 
 class CampoClienteOut(CampoClienteBase, _Cfg):
     id: int
@@ -129,14 +146,21 @@ def buscar_custom_fields_cliente(db: Session, empresa_id: int, cliente_id: int) 
         .filter(models.CampoCliente.empresa_id == empresa_id)
         .all()
     )
+
     out: Dict[str, Any] = {}
     for valor_row, campo_row in rows:
         slug = str(campo_row.slug)
         out[slug] = valor_row.valor
+
     return out
 
 
-def salvar_custom_fields_cliente(db: Session, empresa_id: int, cliente_id: int, custom_fields: Optional[Dict[str, Any]]) -> None:
+def salvar_custom_fields_cliente(
+    db: Session,
+    empresa_id: int,
+    cliente_id: int,
+    custom_fields: Optional[Dict[str, Any]]
+) -> None:
     payload = custom_fields or {}
     campos_map = buscar_campos_empresa_map(db, empresa_id)
     slugs_payload = set(payload.keys())
@@ -144,7 +168,10 @@ def salvar_custom_fields_cliente(db: Session, empresa_id: int, cliente_id: int, 
 
     slugs_invalidos = sorted(slugs_payload - slugs_validos)
     if slugs_invalidos:
-        raise HTTPException(status_code=400, detail=f"Campos personalizados inválidos: {', '.join(slugs_invalidos)}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Campos personalizados inválidos: {', '.join(slugs_invalidos)}"
+        )
 
     valores_existentes = (
         db.query(models.ClienteCampoValor)
@@ -163,14 +190,19 @@ def salvar_custom_fields_cliente(db: Session, empresa_id: int, cliente_id: int, 
 
         if not value_str:
             existente = existentes_por_campo_id.get(campo_id)
-            if existente: db.delete(existente)
+            if existente:
+                db.delete(existente)
             continue
 
         existente = existentes_por_campo_id.get(campo_id)
         if existente:
             existente.valor = value_str
         else:
-            novo = models.ClienteCampoValor(cliente_id=cliente_id, campo_id=campo_id, valor=value_str)
+            novo = models.ClienteCampoValor(
+                cliente_id=cliente_id,
+                campo_id=campo_id,
+                valor=value_str
+            )
             db.add(novo)
 
 
@@ -188,31 +220,55 @@ def cliente_to_out(db: Session, c: models.Cliente) -> ClienteOut:
 
 
 def buscar_cliente_empresa(db: Session, cliente_id: int, empresa_id: int) -> Optional[models.Cliente]:
-    return db.query(models.Cliente).filter(models.Cliente.id == cliente_id, models.Cliente.empresa_id == empresa_id).first()
+    return (
+        db.query(models.Cliente)
+        .filter(models.Cliente.id == cliente_id, models.Cliente.empresa_id == empresa_id)
+        .first()
+    )
 
 
 # =========================================================
 # ROTAS - CAMPOS PERSONALIZADOS (/api/campos-clientes)
 # =========================================================
 @router.get("/api/campos-clientes", response_model=List[CampoClienteOut])
-def listar_campos(db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
-    campos = db.query(models.CampoCliente).filter(models.CampoCliente.empresa_id == empresa_id).order_by(models.CampoCliente.ordem.asc()).all()
+def listar_campos(
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id)
+):
+    campos = (
+        db.query(models.CampoCliente)
+        .filter(models.CampoCliente.empresa_id == empresa_id)
+        .order_by(models.CampoCliente.ordem.asc())
+        .all()
+    )
     return campos
 
 
 @router.get("/api/campos-clientes/{campo_id}", response_model=CampoClienteOut)
-def obter_campo(campo_id: int, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
-    campo = db.query(models.CampoCliente).filter(models.CampoCliente.id == campo_id, models.CampoCliente.empresa_id == empresa_id).first()
+def obter_campo(
+    campo_id: int,
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id)
+):
+    campo = (
+        db.query(models.CampoCliente)
+        .filter(models.CampoCliente.id == campo_id, models.CampoCliente.empresa_id == empresa_id)
+        .first()
+    )
     if not campo:
         raise HTTPException(status_code=404, detail="Campo não encontrado")
     return campo
 
 
 @router.post("/api/campos-clientes", response_model=CampoClienteOut, status_code=status.HTTP_201_CREATED)
-def criar_campo(payload: CampoClienteCreate, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+def criar_campo(
+    payload: CampoClienteCreate,
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id)
+):
     data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
     novo_campo = models.CampoCliente(empresa_id=empresa_id, **data)
-    
+
     try:
         db.add(novo_campo)
         db.commit()
@@ -224,8 +280,17 @@ def criar_campo(payload: CampoClienteCreate, db: Session = Depends(get_db), empr
 
 
 @router.put("/api/campos-clientes/{campo_id}", response_model=CampoClienteOut)
-def atualizar_campo(campo_id: int, payload: CampoClienteUpdate, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
-    campo = db.query(models.CampoCliente).filter(models.CampoCliente.id == campo_id, models.CampoCliente.empresa_id == empresa_id).first()
+def atualizar_campo(
+    campo_id: int,
+    payload: CampoClienteUpdate,
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id)
+):
+    campo = (
+        db.query(models.CampoCliente)
+        .filter(models.CampoCliente.id == campo_id, models.CampoCliente.empresa_id == empresa_id)
+        .first()
+    )
     if not campo:
         raise HTTPException(status_code=404, detail="Campo não encontrado")
 
@@ -233,14 +298,26 @@ def atualizar_campo(campo_id: int, payload: CampoClienteUpdate, db: Session = De
     for k, v in data.items():
         setattr(campo, k, v)
 
-    db.commit()
-    db.refresh(campo)
-    return campo
+    try:
+        db.commit()
+        db.refresh(campo)
+        return campo
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Identificador (slug) deste campo já existe.")
 
 
 @router.delete("/api/campos-clientes/{campo_id}", status_code=status.HTTP_204_NO_CONTENT)
-def excluir_campo(campo_id: int, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
-    campo = db.query(models.CampoCliente).filter(models.CampoCliente.id == campo_id, models.CampoCliente.empresa_id == empresa_id).first()
+def excluir_campo(
+    campo_id: int,
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id)
+):
+    campo = (
+        db.query(models.CampoCliente)
+        .filter(models.CampoCliente.id == campo_id, models.CampoCliente.empresa_id == empresa_id)
+        .first()
+    )
     if not campo:
         raise HTTPException(status_code=404, detail="Campo não encontrado")
 
@@ -253,13 +330,25 @@ def excluir_campo(campo_id: int, db: Session = Depends(get_db), empresa_id: int 
 # ROTAS - CLIENTES (/api/clientes)
 # =========================================================
 @router.get("/api/clientes", response_model=List[ClienteOut])
-def listar_clientes(db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
-    rows = db.query(models.Cliente).filter(models.Cliente.empresa_id == empresa_id).order_by(models.Cliente.nome.asc()).all()
+def listar_clientes(
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id)
+):
+    rows = (
+        db.query(models.Cliente)
+        .filter(models.Cliente.empresa_id == empresa_id)
+        .order_by(models.Cliente.nome.asc())
+        .all()
+    )
     return [cliente_to_out(db, c) for c in rows]
 
 
 @router.get("/api/clientes/{cliente_id}", response_model=ClienteOut)
-def obter_cliente(cliente_id: int, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+def obter_cliente(
+    cliente_id: int,
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id)
+):
     c = buscar_cliente_empresa(db, cliente_id, empresa_id)
     if not c:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
@@ -267,7 +356,11 @@ def obter_cliente(cliente_id: int, db: Session = Depends(get_db), empresa_id: in
 
 
 @router.post("/api/clientes", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
-def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+def criar_cliente(
+    payload: ClienteCreate,
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id)
+):
     codigo = (payload.codigo or "").strip() or gerar_codigo_cliente(db, empresa_id)
 
     c = models.Cliente(
@@ -282,7 +375,12 @@ def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db), empresa
         db.add(c)
         db.flush()
 
-        salvar_custom_fields_cliente(db=db, empresa_id=empresa_id, cliente_id=int(c.id), custom_fields=payload.custom_fields)
+        salvar_custom_fields_cliente(
+            db=db,
+            empresa_id=empresa_id,
+            cliente_id=int(c.id),
+            custom_fields=payload.custom_fields
+        )
 
         db.commit()
         db.refresh(c)
@@ -300,7 +398,12 @@ def criar_cliente(payload: ClienteCreate, db: Session = Depends(get_db), empresa
 
 
 @router.put("/api/clientes/{cliente_id}", response_model=ClienteOut)
-def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+def atualizar_cliente(
+    cliente_id: int,
+    payload: ClienteUpdate,
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id)
+):
     c = buscar_cliente_empresa(db, cliente_id, empresa_id)
     if not c:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
@@ -319,7 +422,12 @@ def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Dep
 
     try:
         if payload.custom_fields is not None:
-            salvar_custom_fields_cliente(db=db, empresa_id=empresa_id, cliente_id=int(c.id), custom_fields=payload.custom_fields)
+            salvar_custom_fields_cliente(
+                db=db,
+                empresa_id=empresa_id,
+                cliente_id=int(c.id),
+                custom_fields=payload.custom_fields
+            )
 
         db.commit()
         db.refresh(c)
@@ -337,7 +445,11 @@ def atualizar_cliente(cliente_id: int, payload: ClienteUpdate, db: Session = Dep
 
 
 @router.delete("/api/clientes/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
-def excluir_cliente(cliente_id: int, db: Session = Depends(get_db), empresa_id: int = Depends(get_empresa_id)):
+def excluir_cliente(
+    cliente_id: int,
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id)
+):
     c = buscar_cliente_empresa(db, cliente_id, empresa_id)
     if not c:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
