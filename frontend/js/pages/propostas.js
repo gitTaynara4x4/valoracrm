@@ -511,7 +511,11 @@ function renderTabela(){
   tbody.innerHTML = '';
 
   if(!filtradas.length){
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state" style="text-align: center; border:none;">Nenhuma proposta encontrada.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state" style="text-align: center; border:none; padding: 40px 20px;">
+      <i class="fa-brands fa-whatsapp" style="font-size: 32px; color: #25d366; margin-bottom: 12px; display: block;"></i>
+      <strong style="display: block; color: var(--text); font-size: 16px; margin-bottom: 4px;">Nenhuma proposta encontrada</strong>
+      <span style="color: var(--muted); font-size: 14px;">Crie sua primeira proposta e envie para o cliente com 1 clique.</span>
+    </td></tr>`;
   }else{
     filtradas.forEach((p) => {
       const tr = document.createElement('tr');

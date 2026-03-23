@@ -23,10 +23,17 @@
       <header class="topbar">
         <div class="topbar-title">
           <span class="eyebrow">Comercial</span>
-          <h1>Propostas</h1>
+          <h1 style="margin-bottom: 4px;">Propostas</h1>
+          <span style="font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px;">
+            Crie, gerencie e envie direto pelo <i class="fa-brands fa-whatsapp" style="color: #25d366; font-size: 15px;"></i> <strong>WhatsApp</strong>
+          </span>
         </div>
 
-        <div class="topbar-actions">
+        <div class="topbar-actions" style="align-items: center;">
+          <div style="background: rgba(37, 211, 102, 0.15); color: #1da851; border: 1px solid rgba(37, 211, 102, 0.3); padding: 6px 12px; border-radius: 99px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; margin-right: 8px;">
+            <i class="fa-brands fa-whatsapp"></i> Integrado ao WPP
+          </div>
+
           <button class="btn btn-secondary" type="button" id="btn-configurar-campos">
             <i class="fa-solid fa-sliders" style="margin-right: 6px;"></i> Configurar campos
           </button>
@@ -67,7 +74,6 @@
         </div>
       </article>
 
-      <!-- MODAL PROPOSTA -->
       <div class="modal-overlay" id="proposal-modal">
         <div class="modal-content modal-lg" style="max-width: 900px;" data-close-target="false">
           <div class="modal-header" style="align-items: flex-start;">
@@ -84,7 +90,7 @@
               </button>
 
               <button type="button" class="btn btn-secondary" id="btn-whatsapp-proposta" style="display:none;">
-                <i class="fa-brands fa-whatsapp" style="margin-right: 6px;"></i> WhatsApp
+                <i class="fa-brands fa-whatsapp" style="margin-right: 6px; color: #25d366;"></i> WhatsApp
               </button>
 
               <button type="button" class="btn btn-secondary" id="btn-fechar-modal">Cancelar</button>
@@ -199,7 +205,6 @@
         </div>
       </div>
 
-      <!-- MODAL CONFIGURAR CAMPOS -->
       <div class="modal-overlay" id="fields-config-modal">
         <div class="modal-content modal-xl" style="max-width: 1120px;" data-close-target="false">
           <div class="modal-header" style="align-items: flex-start;">
@@ -348,7 +353,6 @@
         </div>
       </div>
 
-      <!-- CONFIRM -->
       <div class="modal-overlay" id="Valora-confirm-backdrop">
         <div class="modal-content" style="max-width: 400px; text-align: center;">
           <div class="modal-body" style="padding-top: 24px;">

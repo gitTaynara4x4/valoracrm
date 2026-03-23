@@ -70,6 +70,11 @@ a { text-decoration: none; color: inherit; }
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
+  
+  /* Flexbox para empurrar o footer sempre pro final */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 /* Header */
@@ -487,3 +492,99 @@ a { text-decoration: none; color: inherit; }
 
 .valora-toast.success { border-bottom: 3px solid var(--brand); }
 .valora-toast.error { border-bottom: 3px solid #ef4444; }
+
+/* =========================================
+   FOOTER GLOBAL
+   ========================================= */
+.valora-footer {
+  margin-top: auto; /* Joga o footer pro final da tela sempre */
+  padding: 32px 0 0 0;
+  margin-top: 40px;
+  border-top: 1px solid var(--border);
+}
+
+.footer-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.footer-version {
+  background: var(--panel-hover);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+}
+
+.footer-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  transition: color 0.2s ease;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--brand);
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 8px rgba(16, 163, 127, 0.4);
+}
+
+.footer-links {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.footer-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.footer-content a {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer-content a:hover {
+  color: var(--brand);
+}
+
+@media (max-width: 768px) {
+  .footer-content {
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+  }
+  
+  .footer-left {
+    justify-content: center;
+  }
+  
+  .footer-links {
+    justify-content: center;
+  }
+  
+  .footer-divider {
+    display: none;
+  }
+}

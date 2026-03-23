@@ -110,3 +110,41 @@ window.showToast = function(message, type = 'success') {
     setTimeout(() => toast.remove(), 400); 
   }, 3500);
 };
+
+// ==========================================
+// FOOTER GLOBAL AUTOMÁTICO (NOVO E COMPLETO)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+  const mainElement = document.querySelector('.main');
+
+  if (mainElement) {
+    const footer = document.createElement('footer');
+    footer.className = 'valora-footer';
+    
+    footer.innerHTML = `
+      <div class="footer-content">
+        <div class="footer-left">
+          <span>&copy; 2026 Valora CRM.</span>
+          <span class="footer-version">v1.0.0</span>
+          <a href="#" class="footer-status" title="Verificar status dos servidores">
+            <span class="status-dot"></span>
+            Sistemas Operacionais
+          </a>
+        </div>
+
+        <div class="footer-links">
+          <a href="#"><i class="fa-solid fa-headset" style="margin-right: 4px;"></i> Suporte</a>
+          <a href="#">Privacidade</a>
+          <a href="#">Termos</a>
+          
+          <div class="footer-divider"></div>
+          
+          <a href="#" title="Nosso Instagram"><i class="fa-brands fa-instagram" style="font-size: 16px;"></i></a>
+          <a href="#" title="Nosso LinkedIn"><i class="fa-brands fa-linkedin" style="font-size: 16px;"></i></a>
+        </div>
+      </div>
+    `;
+
+    mainElement.appendChild(footer);
+  }
+});
