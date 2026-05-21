@@ -6,7 +6,7 @@ import re
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
-
+from backend.routers.area_cliente_acessos_admin import router as area_cliente_acessos_admin_router
 from backend.routers import cadastro
 from backend.routers.clientes import router as clientes_router
 from backend.routers.fornecedores import router as fornecedores_router
@@ -19,6 +19,9 @@ from backend.routers.usuarios import router as usuarios_router
 from backend.routers.permissoes import router as permissoes_router
 from backend.routers import empresa
 from backend.routers import propostas, campos_propostas
+from backend.routers.area_cliente_admin import router as area_cliente_admin_router
+from backend.routers.contratos_admin import router as contratos_admin_router
+
 
 # ============================================
 # Paths básicos
@@ -223,6 +226,9 @@ app.include_router(usuarios_router)
 app.include_router(permissoes_router)
 app.include_router(propostas.router)
 app.include_router(campos_propostas.router)
+app.include_router(area_cliente_admin_router)
+app.include_router(contratos_admin_router)
+app.include_router(area_cliente_acessos_admin_router)
 
 # ============================================
 # Helpers

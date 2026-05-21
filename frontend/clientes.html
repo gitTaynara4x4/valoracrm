@@ -9,14 +9,56 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
   <link rel="stylesheet" href="/frontend/css/app.css" />
   <link rel="stylesheet" href="/frontend/css/clientes.css" />
-  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="/frontend/js/pages/app.js" defer></script>
-  <script src="/frontend/js/pages/clientes.js" defer></script>
-</head>
+  <script type="module" src="/frontend/js/pages/clientes/index.js"></script>
 
+  <style>
+    .filters-grid { display:grid; grid-template-columns: 2fr repeat(3, minmax(160px, 1fr)); gap:12px; margin-bottom:20px; }
+    .filters-grid .form-group { margin:0; }
+    .panel-card-table { padding:0; overflow:hidden; }
+    .badge-status { display:inline-flex; align-items:center; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; text-transform:capitalize; }
+    .badge-status.ativo { background:rgba(16,185,129,.12); color:#059669; }
+    .badge-status.inativo { background:rgba(107,114,128,.14); color:#6b7280; }
+    .badge-status.bloqueado { background:rgba(239,68,68,.12); color:#dc2626; }
+    .badge-tipo { display:inline-flex; align-items:center; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; background:rgba(59,130,246,.12); color:#2563eb; }
+    .modal-xl { width:min(1220px, calc(100vw - 32px)); max-height:calc(100vh - 32px); overflow:hidden; display:flex; flex-direction:column; }
+    .modal-xl .modal-body { overflow:auto; }
+    .cliente-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+    .cliente-tab-btn { border:1px solid var(--border); background:var(--panel); color:var(--muted); padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600; }
+    .cliente-tab-btn.active { background:rgba(59,130,246,.10); border-color:rgba(59,130,246,.24); color:var(--text); }
+    .cliente-tab { display:none; }
+    .cliente-tab.active { display:block; }
+    .section-card { border:1px solid var(--border); border-radius:16px; padding:18px; background:var(--panel); margin-bottom:16px; }
+    .section-card h4 { margin:0 0 14px; font-size:15px; }
+    .mini-actions { display:flex; gap:10px; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .mini-actions .left { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .mini-list { display:flex; flex-direction:column; gap:10px; }
+    .mini-item { border:1px solid var(--border); border-radius:14px; padding:14px; background:var(--bg); }
+    .mini-item-grid { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:12px; }
+    .mini-item-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+    .empty-soft { border:1px dashed var(--border); border-radius:14px; padding:18px; text-align:center; color:var(--muted); }
+    .subtle { color:var(--muted); font-size:13px; }
+    .history-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:16px; }
+    .history-box { border:1px solid var(--border); border-radius:14px; padding:16px; background:var(--bg); }
+    .history-box h5 { margin:0 0 10px; font-size:14px; }
+    .history-list { display:flex; flex-direction:column; gap:10px; }
+    .history-item { border-bottom:1px solid var(--border); padding-bottom:10px; }
+    .history-item:last-child { border-bottom:none; padding-bottom:0; }
+    .anexo-row { display:flex; justify-content:space-between; gap:12px; align-items:center; border:1px solid var(--border); border-radius:14px; padding:12px 14px; background:var(--bg); }
+    .stack { display:flex; flex-direction:column; gap:10px; }
+    .footer-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:8px; padding-top:10px; border-top:1px solid var(--border); }
+    .toast-message { position:fixed; left:50%; transform:translateX(-50%); bottom:-80px; background:#111827; color:#fff; padding:12px 18px; border-radius:999px; box-shadow:0 10px 30px rgba(0,0,0,.22); z-index:99999; transition:bottom .22s ease; font-size:14px; font-weight:600; }
+    .toast-message.show { bottom:24px; }
+    .toast-message.is-error { background:#dc2626; }
+    @media (max-width: 900px) {
+      .filters-grid { grid-template-columns: 1fr; }
+      .mini-item-grid, .history-grid { grid-template-columns: 1fr; }
+      .modal-xl { width:min(100vw, calc(100vw - 16px)); max-height:calc(100vh - 16px); }
+    }
+  </style>
+</head>
 <body>
   <div class="layout">
     <iframe src="/frontend/partials/sidebar.html" class="sidebar-frame" title="Menu lateral"></iframe>
@@ -24,74 +66,92 @@
     <main class="main">
       <header class="topbar">
         <div class="topbar-title">
-          <span class="eyebrow">Gestão de Base</span>
+          <span class="eyebrow">Cadastros</span>
           <h1>Clientes</h1>
         </div>
 
         <div class="topbar-actions">
-          <button class="btn btn-secondary" type="button" id="btn-importar-clientes" title="Importar clientes (JSON/CSV/XLSX)">
-            <i class="fa-solid fa-file-import" style="margin-right: 6px;"></i> Importar
+          <button class="btn btn-secondary" type="button" id="btn-exportar-clientes-json">
+            <i class="fa-solid fa-file-code"></i> Exportar JSON
           </button>
           <button class="btn btn-secondary" type="button" id="btn-exportar-clientes-csv">
-            <i class="fa-solid fa-file-csv" style="margin-right: 6px;"></i> Exportar CSV
+            <i class="fa-solid fa-file-csv"></i> Exportar CSV
           </button>
-          <button class="btn btn-secondary" type="button" id="btn-novo-campo">
-            <i class="fa-solid fa-sliders" style="margin-right: 6px;"></i> Novo campo
+          <button class="btn btn-secondary" type="button" id="btn-importar-clientes">
+            <i class="fa-solid fa-file-import"></i> Importar
           </button>
           <button class="btn btn-primary" type="button" id="btn-novo-cliente">
-            <i class="fa-solid fa-user-plus" style="margin-right: 6px;"></i> Novo cliente
+            <i class="fa-solid fa-user-plus"></i> Novo cliente
           </button>
-          
           <input id="input-importar-clientes" type="file" accept=".json,.csv,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
         </div>
       </header>
 
-      <div class="search-row">
-        <div class="search-box">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input id="busca-clientes" type="text" placeholder="Buscar por nome, código, WhatsApp, e-mail..." autocomplete="off" />
+      <article class="panel-card" style="margin-bottom:20px;">
+        <div class="panel-head">
+          <h3>Localizar clientes</h3>
+          <p>Filtro rápido por nome, código, documento, contato e cidade.</p>
         </div>
-        <span id="contagem-clientes" class="counter-text">0 clientes</span>
-      </div>
 
-      <article class="panel-card" style="margin-bottom: 24px;">
-        <div class="panel-head" style="display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <h3>Campos personalizados</h3>
-            <p>Esses campos aparecem somente para sua empresa.</p>
+        <div class="filters-grid">
+          <div class="form-group">
+            <label for="filtro-busca">Busca</label>
+            <input id="filtro-busca" type="text" placeholder="Nome, código, CPF/CNPJ, telefone, e-mail..." />
           </div>
-          <button class="btn btn-secondary btn-sm" type="button" id="btn-novo-campo-inline">
-            <i class="fa-solid fa-plus" style="margin-right: 6px;"></i> Adicionar campo
-          </button>
+          <div class="form-group">
+            <label for="filtro-tipo">Tipo</label>
+            <select id="filtro-tipo">
+              <option value="">Todos</option>
+              <option value="PF">Pessoa Física</option>
+              <option value="PJ">Pessoa Jurídica</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="filtro-situacao">Situação</label>
+            <select id="filtro-situacao">
+              <option value="">Todas</option>
+              <option value="ativo">Ativos</option>
+              <option value="inativo">Inativos</option>
+              <option value="bloqueado">Bloqueados</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="filtro-cidade">Cidade</label>
+            <input id="filtro-cidade" type="text" placeholder="Cidade" />
+          </div>
         </div>
-        <div id="lista-campos-clientes" class="campos-grid">
-          <div class="empty-state">Nenhum campo personalizado criado ainda.</div>
+
+        <div class="footer-actions" style="border-top:none; padding-top:0;">
+          <span id="contagem-clientes" class="counter-text" style="margin-right:auto;">0 clientes</span>
+          <button class="btn btn-secondary" type="button" id="btn-limpar-filtros">Limpar filtros</button>
+          <button class="btn btn-primary" type="button" id="btn-filtrar-clientes">Filtrar</button>
         </div>
       </article>
 
-      <article class="panel-card" style="padding: 0;">
+      <article class="panel-card panel-card-table">
         <div class="valora-table-wrapper">
           <table class="valora-table">
             <thead>
               <tr>
                 <th>Código</th>
-                <th>Cliente</th>
-                <th>WhatsApp</th>
-                <th>E-mail</th>
-                <th style="text-align: right;">Ações</th>
+                <th>Tipo</th>
+                <th>Nome / Razão Social</th>
+                <th>Documento</th>
+                <th>Cidade / UF</th>
+                <th>Contato</th>
+                <th>Situação</th>
+                <th style="text-align:right;">Ações</th>
               </tr>
             </thead>
             <tbody id="tbody-clientes">
-              <tr>
-                <td colspan="5" class="empty-state" style="border: none; text-align: center;">Carregando...</td>
-              </tr>
+              <tr><td colspan="8" class="empty-state" style="border:none; text-align:center;">Carregando...</td></tr>
             </tbody>
           </table>
         </div>
       </article>
 
       <div class="modal-overlay" id="modal-cliente-backdrop" hidden>
-        <div class="modal-content modal-lg">
+        <div class="modal-content modal-xl" data-close-target="false">
           <div class="modal-header">
             <h3 id="modal-cliente-titulo">Novo cliente</h3>
             <button class="btn-close" type="button" id="btn-fechar-modal-cliente"><i class="fa-solid fa-xmark"></i></button>
@@ -99,116 +159,373 @@
 
           <div class="modal-body">
             <form class="valora-form" id="formCliente">
-              <h4 class="section-title">Dados padrão</h4>
-              
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="campo-codigo-cliente">Código</label>
-                  <input type="text" id="campo-codigo-cliente" placeholder="CLI-0001" disabled />
-                </div>
-                <div class="form-group">
-                  <label for="campo-nome-cliente">Nome Completo / Empresa *</label>
-                  <input type="text" id="campo-nome-cliente" required placeholder="Ex: João da Silva" />
-                </div>
+              <div class="cliente-tabs">
+                <button type="button" class="cliente-tab-btn active" data-tab="tab-cadastro">Cadastro</button>
+                <button type="button" class="cliente-tab-btn" data-tab="tab-enderecos">Endereços</button>
+                <button type="button" class="cliente-tab-btn" data-tab="tab-dados-adicionais">Dados adicionais</button>
+                <button type="button" class="cliente-tab-btn" data-tab="tab-ocorrencias">Ocorrências</button>
+                <button type="button" class="cliente-tab-btn" data-tab="tab-anexos">Anexos</button>
+                <button type="button" class="cliente-tab-btn" data-tab="tab-historico">Histórico</button>
               </div>
 
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="campo-whatsapp-cliente">WhatsApp</label>
-                  <input type="text" id="campo-whatsapp-cliente" placeholder="(11) 99999-9999" />
-                </div>
-                <div class="form-group">
-                  <label for="campo-email-cliente">E-mail</label>
-                  <input type="email" id="campo-email-cliente" placeholder="email@empresa.com" />
-                </div>
-              </div>
+              <section class="cliente-tab active" id="tab-cadastro">
+                <article class="section-card">
+                  <h4>Identificação principal</h4>
 
-              <h4 class="section-title" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">Campos Personalizados</h4>
-              <div id="custom-fields-container" class="form-row">
-                <div class="empty-state" style="grid-column: 1 / -1;">Nenhum campo personalizado cadastrado.</div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-codigo">Código</label>
+                      <input type="text" id="campo-codigo" disabled />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-tipo-pessoa">Tipo</label>
+                      <select id="campo-tipo-pessoa">
+                        <option value="PF">Pessoa Física</option>
+                        <option value="PJ">Pessoa Jurídica</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-situacao">Situação</label>
+                      <select id="campo-situacao">
+                        <option value="ativo">Ativo</option>
+                        <option value="inativo">Inativo</option>
+                        <option value="bloqueado">Bloqueado</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-nome">Nome / Razão Social *</label>
+                      <input type="text" id="campo-nome" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-nome-fantasia">Nome Fantasia</label>
+                      <input type="text" id="campo-nome-fantasia" />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-cpf-cnpj">CPF / CNPJ</label>
+                      <input type="text" id="campo-cpf-cnpj" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-rg-ie">RG / Inscrição Estadual</label>
+                      <input type="text" id="campo-rg-ie" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-inscricao-municipal">Inscrição Municipal</label>
+                      <input type="text" id="campo-inscricao-municipal" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-suframa">Suframa</label>
+                      <input type="text" id="campo-suframa" />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-data-nascimento">Data de Nascimento</label>
+                      <input type="date" id="campo-data-nascimento" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-codigo-referencia">Cód. Referência</label>
+                      <input type="text" id="campo-codigo-referencia" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-retencao-percentual">% Retenção</label>
+                      <input type="text" id="campo-retencao-percentual" placeholder="0,00" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-site">Site</label>
+                      <input type="text" id="campo-site" />
+                    </div>
+                  </div>
+                </article>
+
+                <article class="section-card">
+                  <h4>Contato</h4>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-telefone">Telefone</label>
+                      <input type="text" id="campo-telefone" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-whatsapp">WhatsApp</label>
+                      <input type="text" id="campo-whatsapp" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-fax">Fax</label>
+                      <input type="text" id="campo-fax" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-contato">Contato / Responsável</label>
+                      <input type="text" id="campo-contato" />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-email">E-mail principal</label>
+                      <input type="email" id="campo-email" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-email-nfe">E-mail NFe</label>
+                      <input type="email" id="campo-email-nfe" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-email-cobranca">E-mail cobrança</label>
+                      <input type="email" id="campo-email-cobranca" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-email-fiscal">E-mail fiscal</label>
+                      <input type="email" id="campo-email-fiscal" />
+                    </div>
+                  </div>
+                </article>
+
+                <article class="section-card">
+                  <h4>Comercial / classificação</h4>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-parceiro-comercial">Parceiro Comercial</label>
+                      <input type="text" id="campo-parceiro-comercial" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-percentual-comissao">% Comissão</label>
+                      <input type="text" id="campo-percentual-comissao" placeholder="0,00" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-percentual-desconto">% Desconto</label>
+                      <input type="text" id="campo-percentual-desconto" placeholder="0,00" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-modalidade-pagamento">Modalidade de Pagamento</label>
+                      <input type="text" id="campo-modalidade-pagamento" />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-regiao">Região</label>
+                      <input type="text" id="campo-regiao" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-segmento">Segmento</label>
+                      <input type="text" id="campo-segmento" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-classificacao">Classificação</label>
+                      <input type="text" id="campo-classificacao" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-pais">País</label>
+                      <input type="text" id="campo-pais" />
+                    </div>
+                  </div>
+                </article>
+
+                <article class="section-card">
+                  <h4>Endereço principal</h4>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-cep">CEP</label>
+                      <input type="text" id="campo-cep" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-endereco">Endereço</label>
+                      <input type="text" id="campo-endereco" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-numero">Número</label>
+                      <input type="text" id="campo-numero" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-complemento">Complemento</label>
+                      <input type="text" id="campo-complemento" />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-bairro">Bairro</label>
+                      <input type="text" id="campo-bairro" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-cidade">Cidade</label>
+                      <input type="text" id="campo-cidade" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-estado">UF</label>
+                      <input type="text" id="campo-estado" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-codigo-ibge-cidade">Cód. IBGE Cidade</label>
+                      <input type="text" id="campo-codigo-ibge-cidade" />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-codigo-ibge-uf">Cód. IBGE UF</label>
+                      <input type="text" id="campo-codigo-ibge-uf" />
+                    </div>
+                    <div class="form-group" style="grid-column: span 3;">
+                      <label for="campo-observacoes">Observações</label>
+                      <textarea id="campo-observacoes" rows="4"></textarea>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="section-card">
+                  <div class="panel-head" style="margin-bottom:14px;">
+                    <h3>Campos personalizados</h3>
+                    <p>Compatibilidade com o Valora atual.</p>
+                  </div>
+                  <div id="custom-fields-container" class="form-row"></div>
+                </article>
+              </section>
+
+              <section class="cliente-tab" id="tab-enderecos">
+                <div class="mini-actions">
+                  <div class="left">
+                    <strong>Endereços adicionais</strong>
+                    <span class="subtle">Cobrança, entrega, fiscal e outros.</span>
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-endereco">
+                    <i class="fa-solid fa-plus"></i> Adicionar endereço
+                  </button>
+                </div>
+                <div id="lista-enderecos" class="mini-list"></div>
+              </section>
+
+              <section class="cliente-tab" id="tab-dados-adicionais">
+                <article class="section-card">
+                  <div class="mini-actions">
+                    <div class="left">
+                      <strong>Referências comerciais</strong>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-ref-comercial">
+                      <i class="fa-solid fa-plus"></i> Adicionar
+                    </button>
+                  </div>
+                  <div id="lista-refs-comerciais" class="mini-list"></div>
+                </article>
+
+                <article class="section-card">
+                  <div class="mini-actions">
+                    <div class="left">
+                      <strong>Referências bancárias</strong>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-ref-bancaria">
+                      <i class="fa-solid fa-plus"></i> Adicionar
+                    </button>
+                  </div>
+                  <div id="lista-refs-bancarias" class="mini-list"></div>
+                </article>
+
+                <article class="section-card">
+                  <div class="mini-actions">
+                    <div class="left">
+                      <strong>Sócios</strong>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-socio">
+                      <i class="fa-solid fa-plus"></i> Adicionar
+                    </button>
+                  </div>
+                  <div id="lista-socios" class="mini-list"></div>
+                </article>
+              </section>
+
+              <section class="cliente-tab" id="tab-ocorrencias">
+                <div class="mini-actions">
+                  <div class="left">
+                    <strong>Ocorrências do cliente</strong>
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-ocorrencia">
+                    <i class="fa-solid fa-plus"></i> Nova ocorrência
+                  </button>
+                </div>
+                <div id="lista-ocorrencias" class="mini-list"></div>
+              </section>
+
+              <section class="cliente-tab" id="tab-anexos">
+                <article class="section-card">
+                  <div class="mini-actions">
+                    <div class="left">
+                      <strong>Anexos do cliente</strong>
+                      <span class="subtle">Salve o cadastro antes de enviar arquivos.</span>
+                    </div>
+                    <div class="left">
+                      <input type="text" id="anexo-descricao" placeholder="Descrição do anexo" />
+                      <input type="text" id="anexo-tipo" placeholder="Tipo do documento" />
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-escolher-anexo">
+                        <i class="fa-solid fa-paperclip"></i> Escolher arquivo
+                      </button>
+                      <input type="file" id="input-anexo" hidden />
+                    </div>
+                  </div>
+                  <div id="lista-anexos" class="stack"></div>
+                </article>
+              </section>
+
+              <section class="cliente-tab" id="tab-historico">
+                <div class="history-grid">
+                  <article class="history-box">
+                    <h5>Resumo</h5>
+                    <div id="historico-resumo" class="history-list"></div>
+                  </article>
+                  <article class="history-box">
+                    <h5>Últimas propostas</h5>
+                    <div id="historico-propostas" class="history-list"></div>
+                  </article>
+                </div>
+
+                <div class="history-grid" style="margin-top:16px;">
+                  <article class="history-box">
+                    <h5>Últimas ocorrências</h5>
+                    <div id="historico-ocorrencias" class="history-list"></div>
+                  </article>
+                  <article class="history-box">
+                    <h5>Visão geral</h5>
+                    <div class="subtle">
+                      Esta área já nasce pronta para receber compras, financeiro, O.S. e itens vendidos, assim que os próximos módulos forem implementados.
+                    </div>
+                  </article>
+                </div>
+              </section>
+
+              <div class="footer-actions">
+                <button type="button" class="btn btn-secondary" id="btn-cancelar-cliente">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="btn-salvar-cliente">
+                  <i class="fa-solid fa-floppy-disk"></i> Salvar cliente
+                </button>
               </div>
             </form>
-          </div>
-
-          <div class="modal-footer">
-            <button class="btn btn-secondary" type="button" id="btn-cancelar-cliente">Cancelar</button>
-            <button class="btn btn-primary" type="button" id="btn-salvar-cliente">Salvar Cliente</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-overlay" id="modal-campo-backdrop" hidden>
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3 id="modal-campo-titulo">Novo campo</h3>
-            <button class="btn-close" type="button" id="btn-fechar-modal-campo"><i class="fa-solid fa-xmark"></i></button>
-          </div>
-
-          <div class="modal-body">
-            <form class="valora-form">
-              <div class="form-group">
-                <label for="campo-custom-nome">Nome do campo</label>
-                <input type="text" id="campo-custom-nome" placeholder="Ex.: Origem do lead" />
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="campo-custom-tipo">Tipo de resposta</label>
-                  <select id="campo-custom-tipo">
-                    <option value="texto">Texto curto</option>
-                    <option value="textarea">Texto longo</option>
-                    <option value="numero">Número</option>
-                    <option value="data">Data</option>
-                    <option value="select">Lista de opções</option>
-                    <option value="checkbox">Caixa de seleção</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="campo-custom-ordem">Ordem no formulário</label>
-                  <input type="number" id="campo-custom-ordem" min="0" step="1" placeholder="0" />
-                </div>
-              </div>
-
-              <div class="form-group" id="wrap-custom-opcoes" hidden>
-                <label for="campo-custom-opcoes">Opções da lista (uma por linha)</label>
-                <textarea id="campo-custom-opcoes" rows="4" placeholder="Instagram&#10;Google&#10;Indicação"></textarea>
-              </div>
-
-              <div class="form-row" style="margin-top: 12px;">
-                <label class="custom-checkbox">
-                  <input type="checkbox" id="campo-custom-obrigatorio" />
-                  <span>Campo Obrigatório</span>
-                </label>
-                <label class="custom-checkbox">
-                  <input type="checkbox" id="campo-custom-ativo" checked />
-                  <span>Mostrar no formulário</span>
-                </label>
-              </div>
-            </form>
-          </div>
-
-          <div class="modal-footer">
-            <button class="btn btn-secondary" type="button" id="btn-cancelar-campo">Cancelar</button>
-            <button class="btn btn-primary" type="button" id="btn-salvar-campo">Salvar Campo</button>
           </div>
         </div>
       </div>
 
       <div class="modal-overlay" id="Valora-confirm-backdrop" hidden>
-        <div class="modal-content" style="max-width: 400px; text-align: center;">
-          <div class="modal-body" style="padding-top: 24px;">
-            <i class="fa-solid fa-triangle-exclamation" style="font-size: 40px; color: #ef4444; margin-bottom: 16px;"></i>
-            <h3 id="Valora-confirm-title" style="margin-bottom: 8px; font-size: 18px;">Confirmar</h3>
-            <p id="Valora-confirm-message" style="color: var(--muted); font-size: 14px; margin-bottom: 24px;"></p>
-            
-            <div style="display: flex; gap: 12px; justify-content: center;">
-              <button class="btn btn-secondary" id="Valora-confirm-cancel">Cancelar</button>
-              <button class="btn btn-primary" id="Valora-confirm-ok" style="background: #ef4444; border-color: #ef4444;">Excluir</button>
-            </div>
+        <div class="modal-content" style="max-width:420px;">
+          <div class="modal-header">
+            <h3 id="Valora-confirm-title">Confirmar</h3>
+          </div>
+          <div class="modal-body">
+            <p id="Valora-confirm-message" style="margin:0;"></p>
+          </div>
+          <div class="footer-actions">
+            <button type="button" class="btn btn-secondary" id="Valora-confirm-cancel">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="Valora-confirm-ok">Confirmar</button>
           </div>
         </div>
       </div>
 
+      <div id="valora-toast" class="toast-message" aria-live="polite"></div>
     </main>
   </div>
 </body>

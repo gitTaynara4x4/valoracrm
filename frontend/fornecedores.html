@@ -9,15 +9,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  
+
   <link rel="stylesheet" href="/frontend/css/app.css" />
   <link rel="stylesheet" href="/frontend/css/fornecedores.css" />
 
   <script src="/frontend/js/pages/app.js" defer></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="/frontend/js/pages/fornecedores.js" defer></script>
+  <script type="module" src="/frontend/js/pages/fornecedores/index.js"></script>
 </head>
-
 <body>
   <div class="layout">
     <iframe src="/frontend/partials/sidebar.html" class="sidebar-frame" title="Menu lateral"></iframe>
@@ -25,43 +24,74 @@
     <main class="main">
       <header class="topbar">
         <div class="topbar-title">
-          <span class="eyebrow">Gestão de Base</span>
+          <span class="eyebrow">Cadastros</span>
           <h1>Fornecedores</h1>
         </div>
 
         <div class="topbar-actions">
-          <button class="btn btn-secondary" type="button" id="btn-importar-fornecedores">
-            <i class="fa-solid fa-file-import" style="margin-right: 6px;"></i> Importar
+          <button class="btn btn-secondary" type="button" id="btn-exportar-fornecedores-json">
+            <i class="fa-solid fa-file-code"></i> Exportar JSON
           </button>
           <button class="btn btn-secondary" type="button" id="btn-exportar-fornecedores-csv">
-            <i class="fa-solid fa-file-csv" style="margin-right: 6px;"></i> CSV
+            <i class="fa-solid fa-file-csv"></i> Exportar CSV
+          </button>
+          <button class="btn btn-secondary" type="button" id="btn-importar-fornecedores">
+            <i class="fa-solid fa-file-import"></i> Importar
           </button>
           <button class="btn btn-secondary" type="button" id="btn-novo-campo">
-            <i class="fa-solid fa-sliders" style="margin-right: 6px;"></i> Novo campo
+            <i class="fa-solid fa-sliders"></i> Novo campo
           </button>
           <button class="btn btn-primary" type="button" id="btn-novo-fornecedor">
-            <i class="fa-solid fa-truck" style="margin-right: 6px;"></i> Novo Fornecedor
+            <i class="fa-solid fa-truck"></i> Novo fornecedor
           </button>
-          
-          <input id="input-importar-fornecedores" type="file" accept=".json,.csv,.xlsx,text/csv" hidden />
+          <input id="input-importar-fornecedores" type="file" accept=".json,.csv,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
         </div>
       </header>
 
-      <div class="search-row">
-        <div class="search-box">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input id="busca-fornecedores" type="text" placeholder="Buscar por nome, código, WhatsApp..." autocomplete="off" />
+      <article class="panel-card" style="margin-bottom:20px;">
+        <div class="panel-head">
+          <h3>Localizar fornecedores</h3>
+          <p>Filtro rápido por nome, código, documento, contato e cidade.</p>
         </div>
-        <span id="contagem-fornecedores" class="counter-text">0 fornecedores</span>
-      </div>
 
-      <article class="panel-card" style="margin-bottom: 24px;">
-        <div class="panel-head" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="filters-grid">
+          <div class="form-group">
+            <label for="filtro-busca">Busca</label>
+            <input id="filtro-busca" type="text" placeholder="Nome, código, CNPJ/CPF, telefone, e-mail..." />
+          </div>
+          <div class="form-group">
+            <label for="filtro-tipo">Tipo</label>
+            <input id="filtro-tipo" type="text" placeholder="Distribuidor, fábrica..." />
+          </div>
+          <div class="form-group">
+            <label for="filtro-situacao">Situação</label>
+            <select id="filtro-situacao">
+              <option value="">Todas</option>
+              <option value="ativo">Ativos</option>
+              <option value="inativo">Inativos</option>
+              <option value="bloqueado">Bloqueados</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="filtro-cidade">Cidade</label>
+            <input id="filtro-cidade" type="text" placeholder="Cidade" />
+          </div>
+        </div>
+
+        <div class="footer-actions" style="border-top:none; padding-top:0;">
+          <span id="contagem-fornecedores" class="counter-text" style="margin-right:auto;">0 fornecedores</span>
+          <button class="btn btn-secondary" type="button" id="btn-limpar-filtros-fornecedores">Limpar filtros</button>
+          <button class="btn btn-primary" type="button" id="btn-filtrar-fornecedores">Filtrar</button>
+        </div>
+      </article>
+
+      <article class="panel-card" style="margin-bottom:24px;">
+        <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <h3>Campos personalizados</h3>
             <p>Campos exclusivos para o cadastro dos seus fornecedores.</p>
           </div>
-          <button class="btn btn-secondary" type="button" id="btn-novo-campo-inline" style="padding: 6px 12px; min-height: auto;">
+          <button class="btn btn-secondary" type="button" id="btn-novo-campo-inline" style="padding:6px 12px; min-height:auto;">
             <i class="fa-solid fa-plus"></i>
           </button>
         </div>
@@ -70,27 +100,30 @@
         </div>
       </article>
 
-      <article class="panel-card" style="padding: 0;">
-        <div class="valora-table-wrapper" style="overflow-x: auto;">
+      <article class="panel-card panel-card-table">
+        <div class="valora-table-wrapper">
           <table class="valora-table">
             <thead>
               <tr>
                 <th>Código</th>
+                <th>Tipo</th>
                 <th>Fornecedor</th>
-                <th>WhatsApp</th>
-                <th>E-mail</th>
-                <th style="text-align: right;">Ações</th>
+                <th>Documento</th>
+                <th>Cidade / UF</th>
+                <th>Contato</th>
+                <th>Situação</th>
+                <th style="text-align:right;">Ações</th>
               </tr>
             </thead>
             <tbody id="tbody-fornecedores">
-              <tr><td colspan="5" class="empty-state" style="text-align: center; border:none;">Carregando...</td></tr>
+              <tr><td colspan="8" class="empty-state" style="text-align:center; border:none;">Carregando...</td></tr>
             </tbody>
           </table>
         </div>
       </article>
 
       <div class="modal-overlay" id="modal-fornecedor-backdrop" hidden>
-        <div class="modal-content modal-lg">
+        <div class="modal-content modal-xl">
           <div class="modal-header">
             <h3 id="modal-fornecedor-titulo">Novo fornecedor</h3>
             <button class="btn-close" type="button" id="btn-fechar-modal-fornecedor"><i class="fa-solid fa-xmark"></i></button>
@@ -98,56 +131,211 @@
 
           <div class="modal-body">
             <form class="valora-form" id="formFornecedor">
-              <h4 class="section-title">Dados padrão</h4>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="campo-codigo-fornecedor">Código</label>
-                  <input type="text" id="campo-codigo-fornecedor" disabled />
-                </div>
-                <div class="form-group">
-                  <label for="campo-nome-fornecedor">Nome Completo / Empresa *</label>
-                  <input type="text" id="campo-nome-fornecedor" required placeholder="Ex: Distribuidora XYZ" />
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="campo-whatsapp-fornecedor">WhatsApp</label>
-                  <input type="text" id="campo-whatsapp-fornecedor" placeholder="(11) 99999-9999" />
-                </div>
-                <div class="form-group">
-                  <label for="campo-email-fornecedor">E-mail</label>
-                  <input type="email" id="campo-email-fornecedor" placeholder="contato@fornecedor.com" />
-                </div>
+              <div class="fornecedor-tabs">
+                <button type="button" class="fornecedor-tab-btn active" data-tab="tab-fornecedor-cadastro">Cadastro</button>
+                <button type="button" class="fornecedor-tab-btn" data-tab="tab-fornecedor-endereco">Endereço</button>
+                <button type="button" class="fornecedor-tab-btn" data-tab="tab-fornecedor-adicional">Dados adicionais</button>
               </div>
 
-              <h4 class="section-title" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">Campos Personalizados</h4>
-              <div id="custom-fields-container" class="form-row"></div>
+              <section class="fornecedor-tab active" id="tab-fornecedor-cadastro">
+                <article class="section-card">
+                  <h4>Identificação principal</h4>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-codigo-fornecedor">Código</label>
+                      <input type="text" id="campo-codigo-fornecedor" disabled />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-tipo-fornecedor">Tipo de fornecedor</label>
+                      <input type="text" id="campo-tipo-fornecedor" placeholder="Ex: Distribuidor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-situacao-fornecedor">Situação</label>
+                      <select id="campo-situacao-fornecedor">
+                        <option value="ativo">Ativo</option>
+                        <option value="inativo">Inativo</option>
+                        <option value="bloqueado">Bloqueado</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-nome-fornecedor">Nome / Razão social *</label>
+                      <input type="text" id="campo-nome-fornecedor" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-nome-fantasia-fornecedor">Nome fantasia</label>
+                      <input type="text" id="campo-nome-fantasia-fornecedor" />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-cpf-cnpj-fornecedor">CPF / CNPJ</label>
+                      <input type="text" id="campo-cpf-cnpj-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-ie-fornecedor">Inscrição Estadual</label>
+                      <input type="text" id="campo-ie-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-im-fornecedor">Inscrição Municipal</label>
+                      <input type="text" id="campo-im-fornecedor" />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-contato-fornecedor">Contato / Responsável</label>
+                      <input type="text" id="campo-contato-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-telefone-fornecedor">Telefone</label>
+                      <input type="text" id="campo-telefone-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-whatsapp-fornecedor">WhatsApp</label>
+                      <input type="text" id="campo-whatsapp-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-fax-fornecedor">Fax</label>
+                      <input type="text" id="campo-fax-fornecedor" />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-email-fornecedor">E-mail</label>
+                      <input type="email" id="campo-email-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-site-fornecedor">Site</label>
+                      <input type="text" id="campo-site-fornecedor" />
+                    </div>
+                  </div>
+                </article>
+              </section>
+
+              <section class="fornecedor-tab" id="tab-fornecedor-endereco">
+                <article class="section-card">
+                  <h4>Endereço</h4>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-cep-fornecedor">CEP</label>
+                      <input type="text" id="campo-cep-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-endereco-fornecedor">Endereço</label>
+                      <input type="text" id="campo-endereco-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-numero-fornecedor">Número</label>
+                      <input type="text" id="campo-numero-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-complemento-fornecedor">Complemento</label>
+                      <input type="text" id="campo-complemento-fornecedor" />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-bairro-fornecedor">Bairro</label>
+                      <input type="text" id="campo-bairro-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-cidade-fornecedor">Cidade</label>
+                      <input type="text" id="campo-cidade-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-estado-fornecedor">UF</label>
+                      <input type="text" id="campo-estado-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-pais-fornecedor">País</label>
+                      <input type="text" id="campo-pais-fornecedor" />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-ibge-cidade-fornecedor">Cód. IBGE Cidade</label>
+                      <input type="text" id="campo-ibge-cidade-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-ibge-uf-fornecedor">Cód. IBGE UF</label>
+                      <input type="text" id="campo-ibge-uf-fornecedor" />
+                    </div>
+                  </div>
+                </article>
+              </section>
+
+              <section class="fornecedor-tab" id="tab-fornecedor-adicional">
+                <article class="section-card">
+                  <h4>Comercial / financeiro</h4>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="campo-limite-compras-fornecedor">Limite de compras</label>
+                      <input type="text" id="campo-limite-compras-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-classificacao-fornecedor">Classificação</label>
+                      <input type="text" id="campo-classificacao-fornecedor" />
+                    </div>
+                    <div class="form-group">
+                      <label for="campo-plano-contas-fornecedor">Plano de contas</label>
+                      <input type="text" id="campo-plano-contas-fornecedor" />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group" style="grid-column:1 / -1;">
+                      <label for="campo-observacoes-fornecedor">Observações</label>
+                      <textarea id="campo-observacoes-fornecedor" rows="4"></textarea>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="section-card">
+                  <div class="panel-head" style="margin-bottom:14px;">
+                    <h3>Campos personalizados</h3>
+                    <p>Compatibilidade com a base atual do Valora.</p>
+                  </div>
+                  <div id="custom-fields-container" class="form-row"></div>
+                </article>
+              </section>
+
+              <div class="footer-actions">
+                <button type="button" class="btn btn-secondary" id="btn-cancelar-fornecedor">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="btn-salvar-fornecedor">
+                  <i class="fa-solid fa-floppy-disk"></i> Salvar fornecedor
+                </button>
+              </div>
             </form>
-          </div>
-
-          <div class="modal-footer">
-            <button class="btn btn-secondary" type="button" id="btn-cancelar-fornecedor">Cancelar</button>
-            <button class="btn btn-primary" type="button" id="btn-salvar-fornecedor">Salvar Fornecedor</button>
           </div>
         </div>
       </div>
 
       <div class="modal-overlay" id="modal-campo-backdrop" hidden>
-        <div class="modal-content">
+        <div class="modal-content" style="max-width:560px;">
           <div class="modal-header">
             <h3 id="modal-campo-titulo">Novo campo</h3>
             <button class="btn-close" type="button" id="btn-fechar-modal-campo"><i class="fa-solid fa-xmark"></i></button>
           </div>
 
           <div class="modal-body">
-            <form class="valora-form">
-              <div class="form-group">
-                <label for="campo-custom-nome">Nome do campo</label>
-                <input type="text" id="campo-custom-nome" placeholder="Ex.: Categoria de Produto" />
-              </div>
+            <div class="valora-form">
               <div class="form-row">
                 <div class="form-group">
-                  <label for="campo-custom-tipo">Tipo de resposta</label>
+                  <label for="campo-custom-nome">Nome do campo *</label>
+                  <input type="text" id="campo-custom-nome" />
+                </div>
+                <div class="form-group">
+                  <label for="campo-custom-tipo">Tipo</label>
                   <select id="campo-custom-tipo">
                     <option value="texto">Texto curto</option>
                     <option value="textarea">Texto longo</option>
@@ -157,49 +345,61 @@
                     <option value="checkbox">Caixa de seleção</option>
                   </select>
                 </div>
+              </div>
+
+              <div class="form-row">
                 <div class="form-group">
-                  <label for="campo-custom-ordem">Ordem no formulário</label>
-                  <input type="number" id="campo-custom-ordem" min="0" step="1" placeholder="0" />
+                  <label for="campo-custom-ordem">Ordem</label>
+                  <input type="number" id="campo-custom-ordem" value="0" />
+                </div>
+                <div class="form-group">
+                  <label class="custom-checkbox" style="margin-top:32px;">
+                    <input type="checkbox" id="campo-custom-obrigatorio" />
+                    <span>Obrigatório</span>
+                  </label>
+                </div>
+                <div class="form-group">
+                  <label class="custom-checkbox" style="margin-top:32px;">
+                    <input type="checkbox" id="campo-custom-ativo" checked />
+                    <span>Ativo</span>
+                  </label>
                 </div>
               </div>
-              <div class="form-group" id="wrap-custom-opcoes" hidden>
-                <label for="campo-custom-opcoes">Opções da lista (uma por linha)</label>
-                <textarea id="campo-custom-opcoes" rows="4" placeholder="Opção A&#10;Opção B"></textarea>
+
+              <div class="form-row" id="wrap-custom-opcoes" hidden>
+                <div class="form-group" style="grid-column:1 / -1;">
+                  <label for="campo-custom-opcoes">Opções da lista (uma por linha)</label>
+                  <textarea id="campo-custom-opcoes" rows="6"></textarea>
+                </div>
               </div>
-              <div class="form-row" style="margin-top: 12px;">
-                <label class="custom-checkbox">
-                  <input type="checkbox" id="campo-custom-obrigatorio" />
-                  <span>Campo Obrigatório</span>
-                </label>
-                <label class="custom-checkbox">
-                  <input type="checkbox" id="campo-custom-ativo" checked />
-                  <span>Mostrar no formulário</span>
-                </label>
-              </div>
-            </form>
+            </div>
           </div>
 
-          <div class="modal-footer">
-            <button class="btn btn-secondary" type="button" id="btn-cancelar-campo">Cancelar</button>
-            <button class="btn btn-primary" type="button" id="btn-salvar-campo">Salvar Campo</button>
+          <div class="footer-actions">
+            <button type="button" class="btn btn-secondary" id="btn-cancelar-campo">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btn-salvar-campo">
+              <i class="fa-solid fa-floppy-disk"></i> Salvar campo
+            </button>
           </div>
         </div>
       </div>
 
       <div class="modal-overlay" id="Valora-confirm-backdrop" hidden>
-        <div class="modal-content" style="max-width: 400px; text-align: center;">
-          <div class="modal-body" style="padding-top: 24px;">
-            <i class="fa-solid fa-triangle-exclamation" style="font-size: 40px; color: var(--danger); margin-bottom: 16px;"></i>
-            <h3 id="Valora-confirm-title" style="margin-bottom: 8px;">Confirmar</h3>
-            <p id="Valora-confirm-message" style="color: var(--muted); font-size: 14px; margin-bottom: 24px;"></p>
-            <div style="display: flex; gap: 12px; justify-content: center;">
-              <button class="btn btn-secondary" id="Valora-confirm-cancel">Cancelar</button>
-              <button class="btn btn-primary" id="Valora-confirm-ok" style="background: var(--danger); border-color: var(--danger);">Excluir</button>
-            </div>
+        <div class="modal-content" style="max-width:420px;">
+          <div class="modal-header">
+            <h3 id="Valora-confirm-title">Confirmar</h3>
+          </div>
+          <div class="modal-body">
+            <p id="Valora-confirm-message" style="margin:0;"></p>
+          </div>
+          <div class="footer-actions">
+            <button type="button" class="btn btn-secondary" id="Valora-confirm-cancel">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="Valora-confirm-ok">Confirmar</button>
           </div>
         </div>
       </div>
 
+      <div id="valora-toast" class="toast-message" aria-live="polite"></div>
     </main>
   </div>
 </body>

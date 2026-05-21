@@ -6,8 +6,10 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     Column,
+    Date,
     DateTime,
     ForeignKey,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -221,8 +223,50 @@ class Cliente(Base):
 
     codigo = Column(String(50), nullable=False, index=True)
     nome = Column(String(180), nullable=False, index=True)
+    nome_fantasia = Column(String(180), nullable=True, index=True)
+
+    tipo_pessoa = Column(String(2), nullable=False, server_default="PF", index=True)
+    situacao = Column(String(20), nullable=False, server_default="ativo", index=True)
+
+    cpf_cnpj = Column(String(30), nullable=True, index=True)
+    rg_ie = Column(String(30), nullable=True)
+    inscricao_municipal = Column(String(30), nullable=True)
+    suframa = Column(String(30), nullable=True)
+
+    data_nascimento = Column(Date, nullable=True)
+    codigo_referencia = Column(String(50), nullable=True)
+    retencao_percentual = Column(Numeric(10, 2), nullable=True)
+
+    telefone = Column(String(30), nullable=True)
     whatsapp = Column(String(30), nullable=True, index=True)
+    fax = Column(String(30), nullable=True)
     email = Column(String(255), nullable=True, index=True)
+    email_nfe = Column(String(255), nullable=True)
+    email_cobranca = Column(String(255), nullable=True)
+    email_fiscal = Column(String(255), nullable=True)
+    site = Column(String(255), nullable=True)
+    contato = Column(String(120), nullable=True)
+
+    parceiro_comercial = Column(String(120), nullable=True)
+    percentual_comissao = Column(Numeric(10, 2), nullable=True)
+    percentual_desconto = Column(Numeric(10, 2), nullable=True)
+    regiao = Column(String(120), nullable=True)
+    segmento = Column(String(120), nullable=True)
+    modalidade_pagamento = Column(String(120), nullable=True)
+    classificacao = Column(String(120), nullable=True)
+
+    cep = Column(String(20), nullable=True)
+    endereco = Column(String(200), nullable=True)
+    numero = Column(String(20), nullable=True)
+    complemento = Column(String(120), nullable=True)
+    bairro = Column(String(120), nullable=True)
+    cidade = Column(String(120), nullable=True, index=True)
+    estado = Column(String(10), nullable=True, index=True)
+    pais = Column(String(120), nullable=True)
+    codigo_ibge_cidade = Column(String(20), nullable=True)
+    codigo_ibge_uf = Column(String(20), nullable=True)
+
+    observacoes = Column(Text, nullable=True)
 
     criado_em = Column(
         DateTime(timezone=True),
@@ -318,6 +362,222 @@ class ClienteCampoValor(Base):
 
     def __repr__(self) -> str:
         return f"<ClienteCampoValor id={self.id} cliente_id={self.cliente_id} campo_id={self.campo_id}>"
+
+
+class ClienteEndereco(Base):
+    __tablename__ = "clientes_enderecos"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    cliente_id = Column(
+        BigInteger,
+        ForeignKey("clientes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    tipo_endereco = Column(String(30), nullable=False, server_default="entrega", index=True)
+    descricao = Column(String(120), nullable=True)
+
+    cep = Column(String(20), nullable=True)
+    logradouro = Column(String(200), nullable=True)
+    numero = Column(String(20), nullable=True)
+    complemento = Column(String(120), nullable=True)
+    bairro = Column(String(120), nullable=True)
+    cidade = Column(String(120), nullable=True)
+    estado = Column(String(10), nullable=True)
+    pais = Column(String(120), nullable=True)
+    codigo_ibge_cidade = Column(String(20), nullable=True)
+    codigo_ibge_uf = Column(String(20), nullable=True)
+    email_destino = Column(String(255), nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ClienteReferenciaComercial(Base):
+    __tablename__ = "clientes_referencias_comerciais"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    cliente_id = Column(
+        BigInteger,
+        ForeignKey("clientes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    empresa_nome = Column(String(180), nullable=False)
+    telefone = Column(String(30), nullable=True)
+    data_ultima_compra = Column(Date, nullable=True)
+    valor_ultima_compra = Column(Numeric(14, 2), nullable=True)
+    valor_prestacao = Column(Numeric(14, 2), nullable=True)
+    vencimento_ultima_parcela = Column(Date, nullable=True)
+    observacoes = Column(Text, nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ClienteReferenciaBancaria(Base):
+    __tablename__ = "clientes_referencias_bancarias"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    cliente_id = Column(
+        BigInteger,
+        ForeignKey("clientes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    banco = Column(String(120), nullable=False)
+    agencia = Column(String(50), nullable=True)
+    conta_corrente = Column(String(80), nullable=True)
+    gerente = Column(String(120), nullable=True)
+    telefone_agencia = Column(String(30), nullable=True)
+    limite_credito = Column(Numeric(14, 2), nullable=True)
+    status = Column(String(20), nullable=True)
+    observacoes = Column(Text, nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ClienteSocio(Base):
+    __tablename__ = "clientes_socios"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    cliente_id = Column(
+        BigInteger,
+        ForeignKey("clientes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    nome = Column(String(180), nullable=False)
+    cpf = Column(String(30), nullable=True)
+    rg = Column(String(30), nullable=True)
+    data_nascimento = Column(Date, nullable=True)
+    telefone = Column(String(30), nullable=True)
+    cargo = Column(String(120), nullable=True)
+    participacao_percentual = Column(Numeric(10, 2), nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ClienteOcorrencia(Base):
+    __tablename__ = "clientes_ocorrencias"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    cliente_id = Column(
+        BigInteger,
+        ForeignKey("clientes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    data_movimento = Column(DateTime(timezone=True), nullable=True)
+    tipo = Column(String(50), nullable=True)
+    status = Column(String(50), nullable=True)
+    usuario_id = Column(BigInteger, nullable=True)
+    usuario_nome = Column(String(120), nullable=True)
+    descricao = Column(Text, nullable=False)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ClienteAnexo(Base):
+    __tablename__ = "clientes_anexos"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    cliente_id = Column(
+        BigInteger,
+        ForeignKey("clientes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    descricao = Column(String(180), nullable=True)
+    tipo_documento = Column(String(80), nullable=True)
+    arquivo_nome = Column(String(255), nullable=False)
+    arquivo_path = Column(Text, nullable=False)
+    usuario_id = Column(BigInteger, nullable=True)
+    usuario_nome = Column(String(120), nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 
 
 class Fornecedor(Base):

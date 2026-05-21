@@ -1,12 +1,16 @@
 /* =========================================
-   ESTILOS DA TELA DE CLIENTES
+   CLIENTES - CSS COMPLETO (VERSÃO NOVA)
+   Compatível com a tela nova de Clientes ERP
    ========================================= */
 
-/* Layout Superior (Busca) */
+/* =========================
+   TOPO / AÇÕES
+========================= */
 .topbar-actions {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .btn-sm {
@@ -15,11 +19,14 @@
   font-size: 12px;
 }
 
+/* legado */
 .search-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .search-box {
@@ -40,7 +47,10 @@
   box-shadow: 0 0 0 3px var(--brand-soft);
 }
 
-.search-box i { color: var(--muted); }
+.search-box i {
+  color: var(--muted);
+}
+
 .search-box input {
   background: transparent;
   border: none;
@@ -56,7 +66,23 @@
   font-weight: 500;
 }
 
-/* Campos Personalizados (Grid) */
+/* =========================
+   FILTROS NOVOS
+========================= */
+.filters-grid {
+  display: grid;
+  grid-template-columns: 2fr repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.filters-grid .form-group {
+  margin: 0;
+}
+
+/* =========================
+   CAMPOS PERSONALIZADOS
+========================= */
 .campos-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -71,6 +97,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 12px;
 }
 
 .campo-card strong {
@@ -101,6 +128,9 @@
   border-color: rgba(16,163,127,0.3);
 }
 
+/* =========================
+   CARDS / ESTADOS
+========================= */
 .empty-state {
   padding: 24px;
   text-align: center;
@@ -110,16 +140,39 @@
   border-radius: var(--radius);
 }
 
-/* Tabela */
+.empty-soft {
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.subtle {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.panel-card-table {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* =========================
+   TABELA
+========================= */
 .valora-table-wrapper {
   width: 100%;
   overflow-x: auto;
 }
+
 .valora-table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  min-width: 980px;
 }
+
 .valora-table th {
   padding: 16px 24px;
   border-bottom: 1px solid var(--border);
@@ -128,14 +181,20 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
+  background: var(--panel);
+  white-space: nowrap;
 }
+
 .valora-table td {
   padding: 16px 24px;
   border-bottom: 1px solid var(--border);
   font-size: 14px;
   vertical-align: middle;
 }
-.valora-table tr:hover td { background: var(--panel-hover); }
+
+.valora-table tr:hover td {
+  background: var(--panel-hover);
+}
 
 .badge-codigo {
   background: var(--bg);
@@ -145,6 +204,45 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
+  white-space: nowrap;
+}
+
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.badge-status.ativo {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.badge-status.inativo {
+  background: rgba(107, 114, 128, 0.14);
+  color: #6b7280;
+}
+
+.badge-status.bloqueado {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.badge-tipo {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  white-space: nowrap;
 }
 
 .btn-icon {
@@ -157,28 +255,37 @@
   transition: var(--transition);
   font-size: 14px;
 }
-.btn-icon:hover { background: var(--border); color: #fff; }
-.btn-icon.danger:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
 
+.btn-icon:hover {
+  background: var(--border);
+  color: #fff;
+}
 
-/* =========================================
-   MODAIS BASE (Animação Fluida a 60fps)
-   ========================================= */
+.btn-icon.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* =========================
+   MODAIS BASE
+========================= */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65); /* Fundo escuro liso (Sem blur para evitar lag) */
+  background: rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease; /* Anima só a opacidade */
+  transition: opacity 0.2s ease;
+  padding: 16px;
 }
-.modal-overlay.show { 
-  opacity: 1; 
-  pointer-events: auto; 
+
+.modal-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .modal-content {
@@ -191,19 +298,33 @@
   box-shadow: 0 20px 40px rgba(0,0,0,0.5);
   max-height: 90vh;
   overflow-y: auto;
-  
-  /* Estado inicial: Levemente menor e transparente */
   opacity: 0;
   transform: scale(0.96) translateY(10px);
-  
-  /* Anima apenas propriedades de alta performance (Transform e Opacity) */
-  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.2s ease;
 }
-.modal-lg { max-width: 760px; }
 
-.modal-overlay.show .modal-content { 
+.modal-lg {
+  max-width: 760px;
+}
+
+.modal-xl {
+  width: min(1220px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-xl .modal-body {
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.modal-overlay.show .modal-content {
   opacity: 1;
-  transform: scale(1) translateY(0); 
+  transform: scale(1) translateY(0);
 }
 
 .modal-header {
@@ -212,15 +333,28 @@
   align-items: center;
   margin-bottom: 24px;
 }
-.modal-header h3 { font-size: 18px; font-weight: 600; margin: 0; }
+
+.modal-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
 
 .btn-close {
-  background: transparent; border: none; color: var(--muted); cursor: pointer;
-  font-size: 18px; transition: var(--transition);
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+  transition: var(--transition);
 }
-.btn-close:hover { color: #fff; }
 
-.modal-footer {
+.btn-close:hover {
+  color: #fff;
+}
+
+.modal-footer,
+.footer-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
@@ -229,10 +363,169 @@
   border-top: 1px solid var(--border);
 }
 
+/* =========================
+   TABS DO CLIENTE
+========================= */
+.cliente-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
 
-/* =========================================
-   CORREÇÃO DOS FORMULÁRIOS
-   ========================================= */
+.cliente-tab-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.cliente-tab-btn:hover {
+  border-color: var(--brand);
+  color: var(--text);
+}
+
+.cliente-tab-btn.active {
+  background: rgba(59, 130, 246, 0.10);
+  border-color: rgba(59, 130, 246, 0.24);
+  color: var(--text);
+}
+
+.cliente-tab {
+  display: none;
+}
+
+.cliente-tab.active {
+  display: block;
+}
+
+/* =========================
+   SEÇÕES INTERNAS
+========================= */
+.section-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  background: var(--panel);
+  margin-bottom: 16px;
+}
+
+.section-card h4 {
+  margin: 0 0 14px;
+  font-size: 15px;
+}
+
+/* =========================
+   BLOCOS REPETÍVEIS
+========================= */
+.mini-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.mini-actions .left {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.mini-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mini-item {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--bg);
+}
+
+.mini-item-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mini-item-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* =========================
+   HISTÓRICO
+========================= */
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.history-box {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  background: var(--bg);
+}
+
+.history-box h5 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-item {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* =========================
+   ANEXOS
+========================= */
+.anexo-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: var(--bg);
+  flex-wrap: wrap;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* =========================
+   FORMULÁRIOS
+========================= */
 .valora-form select,
 .valora-form textarea {
   width: 100%;
@@ -254,6 +547,7 @@
 .valora-form textarea {
   height: auto;
   resize: vertical;
+  min-height: 42px;
 }
 
 .valora-form select:focus,
@@ -271,7 +565,7 @@
   cursor: pointer;
 }
 
-.custom-checkbox input[type="checkbox"] { 
+.custom-checkbox input[type="checkbox"] {
   width: 18px;
   height: 18px;
   margin: 0;
@@ -279,7 +573,6 @@
   cursor: pointer;
 }
 
-/* Estilo para campos bloqueados (Código do Cliente) */
 .valora-form input:disabled {
   background: rgba(255, 255, 255, 0.03);
   color: var(--muted);
@@ -287,7 +580,137 @@
   border-color: transparent;
 }
 
-/* Força o campo de Opções da Lista a sumir quando não for do tipo Select */
+/* =========================
+   TOAST
+========================= */
+.toast-message {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -80px;
+  background: #111827;
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.22);
+  z-index: 99999;
+  transition: bottom .22s ease;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.toast-message.show {
+  bottom: 24px;
+}
+
+.toast-message.is-error {
+  background: #dc2626;
+}
+
+/* =========================
+   UTILITÁRIOS
+========================= */
 #wrap-custom-opcoes[hidden] {
   display: none !important;
 }
+
+/* =========================
+   RESPONSIVO
+========================= */
+@media (max-width: 1100px) {
+  .filters-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mini-item-grid,
+  .history-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mini-item-grid,
+  .history-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-xl {
+    width: min(100vw, calc(100vw - 16px));
+    max-height: calc(100vh - 16px);
+  }
+
+  .topbar-actions {
+    width: 100%;
+  }
+
+  .topbar-actions .btn {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .valora-table {
+    min-width: 860px;
+  }
+
+  .modal-content {
+    padding: 18px;
+  }
+
+  .cliente-tab-btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .mini-actions,
+  .footer-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mini-actions .left {
+    width: 100%;
+  }
+}
+
+/* =========================================
+   FILTROS SUPERIORES - CAMPOS
+   ========================================= */
+.filters-grid input,
+.filters-grid select {
+  width: 100%;
+  height: 42px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 14px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: var(--transition);
+}
+
+.filters-grid input::placeholder {
+  color: var(--muted);
+}
+
+.filters-grid input:focus,
+.filters-grid select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.filters-grid label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
