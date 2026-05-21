@@ -6,7 +6,12 @@ import re
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
+
 from backend.routers.area_cliente_acessos_admin import router as area_cliente_acessos_admin_router
+from backend.routers.area_cliente_admin import router as area_cliente_admin_router
+from backend.routers.area_cliente_publica import router as area_cliente_publica_router
+from backend.routers.contratos_admin import router as contratos_admin_router
+
 from backend.routers import cadastro
 from backend.routers.clientes import router as clientes_router
 from backend.routers.fornecedores import router as fornecedores_router
@@ -19,14 +24,12 @@ from backend.routers.usuarios import router as usuarios_router
 from backend.routers.permissoes import router as permissoes_router
 from backend.routers import empresa
 from backend.routers import propostas, campos_propostas
-from backend.routers.area_cliente_admin import router as area_cliente_admin_router
-from backend.routers.contratos_admin import router as contratos_admin_router
 
 
 # ============================================
 # Paths básicos
 # ============================================
-BASE_DIR = Path(__file__).resolve().parent.parent  # pasta ValoraPro/
+BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
 UPLOADS_DIR = BASE_DIR / "uploads"
 
@@ -54,7 +57,7 @@ FAVICON_TAG_ALT = '<link rel="shortcut icon" type="image/jpeg" href="/frontend/i
 # ============================================
 # Auth global
 # Bloqueia tudo sem cookie "user_id",
-# exceto login e assets necessários do login
+# exceto login, assets necessários e APIs públicas liberadas
 # ============================================
 PUBLIC_EXACT_PATHS = {
     "/",
@@ -72,9 +75,10 @@ PUBLIC_EXACT_PATHS = {
 }
 
 PUBLIC_PREFIXES = (
-    "/api/auth",          # login/logout/refresh/etc
-    "/frontend/img/",     # logo/favicon usados no login
-    "/frontend/fonts/",   # fontes locais, se houver
+    "/api/auth",                  # login/logout/refresh/etc
+    "/api/area-cliente-publica",  # API pública usada pelo portal do cliente
+    "/frontend/img/",             # logo/favicon usados no login
+    "/frontend/fonts/",           # fontes locais, se houver
 )
 
 
@@ -82,8 +86,10 @@ def normalize_path(path: str) -> str:
     path = (path or "/").strip()
     if not path:
         return "/"
+
     path = path.split("?")[0].split("#")[0]
     path = path.rstrip("/")
+
     return path or "/"
 
 
@@ -127,7 +133,7 @@ async def require_auth_globally(request: Request, call_next):
     if path.startswith("/api/"):
         return JSONResponse(
             status_code=401,
-            content={"detail": "Não autenticado."}
+            content={"detail": "Não autenticado."},
         )
 
     # Qualquer página/arquivo sem autenticação => login
@@ -140,10 +146,12 @@ async def require_auth_globally(request: Request, call_next):
 class NoCacheHTMLStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope):
         response = await super().get_response(path, scope)
+
         if response.status_code == 200 and path.lower().endswith(".html"):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
+
         return response
 
 
@@ -226,9 +234,13 @@ app.include_router(usuarios_router)
 app.include_router(permissoes_router)
 app.include_router(propostas.router)
 app.include_router(campos_propostas.router)
+
+# Área do Cliente / Contratos
 app.include_router(area_cliente_admin_router)
 app.include_router(contratos_admin_router)
 app.include_router(area_cliente_acessos_admin_router)
+app.include_router(area_cliente_publica_router)
+
 
 # ============================================
 # Helpers
@@ -255,7 +267,7 @@ def serve_html(page_name: str) -> FileResponse:
     if not file_path.exists():
         raise HTTPException(
             status_code=404,
-            detail=f"Página '{page_name}' não existe em /frontend."
+            detail=f"Página '{page_name}' não existe em /frontend.",
         )
 
     return FileResponse(
