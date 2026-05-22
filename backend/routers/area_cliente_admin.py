@@ -153,6 +153,16 @@ class ClienteDadosComplementaresBase(BaseModel):
     imovel_cidade: Optional[str] = None
     imovel_uf: Optional[str] = None
 
+    # Compatibilidade com a tela antiga, que usa endereco_* nos inputs/JS.
+    # O banco/model correto usa imovel_*.
+    endereco_cep: Optional[str] = None
+    endereco_rua: Optional[str] = None
+    endereco_numero: Optional[str] = None
+    endereco_complemento: Optional[str] = None
+    endereco_bairro: Optional[str] = None
+    endereco_cidade: Optional[str] = None
+    endereco_uf: Optional[str] = None
+
     contato_principal_nome: Optional[str] = None
     contato_principal_telefone: Optional[str] = None
     contato_principal_whatsapp: Optional[str] = None
@@ -313,6 +323,13 @@ def empty_out(cliente_id: int, empresa_id: int, cliente: core_models.Cliente) ->
         imovel_bairro=getattr(cliente, "bairro", None),
         imovel_cidade=getattr(cliente, "cidade", None),
         imovel_uf=getattr(cliente, "estado", None),
+        endereco_cep=getattr(cliente, "cep", None),
+        endereco_rua=getattr(cliente, "endereco", None),
+        endereco_numero=getattr(cliente, "numero", None),
+        endereco_complemento=getattr(cliente, "complemento", None),
+        endereco_bairro=getattr(cliente, "bairro", None),
+        endereco_cidade=getattr(cliente, "cidade", None),
+        endereco_uf=getattr(cliente, "estado", None),
         contato_principal_nome=getattr(cliente, "contato", None),
         contato_principal_telefone=getattr(cliente, "telefone", None),
         contato_principal_whatsapp=getattr(cliente, "whatsapp", None),
@@ -363,6 +380,13 @@ def row_to_out(row: ClienteDadosComplementares) -> ClienteDadosComplementaresOut
         imovel_bairro=row.imovel_bairro,
         imovel_cidade=row.imovel_cidade,
         imovel_uf=row.imovel_uf,
+        endereco_cep=row.imovel_cep,
+        endereco_rua=row.imovel_rua,
+        endereco_numero=row.imovel_numero,
+        endereco_complemento=row.imovel_complemento,
+        endereco_bairro=row.imovel_bairro,
+        endereco_cidade=row.imovel_cidade,
+        endereco_uf=row.imovel_uf,
         contato_principal_nome=row.contato_principal_nome,
         contato_principal_telefone=row.contato_principal_telefone,
         contato_principal_whatsapp=row.contato_principal_whatsapp,
@@ -409,6 +433,16 @@ def snapshot(row: Optional[ClienteDadosComplementares]) -> Dict[str, Optional[st
     return out
 
 
+def payload_endereco_value(payload: ClienteDadosComplementaresBase, real_field: str, alias_field: str) -> Optional[str]:
+    real_value = getattr(payload, real_field, None)
+    alias_value = getattr(payload, alias_field, None)
+
+    if real_value not in (None, ""):
+        return norm_str(real_value)
+
+    return norm_str(alias_value)
+
+
 def apply_payload(row: ClienteDadosComplementares, payload: ClienteDadosComplementaresBase) -> None:
     row.tipo_pessoa = norm_upper(payload.tipo_pessoa, {"PF", "PJ"}, "PF")
     row.status_preenchimento = norm_lower(
@@ -452,13 +486,13 @@ def apply_payload(row: ClienteDadosComplementares, payload: ClienteDadosCompleme
     row.email_empresa = norm_str(payload.email_empresa)
     row.telefone_whatsapp_empresa = norm_str(payload.telefone_whatsapp_empresa)
 
-    row.imovel_cep = norm_str(payload.imovel_cep)
-    row.imovel_rua = norm_str(payload.imovel_rua)
-    row.imovel_numero = norm_str(payload.imovel_numero)
-    row.imovel_complemento = norm_str(payload.imovel_complemento)
-    row.imovel_bairro = norm_str(payload.imovel_bairro)
-    row.imovel_cidade = norm_str(payload.imovel_cidade)
-    row.imovel_uf = norm_str(payload.imovel_uf)
+    row.imovel_cep = payload_endereco_value(payload, "imovel_cep", "endereco_cep")
+    row.imovel_rua = payload_endereco_value(payload, "imovel_rua", "endereco_rua")
+    row.imovel_numero = payload_endereco_value(payload, "imovel_numero", "endereco_numero")
+    row.imovel_complemento = payload_endereco_value(payload, "imovel_complemento", "endereco_complemento")
+    row.imovel_bairro = payload_endereco_value(payload, "imovel_bairro", "endereco_bairro")
+    row.imovel_cidade = payload_endereco_value(payload, "imovel_cidade", "endereco_cidade")
+    row.imovel_uf = payload_endereco_value(payload, "imovel_uf", "endereco_uf")
 
     row.contato_principal_nome = norm_str(payload.contato_principal_nome)
     row.contato_principal_telefone = norm_str(payload.contato_principal_telefone)
