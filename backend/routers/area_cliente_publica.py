@@ -9,7 +9,7 @@ import secrets
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError
@@ -31,7 +31,6 @@ PORTAL_TOKEN_PEPPER = (
 )
 
 SESSION_TTL_MINUTES = int(os.getenv("AREA_CLIENTE_SESSION_TTL_MINUTES", "120"))
-
 MAX_TENTATIVAS = int(os.getenv("AREA_CLIENTE_MAX_TENTATIVAS", "8"))
 
 
@@ -39,6 +38,7 @@ DADOS_FIELDS = [
     "tipo_pessoa",
     "status_preenchimento",
     "origem_preenchimento",
+    "origem_solicitacao",
 
     "nome_completo",
     "cpf",
@@ -65,15 +65,33 @@ DADOS_FIELDS = [
     "representante_email_pessoal",
     "representante_telefone_pessoal",
 
-    "endereco_rua",
-    "endereco_numero",
-    "endereco_bairro",
-    "endereco_cidade",
-    "endereco_uf",
-    "endereco_cep",
+    "imovel_cep",
+    "imovel_rua",
+    "imovel_numero",
+    "imovel_complemento",
+    "imovel_bairro",
+    "imovel_cidade",
+    "imovel_uf",
+
+    "contato_principal_nome",
+    "contato_principal_telefone",
+    "contato_principal_whatsapp",
+    "contato_principal_email",
+    "contato_principal_observacao",
 
     "observacoes_contrato",
 ]
+
+
+ENDERECO_ALIASES = {
+    "endereco_cep": "imovel_cep",
+    "endereco_rua": "imovel_rua",
+    "endereco_numero": "imovel_numero",
+    "endereco_complemento": "imovel_complemento",
+    "endereco_bairro": "imovel_bairro",
+    "endereco_cidade": "imovel_cidade",
+    "endereco_uf": "imovel_uf",
+}
 
 
 try:
@@ -106,7 +124,6 @@ def to_aware_utc(value: Any) -> Optional[datetime]:
     if isinstance(value, datetime):
         if value.tzinfo is None:
             return value.replace(tzinfo=timezone.utc)
-
         return value.astimezone(timezone.utc)
 
     return None
@@ -128,7 +145,6 @@ def parse_date(value: Any) -> Optional[date]:
         return value.date()
 
     text = str(value).strip()
-
     if not text:
         return None
 
@@ -167,7 +183,6 @@ def serialize_datetime(value: Any) -> Optional[str]:
 def model_dump_compat(model: BaseModel) -> Dict[str, Any]:
     if hasattr(model, "model_dump"):
         return model.model_dump()
-
     return model.dict()
 
 
@@ -334,6 +349,28 @@ def buscar_acesso_por_token(db: Session, token: str) -> ClienteAcessoPortal:
     return acesso
 
 
+def validar_acesso_pendente(acesso: ClienteAcessoPortal) -> None:
+    status_atual = str(acesso.status or "").strip().lower()
+    expira_em = to_aware_utc(acesso.expira_em)
+
+    if status_atual == "revogado":
+        raise HTTPException(status_code=403, detail="Este acesso foi revogado.")
+
+    if status_atual == "usado":
+        raise HTTPException(status_code=403, detail="Este acesso já foi usado.")
+
+    if status_atual == "expirado":
+        raise HTTPException(status_code=403, detail="Este acesso expirou.")
+
+    if expira_em and expira_em < now_utc():
+        acesso.status = "expirado"
+        acesso.atualizado_em = now_utc()
+        raise HTTPException(status_code=403, detail="Este acesso expirou.")
+
+    if status_atual != "pendente":
+        raise HTTPException(status_code=403, detail="Este acesso não está disponível.")
+
+
 def buscar_acesso_por_session(db: Session, session_token: str) -> ClienteAcessoPortal:
     payload = ler_session_token(session_token)
 
@@ -353,31 +390,7 @@ def buscar_acesso_por_session(db: Session, session_token: str) -> ClienteAcessoP
         raise HTTPException(status_code=401, detail="Acesso público não encontrado.")
 
     validar_acesso_pendente(acesso)
-
     return acesso
-
-
-def validar_acesso_pendente(acesso: ClienteAcessoPortal) -> None:
-    status_atual = str(acesso.status or "").strip().lower()
-
-    expira_em = to_aware_utc(acesso.expira_em)
-
-    if status_atual == "revogado":
-        raise HTTPException(status_code=403, detail="Este acesso foi revogado.")
-
-    if status_atual == "usado":
-        raise HTTPException(status_code=403, detail="Este acesso já foi usado.")
-
-    if status_atual == "expirado":
-        raise HTTPException(status_code=403, detail="Este acesso expirou.")
-
-    if expira_em and expira_em < now_utc():
-        acesso.status = "expirado"
-        acesso.atualizado_em = now_utc()
-        raise HTTPException(status_code=403, detail="Este acesso expirou.")
-
-    if status_atual != "pendente":
-        raise HTTPException(status_code=403, detail="Este acesso não está disponível.")
 
 
 def buscar_cliente(db: Session, acesso: ClienteAcessoPortal) -> core_models.Cliente:
@@ -417,6 +430,7 @@ def buscar_ou_criar_dados(
             "tipo_pessoa": "PF",
             "status_preenchimento": "pendente_cliente",
             "origem_preenchimento": "portal",
+            "origem_solicitacao": "portal",
         },
     )
 
@@ -424,32 +438,6 @@ def buscar_ou_criar_dados(
     db.flush()
 
     return dados
-
-
-def dados_to_dict(dados: Optional[ClienteDadosComplementares]) -> Dict[str, Any]:
-    out: Dict[str, Any] = {}
-
-    if not dados:
-        for field in DADOS_FIELDS:
-            out[field] = None
-        return out
-
-    out["id"] = int(dados.id) if getattr(dados, "id", None) else None
-    out["empresa_id"] = int(dados.empresa_id) if getattr(dados, "empresa_id", None) else None
-    out["cliente_id"] = int(dados.cliente_id) if getattr(dados, "cliente_id", None) else None
-
-    for field in DADOS_FIELDS:
-        value = getattr(dados, field, None)
-
-        if isinstance(value, (date, datetime)):
-            out[field] = serialize_date(value)
-        else:
-            out[field] = value
-
-    out["criado_em"] = serialize_datetime(getattr(dados, "criado_em", None))
-    out["atualizado_em"] = serialize_datetime(getattr(dados, "atualizado_em", None))
-
-    return out
 
 
 def cliente_to_dict(cliente: core_models.Cliente) -> Dict[str, Any]:
@@ -473,9 +461,46 @@ def acesso_to_dict(acesso: ClienteAcessoPortal) -> Dict[str, Any]:
         "codigo_cliente": acesso.codigo_cliente,
         "status": acesso.status,
         "expira_em": serialize_datetime(acesso.expira_em),
+        "usado_em": serialize_datetime(getattr(acesso, "usado_em", None)),
+        "revogado_em": serialize_datetime(getattr(acesso, "revogado_em", None)),
         "ultimo_acesso_em": serialize_datetime(acesso.ultimo_acesso_em),
         "tentativas": int(acesso.tentativas or 0),
     }
+
+
+def dados_to_dict(dados: Optional[ClienteDadosComplementares]) -> Dict[str, Any]:
+    out: Dict[str, Any] = {}
+
+    if not dados:
+        for field in DADOS_FIELDS:
+            out[field] = None
+
+        for alias in ENDERECO_ALIASES:
+            out[alias] = None
+
+        return out
+
+    out["id"] = int(dados.id) if getattr(dados, "id", None) else None
+    out["empresa_id"] = int(dados.empresa_id) if getattr(dados, "empresa_id", None) else None
+    out["cliente_id"] = int(dados.cliente_id) if getattr(dados, "cliente_id", None) else None
+
+    for field in DADOS_FIELDS:
+        value = getattr(dados, field, None)
+
+        if isinstance(value, (date, datetime)):
+            out[field] = serialize_date(value)
+        else:
+            out[field] = value
+
+    # Compatibilidade com telas antigas que ainda leem endereco_*.
+    # O banco/model correto do Valora usa imovel_*.
+    for alias, real_field in ENDERECO_ALIASES.items():
+        out[alias] = out.get(real_field)
+
+    out["criado_em"] = serialize_datetime(getattr(dados, "criado_em", None))
+    out["atualizado_em"] = serialize_datetime(getattr(dados, "atualizado_em", None))
+
+    return out
 
 
 def aplicar_payload_dados(
@@ -484,6 +509,14 @@ def aplicar_payload_dados(
     finalizar: bool,
 ) -> Dict[str, tuple[Any, Any]]:
     alterados: Dict[str, tuple[Any, Any]] = {}
+
+    # Compatibilidade:
+    # - site novo manda imovel_*
+    # - site antigo mandava endereco_*
+    # Aqui convertemos endereco_* para imovel_* antes de salvar.
+    for alias, real_field in ENDERECO_ALIASES.items():
+        if alias in payload and real_field not in payload:
+            payload[real_field] = payload.get(alias)
 
     for field in DADOS_FIELDS:
         if field not in payload:
@@ -509,12 +542,13 @@ def aplicar_payload_dados(
             setattr(dados, field, new_value)
 
     set_if_exists(dados, "origem_preenchimento", "portal")
+    set_if_exists(dados, "origem_solicitacao", "portal")
 
     if finalizar:
         set_if_exists(dados, "status_preenchimento", "em_analise")
     else:
         current_status = norm_str(getattr(dados, "status_preenchimento", None))
-        if not current_status or current_status == "rascunho":
+        if not current_status or current_status in {"rascunho", "pendente_cliente"}:
             set_if_exists(dados, "status_preenchimento", "pendente_cliente")
 
     set_if_exists(dados, "atualizado_em", now_utc())
@@ -535,8 +569,10 @@ def criar_historico_portal(
     def fmt(value: Any) -> Optional[str]:
         if value is None:
             return None
+
         if isinstance(value, (date, datetime)):
             return serialize_date(value)
+
         return str(value)
 
     row = safe_model_create(
@@ -547,12 +583,12 @@ def criar_historico_portal(
             "usuario_id": None,
             "usuario_nome": cliente_nome_value,
             "tipo": "dados_complementares",
+            "origem": "portal",
+            "canal_solicitacao": "publico",
             "campo": campo,
             "valor_anterior": fmt(valor_anterior),
             "valor_novo": fmt(valor_novo),
             "descricao": descricao,
-            "origem": "portal",
-            "canal": "publico",
         },
     )
 
@@ -589,6 +625,7 @@ class SalvarDadosPortalPayload(BaseModel):
     tipo_pessoa: Optional[str] = None
     status_preenchimento: Optional[str] = None
     origem_preenchimento: Optional[str] = None
+    origem_solicitacao: Optional[str] = None
 
     nome_completo: Optional[str] = None
     cpf: Optional[str] = None
@@ -615,12 +652,29 @@ class SalvarDadosPortalPayload(BaseModel):
     representante_email_pessoal: Optional[str] = None
     representante_telefone_pessoal: Optional[str] = None
 
+    # Campos corretos do banco/model do ValoraCRM
+    imovel_cep: Optional[str] = None
+    imovel_rua: Optional[str] = None
+    imovel_numero: Optional[str] = None
+    imovel_complemento: Optional[str] = None
+    imovel_bairro: Optional[str] = None
+    imovel_cidade: Optional[str] = None
+    imovel_uf: Optional[str] = None
+
+    # Compatibilidade com versão antiga do site que enviava endereco_*
+    endereco_cep: Optional[str] = None
     endereco_rua: Optional[str] = None
     endereco_numero: Optional[str] = None
+    endereco_complemento: Optional[str] = None
     endereco_bairro: Optional[str] = None
     endereco_cidade: Optional[str] = None
     endereco_uf: Optional[str] = None
-    endereco_cep: Optional[str] = None
+
+    contato_principal_nome: Optional[str] = None
+    contato_principal_telefone: Optional[str] = None
+    contato_principal_whatsapp: Optional[str] = None
+    contato_principal_email: Optional[str] = None
+    contato_principal_observacao: Optional[str] = None
 
     observacoes_contrato: Optional[str] = None
 
@@ -704,6 +758,7 @@ def autenticar_portal_cliente(
             acesso.revogado_em = now_utc()
             acesso.atualizado_em = now_utc()
             db.commit()
+
             raise HTTPException(
                 status_code=403,
                 detail="Acesso bloqueado por excesso de tentativas.",
@@ -721,6 +776,7 @@ def autenticar_portal_cliente(
             )
 
         cliente = buscar_cliente(db, acesso)
+
         dados = buscar_ou_criar_dados(
             db=db,
             empresa_id=int(acesso.empresa_id),
@@ -769,6 +825,7 @@ def obter_dados_portal_cliente(
     try:
         acesso = buscar_acesso_por_session(db, session_token)
         cliente = buscar_cliente(db, acesso)
+
         dados = buscar_ou_criar_dados(
             db=db,
             empresa_id=int(acesso.empresa_id),
@@ -790,6 +847,12 @@ def obter_dados_portal_cliente(
     except HTTPException:
         db.rollback()
         raise
+    except OperationalError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="A estrutura pública da Área do Cliente ainda não está pronta no banco.",
+        ) from exc
     except Exception as exc:
         db.rollback()
         raise HTTPException(
@@ -815,10 +878,13 @@ def salvar_dados_portal_cliente(
 
         payload_dict = model_dump_compat(payload)
         payload_dict.pop("session_token", None)
+
         finalizar = bool(payload_dict.pop("finalizar", False))
 
+        # Esses campos são controlados pelo backend público.
         payload_dict.pop("status_preenchimento", None)
         payload_dict.pop("origem_preenchimento", None)
+        payload_dict.pop("origem_solicitacao", None)
 
         alterados = aplicar_payload_dados(
             dados=dados,
