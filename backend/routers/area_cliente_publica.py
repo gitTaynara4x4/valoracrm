@@ -7,9 +7,12 @@ import json
 import os
 import secrets
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from decimal import Decimal
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError
@@ -19,10 +22,14 @@ from backend import models as core_models
 from backend.database import SessionLocal
 from backend.models_area_cliente import ClienteDadosComplementares, ClienteHistoricoAlteracao
 from backend.models_area_cliente_acesso import ClienteAcessoPortal
+from backend.models_contratos import Contrato, ContratoAnexo
 
 router = APIRouter(tags=["Área do Cliente - Pública"])
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+UPLOADS_ROOT = (PROJECT_ROOT / "uploads").resolve()
 
 PORTAL_TOKEN_PEPPER = (
     os.getenv("VALORACRM_PORTAL_TOKEN_SECRET")
@@ -94,6 +101,33 @@ ENDERECO_ALIASES = {
 }
 
 
+TIPOS_CONTRATO_LABELS = {
+    "monitoramento_eletronico_residencial": "Monitoramento eletrônico residencial",
+    "monitoramento_eletronico_comercial": "Monitoramento eletrônico comercial",
+    "monitoramento_eletronico_condominio": "Monitoramento eletrônico condomínio",
+    "outro": "Outro",
+}
+
+
+STATUS_CONTRATO_LABELS = {
+    "rascunho": "Rascunho",
+    "emitido": "Emitido",
+    "enviado_assinatura": "Enviado para assinatura",
+    "assinado": "Assinado",
+    "cancelado": "Cancelado",
+}
+
+
+STATUS_CONTRATO_PUBLICOS = {
+    "assinado",
+}
+
+
+TIPOS_ANEXO_PUBLICOS = {
+    "contrato_assinado",
+}
+
+
 try:
     from pydantic import ConfigDict  # type: ignore
 
@@ -124,6 +158,7 @@ def to_aware_utc(value: Any) -> Optional[datetime]:
     if isinstance(value, datetime):
         if value.tzinfo is None:
             return value.replace(tzinfo=timezone.utc)
+
         return value.astimezone(timezone.utc)
 
     return None
@@ -145,6 +180,7 @@ def parse_date(value: Any) -> Optional[date]:
         return value.date()
 
     text = str(value).strip()
+
     if not text:
         return None
 
@@ -180,10 +216,21 @@ def serialize_datetime(value: Any) -> Optional[str]:
     return str(value)
 
 
-def model_dump_compat(model: BaseModel) -> Dict[str, Any]:
+def decimal_to_str(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+
+    if isinstance(value, Decimal):
+        return str(value)
+
+    return str(value)
+
+
+def model_dump_compat(model: BaseModel, exclude_unset: bool = False) -> Dict[str, Any]:
     if hasattr(model, "model_dump"):
-        return model.model_dump()
-    return model.dict()
+        return model.model_dump(exclude_unset=exclude_unset)
+
+    return model.dict(exclude_unset=exclude_unset)
 
 
 def allowed_model_fields(model_cls: Any) -> set[str]:
@@ -371,6 +418,33 @@ def validar_acesso_pendente(acesso: ClienteAcessoPortal) -> None:
         raise HTTPException(status_code=403, detail="Este acesso não está disponível.")
 
 
+def validar_acesso_para_consulta(acesso: ClienteAcessoPortal) -> None:
+    """
+    Para leitura pública de contratos durante a sessão atual, aceitamos:
+    - pendente: cliente ainda está preenchendo;
+    - usado: cliente acabou de finalizar, mas ainda tem session_token válido.
+
+    A entrada futura permanente da Área do Cliente será feita depois.
+    """
+
+    status_atual = str(acesso.status or "").strip().lower()
+    expira_em = to_aware_utc(acesso.expira_em)
+
+    if status_atual == "revogado":
+        raise HTTPException(status_code=403, detail="Este acesso foi revogado.")
+
+    if status_atual == "expirado":
+        raise HTTPException(status_code=403, detail="Este acesso expirou.")
+
+    if status_atual == "pendente" and expira_em and expira_em < now_utc():
+        acesso.status = "expirado"
+        acesso.atualizado_em = now_utc()
+        raise HTTPException(status_code=403, detail="Este acesso expirou.")
+
+    if status_atual not in {"pendente", "usado"}:
+        raise HTTPException(status_code=403, detail="Este acesso não está disponível.")
+
+
 def buscar_acesso_por_session(db: Session, session_token: str) -> ClienteAcessoPortal:
     payload = ler_session_token(session_token)
 
@@ -390,6 +464,30 @@ def buscar_acesso_por_session(db: Session, session_token: str) -> ClienteAcessoP
         raise HTTPException(status_code=401, detail="Acesso público não encontrado.")
 
     validar_acesso_pendente(acesso)
+
+    return acesso
+
+
+def buscar_acesso_por_session_consulta(db: Session, session_token: str) -> ClienteAcessoPortal:
+    payload = ler_session_token(session_token)
+
+    acesso_id = int(payload.get("acesso_id") or 0)
+    empresa_id = int(payload.get("empresa_id") or 0)
+    cliente_id = int(payload.get("cliente_id") or 0)
+
+    acesso = (
+        db.query(ClienteAcessoPortal)
+        .filter(ClienteAcessoPortal.id == acesso_id)
+        .filter(ClienteAcessoPortal.empresa_id == empresa_id)
+        .filter(ClienteAcessoPortal.cliente_id == cliente_id)
+        .first()
+    )
+
+    if not acesso:
+        raise HTTPException(status_code=401, detail="Acesso público não encontrado.")
+
+    validar_acesso_para_consulta(acesso)
+
     return acesso
 
 
@@ -492,8 +590,6 @@ def dados_to_dict(dados: Optional[ClienteDadosComplementares]) -> Dict[str, Any]
         else:
             out[field] = value
 
-    # Compatibilidade com telas antigas que ainda leem endereco_*.
-    # O banco/model correto do Valora usa imovel_*.
     for alias, real_field in ENDERECO_ALIASES.items():
         out[alias] = out.get(real_field)
 
@@ -510,13 +606,12 @@ def aplicar_payload_dados(
 ) -> Dict[str, tuple[Any, Any]]:
     alterados: Dict[str, tuple[Any, Any]] = {}
 
-    # Compatibilidade:
-    # - site novo manda imovel_*
-    # - site antigo mandava endereco_*
-    # Aqui convertemos endereco_* para imovel_* antes de salvar.
     for alias, real_field in ENDERECO_ALIASES.items():
-        if alias in payload and real_field not in payload:
-            payload[real_field] = payload.get(alias)
+        alias_value = payload.get(alias)
+        real_value = payload.get(real_field)
+
+        if alias_value not in (None, "") and real_value in (None, ""):
+            payload[real_field] = alias_value
 
     for field in DADOS_FIELDS:
         if field not in payload:
@@ -595,6 +690,218 @@ def criar_historico_portal(
     db.add(row)
 
 
+def tipo_contrato_label(value: Optional[str]) -> str:
+    key = str(value or "").strip().lower()
+    return TIPOS_CONTRATO_LABELS.get(key, key or "Contrato")
+
+
+def status_contrato_label(value: Optional[str]) -> str:
+    key = str(value or "").strip().lower()
+    return STATUS_CONTRATO_LABELS.get(key, key or "Status não informado")
+
+
+def tipo_anexo_label(value: Optional[str]) -> str:
+    key = str(value or "").strip().lower()
+
+    if key == "contrato_assinado":
+        return "Contrato assinado"
+
+    if key == "contrato_emitido":
+        return "Contrato emitido"
+
+    if key == "documento_cliente":
+        return "Documento do cliente"
+
+    if key == "comprovante":
+        return "Comprovante"
+
+    return key or "Documento"
+
+
+def contrato_tem_anexo_assinado(
+    db: Session,
+    contrato: Contrato,
+) -> bool:
+    total = (
+        db.query(ContratoAnexo)
+        .filter(ContratoAnexo.empresa_id == contrato.empresa_id)
+        .filter(ContratoAnexo.cliente_id == contrato.cliente_id)
+        .filter(ContratoAnexo.contrato_id == contrato.id)
+        .filter(ContratoAnexo.tipo_documento.in_(list(TIPOS_ANEXO_PUBLICOS)))
+        .count()
+    )
+
+    return total > 0
+
+
+def total_anexos_publicos(
+    db: Session,
+    contrato: Contrato,
+) -> int:
+    return (
+        db.query(ContratoAnexo)
+        .filter(ContratoAnexo.empresa_id == contrato.empresa_id)
+        .filter(ContratoAnexo.cliente_id == contrato.cliente_id)
+        .filter(ContratoAnexo.contrato_id == contrato.id)
+        .filter(ContratoAnexo.tipo_documento.in_(list(TIPOS_ANEXO_PUBLICOS)))
+        .count()
+    )
+
+
+def contrato_pode_aparecer_no_portal(
+    db: Session,
+    contrato: Contrato,
+) -> bool:
+    status_norm = str(getattr(contrato, "status", "") or "").strip().lower()
+
+    if status_norm in STATUS_CONTRATO_PUBLICOS:
+        return True
+
+    return contrato_tem_anexo_assinado(db, contrato)
+
+
+def contrato_to_dict(
+    db: Session,
+    contrato: Contrato,
+) -> Dict[str, Any]:
+    return {
+        "id": int(contrato.id),
+        "empresa_id": int(contrato.empresa_id),
+        "cliente_id": int(contrato.cliente_id),
+        "proposta_id": int(contrato.proposta_id) if getattr(contrato, "proposta_id", None) else None,
+
+        "numero_contrato": contrato.numero_contrato,
+        "tipo_contrato": contrato.tipo_contrato,
+        "tipo_contrato_label": tipo_contrato_label(contrato.tipo_contrato),
+
+        "status": contrato.status,
+        "status_label": status_contrato_label(contrato.status),
+
+        "valor_mensal": decimal_to_str(contrato.valor_mensal),
+        "data_pagamento": serialize_date(contrato.data_pagamento),
+        "data_inicio": serialize_date(contrato.data_inicio),
+        "data_fim": serialize_date(contrato.data_fim),
+        "data_assinatura": serialize_date(contrato.data_assinatura),
+
+        "proposta_codigo": contrato.proposta_codigo,
+        "proposta_titulo": contrato.proposta_titulo,
+        "proposta_data": serialize_date(contrato.proposta_data),
+        "vendedor_nome": contrato.vendedor_nome,
+        "data_aprovacao": serialize_date(contrato.data_aprovacao),
+        "indicacao": contrato.indicacao,
+
+        "observacoes": contrato.observacoes,
+
+        "anexos_publicos_total": total_anexos_publicos(db, contrato),
+
+        "criado_em": serialize_datetime(contrato.criado_em),
+        "atualizado_em": serialize_datetime(contrato.atualizado_em),
+    }
+
+
+def anexo_to_dict(
+    anexo: ContratoAnexo,
+    contrato_id: int,
+    session_token: str,
+) -> Dict[str, Any]:
+    return {
+        "id": int(anexo.id),
+        "empresa_id": int(anexo.empresa_id),
+        "contrato_id": int(anexo.contrato_id),
+        "cliente_id": int(anexo.cliente_id),
+
+        "tipo_documento": anexo.tipo_documento,
+        "tipo_documento_label": tipo_anexo_label(anexo.tipo_documento),
+        "descricao": anexo.descricao,
+
+        "arquivo_nome": anexo.arquivo_nome,
+        "arquivo_mime": anexo.arquivo_mime,
+        "arquivo_tamanho": int(anexo.arquivo_tamanho) if anexo.arquivo_tamanho is not None else None,
+
+        "download_url": (
+            f"/api/area-cliente-publica/contratos/{int(contrato_id)}"
+            f"/anexos/{int(anexo.id)}/download?session_token={session_token}"
+        ),
+
+        "criado_em": serialize_datetime(anexo.criado_em),
+    }
+
+
+def buscar_contrato_do_cliente(
+    db: Session,
+    empresa_id: int,
+    cliente_id: int,
+    contrato_id: int,
+) -> Contrato:
+    contrato = (
+        db.query(Contrato)
+        .filter(Contrato.id == contrato_id)
+        .filter(Contrato.empresa_id == empresa_id)
+        .filter(Contrato.cliente_id == cliente_id)
+        .first()
+    )
+
+    if not contrato:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado.")
+
+    if not contrato_pode_aparecer_no_portal(db, contrato):
+        raise HTTPException(status_code=404, detail="Contrato não disponível no portal.")
+
+    return contrato
+
+
+def buscar_anexo_publico_do_contrato(
+    db: Session,
+    empresa_id: int,
+    cliente_id: int,
+    contrato_id: int,
+    anexo_id: int,
+) -> ContratoAnexo:
+    anexo = (
+        db.query(ContratoAnexo)
+        .filter(ContratoAnexo.id == anexo_id)
+        .filter(ContratoAnexo.empresa_id == empresa_id)
+        .filter(ContratoAnexo.cliente_id == cliente_id)
+        .filter(ContratoAnexo.contrato_id == contrato_id)
+        .filter(ContratoAnexo.tipo_documento.in_(list(TIPOS_ANEXO_PUBLICOS)))
+        .first()
+    )
+
+    if not anexo:
+        raise HTTPException(status_code=404, detail="Anexo não encontrado ou indisponível no portal.")
+
+    return anexo
+
+
+def resolver_caminho_anexo(anexo: ContratoAnexo) -> Path:
+    raw_path = norm_str(getattr(anexo, "arquivo_path", None))
+
+    if not raw_path:
+        raise HTTPException(status_code=404, detail="Arquivo do anexo não encontrado.")
+
+    normalized = raw_path.replace("\\", "/")
+    path = Path(normalized)
+
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+
+    try:
+        resolved = path.resolve()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Arquivo do anexo não encontrado.")
+
+    try:
+        if UPLOADS_ROOT not in resolved.parents and resolved != UPLOADS_ROOT:
+            raise HTTPException(status_code=403, detail="Arquivo fora da área permitida.")
+    except RuntimeError:
+        raise HTTPException(status_code=403, detail="Arquivo fora da área permitida.")
+
+    if not resolved.exists() or not resolved.is_file():
+        raise HTTPException(status_code=404, detail="Arquivo físico não encontrado.")
+
+    return resolved
+
+
 class LinkStatusOut(BaseModel):
     valido: bool
     status: str
@@ -652,7 +959,6 @@ class SalvarDadosPortalPayload(BaseModel):
     representante_email_pessoal: Optional[str] = None
     representante_telefone_pessoal: Optional[str] = None
 
-    # Campos corretos do banco/model do ValoraCRM
     imovel_cep: Optional[str] = None
     imovel_rua: Optional[str] = None
     imovel_numero: Optional[str] = None
@@ -661,7 +967,6 @@ class SalvarDadosPortalPayload(BaseModel):
     imovel_cidade: Optional[str] = None
     imovel_uf: Optional[str] = None
 
-    # Compatibilidade com versão antiga do site que enviava endereco_*
     endereco_cep: Optional[str] = None
     endereco_rua: Optional[str] = None
     endereco_numero: Optional[str] = None
@@ -685,6 +990,72 @@ class SalvarDadosPortalOut(BaseModel):
     acesso: Dict[str, Any]
     cliente: Dict[str, Any]
     dados: Dict[str, Any]
+
+
+class ContratoPublicoOut(BaseModel):
+    id: int
+    empresa_id: int
+    cliente_id: int
+    proposta_id: Optional[int] = None
+
+    numero_contrato: Optional[str] = None
+    tipo_contrato: Optional[str] = None
+    tipo_contrato_label: Optional[str] = None
+
+    status: Optional[str] = None
+    status_label: Optional[str] = None
+
+    valor_mensal: Optional[str] = None
+    data_pagamento: Optional[str] = None
+    data_inicio: Optional[str] = None
+    data_fim: Optional[str] = None
+    data_assinatura: Optional[str] = None
+
+    proposta_codigo: Optional[str] = None
+    proposta_titulo: Optional[str] = None
+    proposta_data: Optional[str] = None
+    vendedor_nome: Optional[str] = None
+    data_aprovacao: Optional[str] = None
+    indicacao: Optional[str] = None
+
+    observacoes: Optional[str] = None
+
+    anexos_publicos_total: int = 0
+
+    criado_em: Optional[str] = None
+    atualizado_em: Optional[str] = None
+
+
+class ContratosPublicosOut(BaseModel):
+    ok: bool
+    cliente: Dict[str, Any]
+    contratos: List[ContratoPublicoOut]
+
+
+class ContratoAnexoPublicoOut(BaseModel):
+    id: int
+    empresa_id: int
+    contrato_id: int
+    cliente_id: int
+
+    tipo_documento: Optional[str] = None
+    tipo_documento_label: Optional[str] = None
+    descricao: Optional[str] = None
+
+    arquivo_nome: str
+    arquivo_mime: Optional[str] = None
+    arquivo_tamanho: Optional[int] = None
+
+    download_url: str
+
+    criado_em: Optional[str] = None
+
+
+class ContratoAnexosPublicosOut(BaseModel):
+    ok: bool
+    cliente: Dict[str, Any]
+    contrato: ContratoPublicoOut
+    anexos: List[ContratoAnexoPublicoOut]
 
 
 @router.get("/api/area-cliente-publica/status", response_model=LinkStatusOut)
@@ -876,12 +1247,11 @@ def salvar_dados_portal_cliente(
             cliente_id=int(acesso.cliente_id),
         )
 
-        payload_dict = model_dump_compat(payload)
+        payload_dict = model_dump_compat(payload, exclude_unset=True)
         payload_dict.pop("session_token", None)
 
         finalizar = bool(payload_dict.pop("finalizar", False))
 
-        # Esses campos são controlados pelo backend público.
         payload_dict.pop("status_preenchimento", None)
         payload_dict.pop("origem_preenchimento", None)
         payload_dict.pop("origem_solicitacao", None)
@@ -945,4 +1315,152 @@ def salvar_dados_portal_cliente(
         raise HTTPException(
             status_code=500,
             detail=f"Erro ao salvar dados pelo portal: {exc}",
+        ) from exc
+
+
+@router.get("/api/area-cliente-publica/contratos", response_model=ContratosPublicosOut)
+def listar_contratos_publicos_cliente(
+    session_token: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        acesso = buscar_acesso_por_session_consulta(db, session_token)
+        cliente = buscar_cliente(db, acesso)
+
+        contratos_db = (
+            db.query(Contrato)
+            .filter(Contrato.empresa_id == acesso.empresa_id)
+            .filter(Contrato.cliente_id == acesso.cliente_id)
+            .order_by(Contrato.criado_em.desc(), Contrato.id.desc())
+            .all()
+        )
+
+        contratos_publicos: List[ContratoPublicoOut] = []
+
+        for contrato in contratos_db:
+            if not contrato_pode_aparecer_no_portal(db, contrato):
+                continue
+
+            contratos_publicos.append(
+                ContratoPublicoOut(**contrato_to_dict(db, contrato))
+            )
+
+        return ContratosPublicosOut(
+            ok=True,
+            cliente=cliente_to_dict(cliente),
+            contratos=contratos_publicos,
+        )
+
+    except HTTPException:
+        raise
+    except OperationalError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="A estrutura de contratos ainda não está pronta no banco.",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao listar contratos do portal: {exc}",
+        ) from exc
+
+
+@router.get(
+    "/api/area-cliente-publica/contratos/{contrato_id}/anexos",
+    response_model=ContratoAnexosPublicosOut,
+)
+def listar_anexos_publicos_contrato(
+    contrato_id: int,
+    session_token: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        acesso = buscar_acesso_por_session_consulta(db, session_token)
+        cliente = buscar_cliente(db, acesso)
+
+        contrato = buscar_contrato_do_cliente(
+            db=db,
+            empresa_id=int(acesso.empresa_id),
+            cliente_id=int(acesso.cliente_id),
+            contrato_id=int(contrato_id),
+        )
+
+        anexos_db = (
+            db.query(ContratoAnexo)
+            .filter(ContratoAnexo.empresa_id == acesso.empresa_id)
+            .filter(ContratoAnexo.cliente_id == acesso.cliente_id)
+            .filter(ContratoAnexo.contrato_id == contrato.id)
+            .filter(ContratoAnexo.tipo_documento.in_(list(TIPOS_ANEXO_PUBLICOS)))
+            .order_by(ContratoAnexo.criado_em.desc(), ContratoAnexo.id.desc())
+            .all()
+        )
+
+        return ContratoAnexosPublicosOut(
+            ok=True,
+            cliente=cliente_to_dict(cliente),
+            contrato=ContratoPublicoOut(**contrato_to_dict(db, contrato)),
+            anexos=[
+                ContratoAnexoPublicoOut(**anexo_to_dict(anexo, int(contrato.id), session_token))
+                for anexo in anexos_db
+            ],
+        )
+
+    except HTTPException:
+        raise
+    except OperationalError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="A estrutura de anexos de contratos ainda não está pronta no banco.",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao listar anexos do contrato no portal: {exc}",
+        ) from exc
+
+
+@router.get("/api/area-cliente-publica/contratos/{contrato_id}/anexos/{anexo_id}/download")
+def baixar_anexo_publico_contrato(
+    contrato_id: int,
+    anexo_id: int,
+    session_token: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        acesso = buscar_acesso_por_session_consulta(db, session_token)
+
+        contrato = buscar_contrato_do_cliente(
+            db=db,
+            empresa_id=int(acesso.empresa_id),
+            cliente_id=int(acesso.cliente_id),
+            contrato_id=int(contrato_id),
+        )
+
+        anexo = buscar_anexo_publico_do_contrato(
+            db=db,
+            empresa_id=int(acesso.empresa_id),
+            cliente_id=int(acesso.cliente_id),
+            contrato_id=int(contrato.id),
+            anexo_id=int(anexo_id),
+        )
+
+        arquivo_path = resolver_caminho_anexo(anexo)
+
+        return FileResponse(
+            path=str(arquivo_path),
+            filename=anexo.arquivo_nome or arquivo_path.name,
+            media_type=anexo.arquivo_mime or "application/octet-stream",
+        )
+
+    except HTTPException:
+        raise
+    except OperationalError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="A estrutura de anexos de contratos ainda não está pronta no banco.",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao baixar anexo do contrato no portal: {exc}",
         ) from exc
