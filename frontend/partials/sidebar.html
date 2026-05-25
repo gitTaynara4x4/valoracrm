@@ -55,7 +55,13 @@
     }
 
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
 
     body {
       font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -401,7 +407,17 @@
         <span class="Valora-nav-icon"><i class="fa-solid fa-file-signature"></i></span>
         <span>Propostas</span>
       </button>
-      
+
+      <button class="Valora-nav-item" data-target="area-cliente-admin">
+        <span class="Valora-nav-icon"><i class="fa-solid fa-address-card"></i></span>
+        <span>Área do Cliente</span>
+      </button>
+
+      <button class="Valora-nav-item" data-target="contratos-admin">
+        <span class="Valora-nav-icon"><i class="fa-solid fa-file-contract"></i></span>
+        <span>Contratos</span>
+      </button>
+
       <button class="Valora-nav-item" data-target="usuarios">
         <span class="Valora-nav-icon"><i class="fa-solid fa-id-badge"></i></span>
         <span>Usuários</span>
@@ -414,6 +430,11 @@
       <button class="Valora-nav-item" data-target="config">
         <span class="Valora-nav-icon"><i class="fa-solid fa-gear"></i></span>
         <span>Configurações</span>
+      </button>
+
+      <button class="Valora-nav-item" data-target="formularios">
+        <span class="Valora-nav-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+        <span>Formulários</span>
       </button>
 
       <button class="Valora-nav-item" data-target="ajuda">
@@ -443,7 +464,7 @@
       </div>
 
       <div class="Valora-user-profile" id="userProfileBtn">
-        <div class="Valora-user-avatar" id="sidebarUserInitials">T</div>
+        <div class="Valora-user-avatar" id="sidebarUserInitials">U</div>
         <div class="Valora-user-info">
           <strong id="sidebarUserName">Usuário</strong>
           <span id="sidebarUserEmail">email@empresa.com</span>
@@ -526,16 +547,58 @@
 
     function irPara(target) {
       switch (target) {
-        case 'home':         goTo('/dashboard'); break;
-        case 'clientes':     goTo('/clientes'); break;
-        case 'fornecedores': goTo('/fornecedores'); break;
-        case 'produtos':     goTo('/produtos'); break;
-        case 'propostas':    goTo('/propostas'); break;
-        case 'usuarios':     goTo('/usuarios'); break;
-        case 'config':       goTo('/configuracoes'); break;
-        case 'ajuda':        goTo('/ajuda'); break;
-        case 'perfil':       goTo('/perfil'); break;
-        case 'empresa':      goTo('/empresa'); break;
+        case 'home':
+          goTo('/dashboard');
+          break;
+
+        case 'clientes':
+          goTo('/clientes');
+          break;
+
+        case 'fornecedores':
+          goTo('/fornecedores');
+          break;
+
+        case 'produtos':
+          goTo('/produtos');
+          break;
+
+        case 'propostas':
+          goTo('/propostas');
+          break;
+
+        case 'area-cliente-admin':
+          goTo('/area-cliente-admin');
+          break;
+
+        case 'contratos-admin':
+          goTo('/contratos-admin');
+          break;
+
+        case 'usuarios':
+          goTo('/usuarios');
+          break;
+
+        case 'config':
+          goTo('/configuracoes');
+          break;
+
+        case 'formularios':
+          goTo('/formularios');
+          break;
+
+        case 'ajuda':
+          goTo('/ajuda');
+          break;
+
+        case 'perfil':
+          goTo('/perfil');
+          break;
+
+        case 'empresa':
+          goTo('/empresa');
+          break;
+
         default:
           console.warn('[Menu Valora] target desconhecido:', target);
       }
@@ -550,6 +613,7 @@
       path = path.replace(/\/+$/, '');
 
       if (path === '') return '/';
+
       return path;
     }
 
@@ -568,7 +632,14 @@
 
       path = normalizePath(path);
 
-      if (path === '/' || path === '/dashboard' || path === '/home' || path === '/inicio' || path === '/frontend/dashboard.html' || path === '/frontend/inicio.html') {
+      if (
+        path === '/' ||
+        path === '/dashboard' ||
+        path === '/home' ||
+        path === '/inicio' ||
+        path === '/frontend/dashboard.html' ||
+        path === '/frontend/inicio.html'
+      ) {
         return 'home';
       }
 
@@ -576,8 +647,11 @@
       if (path === '/fornecedores' || path === '/frontend/fornecedores.html') return 'fornecedores';
       if (path === '/produtos' || path === '/frontend/produtos.html') return 'produtos';
       if (path === '/propostas' || path === '/frontend/propostas.html') return 'propostas';
+      if (path === '/area-cliente-admin' || path === '/frontend/area-cliente-admin.html') return 'area-cliente-admin';
+      if (path === '/contratos-admin' || path === '/frontend/contratos-admin.html') return 'contratos-admin';
       if (path === '/usuarios' || path === '/frontend/usuarios.html') return 'usuarios';
       if (path === '/configuracoes' || path === '/config' || path === '/frontend/configuracoes.html' || path === '/frontend/config.html') return 'config';
+      if (path === '/formularios' || path === '/frontend/formularios.html') return 'formularios';
       if (path === '/ajuda' || path === '/frontend/ajuda.html') return 'ajuda';
       if (path === '/perfil' || path === '/frontend/perfil.html') return 'perfil';
       if (path === '/empresa' || path === '/frontend/empresa.html') return 'empresa';
@@ -587,17 +661,47 @@
 
     function labelFromTarget(t) {
       switch (t) {
-        case 'home': return 'Visão Geral';
-        case 'clientes': return 'Clientes';
-        case 'fornecedores': return 'Fornecedores';
-        case 'produtos': return 'Produtos';
-        case 'propostas': return 'Propostas';
-        case 'usuarios': return 'Usuários';
-        case 'config': return 'Configurações';
-        case 'ajuda': return 'Ajuda';
-        case 'perfil': return 'Meu Perfil';
-        case 'empresa': return 'Minha Empresa';
-        default: return 'Menu';
+        case 'home':
+          return 'Visão Geral';
+
+        case 'clientes':
+          return 'Clientes';
+
+        case 'fornecedores':
+          return 'Fornecedores';
+
+        case 'produtos':
+          return 'Produtos';
+
+        case 'propostas':
+          return 'Propostas';
+
+        case 'area-cliente-admin':
+          return 'Área do Cliente';
+
+        case 'contratos-admin':
+          return 'Contratos';
+
+        case 'usuarios':
+          return 'Usuários';
+
+        case 'config':
+          return 'Configurações';
+
+        case 'formularios':
+          return 'Formulários';
+
+        case 'ajuda':
+          return 'Ajuda';
+
+        case 'perfil':
+          return 'Meu Perfil';
+
+        case 'empresa':
+          return 'Minha Empresa';
+
+        default:
+          return 'Menu';
       }
     }
 
@@ -614,11 +718,20 @@
     function getBestWidth() {
       try {
         if (window.parent && window.parent !== window) {
-          if (window.parent.visualViewport && window.parent.visualViewport.width) return window.parent.visualViewport.width;
-          if (typeof window.parent.innerWidth === 'number') return window.parent.innerWidth;
+          if (window.parent.visualViewport && window.parent.visualViewport.width) {
+            return window.parent.visualViewport.width;
+          }
+
+          if (typeof window.parent.innerWidth === 'number') {
+            return window.parent.innerWidth;
+          }
         }
       } catch (e) {}
-      if (window.visualViewport && window.visualViewport.width) return window.visualViewport.width;
+
+      if (window.visualViewport && window.visualViewport.width) {
+        return window.visualViewport.width;
+      }
+
       return window.innerWidth;
     }
 
@@ -755,6 +868,7 @@
           #${ID_OVER}{ transition:none; }
         }
       `;
+
       ROOT_DOC.head.appendChild(st);
     }
 
@@ -762,6 +876,7 @@
       ensureParentCss();
 
       let tb = ROOT_DOC.getElementById(ID_TOPBAR);
+
       if (!tb) {
         tb = ROOT_DOC.createElement('div');
         tb.id = ID_TOPBAR;
@@ -778,10 +893,12 @@
             <span id="ValoraMobileSubtitle">Menu</span>
           </div>
         `;
+
         ROOT_DOC.body.appendChild(tb);
       }
 
       let ov = ROOT_DOC.getElementById(ID_OVER);
+
       if (!ov) {
         ov = ROOT_DOC.createElement('div');
         ov.id = ID_OVER;
@@ -791,6 +908,7 @@
       }
 
       const btn = ROOT_DOC.getElementById(ID_BTN);
+
       if (btn && !btn.dataset.bound) {
         btn.dataset.bound = '1';
         btn.addEventListener('click', toggleMobileMenu);
@@ -818,8 +936,11 @@
     function getTopbarHeightPx() {
       try {
         const tb = ROOT_DOC.getElementById(ID_TOPBAR);
+
         if (!tb) return 54;
+
         const h = tb.getBoundingClientRect().height;
+
         return Math.max(48, Math.round(h || 54));
       } catch (e) {
         return 54;
@@ -829,11 +950,14 @@
     function revealAncestorsForIframe(fe) {
       try {
         let el = fe;
+
         while (el && el !== ROOT_DOC.body && el !== ROOT_DOC.documentElement) {
           const cs = ROOT_WIN.getComputedStyle(el);
+
           if (cs && cs.display === 'none') {
             el.style.setProperty('display', 'contents', 'important');
           }
+
           el = el.parentElement;
         }
       } catch (e) {}
@@ -841,6 +965,7 @@
 
     function applyIframeDrawerStyles(isMobile, topbarH) {
       const fe = window.frameElement;
+
       if (!fe) return;
 
       if (isMobile) {
@@ -887,15 +1012,18 @@
       ROOT_DOC.documentElement.classList.add('Valora-mobile-open');
 
       const fe = window.frameElement;
+
       if (fe) {
         fe.style.setProperty('transform', 'translateX(0)', 'important');
         fe.style.setProperty('pointer-events', 'auto', 'important');
       }
 
       const ov = ROOT_DOC.getElementById(ID_OVER);
+
       if (ov) ov.setAttribute('aria-hidden', 'false');
 
       const btn = ROOT_DOC.getElementById(ID_BTN);
+
       if (btn) btn.setAttribute('aria-expanded', 'true');
     }
 
@@ -903,27 +1031,36 @@
       ROOT_DOC.documentElement.classList.remove('Valora-mobile-open');
 
       const fe = window.frameElement;
+
       if (fe) {
         fe.style.setProperty('transform', 'translateX(-110%)', 'important');
         fe.style.setProperty('pointer-events', 'none', 'important');
       }
 
       const ov = ROOT_DOC.getElementById(ID_OVER);
+
       if (ov) ov.setAttribute('aria-hidden', 'true');
 
       const btn = ROOT_DOC.getElementById(ID_BTN);
+
       if (btn) btn.setAttribute('aria-expanded', 'false');
     }
 
     function toggleMobileMenu() {
-      if (ROOT_DOC.documentElement.classList.contains('Valora-mobile-open')) closeMobileMenu();
-      else openMobileMenu();
+      if (ROOT_DOC.documentElement.classList.contains('Valora-mobile-open')) {
+        closeMobileMenu();
+      } else {
+        openMobileMenu();
+      }
     }
 
     function updateMobileSubtitle() {
       try {
         const sub = ROOT_DOC.getElementById('ValoraMobileSubtitle');
-        if (sub) sub.textContent = labelFromTarget(resolveCurrentTargetFromParent());
+
+        if (sub) {
+          sub.textContent = labelFromTarget(resolveCurrentTargetFromParent());
+        }
       } catch (e) {}
     }
 
@@ -952,8 +1089,8 @@
           updateMobileSubtitle();
 
           const topbarH = getTopbarHeightPx();
-          applyIframeDrawerStyles(true, topbarH);
 
+          applyIframeDrawerStyles(true, topbarH);
           closeMobileMenu();
         } else {
           removeParentNodes();
@@ -966,15 +1103,18 @@
       syncActiveMenu();
 
       const itens = document.querySelectorAll('.Valora-nav-item');
+
       itens.forEach(btn => {
         btn.addEventListener('click', () => {
           if (!btn.dataset.target) return;
+
           closeMobileMenu();
           irPara(btn.dataset.target);
         });
       });
 
       const logo = document.querySelector('.Valora-logo-full');
+
       if (logo) {
         logo.style.cursor = 'pointer';
         logo.addEventListener('click', () => {
@@ -984,7 +1124,10 @@
       }
 
       const closeBtn = document.getElementById('ValoraMobileClose');
-      if (closeBtn) closeBtn.addEventListener('click', closeMobileMenu);
+
+      if (closeBtn) {
+        closeBtn.addEventListener('click', closeMobileMenu);
+      }
 
       syncMobileMode();
 

@@ -275,7 +275,6 @@ def produto_to_out(db: Session, p: models.Produto) -> ProdutoOut:
         custom_fields=buscar_custom_fields_produto(db, empresa_id, int(p.id)),
     )
 
-
 @router.get("", response_model=List[ProdutoOut])
 def listar_produtos(request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
@@ -287,17 +286,6 @@ def listar_produtos(request: Request, db: Session = Depends(get_db)):
         .all()
     )
     return [produto_to_out(db, p) for p in rows]
-
-
-@router.get("/{produto_id}", response_model=ProdutoOut)
-def obter_produto(produto_id: int, request: Request, db: Session = Depends(get_db)):
-    empresa_id = validar_usuario_empresa(request, db)
-
-    p = buscar_produto_empresa(db, produto_id, empresa_id)
-    if not p:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-
-    return produto_to_out(db, p)
 
 
 @router.post("", response_model=ProdutoOut, status_code=status.HTTP_201_CREATED)
@@ -344,83 +332,7 @@ def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depend
         raise HTTPException(status_code=500, detail=f"Erro ao criar produto: {e}")
 
 
-@router.put("/{produto_id}", response_model=ProdutoOut)
-def atualizar_produto(
-    produto_id: int,
-    payload: ProdutoUpdate,
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    empresa_id = validar_usuario_empresa(request, db)
-
-    p = buscar_produto_empresa(db, produto_id, empresa_id)
-    if not p:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-
-    if payload.codigo is not None and payload.codigo.strip():
-        p.codigo = payload.codigo.strip()
-
-    if payload.nome is not None and payload.nome.strip():
-        p.nome = payload.nome.strip()
-
-    if payload.descricao is not None:
-        p.descricao = norm_str(payload.descricao)
-
-    if payload.categoria is not None:
-        p.categoria = norm_str(payload.categoria)
-
-    if payload.unidade is not None:
-        p.unidade = norm_str(payload.unidade)
-
-    if payload.preco_venda is not None:
-        p.preco_venda = norm_str(payload.preco_venda)
-
-    if payload.custo is not None:
-        p.custo = norm_str(payload.custo)
-
-    if payload.estoque_atual is not None:
-        p.estoque_atual = norm_str(payload.estoque_atual)
-
-    if payload.ativo is not None:
-        p.ativo = bool(payload.ativo)
-
-    try:
-        if payload.custom_fields is not None:
-            salvar_custom_fields_produto(
-                db=db,
-                empresa_id=empresa_id,
-                produto_id=int(p.id),
-                custom_fields=payload.custom_fields,
-            )
-
-        db.commit()
-        db.refresh(p)
-        return produto_to_out(db, p)
-
-    except HTTPException:
-        db.rollback()
-        raise
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="Código de produto já existe.")
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Erro ao atualizar produto: {e}")
-
-
-@router.delete("/{produto_id}", status_code=status.HTTP_204_NO_CONTENT)
-def excluir_produto(produto_id: int, request: Request, db: Session = Depends(get_db)):
-    empresa_id = validar_usuario_empresa(request, db)
-
-    p = buscar_produto_empresa(db, produto_id, empresa_id)
-    if not p:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-
-    db.delete(p)
-    db.commit()
-    return None
-
-
+@router.get("/campos", response_model=List[CampoProdutoOut])
 @router.get("/campos/lista", response_model=List[CampoProdutoOut])
 def listar_campos_produtos(request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
@@ -528,5 +440,93 @@ def excluir_campo_produto(campo_id: int, request: Request, db: Session = Depends
         raise HTTPException(status_code=404, detail="Campo não encontrado")
 
     db.delete(c)
+    db.commit()
+    return None
+
+
+@router.get("/{produto_id}", response_model=ProdutoOut)
+def obter_produto(produto_id: int, request: Request, db: Session = Depends(get_db)):
+    empresa_id = validar_usuario_empresa(request, db)
+
+    p = buscar_produto_empresa(db, produto_id, empresa_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    return produto_to_out(db, p)
+
+
+@router.put("/{produto_id}", response_model=ProdutoOut)
+def atualizar_produto(
+    produto_id: int,
+    payload: ProdutoUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    empresa_id = validar_usuario_empresa(request, db)
+
+    p = buscar_produto_empresa(db, produto_id, empresa_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    if payload.codigo is not None and payload.codigo.strip():
+        p.codigo = payload.codigo.strip()
+
+    if payload.nome is not None and payload.nome.strip():
+        p.nome = payload.nome.strip()
+
+    if payload.descricao is not None:
+        p.descricao = norm_str(payload.descricao)
+
+    if payload.categoria is not None:
+        p.categoria = norm_str(payload.categoria)
+
+    if payload.unidade is not None:
+        p.unidade = norm_str(payload.unidade)
+
+    if payload.preco_venda is not None:
+        p.preco_venda = norm_str(payload.preco_venda)
+
+    if payload.custo is not None:
+        p.custo = norm_str(payload.custo)
+
+    if payload.estoque_atual is not None:
+        p.estoque_atual = norm_str(payload.estoque_atual)
+
+    if payload.ativo is not None:
+        p.ativo = bool(payload.ativo)
+
+    try:
+        if payload.custom_fields is not None:
+            salvar_custom_fields_produto(
+                db=db,
+                empresa_id=empresa_id,
+                produto_id=int(p.id),
+                custom_fields=payload.custom_fields,
+            )
+
+        db.commit()
+        db.refresh(p)
+        return produto_to_out(db, p)
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Código de produto já existe.")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar produto: {e}")
+
+
+@router.delete("/{produto_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_produto(produto_id: int, request: Request, db: Session = Depends(get_db)):
+    empresa_id = validar_usuario_empresa(request, db)
+
+    p = buscar_produto_empresa(db, produto_id, empresa_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    db.delete(p)
     db.commit()
     return None

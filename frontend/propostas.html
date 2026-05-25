@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/frontend/css/app.css" />
   <link rel="stylesheet" href="/frontend/css/propostas.css" />
   <script src="/frontend/js/pages/app.js" defer></script>
-  <script src="/frontend/js/pages/propostas.js" defer></script>
+  <script src="/frontend/js/pages/propostas.js?v=20260525-propostas-modal-tabs" defer></script>
 </head>
 <body>
   <div class="layout">
@@ -35,7 +35,7 @@
           </div>
 
           <button class="btn btn-secondary" type="button" id="btn-configurar-campos">
-            <i class="fa-solid fa-sliders" style="margin-right: 6px;"></i> Configurar campos
+            <i class="fa-solid fa-sliders" style="margin-right: 6px;"></i> Campos extras
           </button>
 
           <button class="btn btn-primary" type="button" id="btn-nova-proposta">
@@ -75,132 +75,176 @@
       </article>
 
       <div class="modal-overlay" id="proposal-modal">
-        <div class="modal-content modal-lg" style="max-width: 900px;" data-close-target="false">
-          <div class="modal-header" style="align-items: flex-start;">
+        <div class="modal-content modal-xl proposal-modal-content" data-close-target="false">
+          <div class="modal-header proposal-modal-header">
             <div>
               <h3 id="proposal-modal-title">Nova proposta</h3>
-              <p id="proposal-modal-subtitle" style="font-size: 13px; color: var(--muted); margin-top: 4px;">
-                Preencha os dados da proposta e salve.
+              <p id="proposal-modal-subtitle" class="proposal-modal-subtitle">
+                Preencha os dados da proposta, adicione os itens e salve.
               </p>
             </div>
 
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <div class="proposal-header-actions">
               <button type="button" class="btn btn-secondary" id="btn-configurar-campos-proposta">
-                <i class="fa-solid fa-sliders" style="margin-right: 6px;"></i> Configurar campos
+                <i class="fa-solid fa-sliders" style="margin-right: 6px;"></i> Campos extras
               </button>
 
               <button type="button" class="btn btn-secondary" id="btn-whatsapp-proposta" style="display:none;">
                 <i class="fa-brands fa-whatsapp" style="margin-right: 6px; color: #25d366;"></i> WhatsApp
               </button>
 
-              <button type="button" class="btn btn-secondary" id="btn-fechar-modal">Cancelar</button>
-
-              <button type="button" class="btn btn-primary" id="btn-salvar-proposta">
-                <i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i> Salvar
+              <button type="button" class="btn-close" id="btn-fechar-modal" title="Fechar">
+                <i class="fa-solid fa-xmark"></i>
               </button>
             </div>
           </div>
 
-          <div class="modal-body">
+          <div class="proposal-tabs">
+            <button type="button" class="proposal-tab-btn active" data-tab="tab-proposta-dados">
+              <i class="fa-solid fa-file-lines"></i> Dados
+            </button>
+            <button type="button" class="proposal-tab-btn" data-tab="tab-proposta-itens">
+              <i class="fa-solid fa-list-check"></i> Itens
+            </button>
+            <button type="button" class="proposal-tab-btn" data-tab="tab-proposta-totais">
+              <i class="fa-solid fa-calculator"></i> Totais
+            </button>
+            <button type="button" class="proposal-tab-btn" data-tab="tab-proposta-campos">
+              <i class="fa-solid fa-sliders"></i> Campos extras
+            </button>
+          </div>
+
+          <div class="modal-body proposal-modal-body">
             <form class="valora-form" onsubmit="return false;">
-              <section class="proposal-card">
-                <div class="proposal-section-head">
-                  <h4 class="section-title" style="margin: 0; padding: 0; border: none;">Dados principais</h4>
-                  <span class="proposal-status-chip" id="proposal-chip-status">Rascunho</span>
-                </div>
-
-                <div class="form-row">
-                  <div class="form-group">
-                    <label for="proposta-codigo">Código</label>
-                    <input id="proposta-codigo" type="text" placeholder="PROP-0001" disabled />
-                  </div>
-                  <div class="form-group">
-                    <label for="proposta-titulo">Título *</label>
-                    <input id="proposta-titulo" type="text" placeholder="Ex.: Proposta comercial" />
-                  </div>
-                </div>
-
-                <div class="form-row">
-                  <div class="form-group client-picker">
-                    <label for="proposta-cliente-busca">Cliente</label>
-                    <input id="proposta-cliente-busca" type="text" placeholder="Buscar cliente por nome, WhatsApp ou e-mail" autocomplete="off" />
-                    <input id="proposta-cliente-id" type="hidden" />
-                    <div id="proposta-cliente-resultados" class="autocomplete-list" style="display:none;"></div>
-                    <small class="field-hint">Selecione um cliente da lista para vincular à proposta.</small>
+              <section class="proposal-tab-panel active" id="tab-proposta-dados">
+                <section class="proposal-card">
+                  <div class="proposal-section-head">
+                    <h4 class="section-title" style="margin: 0; padding: 0; border: none;">Dados principais</h4>
+                    <span class="proposal-status-chip" id="proposal-chip-status">Rascunho</span>
                   </div>
 
-                  <div class="form-group">
-                    <label for="proposta-status">Status</label>
-                    <select id="proposta-status">
-                      <option value="rascunho">Rascunho</option>
-                      <option value="enviada">Enviada</option>
-                      <option value="aprovada">Aprovada</option>
-                      <option value="rejeitada">Rejeitada</option>
-                    </select>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="proposta-codigo">Código</label>
+                      <input id="proposta-codigo" type="text" placeholder="PROP-0001" disabled />
+                    </div>
+                    <div class="form-group">
+                      <label for="proposta-titulo">Título *</label>
+                      <input id="proposta-titulo" type="text" placeholder="Ex.: Proposta comercial" />
+                    </div>
                   </div>
-                </div>
 
-                <div class="form-row">
-                  <div class="form-group">
-                    <label for="proposta-validade">Validade (dias)</label>
-                    <input id="proposta-validade" type="number" placeholder="7" />
+                  <div class="form-row">
+                    <div class="form-group client-picker">
+                      <label for="proposta-cliente-busca">Cliente</label>
+                      <input id="proposta-cliente-busca" type="text" placeholder="Buscar cliente por nome, WhatsApp ou e-mail" autocomplete="off" />
+                      <input id="proposta-cliente-id" type="hidden" />
+                      <div id="proposta-cliente-resultados" class="autocomplete-list" style="display:none;"></div>
+                      <small class="field-hint">Selecione um cliente da lista para vincular à proposta.</small>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="proposta-status">Status</label>
+                      <select id="proposta-status">
+                        <option value="rascunho">Rascunho</option>
+                        <option value="enviada">Enviada</option>
+                        <option value="aprovada">Aprovada</option>
+                        <option value="rejeitada">Rejeitada</option>
+                      </select>
+                    </div>
                   </div>
-                  <div class="form-group">
-                    <label for="proposta-observacoes">Observações para o cliente</label>
-                    <textarea id="proposta-observacoes" rows="3" placeholder="Observações gerais que aparecerão no PDF"></textarea>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="proposta-validade">Validade (dias)</label>
+                      <input id="proposta-validade" type="number" placeholder="7" />
+                    </div>
+                    <div class="form-group">
+                      <label for="proposta-observacoes">Observações para o cliente</label>
+                      <textarea id="proposta-observacoes" rows="4" placeholder="Observações gerais que aparecerão no PDF"></textarea>
+                    </div>
                   </div>
-                </div>
+                </section>
               </section>
 
-              <section class="proposal-card" id="proposal-card-campos-extras" style="display: none;">
-                <div class="proposal-section-head">
-                  <h4 class="section-title" style="margin: 0; padding: 0; border: none;">Campos adicionais</h4>
-                </div>
-                <div id="proposal-campos-extras" class="proposal-extra-grid"></div>
+              <section class="proposal-tab-panel" id="tab-proposta-itens">
+                <section class="proposal-card">
+                  <div class="proposal-section-head">
+                    <h4 class="section-title" style="margin: 0; padding: 0; border: none;">Itens da proposta</h4>
+                    <button id="btn-add-item" class="btn btn-secondary btn-sm" type="button">
+                      <i class="fa-solid fa-plus" style="margin-right: 6px;"></i> Adicionar linha
+                    </button>
+                  </div>
+
+                  <div class="proposal-table-wrap">
+                    <table class="valora-table" style="font-size: 13px;">
+                      <thead>
+                        <tr>
+                          <th style="width: 40%; padding: 12px 16px;">Descrição</th>
+                          <th style="padding: 12px 16px;">Qtd</th>
+                          <th style="padding: 12px 16px;">Unid.</th>
+                          <th style="padding: 12px 16px;">Vlr. Unit.</th>
+                          <th style="padding: 12px 16px;">Vlr. Total</th>
+                          <th style="padding: 12px 16px;"></th>
+                        </tr>
+                      </thead>
+                      <tbody id="proposal-items-body"></tbody>
+                    </table>
+                  </div>
+                </section>
               </section>
 
-              <section class="proposal-card">
-                <div class="proposal-section-head">
-                  <h4 class="section-title" style="margin: 0; padding: 0; border: none;">Itens da proposta</h4>
-                  <button id="btn-add-item" class="btn btn-secondary btn-sm" type="button">
-                    <i class="fa-solid fa-plus" style="margin-right: 6px;"></i> Adicionar linha
-                  </button>
-                </div>
+              <section class="proposal-tab-panel" id="tab-proposta-totais">
+                <section class="proposal-card">
+                  <div class="proposal-section-head">
+                    <h4 class="section-title" style="margin: 0; padding: 0; border: none;">Totais da proposta</h4>
+                  </div>
 
-                <div class="proposal-table-wrap">
-                  <table class="valora-table" style="font-size: 13px;">
-                    <thead>
-                      <tr>
-                        <th style="width: 40%; padding: 12px 16px;">Descrição</th>
-                        <th style="padding: 12px 16px;">Qtd</th>
-                        <th style="padding: 12px 16px;">Unid.</th>
-                        <th style="padding: 12px 16px;">Vlr. Unit.</th>
-                        <th style="padding: 12px 16px;">Vlr. Total</th>
-                        <th style="padding: 12px 16px;"></th>
-                      </tr>
-                    </thead>
-                    <tbody id="proposal-items-body"></tbody>
-                  </table>
-                </div>
+                  <div class="form-row proposal-totals-grid">
+                    <div class="form-group">
+                      <label for="proposta-subtotal">Subtotal (R$)</label>
+                      <input id="proposta-subtotal" type="text" placeholder="0,00" />
+                    </div>
+                    <div class="form-group">
+                      <label for="proposta-desconto">Desconto (R$)</label>
+                      <input id="proposta-desconto" type="text" placeholder="0,00" />
+                    </div>
+                    <div class="form-group">
+                      <label for="proposta-total">Total Final (R$)</label>
+                      <input id="proposta-total" type="text" placeholder="0,00" style="font-weight: bold; color: var(--brand);" />
+                    </div>
+                  </div>
+                </section>
               </section>
 
-              <section class="proposal-card" style="margin-bottom: 0;">
-                <div class="form-row" style="grid-template-columns: repeat(3, 1fr);">
-                  <div class="form-group">
-                    <label>Subtotal (R$)</label>
-                    <input id="proposta-subtotal" type="text" placeholder="0,00" />
+              <section class="proposal-tab-panel" id="tab-proposta-campos">
+                <section class="proposal-card" id="proposal-card-campos-extras" style="display: none;">
+                  <div class="proposal-section-head">
+                    <h4 class="section-title" style="margin: 0; padding: 0; border: none;">Campos adicionais</h4>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-configurar-campos-proposta-atalho">
+                      <i class="fa-solid fa-sliders" style="margin-right: 6px;"></i> Configurar
+                    </button>
                   </div>
-                  <div class="form-group">
-                    <label>Desconto (R$)</label>
-                    <input id="proposta-desconto" type="text" placeholder="0,00" />
+                  <div id="proposal-campos-extras" class="proposal-extra-grid"></div>
+                </section>
+
+                <section class="proposal-card proposal-empty-extra-card" id="proposal-card-campos-vazio">
+                  <div class="proposal-section-head">
+                    <h4 class="section-title" style="margin: 0; padding: 0; border: none;">Campos extras</h4>
                   </div>
-                  <div class="form-group">
-                    <label>Total Final (R$)</label>
-                    <input id="proposta-total" type="text" placeholder="0,00" style="font-weight: bold; color: var(--brand);" />
+                  <div class="empty-state" style="text-align:center;">
+                    Nenhum campo extra ativo para propostas. Use “Campos extras” para configurar quando precisar.
                   </div>
-                </div>
+                </section>
               </section>
             </form>
+          </div>
+
+          <div class="proposal-modal-footer">
+            <button type="button" class="btn btn-secondary" id="btn-cancelar-proposta-footer">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btn-salvar-proposta">
+              <i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i> Salvar proposta
+            </button>
           </div>
         </div>
       </div>

@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Formulários | Valora CRM</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <link rel="stylesheet" href="/frontend/css/app.css" />
+  <link rel="stylesheet" href="/frontend/css/formularios.css" />
+
+  <script src="/frontend/js/pages/app.js" defer></script>
+  <script src="/frontend/js/pages/formularios.js?v=20260525-formularios-1b" defer></script>
+</head>
+<body>
+  <div class="layout">
+    <iframe src="/frontend/partials/sidebar.html" class="sidebar-frame" title="Menu lateral"></iframe>
+
+    <main class="main">
+      <header class="topbar formularios-topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Configurações</span>
+          <h1>Formulários</h1>
+          <p class="topbar-subtitle">
+            Monte fichas de cadastro com seções, títulos, campos do sistema e campos personalizados.
+          </p>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" type="button" id="btn-atualizar">
+            <i class="fa-solid fa-rotate" style="margin-right: 6px;"></i>
+            Atualizar
+          </button>
+
+          <button class="btn btn-primary" type="button" id="btn-novo-modelo">
+            <i class="fa-solid fa-plus" style="margin-right: 6px;"></i>
+            Novo formulário
+          </button>
+        </div>
+      </header>
+
+      <section class="form-builder-hero">
+        <div>
+          <span class="hero-pill">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            Construtor visual
+          </span>
+          <h2>Agora “campos personalizados” viram formulário de verdade.</h2>
+          <p>
+            Use <strong>seções</strong> para organizar a ficha, <strong>campos do sistema</strong> para dados que já existem
+            e <strong>campos personalizados</strong> somente para informações extras.
+          </p>
+        </div>
+
+        <div class="hero-mini-grid">
+          <span><i class="fa-solid fa-layer-group"></i> Seções</span>
+          <span><i class="fa-solid fa-database"></i> Campos do sistema</span>
+          <span><i class="fa-solid fa-pen-to-square"></i> Campos extras</span>
+          <span><i class="fa-solid fa-eye"></i> Organização visual</span>
+        </div>
+      </section>
+
+      <section class="modules-grid" id="modulos-grid" aria-label="Escolha o módulo">
+        <button class="module-card is-active" type="button" data-modulo="clientes">
+          <span class="module-icon"><i class="fa-solid fa-user-group"></i></span>
+          <strong>Clientes</strong>
+          <small>Ficha completa do cliente</small>
+        </button>
+
+        <button class="module-card" type="button" data-modulo="fornecedores">
+          <span class="module-icon"><i class="fa-solid fa-truck"></i></span>
+          <strong>Fornecedores</strong>
+          <small>Cadastro de parceiros</small>
+        </button>
+
+        <button class="module-card" type="button" data-modulo="produtos">
+          <span class="module-icon"><i class="fa-solid fa-box-open"></i></span>
+          <strong>Produtos</strong>
+          <small>Dados de item/serviço</small>
+        </button>
+
+        <button class="module-card" type="button" data-modulo="propostas">
+          <span class="module-icon"><i class="fa-solid fa-file-signature"></i></span>
+          <strong>Propostas</strong>
+          <small>Formulário comercial</small>
+        </button>
+
+        <button class="module-card" type="button" data-modulo="contratos">
+          <span class="module-icon"><i class="fa-solid fa-file-contract"></i></span>
+          <strong>Contratos</strong>
+          <small>Dados do contrato</small>
+        </button>
+      </section>
+
+      <section class="builder-layout">
+        <aside class="builder-sidebar panel-card">
+          <div class="side-head">
+            <div>
+              <span class="side-label">Módulo selecionado</span>
+              <h3 id="modulo-titulo">Clientes</h3>
+            </div>
+            <span class="status-dot"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="select-modelo">Formulário</label>
+            <select id="select-modelo">
+              <option value="">Carregando...</option>
+            </select>
+          </div>
+
+          <div class="side-actions">
+            <button class="btn btn-primary" type="button" id="btn-criar-padrao">
+              <i class="fa-solid fa-bolt" style="margin-right: 6px;"></i>
+              Criar padrão
+            </button>
+            <button class="btn btn-secondary" type="button" id="btn-editar-modelo" disabled>
+              <i class="fa-solid fa-pen" style="margin-right: 6px;"></i>
+              Editar nome
+            </button>
+          </div>
+
+          <div class="builder-help">
+            <strong>Como usar</strong>
+            <p>
+              Primeiro escolha um módulo. Depois crie ou selecione um formulário.
+              Em seguida adicione seções e campos.
+            </p>
+          </div>
+
+          <div class="legend-list">
+            <div><span class="legend-dot system"></span> Campo do sistema</div>
+            <div><span class="legend-dot custom"></span> Campo personalizado</div>
+            <div><span class="legend-dot visual"></span> Título/separador visual</div>
+          </div>
+        </aside>
+
+        <section class="builder-main">
+          <article class="panel-card builder-toolbar">
+            <div>
+              <span class="eyebrow">Estrutura do formulário</span>
+              <h3 id="modelo-nome">Nenhum formulário selecionado</h3>
+              <p id="modelo-descricao">Crie um formulário padrão para começar.</p>
+            </div>
+
+            <div class="toolbar-actions">
+              <button class="btn btn-secondary" type="button" id="btn-nova-secao" disabled>
+                <i class="fa-solid fa-folder-plus" style="margin-right: 6px;"></i>
+                Nova seção
+              </button>
+              <button class="btn btn-primary" type="button" id="btn-novo-campo" disabled>
+                <i class="fa-solid fa-square-plus" style="margin-right: 6px;"></i>
+                Novo campo
+              </button>
+            </div>
+          </article>
+
+          <div id="builder-empty" class="builder-empty panel-card">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <strong>Escolha ou crie um formulário.</strong>
+            <span>Depois você poderá montar as seções como “01 - Dados básicos”, “02 - Dados do imóvel” e assim por diante.</span>
+          </div>
+
+          <div id="secoes-container" class="secoes-container"></div>
+        </section>
+      </section>
+
+      <div id="valora-toast" class="toast-message"></div>
+    </main>
+  </div>
+
+  <!-- MODAL MODELO -->
+  <div class="modal-overlay" id="modal-modelo">
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <div>
+          <h3 id="modal-modelo-title">Novo formulário</h3>
+          <p>Crie um modelo de formulário para o módulo selecionado.</p>
+        </div>
+        <button class="modal-close" type="button" data-close-modal="modal-modelo">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form class="valora-form" onsubmit="return false;">
+          <input type="hidden" id="modelo-id" />
+
+          <div class="form-group">
+            <label for="modelo-modulo">Módulo</label>
+            <select id="modelo-modulo">
+              <option value="clientes">Clientes</option>
+              <option value="fornecedores">Fornecedores</option>
+              <option value="produtos">Produtos</option>
+              <option value="propostas">Propostas</option>
+              <option value="contratos">Contratos</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="modelo-nome-input">Nome *</label>
+            <input id="modelo-nome-input" type="text" placeholder="Ex.: Cadastro padrão de cliente" />
+          </div>
+
+          <div class="form-group">
+            <label for="modelo-descricao-input">Descrição</label>
+            <textarea id="modelo-descricao-input" rows="3" placeholder="Explique para que este formulário serve."></textarea>
+          </div>
+
+          <div class="checks-row">
+            <label class="check-card">
+              <input id="modelo-ativo" type="checkbox" checked />
+              <span>
+                <strong>Ativo</strong>
+                <small>Formulário disponível para uso.</small>
+              </span>
+            </label>
+
+            <label class="check-card">
+              <input id="modelo-padrao" type="checkbox" />
+              <span>
+                <strong>Padrão</strong>
+                <small>Usado como principal do módulo.</small>
+              </span>
+            </label>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-close-modal="modal-modelo">Cancelar</button>
+        <button class="btn btn-primary" type="button" id="btn-salvar-modelo">
+          <i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i>
+          Salvar formulário
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SEÇÃO -->
+  <div class="modal-overlay" id="modal-secao">
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <div>
+          <h3 id="modal-secao-title">Nova seção</h3>
+          <p>Seções servem para organizar os blocos da ficha.</p>
+        </div>
+        <button class="modal-close" type="button" data-close-modal="modal-secao">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form class="valora-form" onsubmit="return false;">
+          <input type="hidden" id="secao-id" />
+
+          <div class="form-group">
+            <label for="secao-titulo">Título *</label>
+            <input id="secao-titulo" type="text" placeholder="Ex.: 01 - Dados básicos" />
+          </div>
+
+          <div class="form-group">
+            <label for="secao-descricao">Descrição</label>
+            <textarea id="secao-descricao" rows="3" placeholder="Texto curto opcional."></textarea>
+          </div>
+
+          <div class="form-row two-cols">
+            <div class="form-group">
+              <label for="secao-ordem">Ordem</label>
+              <input id="secao-ordem" type="number" min="0" value="0" />
+            </div>
+
+            <label class="check-card single">
+              <input id="secao-ativo" type="checkbox" checked />
+              <span>
+                <strong>Ativa</strong>
+                <small>Mostrar esta seção.</small>
+              </span>
+            </label>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-danger-soft" type="button" id="btn-excluir-secao" style="display:none;">
+          <i class="fa-solid fa-trash" style="margin-right: 6px;"></i>
+          Excluir
+        </button>
+
+        <div class="footer-spacer"></div>
+
+        <button class="btn btn-secondary" type="button" data-close-modal="modal-secao">Cancelar</button>
+        <button class="btn btn-primary" type="button" id="btn-salvar-secao">
+          <i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i>
+          Salvar seção
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CAMPO -->
+  <div class="modal-overlay" id="modal-campo">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3 id="modal-campo-title">Novo campo</h3>
+          <p>Adicione campo real ou elemento visual ao formulário.</p>
+        </div>
+        <button class="modal-close" type="button" data-close-modal="modal-campo">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form class="valora-form" onsubmit="return false;">
+          <input type="hidden" id="campo-id" />
+
+          <div class="form-row three-cols">
+            <div class="form-group">
+              <label for="campo-secao">Seção</label>
+              <select id="campo-secao">
+                <option value="">Sem seção</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="campo-origem">Tipo de item</label>
+              <select id="campo-origem">
+                <option value="sistema">Campo do sistema</option>
+                <option value="personalizado">Campo personalizado</option>
+                <option value="visual">Visual / título</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="campo-ordem">Ordem</label>
+              <input id="campo-ordem" type="number" min="0" value="0" />
+            </div>
+          </div>
+
+          <div class="form-group origem-row" id="row-campo-sistema">
+            <label for="campo-sistema">Campo do sistema</label>
+            <select id="campo-sistema">
+              <option value="">Carregando...</option>
+            </select>
+            <small class="field-hint">Usa dados que já existem no cadastro, como nome, telefone, CPF/CNPJ e endereço.</small>
+          </div>
+
+          <div class="form-group origem-row" id="row-campo-personalizado" style="display:none;">
+            <label for="campo-personalizado">Campo personalizado existente</label>
+            <select id="campo-personalizado">
+              <option value="">Carregando...</option>
+            </select>
+            <small class="field-hint">Use somente para informação extra que não existe nos campos fixos do sistema.</small>
+          </div>
+
+          <div class="form-row two-cols origem-row" id="row-campo-visual" style="display:none;">
+            <div class="form-group">
+              <label for="campo-tipo-visual">Tipo visual</label>
+              <select id="campo-tipo-visual">
+                <option value="titulo">Título</option>
+                <option value="subtitulo">Subtítulo</option>
+                <option value="separador">Separador</option>
+                <option value="texto">Texto explicativo</option>
+                <option value="aviso">Aviso</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="campo-tipo-campo">Tipo de campo</label>
+              <select id="campo-tipo-campo">
+                <option value="texto">Texto</option>
+                <option value="textarea">Texto longo</option>
+                <option value="numero">Número</option>
+                <option value="data">Data</option>
+                <option value="select">Lista</option>
+                <option value="checkbox">Checkbox</option>
+                <option value="email">E-mail</option>
+                <option value="telefone">Telefone</option>
+                <option value="moeda">Moeda</option>
+                <option value="percentual">Percentual</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row two-cols">
+            <div class="form-group">
+              <label for="campo-label">Nome exibido *</label>
+              <input id="campo-label" type="text" placeholder="Ex.: Tipo de imóvel" />
+            </div>
+
+            <div class="form-group">
+              <label for="campo-placeholder">Placeholder</label>
+              <input id="campo-placeholder" type="text" placeholder="Ex.: Selecione uma opção" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="campo-ajuda">Ajuda / descrição</label>
+            <textarea id="campo-ajuda" rows="2" placeholder="Texto curto para orientar quem preenche."></textarea>
+          </div>
+
+          <div class="form-row three-cols">
+            <div class="form-group">
+              <label for="campo-largura">Largura</label>
+              <select id="campo-largura">
+                <option value="100">100%</option>
+                <option value="75">75%</option>
+                <option value="66">66%</option>
+                <option value="50">50%</option>
+                <option value="33">33%</option>
+                <option value="25">25%</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="campo-visibilidade">Visibilidade</label>
+              <select id="campo-visibilidade">
+                <option value="todos">Todos</option>
+                <option value="pf">Somente PF</option>
+                <option value="pj">Somente PJ</option>
+                <option value="interno">Somente interno</option>
+                <option value="publico">Somente público</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="campo-opcoes">Opções</label>
+              <input id="campo-opcoes" type="text" placeholder="Ex.: Casa, Apartamento, Comercial" />
+            </div>
+          </div>
+
+          <div class="checks-row">
+            <label class="check-card">
+              <input id="campo-obrigatorio" type="checkbox" />
+              <span>
+                <strong>Obrigatório</strong>
+                <small>Exige preenchimento.</small>
+              </span>
+            </label>
+
+            <label class="check-card">
+              <input id="campo-somente-leitura" type="checkbox" />
+              <span>
+                <strong>Somente leitura</strong>
+                <small>Aparece sem edição.</small>
+              </span>
+            </label>
+
+            <label class="check-card">
+              <input id="campo-ativo" type="checkbox" checked />
+              <span>
+                <strong>Ativo</strong>
+                <small>Mostrar no formulário.</small>
+              </span>
+            </label>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-danger-soft" type="button" id="btn-excluir-campo" style="display:none;">
+          <i class="fa-solid fa-trash" style="margin-right: 6px;"></i>
+          Excluir
+        </button>
+
+        <div class="footer-spacer"></div>
+
+        <button class="btn btn-secondary" type="button" data-close-modal="modal-campo">Cancelar</button>
+        <button class="btn btn-primary" type="button" id="btn-salvar-campo">
+          <i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i>
+          Salvar campo
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

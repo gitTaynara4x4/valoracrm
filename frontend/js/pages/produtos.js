@@ -612,6 +612,16 @@ function fecharModalProduto(){
   produtoEditandoId = null;
 }
 
+function switchProdutoTab(targetId){
+  document.querySelectorAll('.produto-tab-btn').forEach((btn)=>{
+    btn.classList.toggle('active', btn.dataset.tab === targetId);
+  });
+
+  document.querySelectorAll('.produto-tab').forEach((tab)=>{
+    tab.classList.toggle('active', tab.id === targetId);
+  });
+}
+
 function abrirModalCampo(){
   const backdrop = document.getElementById('modal-campo-backdrop');
   if(backdrop) backdrop.classList.add('show');
@@ -651,6 +661,7 @@ function abrirModalProdutoNovo(){
   const proximoId = produtos.length > 0 ? Math.max(...produtos.map(p=>Number(p.id) || 0)) + 1 : 1;
   setVal('campo-codigo-produto', `PRO-${String(proximoId).padStart(4,'0')}`);
 
+  switchProdutoTab('tab-produto-cadastro');
   abrirModalProduto();
   setTimeout(()=>{ try{ document.getElementById('campo-nome-produto')?.focus(); }catch{} }, 0);
 }
@@ -672,6 +683,7 @@ function abrirModalProdutoEditar(produto){
   setCheck('campo-ativo-produto', produto.ativo !== false);
 
   renderCustomFieldsInputs(produto.custom_fields || {});
+  switchProdutoTab('tab-produto-cadastro');
   abrirModalProduto();
 }
 
@@ -734,6 +746,7 @@ async function salvarProduto(){
 
   const erroCustom = validarCamposPersonalizados(payload.custom_fields);
   if(erroCustom){
+    switchProdutoTab('tab-produto-campos');
     toast(erroCustom, { error:true, ms:4500 });
     return;
   }
@@ -889,14 +902,16 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
   document.getElementById('busca-produtos')?.addEventListener('input', renderTabelaProdutos);
 
+  document.querySelectorAll('.produto-tab-btn').forEach((btn)=>{
+    btn.addEventListener('click', ()=> switchProdutoTab(btn.dataset.tab));
+  });
+
   document.getElementById('btn-novo-produto')?.addEventListener('click', abrirModalProdutoNovo);
   document.getElementById('btn-fechar-modal-produto')?.addEventListener('click', fecharModalProduto);
   document.getElementById('btn-cancelar-produto')?.addEventListener('click', fecharModalProduto);
   document.getElementById('btn-salvar-produto')?.addEventListener('click', salvarProduto);
   modalProdutoBackdrop?.addEventListener('click', (e)=>{ if(e.target === modalProdutoBackdrop) fecharModalProduto(); });
 
-  document.getElementById('btn-novo-campo')?.addEventListener('click', abrirModalCampoNovo);
-  document.getElementById('btn-novo-campo-inline')?.addEventListener('click', abrirModalCampoNovo);
   document.getElementById('btn-fechar-modal-campo')?.addEventListener('click', fecharModalCampo);
   document.getElementById('btn-cancelar-campo')?.addEventListener('click', fecharModalCampo);
   document.getElementById('btn-salvar-campo')?.addEventListener('click', salvarCampo);

@@ -561,6 +561,25 @@ function closeModal(){
   fecharResultadosClientes();
 }
 
+function switchPropostaTab(targetId){
+  if(!targetId) return;
+
+  document.querySelectorAll('.proposal-tab-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.tab === targetId);
+  });
+
+  document.querySelectorAll('.proposal-tab-panel').forEach((tab) => {
+    tab.classList.toggle('active', tab.id === targetId);
+  });
+}
+
+async function abrirConfiguracaoCamposProposta(){
+  await carregarCamposConfiguraveis();
+  renderTabelaCamposConfig();
+  resetCampoForm();
+  openFieldsConfigModal();
+}
+
 function updateStatusChip(){
   const chip = qs('proposal-chip-status');
   if(!chip) return;
@@ -583,11 +602,16 @@ function renderCamposExtras(camposValores = []){
 
   if(!card || !wrap) return;
 
+  const emptyCard = qs('proposal-card-campos-vazio');
+
   if(!camposExtrasConfig.length){
     card.style.display = 'none';
+    if(emptyCard) emptyCard.style.display = '';
     wrap.innerHTML = '';
     return;
   }
+
+  if(emptyCard) emptyCard.style.display = 'none';
 
   const valoresMap = new Map(
     (camposValores || []).map((c) => [Number(c.campo_id), c.valor ?? ''])
@@ -694,11 +718,13 @@ function resetFormulario(){
 
 async function openNovaProposta(){
   resetFormulario();
+  switchPropostaTab('tab-proposta-dados');
   openModal();
 }
 
 async function openEditarProposta(id){
   resetFormulario();
+  switchPropostaTab('tab-proposta-dados');
   openModal();
   qs('proposal-modal-title').textContent = 'Editar proposta';
 
@@ -822,16 +848,19 @@ async function salvarProposta(){
   const clienteBusca = qs('proposta-cliente-busca')?.value?.trim() || '';
 
   if(!payload.titulo){
+    switchPropostaTab('tab-proposta-dados');
     toast('Preencha o título da proposta.', true);
     return;
   }
 
   if(clienteBusca && !payload.cliente_id){
+    switchPropostaTab('tab-proposta-dados');
     toast('Selecione um cliente da lista para vincular à proposta.', true);
     return;
   }
 
   if(!payload.itens.length){
+    switchPropostaTab('tab-proposta-itens');
     toast('Adicione pelo menos um item.', true);
     return;
   }
@@ -863,7 +892,7 @@ async function salvarProposta(){
     toast('Erro ao salvar proposta.', true);
   }finally{
     btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i> Salvar';
+    btn.innerHTML = '<i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i> Salvar proposta';
     updateWhatsAppModalButton();
   }
 }
@@ -1176,18 +1205,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   qs('proposta-titulo')?.addEventListener('input', updateWhatsAppModalButton);
 
-  qs('btn-configurar-campos')?.addEventListener('click', async () => {
-    await carregarCamposConfiguraveis();
-    renderTabelaCamposConfig();
-    resetCampoForm();
-    openFieldsConfigModal();
-  });
+  qs('btn-configurar-campos')?.addEventListener('click', abrirConfiguracaoCamposProposta);
+  qs('btn-configurar-campos-proposta')?.addEventListener('click', abrirConfiguracaoCamposProposta);
+  qs('btn-configurar-campos-proposta-atalho')?.addEventListener('click', abrirConfiguracaoCamposProposta);
+  qs('btn-cancelar-proposta-footer')?.addEventListener('click', closeModal);
 
-  qs('btn-configurar-campos-proposta')?.addEventListener('click', async () => {
-    await carregarCamposConfiguraveis();
-    renderTabelaCamposConfig();
-    resetCampoForm();
-    openFieldsConfigModal();
+  document.querySelectorAll('.proposal-tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => switchPropostaTab(btn.dataset.tab));
   });
 
   qs('btn-fechar-fields-config-modal')?.addEventListener('click', closeFieldsConfigModal);

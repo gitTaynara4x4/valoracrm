@@ -22,6 +22,7 @@ from backend.routers.propostas import router as propostas_router
 from backend.routers.dashboard import router as dashboard_router
 from backend.routers.usuarios import router as usuarios_router
 from backend.routers.permissoes import router as permissoes_router
+from backend.routers.formularios import router as formularios_router
 from backend.routers import empresa
 from backend.routers import propostas, campos_propostas
 
@@ -234,6 +235,7 @@ app.include_router(usuarios_router)
 app.include_router(permissoes_router)
 app.include_router(propostas.router)
 app.include_router(campos_propostas.router)
+app.include_router(formularios_router)
 
 # Área do Cliente / Contratos
 app.include_router(area_cliente_admin_router)

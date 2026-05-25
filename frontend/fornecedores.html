@@ -15,7 +15,7 @@
 
   <script src="/frontend/js/pages/app.js" defer></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="/frontend/js/pages/fornecedores/index.js"></script>
+  <script type="module" src="/frontend/js/pages/fornecedores.js?v=20260525-campos-fix"></script>
 </head>
 <body>
   <div class="layout">
@@ -86,7 +86,7 @@
       </article>
 
       <article class="panel-card" style="margin-bottom:24px;">
-        <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
           <div>
             <h3>Campos personalizados</h3>
             <p>Campos exclusivos para o cadastro dos seus fornecedores.</p>
@@ -133,15 +133,17 @@
             <form class="valora-form" id="formFornecedor">
               <div class="fornecedor-tabs">
                 <button type="button" class="fornecedor-tab-btn active" data-tab="tab-fornecedor-cadastro">Cadastro</button>
-                <button type="button" class="fornecedor-tab-btn" data-tab="tab-fornecedor-endereco">Endereço</button>
-                <button type="button" class="fornecedor-tab-btn" data-tab="tab-fornecedor-adicional">Dados adicionais</button>
+                <button type="button" class="fornecedor-tab-btn" data-tab="tab-fornecedor-contato">Contato</button>
+                <button type="button" class="fornecedor-tab-btn" data-tab="tab-fornecedor-endereco">Endereço principal</button>
+                <button type="button" class="fornecedor-tab-btn" data-tab="tab-fornecedor-comercial">Comercial / financeiro</button>
+                <button type="button" class="fornecedor-tab-btn" data-tab="tab-fornecedor-campos">Campos personalizados</button>
               </div>
 
               <section class="fornecedor-tab active" id="tab-fornecedor-cadastro">
                 <article class="section-card">
                   <h4>Identificação principal</h4>
 
-                  <div class="form-row">
+                  <div class="form-row three-cols">
                     <div class="form-group">
                       <label for="campo-codigo-fornecedor">Código</label>
                       <input type="text" id="campo-codigo-fornecedor" disabled />
@@ -160,7 +162,7 @@
                     </div>
                   </div>
 
-                  <div class="form-row">
+                  <div class="form-row two-cols">
                     <div class="form-group">
                       <label for="campo-nome-fornecedor">Nome / Razão social *</label>
                       <input type="text" id="campo-nome-fornecedor" required />
@@ -171,7 +173,7 @@
                     </div>
                   </div>
 
-                  <div class="form-row">
+                  <div class="form-row three-cols">
                     <div class="form-group">
                       <label for="campo-cpf-cnpj-fornecedor">CPF / CNPJ</label>
                       <input type="text" id="campo-cpf-cnpj-fornecedor" />
@@ -185,6 +187,12 @@
                       <input type="text" id="campo-im-fornecedor" />
                     </div>
                   </div>
+                </article>
+              </section>
+
+              <section class="fornecedor-tab" id="tab-fornecedor-contato">
+                <article class="section-card">
+                  <h4>Contato do fornecedor</h4>
 
                   <div class="form-row">
                     <div class="form-group">
@@ -205,7 +213,7 @@
                     </div>
                   </div>
 
-                  <div class="form-row">
+                  <div class="form-row two-cols">
                     <div class="form-group">
                       <label for="campo-email-fornecedor">E-mail</label>
                       <input type="email" id="campo-email-fornecedor" />
@@ -220,14 +228,14 @@
 
               <section class="fornecedor-tab" id="tab-fornecedor-endereco">
                 <article class="section-card">
-                  <h4>Endereço</h4>
+                  <h4>Endereço principal</h4>
 
                   <div class="form-row">
                     <div class="form-group">
                       <label for="campo-cep-fornecedor">CEP</label>
                       <input type="text" id="campo-cep-fornecedor" />
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="grid-column: span 2;">
                       <label for="campo-endereco-fornecedor">Endereço</label>
                       <input type="text" id="campo-endereco-fornecedor" />
                     </div>
@@ -235,13 +243,13 @@
                       <label for="campo-numero-fornecedor">Número</label>
                       <input type="text" id="campo-numero-fornecedor" />
                     </div>
+                  </div>
+
+                  <div class="form-row">
                     <div class="form-group">
                       <label for="campo-complemento-fornecedor">Complemento</label>
                       <input type="text" id="campo-complemento-fornecedor" />
                     </div>
-                  </div>
-
-                  <div class="form-row">
                     <div class="form-group">
                       <label for="campo-bairro-fornecedor">Bairro</label>
                       <input type="text" id="campo-bairro-fornecedor" />
@@ -254,13 +262,13 @@
                       <label for="campo-estado-fornecedor">UF</label>
                       <input type="text" id="campo-estado-fornecedor" />
                     </div>
+                  </div>
+
+                  <div class="form-row three-cols">
                     <div class="form-group">
                       <label for="campo-pais-fornecedor">País</label>
                       <input type="text" id="campo-pais-fornecedor" />
                     </div>
-                  </div>
-
-                  <div class="form-row">
                     <div class="form-group">
                       <label for="campo-ibge-cidade-fornecedor">Cód. IBGE Cidade</label>
                       <input type="text" id="campo-ibge-cidade-fornecedor" />
@@ -273,11 +281,11 @@
                 </article>
               </section>
 
-              <section class="fornecedor-tab" id="tab-fornecedor-adicional">
+              <section class="fornecedor-tab" id="tab-fornecedor-comercial">
                 <article class="section-card">
                   <h4>Comercial / financeiro</h4>
 
-                  <div class="form-row">
+                  <div class="form-row three-cols">
                     <div class="form-group">
                       <label for="campo-limite-compras-fornecedor">Limite de compras</label>
                       <input type="text" id="campo-limite-compras-fornecedor" />
@@ -295,15 +303,17 @@
                   <div class="form-row">
                     <div class="form-group" style="grid-column:1 / -1;">
                       <label for="campo-observacoes-fornecedor">Observações</label>
-                      <textarea id="campo-observacoes-fornecedor" rows="4"></textarea>
+                      <textarea id="campo-observacoes-fornecedor" rows="5"></textarea>
                     </div>
                   </div>
                 </article>
+              </section>
 
+              <section class="fornecedor-tab" id="tab-fornecedor-campos">
                 <article class="section-card">
                   <div class="panel-head" style="margin-bottom:14px;">
                     <h3>Campos personalizados</h3>
-                    <p>Compatibilidade com a base atual do Valora.</p>
+                    <p>Campos extras criados para fornecedores.</p>
                   </div>
                   <div id="custom-fields-container" class="form-row"></div>
                 </article>
@@ -329,7 +339,7 @@
 
           <div class="modal-body">
             <div class="valora-form">
-              <div class="form-row">
+              <div class="form-row two-cols">
                 <div class="form-group">
                   <label for="campo-custom-nome">Nome do campo *</label>
                   <input type="text" id="campo-custom-nome" />
@@ -347,7 +357,7 @@
                 </div>
               </div>
 
-              <div class="form-row">
+              <div class="form-row three-cols">
                 <div class="form-group">
                   <label for="campo-custom-ordem">Ordem</label>
                   <input type="number" id="campo-custom-ordem" value="0" />
