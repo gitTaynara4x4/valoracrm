@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import unicodedata
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -159,6 +160,158 @@ def parse_decimal(value: Any) -> Optional[Decimal]:
         return Decimal(text)
     except (InvalidOperation, ValueError):
         return None
+
+
+def slugify_campo_formulario(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    text = text.lower()
+
+    out = []
+    last_underscore = False
+
+    for ch in text:
+        if ch.isalnum():
+            out.append(ch)
+            last_underscore = False
+        else:
+            if not last_underscore:
+                out.append("_")
+                last_underscore = True
+
+    return "".join(out).strip("_")[:120]
+
+
+def tipo_campo_cliente_from_formulario(tipo: Any) -> str:
+    tipo_norm = str(tipo or "texto").strip().lower()
+
+    mapa = {
+        "texto": "texto",
+        "textarea": "textarea",
+        "numero": "numero",
+        "data": "data",
+        "select": "select",
+        "checkbox": "checkbox",
+        "email": "texto",
+        "telefone": "texto",
+        "moeda": "numero",
+        "percentual": "numero",
+    }
+
+    return mapa.get(tipo_norm, "texto")
+
+
+def sincronizar_campos_clientes_do_formulario(
+    db: Session,
+    empresa_id: int,
+    *,
+    commit: bool = False,
+) -> None:
+    """
+    Mantém /api/campos-clientes compatível com o construtor de Formulários.
+
+    O front atual de Clientes ainda lê campos extras pela tabela campos_clientes.
+    Já a tela Formulários salva os campos na tabela formularios_campos.
+    Esta função cria/atualiza automaticamente CampoCliente a partir do
+    formulário padrão ativo do módulo clientes.
+    """
+    FormularioModelo = getattr(core_models, "FormularioModelo", None)
+    FormularioCampo = getattr(core_models, "FormularioCampo", None)
+
+    if FormularioModelo is None or FormularioCampo is None:
+        return
+
+    modelo = (
+        db.query(FormularioModelo)
+        .filter(FormularioModelo.empresa_id == empresa_id)
+        .filter(FormularioModelo.modulo == "clientes")
+        .filter(FormularioModelo.ativo == True)  # noqa: E712
+        .order_by(FormularioModelo.padrao.desc(), FormularioModelo.id.desc())
+        .first()
+    )
+
+    if not modelo:
+        return
+
+    campos_formulario = (
+        db.query(FormularioCampo)
+        .filter(FormularioCampo.formulario_id == modelo.id)
+        .filter(FormularioCampo.origem == "personalizado")
+        .order_by(FormularioCampo.ordem.asc(), FormularioCampo.id.asc())
+        .all()
+    )
+
+    if not campos_formulario:
+        return
+
+    existentes = (
+        db.query(core_models.CampoCliente)
+        .filter(core_models.CampoCliente.empresa_id == empresa_id)
+        .all()
+    )
+    por_slug = {str(c.slug): c for c in existentes}
+
+    changed = False
+
+    for campo_form in campos_formulario:
+        label = norm_str(getattr(campo_form, "label", None))
+        if not label:
+            continue
+
+        slug = slugify_campo_formulario(label)
+        if not slug:
+            continue
+
+        tipo = tipo_campo_cliente_from_formulario(getattr(campo_form, "tipo_campo", None))
+        opcoes_json = getattr(campo_form, "opcoes_json", None)
+        obrigatorio = bool(getattr(campo_form, "obrigatorio", False))
+        ativo = bool(getattr(campo_form, "ativo", True))
+        ordem = int(getattr(campo_form, "ordem", 0) or 0)
+
+        campo_cliente = por_slug.get(slug)
+
+        if campo_cliente:
+            if campo_cliente.nome != label:
+                campo_cliente.nome = label
+                changed = True
+            if campo_cliente.tipo != tipo:
+                campo_cliente.tipo = tipo
+                changed = True
+            if bool(campo_cliente.obrigatorio) != obrigatorio:
+                campo_cliente.obrigatorio = obrigatorio
+                changed = True
+            if bool(campo_cliente.ativo) != ativo:
+                campo_cliente.ativo = ativo
+                changed = True
+            if (campo_cliente.opcoes_json or None) != (opcoes_json or None):
+                campo_cliente.opcoes_json = opcoes_json
+                changed = True
+            if int(campo_cliente.ordem or 0) != ordem:
+                campo_cliente.ordem = ordem
+                changed = True
+        else:
+            campo_cliente = core_models.CampoCliente(
+                empresa_id=empresa_id,
+                nome=label,
+                slug=slug,
+                tipo=tipo,
+                obrigatorio=obrigatorio,
+                ativo=ativo,
+                opcoes_json=opcoes_json,
+                ordem=ordem,
+            )
+            db.add(campo_cliente)
+            por_slug[slug] = campo_cliente
+            changed = True
+
+    if changed:
+        db.flush()
+        if commit:
+            db.commit()
 
 
 class EnderecoBase(BaseModel):
@@ -421,6 +574,8 @@ def gerar_codigo_cliente(db: Session, empresa_id: int) -> str:
 
 
 def buscar_campos_empresa_map(db: Session, empresa_id: int) -> Dict[str, core_models.CampoCliente]:
+    sincronizar_campos_clientes_do_formulario(db, empresa_id, commit=False)
+
     campos = db.query(core_models.CampoCliente).filter(core_models.CampoCliente.empresa_id == empresa_id).all()
     return {str(c.slug): c for c in campos}
 
@@ -896,6 +1051,15 @@ def listar_campos(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
+    try:
+        sincronizar_campos_clientes_do_formulario(db, empresa_id, commit=True)
+    except OperationalError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="A estrutura de Formulários/Campos ainda não existe no banco. Rode a query SQL/migration antes de abrir Clientes.",
+        ) from exc
+
     rows = (
         db.query(core_models.CampoCliente)
         .filter(core_models.CampoCliente.empresa_id == empresa_id)
