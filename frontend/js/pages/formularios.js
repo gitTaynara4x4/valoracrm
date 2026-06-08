@@ -3,26 +3,32 @@
 
   const API_BASE = '/api/formularios';
 
+  /*
+    IMPORTANTE:
+    Aqui deixei customEndpoint como null para todos os módulos.
+    Assim o Formulários não tenta buscar rotas que não existem,
+    como /api/campos-fornecedores, e não trava a tela.
+  */
   const MODULOS = {
     clientes: {
       label: 'Clientes',
       icon: 'fa-user-group',
-      customEndpoint: '/api/campos-clientes',
+      customEndpoint: null,
     },
     fornecedores: {
       label: 'Fornecedores',
       icon: 'fa-truck',
-      customEndpoint: '/api/campos-fornecedores',
+      customEndpoint: null,
     },
     produtos: {
       label: 'Produtos',
       icon: 'fa-box-open',
-      customEndpoint: '/api/produtos/campos/lista',
+      customEndpoint: null,
     },
     propostas: {
       label: 'Propostas',
       icon: 'fa-file-signature',
-      customEndpoint: '/api/campos-propostas',
+      customEndpoint: null,
     },
     contratos: {
       label: 'Contratos',
@@ -32,7 +38,7 @@
   };
 
   const state = {
-    modulo: 'clientes',
+    modulo: getInitialModulo(),
     modelos: [],
     modeloAtual: null,
     camposSistema: [],
@@ -43,6 +49,12 @@
   };
 
   const qs = (id) => document.getElementById(id);
+
+  function getInitialModulo() {
+    const params = new URLSearchParams(window.location.search);
+    const modulo = params.get('modulo') || 'clientes';
+    return MODULOS[modulo] ? modulo : 'clientes';
+  }
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -98,7 +110,13 @@
   }
 
   function openModal(id) {
-    qs(id)?.classList.add('show');
+    const modal = qs(id);
+    if (!modal) {
+      console.warn(`[Formulários] Modal não encontrado: ${id}`);
+      return;
+    }
+
+    modal.classList.add('show');
   }
 
   function closeModal(id) {
@@ -106,7 +124,9 @@
   }
 
   function closeAllModals() {
-    document.querySelectorAll('.modal-overlay.show').forEach((modal) => modal.classList.remove('show'));
+    document.querySelectorAll('.modal-overlay.show').forEach((modal) => {
+      modal.classList.remove('show');
+    });
   }
 
   function setLoadingSelect(select, text = 'Carregando...') {
@@ -124,6 +144,7 @@
       personalizado: 'Personalizado',
       visual: 'Visual',
     };
+
     return map[origem] || origem || '-';
   }
 
@@ -142,7 +163,7 @@
 
   function parseOpcoes(raw) {
     return String(raw || '')
-      .split(/\n|,/)
+      .split(/\n|,|;/)
       .map((item) => item.trim())
       .filter(Boolean);
   }
@@ -150,22 +171,47 @@
   function opcoesToInput(value) {
     if (!value) return '';
 
-    if (Array.isArray(value)) return value.join(', ');
+    if (Array.isArray(value)) return value.join('\n');
 
     if (typeof value === 'string') {
       try {
         const parsed = JSON.parse(value);
-        if (Array.isArray(parsed)) return parsed.join(', ');
+        if (Array.isArray(parsed)) return parsed.join('\n');
       } catch (_) {}
-      return value;
+
+      return value.replaceAll(',', '\n');
     }
 
     return '';
   }
 
+  function getSecoes() {
+    return Array.isArray(state.modeloAtual?.secoes) ? state.modeloAtual.secoes : [];
+  }
+
+  function getAllCampos() {
+    const direto = Array.isArray(state.modeloAtual?.campos) ? state.modeloAtual.campos : [];
+    const semSecao = Array.isArray(state.modeloAtual?.campos_sem_secao) ? state.modeloAtual.campos_sem_secao : [];
+
+    const emSecoes = getSecoes().flatMap((secao) => {
+      return Array.isArray(secao.campos) ? secao.campos : [];
+    });
+
+    const map = new Map();
+
+    [...direto, ...semSecao, ...emSecoes].forEach((campo) => {
+      if (campo?.id != null) {
+        map.set(Number(campo.id), campo);
+      }
+    });
+
+    return [...map.values()];
+  }
+
   async function carregarModelos() {
     const data = await apiJson(`${API_BASE}/modelos?modulo=${encodeURIComponent(state.modulo)}`);
     state.modelos = Array.isArray(data) ? data : [];
+
     renderModelosSelect();
 
     if (state.modelos.length) {
@@ -188,7 +234,9 @@
     state.modeloAtual = data;
 
     const select = qs('select-modelo');
-    if (select) select.value = String(id);
+    if (select) {
+      select.value = String(id);
+    }
 
     renderModeloAtual();
   }
@@ -217,6 +265,7 @@
     try {
       const data = await apiJson(endpoint);
       state.camposPersonalizados = Array.isArray(data) ? data : [];
+
       state.camposPersonalizados.sort((a, b) => {
         return Number(a.ordem || 0) - Number(b.ordem || 0) ||
           String(a.nome || '').localeCompare(String(b.nome || ''));
@@ -247,33 +296,54 @@
   function renderModeloAtual() {
     const modelo = state.modeloAtual?.modelo || null;
 
-    qs('modulo-titulo').textContent = moduloLabel();
-    qs('modelo-nome').textContent = modelo ? modelo.nome : 'Nenhum formulário selecionado';
-    qs('modelo-descricao').textContent = modelo
-      ? (modelo.descricao || `${moduloLabel()} • ${modelo.padrao ? 'formulário padrão' : 'formulário personalizado'}`)
-      : 'Crie um formulário padrão para começar.';
+    const moduloTitulo = qs('modulo-titulo');
+    const modeloNome = qs('modelo-nome');
+    const modeloDescricao = qs('modelo-descricao');
 
-    const hasModelo = !!modelo;
-    qs('btn-editar-modelo').disabled = !hasModelo;
-    qs('btn-nova-secao').disabled = !hasModelo;
-    qs('btn-novo-campo').disabled = !hasModelo;
+    if (moduloTitulo) moduloTitulo.textContent = moduloLabel();
+
+    if (modeloNome) {
+      modeloNome.textContent = modelo ? modelo.nome : 'Nenhum formulário selecionado';
+    }
+
+    if (modeloDescricao) {
+      modeloDescricao.textContent = modelo
+        ? (modelo.descricao || `${moduloLabel()} • ${modelo.padrao ? 'formulário padrão' : 'formulário personalizado'}`)
+        : 'Crie um formulário padrão para começar.';
+    }
+
+    const hasModelo = !!(modelo?.id || qs('select-modelo')?.value);
+
+    const btnEditar = qs('btn-editar-modelo');
+    const btnNovaSecao = qs('btn-nova-secao');
+    const btnCampoSistema = qs('btn-campo-sistema');
+    const btnNovoCampo = qs('btn-novo-campo');
+
+    if (btnEditar) btnEditar.disabled = !hasModelo;
+    if (btnNovaSecao) btnNovaSecao.disabled = !hasModelo;
+    if (btnCampoSistema) btnCampoSistema.disabled = !hasModelo;
+    if (btnNovoCampo) btnNovoCampo.disabled = !hasModelo;
 
     const empty = qs('builder-empty');
     const wrap = qs('secoes-container');
 
-    if (!hasModelo) {
+    if (!modelo) {
       if (empty) empty.style.display = '';
       if (wrap) wrap.innerHTML = '';
       return;
     }
 
     if (empty) empty.style.display = 'none';
+
     renderSecoes();
     renderSecaoSelect();
   }
 
   function camposOrdenados(campos = []) {
-    return [...campos].sort((a, b) => Number(a.ordem || 0) - Number(b.ordem || 0) || Number(a.id || 0) - Number(b.id || 0));
+    return [...campos].sort((a, b) => {
+      return Number(a.ordem || 0) - Number(b.ordem || 0) ||
+        Number(a.id || 0) - Number(b.id || 0);
+    });
   }
 
   function renderSecoes() {
@@ -281,26 +351,27 @@
     if (!wrap) return;
 
     const atual = state.modeloAtual;
+
     if (!atual?.modelo) {
       wrap.innerHTML = '';
       return;
     }
 
-    const secoes = Array.isArray(atual.secoes) ? atual.secoes : [];
+    const secoes = getSecoes();
     const camposSemSecao = Array.isArray(atual.campos_sem_secao) ? atual.campos_sem_secao : [];
-
-    let html = '';
 
     if (!secoes.length && !camposSemSecao.length) {
       wrap.innerHTML = `
         <div class="builder-empty panel-card">
           <i class="fa-solid fa-folder-open"></i>
           <strong>Este formulário ainda está vazio.</strong>
-          <span>Adicione uma seção como “01 - Dados básicos” e depois coloque os campos dentro dela.</span>
+          <span>Crie uma seção primeiro. Depois coloque campos dentro dela.</span>
         </div>
       `;
       return;
     }
+
+    let html = '';
 
     secoes.forEach((secao) => {
       html += renderSecaoCard(secao);
@@ -310,7 +381,7 @@
       html += renderSecaoCard({
         id: '',
         titulo: 'Campos sem seção',
-        descricao: 'Campos adicionados sem vínculo com uma seção.',
+        descricao: 'Campos antigos que ainda não foram organizados em uma seção.',
         ativo: true,
         campos: camposSemSecao,
         semSecao: true,
@@ -350,8 +421,10 @@
             </h4>
             ${secao.descricao ? `<p class="secao-desc">${escapeHtml(secao.descricao)}</p>` : ''}
           </div>
+
           ${actions}
         </div>
+
         <div class="campos-list">
           ${camposHtml}
         </div>
@@ -362,6 +435,7 @@
   function renderCampoCard(campo) {
     const origem = campo.origem || 'personalizado';
     const badgeClass = origem === 'sistema' ? 'system' : origem === 'visual' ? 'visual' : 'custom';
+
     const inactive = campo.ativo === false ? '<span class="badge off">Inativo</span>' : '';
     const required = campo.obrigatorio ? '<span class="badge">Obrigatório</span>' : '';
     const readonly = campo.somente_leitura ? '<span class="badge">Somente leitura</span>' : '';
@@ -382,7 +456,9 @@
               <i class="fa-solid ${origem === 'visual' ? 'fa-heading' : origem === 'sistema' ? 'fa-database' : 'fa-pen-to-square'}"></i>
               ${escapeHtml(origemLabel(origem))}
             </span>
+
             <strong>${escapeHtml(campo.label || '-')}</strong>
+
             ${required}
             ${readonly}
             ${inactive}
@@ -399,6 +475,7 @@
           <button class="icon-btn" type="button" data-action="editar-campo" data-id="${campo.id}" title="Editar campo">
             <i class="fa-solid fa-pen"></i>
           </button>
+
           <button class="icon-btn danger" type="button" data-action="excluir-campo" data-id="${campo.id}" title="Excluir campo">
             <i class="fa-solid fa-trash"></i>
           </button>
@@ -411,8 +488,14 @@
     const select = qs('campo-secao');
     if (!select) return;
 
-    const secoes = Array.isArray(state.modeloAtual?.secoes) ? state.modeloAtual.secoes : [];
-    select.innerHTML = '<option value="">Sem seção</option>' + secoes.map((secao) => {
+    const secoes = getSecoes();
+
+    if (!secoes.length) {
+      select.innerHTML = '<option value="">Crie uma seção antes</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="">Selecione uma seção</option>' + secoes.map((secao) => {
       const selected = String(selectedId || '') === String(secao.id) ? 'selected' : '';
       return `<option value="${secao.id}" ${selected}>${escapeHtml(secao.titulo)}</option>`;
     }).join('');
@@ -429,7 +512,17 @@
 
     select.innerHTML = '<option value="">Selecione</option>' + state.camposSistema.map((campo) => {
       const selected = String(selectedValue || '') === String(campo.campo || '') ? 'selected' : '';
-      return `<option value="${escapeHtml(campo.campo)}" data-label="${escapeHtml(campo.label)}" data-tipo="${escapeHtml(campo.tipo || 'texto')}" ${selected}>${escapeHtml(campo.label)} (${escapeHtml(campo.campo)})</option>`;
+
+      return `
+        <option
+          value="${escapeHtml(campo.campo)}"
+          data-label="${escapeHtml(campo.label)}"
+          data-tipo="${escapeHtml(campo.tipo || 'texto')}"
+          ${selected}
+        >
+          ${escapeHtml(campo.label)} (${escapeHtml(campo.campo)})
+        </option>
+      `;
     }).join('');
   }
 
@@ -444,23 +537,130 @@
 
     select.innerHTML = '<option value="">Selecione</option>' + state.camposPersonalizados.map((campo) => {
       const selected = String(selectedValue || '') === String(campo.id || '') ? 'selected' : '';
-      return `<option value="${campo.id}" data-label="${escapeHtml(campo.nome || '')}" data-tipo="${escapeHtml(campo.tipo || 'texto')}" ${selected}>${escapeHtml(campo.nome || '-')} (${escapeHtml(campo.slug || campo.id)})</option>`;
+
+      return `
+        <option
+          value="${campo.id}"
+          data-label="${escapeHtml(campo.nome || '')}"
+          data-tipo="${escapeHtml(campo.tipo || 'texto')}"
+          ${selected}
+        >
+          ${escapeHtml(campo.nome || '-')} (${escapeHtml(campo.slug || campo.id)})
+        </option>
+      `;
     }).join('');
   }
 
-  function toggleCampoOrigem() {
-    const origem = qs('campo-origem')?.value || 'sistema';
+  function atualizarCampoPreview() {
+    const previewLabel = qs('campo-preview-label');
+    const previewHint = qs('campo-preview-hint');
+    const previewIcon = document.querySelector('#campo-preview .campo-preview-icon i');
 
-    qs('row-campo-sistema').style.display = origem === 'sistema' ? '' : 'none';
-    qs('row-campo-personalizado').style.display = origem === 'personalizado' ? '' : 'none';
+    if (!previewLabel || !previewHint) return;
 
-    const rowVisual = qs('row-campo-visual');
-    if (rowVisual) rowVisual.style.display = origem === 'visual' ? '' : 'none';
+    const origem = qs('campo-origem')?.value || 'personalizado';
 
-    const tipoCampo = qs('campo-tipo-campo');
-    if (tipoCampo) {
-      tipoCampo.closest('.form-group').style.display = origem === 'visual' ? 'none' : '';
+    let texto = '';
+    let dica = '';
+    let icon = 'fa-pen-to-square';
+
+    if (origem === 'sistema') {
+      const opt = qs('campo-sistema')?.selectedOptions?.[0];
+      texto = opt?.dataset?.label || opt?.textContent || '';
+      dica = 'Campo do sistema: usa informação que já existe no cadastro.';
+      icon = 'fa-database';
+    } else if (origem === 'visual') {
+      texto = qs('campo-label')?.value || qs('campo-tipo-visual')?.value || '';
+      dica = 'Item visual: título, aviso ou separador para organizar o formulário.';
+      icon = 'fa-heading';
+    } else {
+      texto = qs('campo-label')?.value || '';
+      const tipo = qs('campo-tipo-campo')?.selectedOptions?.[0]?.textContent || 'Texto';
+      dica = `Novo campo personalizado • Tipo: ${tipo}`;
+      icon = 'fa-pen-to-square';
     }
+
+    texto = String(texto || '').replace(/\s*\(.+\)\s*$/, '').trim();
+
+    previewLabel.textContent = texto || (origem === 'sistema' ? 'Nenhum campo selecionado' : 'Novo campo personalizado');
+
+    previewHint.textContent = texto
+      ? dica
+      : (origem === 'sistema'
+        ? 'Escolha o campo do sistema que entrará no formulário.'
+        : 'Digite o nome do campo para ver como ele ficará no formulário.');
+
+    if (previewIcon) {
+      previewIcon.className = `fa-solid ${icon}`;
+    }
+  }
+
+  function aplicarModoCampo(origem) {
+    origem = origem || 'personalizado';
+
+    const isSistema = origem === 'sistema';
+    const isVisual = origem === 'visual';
+
+    const rowSistema = qs('row-campo-sistema');
+    const rowNovo = qs('row-campo-novo');
+    const rowPersonalizado = qs('row-campo-personalizado');
+    const rowVisual = qs('row-campo-visual');
+    const guide = qs('campo-simple-guide');
+    const title = qs('modal-campo-title');
+    const subtitle = qs('modal-campo-subtitle');
+    const btnSalvar = qs('btn-salvar-campo');
+
+    if (rowSistema) rowSistema.style.display = isSistema ? '' : 'none';
+    if (rowNovo) rowNovo.style.display = isSistema ? 'none' : '';
+    if (rowPersonalizado) rowPersonalizado.style.display = 'none';
+    if (rowVisual) rowVisual.style.display = isVisual ? '' : 'none';
+
+    if (isSistema) {
+      if (title) title.textContent = 'Adicionar campo do sistema';
+      if (subtitle) subtitle.textContent = 'Escolha uma informação que já existe no cadastro e coloque dentro da seção.';
+      if (btnSalvar) btnSalvar.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Adicionar campo';
+
+      if (guide) {
+        guide.innerHTML = `
+          <strong>Adicionar campo do sistema</strong>
+          <ol>
+            <li>Escolha em qual seção o campo vai aparecer.</li>
+            <li>Escolha uma informação já existente.</li>
+            <li>Marque se é obrigatório e mantenha ativo.</li>
+            <li>Salve.</li>
+          </ol>
+        `;
+      }
+    } else {
+      if (title) title.textContent = isVisual ? 'Adicionar item visual' : 'Novo campo';
+
+      if (subtitle) {
+        subtitle.textContent = isVisual
+          ? 'Crie um título, aviso ou separador para organizar o formulário.'
+          : 'Crie uma nova informação personalizada para este formulário.';
+      }
+
+      if (btnSalvar) btnSalvar.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Criar campo';
+
+      if (guide) {
+        guide.innerHTML = `
+          <strong>${isVisual ? 'Adicionar item visual' : 'Novo campo'}</strong>
+          <ol>
+            <li>Escolha em qual seção vai aparecer.</li>
+            <li>${isVisual ? 'Digite o texto ou título.' : 'Digite o nome do novo campo.'}</li>
+            <li>${isVisual ? 'Defina a ordem, se precisar.' : 'Escolha o tipo e marque se é obrigatório.'}</li>
+            <li>Salve.</li>
+          </ol>
+        `;
+      }
+    }
+
+    atualizarCampoPreview();
+  }
+
+  function toggleCampoOrigem() {
+    const origem = qs('campo-origem')?.value || 'personalizado';
+    aplicarModoCampo(origem);
   }
 
   function preencherLabelPorSistema() {
@@ -469,9 +669,12 @@
 
     const label = opt.dataset.label || opt.textContent || '';
     const tipo = opt.dataset.tipo || 'texto';
+    const nomeLimpo = label.replace(/\s*\(.+\)\s*$/, '').trim();
 
-    if (!qs('campo-label').value.trim()) qs('campo-label').value = label.replace(/\s*\(.+\)\s*$/, '');
-    qs('campo-tipo-campo').value = tipo;
+    if (nomeLimpo) qs('campo-label').value = nomeLimpo;
+    qs('campo-tipo-campo').value = tipo || 'texto';
+
+    atualizarCampoPreview();
   }
 
   function preencherLabelPorPersonalizado() {
@@ -480,9 +683,12 @@
 
     const label = opt.dataset.label || opt.textContent || '';
     const tipo = opt.dataset.tipo || 'texto';
+    const nomeLimpo = label.replace(/\s*\(.+\)\s*$/, '').trim();
 
-    if (!qs('campo-label').value.trim()) qs('campo-label').value = label.replace(/\s*\(.+\)\s*$/, '');
-    qs('campo-tipo-campo').value = tipo;
+    if (nomeLimpo) qs('campo-label').value = nomeLimpo;
+    qs('campo-tipo-campo').value = tipo || 'texto';
+
+    atualizarCampoPreview();
   }
 
   function resetModeloForm(edit = false) {
@@ -509,18 +715,20 @@
     qs('btn-excluir-secao').style.display = secao ? '' : 'none';
   }
 
-  function resetCampoForm(campo = null) {
+  function resetCampoForm(campo = null, modo = 'novo') {
     state.campoEditando = campo;
 
-    qs('modal-campo-title').textContent = campo ? 'Editar campo' : 'Novo campo';
+    const origemInicial = campo?.origem || (modo === 'sistema' ? 'sistema' : 'personalizado');
+
     qs('campo-id').value = campo?.id || '';
+    qs('campo-modo').value = origemInicial === 'sistema' ? 'sistema' : 'novo';
 
     renderSecaoSelect(campo?.secao_id || '');
     renderCampoSistemaSelect(campo?.campo_sistema || '');
     renderCampoPersonalizadoSelect(campo?.campo_personalizado_id || '');
 
     qs('campo-secao').value = campo?.secao_id || '';
-    qs('campo-origem').value = campo?.origem || 'sistema';
+    qs('campo-origem').value = origemInicial;
     qs('campo-sistema').value = campo?.campo_sistema || '';
     qs('campo-personalizado').value = campo?.campo_personalizado_id || '';
     qs('campo-tipo-visual').value = campo?.tipo_visual || 'titulo';
@@ -528,7 +736,7 @@
     qs('campo-label').value = campo?.label || '';
     qs('campo-placeholder').value = campo?.placeholder || '';
     qs('campo-ajuda').value = campo?.ajuda || '';
-    qs('campo-largura').value = campo?.largura || '100';
+    qs('campo-largura').value = campo?.largura || (origemInicial === 'sistema' ? '50' : '100');
     qs('campo-visibilidade').value = campo?.visibilidade || 'todos';
     qs('campo-ordem').value = campo ? Number(campo.ordem || 0) : proximaOrdemCampo();
     qs('campo-opcoes').value = opcoesToInput(campo?.opcoes || campo?.opcoes_json || '');
@@ -537,17 +745,21 @@
     qs('campo-ativo').checked = campo ? campo.ativo !== false : true;
     qs('btn-excluir-campo').style.display = campo ? '' : 'none';
 
-    toggleCampoOrigem();
+    const avancado = qs('campo-avancado');
+    if (avancado) avancado.open = false;
+
+    aplicarModoCampo(origemInicial);
+    atualizarCampoPreview();
   }
 
   function proximaOrdemSecao() {
-    const secoes = state.modeloAtual?.secoes || [];
+    const secoes = getSecoes();
     if (!secoes.length) return 1;
     return Math.max(...secoes.map((s) => Number(s.ordem || 0))) + 1;
   }
 
   function proximaOrdemCampo() {
-    const campos = state.modeloAtual?.campos || [];
+    const campos = getAllCampos();
     if (!campos.length) return 1;
     return Math.max(...campos.map((c) => Number(c.ordem || 0))) + 1;
   }
@@ -572,7 +784,7 @@
   }
 
   function buildCampoPayload() {
-    const origem = qs('campo-origem').value;
+    const origem = qs('campo-origem').value || 'personalizado';
     const opcoes = parseOpcoes(qs('campo-opcoes').value);
 
     const payload = {
@@ -597,9 +809,16 @@
 
     if (origem === 'sistema') {
       payload.campo_sistema = qs('campo-sistema').value || null;
-    } else if (origem === 'personalizado') {
-      payload.campo_personalizado_id = qs('campo-personalizado').value ? Number(qs('campo-personalizado').value) : null;
-    } else if (origem === 'visual') {
+
+      const opt = qs('campo-sistema')?.selectedOptions?.[0];
+      const label = opt?.dataset?.label || opt?.textContent || '';
+      const tipo = opt?.dataset?.tipo || payload.tipo_campo || 'texto';
+
+      payload.label = payload.label || String(label).replace(/\s*\(.+\)\s*$/, '').trim();
+      payload.tipo_campo = tipo;
+    }
+
+    if (origem === 'visual') {
       payload.tipo_visual = qs('campo-tipo-visual').value || 'titulo';
       payload.tipo_campo = null;
       payload.obrigatorio = false;
@@ -641,9 +860,14 @@
       }
 
       state.modulo = salvo.modulo || payload.modulo;
+
       marcarModuloAtivo();
+
       await carregarModelos();
-      if (salvo?.id) await carregarModeloCompleto(salvo.id);
+
+      if (salvo?.id) {
+        await carregarModeloCompleto(salvo.id);
+      }
 
       closeModal('modal-modelo');
       toast('Formulário salvo com sucesso.');
@@ -652,12 +876,17 @@
       toast(err.message || 'Erro ao salvar formulário.', true);
     } finally {
       btn.disabled = false;
-      btn.innerHTML = '<i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i> Salvar formulário';
+      btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar formulário';
     }
   }
 
   async function salvarSecao() {
-    if (!state.modeloAtual?.modelo?.id) return;
+    const modeloId = state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+
+    if (!modeloId) {
+      toast('Crie ou selecione um formulário antes de criar seção.', true);
+      return;
+    }
 
     const payload = buildSecaoPayload();
 
@@ -680,14 +909,15 @@
           body: JSON.stringify(payload),
         });
       } else {
-        await apiJson(`${API_BASE}/modelos/${state.modeloAtual.modelo.id}/secoes`, {
+        await apiJson(`${API_BASE}/modelos/${modeloId}/secoes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
       }
 
-      await carregarModeloCompleto(state.modeloAtual.modelo.id);
+      await carregarModeloCompleto(modeloId);
+
       closeModal('modal-secao');
       toast('Seção salva com sucesso.');
     } catch (err) {
@@ -695,14 +925,24 @@
       toast(err.message || 'Erro ao salvar seção.', true);
     } finally {
       btn.disabled = false;
-      btn.innerHTML = '<i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i> Salvar seção';
+      btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar seção';
     }
   }
 
   async function salvarCampo() {
-    if (!state.modeloAtual?.modelo?.id) return;
+    const modeloId = state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+
+    if (!modeloId) {
+      toast('Crie ou selecione um formulário antes de criar campo.', true);
+      return;
+    }
 
     const payload = buildCampoPayload();
+
+    if (!payload.secao_id) {
+      toast('Escolha uma seção antes de salvar o campo.', true);
+      return;
+    }
 
     if (!payload.label) {
       toast('Informe o nome exibido do campo.', true);
@@ -711,11 +951,6 @@
 
     if (payload.origem === 'sistema' && !payload.campo_sistema) {
       toast('Selecione o campo do sistema.', true);
-      return;
-    }
-
-    if (payload.origem === 'personalizado' && !payload.campo_personalizado_id) {
-      toast('Selecione o campo personalizado.', true);
       return;
     }
 
@@ -733,14 +968,15 @@
           body: JSON.stringify(payload),
         });
       } else {
-        await apiJson(`${API_BASE}/modelos/${state.modeloAtual.modelo.id}/campos`, {
+        await apiJson(`${API_BASE}/modelos/${modeloId}/campos`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
       }
 
-      await carregarModeloCompleto(state.modeloAtual.modelo.id);
+      await carregarModeloCompleto(modeloId);
+
       closeModal('modal-campo');
       toast('Campo salvo com sucesso.');
     } catch (err) {
@@ -748,12 +984,13 @@
       toast(err.message || 'Erro ao salvar campo.', true);
     } finally {
       btn.disabled = false;
-      btn.innerHTML = '<i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i> Salvar campo';
+      btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar campo';
     }
   }
 
   async function criarPadrao() {
     const btn = qs('btn-criar-padrao');
+
     btn.disabled = true;
     btn.textContent = 'Criando...';
 
@@ -775,19 +1012,27 @@
       toast(err.message || 'Erro ao criar formulário padrão.', true);
     } finally {
       btn.disabled = false;
-      btn.innerHTML = '<i class="fa-solid fa-bolt" style="margin-right: 6px;"></i> Criar padrão';
+      btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Criar padrão';
     }
   }
 
   async function excluirSecao(id) {
-    if (!id || !state.modeloAtual?.modelo?.id) return;
+    if (!id) return;
+
+    const modeloId = state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+
+    if (!modeloId) return;
 
     const ok = confirm('Excluir esta seção? Os campos serão movidos para "sem seção".');
     if (!ok) return;
 
     try {
-      await apiJson(`${API_BASE}/secoes/${id}?mover_campos_para_sem_secao=true`, { method: 'DELETE' });
-      await carregarModeloCompleto(state.modeloAtual.modelo.id);
+      await apiJson(`${API_BASE}/secoes/${id}?mover_campos_para_sem_secao=true`, {
+        method: 'DELETE',
+      });
+
+      await carregarModeloCompleto(modeloId);
+
       toast('Seção excluída.');
     } catch (err) {
       console.error(err);
@@ -796,14 +1041,22 @@
   }
 
   async function excluirCampo(id) {
-    if (!id || !state.modeloAtual?.modelo?.id) return;
+    if (!id) return;
+
+    const modeloId = state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+
+    if (!modeloId) return;
 
     const ok = confirm('Excluir este campo do formulário?');
     if (!ok) return;
 
     try {
-      await apiJson(`${API_BASE}/campos/${id}`, { method: 'DELETE' });
-      await carregarModeloCompleto(state.modeloAtual.modelo.id);
+      await apiJson(`${API_BASE}/campos/${id}`, {
+        method: 'DELETE',
+      });
+
+      await carregarModeloCompleto(modeloId);
+
       closeModal('modal-campo');
       toast('Campo removido do formulário.');
     } catch (err) {
@@ -813,13 +1066,11 @@
   }
 
   function findSecao(id) {
-    const secoes = state.modeloAtual?.secoes || [];
-    return secoes.find((s) => Number(s.id) === Number(id));
+    return getSecoes().find((s) => Number(s.id) === Number(id));
   }
 
   function findCampo(id) {
-    const campos = state.modeloAtual?.campos || [];
-    return campos.find((c) => Number(c.id) === Number(id));
+    return getAllCampos().find((c) => Number(c.id) === Number(id));
   }
 
   function marcarModuloAtivo() {
@@ -827,7 +1078,8 @@
       btn.classList.toggle('is-active', btn.dataset.modulo === state.modulo);
     });
 
-    qs('modulo-titulo').textContent = moduloLabel();
+    const titulo = qs('modulo-titulo');
+    if (titulo) titulo.textContent = moduloLabel();
   }
 
   async function trocarModulo(modulo) {
@@ -839,7 +1091,14 @@
     state.camposSistema = [];
     state.camposPersonalizados = [];
 
+    const params = new URLSearchParams(window.location.search);
+    params.set('modulo', modulo);
+
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', newUrl);
+
     marcarModuloAtivo();
+
     setLoadingSelect(qs('select-modelo'), 'Carregando...');
 
     await Promise.all([
@@ -850,14 +1109,71 @@
     await carregarModelos();
   }
 
-  async function abrirNovoCampo(campo = null) {
+  function podeAbrirCampo() {
+    const modeloId = state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+
+    if (!modeloId) {
+      toast('Crie ou selecione um formulário primeiro.', true);
+      return false;
+    }
+
+    if (!getSecoes().length) {
+      toast('Crie uma seção antes de adicionar campos.', true);
+      return false;
+    }
+
+    return true;
+  }
+
+  async function abrirNovaSecao() {
+    const modeloId = state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+
+    if (!modeloId) {
+      toast('Crie ou selecione um formulário antes de criar uma seção.', true);
+      return;
+    }
+
+    if (!state.modeloAtual?.modelo?.id) {
+      await carregarModeloCompleto(modeloId);
+    }
+
+    resetSecaoForm(null);
+    openModal('modal-secao');
+  }
+
+  async function abrirCampoSistema(campo = null) {
+    if (!campo && !podeAbrirCampo()) return;
+
     await Promise.all([
       carregarCamposSistema(),
       carregarCamposPersonalizados(),
     ]);
 
-    resetCampoForm(campo);
+    resetCampoForm(campo, 'sistema');
     openModal('modal-campo');
+  }
+
+  async function abrirNovoCampo(campo = null) {
+    if (!campo && !podeAbrirCampo()) return;
+
+    await Promise.all([
+      carregarCamposSistema(),
+      carregarCamposPersonalizados(),
+    ]);
+
+    resetCampoForm(campo, 'novo');
+    openModal('modal-campo');
+  }
+
+  function abrirCampoParaEditar(campo) {
+    if (!campo) return;
+
+    if (campo.origem === 'sistema') {
+      abrirCampoSistema(campo);
+      return;
+    }
+
+    abrirNovoCampo(campo);
   }
 
   function bindEventos() {
@@ -871,7 +1187,9 @@
 
     document.querySelectorAll('.modal-overlay').forEach((modal) => {
       modal.addEventListener('mousedown', (e) => {
-        if (e.target === modal) modal.classList.remove('show');
+        if (e.target === modal) {
+          modal.classList.remove('show');
+        }
       });
     });
 
@@ -879,7 +1197,10 @@
       btn.addEventListener('click', () => trocarModulo(btn.dataset.modulo));
     });
 
-    qs('select-modelo')?.addEventListener('change', (e) => carregarModeloCompleto(e.target.value));
+    qs('select-modelo')?.addEventListener('change', async (e) => {
+      await carregarModeloCompleto(e.target.value);
+    });
+
     qs('btn-atualizar')?.addEventListener('click', () => trocarModulo(state.modulo));
     qs('btn-criar-padrao')?.addEventListener('click', criarPadrao);
 
@@ -888,25 +1209,33 @@
       openModal('modal-modelo');
     });
 
-    qs('btn-editar-modelo')?.addEventListener('click', () => {
+    qs('btn-editar-modelo')?.addEventListener('click', async () => {
+      const modeloId = state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+
+      if (!modeloId) {
+        toast('Selecione um formulário para editar.', true);
+        return;
+      }
+
+      if (!state.modeloAtual?.modelo?.id) {
+        await carregarModeloCompleto(modeloId);
+      }
+
       resetModeloForm(true);
       openModal('modal-modelo');
     });
 
     qs('btn-salvar-modelo')?.addEventListener('click', salvarModelo);
-
-    qs('btn-nova-secao')?.addEventListener('click', () => {
-      resetSecaoForm(null);
-      openModal('modal-secao');
-    });
-
+    qs('btn-nova-secao')?.addEventListener('click', abrirNovaSecao);
     qs('btn-salvar-secao')?.addEventListener('click', salvarSecao);
+
     qs('btn-excluir-secao')?.addEventListener('click', () => {
       const id = qs('secao-id').value;
       closeModal('modal-secao');
       excluirSecao(id);
     });
 
+    qs('btn-campo-sistema')?.addEventListener('click', () => abrirCampoSistema(null));
     qs('btn-novo-campo')?.addEventListener('click', () => abrirNovoCampo(null));
     qs('btn-salvar-campo')?.addEventListener('click', salvarCampo);
     qs('btn-excluir-campo')?.addEventListener('click', () => excluirCampo(qs('campo-id').value));
@@ -914,6 +1243,9 @@
     qs('campo-origem')?.addEventListener('change', toggleCampoOrigem);
     qs('campo-sistema')?.addEventListener('change', preencherLabelPorSistema);
     qs('campo-personalizado')?.addEventListener('change', preencherLabelPorPersonalizado);
+    qs('campo-label')?.addEventListener('input', atualizarCampoPreview);
+    qs('campo-tipo-campo')?.addEventListener('change', atualizarCampoPreview);
+    qs('campo-tipo-visual')?.addEventListener('change', atualizarCampoPreview);
 
     qs('secoes-container')?.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
@@ -924,6 +1256,7 @@
 
       if (action === 'editar-secao') {
         const secao = findSecao(id);
+
         if (secao) {
           resetSecaoForm(secao);
           openModal('modal-secao');
@@ -936,7 +1269,10 @@
 
       if (action === 'editar-campo') {
         const campo = findCampo(id);
-        if (campo) abrirNovoCampo(campo);
+
+        if (campo) {
+          abrirCampoParaEditar(campo);
+        }
       }
 
       if (action === 'excluir-campo') {
@@ -946,14 +1282,18 @@
   }
 
   async function init() {
+    console.log('[Formulários] JS carregou corretamente');
+
     bindEventos();
 
     try {
       marcarModuloAtivo();
+
       await Promise.all([
         carregarCamposSistema(),
         carregarCamposPersonalizados(),
       ]);
+
       await carregarModelos();
     } catch (err) {
       console.error('[Formulários] erro no init:', err);

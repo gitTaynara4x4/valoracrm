@@ -1,231 +1,292 @@
 /* =========================================
-   CLIENTES - CSS COMPLETO (VERSÃO NOVA)
-   Compatível com a tela nova de Clientes ERP
+   CLIENTES | VALORA CRM
+   Visual novo alinhado ao Dashboard
    ========================================= */
 
-/* =========================
-   TOPO / AÇÕES
-========================= */
+.main {
+  max-width: none;
+  width: 100%;
+  padding-left: 26px;
+  padding-right: 26px;
+}
+
+/* =========================================
+   TOPO DA PÁGINA
+   ========================================= */
+.topbar {
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.topbar-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topbar-title .eyebrow {
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.topbar-title h1 {
+  color: var(--text);
+  font-size: 26px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
 .topbar-actions {
   display: flex;
-  gap: 10px;
   align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-.btn-sm {
-  height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
-}
-
-/* legado */
-.search-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 8px 16px;
-  width: 100%;
-  max-width: 400px;
-  transition: var(--transition);
-}
-
-.search-box:focus-within {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-soft);
-}
-
-.search-box i {
-  color: var(--muted);
-}
-
-.search-box input {
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text);
-  width: 100%;
-  font-size: 14px;
-}
-
-.counter-text {
+.topbar-actions .btn {
+  min-height: 38px;
+  border-radius: 6px;
   font-size: 13px;
-  color: var(--muted);
   font-weight: 500;
 }
 
-/* =========================
-   FILTROS NOVOS
-========================= */
+.topbar-actions .btn i {
+  font-size: 13px;
+}
+
+/* =========================================
+   FILTROS
+   ========================================= */
+.clientes-filter-card {
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  padding: 22px !important;
+  margin-bottom: 20px !important;
+}
+
+.clientes-filter-card .panel-head {
+  margin-bottom: 18px;
+}
+
+.clientes-filter-card .panel-head h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.03em;
+}
+
+.clientes-filter-card .panel-head p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .filters-grid {
   display: grid;
   grid-template-columns: 2fr repeat(3, minmax(160px, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
 .filters-grid .form-group {
   margin: 0;
 }
 
-/* =========================
-   CAMPOS PERSONALIZADOS
-========================= */
-.campos-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
-}
-
-.campo-card {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.campo-card strong {
-  display: block;
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-
-.campo-card span {
+.form-group label {
+  color: var(--muted);
   font-size: 12px;
-  color: var(--muted);
+  font-weight: 500;
+  margin-bottom: 6px;
 }
 
-.badge-tag {
-  display: inline-block;
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.05);
-  color: var(--muted);
-  margin-top: 8px;
+.form-group input,
+.form-group select,
+.form-group textarea,
+.mini-actions input {
+  width: 100%;
+  height: 42px;
+  background: var(--panel);
   border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 0 13px;
+  outline: none;
+  transition: var(--transition);
 }
 
-.badge-tag.brand {
-  background: var(--brand-soft);
-  color: var(--brand);
-  border-color: rgba(16,163,127,0.3);
+.form-group textarea {
+  height: auto;
+  min-height: 96px;
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 
-/* =========================
-   CARDS / ESTADOS
-========================= */
-.empty-state {
-  padding: 24px;
-  text-align: center;
-  color: var(--muted);
-  font-size: 14px;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
+.form-group input::placeholder,
+.form-group textarea::placeholder,
+.mini-actions input::placeholder {
+  color: var(--muted-soft);
 }
 
-.empty-soft {
-  border: 1px dashed var(--border);
-  border-radius: 14px;
-  padding: 18px;
-  text-align: center;
-  color: var(--muted);
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus,
+.mini-actions input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
 }
 
-.subtle {
+.footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-actions {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.counter-text {
+  margin-right: auto;
   color: var(--muted);
   font-size: 13px;
+  font-weight: 500;
 }
 
-.panel-card-table {
-  padding: 0;
-  overflow: hidden;
-}
-
-/* =========================
+/* =========================================
    TABELA
-========================= */
+   ========================================= */
+.panel-card-table {
+  padding: 0 !important;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+
 .valora-table-wrapper {
   width: 100%;
-  overflow-x: auto;
+  overflow: auto;
 }
 
 .valora-table {
   width: 100%;
-  border-collapse: collapse;
-  text-align: left;
   min-width: 980px;
+  border-collapse: collapse;
+  background: var(--panel);
+}
+
+.valora-table thead {
+  background: var(--bg-soft);
 }
 
 .valora-table th {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
+  height: 48px;
+  padding: 0 16px;
   color: var(--muted);
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   font-weight: 600;
-  background: var(--panel);
+  text-align: left;
   white-space: nowrap;
+  border-bottom: 1px solid var(--border);
 }
 
 .valora-table td {
-  padding: 16px 24px;
+  min-height: 58px;
+  padding: 14px 16px;
+  color: var(--text-soft);
+  font-size: 13px;
   border-bottom: 1px solid var(--border);
-  font-size: 14px;
   vertical-align: middle;
 }
 
-.valora-table tr:hover td {
-  background: var(--panel-hover);
+.valora-table tbody tr {
+  transition: var(--transition);
 }
 
+.valora-table tbody tr:hover {
+  background: var(--bg-soft);
+}
+
+.valora-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.valora-table td strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.empty-state {
+  color: var(--muted);
+  padding: 32px 18px !important;
+  text-align: center;
+  border: none !important;
+}
+
+.text-right {
+  text-align: right !important;
+}
+
+/* =========================================
+   BADGES
+   ========================================= */
 .badge-codigo {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  padding: 4px 8px;
-  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(101, 172, 222, 0.12);
+  color: var(--blue);
   font-size: 12px;
   font-weight: 600;
-  color: var(--muted);
+  white-space: nowrap;
+}
+
+.badge-tipo {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border-radius: 999px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(75, 195, 199, 0.14);
+  color: #178b91;
   white-space: nowrap;
 }
 
 .badge-status {
   display: inline-flex;
   align-items: center;
+  min-height: 26px;
   border-radius: 999px;
-  padding: 4px 10px;
+  padding: 0 10px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: capitalize;
   white-space: nowrap;
 }
 
 .badge-status.ativo {
-  background: rgba(16, 185, 129, 0.12);
-  color: #059669;
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
 }
 
 .badge-status.inativo {
-  background: rgba(107, 114, 128, 0.14);
-  color: #6b7280;
+  background: rgba(100, 116, 139, 0.12);
+  color: #64748b;
 }
 
 .badge-status.bloqueado {
@@ -233,166 +294,201 @@
   color: #dc2626;
 }
 
-.badge-tipo {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 4px 10px;
+.subtle {
+  color: var(--muted);
   font-size: 12px;
-  font-weight: 700;
-  background: rgba(59, 130, 246, 0.12);
-  color: #2563eb;
-  white-space: nowrap;
 }
 
+/* =========================================
+   BOTÕES DE AÇÃO DA TABELA
+   ========================================= */
 .btn-icon {
-  background: transparent;
-  border: none;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
   color: var(--muted);
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: var(--transition);
-  font-size: 14px;
 }
 
 .btn-icon:hover {
-  background: var(--border);
-  color: #fff;
+  background: var(--bg-soft);
+  border-color: var(--brand);
+  color: var(--brand);
+  transform: translateY(-1px);
 }
 
 .btn-icon.danger:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.28);
+  color: #dc2626;
 }
 
-/* =========================
-   MODAIS BASE
-========================= */
+.btn-sm {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+/* =========================================
+   MODAL BASE + ANIMAÇÃO LEVE
+   ========================================= */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(7, 24, 39, 0.42);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  z-index: 100000;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  padding: 24px;
   opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-  padding: 16px;
+  visibility: hidden;
+  transition:
+    opacity 0.18s ease,
+    visibility 0.18s ease;
 }
 
 .modal-overlay.show {
   opacity: 1;
-  pointer-events: auto;
+  visibility: visible;
+}
+
+.modal-overlay[hidden] {
+  display: none !important;
 }
 
 .modal-content {
   background: var(--panel);
+  color: var(--text);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  width: 100%;
-  max-width: 500px;
-  padding: 24px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-  max-height: 90vh;
-  overflow-y: auto;
-  opacity: 0;
-  transform: scale(0.96) translateY(10px);
-  transition:
-    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 0.2s ease;
-}
-
-.modal-lg {
-  max-width: 760px;
-}
-
-.modal-xl {
-  width: min(1220px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  width: min(540px, calc(100vw - 40px));
+  max-height: calc(100vh - 48px);
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-xl .modal-body {
-  overflow: auto;
-  padding-right: 4px;
+  opacity: 0;
+  transform: translateY(14px) scale(0.985);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+  will-change: transform, opacity;
 }
 
 .modal-overlay.show .modal-content {
   opacity: 1;
-  transform: scale(1) translateY(0);
+  transform: translateY(0) scale(1);
 }
 
-.modal-header {
+.modal-xl {
+  width: min(1180px, calc(100vw - 56px));
+  max-width: none;
+  max-height: min(86vh, 820px);
+  height: auto;
+  overflow: hidden;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  padding: 0;
+  contain: layout paint;
+}
+
+.modal-xl .modal-header {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  display: flex;
   align-items: center;
-  margin-bottom: 24px;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .modal-header h3 {
+  margin: 0;
+  color: var(--text);
   font-size: 18px;
   font-weight: 600;
-  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.modal-xl .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px 22px 22px;
+  background: var(--bg);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.modal-xl .modal-header,
+.modal-client-footer,
+.modal-field-footer {
+  flex-shrink: 0;
 }
 
 .btn-close {
-  background: transparent;
-  border: none;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
   color: var(--muted);
-  cursor: pointer;
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: var(--transition);
 }
 
 .btn-close:hover {
-  color: #fff;
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.22);
+  color: #dc2626;
 }
 
-.modal-footer,
-.footer-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-
-/* =========================
+/* =========================================
    TABS DO CLIENTE
-========================= */
+   ========================================= */
 .cliente-tabs {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 18px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
 }
 
 .cliente-tab-btn {
-  border: 1px solid var(--border);
-  background: var(--panel);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--muted);
-  padding: 10px 14px;
-  border-radius: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 500;
   transition: var(--transition);
 }
 
 .cliente-tab-btn:hover {
-  border-color: var(--brand);
   color: var(--text);
+  background: var(--bg-soft);
 }
 
 .cliente-tab-btn.active {
-  background: rgba(59, 130, 246, 0.10);
-  border-color: rgba(59, 130, 246, 0.24);
-  color: var(--text);
+  background: rgba(75, 195, 199, 0.14);
+  border-color: rgba(75, 195, 199, 0.22);
+  color: #178b91;
 }
 
 .cliente-tab {
@@ -401,34 +497,77 @@
 
 .cliente-tab.active {
   display: block;
+  animation: clienteTabFade 0.14s ease;
 }
 
-/* =========================
-   SEÇÕES INTERNAS
-========================= */
+@keyframes clienteTabFade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================================
+   CARDS INTERNOS DO MODAL
+   ========================================= */
 .section-card {
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 10px;
   padding: 18px;
   background: var(--panel);
   margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
 }
 
 .section-card h4 {
   margin: 0 0 14px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.section-card .panel-head h3 {
   font-size: 15px;
 }
 
-/* =========================
-   BLOCOS REPETÍVEIS
-========================= */
+.section-card .panel-head p {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-row .form-group {
+  min-width: 0;
+}
+
+.span-all {
+  grid-column: 1 / -1;
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+
+/* =========================================
+   MINI LISTAS
+   ========================================= */
 .mini-actions {
   display: flex;
   gap: 10px;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
-  flex-wrap: wrap;
 }
 
 .mini-actions .left {
@@ -436,6 +575,12 @@
   gap: 10px;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.mini-actions strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .mini-list {
@@ -446,9 +591,9 @@
 
 .mini-item {
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 14px;
-  background: var(--bg);
+  background: var(--bg-soft);
 }
 
 .mini-item-grid {
@@ -462,28 +607,43 @@
   justify-content: flex-end;
   gap: 8px;
   margin-top: 10px;
-  flex-wrap: wrap;
 }
 
-/* =========================
-   HISTÓRICO
-========================= */
+.empty-soft {
+  border: 1px dashed var(--border-hover);
+  border-radius: 10px;
+  padding: 18px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--bg-soft);
+  font-size: 13px;
+}
+
+/* =========================================
+   HISTÓRICO / ANEXOS
+   ========================================= */
 .history-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
+.history-grid-spaced {
+  margin-top: 16px;
+}
+
 .history-box {
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 16px;
-  background: var(--bg);
+  background: var(--panel);
 }
 
 .history-box h5 {
   margin: 0 0 10px;
+  color: var(--text);
   font-size: 14px;
+  font-weight: 600;
 }
 
 .history-list {
@@ -502,19 +662,15 @@
   padding-bottom: 0;
 }
 
-/* =========================
-   ANEXOS
-========================= */
 .anexo-row {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: center;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 12px 14px;
-  background: var(--bg);
-  flex-wrap: wrap;
+  background: var(--bg-soft);
 }
 
 .stack {
@@ -523,80 +679,43 @@
   gap: 10px;
 }
 
-/* =========================
-   FORMULÁRIOS
-========================= */
-.valora-form select,
-.valora-form textarea {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  color: var(--text);
-  font-size: 14px;
-  font-family: inherit;
-  transition: var(--transition);
-  outline: none;
+/* =========================================
+   CONFIRM / TOAST
+   ========================================= */
+.confirm-content {
+  max-width: 420px;
 }
 
-.valora-form select {
-  height: 42px;
+.confirm-content .modal-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
 }
 
-.valora-form textarea {
-  height: auto;
-  resize: vertical;
-  min-height: 42px;
+.confirm-content .modal-body {
+  padding: 20px;
 }
 
-.valora-form select:focus,
-.valora-form textarea:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-soft);
-}
-
-.custom-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
-}
-
-.custom-checkbox input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+.confirm-content p {
   margin: 0;
-  accent-color: var(--brand);
-  cursor: pointer;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
-.valora-form input:disabled {
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--muted);
-  cursor: not-allowed;
-  border-color: transparent;
-}
-
-/* =========================
-   TOAST
-========================= */
 .toast-message {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
   bottom: -80px;
-  background: #111827;
-  color: #fff;
+  background: var(--navy);
+  color: #ffffff;
   padding: 12px 18px;
   border-radius: 999px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.22);
-  z-index: 99999;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .22);
+  z-index: 100001;
   transition: bottom .22s ease;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .toast-message.show {
@@ -607,163 +726,340 @@
   background: #dc2626;
 }
 
-/* =========================
-   UTILITÁRIOS
-========================= */
-#wrap-custom-opcoes[hidden] {
-  display: none !important;
+/* =========================================
+   CAMPOS PERSONALIZADOS
+   ========================================= */
+.custom-fields-card {
+  position: relative;
 }
 
-/* =========================
+.custom-fields-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.section-kicker {
+  display: inline-flex;
+  margin-bottom: 5px;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.custom-fields-head h4 {
+  margin: 0 0 5px;
+}
+
+.custom-fields-head p {
+  max-width: 680px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.custom-fields-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 13px 14px;
+  border: 1px solid rgba(75, 195, 199, 0.22);
+  background: rgba(75, 195, 199, 0.10);
+  border-radius: 10px;
+}
+
+.custom-fields-info div {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--brand);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.custom-fields-info p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.custom-fields-grid {
+  margin-top: 4px;
+}
+
+.modal-campo-content {
+  width: min(720px, calc(100vw - 40px));
+}
+
+.modal-campo-content .modal-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-campo-content .modal-body {
+  padding: 20px;
+  background: var(--bg);
+}
+
+.modal-campo-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.custom-field-switches {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.custom-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.custom-checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand);
+}
+
+.modal-field-footer,
+.modal-client-footer {
+  padding: 16px 20px;
+  margin-top: 0;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+
+/* =========================================
+   DARK MODE
+   ========================================= */
+html[data-theme="dark"] .badge-tipo {
+  color: var(--brand);
+  background: rgba(75, 195, 199, 0.14);
+}
+
+html[data-theme="dark"] .badge-codigo {
+  color: var(--blue);
+  background: rgba(101, 172, 222, 0.14);
+}
+
+html[data-theme="dark"] .cliente-tab-btn.active {
+  color: var(--brand);
+}
+
+html[data-theme="dark"] .valora-table thead {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+html[data-theme="dark"] .valora-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+html[data-theme="dark"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-theme="dark"] .modal-xl .modal-body,
+html[data-theme="dark"] .modal-campo-content .modal-body {
+  background: var(--bg);
+}
+
+html[data-theme="dark"] .mini-item,
+html[data-theme="dark"] .empty-soft,
+html[data-theme="dark"] .anexo-row {
+  background: var(--bg-soft);
+}
+
+html[data-theme="dark"] .custom-fields-info {
+  background: rgba(75, 195, 199, 0.12);
+}
+
+/* =========================================
+   ACESSIBILIDADE / REDUZIR MOVIMENTO
+   ========================================= */
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay,
+  .modal-content,
+  .cliente-tab {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* =========================================
    RESPONSIVO
-========================= */
-@media (max-width: 1100px) {
-  .filters-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .mini-item-grid,
-  .history-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  .filters-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .mini-item-grid,
-  .history-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .modal-xl {
-    width: min(100vw, calc(100vw - 16px));
-    max-height: calc(100vh - 16px);
+   ========================================= */
+@media (max-width: 1180px) {
+  .topbar {
+    flex-direction: column;
   }
 
   .topbar-actions {
     width: 100%;
+    justify-content: flex-start;
   }
 
-  .topbar-actions .btn {
-    flex: 1 1 auto;
+  .filters-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .form-row,
+  .mini-item-grid,
+  .history-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
-@media (max-width: 640px) {
-  .valora-table {
-    min-width: 860px;
+@media (max-width: 760px) {
+  .main {
+    padding-left: 18px;
+    padding-right: 18px;
   }
 
-  .modal-content {
-    padding: 18px;
-  }
-
-  .cliente-tab-btn {
+  .topbar-actions .btn {
     width: 100%;
-    justify-content: center;
-    text-align: center;
   }
 
-  .mini-actions,
+  .filters-grid,
+  .form-row,
+  .mini-item-grid,
+  .history-grid,
+  .modal-campo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .span-all,
+  .span-2,
+  .modal-campo-grid .form-group {
+    grid-column: auto !important;
+  }
+
   .footer-actions {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .mini-actions .left {
+  .footer-actions .btn,
+  .footer-actions button {
     width: 100%;
   }
-}
 
-/* =========================================
-   FILTROS SUPERIORES - CAMPOS
-   ========================================= */
-.filters-grid input,
-.filters-grid select {
-  width: 100%;
-  height: 42px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0 14px;
-  color: var(--text);
-  font-size: 14px;
-  font-family: inherit;
-  outline: none;
-  transition: var(--transition);
-}
+  .counter-text {
+    margin-right: 0;
+  }
 
-.filters-grid input::placeholder {
-  color: var(--muted);
-}
+  .modal-overlay {
+    padding: 10px;
+  }
 
-.filters-grid input:focus,
-.filters-grid select:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-soft);
-}
-
-.filters-grid label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-
-/* =========================================================
-   CORREÇÃO FINAL - MODAL NOVO/EDITAR CLIENTE
-   Corrige modal fino causado pelo max-width global de .modal-content
-========================================================= */
-.modal-overlay .modal-content.modal-xl {
-  width: min(1120px, calc(100vw - 56px));
-  max-width: none;
-  max-height: min(82vh, 760px);
-  height: auto;
-  padding: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-overlay .modal-content.modal-xl .modal-header {
-  flex: 0 0 auto;
-  margin-bottom: 0;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border);
-}
-
-.modal-overlay .modal-content.modal-xl .modal-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 22px 24px 24px;
-}
-
-.modal-overlay .modal-content.modal-xl .footer-actions {
-  position: sticky;
-  bottom: -24px;
-  background: var(--panel);
-  margin-top: 18px;
-  padding: 16px 0 0;
-  border-top: 1px solid var(--border);
-}
-
-@media (max-width: 900px) {
-  .modal-overlay .modal-content.modal-xl {
+  .modal-xl {
     width: calc(100vw - 20px);
     max-height: calc(100vh - 20px);
   }
 
-  .modal-overlay .modal-content.modal-xl .modal-header {
+  .modal-xl .modal-header {
     padding: 16px;
   }
 
-  .modal-overlay .modal-content.modal-xl .modal-body {
+  .modal-xl .modal-body {
     padding: 16px;
+  }
+
+  .cliente-tabs {
+    overflow: auto;
+    flex-wrap: nowrap;
+  }
+
+  .cliente-tab-btn {
+    white-space: nowrap;
+  }
+
+  .mini-actions,
+  .custom-fields-head,
+  .custom-field-switches {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mini-actions .left,
+  .custom-fields-head .btn {
+    width: 100%;
+  }
+}
+/* =========================================
+   FIX CAMPOS PERSONALIZADOS ORGANIZADOS
+   ========================================= */
+
+.custom-fields-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  align-items: start;
+}
+
+.custom-fields-grid .form-group {
+  min-width: 0;
+  margin: 0;
+}
+
+.custom-fields-grid .form-group label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.custom-fields-grid .form-group input,
+.custom-fields-grid .form-group select,
+.custom-fields-grid .form-group textarea {
+  width: 100%;
+}
+
+.custom-fields-grid textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+/* Campo checkbox não fica espremido */
+.custom-fields-grid .custom-checkbox {
+  min-height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+/* Quando não tiver campo, mensagem ocupa tudo */
+.custom-fields-grid .empty-state {
+  grid-column: 1 / -1;
+}
+
+/* Campo de texto longo ocupa linha inteira */
+.custom-fields-grid .form-group:has(textarea) {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .custom-fields-grid {
+    grid-template-columns: 1fr !important;
   }
 }

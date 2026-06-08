@@ -72,6 +72,12 @@ function bindTopActions() {
   $('btn-exportar-clientes-json')?.addEventListener('click', exportarClientesJSON);
 }
 
+function bindFormularioActions() {
+  $('btn-gerenciar-formulario-cliente')?.addEventListener('click', () => {
+    window.location.href = '/frontend/formularios.html?modulo=clientes';
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   bindConfirmDialog();
 
@@ -89,6 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   bindTabelaActions();
   bindTopActions();
+  bindFormularioActions();
   initFilters(renderAll);
 
   try {

@@ -3,12 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Visão Geral | Valora CRM</title>
+  <title>Dashboard | Valora CRM</title>
+
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem('valora_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer">
 
   <link rel="stylesheet" href="/frontend/css/app.css" />
   <link rel="stylesheet" href="/frontend/css/dashboard.css" />
@@ -16,152 +27,259 @@
   <script src="/frontend/js/pages/app.js" defer></script>
   <script src="/frontend/js/pages/dashboard.js" defer></script>
 </head>
+
 <body>
   <div class="layout">
     <iframe
       src="/frontend/partials/sidebar.html"
       class="sidebar-frame"
-      title="Menu lateral"
+      title="Menu Valora"
       loading="eager">
     </iframe>
 
-    <main class="main">
-      <header class="topbar">
-        <div class="topbar-title">
-          <span class="eyebrow">Dashboard</span>
-          <h1>Visão Geral</h1>
+    <main class="main dashboard-main">
+      <header class="dashboard-header">
+        <div class="dashboard-header-left">
+          <div class="dashboard-title-row">
+            <h1>Dashboard</h1>
+
+            <button class="dashboard-tutorial-btn" type="button">
+              <i class="fa-solid fa-play"></i>
+              Tutorial
+            </button>
+          </div>
+
+          <p id="welcomeText">
+            Acompanhe propostas, clientes, aprovações e faturamento da sua operação.
+          </p>
         </div>
 
-        <div class="dashboard-topbar-meta">
+        <div class="dashboard-header-right">
           <span class="dashboard-badge" id="dashboardModeBadge">Carregando...</span>
+
+          <button class="dashboard-filter-btn" type="button">
+            <i class="fa-solid fa-filter"></i>
+            Filtros
+          </button>
         </div>
       </header>
 
-      <section class="hero-card dashboard-hero">
-        <div class="hero-content">
-          <div class="status-indicator" id="dashboardStatus">
+      <section class="dashboard-welcome-strip">
+        <div>
+          <span class="status-indicator" id="dashboardStatus">
             <span class="dot"></span>
             <span id="dashboardStatusText">Carregando status do sistema...</span>
-          </div>
+          </span>
 
           <h2 id="welcomeTitle">Olá, Usuário 👋</h2>
-          <p id="welcomeText">
-            Bem-vindo ao Valora CRM. Acompanhe o resumo da sua operação, cadastre clientes e envie <strong>propostas direto pelo WhatsApp</strong> de forma rápida e inteligente.
-          </p>
-
-          <div class="hero-actions">
-            <button class="btn btn-primary" onclick="window.location.href='/propostas'">
-              <i class="fa-brands fa-whatsapp" style="color: #ffffff; font-size: 18px; margin-right: 6px;"></i>
-              Nova Proposta via WPP
-            </button>
-
-            <button class="btn btn-secondary" onclick="window.location.href='/clientes'">
-              Ver Clientes
-            </button>
-          </div>
         </div>
 
-        <div class="plan-card dashboard-plan-card">
-          <span class="plan-label">Seu Plano Atual</span>
+        <div class="dashboard-plan-mini">
+          <span>Plano atual</span>
           <strong id="planName">Profissional</strong>
           <small id="companyIdInfo">Empresa #--</small>
           <small id="lastUpdateInfo">Atualizado agora</small>
         </div>
       </section>
 
-      <section class="stats-grid dashboard-stats-grid">
-        <article class="stat-card">
-          <span class="stat-label">Total de Clientes</span>
-          <strong class="stat-value" id="statClientes">0</strong>
+      <section class="dashboard-graph-grid">
+        <article class="dashboard-graph-card">
+          <div class="graph-card-head">
+            <h3>
+              <i class="fa-solid fa-chart-column"></i>
+              Gráfico de Propostas
+            </h3>
+
+            <button type="button" aria-label="Expandir gráfico">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+
+          <div class="graph-legend">
+            <span><i class="legend-dot legend-aqua"></i> Enviadas</span>
+            <span><i class="legend-dot legend-blue"></i> Aprovadas</span>
+            <span><i class="legend-dot legend-orange"></i> Pendentes</span>
+          </div>
+
+          <div class="fake-chart fake-chart-bars">
+            <div class="chart-grid-lines"></div>
+
+            <div class="bar-group">
+              <span style="height: 34%;"></span>
+              <span style="height: 58%;"></span>
+              <span style="height: 42%;"></span>
+            </div>
+
+            <div class="bar-group">
+              <span style="height: 48%;"></span>
+              <span style="height: 66%;"></span>
+              <span style="height: 38%;"></span>
+            </div>
+
+            <div class="bar-group">
+              <span style="height: 62%;"></span>
+              <span style="height: 74%;"></span>
+              <span style="height: 46%;"></span>
+            </div>
+
+            <div class="bar-group">
+              <span style="height: 40%;"></span>
+              <span style="height: 52%;"></span>
+              <span style="height: 30%;"></span>
+            </div>
+
+            <div class="bar-group">
+              <span style="height: 72%;"></span>
+              <span style="height: 84%;"></span>
+              <span style="height: 54%;"></span>
+            </div>
+          </div>
         </article>
 
-        <article class="stat-card">
-          <span class="stat-label">Propostas Enviadas (Mês)</span>
-          <strong class="stat-value" id="statPropostasMes">0</strong>
-        </article>
+        <article class="dashboard-graph-card">
+          <div class="graph-card-head">
+            <h3>
+              <i class="fa-solid fa-chart-line"></i>
+              Gráfico de Faturamento
+            </h3>
 
-        <article class="stat-card">
-          <span class="stat-label">Taxa de Aprovação</span>
-          <strong class="stat-value online" id="statTaxaAprovacao">0%</strong>
-        </article>
+            <button type="button" aria-label="Expandir gráfico">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
 
-        <article class="stat-card">
-          <span class="stat-label">Faturamento Estimado</span>
-          <strong class="stat-value" id="statFaturamento">R$ 0,00</strong>
+          <div class="graph-legend graph-legend-center">
+            <span><i class="legend-line"></i> R$</span>
+          </div>
+
+          <div class="fake-chart fake-chart-line">
+            <div class="chart-grid-lines"></div>
+
+            <svg viewBox="0 0 600 220" preserveAspectRatio="none" aria-hidden="true">
+              <path class="line-shadow" d="M 0 160 C 80 130, 110 142, 160 104 C 230 52, 300 112, 360 82 C 430 46, 480 64, 600 28"></path>
+              <path class="line-main" d="M 0 160 C 80 130, 110 142, 160 104 C 230 52, 300 112, 360 82 C 430 46, 480 64, 600 28"></path>
+            </svg>
+          </div>
         </article>
       </section>
 
-      <section class="content-grid dashboard-content-grid">
-        <article class="panel-card">
-          <div class="panel-head">
-            <h3>Ações Rápidas</h3>
-            <p>Atalhos para as funções mais usadas do sistema.</p>
+      <section class="dashboard-kpi-grid">
+        <article class="dashboard-kpi-card">
+          <div>
+            <strong class="kpi-value" id="statClientes">0</strong>
+            <span class="kpi-label">Total de clientes</span>
           </div>
 
-          <div class="quick-grid">
-            <button class="quick-card" type="button" onclick="window.location.href='/clientes'">
+          <span class="kpi-icon kpi-blue">
+            <i class="fa-solid fa-user-group"></i>
+          </span>
+        </article>
+
+        <article class="dashboard-kpi-card">
+          <div>
+            <strong class="kpi-value" id="statPropostasMes">0</strong>
+            <span class="kpi-label">Propostas enviadas no mês</span>
+          </div>
+
+          <span class="kpi-icon kpi-aqua">
+            <i class="fa-solid fa-file-signature"></i>
+          </span>
+        </article>
+
+        <article class="dashboard-kpi-card">
+          <div>
+            <strong class="kpi-value online" id="statTaxaAprovacao">0%</strong>
+            <span class="kpi-label">Taxa de aprovação</span>
+          </div>
+
+          <span class="kpi-icon kpi-green">
+            <i class="fa-solid fa-chart-simple"></i>
+          </span>
+        </article>
+
+        <article class="dashboard-kpi-card">
+          <div>
+            <strong class="kpi-value" id="statFaturamento">R$ 0,00</strong>
+            <span class="kpi-label">Faturamento estimado</span>
+          </div>
+
+          <span class="kpi-icon kpi-money">
+            <i class="fa-solid fa-money-bill-wave"></i>
+          </span>
+        </article>
+      </section>
+
+      <section class="dashboard-bottom-grid">
+        <article class="dashboard-panel">
+          <div class="dashboard-panel-head">
+            <h3>Ações rápidas</h3>
+            <p>Atalhos para as funções mais usadas.</p>
+          </div>
+
+          <div class="dashboard-actions-grid">
+            <button class="dashboard-action-card" type="button" onclick="window.location.href='/clientes'">
               <i class="fa-solid fa-user-plus"></i>
-              <strong>Cadastrar Cliente</strong>
+              <strong>Cadastrar cliente</strong>
               <small>Adicionar à base</small>
             </button>
 
-            <button class="quick-card" type="button" onclick="window.location.href='/produtos'">
+            <button class="dashboard-action-card" type="button" onclick="window.location.href='/propostas'">
+              <i class="fa-solid fa-file-circle-plus"></i>
+              <strong>Nova proposta</strong>
+              <small>Criar orçamento</small>
+            </button>
+
+            <button class="dashboard-action-card" type="button" onclick="window.location.href='/produtos'">
               <i class="fa-solid fa-box-open"></i>
-              <strong>Novo Produto</strong>
+              <strong>Novo produto</strong>
               <small>Catálogo de itens</small>
             </button>
 
-            <button class="quick-card" type="button" onclick="window.location.href='/fornecedores'">
+            <button class="dashboard-action-card" type="button" onclick="window.location.href='/fornecedores'">
               <i class="fa-solid fa-truck"></i>
               <strong>Fornecedor</strong>
               <small>Rede de parceiros</small>
             </button>
-
-            <button class="quick-card" type="button" onclick="window.location.href='/configuracoes'">
-              <i class="fa-solid fa-sliders"></i>
-              <strong>Ajustes</strong>
-              <small>Configurar sistema</small>
-            </button>
           </div>
         </article>
 
-        <article class="panel-card">
-          <div class="panel-head">
-            <h3>Passos Iniciais</h3>
-            <p>Configure sua conta para tirar o máximo proveito.</p>
+        <article class="dashboard-panel">
+          <div class="dashboard-panel-head">
+            <h3>Passos iniciais</h3>
+            <p>Configure sua conta para começar melhor.</p>
           </div>
 
-          <div class="checklist">
-            <label class="check-item">
-              <input type="checkbox" checked />
-              <div class="fake-check"></div>
-              <span class="check-text">Criar conta e acessar o painel</span>
+          <div class="dashboard-checklist">
+            <label>
+              <input type="checkbox" checked>
+              <span></span>
+              Criar conta e acessar o painel
             </label>
 
-            <label class="check-item">
-              <input type="checkbox" checked />
-              <div class="fake-check"></div>
-              <span class="check-text">Personalizar a aparência no modo claro/escuro</span>
+            <label>
+              <input type="checkbox" checked>
+              <span></span>
+              Personalizar tema claro/escuro
             </label>
 
-            <label class="check-item">
-              <input type="checkbox" id="checkClientes" />
-              <div class="fake-check"></div>
-              <span class="check-text">Cadastrar o primeiro cliente da base</span>
+            <label>
+              <input type="checkbox" id="checkClientes">
+              <span></span>
+              Cadastrar o primeiro cliente
             </label>
 
-            <label class="check-item">
-              <input type="checkbox" id="checkPropostas" />
-              <div class="fake-check"></div>
-              <span class="check-text">Gerar e enviar a primeira proposta pelo <strong>WhatsApp</strong></span>
+            <label>
+              <input type="checkbox" id="checkPropostas">
+              <span></span>
+              Gerar a primeira proposta
             </label>
           </div>
         </article>
 
-        <article class="panel-card dashboard-summary-card">
-          <div class="panel-head">
-            <h3>Resumo Operacional</h3>
-            <p>Visão rápida da conta e da empresa.</p>
+        <article class="dashboard-panel dashboard-summary-panel">
+          <div class="dashboard-panel-head">
+            <h3>Resumo operacional</h3>
+            <p>Dados da conta conectada.</p>
           </div>
 
           <div class="summary-list">

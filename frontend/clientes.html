@@ -7,61 +7,16 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
   <link rel="stylesheet" href="/frontend/css/app.css" />
   <link rel="stylesheet" href="/frontend/css/clientes.css" />
+
   <script src="/frontend/js/pages/app.js" defer></script>
   <script type="module" src="/frontend/js/pages/clientes/index.js"></script>
-
-  <style>
-    .filters-grid { display:grid; grid-template-columns: 2fr repeat(3, minmax(160px, 1fr)); gap:12px; margin-bottom:20px; }
-    .filters-grid .form-group { margin:0; }
-    .panel-card-table { padding:0; overflow:hidden; }
-    .badge-status { display:inline-flex; align-items:center; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; text-transform:capitalize; }
-    .badge-status.ativo { background:rgba(16,185,129,.12); color:#059669; }
-    .badge-status.inativo { background:rgba(107,114,128,.14); color:#6b7280; }
-    .badge-status.bloqueado { background:rgba(239,68,68,.12); color:#dc2626; }
-    .badge-tipo { display:inline-flex; align-items:center; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; background:rgba(59,130,246,.12); color:#2563eb; }
-    .modal-xl { width:min(1120px, calc(100vw - 56px)); max-width:none; max-height:min(82vh, 760px); height:auto; overflow:hidden; display:flex; flex-direction:column; padding:0; }
-    .modal-xl .modal-header { flex:0 0 auto; margin-bottom:0; padding:20px 24px; border-bottom:1px solid var(--border); }
-    .modal-xl .modal-body { flex:1 1 auto; min-height:0; overflow:auto; padding:22px 24px 24px; }
-    .cliente-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
-    .cliente-tab-btn { border:1px solid var(--border); background:var(--panel); color:var(--muted); padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600; }
-    .cliente-tab-btn.active { background:rgba(59,130,246,.10); border-color:rgba(59,130,246,.24); color:var(--text); }
-    .cliente-tab { display:none; }
-    .cliente-tab.active { display:block; }
-    .section-card { border:1px solid var(--border); border-radius:16px; padding:18px; background:var(--panel); margin-bottom:16px; }
-    .section-card h4 { margin:0 0 14px; font-size:15px; }
-    .mini-actions { display:flex; gap:10px; justify-content:space-between; align-items:center; margin-bottom:12px; }
-    .mini-actions .left { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .mini-list { display:flex; flex-direction:column; gap:10px; }
-    .mini-item { border:1px solid var(--border); border-radius:14px; padding:14px; background:var(--bg); }
-    .mini-item-grid { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:12px; }
-    .mini-item-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
-    .empty-soft { border:1px dashed var(--border); border-radius:14px; padding:18px; text-align:center; color:var(--muted); }
-    .subtle { color:var(--muted); font-size:13px; }
-    .history-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:16px; }
-    .history-box { border:1px solid var(--border); border-radius:14px; padding:16px; background:var(--bg); }
-    .history-box h5 { margin:0 0 10px; font-size:14px; }
-    .history-list { display:flex; flex-direction:column; gap:10px; }
-    .history-item { border-bottom:1px solid var(--border); padding-bottom:10px; }
-    .history-item:last-child { border-bottom:none; padding-bottom:0; }
-    .anexo-row { display:flex; justify-content:space-between; gap:12px; align-items:center; border:1px solid var(--border); border-radius:14px; padding:12px 14px; background:var(--bg); }
-    .stack { display:flex; flex-direction:column; gap:10px; }
-    .footer-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:8px; padding-top:10px; border-top:1px solid var(--border); }
-    .toast-message { position:fixed; left:50%; transform:translateX(-50%); bottom:-80px; background:#111827; color:#fff; padding:12px 18px; border-radius:999px; box-shadow:0 10px 30px rgba(0,0,0,.22); z-index:99999; transition:bottom .22s ease; font-size:14px; font-weight:600; }
-    .toast-message.show { bottom:24px; }
-    .toast-message.is-error { background:#dc2626; }
-    @media (max-width: 900px) {
-      .filters-grid { grid-template-columns: 1fr; }
-      .mini-item-grid, .history-grid { grid-template-columns: 1fr; }
-      .modal-xl { width:calc(100vw - 20px); max-height:calc(100vh - 20px); }
-      .modal-xl .modal-header { padding:16px; }
-      .modal-xl .modal-body { padding:16px; }
-    }
-  </style>
 </head>
+
 <body>
   <div class="layout">
     <iframe src="/frontend/partials/sidebar.html" class="sidebar-frame" title="Menu lateral"></iframe>
@@ -77,20 +32,29 @@
           <button class="btn btn-secondary" type="button" id="btn-exportar-clientes-json">
             <i class="fa-solid fa-file-code"></i> Exportar JSON
           </button>
+
           <button class="btn btn-secondary" type="button" id="btn-exportar-clientes-csv">
             <i class="fa-solid fa-file-csv"></i> Exportar CSV
           </button>
+
           <button class="btn btn-secondary" type="button" id="btn-importar-clientes">
             <i class="fa-solid fa-file-import"></i> Importar
           </button>
+
           <button class="btn btn-primary" type="button" id="btn-novo-cliente">
             <i class="fa-solid fa-user-plus"></i> Novo cliente
           </button>
-          <input id="input-importar-clientes" type="file" accept=".json,.csv,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
+
+          <input
+            id="input-importar-clientes"
+            type="file"
+            accept=".json,.csv,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            hidden
+          />
         </div>
       </header>
 
-      <article class="panel-card" style="margin-bottom:20px;">
+      <article class="panel-card clientes-filter-card">
         <div class="panel-head">
           <h3>Localizar clientes</h3>
           <p>Filtro rápido por nome, código, documento, contato e cidade.</p>
@@ -101,6 +65,7 @@
             <label for="filtro-busca">Busca</label>
             <input id="filtro-busca" type="text" placeholder="Nome, código, CPF/CNPJ, telefone, e-mail..." />
           </div>
+
           <div class="form-group">
             <label for="filtro-tipo">Tipo</label>
             <select id="filtro-tipo">
@@ -109,6 +74,7 @@
               <option value="PJ">Pessoa Jurídica</option>
             </select>
           </div>
+
           <div class="form-group">
             <label for="filtro-situacao">Situação</label>
             <select id="filtro-situacao">
@@ -118,14 +84,15 @@
               <option value="bloqueado">Bloqueados</option>
             </select>
           </div>
+
           <div class="form-group">
             <label for="filtro-cidade">Cidade</label>
             <input id="filtro-cidade" type="text" placeholder="Cidade" />
           </div>
         </div>
 
-        <div class="footer-actions" style="border-top:none; padding-top:0;">
-          <span id="contagem-clientes" class="counter-text" style="margin-right:auto;">0 clientes</span>
+        <div class="footer-actions filter-actions">
+          <span id="contagem-clientes" class="counter-text">0 clientes</span>
           <button class="btn btn-secondary" type="button" id="btn-limpar-filtros">Limpar filtros</button>
           <button class="btn btn-primary" type="button" id="btn-filtrar-clientes">Filtrar</button>
         </div>
@@ -143,11 +110,16 @@
                 <th>Cidade / UF</th>
                 <th>Contato</th>
                 <th>Situação</th>
-                <th style="text-align:right;">Ações</th>
+                <th class="text-right">Ações</th>
               </tr>
             </thead>
+
             <tbody id="tbody-clientes">
-              <tr><td colspan="8" class="empty-state" style="border:none; text-align:center;">Carregando...</td></tr>
+              <tr>
+                <td colspan="8" class="empty-state">
+                  Carregando...
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -157,7 +129,10 @@
         <div class="modal-content modal-xl" data-close-target="false">
           <div class="modal-header">
             <h3 id="modal-cliente-titulo">Novo cliente</h3>
-            <button class="btn-close" type="button" id="btn-fechar-modal-cliente"><i class="fa-solid fa-xmark"></i></button>
+
+            <button class="btn-close" type="button" id="btn-fechar-modal-cliente">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
           </div>
 
           <div class="modal-body">
@@ -183,6 +158,7 @@
                       <label for="campo-codigo">Código</label>
                       <input type="text" id="campo-codigo" disabled />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-tipo-pessoa">Tipo</label>
                       <select id="campo-tipo-pessoa">
@@ -190,6 +166,7 @@
                         <option value="PJ">Pessoa Jurídica</option>
                       </select>
                     </div>
+
                     <div class="form-group">
                       <label for="campo-situacao">Situação</label>
                       <select id="campo-situacao">
@@ -205,6 +182,7 @@
                       <label for="campo-nome">Nome / Razão Social *</label>
                       <input type="text" id="campo-nome" required />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-nome-fantasia">Nome Fantasia</label>
                       <input type="text" id="campo-nome-fantasia" />
@@ -216,14 +194,17 @@
                       <label for="campo-cpf-cnpj">CPF / CNPJ</label>
                       <input type="text" id="campo-cpf-cnpj" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-rg-ie">RG / Inscrição Estadual</label>
                       <input type="text" id="campo-rg-ie" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-inscricao-municipal">Inscrição Municipal</label>
                       <input type="text" id="campo-inscricao-municipal" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-suframa">Suframa</label>
                       <input type="text" id="campo-suframa" />
@@ -235,10 +216,12 @@
                       <label for="campo-data-nascimento">Data de Nascimento</label>
                       <input type="date" id="campo-data-nascimento" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-codigo-referencia">Cód. Referência</label>
                       <input type="text" id="campo-codigo-referencia" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-site">Site</label>
                       <input type="text" id="campo-site" />
@@ -246,7 +229,7 @@
                   </div>
 
                   <div class="form-row">
-                    <div class="form-group" style="grid-column: 1 / -1;">
+                    <div class="form-group span-all">
                       <label for="campo-observacoes">Observações</label>
                       <textarea id="campo-observacoes" rows="4"></textarea>
                     </div>
@@ -263,14 +246,17 @@
                       <label for="campo-telefone">Telefone</label>
                       <input type="text" id="campo-telefone" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-whatsapp">WhatsApp</label>
                       <input type="text" id="campo-whatsapp" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-fax">Fax</label>
                       <input type="text" id="campo-fax" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-contato">Contato / Responsável</label>
                       <input type="text" id="campo-contato" />
@@ -286,14 +272,17 @@
                       <label for="campo-email">E-mail principal</label>
                       <input type="email" id="campo-email" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-email-nfe">E-mail NFe</label>
                       <input type="email" id="campo-email-nfe" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-email-cobranca">E-mail cobrança</label>
                       <input type="email" id="campo-email-cobranca" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-email-fiscal">E-mail fiscal</label>
                       <input type="email" id="campo-email-fiscal" />
@@ -311,10 +300,12 @@
                       <label for="campo-cep">CEP</label>
                       <input type="text" id="campo-cep" />
                     </div>
-                    <div class="form-group" style="grid-column: span 2;">
+
+                    <div class="form-group span-2">
                       <label for="campo-endereco">Endereço</label>
                       <input type="text" id="campo-endereco" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-numero">Número</label>
                       <input type="text" id="campo-numero" />
@@ -326,14 +317,17 @@
                       <label for="campo-complemento">Complemento</label>
                       <input type="text" id="campo-complemento" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-bairro">Bairro</label>
                       <input type="text" id="campo-bairro" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-cidade">Cidade</label>
                       <input type="text" id="campo-cidade" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-estado">UF</label>
                       <input type="text" id="campo-estado" />
@@ -345,10 +339,12 @@
                       <label for="campo-pais">País</label>
                       <input type="text" id="campo-pais" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-codigo-ibge-cidade">Cód. IBGE Cidade</label>
                       <input type="text" id="campo-codigo-ibge-cidade" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-codigo-ibge-uf">Cód. IBGE UF</label>
                       <input type="text" id="campo-codigo-ibge-uf" />
@@ -362,10 +358,12 @@
                       <strong>Endereços adicionais</strong>
                       <span class="subtle">Cobrança, entrega, fiscal e outros.</span>
                     </div>
+
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-add-endereco">
                       <i class="fa-solid fa-plus"></i> Adicionar endereço
                     </button>
                   </div>
+
                   <div id="lista-enderecos" class="mini-list"></div>
                 </article>
               </section>
@@ -379,14 +377,17 @@
                       <label for="campo-parceiro-comercial">Parceiro Comercial</label>
                       <input type="text" id="campo-parceiro-comercial" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-percentual-comissao">% Comissão</label>
                       <input type="text" id="campo-percentual-comissao" placeholder="0,00" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-percentual-desconto">% Desconto</label>
                       <input type="text" id="campo-percentual-desconto" placeholder="0,00" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-retencao-percentual">% Retenção</label>
                       <input type="text" id="campo-retencao-percentual" placeholder="0,00" />
@@ -398,14 +399,17 @@
                       <label for="campo-modalidade-pagamento">Modalidade de Pagamento</label>
                       <input type="text" id="campo-modalidade-pagamento" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-regiao">Região</label>
                       <input type="text" id="campo-regiao" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-segmento">Segmento</label>
                       <input type="text" id="campo-segmento" />
                     </div>
+
                     <div class="form-group">
                       <label for="campo-classificacao">Classificação</label>
                       <input type="text" id="campo-classificacao" />
@@ -415,12 +419,33 @@
               </section>
 
               <section class="cliente-tab" id="tab-campos-personalizados">
-                <article class="section-card">
-                  <div class="panel-head" style="margin-bottom:14px;">
-                    <h3>Campos personalizados</h3>
-                    <p>Campos extras configurados para o cadastro de clientes.</p>
+                <article class="section-card custom-fields-card">
+                  <div class="custom-fields-head">
+                    <div>
+                      <span class="section-kicker">Campos configurados no formulário</span>
+                      <h4>Campos personalizados</h4>
+                      <p>
+                        Esses campos são definidos na tela de Formulários. Aqui o usuário apenas preenche
+                        as informações extras do cadastro do cliente.
+                      </p>
+                    </div>
+
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-gerenciar-formulario-cliente">
+                      <i class="fa-solid fa-sliders"></i> Gerenciar formulário
+                    </button>
                   </div>
-                  <div id="custom-fields-container" class="form-row"></div>
+
+                  <div class="custom-fields-info">
+                    <div>
+                      <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+
+                    <p>
+                      Para criar, remover ou organizar campos personalizados, acesse Configurações &gt; Formulários.
+                    </p>
+                  </div>
+
+                  <div id="custom-fields-container" class="form-row custom-fields-grid"></div>
                 </article>
               </section>
 
@@ -430,10 +455,12 @@
                     <div class="left">
                       <strong>Referências comerciais</strong>
                     </div>
+
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-add-ref-comercial">
                       <i class="fa-solid fa-plus"></i> Adicionar
                     </button>
                   </div>
+
                   <div id="lista-refs-comerciais" class="mini-list"></div>
                 </article>
 
@@ -442,10 +469,12 @@
                     <div class="left">
                       <strong>Referências bancárias</strong>
                     </div>
+
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-add-ref-bancaria">
                       <i class="fa-solid fa-plus"></i> Adicionar
                     </button>
                   </div>
+
                   <div id="lista-refs-bancarias" class="mini-list"></div>
                 </article>
 
@@ -454,10 +483,12 @@
                     <div class="left">
                       <strong>Sócios</strong>
                     </div>
+
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-add-socio">
                       <i class="fa-solid fa-plus"></i> Adicionar
                     </button>
                   </div>
+
                   <div id="lista-socios" class="mini-list"></div>
                 </article>
               </section>
@@ -468,10 +499,12 @@
                     <div class="left">
                       <strong>Ocorrências do cliente</strong>
                     </div>
+
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-add-ocorrencia">
                       <i class="fa-solid fa-plus"></i> Nova ocorrência
                     </button>
                   </div>
+
                   <div id="lista-ocorrencias" class="mini-list"></div>
                 </article>
               </section>
@@ -483,15 +516,19 @@
                       <strong>Anexos do cliente</strong>
                       <span class="subtle">Salve o cadastro antes de enviar arquivos.</span>
                     </div>
+
                     <div class="left">
                       <input type="text" id="anexo-descricao" placeholder="Descrição do anexo" />
                       <input type="text" id="anexo-tipo" placeholder="Tipo do documento" />
+
                       <button type="button" class="btn btn-secondary btn-sm" id="btn-escolher-anexo">
                         <i class="fa-solid fa-paperclip"></i> Escolher arquivo
                       </button>
+
                       <input type="file" id="input-anexo" hidden />
                     </div>
                   </div>
+
                   <div id="lista-anexos" class="stack"></div>
                 </article>
               </section>
@@ -502,28 +539,32 @@
                     <h5>Resumo</h5>
                     <div id="historico-resumo" class="history-list"></div>
                   </article>
+
                   <article class="history-box">
                     <h5>Últimas propostas</h5>
                     <div id="historico-propostas" class="history-list"></div>
                   </article>
                 </div>
 
-                <div class="history-grid" style="margin-top:16px;">
+                <div class="history-grid history-grid-spaced">
                   <article class="history-box">
                     <h5>Últimas ocorrências</h5>
                     <div id="historico-ocorrencias" class="history-list"></div>
                   </article>
+
                   <article class="history-box">
                     <h5>Visão geral</h5>
                     <div class="subtle">
-                      Esta área já nasce pronta para receber compras, financeiro, O.S. e itens vendidos, assim que os próximos módulos forem implementados.
+                      Esta área já nasce pronta para receber compras, financeiro, O.S. e itens vendidos,
+                      assim que os próximos módulos forem implementados.
                     </div>
                   </article>
                 </div>
               </section>
 
-              <div class="footer-actions">
+              <div class="footer-actions modal-client-footer">
                 <button type="button" class="btn btn-secondary" id="btn-cancelar-cliente">Cancelar</button>
+
                 <button type="button" class="btn btn-primary" id="btn-salvar-cliente">
                   <i class="fa-solid fa-floppy-disk"></i> Salvar cliente
                 </button>
@@ -534,14 +575,16 @@
       </div>
 
       <div class="modal-overlay" id="Valora-confirm-backdrop" hidden>
-        <div class="modal-content" style="max-width:420px;">
+        <div class="modal-content confirm-content">
           <div class="modal-header">
             <h3 id="Valora-confirm-title">Confirmar</h3>
           </div>
+
           <div class="modal-body">
-            <p id="Valora-confirm-message" style="margin:0;"></p>
+            <p id="Valora-confirm-message"></p>
           </div>
-          <div class="footer-actions">
+
+          <div class="footer-actions modal-field-footer">
             <button type="button" class="btn btn-secondary" id="Valora-confirm-cancel">Cancelar</button>
             <button type="button" class="btn btn-primary" id="Valora-confirm-ok">Confirmar</button>
           </div>

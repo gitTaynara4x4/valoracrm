@@ -994,3 +994,159 @@ class PropostaCampoValor(Base):
 
     def __repr__(self) -> str:
         return f"<PropostaCampoValor id={self.id} proposta_id={self.proposta_id} campo_id={self.campo_id}>"
+
+
+# =========================================================
+# FORMULÁRIOS / CONSTRUTOR DE FORMULÁRIOS
+# =========================================================
+
+class FormularioModelo(Base):
+    __tablename__ = "formularios_modelos"
+    __allow_unmapped__ = True
+
+    __table_args__ = (
+        UniqueConstraint(
+            "empresa_id",
+            "modulo",
+            "nome",
+            name="uq_formularios_modelos_empresa_modulo_nome",
+        ),
+    )
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    modulo = Column(String(60), nullable=False, index=True)
+    nome = Column(String(160), nullable=False)
+    descricao = Column(Text, nullable=True)
+
+    ativo = Column(Boolean, nullable=False, server_default="true")
+    padrao = Column(Boolean, nullable=False, server_default="false")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<FormularioModelo id={self.id} empresa_id={self.empresa_id} "
+            f"modulo={self.modulo!r} nome={self.nome!r}>"
+        )
+
+
+class FormularioSecao(Base):
+    __tablename__ = "formularios_secoes"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    formulario_id = Column(
+        BigInteger,
+        ForeignKey("formularios_modelos.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    titulo = Column(String(180), nullable=False)
+    descricao = Column(Text, nullable=True)
+
+    ordem = Column(BigInteger, nullable=False, server_default="0")
+    ativo = Column(Boolean, nullable=False, server_default="true")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<FormularioSecao id={self.id} formulario_id={self.formulario_id} "
+            f"titulo={self.titulo!r}>"
+        )
+
+
+class FormularioCampo(Base):
+    __tablename__ = "formularios_campos"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    formulario_id = Column(
+        BigInteger,
+        ForeignKey("formularios_modelos.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    secao_id = Column(
+        BigInteger,
+        ForeignKey("formularios_secoes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    origem = Column(String(30), nullable=False, server_default="personalizado", index=True)
+
+    campo_sistema = Column(String(120), nullable=True, index=True)
+    campo_personalizado_id = Column(BigInteger, nullable=True, index=True)
+
+    tipo_visual = Column(String(30), nullable=True)
+    tipo_campo = Column(String(30), nullable=True)
+
+    label = Column(String(180), nullable=False)
+    placeholder = Column(String(180), nullable=True)
+    ajuda = Column(Text, nullable=True)
+
+    opcoes_json = Column(Text, nullable=True)
+
+    obrigatorio = Column(Boolean, nullable=False, server_default="false")
+    somente_leitura = Column(Boolean, nullable=False, server_default="false")
+    ativo = Column(Boolean, nullable=False, server_default="true")
+
+    largura = Column(String(30), nullable=False, server_default="100")
+    ordem = Column(BigInteger, nullable=False, server_default="0")
+    visibilidade = Column(String(30), nullable=False, server_default="todos")
+
+    condicao_json = Column(Text, nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<FormularioCampo id={self.id} formulario_id={self.formulario_id} "
+            f"origem={self.origem!r} label={self.label!r}>"
+        )

@@ -3,11 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Menu 4X Valora</title>
+  <title>Menu Valora</title>
+
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem('valora_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+
+      try {
+        if (window.parent && window.parent !== window && window.parent.document) {
+          window.parent.document.documentElement.setAttribute('data-theme', savedTheme);
+        }
+      } catch (e) {}
+    })();
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
@@ -15,488 +28,921 @@
         crossorigin="anonymous"
         referrerpolicy="no-referrer" />
 
-  <script>
-    (() => {
-      const savedTheme = localStorage.getItem('valora_theme') || 'dark';
-      document.documentElement.setAttribute('data-theme', savedTheme);
-    })();
-  </script>
-
   <style>
     :root {
-      --sidebar-bg:        #181818;
-      --sidebar-border:    #262626;
-      --text-main:         #f5f5f5;
-      --text-muted:        #b0b0b0;
-      --nav-muted:         #8a8a8a;
-      --accent:            #10a37f;
-      --accent-soft:       rgba(16, 163, 127, 0.16);
-      --danger:            #ef4444;
-      --danger-soft:       rgba(239, 68, 68, 0.1);
-      --radius:            8px;
-      --hover-bg:          #222222;
-      --dropdown-bg:       #1e1e1e;
-      --dropdown-shadow:   0 10px 25px rgba(0,0,0,0.5);
-      --dropdown-hover:    #2a2a2a;
-      --mobile-btn-bg:     #202020;
+      --topbar-h: 64px;
+      --dropdown-open-h: 300px;
+
+      /* Cores da logo Valora */
+      --navy: #071827;
+      --navy-dark: #04101B;
+      --navy-soft: #0A2235;
+
+      --logo-blue: #65ACDE;
+      --logo-aqua: #4BC3C7;
+      --logo-aqua-dark: #35ADB1;
+
+      --hover-top: rgba(101, 172, 222, 0.16);
+      --orange: #ff7a59;
+
+      --text: #ffffff;
+      --muted: rgba(255, 255, 255, 0.78);
+
+      --drop-bg: #ffffff;
+      --drop-text: #374151;
+      --drop-muted: #6b7280;
+      --drop-hover: #eef9fc;
+      --drop-border: #edf2f7;
+      --drop-shadow: 0 14px 32px rgba(7, 24, 39, 0.16);
     }
 
-    html[data-theme="light"] {
-      --sidebar-bg:        #ffffff;
-      --sidebar-border:    #e5e7eb;
-      --text-main:         #111827;
-      --text-muted:        #6b7280;
-      --nav-muted:         #9ca3af;
-      --hover-bg:          #f3f4f6;
-      --dropdown-bg:       #ffffff;
-      --dropdown-shadow:   0 10px 25px rgba(0,0,0,0.08);
-      --dropdown-hover:    #f3f4f6;
-      --mobile-btn-bg:     #f3f4f6;
+    * {
+      box-sizing: border-box;
     }
-
-    * { box-sizing: border-box; }
 
     html,
     body {
+      width: 100%;
+      min-height: var(--topbar-h);
       margin: 0;
       padding: 0;
-      height: 100%;
-    }
-
-    body {
-      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--sidebar-bg);
-      color: var(--text-main);
-      -webkit-font-smoothing: antialiased;
-      transition: background 0.2s ease, color 0.2s ease;
-    }
-
-    .Valora-sidebar {
-      width: 260px;
-      height: 100vh;
-      background: var(--sidebar-bg);
-      border-right: 1px solid var(--sidebar-border);
-      padding: 24px 16px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      position: relative;
-      transition: background 0.2s ease, border-color 0.2s ease;
-    }
-
-    .Valora-sidebar-header {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 0 6px 22px;
-      border-bottom: 1px solid var(--sidebar-border);
-      position: relative;
-    }
-
-    .Valora-logo-full {
-      width: 228px;
-      max-width: 100%;
-      height: auto;
-      display: block;
-      color: var(--text-main);
-      image-rendering: -webkit-optimize-contrast;
-      user-select: none;
-      -webkit-user-drag: none;
-      flex-shrink: 0;
-    }
-
-    .Valora-logo-full svg {
-      width: 100%;
-      height: auto;
-      display: block;
+      background: transparent;
       overflow: visible;
+      font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
     }
 
-    .Valora-logo-full text {
-      fill: currentColor;
-      transition: fill 0.2s ease;
+    body.menu-open {
+      min-height: var(--dropdown-open-h);
     }
 
-    .Valora-logo-caption {
-      font-size: 14px;
-      color: var(--text-muted);
-      font-weight: 500;
+    button {
+      font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    .Valora-sidebar-section {
-      margin-top: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .Valora-section-label {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--nav-muted);
-      margin: 8px 8px 6px;
-    }
-
-    .Valora-nav-item {
+    .valora-auvo-topbar {
+      width: 100%;
+      height: var(--topbar-h);
+      background: linear-gradient(90deg, var(--navy-dark) 0%, var(--navy) 58%, var(--navy-soft) 100%);
+      color: var(--text);
       display: flex;
       align-items: center;
-      gap: 10px;
-      border-radius: var(--radius);
-      border: 1px solid transparent;
-      background: transparent;
-      padding: 8px 12px;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text-muted);
+      gap: 0;
+      padding: 0;
+      position: fixed;
+      inset: 0 0 auto 0;
+      z-index: 10;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .brand-btn {
+      width: 68px;
+      height: var(--topbar-h);
+      border: 0;
+      background: var(--navy-dark);
+      padding: 0;
       cursor: pointer;
-      text-align: left;
-      transition: all 0.2s ease;
-      width: 100%;
-    }
-
-    .Valora-nav-item:hover {
-      background: var(--hover-bg);
-      color: var(--text-main);
-    }
-
-    .Valora-nav-icon {
-      width: 20px;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 15px;
-      color: var(--nav-muted);
-      transition: all 0.2s ease;
+      flex: 0 0 auto;
+      color: #ffffff;
     }
 
-    .Valora-nav-item:hover .Valora-nav-icon {
-      color: var(--text-main);
-    }
-
-    .Valora-nav-item--active {
-      background: var(--accent-soft);
-      border-color: rgba(16, 163, 127, 0.2);
-      color: var(--accent);
-    }
-
-    .Valora-nav-item--active .Valora-nav-icon {
-      color: var(--accent);
-    }
-
-    .Valora-user-container {
-      margin-top: auto;
-      position: relative;
-    }
-
-    .Valora-user-profile {
-      padding: 12px;
-      border-top: 1px solid var(--sidebar-border);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border-radius: var(--radius);
-      cursor: pointer;
-      transition: background 0.2s ease;
-    }
-
-    .Valora-user-profile:hover,
-    .Valora-user-profile.active {
-      background: var(--hover-bg);
-    }
-
-    .Valora-user-avatar {
+    .brand-logo {
       width: 36px;
       height: 36px;
-      border-radius: 50%;
-      background: var(--accent-soft);
-      color: var(--accent);
-      display: flex;
+      border-radius: 12px;
+      background: #ffffff;
+      display: block;
+      object-fit: cover;
+      box-shadow: 0 8px 18px rgba(3, 25, 92, 0.18);
+    }
+
+    .brand-fallback {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: #ffffff;
+      color: var(--navy);
+      display: none;
       align-items: center;
       justify-content: center;
-      font-weight: 600;
-      font-size: 14px;
-      flex-shrink: 0;
-    }
-
-    .Valora-user-info {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      flex-grow: 1;
-    }
-
-    .Valora-user-info strong {
       font-size: 13px;
       font-weight: 600;
-      color: var(--text-main);
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      overflow: hidden;
+      letter-spacing: -0.04em;
+      position: relative;
     }
 
-    .Valora-user-info span {
+    .brand-fallback::after {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--logo-aqua);
+      border: 2px solid #ffffff;
+      position: absolute;
+      right: 0;
+      top: 0;
+    }
+
+    .desktop-nav {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1 1 auto;
+      padding-left: 18px;
+    }
+
+    .nav-group {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+
+    .nav-trigger,
+    .nav-link {
+      height: 42px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: #ffffff;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 500;
+      line-height: 1;
+      white-space: nowrap;
+      transition: background 0.16s ease, color 0.16s ease;
+    }
+
+    .nav-trigger i {
       font-size: 11px;
-      color: var(--text-muted);
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      overflow: hidden;
+      opacity: 0.9;
+      transition: transform 0.16s ease;
     }
 
-    .Valora-user-chevron {
-      color: var(--nav-muted);
-      font-size: 12px;
-      transition: transform 0.2s ease;
+    .nav-trigger:hover,
+    .nav-link:hover,
+    .nav-group.is-open .nav-trigger {
+      background: var(--hover-top);
     }
 
-    .Valora-user-profile.active .Valora-user-chevron {
+    .nav-group.is-open .nav-trigger i {
       transform: rotate(180deg);
     }
 
-    .Valora-user-dropdown {
+    .nav-link.is-active {
+      background: rgba(101, 172, 222, 0.18);
+    }
+
+    .dropdown {
       position: absolute;
-      bottom: calc(100% + 8px);
       left: 0;
-      right: 0;
-      background: var(--dropdown-bg);
-      border: 1px solid var(--sidebar-border);
-      border-radius: var(--radius);
-      padding: 8px;
-      box-shadow: var(--dropdown-shadow);
+      top: 100%;
+      width: 240px;
+      background: var(--drop-bg);
+      color: var(--drop-text);
+      border: 0;
+      border-radius: 0 0 4px 4px;
+      padding: 8px 0;
+      box-shadow: var(--drop-shadow);
       opacity: 0;
       visibility: hidden;
-      transform: translateY(10px);
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      z-index: 100;
+      transform: translateY(0);
+      transition: opacity 0.12s ease, visibility 0.12s ease;
+      z-index: 20;
     }
 
-    .Valora-user-dropdown.show {
+    .nav-group.is-open .dropdown {
       opacity: 1;
       visibility: visible;
-      transform: translateY(0);
     }
 
-    .Valora-dropdown-item {
+    .dropdown-item {
+      width: 100%;
+      min-height: 44px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--drop-text);
+      padding: 0 22px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 10px;
-      width: 100%;
-      padding: 10px 12px;
-      border: none;
-      background: transparent;
-      color: var(--text-main);
-      font-size: 13px;
-      font-weight: 500;
-      border-radius: 6px;
-      cursor: pointer;
       text-align: left;
-      transition: background 0.15s ease;
+      cursor: pointer;
+      transition: background 0.12s ease, color 0.12s ease;
+      font-size: 15px;
+      font-weight: 400;
+      line-height: 1;
     }
 
-    .Valora-dropdown-item:hover {
-      background: var(--dropdown-hover);
+    .dropdown-item:hover,
+    .dropdown-item.is-active {
+      background: var(--drop-hover);
+      color: var(--logo-blue);
     }
 
-    .Valora-dropdown-item i {
-      color: var(--nav-muted);
-      width: 16px;
-      text-align: center;
+    .right-actions {
+      margin-left: auto;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      flex: 0 0 auto;
+      padding-right: 18px;
     }
 
-    .Valora-dropdown-divider {
-      height: 1px;
-      background: var(--sidebar-border);
-      margin: 6px 0;
+    .plain-action {
+      height: 40px;
+      border: 0;
+      background: transparent;
+      color: #ffffff;
+      padding: 0 10px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: background 0.16s ease;
     }
 
-    .Valora-dropdown-item.danger {
-      color: var(--danger);
+    .plain-action:hover {
+      background: var(--hover-top);
     }
 
-    .Valora-dropdown-item.danger i {
-      color: var(--danger);
-    }
-
-    .Valora-dropdown-item.danger:hover {
-      background: var(--danger-soft);
-    }
-
-    .Valora-mobile-close {
-      display: none;
-    }
-
-    body.Valora-is-mobile .Valora-mobile-close {
+    .new-action {
+      height: 40px;
+      border: 0;
+      background: var(--logo-aqua);
+      color: #ffffff;
+      padding: 0 14px;
+      border-radius: 4px;
+      cursor: pointer;
       display: inline-flex;
-      position: absolute;
-      right: 6px;
-      top: 6px;
-      width: 36px;
-      height: 36px;
+      align-items: center;
+      gap: 9px;
+      font-size: 15px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: background 0.16s ease, transform 0.16s ease;
+    }
+
+    .new-action:hover {
+      background: var(--logo-aqua-dark);
+      transform: translateY(-1px);
+    }
+
+    .new-action .plus {
+      font-size: 22px;
+      font-weight: 500;
+      line-height: 1;
+    }
+
+    .bell-btn,
+    .settings-trigger {
+      width: 38px;
+      height: 38px;
+      border: 0;
+      background: transparent;
+      color: #ffffff;
+      cursor: pointer;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      border-radius: var(--radius);
-      border: 1px solid var(--sidebar-border);
-      background: var(--mobile-btn-bg);
-      color: var(--text-main);
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
+      position: relative;
+      transition: background 0.16s ease;
     }
 
-    body.Valora-is-mobile .Valora-nav-item {
-      padding: 10px 12px;
+    .bell-btn:hover,
+    .settings-trigger:hover,
+    .settings-wrap.is-open .settings-trigger {
+      background: var(--hover-top);
+    }
+
+    .bell-btn::after {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--orange);
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      box-shadow: 0 0 0 2px var(--navy);
+    }
+
+    .settings-wrap {
+      height: 100%;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .settings-trigger i {
       font-size: 15px;
     }
 
-    body.Valora-is-mobile .Valora-nav-icon {
-      font-size: 16px;
+    .settings-menu {
+      position: absolute;
+      right: 0;
+      top: 100%;
+      width: 260px;
+      background: #ffffff;
+      color: #111827;
+      border: 0;
+      border-radius: 0 0 6px 6px;
+      padding: 10px 0;
+      box-shadow: var(--drop-shadow);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.12s ease, visibility 0.12s ease;
+      z-index: 30;
+    }
+
+    .settings-wrap.is-open .settings-menu {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .settings-title {
+      padding: 8px 18px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .theme-option,
+    .settings-link {
+      width: 100%;
+      min-height: 42px;
+      border: 0;
+      background: transparent;
+      color: #111827;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 400;
+    }
+
+    .theme-option:hover,
+    .settings-link:hover {
+      background: var(--drop-hover);
+      color: var(--logo-blue);
+    }
+
+    .theme-radio {
+      width: 15px;
+      height: 15px;
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+
+    .theme-radio::after {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: transparent;
+    }
+
+    .theme-option.is-active .theme-radio {
+      border-color: var(--logo-aqua);
+    }
+
+    .theme-option.is-active .theme-radio::after {
+      background: var(--logo-aqua);
+    }
+
+    .settings-divider {
+      height: 1px;
+      background: var(--drop-border);
+      margin: 8px 0;
+    }
+
+    .user-wrap {
+      height: 100%;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .user-trigger {
+      height: 40px;
+      border: 0;
+      background: transparent;
+      color: #ffffff;
+      padding: 0 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.16s ease;
+    }
+
+    .user-trigger:hover,
+    .user-wrap.is-open .user-trigger {
+      background: var(--hover-top);
+    }
+
+    .user-initials {
+      max-width: 58px;
+      overflow: hidden;
+      white-space: nowrap;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+
+    .user-trigger i {
+      font-size: 11px;
+      opacity: 0.9;
+      transition: transform 0.16s ease;
+    }
+
+    .user-wrap.is-open .user-trigger i {
+      transform: rotate(180deg);
+    }
+
+    .user-menu {
+      position: absolute;
+      right: 0;
+      top: 100%;
+      width: 230px;
+      background: #ffffff;
+      color: #111827;
+      border: 0;
+      border-radius: 0 0 4px 4px;
+      padding: 8px 0;
+      box-shadow: var(--drop-shadow);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.12s ease, visibility 0.12s ease;
+      z-index: 30;
+    }
+
+    .user-wrap.is-open .user-menu {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .user-card {
+      padding: 10px 18px 12px;
+      border-bottom: 1px solid #eef2f7;
+      margin-bottom: 4px;
+    }
+
+    .user-card strong {
+      display: block;
+      color: #111827;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-card span {
+      display: block;
+      color: #64748b;
+      margin-top: 3px;
+      font-size: 11px;
+      font-weight: 400;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-menu button {
+      width: 100%;
+      min-height: 40px;
+      border: 0;
+      background: transparent;
+      color: #111827;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 400;
+    }
+
+    .user-menu button:hover {
+      background: var(--drop-hover);
+      color: var(--logo-blue);
+    }
+
+    .user-menu button.danger {
+      color: #dc2626;
+    }
+
+    .user-menu button.danger:hover {
+      background: rgba(220, 38, 38, 0.08);
+      color: #b91c1c;
+    }
+
+    .mobile-menu-btn {
+      display: none;
+      width: 42px;
+      height: 42px;
+      border: 0;
+      background: transparent;
+      color: #ffffff;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .mobile-panel {
+      display: none;
+    }
+
+    @media (max-width: 1180px) {
+      .desktop-nav {
+        gap: 2px;
+        padding-left: 10px;
+      }
+
+      .nav-trigger,
+      .nav-link {
+        padding: 0 9px;
+        font-size: 13px;
+      }
+
+      .plain-action {
+        display: none;
+      }
+    }
+
+    @media (max-width: 920px) {
+      :root {
+        --dropdown-open-h: 620px;
+      }
+
+      .brand-btn {
+        width: 58px;
+      }
+
+      .mobile-menu-btn {
+        display: inline-flex;
+      }
+
+      .desktop-nav {
+        display: none;
+      }
+
+      .new-action .label {
+        display: none;
+      }
+
+      .right-actions {
+        gap: 2px;
+        padding-right: 8px;
+      }
+
+      .mobile-panel {
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: var(--topbar-h);
+        max-height: calc(100vh - var(--topbar-h));
+        overflow: auto;
+        display: block;
+        background: #ffffff;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.30);
+        transform: translateY(-8px);
+        opacity: 0;
+        visibility: hidden;
+        transition: 0.16s ease;
+        z-index: 40;
+      }
+
+      .mobile-panel.is-open {
+        transform: translateY(0);
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .mobile-section {
+        padding: 8px 0;
+        border-bottom: 1px solid #eef2f7;
+      }
+
+      .mobile-title {
+        padding: 8px 22px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+      }
+
+      .mobile-link {
+        width: 100%;
+        min-height: 44px;
+        border: 0;
+        background: transparent;
+        color: #111827;
+        padding: 0 22px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-align: left;
+        font-size: 15px;
+        font-weight: 400;
+        cursor: pointer;
+      }
+
+      .mobile-link:hover,
+      .mobile-link.is-active {
+        background: var(--drop-hover);
+        color: var(--logo-blue);
+      }
+
+      .mobile-link i {
+        width: 20px;
+        color: var(--logo-blue);
+      }
     }
   </style>
 </head>
 
 <body>
-  <aside class="Valora-sidebar" id="ValoraSidebar">
-    <header class="Valora-sidebar-header">
-      <div class="Valora-logo-full" role="img" aria-label="4X Valora">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 360" aria-hidden="true">
-          <defs>
-            <linearGradient id="valora-sidebar-gradient" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stop-color="#0D63FF"/>
-              <stop offset="100%" stop-color="#15D0A5"/>
-            </linearGradient>
-          </defs>
+  <header class="valora-auvo-topbar">
+    <button class="brand-btn" type="button" onclick="irPara('home')" aria-label="Valora">
+      <img
+        class="brand-logo"
+        src="/frontend/img/logo-favicon.jpg"
+        alt="Valora"
+        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+      />
+      <span class="brand-fallback">V</span>
+    </button>
 
-          <path d="M140 114 L176 114 L160 140 L124 140 Z" fill="url(#valora-sidebar-gradient)" opacity="0.95"/>
-          <text x="90" y="190" font-family="Manrope, Inter, Poppins, Arial, sans-serif" font-size="136" font-weight="700" letter-spacing="11" dominant-baseline="alphabetic">VALORA</text>
-        </svg>
-      </div>
+    <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Abrir menu">
+      <i class="fa-solid fa-bars"></i>
+    </button>
 
-      <span class="Valora-logo-caption">Painel de Orçamentos</span>
-
-      <button class="Valora-mobile-close" id="ValoraMobileClose" aria-label="Fechar menu">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </header>
-
-    <nav class="Valora-sidebar-section">
-      <p class="Valora-section-label">Menu Principal</p>
-
-      <button class="Valora-nav-item" data-target="home">
-        <span class="Valora-nav-icon"><i class="fa-solid fa-chart-line"></i></span>
-        <span>Visão Geral</span>
-      </button>
-
-      <button class="Valora-nav-item" data-target="clientes">
-        <span class="Valora-nav-icon"><i class="fa-solid fa-user-group"></i></span>
-        <span>Clientes</span>
-      </button>
-
-      <button class="Valora-nav-item" data-target="fornecedores">
-        <span class="Valora-nav-icon"><i class="fa-solid fa-truck"></i></span>
-        <span>Fornecedores</span>
-      </button>
-
-      <button class="Valora-nav-item" data-target="produtos">
-        <span class="Valora-nav-icon"><i class="fa-solid fa-box-open"></i></span>
-        <span>Produtos</span>
-      </button>
-
-      <button class="Valora-nav-item" data-target="propostas">
-        <span class="Valora-nav-icon"><i class="fa-solid fa-file-signature"></i></span>
-        <span>Propostas</span>
-      </button>
-
-      <button class="Valora-nav-item" data-target="area-cliente-admin">
-        <span class="Valora-nav-icon"><i class="fa-solid fa-address-card"></i></span>
-        <span>Área do Cliente</span>
-      </button>
-
-      <button class="Valora-nav-item" data-target="contratos-admin">
-        <span class="Valora-nav-icon"><i class="fa-solid fa-file-contract"></i></span>
-        <span>Contratos</span>
-      </button>
-
-      <button class="Valora-nav-item" data-target="usuarios">
-        <span class="Valora-nav-icon"><i class="fa-solid fa-id-badge"></i></span>
-        <span>Usuários</span>
-      </button>
-    </nav>
-
-    <nav class="Valora-sidebar-section">
-      <p class="Valora-section-label">Ajustes</p>
-
-      <button class="Valora-nav-item" data-target="config">
-        <span class="Valora-nav-icon"><i class="fa-solid fa-gear"></i></span>
-        <span>Configurações</span>
-      </button>
-
-      <button class="Valora-nav-item" data-target="formularios">
-        <span class="Valora-nav-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
-        <span>Formulários</span>
-      </button>
-
-      <button class="Valora-nav-item" data-target="ajuda">
-        <span class="Valora-nav-icon"><i class="fa-regular fa-circle-question"></i></span>
-        <span>Central de Ajuda</span>
-      </button>
-    </nav>
-
-    <div class="Valora-user-container">
-      <div class="Valora-user-dropdown" id="userDropdown">
-        <button class="Valora-dropdown-item" onclick="irPara('perfil')">
-          <i class="fa-regular fa-user"></i>
-          Meu Perfil
+    <nav class="desktop-nav" aria-label="Menu principal">
+      <div class="nav-group" data-menu-group>
+        <button class="nav-trigger" type="button">
+          Operação <i class="fa-solid fa-chevron-down"></i>
         </button>
 
-        <button class="Valora-dropdown-item" onclick="irPara('empresa')">
-          <i class="fa-solid fa-building"></i>
-          Minha Empresa
-        </button>
-
-        <div class="Valora-dropdown-divider"></div>
-
-        <button class="Valora-dropdown-item danger" onclick="fazerLogout()">
-          <i class="fa-solid fa-arrow-right-from-bracket"></i>
-          Sair do Sistema
-        </button>
-      </div>
-
-      <div class="Valora-user-profile" id="userProfileBtn">
-        <div class="Valora-user-avatar" id="sidebarUserInitials">U</div>
-        <div class="Valora-user-info">
-          <strong id="sidebarUserName">Usuário</strong>
-          <span id="sidebarUserEmail">email@empresa.com</span>
+        <div class="dropdown">
+          <button class="dropdown-item" type="button" data-target="home">Dashboard</button>
+          <button class="dropdown-item" type="button" data-target="propostas">Propostas</button>
+          <button class="dropdown-item" type="button" data-target="contratos-admin">Contratos</button>
+          <button class="dropdown-item" type="button" data-target="area-cliente-admin">Dados para Contrato</button>
         </div>
-        <i class="fa-solid fa-chevron-up Valora-user-chevron"></i>
+      </div>
+
+      <div class="nav-group" data-menu-group>
+        <button class="nav-trigger" type="button">
+          Cadastros <i class="fa-solid fa-chevron-down"></i>
+        </button>
+
+        <div class="dropdown">
+          <button class="dropdown-item" type="button" data-target="clientes">Clientes</button>
+          <button class="dropdown-item" type="button" data-target="fornecedores">Fornecedores</button>
+          <button class="dropdown-item" type="button" data-target="produtos">Produtos</button>
+          <button class="dropdown-item" type="button" data-target="usuarios">Usuários</button>
+          <button class="dropdown-item" type="button" data-target="empresa">Empresa</button>
+        </div>
+      </div>
+
+      <div class="nav-group" data-menu-group>
+        <button class="nav-trigger" type="button">
+          Financeiro <i class="fa-solid fa-chevron-down"></i>
+        </button>
+
+        <div class="dropdown">
+          <button class="dropdown-item" type="button" data-target="contratos-admin">Contratos</button>
+          <button class="dropdown-item" type="button" data-target="propostas">Propostas</button>
+          <button class="dropdown-item" type="button" data-target="produtos">Produtos e Serviços</button>
+        </div>
+      </div>
+
+      <div class="nav-group" data-menu-group>
+        <button class="nav-trigger" type="button">
+          Relatórios <i class="fa-solid fa-chevron-down"></i>
+        </button>
+
+        <div class="dropdown">
+          <button class="dropdown-item" type="button" data-target="home">Dashboard</button>
+          <button class="dropdown-item" type="button" data-target="formularios">Formulários</button>
+        </div>
+      </div>
+
+      <button class="nav-link" type="button" data-target="formularios">Formulários</button>
+      <button class="nav-link" type="button" data-target="ajuda">Ajuda</button>
+    </nav>
+
+    <div class="right-actions">
+      <button class="plain-action" type="button" onclick="irPara('ajuda')">
+        Primeiros passos
+      </button>
+
+      <button class="new-action" type="button" onclick="irPara('propostas')">
+        <span class="plus">+</span>
+        <span class="label">Nova Proposta</span>
+      </button>
+
+      <button class="bell-btn" type="button" onclick="irPara('home')" aria-label="Notificações">
+        <i class="fa-solid fa-bell"></i>
+      </button>
+
+      <div class="settings-wrap" id="settingsWrap">
+        <button class="settings-trigger" id="settingsBtn" type="button" aria-label="Configurações de aparência">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+
+        <div class="settings-menu" id="settingsMenu">
+          <div class="settings-title">Aparência</div>
+
+          <button class="theme-option" type="button" data-theme-option="light">
+            <span class="theme-radio"></span>
+            <span>Tema claro</span>
+          </button>
+
+          <button class="theme-option" type="button" data-theme-option="dark">
+            <span class="theme-radio"></span>
+            <span>Tema escuro</span>
+          </button>
+
+          <div class="settings-divider"></div>
+
+          <button class="settings-link" type="button" onclick="irPara('config')">
+            <i class="fa-solid fa-sliders"></i>
+            Configurações
+          </button>
+
+          <button class="settings-link" type="button" onclick="irPara('empresa')">
+            <i class="fa-solid fa-building"></i>
+            Minha Empresa
+          </button>
+
+          <button class="settings-link" type="button" onclick="irPara('perfil')">
+            <i class="fa-regular fa-user"></i>
+            Meu Perfil
+          </button>
+        </div>
+      </div>
+
+      <div class="user-wrap" id="userWrap">
+        <button class="user-trigger" id="userProfileBtn" type="button">
+          <span class="user-initials" id="sidebarUserInitials">U</span>
+          <i class="fa-solid fa-chevron-down"></i>
+        </button>
+
+        <div class="user-menu" id="userDropdown">
+          <div class="user-card">
+            <strong id="sidebarUserName">Usuário</strong>
+            <span id="sidebarUserEmail">email@empresa.com</span>
+          </div>
+
+          <button type="button" onclick="irPara('perfil')">
+            <i class="fa-regular fa-user"></i>
+            Meu Perfil
+          </button>
+
+          <button type="button" onclick="irPara('empresa')">
+            <i class="fa-solid fa-building"></i>
+            Minha Empresa
+          </button>
+
+          <button type="button" onclick="irPara('config')">
+            <i class="fa-solid fa-gear"></i>
+            Configurações
+          </button>
+
+          <button type="button" class="danger" onclick="fazerLogout()">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            Sair do Sistema
+          </button>
+        </div>
       </div>
     </div>
-  </aside>
+  </header>
+
+  <div class="mobile-panel" id="mobilePanel">
+    <div class="mobile-section">
+      <div class="mobile-title">Operação</div>
+      <button class="mobile-link" type="button" data-target="home"><i class="fa-solid fa-chart-line"></i> Dashboard</button>
+      <button class="mobile-link" type="button" data-target="propostas"><i class="fa-solid fa-file-signature"></i> Propostas</button>
+      <button class="mobile-link" type="button" data-target="contratos-admin"><i class="fa-solid fa-file-contract"></i> Contratos</button>
+      <button class="mobile-link" type="button" data-target="area-cliente-admin"><i class="fa-solid fa-address-card"></i> Dados para Contrato</button>
+    </div>
+
+    <div class="mobile-section">
+      <div class="mobile-title">Cadastros</div>
+      <button class="mobile-link" type="button" data-target="clientes"><i class="fa-solid fa-user-group"></i> Clientes</button>
+      <button class="mobile-link" type="button" data-target="fornecedores"><i class="fa-solid fa-truck"></i> Fornecedores</button>
+      <button class="mobile-link" type="button" data-target="produtos"><i class="fa-solid fa-box-open"></i> Produtos</button>
+      <button class="mobile-link" type="button" data-target="usuarios"><i class="fa-solid fa-id-badge"></i> Usuários</button>
+      <button class="mobile-link" type="button" data-target="empresa"><i class="fa-solid fa-building"></i> Empresa</button>
+    </div>
+
+    <div class="mobile-section">
+      <div class="mobile-title">Ajustes</div>
+      <button class="mobile-link" type="button" data-target="formularios"><i class="fa-solid fa-wand-magic-sparkles"></i> Formulários</button>
+      <button class="mobile-link" type="button" data-target="config"><i class="fa-solid fa-gear"></i> Configurações</button>
+      <button class="mobile-link" type="button" data-target="ajuda"><i class="fa-regular fa-circle-question"></i> Ajuda</button>
+    </div>
+  </div>
 
   <script>
-    const nomeSalvo = localStorage.getItem('nome') || 'Usuário';
-    const emailSalvo = localStorage.getItem('email') || 'email@empresa.com';
+    const CLOSED_HEIGHT = 64;
+    const OPEN_HEIGHT_DESKTOP = 320;
+    const OPEN_HEIGHT_MOBILE = 620;
 
-    document.getElementById('sidebarUserName').textContent = nomeSalvo;
-    document.getElementById('sidebarUserEmail').textContent = emailSalvo;
-    document.getElementById('sidebarUserInitials').textContent = nomeSalvo.charAt(0).toUpperCase();
+    function getStoredUser() {
+      const nome =
+        localStorage.getItem('nome') ||
+        localStorage.getItem('user_nome') ||
+        localStorage.getItem('usuario_nome') ||
+        'Usuário';
 
-    const userProfileBtn = document.getElementById('userProfileBtn');
-    const userDropdown = document.getElementById('userDropdown');
+      const email =
+        localStorage.getItem('email') ||
+        localStorage.getItem('user_email') ||
+        localStorage.getItem('usuario_email') ||
+        'email@empresa.com';
 
-    userProfileBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      userDropdown.classList.toggle('show');
-      userProfileBtn.classList.toggle('active');
-    });
+      return { nome, email };
+    }
 
-    document.addEventListener('click', (e) => {
-      if (!userDropdown.contains(e.target) && !userProfileBtn.contains(e.target)) {
-        userDropdown.classList.remove('show');
-        userProfileBtn.classList.remove('active');
+    function initialsFromName(name) {
+      const clean = String(name || 'Usuário').trim();
+
+      if (!clean) return 'U';
+
+      const parts = clean.split(/\s+/).filter(Boolean);
+
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
       }
-    });
+
+      return clean.slice(0, 2).toUpperCase();
+    }
+
+    function applyUser() {
+      const { nome, email } = getStoredUser();
+
+      const nameEl = document.getElementById('sidebarUserName');
+      const emailEl = document.getElementById('sidebarUserEmail');
+      const initialsEl = document.getElementById('sidebarUserInitials');
+
+      if (nameEl) nameEl.textContent = nome;
+      if (emailEl) emailEl.textContent = email;
+      if (initialsEl) initialsEl.textContent = initialsFromName(nome);
+    }
+
+    function applyTheme(theme) {
+      const finalTheme = theme === 'dark' ? 'dark' : 'light';
+
+      localStorage.setItem('valora_theme', finalTheme);
+      document.documentElement.setAttribute('data-theme', finalTheme);
+
+      try {
+        if (window.parent && window.parent !== window && window.parent.document) {
+          window.parent.document.documentElement.setAttribute('data-theme', finalTheme);
+        }
+      } catch (e) {}
+
+      syncThemeButtons();
+    }
+
+    function syncThemeButtons() {
+      const current = localStorage.getItem('valora_theme') || 'light';
+
+      document.querySelectorAll('[data-theme-option]').forEach((btn) => {
+        btn.classList.toggle('is-active', btn.dataset.themeOption === current);
+      });
+    }
 
     function goTo(url) {
       try {
@@ -507,6 +953,52 @@
         }
       } catch (e) {
         window.location.href = url;
+      }
+    }
+
+    function irPara(target) {
+      switch (target) {
+        case 'home':
+          goTo('/dashboard');
+          break;
+        case 'clientes':
+          goTo('/clientes');
+          break;
+        case 'fornecedores':
+          goTo('/fornecedores');
+          break;
+        case 'produtos':
+          goTo('/produtos');
+          break;
+        case 'propostas':
+          goTo('/propostas');
+          break;
+        case 'area-cliente-admin':
+          goTo('/area-cliente-admin');
+          break;
+        case 'contratos-admin':
+          goTo('/contratos-admin');
+          break;
+        case 'usuarios':
+          goTo('/usuarios');
+          break;
+        case 'config':
+          goTo('/configuracoes');
+          break;
+        case 'formularios':
+          goTo('/formularios');
+          break;
+        case 'ajuda':
+          goTo('/ajuda');
+          break;
+        case 'perfil':
+          goTo('/perfil');
+          break;
+        case 'empresa':
+          goTo('/empresa');
+          break;
+        default:
+          console.warn('[Menu Valora] target desconhecido:', target);
       }
     }
 
@@ -524,11 +1016,12 @@
           throw new Error(`Falha no logout: HTTP ${response.status}`);
         }
 
+        const theme = localStorage.getItem('valora_theme') || 'light';
+
         localStorage.clear();
         sessionStorage.clear();
 
-        userDropdown.classList.remove('show');
-        userProfileBtn.classList.remove('active');
+        localStorage.setItem('valora_theme', theme);
 
         try {
           if (window.parent && window.parent !== window) {
@@ -545,93 +1038,24 @@
       }
     }
 
-    function irPara(target) {
-      switch (target) {
-        case 'home':
-          goTo('/dashboard');
-          break;
-
-        case 'clientes':
-          goTo('/clientes');
-          break;
-
-        case 'fornecedores':
-          goTo('/fornecedores');
-          break;
-
-        case 'produtos':
-          goTo('/produtos');
-          break;
-
-        case 'propostas':
-          goTo('/propostas');
-          break;
-
-        case 'area-cliente-admin':
-          goTo('/area-cliente-admin');
-          break;
-
-        case 'contratos-admin':
-          goTo('/contratos-admin');
-          break;
-
-        case 'usuarios':
-          goTo('/usuarios');
-          break;
-
-        case 'config':
-          goTo('/configuracoes');
-          break;
-
-        case 'formularios':
-          goTo('/formularios');
-          break;
-
-        case 'ajuda':
-          goTo('/ajuda');
-          break;
-
-        case 'perfil':
-          goTo('/perfil');
-          break;
-
-        case 'empresa':
-          goTo('/empresa');
-          break;
-
-        default:
-          console.warn('[Menu Valora] target desconhecido:', target);
-      }
-    }
-
     function normalizePath(path) {
       path = (path || '').toLowerCase().trim();
-
-      if (!path) return '/';
-
       path = path.split('?')[0].split('#')[0];
       path = path.replace(/\/+$/, '');
-
-      if (path === '') return '/';
-
-      return path;
+      return path || '/';
     }
 
-    function resolveCurrentTargetFromParent() {
-      let path = '/';
-
+    function getParentPath() {
       try {
         if (window.parent && window.parent !== window && window.parent.location) {
-          path = window.parent.location.pathname || '/';
-        } else {
-          path = window.location.pathname || '/';
+          return normalizePath(window.parent.location.pathname || '/');
         }
-      } catch (err) {
-        path = window.location.pathname || '/';
-      }
+      } catch (e) {}
 
-      path = normalizePath(path);
+      return normalizePath(window.location.pathname || '/');
+    }
 
+    function resolveCurrentTargetFromPath(path) {
       if (
         path === '/' ||
         path === '/dashboard' ||
@@ -659,532 +1083,271 @@
       return 'home';
     }
 
-    function labelFromTarget(t) {
-      switch (t) {
-        case 'home':
-          return 'Visão Geral';
+    function setFrameHeight(open) {
+      document.body.classList.toggle('menu-open', !!open);
 
-        case 'clientes':
-          return 'Clientes';
-
-        case 'fornecedores':
-          return 'Fornecedores';
-
-        case 'produtos':
-          return 'Produtos';
-
-        case 'propostas':
-          return 'Propostas';
-
-        case 'area-cliente-admin':
-          return 'Área do Cliente';
-
-        case 'contratos-admin':
-          return 'Contratos';
-
-        case 'usuarios':
-          return 'Usuários';
-
-        case 'config':
-          return 'Configurações';
-
-        case 'formularios':
-          return 'Formulários';
-
-        case 'ajuda':
-          return 'Ajuda';
-
-        case 'perfil':
-          return 'Meu Perfil';
-
-        case 'empresa':
-          return 'Minha Empresa';
-
-        default:
-          return 'Menu';
-      }
-    }
-
-    const MOBILE_BREAKPOINT = 860;
-
-    function canTouchParent() {
       try {
-        return !!(window.parent && window.parent !== window && window.parent.document && window.parent.document.body);
-      } catch (e) {
-        return false;
-      }
-    }
+        if (window.frameElement) {
+          const isMobile = window.innerWidth <= 920;
+          const h = open ? (isMobile ? OPEN_HEIGHT_MOBILE : OPEN_HEIGHT_DESKTOP) : CLOSED_HEIGHT;
 
-    function getBestWidth() {
-      try {
-        if (window.parent && window.parent !== window) {
-          if (window.parent.visualViewport && window.parent.visualViewport.width) {
-            return window.parent.visualViewport.width;
-          }
-
-          if (typeof window.parent.innerWidth === 'number') {
-            return window.parent.innerWidth;
-          }
-        }
-      } catch (e) {}
-
-      if (window.visualViewport && window.visualViewport.width) {
-        return window.visualViewport.width;
-      }
-
-      return window.innerWidth;
-    }
-
-    const PARENT_OK = canTouchParent();
-    const ROOT_DOC  = PARENT_OK ? window.parent.document : document;
-    const ROOT_WIN  = PARENT_OK ? window.parent : window;
-
-    const ID_STYLE  = 'ValoraMobileInjectStyle';
-    const ID_TOPBAR = 'ValoraMobileTopbar';
-    const ID_OVER   = 'ValoraMobileOverlay';
-    const ID_BTN    = 'ValoraMobileBtn';
-
-    function ensureParentCss() {
-      if (ROOT_DOC.getElementById(ID_STYLE)) return;
-
-      const st = ROOT_DOC.createElement('style');
-      st.id = ID_STYLE;
-      st.textContent = `
-        :root{
-          --Valora-m-bg:#181818;
-          --Valora-m-border:#262626;
-          --Valora-m-text:#f5f5f5;
-          --Valora-m-muted:#b0b0b0;
-          --Valora-m-btn:#202020;
-          --Valora-m-btn-border:#2f2f2f;
-
-          --Valora-m-safe-top: env(safe-area-inset-top);
-          --Valora-m-h: 54px;
-          --Valora-m-topbar-h: calc(var(--Valora-m-h) + var(--Valora-m-safe-top));
-        }
-
-        html[data-theme="light"] {
-          --Valora-m-bg: #ffffff;
-          --Valora-m-border: #e5e7eb;
-          --Valora-m-text: #111827;
-          --Valora-m-muted: #6b7280;
-          --Valora-m-btn: #f3f4f6;
-          --Valora-m-btn-border: #d1d5db;
-        }
-
-        #${ID_TOPBAR}{
-          font-family: 'Inter', system-ui, sans-serif;
-          position:fixed;
-          top:0; left:0; right:0;
-          height: var(--Valora-m-topbar-h);
-          padding-top: var(--Valora-m-safe-top);
-          display:flex;
-          align-items:center;
-          gap:10px;
-          padding-left: 12px;
-          padding-right: 12px;
-          background: var(--Valora-m-bg);
-          border-bottom: 1px solid var(--Valora-m-border);
-          z-index: 10020;
-          -webkit-font-smoothing: antialiased;
-          transition: background 0.2s ease, border-color 0.2s ease;
-        }
-
-        #${ID_BTN}{
-          width:40px; height:40px;
-          display:inline-flex;
-          align-items:center;
-          justify-content:center;
-          border-radius:8px;
-          border: 1px solid var(--Valora-m-btn-border);
-          background: var(--Valora-m-btn);
-          color: var(--Valora-m-text);
-          cursor:pointer;
-          -webkit-tap-highlight-color: transparent;
-          touch-action: manipulation;
-          padding: 0;
-          transition: all 0.2s ease;
-        }
-
-        #${ID_BTN}:hover {
-          background: var(--Valora-m-btn-border);
-        }
-
-        #${ID_BTN} svg{
-          width: 20px;
-          height: 20px;
-          display:block;
-        }
-
-        #${ID_TOPBAR} .Valora-m-title{
-          display:flex;
-          flex-direction:column;
-          line-height:1.2;
-          min-width:0;
-        }
-
-        #${ID_TOPBAR} .Valora-m-title strong{
-          font-size:14px;
-          color: var(--Valora-m-text);
-          font-weight:600;
-          white-space:nowrap;
-          overflow:hidden;
-          text-overflow:ellipsis;
-        }
-
-        #${ID_TOPBAR} .Valora-m-title span{
-          font-size:12px;
-          color: var(--Valora-m-muted);
-          white-space:nowrap;
-          overflow:hidden;
-          text-overflow:ellipsis;
-        }
-
-        #${ID_OVER}{
-          position:fixed;
-          inset:0;
-          background: rgba(0,0,0,0.62);
-          opacity:0;
-          pointer-events:none;
-          transition: opacity 0.18s ease;
-          z-index: 10010;
-        }
-
-        html.Valora-mobile-open #${ID_OVER}{
-          opacity:1;
-          pointer-events:auto;
-        }
-
-        html.Valora-mobile-on body{
-          padding-top: var(--Valora-m-topbar-h) !important;
-        }
-
-        html.Valora-mobile-open body{
-          overflow: hidden !important;
-          touch-action: none;
-        }
-
-        @media (prefers-reduced-motion: reduce){
-          #${ID_OVER}{ transition:none; }
-        }
-      `;
-
-      ROOT_DOC.head.appendChild(st);
-    }
-
-    function ensureParentNodes() {
-      ensureParentCss();
-
-      let tb = ROOT_DOC.getElementById(ID_TOPBAR);
-
-      if (!tb) {
-        tb = ROOT_DOC.createElement('div');
-        tb.id = ID_TOPBAR;
-        tb.setAttribute('data-Valora-created', '1');
-
-        tb.innerHTML = `
-          <button id="${ID_BTN}" aria-label="Abrir menu" aria-expanded="false">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path fill="currentColor" d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"></path>
-            </svg>
-          </button>
-          <div class="Valora-m-title">
-            <strong>4X Valora</strong>
-            <span id="ValoraMobileSubtitle">Menu</span>
-          </div>
-        `;
-
-        ROOT_DOC.body.appendChild(tb);
-      }
-
-      let ov = ROOT_DOC.getElementById(ID_OVER);
-
-      if (!ov) {
-        ov = ROOT_DOC.createElement('div');
-        ov.id = ID_OVER;
-        ov.setAttribute('aria-hidden', 'true');
-        ov.setAttribute('data-Valora-created', '1');
-        ROOT_DOC.body.appendChild(ov);
-      }
-
-      const btn = ROOT_DOC.getElementById(ID_BTN);
-
-      if (btn && !btn.dataset.bound) {
-        btn.dataset.bound = '1';
-        btn.addEventListener('click', toggleMobileMenu);
-      }
-
-      if (ov && !ov.dataset.bound) {
-        ov.dataset.bound = '1';
-        ov.addEventListener('click', closeMobileMenu);
-      }
-    }
-
-    function removeParentNodes() {
-      try {
-        ROOT_DOC.documentElement.classList.remove('Valora-mobile-on');
-        ROOT_DOC.documentElement.classList.remove('Valora-mobile-open');
-
-        const tb = ROOT_DOC.getElementById(ID_TOPBAR);
-        const ov = ROOT_DOC.getElementById(ID_OVER);
-
-        if (tb && tb.getAttribute('data-Valora-created') === '1') tb.remove();
-        if (ov && ov.getAttribute('data-Valora-created') === '1') ov.remove();
-      } catch (e) {}
-    }
-
-    function getTopbarHeightPx() {
-      try {
-        const tb = ROOT_DOC.getElementById(ID_TOPBAR);
-
-        if (!tb) return 54;
-
-        const h = tb.getBoundingClientRect().height;
-
-        return Math.max(48, Math.round(h || 54));
-      } catch (e) {
-        return 54;
-      }
-    }
-
-    function revealAncestorsForIframe(fe) {
-      try {
-        let el = fe;
-
-        while (el && el !== ROOT_DOC.body && el !== ROOT_DOC.documentElement) {
-          const cs = ROOT_WIN.getComputedStyle(el);
-
-          if (cs && cs.display === 'none') {
-            el.style.setProperty('display', 'contents', 'important');
-          }
-
-          el = el.parentElement;
+          window.frameElement.style.height = h + 'px';
+          window.frameElement.style.minHeight = h + 'px';
+          window.frameElement.style.maxHeight = h + 'px';
+          window.frameElement.style.overflow = 'visible';
+          window.frameElement.style.zIndex = '99999';
         }
       } catch (e) {}
     }
 
-    function applyIframeDrawerStyles(isMobile, topbarH) {
-      const fe = window.frameElement;
+    function closeAllMenus() {
+      document.querySelectorAll('[data-menu-group]').forEach((group) => {
+        group.classList.remove('is-open');
+      });
 
-      if (!fe) return;
+      const userWrap = document.getElementById('userWrap');
+      const mobilePanel = document.getElementById('mobilePanel');
+      const settingsWrap = document.getElementById('settingsWrap');
 
-      if (isMobile) {
-        revealAncestorsForIframe(fe);
+      if (userWrap) userWrap.classList.remove('is-open');
+      if (mobilePanel) mobilePanel.classList.remove('is-open');
+      if (settingsWrap) settingsWrap.classList.remove('is-open');
 
-        if (!fe.dataset.ValoraPrevSaved) {
-          fe.dataset.ValoraPrevSaved = '1';
-          fe.dataset.ValoraPrevStyle = fe.getAttribute('style') || '';
-        }
-
-        const topPx = Number(topbarH || 54);
-
-        fe.style.setProperty('display', 'block', 'important');
-        fe.style.setProperty('visibility', 'visible', 'important');
-        fe.style.setProperty('position', 'fixed', 'important');
-        fe.style.setProperty('left', '0', 'important');
-        fe.style.setProperty('top', topPx + 'px', 'important');
-        fe.style.setProperty('height', 'calc(100vh - ' + topPx + 'px)', 'important');
-        fe.style.setProperty('width', 'min(86vw, 320px)', 'important');
-        fe.style.setProperty('max-width', '320px', 'important');
-        fe.style.setProperty('z-index', '10015', 'important');
-        fe.style.setProperty('border', '0', 'important');
-        fe.style.setProperty('background', 'transparent', 'important');
-        fe.style.setProperty('box-shadow', '12px 0 28px rgba(0,0,0,0.65)', 'important');
-        fe.style.setProperty('will-change', 'transform', 'important');
-        fe.style.setProperty('transition', 'transform 0.18s ease', 'important');
-
-        if (!ROOT_DOC.documentElement.classList.contains('Valora-mobile-open')) {
-          fe.style.setProperty('transform', 'translateX(-110%)', 'important');
-          fe.style.setProperty('pointer-events', 'none', 'important');
-        }
-      } else {
-        if (fe.dataset.ValoraPrevSaved) {
-          fe.setAttribute('style', fe.dataset.ValoraPrevStyle || '');
-          delete fe.dataset.ValoraPrevSaved;
-          delete fe.dataset.ValoraPrevStyle;
-        }
-      }
+      setFrameHeight(false);
     }
 
-    function openMobileMenu() {
-      if (!ROOT_DOC.documentElement.classList.contains('Valora-mobile-on')) return;
+    function anyMenuOpen() {
+      const groupOpen = !!document.querySelector('[data-menu-group].is-open');
+      const userOpen = !!document.querySelector('#userWrap.is-open');
+      const mobileOpen = !!document.querySelector('#mobilePanel.is-open');
+      const settingsOpen = !!document.querySelector('#settingsWrap.is-open');
 
-      ROOT_DOC.documentElement.classList.add('Valora-mobile-open');
-
-      const fe = window.frameElement;
-
-      if (fe) {
-        fe.style.setProperty('transform', 'translateX(0)', 'important');
-        fe.style.setProperty('pointer-events', 'auto', 'important');
-      }
-
-      const ov = ROOT_DOC.getElementById(ID_OVER);
-
-      if (ov) ov.setAttribute('aria-hidden', 'false');
-
-      const btn = ROOT_DOC.getElementById(ID_BTN);
-
-      if (btn) btn.setAttribute('aria-expanded', 'true');
+      return groupOpen || userOpen || mobileOpen || settingsOpen;
     }
 
-    function closeMobileMenu() {
-      ROOT_DOC.documentElement.classList.remove('Valora-mobile-open');
-
-      const fe = window.frameElement;
-
-      if (fe) {
-        fe.style.setProperty('transform', 'translateX(-110%)', 'important');
-        fe.style.setProperty('pointer-events', 'none', 'important');
-      }
-
-      const ov = ROOT_DOC.getElementById(ID_OVER);
-
-      if (ov) ov.setAttribute('aria-hidden', 'true');
-
-      const btn = ROOT_DOC.getElementById(ID_BTN);
-
-      if (btn) btn.setAttribute('aria-expanded', 'false');
-    }
-
-    function toggleMobileMenu() {
-      if (ROOT_DOC.documentElement.classList.contains('Valora-mobile-open')) {
-        closeMobileMenu();
-      } else {
-        openMobileMenu();
-      }
-    }
-
-    function updateMobileSubtitle() {
-      try {
-        const sub = ROOT_DOC.getElementById('ValoraMobileSubtitle');
-
-        if (sub) {
-          sub.textContent = labelFromTarget(resolveCurrentTargetFromParent());
-        }
-      } catch (e) {}
+    function refreshFrameHeight() {
+      setFrameHeight(anyMenuOpen());
     }
 
     function syncActiveMenu() {
-      const current = resolveCurrentTargetFromParent();
-      const itens = document.querySelectorAll('.Valora-nav-item');
+      const current = resolveCurrentTargetFromPath(getParentPath());
 
-      itens.forEach(btn => {
-        btn.classList.toggle('Valora-nav-item--active', btn.dataset.target === current);
+      document.querySelectorAll('[data-target]').forEach((el) => {
+        el.classList.toggle('is-active', el.dataset.target === current);
       });
-
-      updateMobileSubtitle();
     }
 
-    function syncMobileMode() {
-      const w = getBestWidth();
-      const isMobile = w <= MOBILE_BREAKPOINT;
-
-      document.body.classList.toggle('Valora-is-mobile', isMobile);
-
-      if (PARENT_OK && window.frameElement) {
-        if (isMobile) {
-          ensureParentNodes();
-          ROOT_DOC.documentElement.classList.add('Valora-mobile-on');
-
-          updateMobileSubtitle();
-
-          const topbarH = getTopbarHeightPx();
-
-          applyIframeDrawerStyles(true, topbarH);
-          closeMobileMenu();
-        } else {
-          removeParentNodes();
-          applyIframeDrawerStyles(false);
-        }
-      }
-    }
-
-    function initSidebar() {
-      syncActiveMenu();
-
-      const itens = document.querySelectorAll('.Valora-nav-item');
-
-      itens.forEach(btn => {
+    function initNavigation() {
+      document.querySelectorAll('[data-target]').forEach((btn) => {
         btn.addEventListener('click', () => {
-          if (!btn.dataset.target) return;
+          const target = btn.dataset.target;
 
-          closeMobileMenu();
-          irPara(btn.dataset.target);
+          if (!target) return;
+
+          closeAllMenus();
+          irPara(target);
         });
       });
+    }
 
-      const logo = document.querySelector('.Valora-logo-full');
+    function initDropdowns() {
+      document.querySelectorAll('[data-menu-group]').forEach((group) => {
+        const trigger = group.querySelector('.nav-trigger');
+        const dropdown = group.querySelector('.dropdown');
 
-      if (logo) {
-        logo.style.cursor = 'pointer';
-        logo.addEventListener('click', () => {
-          closeMobileMenu();
-          irPara('home');
-        });
-      }
+        if (!trigger || !dropdown) return;
 
-      const closeBtn = document.getElementById('ValoraMobileClose');
+        trigger.addEventListener('click', (event) => {
+          event.stopPropagation();
 
-      if (closeBtn) {
-        closeBtn.addEventListener('click', closeMobileMenu);
-      }
+          const willOpen = !group.classList.contains('is-open');
 
-      syncMobileMode();
-
-      window.addEventListener('resize', () => {
-        syncMobileMode();
-        syncActiveMenu();
-      });
-
-      window.addEventListener('orientationchange', () => {
-        syncMobileMode();
-        syncActiveMenu();
-      });
-
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', () => {
-          syncMobileMode();
-          syncActiveMenu();
-        });
-      }
-
-      try {
-        if (window.parent && window.parent !== window) {
-          window.parent.addEventListener('resize', () => {
-            syncMobileMode();
-            syncActiveMenu();
+          document.querySelectorAll('[data-menu-group]').forEach((other) => {
+            if (other !== group) other.classList.remove('is-open');
           });
 
-          if (window.parent.visualViewport) {
-            window.parent.visualViewport.addEventListener('resize', () => {
-              syncMobileMode();
-              syncActiveMenu();
-            });
-          }
-        }
-      } catch (e) {}
+          const userWrap = document.getElementById('userWrap');
+          const mobilePanel = document.getElementById('mobilePanel');
+          const settingsWrap = document.getElementById('settingsWrap');
 
-      try {
-        ROOT_DOC.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape' && ROOT_DOC.documentElement.classList.contains('Valora-mobile-open')) {
-            closeMobileMenu();
-          }
+          if (userWrap) userWrap.classList.remove('is-open');
+          if (mobilePanel) mobilePanel.classList.remove('is-open');
+          if (settingsWrap) settingsWrap.classList.remove('is-open');
+
+          group.classList.toggle('is-open', willOpen);
+          refreshFrameHeight();
         });
-      } catch (e) {}
+
+        dropdown.addEventListener('click', (event) => {
+          event.stopPropagation();
+        });
+
+        group.addEventListener('mouseenter', () => {
+          if (window.innerWidth <= 920) return;
+
+          document.querySelectorAll('[data-menu-group]').forEach((other) => {
+            if (other !== group) other.classList.remove('is-open');
+          });
+
+          const userWrap = document.getElementById('userWrap');
+          const settingsWrap = document.getElementById('settingsWrap');
+
+          if (userWrap) userWrap.classList.remove('is-open');
+          if (settingsWrap) settingsWrap.classList.remove('is-open');
+
+          group.classList.add('is-open');
+          refreshFrameHeight();
+        });
+
+        group.addEventListener('mouseleave', () => {
+          if (window.innerWidth <= 920) return;
+
+          group.classList.remove('is-open');
+          refreshFrameHeight();
+        });
+      });
     }
 
-    (function boot() {
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initSidebar, { once: true });
-      } else {
-        initSidebar();
-      }
+    function initSettingsMenu() {
+      const settingsWrap = document.getElementById('settingsWrap');
+      const settingsBtn = document.getElementById('settingsBtn');
+      const settingsMenu = document.getElementById('settingsMenu');
+
+      if (!settingsWrap || !settingsBtn || !settingsMenu) return;
+
+      settingsBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+
+        document.querySelectorAll('[data-menu-group]').forEach((group) => {
+          group.classList.remove('is-open');
+        });
+
+        const userWrap = document.getElementById('userWrap');
+        const mobilePanel = document.getElementById('mobilePanel');
+
+        if (userWrap) userWrap.classList.remove('is-open');
+        if (mobilePanel) mobilePanel.classList.remove('is-open');
+
+        settingsWrap.classList.toggle('is-open');
+        refreshFrameHeight();
+      });
+
+      settingsMenu.addEventListener('click', (event) => {
+        event.stopPropagation();
+      });
+
+      document.querySelectorAll('[data-theme-option]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          applyTheme(btn.dataset.themeOption);
+        });
+      });
+    }
+
+    function initUserMenu() {
+      const userWrap = document.getElementById('userWrap');
+      const userBtn = document.getElementById('userProfileBtn');
+      const userDropdown = document.getElementById('userDropdown');
+
+      if (!userWrap || !userBtn || !userDropdown) return;
+
+      userBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+
+        document.querySelectorAll('[data-menu-group]').forEach((group) => {
+          group.classList.remove('is-open');
+        });
+
+        const mobilePanel = document.getElementById('mobilePanel');
+        const settingsWrap = document.getElementById('settingsWrap');
+
+        if (mobilePanel) mobilePanel.classList.remove('is-open');
+        if (settingsWrap) settingsWrap.classList.remove('is-open');
+
+        userWrap.classList.toggle('is-open');
+        refreshFrameHeight();
+      });
+
+      userDropdown.addEventListener('click', (event) => {
+        event.stopPropagation();
+      });
+    }
+
+    function initMobileMenu() {
+      const btn = document.getElementById('mobileMenuBtn');
+      const panel = document.getElementById('mobilePanel');
+
+      if (!btn || !panel) return;
+
+      btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+
+        document.querySelectorAll('[data-menu-group]').forEach((group) => {
+          group.classList.remove('is-open');
+        });
+
+        const userWrap = document.getElementById('userWrap');
+        const settingsWrap = document.getElementById('settingsWrap');
+
+        if (userWrap) userWrap.classList.remove('is-open');
+        if (settingsWrap) settingsWrap.classList.remove('is-open');
+
+        panel.classList.toggle('is-open');
+        refreshFrameHeight();
+      });
+
+      panel.addEventListener('click', (event) => {
+        event.stopPropagation();
+      });
+    }
+
+    function initOutsideClick() {
+      document.addEventListener('click', () => {
+        closeAllMenus();
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          closeAllMenus();
+        }
+      });
+    }
+
+    function initResize() {
+      window.addEventListener('resize', () => {
+        syncActiveMenu();
+        refreshFrameHeight();
+      });
+    }
+
+    function init() {
+      const savedTheme = localStorage.getItem('valora_theme') || 'light';
+
+      applyTheme(savedTheme);
+      applyUser();
+      setFrameHeight(false);
+      syncActiveMenu();
+      syncThemeButtons();
+
+      initNavigation();
+      initDropdowns();
+      initSettingsMenu();
+      initUserMenu();
+      initMobileMenu();
+      initOutsideClick();
+      initResize();
 
       window.addEventListener('load', () => {
-        syncMobileMode();
+        applyTheme(localStorage.getItem('valora_theme') || 'light');
+        setFrameHeight(false);
         syncActiveMenu();
       }, { once: true });
-    })();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+      init();
+    }
   </script>
 </body>
 </html>
