@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+import re
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, status
@@ -66,6 +67,14 @@ def pydantic_dump(obj: BaseModel) -> Dict[str, Any]:
 def norm_str(value: Any) -> Optional[str]:
     text = str(value or "").strip()
     return text or None
+
+
+def normalizar_codigo_sistema(codigo: Any) -> str:
+    """Mantém códigos internos do sistema apenas numéricos.
+
+    Ex.: "FOR-0007" vira "0007".
+    """
+    return re.sub(r"\D+", "", str(codigo or "")).strip()
 
 
 def parse_decimal(value: Any) -> Optional[Decimal]:
@@ -195,7 +204,7 @@ def gerar_codigo_fornecedor(db: Session, empresa_id: int) -> str:
         .first()
     )
     proximo = (int(ultimo.id) if ultimo else 0) + 1
-    return f"FOR-{proximo:04d}"
+    return f"{proximo:04d}"
 
 
 def buscar_campos_empresa_map(db: Session, empresa_id: int) -> Dict[str, CampoFornecedor]:
@@ -313,6 +322,25 @@ def apply_fornecedor_payload(f: Fornecedor, payload: FornecedorBaseSchema) -> No
     f.plano_contas = norm_str(payload.plano_contas)
     f.observacoes = norm_str(payload.observacoes)
 
+
+
+def fornecedor_to_list_out(f: Fornecedor) -> Dict[str, Any]:
+    return {
+        "id": int(f.id),
+        "empresa_id": int(f.empresa_id),
+        "codigo": getattr(f, "codigo", None) or "",
+        "tipo_fornecedor": getattr(f, "tipo_fornecedor", None),
+        "situacao": getattr(f, "situacao", None) or "ativo",
+        "nome": getattr(f, "nome", None) or "",
+        "nome_fantasia": getattr(f, "nome_fantasia", None),
+        "cpf_cnpj": getattr(f, "cpf_cnpj", None),
+        "telefone": getattr(f, "telefone", None),
+        "whatsapp": getattr(f, "whatsapp", None),
+        "email": getattr(f, "email", None),
+        "cidade": getattr(f, "cidade", None),
+        "estado": getattr(f, "estado", None),
+        "custom_fields": {},
+    }
 
 def fornecedor_to_out(db: Session, f: Fornecedor) -> FornecedorOut:
     empresa_id = int(f.empresa_id)
@@ -455,43 +483,65 @@ def excluir_campo(
 # FORNECEDORES
 # =========================================================
 
-@router.get("/api/fornecedores", response_model=List[FornecedorOut])
+@router.get("/api/fornecedores")
 def listar_fornecedores(
     busca: Optional[str] = Query(default=None),
     situacao: Optional[str] = Query(default=None),
     tipo_fornecedor: Optional[str] = Query(default=None),
     cidade: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    paginated: bool = Query(default=False),
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
+    """
+    Lista leve e paginada para a tela de Fornecedores.
+
+    Não carrega custom_fields na tabela. Os valores personalizados continuam
+    sendo carregados apenas quando abre um fornecedor específico.
+    """
     try:
         query = db.query(Fornecedor).filter(Fornecedor.empresa_id == empresa_id)
 
-        if norm_str(situacao):
+        if norm_str(situacao) and hasattr(Fornecedor, "situacao"):
             query = query.filter(Fornecedor.situacao == str(situacao).strip().lower())
 
-        if norm_str(tipo_fornecedor):
+        if norm_str(tipo_fornecedor) and hasattr(Fornecedor, "tipo_fornecedor"):
             query = query.filter(Fornecedor.tipo_fornecedor.ilike(f"%{str(tipo_fornecedor).strip()}%"))
 
-        if norm_str(cidade):
+        if norm_str(cidade) and hasattr(Fornecedor, "cidade"):
             query = query.filter(Fornecedor.cidade.ilike(f"%{str(cidade).strip()}%"))
 
         texto = norm_str(busca)
         if texto:
             q = f"%{texto}%"
-            query = query.filter(
-                (Fornecedor.codigo.ilike(q))
-                | (Fornecedor.nome.ilike(q))
-                | (Fornecedor.nome_fantasia.ilike(q))
-                | (Fornecedor.cpf_cnpj.ilike(q))
-                | (Fornecedor.telefone.ilike(q))
-                | (Fornecedor.whatsapp.ilike(q))
-                | (Fornecedor.email.ilike(q))
-                | (Fornecedor.cidade.ilike(q))
-            )
+            filtros = [Fornecedor.codigo.ilike(q), Fornecedor.nome.ilike(q)]
+            for attr in ("nome_fantasia", "cpf_cnpj", "telefone", "whatsapp", "email", "cidade"):
+                col = getattr(Fornecedor, attr, None)
+                if col is not None:
+                    filtros.append(col.ilike(q))
+            cond = filtros[0]
+            for item in filtros[1:]:
+                cond = cond | item
+            query = query.filter(cond)
 
-        rows = query.order_by(Fornecedor.nome.asc(), Fornecedor.id.asc()).all()
-        return [fornecedor_to_out(db, f) for f in rows]
+        query = query.order_by(Fornecedor.nome.asc(), Fornecedor.id.asc())
+
+        if paginated:
+            total = query.count()
+            rows = query.offset(offset).limit(limit).all()
+            items = [fornecedor_to_list_out(f) for f in rows]
+            return {
+                "items": items,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "has_more": (offset + len(items)) < total,
+            }
+
+        rows = query.all()
+        return [fornecedor_to_list_out(f) for f in rows]
     except OperationalError as exc:
         raise HTTPException(
             status_code=500,
@@ -506,7 +556,7 @@ def criar_fornecedor(
     empresa_id: int = Depends(get_empresa_id),
 ):
     try:
-        codigo = (payload.codigo or "").strip() or gerar_codigo_fornecedor(db, empresa_id)
+        codigo = normalizar_codigo_sistema(payload.codigo) or gerar_codigo_fornecedor(db, empresa_id)
         f = Fornecedor(empresa_id=empresa_id, codigo=codigo, nome=payload.nome.strip())
         apply_fornecedor_payload(f, payload)
 
@@ -556,8 +606,9 @@ def atualizar_fornecedor(
         raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
 
     try:
-        if norm_str(payload.codigo):
-            f.codigo = str(payload.codigo).strip()
+        codigo_normalizado = normalizar_codigo_sistema(payload.codigo)
+        if codigo_normalizado:
+            f.codigo = codigo_normalizado
 
         apply_fornecedor_payload(f, payload)
         salvar_custom_fields_fornecedor(db, empresa_id, int(f.id), payload.custom_fields)

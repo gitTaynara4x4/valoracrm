@@ -1,14 +1,20 @@
 // /frontend/js/pages/fornecedores.js
-// Fornecedores - versão completa corrigida
-// Corrige: abas do modal, modal fino, filtros e organização dos campos.
+// Fornecedores | Valora CRM
+// Versão completa: filtros, modal, abas, campos personalizados, importação e exportação.
 
 let fornecedores = [];
+let fornecedoresPage = { offset: 0, limit: 50, total: 0, hasMore: false };
 let camposFornecedores = [];
 let fornecedorEditandoId = null;
 let campoEditandoId = null;
+let formularioFornecedores = null;
+let usarFichaPrincipalFornecedores = false;
+let fichaFornecedorController = null;
+let fornecedorAtualDetalhe = null;
 
 const API_FORNECEDORES = '/api/fornecedores';
-const API_CAMPOS = '/api/fornecedores/campos';
+const API_CAMPOS_PRIMARY = '/api/fornecedores/campos';
+const API_CAMPOS_FALLBACK = '/api/campos-fornecedores';
 
 function $(id) {
   return document.getElementById(id);
@@ -49,7 +55,12 @@ function formatTipoCampo(tipo) {
     data: 'Data',
     select: 'Lista de opções',
     checkbox: 'Caixa de seleção',
+    email: 'E-mail',
+    telefone: 'Telefone',
+    moeda: 'Moeda',
+    percentual: 'Percentual',
   };
+
   return map[tipo] || tipo || '-';
 }
 
@@ -60,6 +71,7 @@ function toast(message, type = 'success', ms = 2600) {
   }
 
   const el = $('valora-toast');
+
   if (!el) {
     alert(message);
     return;
@@ -67,15 +79,22 @@ function toast(message, type = 'success', ms = 2600) {
 
   el.textContent = message || '';
   el.classList.remove('is-error');
-  if (type === 'error') el.classList.add('is-error');
+
+  if (type === 'error') {
+    el.classList.add('is-error');
+  }
 
   el.classList.add('show');
+
   clearTimeout(toast._timer);
-  toast._timer = setTimeout(() => el.classList.remove('show'), ms);
+  toast._timer = setTimeout(() => {
+    el.classList.remove('show');
+  }, ms);
 }
 
 function setButtonLoading(btn, loading, textWhenLoading = 'Salvando...', textWhenNormal = '') {
   if (!btn) return;
+
   if (loading) {
     btn.dataset.originalHtml = btn.innerHTML;
     btn.innerHTML = textWhenLoading;
@@ -96,7 +115,10 @@ function confirmDialog({
   cancelText = 'Cancelar',
 } = {}) {
   const backdrop = $('Valora-confirm-backdrop');
-  if (!backdrop) return Promise.resolve(false);
+
+  if (!backdrop) {
+    return Promise.resolve(window.confirm(message));
+  }
 
   $('Valora-confirm-title').textContent = title;
   $('Valora-confirm-message').textContent = message;
@@ -130,31 +152,69 @@ async function apiJson(url, options = {}) {
     },
   });
 
+  const text = await resp.text();
+
   if (!resp.ok) {
-    const txt = await resp.text();
-    let message = txt || 'Erro na requisição.';
+    let message = text || 'Erro na requisição.';
+
     try {
-      const parsed = JSON.parse(txt);
-      message = parsed.detail || parsed.message || txt;
-    } catch {}
+      const parsed = JSON.parse(text);
+      message = parsed.detail || parsed.message || message;
+    } catch (_) {}
+
     throw new Error(typeof message === 'string' ? message : 'Erro na requisição.');
   }
 
-  if (resp.status === 204) return null;
-  return resp.json();
+  if (!text || resp.status === 204) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    return text;
+  }
+}
+
+async function apiCampos(path = '', options = {}) {
+  const suffix = path ? `/${String(path).replace(/^\/+/, '')}` : '';
+
+  try {
+    return await apiJson(`${API_CAMPOS_PRIMARY}${suffix}`, options);
+  } catch (err) {
+    const msg = String(err.message || '').toLowerCase();
+    const deveTentarFallback =
+      msg.includes('not found') ||
+      msg.includes('404') ||
+      msg.includes('não encontrado') ||
+      msg.includes('method not allowed') ||
+      msg.includes('405');
+
+    if (!deveTentarFallback) {
+      throw err;
+    }
+
+    return apiJson(`${API_CAMPOS_FALLBACK}${suffix}`, options);
+  }
 }
 
 function openModal(id) {
   const modal = $(id);
   if (!modal) return;
+
   modal.hidden = false;
-  requestAnimationFrame(() => modal.classList.add('show'));
+
+  requestAnimationFrame(() => {
+    modal.classList.add('show');
+  });
 }
 
 function closeModal(id) {
   const modal = $(id);
   if (!modal) return;
+
   modal.classList.remove('show');
+
   setTimeout(() => {
     modal.hidden = true;
   }, 180);
@@ -163,15 +223,29 @@ function closeModal(id) {
 function setValue(id, value) {
   const el = $(id);
   if (!el) return;
+
+  if (el.type === 'checkbox') {
+    el.checked = !!value;
+    return;
+  }
+
   el.value = value ?? '';
 }
 
 function getValue(id) {
-  return $(id)?.value ?? '';
+  const el = $(id);
+  if (!el) return '';
+
+  if (el.type === 'checkbox') {
+    return !!el.checked;
+  }
+
+  return el.value ?? '';
 }
 
 function normalizeSituacao(value) {
   const s = String(value || 'ativo').trim().toLowerCase();
+
   return ['ativo', 'inativo', 'bloqueado'].includes(s) ? s : 'ativo';
 }
 
@@ -201,6 +275,7 @@ function defaultFornecedor() {
     bairro: '',
     cidade: '',
     estado: '',
+    uf: '',
     pais: 'Brasil',
     codigo_ibge_cidade: '',
     codigo_ibge_uf: '',
@@ -219,16 +294,18 @@ function generateNextFornecedorCode() {
     ? Math.max(...fornecedores.map((f) => Number(f.id) || 0)) + 1
     : 1;
 
-  return `FOR-${String(proximoId).padStart(4, '0')}`;
+  return String(proximoId).padStart(4, '0');
 }
 
 function pick(obj, keys, fallback = '') {
   for (const key of keys) {
     const value = obj?.[key];
+
     if (value !== undefined && value !== null && String(value).trim() !== '') {
       return value;
     }
   }
+
   return fallback;
 }
 
@@ -243,6 +320,7 @@ function getDocumentoFornecedor(fornecedor) {
 function getCidadeUfFornecedor(fornecedor) {
   const cidade = String(pick(fornecedor, ['cidade'], '') || '').trim();
   const uf = String(pick(fornecedor, ['estado', 'uf'], '') || '').trim();
+
   return [cidade, uf].filter(Boolean).join(' / ') || '-';
 }
 
@@ -252,51 +330,17 @@ function getContatoFornecedor(fornecedor) {
 
 function getFiltroFornecedores() {
   return {
-    busca: String($('filtro-busca')?.value || '').trim().toLowerCase(),
-    tipo: String($('filtro-tipo')?.value || '').trim().toLowerCase(),
-    situacao: String($('filtro-situacao')?.value || '').trim().toLowerCase(),
-    cidade: String($('filtro-cidade')?.value || '').trim().toLowerCase(),
+    busca: String(getValue('filtro-busca') || '').trim().toLowerCase(),
+    tipo: String(getValue('filtro-tipo') || '').trim().toLowerCase(),
+    situacao: String(getValue('filtro-situacao') || '').trim().toLowerCase(),
+    cidade: String(getValue('filtro-cidade') || '').trim().toLowerCase(),
   };
 }
 
 function filtrarFornecedores() {
-  const filtro = getFiltroFornecedores();
-
-  return (fornecedores || []).filter((f) => {
-    const nome = String(f.nome || '').toLowerCase();
-    const fantasia = String(f.nome_fantasia || '').toLowerCase();
-    const codigo = String(f.codigo || '').toLowerCase();
-    const doc = String(getDocumentoFornecedor(f) || '').toLowerCase();
-    const telefone = String(f.telefone || '').toLowerCase();
-    const whatsapp = String(f.whatsapp || '').toLowerCase();
-    const email = String(f.email || '').toLowerCase();
-    const contato = String(f.contato || '').toLowerCase();
-    const cidade = String(f.cidade || '').toLowerCase();
-    const estado = String(f.estado || '').toLowerCase();
-    const tipo = String(getTipoFornecedor(f) || '').toLowerCase();
-    const situacao = String(f.situacao || 'ativo').toLowerCase();
-
-    const textoBusca = [
-      nome,
-      fantasia,
-      codigo,
-      doc,
-      telefone,
-      whatsapp,
-      email,
-      contato,
-      cidade,
-      estado,
-      tipo,
-    ].join(' ');
-
-    const okBusca = !filtro.busca || textoBusca.includes(filtro.busca);
-    const okTipo = !filtro.tipo || tipo.includes(filtro.tipo);
-    const okSituacao = !filtro.situacao || situacao === filtro.situacao;
-    const okCidade = !filtro.cidade || cidade.includes(filtro.cidade);
-
-    return okBusca && okTipo && okSituacao && okCidade;
-  });
+  // A filtragem principal agora é feita no backend, com paginação.
+  // Isso evita carregar milhares de fornecedores no navegador.
+  return fornecedores || [];
 }
 
 function limparFiltros() {
@@ -308,11 +352,13 @@ function limparFiltros() {
 
 function renderBadgeSituacao(situacao) {
   const s = normalizeSituacao(situacao);
+
   return `<span class="badge-status ${escapeHtml(s)}">${escapeHtml(s)}</span>`;
 }
 
 function renderBadgeTipo(tipo) {
   const t = String(tipo || '-').trim() || '-';
+
   return `<span class="badge-tipo">${escapeHtml(t)}</span>`;
 }
 
@@ -320,7 +366,9 @@ function renderNomeFornecedor(fornecedor) {
   const nome = fornecedor?.nome || '-';
   const fantasia = fornecedor?.nome_fantasia || '';
 
-  if (!fantasia) return `<strong>${escapeHtml(nome)}</strong>`;
+  if (!fantasia) {
+    return `<strong>${escapeHtml(nome)}</strong>`;
+  }
 
   return `
     <div style="display:flex; flex-direction:column; gap:2px;">
@@ -333,6 +381,7 @@ function renderNomeFornecedor(fornecedor) {
 function renderTabelaFornecedores() {
   const tbody = $('tbody-fornecedores');
   const spanCount = $('contagem-fornecedores');
+
   if (!tbody) return;
 
   const filtrados = filtrarFornecedores();
@@ -340,50 +389,122 @@ function renderTabelaFornecedores() {
   if (!filtrados.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" class="empty-state" style="border:none; text-align:center;">
+        <td colspan="8" class="empty-state">
           Nenhum fornecedor encontrado.
         </td>
       </tr>
     `;
-    if (spanCount) spanCount.textContent = '0 fornecedores';
+
+    if (spanCount) {
+      spanCount.textContent = '0 fornecedores';
+    }
+
     return;
   }
 
-  tbody.innerHTML = filtrados
-    .map((f) => `
-      <tr>
-        <td><span class="badge-codigo">${escapeHtml(f.codigo || '-')}</span></td>
-        <td>${renderBadgeTipo(getTipoFornecedor(f))}</td>
-        <td>${renderNomeFornecedor(f)}</td>
-        <td>${escapeHtml(getDocumentoFornecedor(f) || '-')}</td>
-        <td>${escapeHtml(getCidadeUfFornecedor(f))}</td>
-        <td>${escapeHtml(getContatoFornecedor(f))}</td>
-        <td>${renderBadgeSituacao(f.situacao)}</td>
-        <td style="text-align:right;">
-          <div style="display:flex; gap:8px; justify-content:flex-end;">
-            <button class="btn-icon" data-action="editar" data-id="${f.id}" title="Editar">
-              <i class="fa-solid fa-pen"></i>
-            </button>
-            <button class="btn-icon danger" data-action="excluir" data-id="${f.id}" title="Excluir">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </div>
-        </td>
-      </tr>
-    `)
-    .join('');
+  tbody.innerHTML = filtrados.map((f) => `
+    <tr>
+      <td><span class="badge-codigo">${escapeHtml(f.codigo || '-')}</span></td>
+      <td>${renderBadgeTipo(getTipoFornecedor(f))}</td>
+      <td>${renderNomeFornecedor(f)}</td>
+      <td>${escapeHtml(getDocumentoFornecedor(f) || '-')}</td>
+      <td>${escapeHtml(getCidadeUfFornecedor(f))}</td>
+      <td>${escapeHtml(getContatoFornecedor(f))}</td>
+      <td>${renderBadgeSituacao(f.situacao)}</td>
+      <td class="text-right">
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+          <button class="btn-icon" data-action="editar" data-id="${f.id}" title="Editar">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+
+          <button class="btn-icon danger" data-action="excluir" data-id="${f.id}" title="Excluir">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
 
   if (spanCount) {
-    spanCount.textContent = filtrados.length === 1
-      ? '1 fornecedor'
-      : `${filtrados.length} fornecedores`;
+    const total = Number(fornecedoresPage.total || filtrados.length || 0);
+    const ini = total ? Number(fornecedoresPage.offset || 0) + 1 : 0;
+    const fim = Math.min(Number(fornecedoresPage.offset || 0) + filtrados.length, total);
+
+    spanCount.textContent = total === filtrados.length
+      ? (filtrados.length === 1 ? '1 fornecedor' : `${filtrados.length} fornecedores`)
+      : `${ini}-${fim} de ${total} fornecedores`;
   }
+
+  renderPaginacaoFornecedores();
 }
 
-async function carregarFornecedores() {
+function renderPaginacaoFornecedores() {
+  const wrap = $('paginacao-fornecedores');
+  if (!wrap) return;
+
+  const offset = Number(fornecedoresPage.offset || 0);
+  const limit = Number(fornecedoresPage.limit || 50);
+  const total = Number(fornecedoresPage.total || 0);
+  const atual = total ? Math.floor(offset / limit) + 1 : 1;
+  const paginas = Math.max(1, Math.ceil(total / limit));
+
+  wrap.innerHTML = `
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="prev" ${offset <= 0 ? 'disabled' : ''}>Anterior</button>
+    <span class="pagination-info">Página ${atual} de ${paginas}</span>
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="next" ${!fornecedoresPage.hasMore ? 'disabled' : ''}>Próxima</button>
+  `;
+}
+
+function montarUrlFornecedores({ offset = fornecedoresPage.offset || 0, limit = fornecedoresPage.limit || 50 } = {}) {
+  const filtro = getFiltroFornecedores();
+  const params = new URLSearchParams();
+
+  params.set('paginated', 'true');
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
+
+  if (filtro.busca) params.set('busca', filtro.busca);
+  if (filtro.tipo) params.set('tipo_fornecedor', filtro.tipo);
+  if (filtro.situacao) params.set('situacao', filtro.situacao);
+  if (filtro.cidade) params.set('cidade', filtro.cidade);
+
+  return `${API_FORNECEDORES}?${params.toString()}`;
+}
+
+function setFornecedoresLoading(message = 'Buscando fornecedores no banco...') {
+  const tbody = $('tbody-fornecedores');
+  if (!tbody) return;
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="8" class="empty-state" style="border:none; text-align:center;">
+        ${escapeHtml(message)}
+      </td>
+    </tr>
+  `;
+}
+
+async function carregarFornecedores({ offset = fornecedoresPage.offset || 0, silent = false } = {}) {
   try {
-    const data = await apiJson(API_FORNECEDORES);
-    fornecedores = Array.isArray(data) ? data : [];
+    if (!silent) setFornecedoresLoading();
+    const data = await apiJson(montarUrlFornecedores({ offset }));
+
+    if (Array.isArray(data)) {
+      fornecedores = data;
+      fornecedoresPage = {
+        offset: 0,
+        limit: data.length || 50,
+        total: data.length,
+        hasMore: false,
+      };
+    } else {
+      fornecedores = Array.isArray(data?.items) ? data.items : [];
+      fornecedoresPage = {
+        offset: Number(data?.offset || 0),
+        limit: Number(data?.limit || 50),
+        total: Number(data?.total || fornecedores.length),
+        hasMore: !!data?.has_more,
+      };
+    }
   } catch (err) {
     fornecedores = [];
     toast(err.message || 'Erro ao carregar fornecedores.', 'error');
@@ -394,12 +515,12 @@ async function carregarFornecedores() {
 
 async function carregarCamposFornecedores() {
   try {
-    const data = await apiJson(API_CAMPOS);
+    const data = await apiCampos();
     camposFornecedores = Array.isArray(data) ? data : [];
-    camposFornecedores.sort(
-      (a, b) =>
-        Number(a.ordem || 0) - Number(b.ordem || 0) ||
-        String(a.nome || '').localeCompare(String(b.nome || ''))
+
+    camposFornecedores.sort((a, b) =>
+      Number(a.ordem || 0) - Number(b.ordem || 0) ||
+      String(a.nome || '').localeCompare(String(b.nome || ''))
     );
   } catch (err) {
     camposFornecedores = [];
@@ -409,127 +530,123 @@ async function carregarCamposFornecedores() {
   renderListaCamposFornecedores();
 }
 
+async function carregarFormularioFornecedores({ loadingContainer = null, forceRefresh = false } = {}) {
+  try {
+    if (!window.ValoraFichaPrincipal) {
+      formularioFornecedores = null;
+      usarFichaPrincipalFornecedores = false;
+      return null;
+    }
+
+    const formulario = await window.ValoraFichaPrincipal.carregarFormularioModulo('fornecedores', {
+      apiJsonImpl: apiJson,
+      ativo: true,
+      forceRefresh,
+      loadingContainer,
+    });
+
+    formularioFornecedores = formulario;
+    usarFichaPrincipalFornecedores = !!formulario?.modelo?.usar_como_ficha_principal;
+    return formulario;
+  } catch (err) {
+    formularioFornecedores = null;
+    usarFichaPrincipalFornecedores = false;
+    toast(err.message || 'Erro ao carregar formulário de fornecedores.', 'error');
+    return null;
+  }
+}
+
 function parseCampoOpcoes(campo) {
   if (!campo || !campo.opcoes_json) return [];
+
   try {
-    const parsed = JSON.parse(campo.opcoes_json);
+    const parsed = typeof campo.opcoes_json === 'string'
+      ? JSON.parse(campo.opcoes_json)
+      : campo.opcoes_json;
+
     return Array.isArray(parsed) ? parsed : [];
-  } catch {
+  } catch (_) {
     return [];
   }
 }
 
 function renderListaCamposFornecedores() {
   const wrap = $('lista-campos-fornecedores');
+
   if (!wrap) return;
 
   if (!camposFornecedores.length) {
-    wrap.innerHTML = `<div class="empty-state" style="grid-column:1 / -1;">Nenhum campo personalizado criado.</div>`;
+    wrap.innerHTML = `
+      <div class="empty-state" style="grid-column:1 / -1;">
+        Nenhum campo personalizado criado.
+      </div>
+    `;
     return;
   }
 
-  wrap.innerHTML = camposFornecedores
-    .map((campo) => {
-      const bObrig = campo.obrigatorio ? `<span class="badge-tag brand">Obrigatório</span>` : '';
-      const bOculto = campo.ativo === false ? `<span class="badge-tag">Oculto</span>` : '';
+  wrap.innerHTML = camposFornecedores.map((campo) => {
+    const bObrig = campo.obrigatorio ? `<span class="badge-tag brand">Obrigatório</span>` : '';
+    const bOculto = campo.ativo === false ? `<span class="badge-tag">Oculto</span>` : '';
 
-      return `
-        <div class="campo-card">
-          <div class="campo-card-header">
-            <div>
-              <strong>${escapeHtml(campo.nome || '')}</strong>
-              <span class="campo-meta">${escapeHtml(formatTipoCampo(campo.tipo))} • Ordem ${Number(campo.ordem || 0)}</span>
-            </div>
-            <div style="display:flex; gap:6px;">
-              <button class="btn-icon" data-campo-action="editar" data-id="${campo.id}" title="Editar campo">
-                <i class="fa-solid fa-pen"></i>
-              </button>
-              <button class="btn-icon danger" data-campo-action="excluir" data-id="${campo.id}" title="Excluir campo">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-            </div>
+    return `
+      <div class="campo-card">
+        <div class="campo-card-header">
+          <div>
+            <strong>${escapeHtml(campo.nome || '')}</strong>
+            <span class="campo-meta">${escapeHtml(formatTipoCampo(campo.tipo))} • Ordem ${Number(campo.ordem || 0)}</span>
           </div>
-          <div class="campo-badges">${bObrig} ${bOculto}</div>
+
+          <div style="display:flex; gap:6px;">
+            <button class="btn-icon" data-campo-action="editar" data-id="${campo.id}" title="Editar campo">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+
+            <button class="btn-icon danger" data-campo-action="excluir" data-id="${campo.id}" title="Excluir campo">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
         </div>
-      `;
-    })
-    .join('');
+
+        <div class="campo-badges">${bObrig} ${bOculto}</div>
+      </div>
+    `;
+  }).join('');
 }
 
-function renderCustomFieldsInputs(values = {}) {
+async function renderCustomFieldsInputs(values = {}) {
   const container = $('custom-fields-container');
   if (!container) return;
 
-  if (!camposFornecedores.length) {
+  if (window.ValoraFichaPrincipal) {
+    window.ValoraFichaPrincipal.showLoading(
+      container,
+      'Verificando ficha principal...',
+      'Conferindo cache e banco de dados antes de montar os campos.'
+    );
+    // Checa só a versão. Se nada mudou, usa localStorage; se mudou, baixa a ficha nova.
+    await carregarFormularioFornecedores({ loadingContainer: container });
+  }
+
+  if (!window.ValoraFichaPrincipal) {
     container.innerHTML = `
       <div class="empty-state" style="grid-column:1 / -1;">
-        Nenhum campo personalizado cadastrado.
+        Não foi possível carregar o componente de ficha principal.
       </div>
     `;
     return;
   }
 
-  const ativos = camposFornecedores.filter((c) => c.ativo !== false);
-
-  if (!ativos.length) {
-    container.innerHTML = `
-      <div class="empty-state" style="grid-column:1 / -1;">
-        Todos os campos personalizados estão ocultos.
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = '';
-
-  ativos.forEach((campo) => {
-    const slug = String(campo.slug || '').trim();
-    if (!slug) return;
-
-    const id = `custom-field-${slug}`;
-    const label = campo.nome || slug;
-    const tipo = campo.tipo || 'texto';
-    const valor = values?.[slug] ?? '';
-
-    const field = document.createElement('div');
-    field.className = 'form-group';
-
-    let html = `<label for="${id}">${escapeHtml(label)}${campo.obrigatorio ? ' *' : ''}</label>`;
-
-    if (tipo === 'textarea') {
-      html += `<textarea id="${id}" data-custom-field="${escapeHtml(slug)}" rows="3">${escapeHtml(valor)}</textarea>`;
-    } else if (tipo === 'numero') {
-      html += `<input type="number" id="${id}" data-custom-field="${escapeHtml(slug)}" value="${escapeHtml(valor)}" />`;
-    } else if (tipo === 'data') {
-      html += `<input type="date" id="${id}" data-custom-field="${escapeHtml(slug)}" value="${escapeHtml(valor)}" />`;
-    } else if (tipo === 'checkbox') {
-      const checked = String(valor).toLowerCase() === 'true' || String(valor).toLowerCase() === 'sim' || valor === true ? 'checked' : '';
-      html = `
-        <label class="custom-checkbox" style="margin-top:8px;">
-          <input type="checkbox" id="${id}" data-custom-field="${escapeHtml(slug)}" ${checked} />
-          <span>${escapeHtml(label)}</span>
-        </label>
-      `;
-    } else if (tipo === 'select') {
-      const opcoes = parseCampoOpcoes(campo);
-      html += `
-        <select id="${id}" data-custom-field="${escapeHtml(slug)}">
-          <option value="">Selecione</option>
-          ${opcoes
-            .map((opt) => `
-              <option value="${escapeHtml(opt)}" ${String(valor) === String(opt) ? 'selected' : ''}>
-                ${escapeHtml(opt)}
-              </option>
-            `)
-            .join('')}
-        </select>
-      `;
-    } else {
-      html += `<input type="text" id="${id}" data-custom-field="${escapeHtml(slug)}" value="${escapeHtml(valor)}" />`;
-    }
-
-    field.innerHTML = html;
-    container.appendChild(field);
+  window.ValoraFichaPrincipal.renderCustomFormSections({
+    container,
+    formulario: formularioFornecedores,
+    camposAvulsos: camposFornecedores,
+    values,
+    usarFichaPrincipal: usarFichaPrincipalFornecedores,
+    flatTitle: 'Campos personalizados',
+    flatDescription: 'Campos extras do cadastro de fornecedores.',
+    emptyMessage: formularioFornecedores?.modelo
+      ? 'Nenhum campo ativo neste formulário de fornecedores.'
+      : 'Nenhum formulário de fornecedores encontrado. Crie um formulário em Configurações > Formulários.',
   });
 }
 
@@ -538,32 +655,56 @@ function normalizeCustomFieldsPayload() {
 
   $$('[data-custom-field]').forEach((el) => {
     const slug = String(el.getAttribute('data-custom-field') || '').trim();
+
     if (!slug) return;
 
     let value = '';
+
     if (el.type === 'checkbox') {
       value = el.checked ? 'true' : 'false';
     } else {
       value = String(el.value || '').trim();
     }
 
-    if (value !== '') out[slug] = value;
+    if (value !== '') {
+      out[slug] = value;
+    }
   });
 
   return out;
 }
 
 function validateRequiredCustomFields() {
+  if (window.ValoraFichaPrincipal) {
+    const ok = window.ValoraFichaPrincipal.validateRequiredRenderedFields({
+      root: document,
+      toast,
+      switchToCustomTab: () => switchFornecedorTab('tab-fornecedor-campos'),
+    });
+
+    if (!ok) return false;
+  }
+
   for (const campo of camposFornecedores || []) {
     if (!campo.obrigatorio || campo.ativo === false) continue;
 
     const slug = String(campo.slug || '').trim();
+
     if (!slug) continue;
 
     const el = document.querySelector(`[data-custom-field="${CSS.escape(slug)}"]`);
+
     if (!el) continue;
 
-    if (el.type === 'checkbox') continue;
+    if (el.type === 'checkbox') {
+      if (!el.checked) {
+        toast(`Preencha o campo personalizado: ${campo.nome || slug}.`, 'error');
+        switchFornecedorTab('tab-fornecedor-campos');
+        el.focus();
+        return false;
+      }
+      continue;
+    }
 
     if (!String(el.value || '').trim()) {
       toast(`Preencha o campo personalizado: ${campo.nome || slug}.`, 'error');
@@ -577,6 +718,10 @@ function validateRequiredCustomFields() {
 }
 
 function switchFornecedorTab(targetId) {
+  if (usarFichaPrincipalFornecedores) {
+    targetId = 'tab-fornecedor-campos';
+  }
+
   $$('.fornecedor-tab-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.tab === targetId);
   });
@@ -586,12 +731,176 @@ function switchFornecedorTab(targetId) {
   });
 }
 
-function fillFornecedorForm(fornecedor = {}) {
-  const data = { ...defaultFornecedor(), ...(fornecedor || {}) };
+function syncFornecedorFichaCode(codigo) {
+  const value = onlyDigits(codigo) || generateNextFornecedorCode();
+  setValue('campo-codigo-fornecedor', value);
+  setValue('campo-codigo-ficha-principal-fornecedor', value);
+}
 
-  setValue('campo-codigo-fornecedor', data.codigo || generateNextFornecedorCode());
+function ensureFichaFornecedorController() {
+  if (fichaFornecedorController || !window.ValoraFichaPrincipal) {
+    return fichaFornecedorController;
+  }
+
+  fichaFornecedorController = window.ValoraFichaPrincipal.createTabFichaController({
+    formSelector: '#formFornecedor',
+    tabsSelector: '.fornecedor-tabs',
+    tabButtonSelector: '.fornecedor-tab-btn',
+    tabPanelSelector: '.fornecedor-tab',
+    customTabId: 'tab-fornecedor-campos',
+    customContainerSelector: '#custom-fields-container',
+    codeCardSelector: '#fornecedor-ficha-principal-code',
+    toggleSelector: '#toggle-ficha-principal-fornecedor',
+    normalTabId: 'tab-fornecedor-cadastro',
+    buttonClass: 'fornecedor-tab-btn',
+  });
+
+  fichaFornecedorController.bindSectionClicks();
+  return fichaFornecedorController;
+}
+
+function aplicarModoFichaFornecedor() {
+  ensureFichaFornecedorController()?.setMode(usarFichaPrincipalFornecedores);
+}
+
+function getCustomValue(custom, keys, fallback = '') {
+  for (const key of keys) {
+    const value = custom?.[key];
+
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return String(value).trim();
+    }
+  }
+
+  return fallback;
+}
+
+function buildBaseFromFornecedorFichaPrincipal(customFields, fallback = {}) {
+  const custom = customFields || {};
+
+  const nome = getCustomValue(custom, [
+    'nome',
+    'fornecedor',
+    'nome_razao_social',
+    'razao_social',
+    'nome_completo',
+    'nome_fantasia',
+  ], fallback.nome || '');
+
+  const telefone = getCustomValue(custom, [
+    'telefone',
+    'telefone_contato',
+    'telefone_principal',
+    'telefone_celular',
+    'whatsapp',
+  ], fallback.telefone || '');
+
+  const email = getCustomValue(custom, [
+    'email',
+    'e_mail',
+    'email_principal',
+    'e_mail_principal',
+  ], fallback.email || '');
+
+  return {
+    codigo:
+      onlyDigits(fallback.codigo) ||
+      onlyDigits(getValue('campo-codigo-fornecedor')) ||
+      onlyDigits(getValue('campo-codigo-ficha-principal-fornecedor')) ||
+      generateNextFornecedorCode(),
+    tipo_fornecedor: getCustomValue(custom, ['tipo_fornecedor', 'tipo'], fallback.tipo_fornecedor || fallback.tipo || ''),
+    tipo: getCustomValue(custom, ['tipo_fornecedor', 'tipo'], fallback.tipo || fallback.tipo_fornecedor || ''),
+    situacao: normalizeSituacao(getCustomValue(custom, ['situacao', 'status'], fallback.situacao || 'ativo')),
+    nome,
+    nome_fantasia: getCustomValue(custom, ['nome_fantasia'], fallback.nome_fantasia || ''),
+    cpf_cnpj: getCustomValue(custom, ['cpf_cnpj', 'cnpj', 'cpf', 'documento'], fallback.cpf_cnpj || ''),
+    inscricao_estadual: getCustomValue(custom, ['inscricao_estadual', 'ie'], fallback.inscricao_estadual || fallback.ie || ''),
+    inscricao_municipal: getCustomValue(custom, ['inscricao_municipal', 'im'], fallback.inscricao_municipal || fallback.im || ''),
+    contato: getCustomValue(custom, ['contato', 'responsavel', 'nome_responsavel'], fallback.contato || ''),
+    telefone,
+    whatsapp: getCustomValue(custom, ['whatsapp', 'telefone_celular'], fallback.whatsapp || telefone),
+    fax: getCustomValue(custom, ['fax'], fallback.fax || ''),
+    email,
+    site: getCustomValue(custom, ['site', 'home_page'], fallback.site || ''),
+    cep: getCustomValue(custom, ['cep'], fallback.cep || ''),
+    endereco: getCustomValue(custom, ['endereco', 'logradouro'], fallback.endereco || ''),
+    numero: getCustomValue(custom, ['numero'], fallback.numero || ''),
+    complemento: getCustomValue(custom, ['complemento'], fallback.complemento || ''),
+    bairro: getCustomValue(custom, ['bairro'], fallback.bairro || ''),
+    cidade: getCustomValue(custom, ['cidade'], fallback.cidade || ''),
+    estado: getCustomValue(custom, ['uf', 'estado'], fallback.estado || fallback.uf || ''),
+    uf: getCustomValue(custom, ['uf', 'estado'], fallback.uf || fallback.estado || ''),
+    pais: getCustomValue(custom, ['pais'], fallback.pais || 'Brasil'),
+    limite_compras: getCustomValue(custom, ['limite_compras', 'limite_de_compras'], fallback.limite_compras || ''),
+    classificacao: getCustomValue(custom, ['classificacao'], fallback.classificacao || ''),
+    plano_contas: getCustomValue(custom, ['plano_contas', 'plano_de_contas'], fallback.plano_contas || ''),
+    observacoes: getCustomValue(custom, ['observacoes', 'observacao'], fallback.observacoes || ''),
+  };
+}
+
+async function salvarToggleFichaPrincipalFornecedor(event) {
+  const checked = !!event.target.checked;
+
+  try {
+    if (!formularioFornecedores?.modelo?.id) {
+      await carregarFormularioFornecedores();
+      await renderCustomFieldsInputs(fornecedorAtualDetalhe?.custom_fields || {});
+    }
+
+    const modelo = formularioFornecedores?.modelo;
+
+    if (!modelo?.id) {
+      event.target.checked = false;
+      toast('Nenhum formulário de Fornecedores encontrado para ativar como ficha principal.', 'error');
+      return;
+    }
+
+    event.target.disabled = true;
+    window.ValoraFichaPrincipal?.showLoading?.(
+      '#custom-fields-container',
+      checked ? 'Montando ficha principal...' : 'Voltando para o cadastro padrão...'
+    );
+
+    const atualizado = await window.ValoraFichaPrincipal.atualizarFichaPrincipalModelo(modelo, checked, {
+      apiJsonImpl: apiJson,
+      moduloFallback: 'fornecedores',
+    });
+
+    usarFichaPrincipalFornecedores = checked;
+    formularioFornecedores = {
+      ...formularioFornecedores,
+      modelo: {
+        ...modelo,
+        ...(atualizado || {}),
+        usar_como_ficha_principal: checked,
+      },
+    };
+
+    await renderCustomFieldsInputs(fornecedorAtualDetalhe?.custom_fields || {});
+    aplicarModoFichaFornecedor();
+
+    toast(
+      checked
+        ? 'Ficha principal ativada para Fornecedores.'
+        : 'Ficha principal desativada para Fornecedores.',
+      'success'
+    );
+  } catch (err) {
+    event.target.checked = !checked;
+    toast(err.message || 'Erro ao alterar ficha principal.', 'error');
+  } finally {
+    event.target.disabled = false;
+  }
+}
+
+async function fillFornecedorForm(fornecedor = {}) {
+  const data = { ...defaultFornecedor(), ...(fornecedor || {}) };
+  fornecedorAtualDetalhe = data;
+
+  syncFornecedorFichaCode(onlyDigits(data.codigo) || generateNextFornecedorCode());
   setValue('campo-tipo-fornecedor', pick(data, ['tipo_fornecedor', 'tipo'], ''));
   setValue('campo-situacao-fornecedor', normalizeSituacao(data.situacao));
+
   setValue('campo-nome-fornecedor', data.nome);
   setValue('campo-nome-fantasia-fornecedor', data.nome_fantasia);
   setValue('campo-cpf-cnpj-fornecedor', pick(data, ['cpf_cnpj', 'cnpj_cpf', 'documento'], ''));
@@ -621,29 +930,37 @@ function fillFornecedorForm(fornecedor = {}) {
   setValue('campo-plano-contas-fornecedor', data.plano_contas);
   setValue('campo-observacoes-fornecedor', data.observacoes);
 
-  renderCustomFieldsInputs(data.custom_fields || {});
-  switchFornecedorTab('tab-fornecedor-cadastro');
+  await renderCustomFieldsInputs(data.custom_fields || {});
+  syncFornecedorFichaCode(onlyDigits(data.codigo) || onlyDigits(getValue('campo-codigo-fornecedor')) || generateNextFornecedorCode());
+  aplicarModoFichaFornecedor();
+  switchFornecedorTab(usarFichaPrincipalFornecedores ? 'tab-fornecedor-campos' : 'tab-fornecedor-cadastro');
 }
 
 function buildFornecedorPayload() {
-  return {
-    codigo: String(getValue('campo-codigo-fornecedor') || '').trim(),
+  const customFields = normalizeCustomFieldsPayload();
+
+  const payload = {
+    codigo: onlyDigits(getValue('campo-codigo-fornecedor') || getValue('campo-codigo-ficha-principal-fornecedor') || ''),
     tipo_fornecedor: String(getValue('campo-tipo-fornecedor') || '').trim(),
     tipo: String(getValue('campo-tipo-fornecedor') || '').trim(),
     situacao: normalizeSituacao(getValue('campo-situacao-fornecedor')),
+
     nome: String(getValue('campo-nome-fornecedor') || '').trim(),
     nome_fantasia: String(getValue('campo-nome-fantasia-fornecedor') || '').trim(),
     cpf_cnpj: String(getValue('campo-cpf-cnpj-fornecedor') || '').trim(),
+
     inscricao_estadual: String(getValue('campo-ie-fornecedor') || '').trim(),
     inscricao_municipal: String(getValue('campo-im-fornecedor') || '').trim(),
     ie: String(getValue('campo-ie-fornecedor') || '').trim(),
     im: String(getValue('campo-im-fornecedor') || '').trim(),
+
     contato: String(getValue('campo-contato-fornecedor') || '').trim(),
     telefone: String(getValue('campo-telefone-fornecedor') || '').trim(),
     whatsapp: String(getValue('campo-whatsapp-fornecedor') || '').trim(),
     fax: String(getValue('campo-fax-fornecedor') || '').trim(),
     email: String(getValue('campo-email-fornecedor') || '').trim(),
     site: String(getValue('campo-site-fornecedor') || '').trim(),
+
     cep: String(getValue('campo-cep-fornecedor') || '').trim(),
     endereco: String(getValue('campo-endereco-fornecedor') || '').trim(),
     numero: String(getValue('campo-numero-fornecedor') || '').trim(),
@@ -651,25 +968,44 @@ function buildFornecedorPayload() {
     bairro: String(getValue('campo-bairro-fornecedor') || '').trim(),
     cidade: String(getValue('campo-cidade-fornecedor') || '').trim(),
     estado: String(getValue('campo-estado-fornecedor') || '').trim(),
+    uf: String(getValue('campo-estado-fornecedor') || '').trim(),
     pais: String(getValue('campo-pais-fornecedor') || '').trim(),
+
     codigo_ibge_cidade: String(getValue('campo-ibge-cidade-fornecedor') || '').trim(),
     codigo_ibge_uf: String(getValue('campo-ibge-uf-fornecedor') || '').trim(),
     ibge_cidade: String(getValue('campo-ibge-cidade-fornecedor') || '').trim(),
     ibge_uf: String(getValue('campo-ibge-uf-fornecedor') || '').trim(),
+
     limite_compras: String(getValue('campo-limite-compras-fornecedor') || '').trim(),
     classificacao: String(getValue('campo-classificacao-fornecedor') || '').trim(),
     plano_contas: String(getValue('campo-plano-contas-fornecedor') || '').trim(),
     observacoes: String(getValue('campo-observacoes-fornecedor') || '').trim(),
-    custom_fields: normalizeCustomFieldsPayload(),
+
+    custom_fields: customFields,
   };
+
+  if (usarFichaPrincipalFornecedores) {
+    Object.assign(payload, buildBaseFromFornecedorFichaPrincipal(customFields, payload));
+  }
+
+  payload.codigo = onlyDigits(payload.codigo);
+
+  if (!payload.codigo) {
+    payload.codigo = generateNextFornecedorCode();
+  }
+
+  return payload;
 }
 
-function abrirModalFornecedorNovo() {
+async function abrirModalFornecedorNovo() {
   fornecedorEditandoId = null;
+
   $('modal-fornecedor-titulo').textContent = 'Novo fornecedor';
   $('formFornecedor')?.reset();
-  fillFornecedorForm(defaultFornecedor());
-  setValue('campo-codigo-fornecedor', generateNextFornecedorCode());
+
+  const novo = { ...defaultFornecedor(), codigo: generateNextFornecedorCode() };
+  await fillFornecedorForm(novo);
+
   openModal('modal-fornecedor-backdrop');
 }
 
@@ -680,9 +1016,12 @@ function fecharModalFornecedor() {
 async function abrirModalFornecedorEditar(id) {
   try {
     const full = await apiJson(`${API_FORNECEDORES}/${id}`);
+
     fornecedorEditandoId = full.id;
+
     $('modal-fornecedor-titulo').textContent = 'Editar fornecedor';
-    fillFornecedorForm(full);
+
+    await fillFornecedorForm(full);
     openModal('modal-fornecedor-backdrop');
   } catch (err) {
     toast(err.message || 'Erro ao carregar fornecedor.', 'error');
@@ -692,22 +1031,29 @@ async function abrirModalFornecedorEditar(id) {
 async function salvarFornecedor(event) {
   event?.preventDefault?.();
 
-  const nome = String(getValue('campo-nome-fornecedor') || '').trim();
-  if (!nome) {
-    toast('Preencha o nome do fornecedor.', 'error');
-    switchFornecedorTab('tab-fornecedor-cadastro');
-    $('campo-nome-fornecedor')?.focus();
-    return;
-  }
-
   if (!validateRequiredCustomFields()) return;
 
   const payload = buildFornecedorPayload();
+
+  if (!payload.nome) {
+    toast('Preencha o nome do fornecedor.', 'error');
+    switchFornecedorTab(usarFichaPrincipalFornecedores ? 'tab-fornecedor-campos' : 'tab-fornecedor-cadastro');
+    const foco = usarFichaPrincipalFornecedores
+      ? document.querySelector('[data-custom-field="nome"], [data-custom-field="fornecedor"], [data-custom-field="nome_razao_social"]')
+      : $('campo-nome-fornecedor');
+    foco?.focus?.();
+    return;
+  }
+
   const btn = $('btn-salvar-fornecedor');
+
   setButtonLoading(btn, true, 'Salvando...');
 
   try {
-    const url = fornecedorEditandoId ? `${API_FORNECEDORES}/${fornecedorEditandoId}` : API_FORNECEDORES;
+    const url = fornecedorEditandoId
+      ? `${API_FORNECEDORES}/${fornecedorEditandoId}`
+      : API_FORNECEDORES;
+
     await apiJson(url, {
       method: fornecedorEditandoId ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -715,12 +1061,18 @@ async function salvarFornecedor(event) {
     });
 
     await carregarFornecedores();
+
     fecharModalFornecedor();
     toast('Fornecedor salvo com sucesso.', 'success');
   } catch (err) {
     toast(err.message || 'Erro ao salvar fornecedor.', 'error');
   } finally {
-    setButtonLoading(btn, false, '', '<i class="fa-solid fa-floppy-disk"></i> Salvar fornecedor');
+    setButtonLoading(
+      btn,
+      false,
+      '',
+      '<i class="fa-solid fa-floppy-disk"></i> Salvar fornecedor'
+    );
   }
 }
 
@@ -736,6 +1088,7 @@ async function excluirFornecedor(id) {
 
   try {
     await apiJson(`${API_FORNECEDORES}/${id}`, { method: 'DELETE' });
+
     await carregarFornecedores();
     toast('Fornecedor excluído com sucesso.', 'success');
   } catch (err) {
@@ -744,20 +1097,26 @@ async function excluirFornecedor(id) {
 }
 
 function syncCampoTipo() {
-  const tipo = $('campo-custom-tipo')?.value || 'texto';
+  const tipo = getValue('campo-custom-tipo') || 'texto';
   const wrap = $('wrap-custom-opcoes');
-  if (wrap) wrap.hidden = tipo !== 'select';
+
+  if (wrap) {
+    wrap.hidden = tipo !== 'select';
+  }
 }
 
 function abrirModalCampoNovo() {
   campoEditandoId = null;
+
   $('modal-campo-titulo').textContent = 'Novo campo';
+
   setValue('campo-custom-nome', '');
   setValue('campo-custom-tipo', 'texto');
   setValue('campo-custom-ordem', '0');
   setValue('campo-custom-opcoes', '');
-  $('campo-custom-obrigatorio').checked = false;
-  $('campo-custom-ativo').checked = true;
+  setValue('campo-custom-obrigatorio', false);
+  setValue('campo-custom-ativo', true);
+
   syncCampoTipo();
   openModal('modal-campo-backdrop');
 }
@@ -768,15 +1127,19 @@ function fecharModalCampo() {
 
 async function abrirModalCampoEditar(id) {
   try {
-    const campo = await apiJson(`${API_CAMPOS}/${id}`);
+    const campo = await apiCampos(id);
+
     campoEditandoId = campo.id;
+
     $('modal-campo-titulo').textContent = 'Editar campo';
+
     setValue('campo-custom-nome', campo.nome || '');
     setValue('campo-custom-tipo', campo.tipo || 'texto');
     setValue('campo-custom-ordem', String(campo.ordem ?? 0));
     setValue('campo-custom-opcoes', parseCampoOpcoes(campo).join('\n'));
-    $('campo-custom-obrigatorio').checked = !!campo.obrigatorio;
-    $('campo-custom-ativo').checked = campo.ativo !== false;
+    setValue('campo-custom-obrigatorio', !!campo.obrigatorio);
+    setValue('campo-custom-ativo', campo.ativo !== false);
+
     syncCampoTipo();
     openModal('modal-campo-backdrop');
   } catch (err) {
@@ -786,6 +1149,7 @@ async function abrirModalCampoEditar(id) {
 
 async function salvarCampo() {
   const nome = String(getValue('campo-custom-nome') || '').trim();
+
   if (!nome) {
     toast('Nome do campo é obrigatório.', 'error');
     $('campo-custom-nome')?.focus();
@@ -815,29 +1179,39 @@ async function salvarCampo() {
     slug: slugify(nome),
     tipo,
     ordem: Number(getValue('campo-custom-ordem') || 0),
-    obrigatorio: !!$('campo-custom-obrigatorio')?.checked,
-    ativo: !!$('campo-custom-ativo')?.checked,
+    obrigatorio: !!getValue('campo-custom-obrigatorio'),
+    ativo: !!getValue('campo-custom-ativo'),
     opcoes_json,
   };
 
   const btn = $('btn-salvar-campo');
+
   setButtonLoading(btn, true, 'Salvando...');
 
   try {
-    const url = campoEditandoId ? `${API_CAMPOS}/${campoEditandoId}` : API_CAMPOS;
-    await apiJson(url, {
+    await apiCampos(campoEditandoId || '', {
       method: campoEditandoId ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
     await carregarCamposFornecedores();
+
+    if (!campoEditandoId) {
+      renderCustomFieldsInputs(normalizeCustomFieldsPayload());
+    }
+
     fecharModalCampo();
     toast('Campo salvo com sucesso.', 'success');
   } catch (err) {
     toast(err.message || 'Erro ao salvar campo.', 'error');
   } finally {
-    setButtonLoading(btn, false, '', '<i class="fa-solid fa-floppy-disk"></i> Salvar campo');
+    setButtonLoading(
+      btn,
+      false,
+      '',
+      '<i class="fa-solid fa-floppy-disk"></i> Salvar campo'
+    );
   }
 }
 
@@ -852,8 +1226,11 @@ async function excluirCampo(id) {
   if (!ok) return;
 
   try {
-    await apiJson(`${API_CAMPOS}/${id}`, { method: 'DELETE' });
+    await apiCampos(id, { method: 'DELETE' });
+
     await carregarCamposFornecedores();
+    renderCustomFieldsInputs(normalizeCustomFieldsPayload());
+
     toast('Campo excluído com sucesso.', 'success');
   } catch (err) {
     toast(err.message || 'Erro ao excluir campo.', 'error');
@@ -864,11 +1241,14 @@ function downloadFile(filename, content, mime = 'application/octet-stream') {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
+
   a.href = url;
   a.download = filename;
+
   document.body.appendChild(a);
   a.click();
   a.remove();
+
   setTimeout(() => URL.revokeObjectURL(url), 3000);
 }
 
@@ -876,16 +1256,21 @@ function csvEscape(value) {
   const s = String(value ?? '');
   const mustQuote = /[;\n\r"]/g.test(s);
   const out = s.replaceAll('"', '""');
+
   return mustQuote ? `"${out}"` : out;
 }
 
 function detectCSVDelimiter(firstLine) {
-  return (firstLine.match(/;/g) || []).length >= (firstLine.match(/,/g) || []).length ? ';' : ',';
+  const semicolon = (firstLine.match(/;/g) || []).length;
+  const comma = (firstLine.match(/,/g) || []).length;
+
+  return semicolon >= comma ? ';' : ',';
 }
 
 function parseCSV(text) {
   const raw = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const lines = raw.split('\n').filter((line) => line.trim().length);
+
   if (!lines.length) return [];
 
   const delim = detectCSVDelimiter(lines[0]);
@@ -905,6 +1290,7 @@ function parseCSV(text) {
         } else {
           inQuotes = !inQuotes;
         }
+
         continue;
       }
 
@@ -918,31 +1304,40 @@ function parseCSV(text) {
     }
 
     out.push(cur);
+
     return out.map((v) => v.trim());
   }
 
   const headers = parseLine(lines[0]).map((h) => slugify(h));
+
   return lines.slice(1).map((line) => {
     const vals = parseLine(line);
     const obj = {};
+
     headers.forEach((h, idx) => {
       obj[h] = vals[idx] ?? '';
     });
+
     return obj;
   });
 }
 
 function parseXLSX(arrayBuffer) {
-  if (!window.XLSX) throw new Error('Biblioteca XLSX não carregada.');
+  if (!window.XLSX) {
+    throw new Error('Biblioteca XLSX não carregada.');
+  }
+
   const workbook = window.XLSX.read(arrayBuffer, { type: 'array' });
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
+
   return window.XLSX.utils.sheet_to_json(sheet, { defval: '' });
 }
 
 function exportarFornecedoresJSON() {
   const dt = new Date();
   const stamp = dt.toISOString().slice(0, 19).replaceAll(':', '-');
+
   const payload = {
     exported_at: dt.toISOString(),
     total: fornecedores.length,
@@ -977,63 +1372,80 @@ function exportarFornecedoresCSV() {
     'estado',
     'classificacao',
   ];
+
   const customCols = camposFornecedores.map((c) => c.slug).filter(Boolean);
   const cols = [...baseCols, ...customCols];
   const lines = [cols.join(';')];
 
   fornecedores.forEach((f) => {
     const custom = f.custom_fields || {};
+
     lines.push(
-      cols
-        .map((k) => {
-          if (baseCols.includes(k)) return csvEscape(f?.[k] ?? '');
-          return csvEscape(custom?.[k] ?? '');
-        })
-        .join(';')
+      cols.map((k) => {
+        if (baseCols.includes(k)) {
+          return csvEscape(f?.[k] ?? '');
+        }
+
+        return csvEscape(custom?.[k] ?? '');
+      }).join(';')
     );
   });
 
-  downloadFile(`fornecedores_${stamp}.csv`, '\ufeff' + lines.join('\n'), 'text/csv;charset=utf-8');
+  downloadFile(
+    `fornecedores_${stamp}.csv`,
+    '\ufeff' + lines.join('\n'),
+    'text/csv;charset=utf-8'
+  );
+
   toast('Exportado CSV com sucesso.', 'success');
 }
 
 function mapImportToPayload(obj) {
   const normalized = {};
+
   Object.entries(obj || {}).forEach(([key, value]) => {
     normalized[slugify(key)] = value;
   });
 
   const custom_fields = {};
+
   for (const campo of camposFornecedores || []) {
     const slug = String(campo.slug || '').trim();
+
     if (!slug) continue;
+
     const value = normalized[slug];
+
     if (value !== undefined && value !== null && String(value).trim() !== '') {
       custom_fields[slug] = value;
     }
   }
 
   return {
-    codigo: String(normalized.codigo || '').trim(),
+    codigo: onlyDigits(normalized.codigo || ''),
     tipo_fornecedor: String(normalized.tipo_fornecedor || normalized.tipo || '').trim(),
     tipo: String(normalized.tipo_fornecedor || normalized.tipo || '').trim(),
     situacao: normalizeSituacao(normalized.situacao || 'ativo'),
+
     nome: String(normalized.nome || normalized.razao_social || normalized.fornecedor || '').trim(),
     nome_fantasia: String(normalized.nome_fantasia || '').trim(),
     cpf_cnpj: String(normalized.cpf_cnpj || normalized.cnpj_cpf || normalized.documento || '').trim(),
+
     contato: String(normalized.contato || normalized.responsavel || '').trim(),
     telefone: String(normalized.telefone || '').trim(),
     whatsapp: String(normalized.whatsapp || '').trim(),
     email: String(normalized.email || normalized.e_mail || '').trim(),
+
     cidade: String(normalized.cidade || '').trim(),
     estado: String(normalized.estado || normalized.uf || '').trim(),
     classificacao: String(normalized.classificacao || '').trim(),
+
     custom_fields,
   };
 }
 
 function findExistingFornecedorId(payload) {
-  const codigo = String(payload?.codigo || '').trim().toLowerCase();
+  const codigo = onlyDigits(payload?.codigo || '').toLowerCase();
   const doc = onlyDigits(payload?.cpf_cnpj || '');
   const whatsapp = onlyDigits(payload?.whatsapp || '');
   const email = String(payload?.email || '').trim().toLowerCase();
@@ -1105,24 +1517,28 @@ async function importarFornecedores(file) {
     for (const raw of items) {
       try {
         const payload = mapImportToPayload(raw);
+
         if (!payload.nome) {
           fail += 1;
           continue;
         }
 
         const existingId = findExistingFornecedorId(payload);
+
         await apiJson(existingId ? `${API_FORNECEDORES}/${existingId}` : API_FORNECEDORES, {
           method: existingId ? 'PUT' : 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+
         success += 1;
-      } catch {
+      } catch (_) {
         fail += 1;
       }
     }
 
     await carregarFornecedores();
+
     toast(
       `Importação concluída: ${success} sucesso(s)${fail ? ` • ${fail} falha(s)` : ''}`,
       fail ? 'error' : 'success',
@@ -1134,46 +1550,79 @@ async function importarFornecedores(file) {
 }
 
 function bindTabs() {
-  $$('.fornecedor-tab-btn').forEach((btn) => {
-    btn.addEventListener('click', () => switchFornecedorTab(btn.dataset.tab));
+  ensureFichaFornecedorController();
+
+  document.addEventListener('click', (event) => {
+    const btn = event.target.closest('.fornecedor-tab-btn[data-tab]');
+    if (!btn) return;
+    switchFornecedorTab(btn.dataset.tab);
   });
 }
 
 function bindModalCloseOnBackdrop() {
-  $$('[data-close-target]').forEach(() => {});
-
   $('modal-fornecedor-backdrop')?.addEventListener('click', (event) => {
-    if (event.target === $('modal-fornecedor-backdrop')) fecharModalFornecedor();
+    if (event.target === $('modal-fornecedor-backdrop')) {
+      fecharModalFornecedor();
+    }
   });
 
   $('modal-campo-backdrop')?.addEventListener('click', (event) => {
-    if (event.target === $('modal-campo-backdrop')) fecharModalCampo();
+    if (event.target === $('modal-campo-backdrop')) {
+      fecharModalCampo();
+    }
   });
 
   $('Valora-confirm-backdrop')?.addEventListener('click', (event) => {
-    if (event.target === $('Valora-confirm-backdrop')) closeConfirm(false);
+    if (event.target === $('Valora-confirm-backdrop')) {
+      closeConfirm(false);
+    }
   });
 }
 
 function bindFiltros() {
-  $('filtro-busca')?.addEventListener('input', renderTabelaFornecedores);
-  $('filtro-tipo')?.addEventListener('input', renderTabelaFornecedores);
-  $('filtro-situacao')?.addEventListener('change', renderTabelaFornecedores);
-  $('filtro-cidade')?.addEventListener('input', renderTabelaFornecedores);
+  let filtroTimer = null;
 
-  $('btn-filtrar-fornecedores')?.addEventListener('click', renderTabelaFornecedores);
+  const recarregar = (delay = 350) => {
+    clearTimeout(filtroTimer);
+    filtroTimer = setTimeout(() => {
+      carregarFornecedores({ offset: 0, silent: true });
+    }, delay);
+  };
+
+  $('filtro-busca')?.addEventListener('input', () => recarregar(350));
+  $('filtro-tipo')?.addEventListener('input', () => recarregar(350));
+  $('filtro-situacao')?.addEventListener('change', () => recarregar(0));
+  $('filtro-cidade')?.addEventListener('input', () => recarregar(350));
+
+  $('btn-filtrar-fornecedores')?.addEventListener('click', () => carregarFornecedores({ offset: 0 }));
+
   $('btn-limpar-filtros-fornecedores')?.addEventListener('click', () => {
     limparFiltros();
-    renderTabelaFornecedores();
+    carregarFornecedores({ offset: 0 });
+  });
+
+  $('paginacao-fornecedores')?.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-page-action]');
+    if (!btn || btn.disabled) return;
+
+    const limit = Number(fornecedoresPage.limit || 50);
+    let offset = Number(fornecedoresPage.offset || 0);
+
+    if (btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
+    if (btn.dataset.pageAction === 'next') offset += limit;
+
+    carregarFornecedores({ offset });
   });
 }
 
 function bindTabelaActions() {
   $('tbody-fornecedores')?.addEventListener('click', async (event) => {
     const btn = event.target.closest('[data-action]');
+
     if (!btn) return;
 
     const id = Number(btn.dataset.id);
+
     if (!id) return;
 
     if (btn.dataset.action === 'editar') {
@@ -1190,9 +1639,11 @@ function bindTabelaActions() {
 function bindCamposActions() {
   $('lista-campos-fornecedores')?.addEventListener('click', async (event) => {
     const btn = event.target.closest('[data-campo-action]');
+
     if (!btn) return;
 
     const id = Number(btn.dataset.id);
+
     if (!id) return;
 
     if (btn.dataset.campoAction === 'editar') {
@@ -1211,9 +1662,11 @@ function bindTopActions() {
   $('btn-fechar-modal-fornecedor')?.addEventListener('click', fecharModalFornecedor);
   $('btn-cancelar-fornecedor')?.addEventListener('click', fecharModalFornecedor);
   $('formFornecedor')?.addEventListener('submit', salvarFornecedor);
+  $('toggle-ficha-principal-fornecedor')?.addEventListener('change', salvarToggleFichaPrincipalFornecedor);
 
   $('btn-novo-campo')?.addEventListener('click', abrirModalCampoNovo);
   $('btn-novo-campo-inline')?.addEventListener('click', abrirModalCampoNovo);
+  $('btn-novo-campo-modal')?.addEventListener('click', abrirModalCampoNovo);
   $('btn-fechar-modal-campo')?.addEventListener('click', fecharModalCampo);
   $('btn-cancelar-campo')?.addEventListener('click', fecharModalCampo);
   $('btn-salvar-campo')?.addEventListener('click', salvarCampo);
@@ -1224,7 +1677,11 @@ function bindTopActions() {
 
   $('btn-exportar-fornecedores-json')?.addEventListener('click', exportarFornecedoresJSON);
   $('btn-exportar-fornecedores-csv')?.addEventListener('click', exportarFornecedoresCSV);
-  $('btn-importar-fornecedores')?.addEventListener('click', () => $('input-importar-fornecedores')?.click());
+
+  $('btn-importar-fornecedores')?.addEventListener('click', () => {
+    $('input-importar-fornecedores')?.click();
+  });
+
   $('input-importar-fornecedores')?.addEventListener('change', async (event) => {
     await importarFornecedores(event.target.files?.[0]);
     event.target.value = '';
@@ -1240,5 +1697,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindTopActions();
 
   await carregarCamposFornecedores();
+  await carregarFormularioFornecedores();
+  aplicarModoFichaFornecedor();
   await carregarFornecedores();
 });

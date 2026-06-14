@@ -399,7 +399,7 @@ async function obterClienteDaProposta(proposta){
 function buildPropostaAtualParaWhatsApp(){
   return {
     id: propostaId || null,
-    codigo: qs('proposta-codigo')?.value?.trim() || '',
+    codigo: onlyDigits(qs('proposta-codigo')?.value || ''),
     cliente_id: qs('proposta-cliente-id')?.value ? Number(qs('proposta-cliente-id').value) : null,
     titulo: qs('proposta-titulo')?.value?.trim() || '',
     status: qs('proposta-status')?.value || 'rascunho',
@@ -828,7 +828,7 @@ function collectItensFromDOM(){
 // ==========================================
 function buildPayload(){
   return {
-    codigo: qs('proposta-codigo')?.value?.trim() || '',
+    codigo: onlyDigits(qs('proposta-codigo')?.value || ''),
     cliente_id: qs('proposta-cliente-id')?.value ? Number(qs('proposta-cliente-id').value) : null,
     titulo: qs('proposta-titulo')?.value?.trim() || '',
     status: qs('proposta-status')?.value || 'rascunho',

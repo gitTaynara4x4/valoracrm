@@ -1,3 +1,4 @@
+import { state } from './state.js';
 import { escapeHtml } from './utils.js';
 
 function renderBadgeTipo(tipo) {
@@ -57,6 +58,7 @@ export function renderTabelaClientes(clientes) {
       </tr>
     `;
     if (spanCount) spanCount.textContent = '0 clientes';
+    renderPaginacaoClientes();
     return;
   }
 
@@ -87,6 +89,32 @@ export function renderTabelaClientes(clientes) {
     .join('');
 
   if (spanCount) {
-    spanCount.textContent = clientes.length === 1 ? '1 cliente' : `${clientes.length} clientes`;
+    const page = state.clientesPage || {};
+    const total = Number(page.total || clientes.length || 0);
+    const ini = total ? Number(page.offset || 0) + 1 : 0;
+    const fim = Math.min(Number(page.offset || 0) + clientes.length, total);
+    spanCount.textContent = total === clientes.length
+      ? (clientes.length === 1 ? '1 cliente' : `${clientes.length} clientes`)
+      : `${ini}-${fim} de ${total} clientes`;
   }
+
+  renderPaginacaoClientes();
+}
+
+export function renderPaginacaoClientes() {
+  const wrap = document.getElementById('paginacao-clientes');
+  if (!wrap) return;
+
+  const page = state.clientesPage || {};
+  const offset = Number(page.offset || 0);
+  const limit = Number(page.limit || 50);
+  const total = Number(page.total || 0);
+  const atual = total ? Math.floor(offset / limit) + 1 : 1;
+  const paginas = Math.max(1, Math.ceil(total / limit));
+
+  wrap.innerHTML = `
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="prev" ${offset <= 0 ? 'disabled' : ''}>Anterior</button>
+    <span class="pagination-info">Página ${atual} de ${paginas}</span>
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="next" ${!page.hasMore ? 'disabled' : ''}>Próxima</button>
+  `;
 }

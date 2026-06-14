@@ -1,5 +1,6 @@
 export const state = {
   fornecedores: [],
+  fornecedoresPage: { offset: 0, limit: 50, total: 0, hasMore: false },
   camposFornecedores: [],
   fornecedorEditandoId: null,
   campoEditandoId: null,

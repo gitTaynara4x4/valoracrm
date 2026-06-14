@@ -1,0 +1,469 @@
+/* /frontend/css/ficha-principal.css */
+/* Estilos compartilhados da Ficha Principal */
+
+.ficha-principal-toggle-bar,
+.cliente-ficha-toggle-bar,
+.produto-ficha-toggle-bar {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(75, 195, 199, 0.28);
+  background: linear-gradient(135deg, rgba(75, 195, 199, 0.14), rgba(101, 172, 222, 0.10));
+  border-radius: 10px;
+}
+
+.ficha-principal-toggle,
+.cliente-ficha-toggle,
+.produto-ficha-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ficha-principal-toggle input,
+.cliente-ficha-toggle input,
+.produto-ficha-toggle input {
+  width: 17px;
+  height: 17px;
+  margin-top: 3px;
+  accent-color: #4bc3c7;
+  flex: 0 0 auto;
+}
+
+.ficha-principal-toggle span,
+.cliente-ficha-toggle span,
+.produto-ficha-toggle span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ficha-principal-toggle strong,
+.cliente-ficha-toggle strong,
+.produto-ficha-toggle strong {
+  color: var(--text, #172033);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ficha-principal-toggle small,
+.cliente-ficha-toggle small,
+.produto-ficha-toggle small {
+  color: var(--muted, #65728a);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ficha-principal-code-card,
+.cliente-ficha-code-card,
+.produto-ficha-code-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  gap: 18px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border, #dfe7f1);
+  background: var(--card-bg, #fff);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.035);
+  margin-bottom: 14px;
+}
+
+.ficha-principal-code-card[hidden],
+.cliente-ficha-code-card[hidden],
+.produto-ficha-code-card[hidden] {
+  display: none !important;
+}
+
+.ficha-principal-code-card h4,
+.cliente-ficha-code-card h4,
+.produto-ficha-code-card h4 {
+  margin: 4px 0 6px;
+  color: var(--text, #172033);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ficha-principal-code-card p,
+.cliente-ficha-code-card p,
+.produto-ficha-code-card p {
+  margin: 0;
+  color: var(--muted, #65728a);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ficha-principal-code-field input,
+.cliente-ficha-code-field input,
+.produto-ficha-code-field input {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--bg-soft, #f8fafc) !important;
+}
+
+.custom-form-sections {
+  display: flex !important;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.custom-section-card {
+  border: 1px solid var(--border, #dfe7f1);
+  border-radius: 10px;
+  background: var(--card-bg, #fff);
+  overflow: hidden;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.035);
+}
+
+.custom-section-head {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border, #dfe7f1);
+  background: linear-gradient(135deg, rgba(101, 172, 222, 0.08), rgba(75, 195, 199, 0.05));
+}
+
+.custom-section-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.custom-section-icon {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #4bc3c7;
+  background: rgba(75, 195, 199, 0.13);
+  flex: 0 0 auto;
+}
+
+.custom-section-head h4 {
+  margin: 0;
+  color: var(--text, #172033);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.custom-section-head p {
+  margin: 4px 0 0;
+  color: var(--muted, #65728a);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.custom-section-card .custom-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px;
+}
+
+.custom-section-card .custom-field-item.span-all,
+.custom-section-card .form-group.span-all {
+  grid-column: 1 / -1;
+}
+
+.custom-section-card .custom-field-item.span-2,
+.custom-section-card .form-group.span-2 {
+  grid-column: span 2;
+}
+
+.custom-section-card .custom-field-item label,
+.custom-section-card .form-group label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted, #65728a);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.custom-section-card .custom-field-item input,
+.custom-section-card .custom-field-item select,
+.custom-section-card .custom-field-item textarea,
+.custom-section-card .form-group input,
+.custom-section-card .form-group select,
+.custom-section-card .form-group textarea {
+  width: 100%;
+}
+
+.custom-section-card .field-hint,
+.custom-section-card .field-help {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted, #65728a);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.valora-form.is-ficha-principal .custom-fields-head,
+.valora-form.is-ficha-principal .custom-fields-head-modal,
+.valora-form.is-ficha-principal .custom-fields-info {
+  display: none !important;
+}
+
+.valora-form.is-ficha-principal .custom-fields-card,
+.valora-form.is-ficha-principal .section-card:has(#custom-fields-container) {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
+html[data-theme="dark"] .ficha-principal-toggle-bar,
+html[data-theme="dark"] .produto-ficha-toggle-bar,
+html[data-theme="dark"] .cliente-ficha-toggle-bar {
+  background: rgba(75, 195, 199, 0.10);
+}
+
+html[data-theme="dark"] .ficha-principal-code-card,
+html[data-theme="dark"] .produto-ficha-code-card,
+html[data-theme="dark"] .custom-section-card {
+  background: var(--card-bg, #111827);
+  border-color: rgba(148, 163, 184, 0.20);
+}
+
+@media (max-width: 900px) {
+  .ficha-principal-code-card,
+  .cliente-ficha-code-card,
+  .produto-ficha-code-card {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-section-card .custom-fields-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .custom-section-card .custom-fields-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-section-card .custom-field-item.span-2,
+  .custom-section-card .form-group.span-2 {
+    grid-column: 1 / -1;
+  }
+}
+
+
+/* =========================================
+   CAMPOS PERSONALIZADOS ESTILO BITRIX
+   O campo personalizado deixa de parecer um bloco separado e passa a ter
+   o mesmo tamanho visual dos campos comuns do cadastro.
+   ========================================= */
+.custom-section-card-bitrix .custom-fields-grid {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  align-items: start;
+}
+
+.custom-section-card-bitrix .custom-field-item {
+  min-width: 0;
+}
+
+.custom-section-card-bitrix .custom-field-item.bitrix-field-normal {
+  grid-column: auto !important;
+}
+
+.custom-section-card-bitrix .custom-field-item.bitrix-field-half,
+.custom-section-card-bitrix .form-group.bitrix-field-half {
+  grid-column: span 2;
+}
+
+.custom-section-card-bitrix .custom-field-item.bitrix-field-full,
+.custom-section-card-bitrix .form-group.bitrix-field-full,
+.custom-section-card-bitrix .custom-field-item.span-all.bitrix-field-full,
+.custom-section-card-bitrix .form-group.span-all.bitrix-field-full {
+  grid-column: 1 / -1 !important;
+}
+
+.custom-section-card-bitrix .custom-field-item input,
+.custom-section-card-bitrix .custom-field-item select {
+  min-height: 42px;
+}
+
+.custom-section-card-bitrix .custom-field-item textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.custom-section-card-bitrix .custom-checkbox.check-card {
+  min-height: 42px;
+  padding: 11px 12px;
+  border: 1px solid var(--border, #dfe7f1);
+  border-radius: 10px;
+  background: var(--card-bg, #fff);
+}
+
+.valora-form.is-ficha-principal .custom-section-card-bitrix .custom-section-head {
+  background: #fff;
+}
+
+html[data-theme="dark"] .valora-form.is-ficha-principal .custom-section-card-bitrix .custom-section-head {
+  background: var(--card-bg, #111827);
+}
+
+/* Animação da ficha principal */
+@keyframes fichaFadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.985);
+    filter: blur(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes fichaFieldIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fichaPulse {
+  0% { opacity: 0.45; }
+  50% { opacity: 1; }
+  100% { opacity: 0.45; }
+}
+
+@keyframes fichaSpin {
+  to { transform: rotate(360deg); }
+}
+
+.ficha-principal-toggle-bar,
+.cliente-ficha-toggle-bar,
+.produto-ficha-toggle-bar {
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.ficha-principal-toggle-bar:has(input:checked),
+.cliente-ficha-toggle-bar:has(input:checked),
+.produto-ficha-toggle-bar:has(input:checked) {
+  border-color: rgba(75, 195, 199, 0.48);
+  box-shadow: 0 12px 24px rgba(75, 195, 199, 0.12);
+}
+
+.ficha-principal-toggle-bar:active,
+.cliente-ficha-toggle-bar:active,
+.produto-ficha-toggle-bar:active {
+  transform: translateY(1px);
+}
+
+.custom-form-sections.is-loading {
+  gap: 14px;
+}
+
+.ficha-loading-card {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(75, 195, 199, 0.24);
+  background: linear-gradient(135deg, rgba(75, 195, 199, 0.10), rgba(101, 172, 222, 0.08));
+  animation: fichaFadeDown 260ms ease both;
+}
+
+.ficha-loading-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text, #172033);
+}
+
+.ficha-loading-head strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ficha-loading-head small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted, #65728a);
+  font-size: 12px;
+}
+
+.ficha-loading-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 3px solid rgba(75, 195, 199, 0.18);
+  border-top-color: #4bc3c7;
+  animation: fichaSpin 720ms linear infinite;
+  flex: 0 0 auto;
+}
+
+.ficha-loading-skeleton {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ficha-loading-skeleton span {
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.58), rgba(75, 195, 199, 0.18), rgba(255, 255, 255, 0.58));
+  background-size: 220% 100%;
+  animation: fichaPulse 950ms ease-in-out infinite;
+}
+
+.ficha-principal-code-card:not([hidden]),
+.cliente-ficha-code-card:not([hidden]),
+.produto-ficha-code-card:not([hidden]) {
+  animation: fichaFadeDown 260ms ease both;
+}
+
+.custom-section-card.is-mounted,
+.custom-section-card.is-section-active {
+  animation: fichaFadeDown 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--ficha-delay, 0ms);
+}
+
+.custom-field-item.is-field-mounted,
+.custom-fields-grid > .form-group.is-field-mounted,
+.custom-fields-grid > .check-card.is-field-mounted {
+  animation: fichaFieldIn 260ms ease both;
+  animation-delay: var(--field-delay, 0ms);
+}
+
+.valora-form.is-ficha-entering .ficha-principal-code-card:not([hidden]),
+.valora-form.is-ficha-entering .cliente-ficha-code-card:not([hidden]),
+.valora-form.is-ficha-entering .produto-ficha-code-card:not([hidden]) {
+  animation: fichaFadeDown 280ms ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ficha-loading-spinner,
+  .ficha-loading-card,
+  .ficha-loading-skeleton span,
+  .ficha-principal-code-card:not([hidden]),
+  .cliente-ficha-code-card:not([hidden]),
+  .produto-ficha-code-card:not([hidden]),
+  .custom-section-card.is-mounted,
+  .custom-section-card.is-section-active,
+  .custom-field-item.is-field-mounted,
+  .custom-fields-grid > .form-group.is-field-mounted,
+  .custom-fields-grid > .check-card.is-field-mounted {
+    animation: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .ficha-loading-skeleton {
+    grid-template-columns: 1fr;
+  }
+}

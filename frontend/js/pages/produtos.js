@@ -1,22 +1,34 @@
 let produtos = [];
-let camposProdutos = [];
+let produtosPage = { offset: 0, limit: 50, total: 0, hasMore: false };
 let produtoEditandoId = null;
-let campoEditandoId = null;
+
+let formularioProdutos = null;
+let camposFormularioProdutos = [];
+let usarFichaPrincipalProdutos = false;
 
 const API_PRODUTOS = '/api/produtos';
-const API_CAMPOS = '/api/produtos/campos';
+const API_FORMULARIOS = '/api/formularios';
 
-function slugify(value){
+function $(id) {
+  return document.getElementById(id);
+}
+
+function $$(selector, root = document) {
+  return Array.from(root.querySelectorAll(selector));
+}
+
+function slugify(value) {
   return String(value || '')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 120);
 }
 
-function escapeHtml(v){
-  return String(v ?? '')
+function escapeHtml(value) {
+  return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -24,103 +36,889 @@ function escapeHtml(v){
     .replaceAll("'", '&#039;');
 }
 
-function formatTipoCampo(tipo){
-  const map = {
-    texto: 'Texto curto',
-    textarea: 'Texto longo',
-    numero: 'Número',
-    data: 'Data',
-    select: 'Lista de opções',
-    checkbox: 'Caixa de seleção',
-  };
-  return map[tipo] || tipo || '-';
+function onlyDigits(value) {
+  return String(value ?? '').replace(/\D+/g, '').trim();
 }
 
-function toast(msg, { error=false, ms=2600 } = {}){
-  const el = document.getElementById('valora-toast');
-  if(!el) return;
-  el.textContent = msg || '';
-  if(error) {
-      el.classList.add('is-error');
-  } else {
-      el.classList.remove('is-error');
-  }
+function getCodigoProdutoSistema() {
+  return onlyDigits($('campo-codigo-ficha-principal-produto')?.value || '');
+}
+
+function setCodigoProdutoSistema(value) {
+  const codigo = onlyDigits(value);
+  const el = $('campo-codigo-ficha-principal-produto');
+  if (el) el.value = codigo;
+  return codigo;
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function toast(message, { error = false, ms = 2600 } = {}) {
+  const el = $('valora-toast');
+  if (!el) return;
+
+  el.textContent = message || '';
+  el.classList.toggle('is-error', !!error);
   el.classList.add('show');
-  
-  clearTimeout(toast._t);
-  toast._t = setTimeout(()=>{ el.classList.remove('show'); }, ms);
+
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    el.classList.remove('show');
+  }, ms);
 }
 
-let _confirmResolver = null;
+async function apiJson(url, options = {}) {
+  const resp = await fetch(url, {
+    credentials: 'include',
+    ...options,
+    headers: {
+      Accept: 'application/json',
+      ...(options.headers || {}),
+    },
+  });
 
-function confirmDialog({
-  title='Confirmar',
-  message='Tem certeza?',
-  confirmText='OK',
-  cancelText='Cancelar',
-  danger=false,
-} = {}){
-  const backdrop = document.getElementById('Valora-confirm-backdrop');
-  const t = document.getElementById('Valora-confirm-title');
-  const m = document.getElementById('Valora-confirm-message');
-  const btnOk = document.getElementById('Valora-confirm-ok');
-  const btnCancel = document.getElementById('Valora-confirm-cancel');
+  const text = await resp.text();
 
-  if(!backdrop || !btnOk || !btnCancel) return Promise.resolve(false);
+  if (!resp.ok) {
+    let message = text || 'Erro na requisição.';
 
-  t.textContent = title || 'Confirmar';
-  m.textContent = message || 'Tem certeza?';
-  btnOk.textContent = confirmText || 'OK';
-  btnCancel.textContent = cancelText || 'Cancelar';
+    try {
+      const parsed = JSON.parse(text);
+      message = parsed.detail || parsed.message || message;
+    } catch (_) {}
 
-  if(danger){
-      btnOk.style.background = '#ef4444';
-      btnOk.style.borderColor = '#ef4444';
-  } else {
-      btnOk.style.background = '';
-      btnOk.style.borderColor = '';
+    throw new Error(typeof message === 'string' ? message : 'Erro na requisição.');
   }
 
-  backdrop.classList.add('show');
+  if (!text || resp.status === 204) {
+    return null;
+  }
 
-  return new Promise((resolve)=>{
-    _confirmResolver = resolve;
-    setTimeout(()=>{ try{ btnCancel.focus(); }catch{} }, 0);
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    return text;
+  }
+}
+
+function openModal(id) {
+  const modal = $(id);
+  if (!modal) return;
+
+  modal.hidden = false;
+
+  requestAnimationFrame(() => {
+    modal.classList.add('show');
   });
 }
 
-function closeConfirm(result=false){
-  const backdrop = document.getElementById('Valora-confirm-backdrop');
-  if(backdrop) backdrop.classList.remove('show');
+function closeModal(id) {
+  const modal = $(id);
+  if (!modal) return;
 
-  if(typeof _confirmResolver === 'function'){
-    const fn = _confirmResolver;
-    _confirmResolver = null;
-    fn(!!result);
+  modal.classList.remove('show');
+
+  setTimeout(() => {
+    modal.hidden = true;
+  }, 180);
+}
+
+function normalizeCustomFieldsForExport(value) {
+  if (!value) return {};
+
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  return {};
+}
+
+function parseOpcoesCampo(campo) {
+  const raw =
+    campo?.opcoes ??
+    campo?.opcoes_json ??
+    campo?.options ??
+    campo?.opcoesJson ??
+    null;
+
+  if (!raw) return [];
+
+  if (Array.isArray(raw)) {
+    return raw.map((item) => String(item ?? '').trim()).filter(Boolean);
+  }
+
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item ?? '').trim()).filter(Boolean);
+      }
+    } catch (_) {}
+
+    return raw
+      .split(/\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function ordenarCampos(campos = []) {
+  return [...campos].sort((a, b) => {
+    return Number(a.ordem || 0) - Number(b.ordem || 0) ||
+      Number(a.id || 0) - Number(b.id || 0);
+  });
+}
+
+function ordenarSecoes(secoes = []) {
+  return [...secoes].sort((a, b) => {
+    return Number(a.ordem || 0) - Number(b.ordem || 0) ||
+      Number(a.id || 0) - Number(b.id || 0);
+  });
+}
+
+function isVisualCampo(campo) {
+  return campo?.origem === 'visual' || !!campo?.tipo_visual;
+}
+
+function tipoCampo(campo) {
+  return campo?.tipo_campo || campo?.tipo || 'texto';
+}
+
+function labelCampo(campo) {
+  return campo?.label || campo?.nome || campo?.campo_sistema || 'Campo';
+}
+
+function campoKey(campo) {
+  return String(
+    campo?.slug ||
+    campo?.campo_personalizado_slug ||
+    campo?.campo_sistema ||
+    slugify(labelCampo(campo))
+  ).trim();
+}
+
+function larguraCampo(campo) {
+  const largura = String(campo?.largura || '').trim();
+  if (!largura) return '50';
+
+  return largura.replace('%', '');
+}
+
+function campoSpanClass(campo) {
+  const tipo = tipoCampo(campo);
+  const largura = larguraCampo(campo);
+
+  if (tipo === 'textarea') return 'span-all';
+  if (largura === '100') return 'span-all';
+
+  return '';
+}
+
+function flattenCamposFormulario(data) {
+  const campos = [];
+  const secoes = Array.isArray(data?.secoes) ? ordenarSecoes(data.secoes) : [];
+
+  secoes.forEach((secao) => {
+    ordenarCampos(secao.campos || []).forEach((campo) => {
+      if (campo?.ativo === false) return;
+      if (isVisualCampo(campo)) return;
+
+      campos.push({
+        ...campo,
+        secao_titulo: secao.titulo,
+      });
+    });
+  });
+
+  const semSecao = Array.isArray(data?.campos_sem_secao) ? data.campos_sem_secao : [];
+
+  ordenarCampos(semSecao).forEach((campo) => {
+    if (campo?.ativo === false) return;
+    if (isVisualCampo(campo)) return;
+
+    campos.push({
+      ...campo,
+      secao_titulo: 'Outros campos',
+    });
+  });
+
+  return campos;
+}
+
+/* =========================================================
+   FORMULÁRIO DE PRODUTOS
+========================================================= */
+
+async function carregarFormularioProdutos({ forceRefresh = false, loadingContainer = null } = {}) {
+  try {
+    let completo = null;
+
+    if (window.ValoraFichaPrincipal?.carregarFormularioModulo) {
+      completo = await window.ValoraFichaPrincipal.carregarFormularioModulo('produtos', {
+        apiJsonImpl: apiJson,
+        ativo: true,
+        forceRefresh,
+        loadingContainer,
+      });
+    } else {
+      const modelos = await apiJson(`${API_FORMULARIOS}/modelos?modulo=produtos&ativo=true`);
+      const lista = Array.isArray(modelos) ? modelos : [];
+
+      if (lista.length) {
+        const modelo =
+          lista.find((item) => item.usar_como_ficha_principal) ||
+          lista.find((item) => item.padrao) ||
+          lista[0];
+
+        completo = await apiJson(`${API_FORMULARIOS}/modelos/${modelo.id}`);
+      }
+    }
+
+    if (!completo?.modelo) {
+      formularioProdutos = null;
+      camposFormularioProdutos = [];
+      usarFichaPrincipalProdutos = false;
+      syncFichaPrincipalProdutoUi();
+      renderFormularioCabecalho();
+      renderCustomFieldsInputs({});
+      return;
+    }
+
+    formularioProdutos = completo;
+    camposFormularioProdutos = flattenCamposFormulario(completo);
+    usarFichaPrincipalProdutos = !!completo?.modelo?.usar_como_ficha_principal;
+
+    syncFichaPrincipalProdutoUi();
+    renderFormularioCabecalho();
+    renderCustomFieldsInputs({});
+  } catch (err) {
+    console.error('[Produtos] erro ao carregar formulário:', err);
+
+    formularioProdutos = null;
+    camposFormularioProdutos = [];
+    usarFichaPrincipalProdutos = false;
+
+    syncFichaPrincipalProdutoUi();
+    renderFormularioCabecalho();
+    renderCustomFieldsInputs({});
+
+    toast(err.message || 'Erro ao carregar ficha de produtos.', {
+      error: true,
+      ms: 5200,
+    });
   }
 }
 
-async function apiJson(url, options = {}){
-  const resp = await fetch(url, options);
-  if(!resp.ok){
-    const txt = await resp.text();
-    throw new Error(txt || 'Erro na requisição.');
+function syncFichaPrincipalProdutoUi(codigo = '') {
+  const toggle = $('toggle-ficha-principal-produto');
+  const codeCard = $('produto-ficha-principal-code');
+  const form = $('formProduto');
+
+  if (toggle) toggle.checked = !!usarFichaPrincipalProdutos;
+  if (codeCard) codeCard.hidden = !usarFichaPrincipalProdutos;
+  if (form) form.classList.toggle('is-ficha-principal', !!usarFichaPrincipalProdutos);
+
+  if (codigo) {
+    setProdutoFichaCode(onlyDigits(codigo));
   }
-  if(resp.status === 204) return null;
-  return resp.json();
 }
 
-async function carregarProdutos(){
-  const data = await apiJson(API_PRODUTOS);
-  produtos = Array.isArray(data) ? data : [];
+function setProdutoFichaCode(codigo) {
+  return setCodigoProdutoSistema(codigo);
+}
+
+async function salvarToggleFichaPrincipalProduto(event) {
+  const checked = !!event.target.checked;
+
+  try {
+    if (!window.ValoraFichaPrincipal) {
+      throw new Error('Componente de ficha principal não carregado.');
+    }
+
+    if (!formularioProdutos?.modelo?.id) {
+      await carregarFormularioProdutos({ loadingContainer: '#custom-fields-container' });
+    }
+
+    const modelo = formularioProdutos?.modelo;
+
+    if (!modelo?.id) {
+      event.target.checked = false;
+      toast('Nenhum formulário de Produtos encontrado para ativar como ficha principal.', {
+        error: true,
+        ms: 4200,
+      });
+      return;
+    }
+
+    event.target.disabled = true;
+    window.ValoraFichaPrincipal?.showLoading?.(
+      '#custom-fields-container',
+      checked ? 'Montando ficha principal...' : 'Voltando para o cadastro padrão...'
+    );
+
+    const atualizado = await window.ValoraFichaPrincipal.atualizarFichaPrincipalModelo(modelo, checked, {
+      apiJsonImpl: apiJson,
+      moduloFallback: 'produtos',
+    });
+
+    usarFichaPrincipalProdutos = checked;
+    formularioProdutos = {
+      ...formularioProdutos,
+      modelo: {
+        ...modelo,
+        ...(atualizado || {}),
+        usar_como_ficha_principal: checked,
+      },
+    };
+
+    const valoresAtuais = collectCustomFieldsValues();
+    syncFichaPrincipalProdutoUi($('campo-codigo-ficha-principal-produto')?.value || '');
+    renderCustomFieldsInputs(valoresAtuais);
+
+    toast(
+      checked
+        ? 'Ficha principal ativada para Produtos.'
+        : 'Ficha principal desativada para Produtos.',
+      { ms: 2200 }
+    );
+  } catch (err) {
+    event.target.checked = !checked;
+    toast(err.message || 'Erro ao alterar ficha principal.', {
+      error: true,
+      ms: 4500,
+    });
+  } finally {
+    event.target.disabled = false;
+  }
+}
+
+function renderFormularioCabecalho() {
+  const nomeEl = $('produto-formulario-nome');
+  const descEl = $('produto-formulario-descricao');
+
+  const modelo = formularioProdutos?.modelo || null;
+
+  if (!modelo) {
+    if (nomeEl) nomeEl.textContent = 'Ficha do produto';
+    if (descEl) descEl.textContent = 'Nenhum formulário de produtos carregado.';
+    return;
+  }
+
+  if (nomeEl) {
+    nomeEl.textContent = modelo.nome || 'Ficha do produto';
+  }
+
+  if (descEl) {
+    descEl.textContent =
+      modelo.descricao ||
+      'Cadastro completo do produto organizado por seções.';
+  }
+}
+
+function getValorCampo(values, campo) {
+  const custom = normalizeCustomFieldsForExport(values);
+  const key = campoKey(campo);
+  const labelSlug = slugify(labelCampo(campo));
+
+  const aliases = [
+    key,
+    labelSlug,
+    labelSlug.replace(/_do_|_da_|_de_/g, '_'),
+    labelSlug.replace(/_produto$/g, ''),
+  ].filter(Boolean);
+
+  for (const alias of aliases) {
+    if (custom[alias] !== undefined && custom[alias] !== null) {
+      return custom[alias];
+    }
+  }
+
+  return '';
+}
+
+function renderCampoFormulario(campo, values = {}) {
+  const key = campoKey(campo);
+  if (!key) return '';
+
+  const id = `custom-field-${key}`;
+  const label = labelCampo(campo);
+  const tipo = tipoCampo(campo);
+  const valor = getValorCampo(values, campo);
+  const obrigatorio = !!campo.obrigatorio;
+  const readonly = !!campo.somente_leitura;
+  const placeholder = campo.placeholder || label;
+  const ajuda = campo.ajuda || '';
+  const disabled = readonly ? 'disabled' : '';
+  const requiredMark = obrigatorio ? ' *' : '';
+  const spanClass = campoSpanClass(campo);
+
+  if (tipo === 'textarea') {
+    return `
+      <div class="form-group ${spanClass}">
+        <label for="${id}">${escapeHtml(label)}${requiredMark}</label>
+        <textarea
+          id="${id}"
+          data-custom-field="${escapeHtml(key)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${obrigatorio ? 'true' : 'false'}"
+          data-readonly="${readonly ? 'true' : 'false'}"
+          rows="4"
+          placeholder="${escapeHtml(placeholder)}"
+          ${disabled}
+        >${escapeHtml(valor)}</textarea>
+        ${ajuda ? `<small class="field-help">${escapeHtml(ajuda)}</small>` : ''}
+      </div>
+    `;
+  }
+
+  if (tipo === 'numero') {
+    return `
+      <div class="form-group ${spanClass}">
+        <label for="${id}">${escapeHtml(label)}${requiredMark}</label>
+        <input
+          type="number"
+          id="${id}"
+          data-custom-field="${escapeHtml(key)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${obrigatorio ? 'true' : 'false'}"
+          data-readonly="${readonly ? 'true' : 'false'}"
+          value="${escapeHtml(valor)}"
+          placeholder="${escapeHtml(placeholder)}"
+          ${disabled}
+        />
+        ${ajuda ? `<small class="field-help">${escapeHtml(ajuda)}</small>` : ''}
+      </div>
+    `;
+  }
+
+  if (tipo === 'data') {
+    return `
+      <div class="form-group ${spanClass}">
+        <label for="${id}">${escapeHtml(label)}${requiredMark}</label>
+        <input
+          type="date"
+          id="${id}"
+          data-custom-field="${escapeHtml(key)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${obrigatorio ? 'true' : 'false'}"
+          data-readonly="${readonly ? 'true' : 'false'}"
+          value="${escapeHtml(valor)}"
+          ${disabled}
+        />
+        ${ajuda ? `<small class="field-help">${escapeHtml(ajuda)}</small>` : ''}
+      </div>
+    `;
+  }
+
+  if (tipo === 'checkbox') {
+    const checked = String(valor).toLowerCase() === 'true' ||
+      String(valor).toLowerCase() === 'sim' ||
+      valor === true
+      ? 'checked'
+      : '';
+
+    return `
+      <label class="check-card ${spanClass}">
+        <input
+          type="checkbox"
+          id="${id}"
+          data-custom-field="${escapeHtml(key)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${obrigatorio ? 'true' : 'false'}"
+          data-readonly="${readonly ? 'true' : 'false'}"
+          ${checked}
+          ${disabled}
+        />
+        <span>
+          <strong>${escapeHtml(label)}${requiredMark}</strong>
+          <small>${escapeHtml(ajuda || 'Campo da ficha do produto.')}</small>
+        </span>
+      </label>
+    `;
+  }
+
+  if (tipo === 'select') {
+    const opcoes = parseOpcoesCampo(campo);
+
+    return `
+      <div class="form-group ${spanClass}">
+        <label for="${id}">${escapeHtml(label)}${requiredMark}</label>
+        <select
+          id="${id}"
+          data-custom-field="${escapeHtml(key)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${obrigatorio ? 'true' : 'false'}"
+          data-readonly="${readonly ? 'true' : 'false'}"
+          ${disabled}
+        >
+          <option value="">Selecione</option>
+          ${opcoes.map((opcao) => `
+            <option value="${escapeHtml(opcao)}" ${String(valor) === String(opcao) ? 'selected' : ''}>
+              ${escapeHtml(opcao)}
+            </option>
+          `).join('')}
+        </select>
+        ${ajuda ? `<small class="field-help">${escapeHtml(ajuda)}</small>` : ''}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="form-group ${spanClass}">
+      <label for="${id}">${escapeHtml(label)}${requiredMark}</label>
+      <input
+        type="text"
+        id="${id}"
+        data-custom-field="${escapeHtml(key)}"
+        data-custom-label="${escapeHtml(label)}"
+        data-required="${obrigatorio ? 'true' : 'false'}"
+        data-readonly="${readonly ? 'true' : 'false'}"
+        value="${escapeHtml(valor)}"
+        placeholder="${escapeHtml(placeholder)}"
+        ${disabled}
+      />
+      ${ajuda ? `<small class="field-help">${escapeHtml(ajuda)}</small>` : ''}
+    </div>
+  `;
+}
+
+function renderCustomFieldsInputs(values = {}) {
+  const container = $('custom-fields-container');
+  if (!container) return;
+
+  const data = formularioProdutos;
+
+  if (!data?.modelo) {
+    container.innerHTML = `
+      <div class="empty-state">
+        Nenhum formulário de produtos carregado. Verifique o construtor de formulários.
+      </div>
+    `;
+    return;
+  }
+
+  const secoes = Array.isArray(data.secoes) ? ordenarSecoes(data.secoes) : [];
+  const camposSemSecao = Array.isArray(data.campos_sem_secao) ? data.campos_sem_secao : [];
+
+  let html = '';
+
+  secoes.forEach((secao) => {
+    if (secao.ativo === false) return;
+
+    const campos = ordenarCampos(secao.campos || [])
+      .filter((campo) => campo.ativo !== false)
+      .filter((campo) => !isVisualCampo(campo));
+
+    if (!campos.length) return;
+
+    html += `
+      <article class="custom-section-card">
+        <div class="custom-section-head">
+          <div class="custom-section-title">
+            <span class="custom-section-icon">
+              <i class="fa-solid fa-layer-group"></i>
+            </span>
+
+            <div>
+              <h4>${escapeHtml(secao.titulo || 'Seção')}</h4>
+              ${secao.descricao ? `<p>${escapeHtml(secao.descricao)}</p>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div class="custom-fields-grid">
+          ${campos.map((campo) => renderCampoFormulario(campo, values)).join('')}
+        </div>
+      </article>
+    `;
+  });
+
+  const camposSoltos = ordenarCampos(camposSemSecao)
+    .filter((campo) => campo.ativo !== false)
+    .filter((campo) => !isVisualCampo(campo));
+
+  if (camposSoltos.length) {
+    html += `
+      <article class="custom-section-card">
+        <div class="custom-section-head">
+          <div class="custom-section-title">
+            <span class="custom-section-icon">
+              <i class="fa-solid fa-layer-group"></i>
+            </span>
+
+            <div>
+              <h4>Outros campos</h4>
+              <p>Campos sem seção definida no formulário.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="custom-fields-grid">
+          ${camposSoltos.map((campo) => renderCampoFormulario(campo, values)).join('')}
+        </div>
+      </article>
+    `;
+  }
+
+  container.innerHTML = html || `
+    <div class="empty-state">
+      O formulário de produtos não possui campos ativos.
+    </div>
+  `;
+
+  window.ValoraFichaPrincipal?.animateRenderedSections?.(container);
+}
+
+function collectCustomFieldsValues() {
+  const values = {};
+  const nodes = $$('[data-custom-field]');
+
+  nodes.forEach((el) => {
+    const key = el.getAttribute('data-custom-field');
+    if (!key) return;
+
+    let value = '';
+
+    if (el.type === 'checkbox') {
+      value = el.checked ? 'true' : 'false';
+    } else {
+      value = String(el.value ?? '').trim();
+    }
+
+    if (value !== '') {
+      values[key] = value;
+    }
+  });
+
+  return values;
+}
+
+function getCustomValue(custom, keys, fallback = '') {
+  for (const key of keys) {
+    const value = custom?.[key];
+
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return value;
+    }
+  }
+
+  return fallback;
+}
+
+function buildProdutoBaseFromCustom(customFields) {
+  const custom = normalizeCustomFieldsForExport(customFields);
+
+  const nome = getCustomValue(custom, [
+    'nome_generico',
+    'identificacao_do_produto',
+    'identificacao_produto',
+    'nome',
+  ]);
+
+  const descricao = getCustomValue(custom, [
+    'descricao_do_produto',
+    'descricao_produto',
+    'descricao',
+  ]);
+
+  const categoria = getCustomValue(custom, [
+    'categoria',
+    'categorias',
+    'classe',
+  ]);
+
+  const unidade = getCustomValue(custom, [
+    'tipo_medida',
+    'unidade',
+  ]);
+
+  const precoVenda = getCustomValue(custom, [
+    'preco_final_venda_tabela_01',
+    'preco_venda',
+  ]);
+
+  const custo = getCustomValue(custom, [
+    'valor_de_custo',
+    'custo_efetivo',
+    'custo',
+  ]);
+
+  const estoqueAtual = getCustomValue(custom, [
+    'quantidade_atual',
+    'estoque_atual',
+  ]);
+
+  const statusAtual = String(getCustomValue(custom, ['status_atual'], '')).toLowerCase();
+
+  const ativo = !['inativo', 'bloqueado', 'descontinuado', 'fora de linha'].includes(statusAtual);
+
+  return {
+    codigo: getCodigoProdutoSistema(),
+    nome,
+    descricao,
+    categoria,
+    unidade,
+    preco_venda: precoVenda,
+    custo,
+    estoque_atual: estoqueAtual,
+    ativo,
+  };
+}
+
+function buildCustomValuesFromProduto(produto = {}) {
+  const custom = normalizeCustomFieldsForExport(produto.custom_fields);
+
+  if (produto.nome) {
+    if (!custom.nome_generico) {
+      custom.nome_generico = produto.nome;
+    }
+
+    if (!custom.identificacao_do_produto) {
+      custom.identificacao_do_produto = produto.nome;
+    }
+
+    if (!custom.identificacao_produto) {
+      custom.identificacao_produto = produto.nome;
+    }
+  }
+
+  if (produto.descricao && !custom.descricao_do_produto) {
+    custom.descricao_do_produto = produto.descricao;
+  }
+
+  if (produto.categoria && !custom.categoria) {
+    custom.categoria = produto.categoria;
+  }
+
+  if (produto.unidade && !custom.tipo_medida) {
+    custom.tipo_medida = produto.unidade;
+  }
+
+  if (produto.preco_venda && !custom.preco_final_venda_tabela_01) {
+    custom.preco_final_venda_tabela_01 = produto.preco_venda;
+  }
+
+  if (produto.custo && !custom.valor_de_custo) {
+    custom.valor_de_custo = produto.custo;
+  }
+
+  if (produto.estoque_atual && !custom.quantidade_atual) {
+    custom.quantidade_atual = produto.estoque_atual;
+  }
+
+  return custom;
+}
+
+function buildCustomValuesNovoProduto() {
+  return {
+    data_cadastro: todayISO(),
+  };
+}
+
+function validarCamposFormulario(customFields) {
+  const custom = normalizeCustomFieldsForExport(customFields);
+
+  for (const campo of camposFormularioProdutos) {
+    if (!campo.obrigatorio) continue;
+    if (campo.somente_leitura) continue;
+    if (campo.ativo === false) continue;
+    if (isVisualCampo(campo)) continue;
+
+    const key = campoKey(campo);
+    const label = labelCampo(campo);
+    const tipo = tipoCampo(campo);
+    const value = custom[key];
+
+    if (tipo === 'checkbox') {
+      if (value !== 'true' && value !== true) {
+        return `Preencha o campo obrigatório: ${label}`;
+      }
+
+      continue;
+    }
+
+    if (value === undefined || value === null || String(value).trim() === '') {
+      return `Preencha o campo obrigatório: ${label}`;
+    }
+  }
+
+  return null;
+}
+
+/* =========================================================
+   PRODUTOS API
+========================================================= */
+
+function montarUrlProdutos({ offset = produtosPage.offset || 0, limit = produtosPage.limit || 50 } = {}) {
+  const params = new URLSearchParams();
+  const busca = String($('busca-produtos')?.value || '').trim();
+
+  params.set('paginated', 'true');
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
+
+  if (busca) params.set('busca', busca);
+
+  return `${API_PRODUTOS}?${params.toString()}`;
+}
+
+function setProdutosLoading(message = 'Buscando produtos no banco...') {
+  const tbody = $('tbody-produtos');
+  if (!tbody) return;
+
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="6" class="empty-state" style="border:none; text-align:center;">
+        ${escapeHtml(message)}
+      </td>
+    </tr>
+  `;
+}
+
+async function carregarProdutos({ offset = produtosPage.offset || 0, silent = false } = {}) {
+  if (!silent) setProdutosLoading();
+
+  const data = await apiJson(montarUrlProdutos({ offset }));
+
+  if (Array.isArray(data)) {
+    produtos = data;
+    produtosPage = {
+      offset: 0,
+      limit: data.length || 50,
+      total: data.length,
+      hasMore: false,
+    };
+  } else {
+    produtos = Array.isArray(data?.items) ? data.items : [];
+    produtosPage = {
+      offset: Number(data?.offset || 0),
+      limit: Number(data?.limit || 50),
+      total: Number(data?.total || produtos.length),
+      hasMore: !!data?.has_more,
+    };
+  }
+
   renderTabelaProdutos();
 }
 
-async function obterProdutoNoServidor(id){
+async function obterProdutoNoServidor(id) {
   return apiJson(`${API_PRODUTOS}/${id}`);
 }
 
-async function salvarProdutoNoServidor(payload, editandoId){
+async function salvarProdutoNoServidor(payload, editandoId) {
   const url = editandoId == null ? API_PRODUTOS : `${API_PRODUTOS}/${editandoId}`;
   const method = editandoId == null ? 'POST' : 'PUT';
 
@@ -131,54 +929,41 @@ async function salvarProdutoNoServidor(payload, editandoId){
   });
 }
 
-async function excluirProdutoNoServidor(id){
-  return apiJson(`${API_PRODUTOS}/${id}`, { method:'DELETE' });
-}
-
-async function carregarCamposProdutos(){
-  const data = await apiJson(`${API_CAMPOS}/lista`);
-  camposProdutos = Array.isArray(data) ? data : [];
-  camposProdutos.sort((a, b) => (Number(a.ordem || 0) - Number(b.ordem || 0)) || String(a.nome || '').localeCompare(String(b.nome || '')));
-  renderListaCamposProdutos();
-}
-
-async function obterCampoProduto(id){
-  return apiJson(`${API_CAMPOS}/${id}`);
-}
-
-async function salvarCampoProduto(payload, editandoId){
-  const url = editandoId == null ? API_CAMPOS : `${API_CAMPOS}/${editandoId}`;
-  const method = editandoId == null ? 'POST' : 'PUT';
-
-  return apiJson(url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+async function excluirProdutoNoServidor(id) {
+  return apiJson(`${API_PRODUTOS}/${id}`, {
+    method: 'DELETE',
   });
 }
 
-async function excluirCampoProduto(id){
-  return apiJson(`${API_CAMPOS}/${id}`, { method:'DELETE' });
-}
+/* =========================================================
+   EXPORTAÇÃO / IMPORTAÇÃO
+========================================================= */
 
-function downloadFile(filename, content, mime='application/octet-stream'){
+function downloadFile(filename, content, mime = 'application/octet-stream') {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
+
   a.href = url;
   a.download = filename;
+
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 3000);
+
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
 }
 
-function normalizeCustomFieldsForExport(cf){
-  return cf && typeof cf === 'object' ? cf : {};
+function uniqueArray(items) {
+  return [...new Set(items.filter(Boolean))];
 }
 
-function pickProdutosForExport(){
-  return (produtos || []).map(p => ({
+function camposFormularioExportaveis() {
+  return uniqueArray(camposFormularioProdutos.map((campo) => campoKey(campo)));
+}
+
+function pickProdutosForExport() {
+  return (produtos || []).map((p) => ({
     id: p.id ?? null,
     codigo: p.codigo ?? '',
     nome: p.nome ?? '',
@@ -193,828 +978,847 @@ function pickProdutosForExport(){
   }));
 }
 
-function exportarProdutosJSON(){
+function exportarProdutosJSON() {
   const dt = new Date();
-  const stamp = dt.toISOString().slice(0,19).replaceAll(':','-');
+  const stamp = dt.toISOString().slice(0, 19).replaceAll(':', '-');
+
   const payload = {
     exported_at: dt.toISOString(),
+    formulario: formularioProdutos?.modelo || null,
     total: (produtos || []).length,
     items: pickProdutosForExport(),
   };
 
-  downloadFile(`produtos_${stamp}.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+  downloadFile(
+    `produtos_${stamp}.json`,
+    JSON.stringify(payload, null, 2),
+    'application/json;charset=utf-8'
+  );
+
   toast('Exportado JSON.', { ms: 1800 });
 }
 
-function csvEscape(v){
-  const s = String(v ?? '');
+function csvEscape(value) {
+  const s = String(value ?? '');
   const must = /[;\n\r"]/g.test(s);
   const out = s.replaceAll('"', '""');
+
   return must ? `"${out}"` : out;
 }
 
-function produtosToCSV(items){
-  const baseCols = ['codigo', 'nome', 'descricao', 'categoria', 'unidade', 'preco_venda', 'custo', 'estoque_atual', 'ativo'];
-  const customCols = camposProdutos.map(c => c.slug);
-  const cols = [...baseCols, ...customCols];
+function produtosToCSV(items) {
+  const baseCols = [
+    'codigo',
+    'nome',
+    'descricao',
+    'categoria',
+    'unidade',
+    'preco_venda',
+    'custo',
+    'estoque_atual',
+    'ativo',
+  ];
 
+  const customCols = camposFormularioExportaveis();
+  const cols = [...baseCols, ...customCols];
   const lines = [cols.join(';')];
 
-  (items || []).forEach(p=>{
-    const custom = normalizeCustomFieldsForExport(p.custom_fields);
-    lines.push(cols.map(k => {
-      if (baseCols.includes(k)) return csvEscape(p?.[k] ?? '');
-      return csvEscape(custom?.[k] ?? '');
-    }).join(';'));
+  (items || []).forEach((produto) => {
+    const custom = normalizeCustomFieldsForExport(produto.custom_fields);
+
+    lines.push(
+      cols.map((key) => {
+        if (baseCols.includes(key)) {
+          return csvEscape(produto?.[key] ?? '');
+        }
+
+        return csvEscape(custom?.[key] ?? '');
+      }).join(';')
+    );
   });
 
   return '\ufeff' + lines.join('\n');
 }
 
-function exportarProdutosCSV(){
+function exportarProdutosCSV() {
   const dt = new Date();
-  const stamp = dt.toISOString().slice(0,19).replaceAll(':','-');
+  const stamp = dt.toISOString().slice(0, 19).replaceAll(':', '-');
   const csv = produtosToCSV(pickProdutosForExport());
-  downloadFile(`produtos_${stamp}.csv`, csv, 'text/csv;charset=utf-8');
+
+  downloadFile(
+    `produtos_${stamp}.csv`,
+    csv,
+    'text/csv;charset=utf-8'
+  );
+
   toast('Exportado CSV.', { ms: 1800 });
 }
 
-function readFileAsText(file){
-  return new Promise((resolve, reject)=>{
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
     const fr = new FileReader();
-    fr.onload = ()=>resolve(String(fr.result || ''));
-    fr.onerror = ()=>reject(fr.error || new Error('Falha ao ler arquivo.'));
+
+    fr.onload = () => resolve(String(fr.result || ''));
+    fr.onerror = () => reject(fr.error || new Error('Falha ao ler arquivo.'));
+
     fr.readAsText(file);
   });
 }
 
-function readFileAsArrayBuffer(file){
-  return new Promise((resolve, reject)=>{
+function readFileAsArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
     const fr = new FileReader();
-    fr.onload = ()=>resolve(fr.result);
-    fr.onerror = ()=>reject(fr.error || new Error('Falha ao ler arquivo.'));
+
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(fr.error || new Error('Falha ao ler arquivo.'));
+
     fr.readAsArrayBuffer(file);
   });
 }
 
-function detectCSVDelimiter(firstLine){
+function detectCSVDelimiter(firstLine) {
   const semi = (firstLine.match(/;/g) || []).length;
   const comma = (firstLine.match(/,/g) || []).length;
+
   return semi >= comma ? ';' : ',';
 }
 
-function parseCSV(text){
-  const raw = String(text || '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-  const lines = raw.split('\n').filter(l => l.trim().length);
-  if(!lines.length) return [];
+function parseCSV(text) {
+  const raw = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = raw.split('\n').filter((line) => line.trim().length);
+
+  if (!lines.length) return [];
 
   const delim = detectCSVDelimiter(lines[0]);
 
-  function parseLine(line){
+  function parseLine(line) {
     const out = [];
     let cur = '';
     let inQ = false;
 
-    for(let i=0;i<line.length;i++){
+    for (let i = 0; i < line.length; i += 1) {
       const ch = line[i];
-      if(ch === '"'){
-        const next = line[i+1];
-        if(inQ && next === '"'){
+
+      if (ch === '"') {
+        const next = line[i + 1];
+
+        if (inQ && next === '"') {
           cur += '"';
-          i++;
+          i += 1;
         } else {
           inQ = !inQ;
         }
+
         continue;
       }
-      if(!inQ && ch === delim){
+
+      if (!inQ && ch === delim) {
         out.push(cur);
         cur = '';
         continue;
       }
+
       cur += ch;
     }
+
     out.push(cur);
-    return out.map(s => String(s ?? '').trim());
+
+    return out.map((s) => String(s ?? '').trim());
   }
 
-  const headers = parseLine(lines[0]).map(h => h.replace(/^\uFEFF/, '').trim());
-  const out = [];
+  const headers = parseLine(lines[0]).map((h) => h.replace(/^\uFEFF/, '').trim());
 
-  for(let i=1;i<lines.length;i++){
-    const parts = parseLine(lines[i]);
+  return lines.slice(1).map((line) => {
+    const parts = parseLine(line);
     const obj = {};
-    headers.forEach((h, idx)=>{ obj[h] = parts[idx] ?? ''; });
-    out.push(obj);
-  }
 
-  return out;
+    headers.forEach((h, idx) => {
+      obj[h] = parts[idx] ?? '';
+    });
+
+    return obj;
+  });
 }
 
-function parseXLSX(arrayBuffer){
-  if(typeof XLSX === 'undefined') throw new Error('Biblioteca XLSX não carregou.');
-  const wb = XLSX.read(arrayBuffer, { type:'array' });
+function parseXLSX(arrayBuffer) {
+  if (typeof XLSX === 'undefined') {
+    throw new Error('Biblioteca XLSX não carregou.');
+  }
 
-  for(const sheetName of wb.SheetNames){
+  const wb = XLSX.read(arrayBuffer, { type: 'array' });
+
+  for (const sheetName of wb.SheetNames) {
     const ws = wb.Sheets[sheetName];
-    const aoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
-    const rows = (aoa || []).filter(r => Array.isArray(r) && r.some(v => String(v ?? '').trim() !== ''));
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    const rows = (aoa || []).filter((row) => {
+      return Array.isArray(row) && row.some((value) => String(value ?? '').trim() !== '');
+    });
 
-    if(!rows.length) continue;
+    if (!rows.length) continue;
 
-    const first = rows[0].map(v => String(v ?? '').trim().toLowerCase());
-    const looksHeader = first.includes('codigo') || first.includes('nome') || first.includes('categoria');
+    const headers = rows[0].map((value) => String(value ?? '').trim());
+    const normalizedHeaders = headers.map((value) => slugify(value));
+    const hasHeader =
+      normalizedHeaders.includes('codigo') ||
+      normalizedHeaders.includes('nome') ||
+      normalizedHeaders.includes('produto') ||
+      normalizedHeaders.includes('categoria');
 
-    if(looksHeader){
-      const headers = rows[0].map(v => String(v ?? '').trim());
-      return rows.slice(1).map(r=>{
+    if (hasHeader) {
+      return rows.slice(1).map((row) => {
         const obj = {};
-        headers.forEach((h, i)=> obj[h] = r[i] ?? '');
+
+        headers.forEach((h, index) => {
+          obj[h] = row[index] ?? '';
+        });
+
         return obj;
-      }).filter(obj => Object.values(obj).some(v => String(v ?? '').trim() !== ''));
+      }).filter((obj) => {
+        return Object.values(obj).some((value) => String(value ?? '').trim() !== '');
+      });
     }
 
-    const cols = ['codigo', 'nome', 'descricao', 'categoria', 'unidade', 'preco_venda', 'custo', 'estoque_atual'];
-    return rows.map(r=>{
+    const cols = [
+      'codigo',
+      'nome',
+      'descricao',
+      'categoria',
+      'unidade',
+      'preco_venda',
+      'custo',
+      'estoque_atual',
+    ];
+
+    return rows.map((row) => {
       const obj = {};
-      cols.forEach((k, i)=> obj[k] = r[i] ?? '');
+
+      cols.forEach((key, index) => {
+        obj[key] = row[index] ?? '';
+      });
+
       return obj;
-    }).filter(obj => String(obj.nome || obj.codigo || '').trim() !== '');
+    }).filter((obj) => {
+      return String(obj.nome || obj.codigo || '').trim() !== '';
+    });
   }
+
   return [];
 }
 
-function mapImportToPayload(obj){
-  const base = {
-    codigo: String(obj.codigo || '').trim(),
-    nome: String(obj.nome || '').trim(),
-    descricao: String(obj.descricao || '').trim(),
-    categoria: String(obj.categoria || '').trim(),
-    unidade: String(obj.unidade || '').trim(),
-    preco_venda: String(obj.preco_venda || '').trim(),
-    custo: String(obj.custo || '').trim(),
-    estoque_atual: String(obj.estoque_atual || '').trim(),
-    ativo: String(obj.ativo || 'true').toLowerCase() !== 'false',
-  };
+function normalizeImportObject(obj) {
+  const normalized = {};
 
-  const custom_fields = {};
-  for(const campo of camposProdutos){
-    const slug = String(campo.slug || '').trim();
-    if(!slug) continue;
-    const value = obj[slug];
-    if(value !== undefined && value !== null && String(value).trim() !== ''){
-      custom_fields[slug] = value;
+  Object.entries(obj || {}).forEach(([key, value]) => {
+    normalized[slugify(key)] = value;
+  });
+
+  return normalized;
+}
+
+function pickImport(normalized, aliases, fallback = '') {
+  for (const alias of aliases) {
+    const key = slugify(alias);
+    const value = normalized[key];
+
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return value;
     }
   }
 
-  if(Object.keys(custom_fields).length) base.custom_fields = custom_fields;
+  return fallback;
+}
+
+function mapImportToPayload(obj) {
+  const normalized = normalizeImportObject(obj);
+
+  const custom = {};
+
+  for (const campo of camposFormularioProdutos) {
+    const key = campoKey(campo);
+    const label = labelCampo(campo);
+
+    const aliases = [
+      key,
+      label,
+      slugify(label),
+    ];
+
+    for (const alias of aliases) {
+      const normalizedKey = slugify(alias);
+      const value = normalized[normalizedKey];
+
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        custom[key] = value;
+        break;
+      }
+    }
+  }
+
+  const codigo = String(pickImport(normalized, [
+    'codigo',
+    'código',
+    'codigo_produto',
+    'codigo_interno_do_produto',
+  ]) || '').trim();
+
+  const nome = String(pickImport(normalized, [
+    'nome',
+    'produto',
+    'nome_generico',
+    'identificacao_do_produto',
+    'identificacao_produto',
+  ]) || '').trim();
+
+  const descricao = String(pickImport(normalized, [
+    'descricao',
+    'descrição',
+    'descricao_do_produto',
+  ]) || '').trim();
+
+  if (nome) {
+    if (!custom.nome_generico) custom.nome_generico = nome;
+    if (!custom.identificacao_do_produto) custom.identificacao_do_produto = nome;
+  }
+
+  if (descricao && !custom.descricao_do_produto) {
+    custom.descricao_do_produto = descricao;
+  }
+
+  const base = buildProdutoBaseFromCustom(custom);
+  base.codigo = onlyDigits(codigo);
+  base.custom_fields = custom;
+
   return base;
 }
 
-function findExistingProdutoIdByCodigo(payload){
-  const codigo = String(payload?.codigo || '').trim().toLowerCase();
-  if(!codigo) return null;
-  const found = (produtos || []).find(p => String(p.codigo || '').trim().toLowerCase() === codigo);
+function findExistingProdutoIdByCodigo(payload) {
+  const codigo = onlyDigits(payload?.codigo || '').toLowerCase();
+
+  if (!codigo) return null;
+
+  const found = (produtos || []).find((p) => {
+    return onlyDigits(p.codigo || '').toLowerCase() === codigo;
+  });
+
   return found?.id || null;
 }
 
-async function importarProdutosFromItems(items){
-  if(!Array.isArray(items) || !items.length){
-    toast('Arquivo vazio ou inválido.', { error:true, ms:4000 });
+async function importarProdutosFromItems(items) {
+  if (!Array.isArray(items) || !items.length) {
+    toast('Arquivo vazio ou inválido.', {
+      error: true,
+      ms: 4000,
+    });
     return;
   }
 
   const ok = await confirmDialog({
-    title:'Importar produtos',
-    message:`Importar ${items.length} produto(s)? O sistema vai criar ou atualizar por código.`,
-    confirmText:'Importar',
-    cancelText:'Cancelar',
-    danger:true,
+    title: 'Importar produtos',
+    message: `Importar ${items.length} produto(s)? O sistema vai criar ou atualizar por código.`,
+    confirmText: 'Importar',
+    cancelText: 'Cancelar',
+    danger: true,
   });
 
-  if(!ok) return;
+  if (!ok) return;
 
-  toast('Importando produtos...', { ms:2200 });
+  toast('Importando produtos...', { ms: 2200 });
 
   let okCount = 0;
   let failCount = 0;
 
-  try{ await carregarProdutos(); }catch{}
+  try {
+    await carregarProdutos();
+  } catch (_) {}
 
-  for(const raw of items){
-    try{
+  for (const raw of items) {
+    try {
       const payload = mapImportToPayload(raw);
-      if(!payload.nome){ failCount++; continue; }
+
+      if (!payload.nome) {
+        failCount += 1;
+        continue;
+      }
+
       const existingId = findExistingProdutoIdByCodigo(payload);
+
       await salvarProdutoNoServidor(payload, existingId);
-      okCount++;
-    }catch(err){
-      console.error('[Produtos] import item erro:', err);
-      failCount++;
+
+      okCount += 1;
+    } catch (err) {
+      console.error('[Produtos] erro ao importar item:', err);
+      failCount += 1;
     }
   }
 
-  try{ await carregarProdutos(); }catch{}
+  try {
+    await carregarProdutos();
+  } catch (_) {}
 
-  if(failCount === 0){
-    toast(`Importação concluída: ${okCount} OK.`, { ms:2200 });
+  if (failCount === 0) {
+    toast(`Importação concluída: ${okCount} OK.`, { ms: 2200 });
   } else {
-    toast(`Importado: ${okCount} OK • ${failCount} falharam`, { error:true, ms:5200 });
+    toast(`Importado: ${okCount} OK • ${failCount} falharam`, {
+      error: true,
+      ms: 5200,
+    });
   }
 }
 
-async function importarProdutosArquivo(file){
-  if(!file){ toast('Selecione um arquivo para importar.', { error:true }); return; }
+async function importarProdutosArquivo(file) {
+  if (!file) {
+    toast('Selecione um arquivo para importar.', { error: true });
+    return;
+  }
+
   const name = String(file.name || '').toLowerCase();
 
-  try{
-    if(name.endsWith('.json')){
+  try {
+    if (name.endsWith('.json')) {
       const text = await readFileAsText(file);
       const data = JSON.parse(text || '{}');
       const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+
       await importarProdutosFromItems(items);
       return;
     }
-    if(name.endsWith('.csv') || name.endsWith('.txt')){
+
+    if (name.endsWith('.csv') || name.endsWith('.txt')) {
       const text = await readFileAsText(file);
       await importarProdutosFromItems(parseCSV(text));
       return;
     }
-    if(name.endsWith('.xlsx')){
-      const buf = await readFileAsArrayBuffer(file);
-      await importarProdutosFromItems(parseXLSX(buf));
+
+    if (name.endsWith('.xlsx')) {
+      const buffer = await readFileAsArrayBuffer(file);
+      await importarProdutosFromItems(parseXLSX(buffer));
       return;
     }
-    toast('Formato inválido. Use .JSON, .CSV ou .XLSX', { error:true, ms:4200 });
-  }catch(err){
-    console.error('[Produtos] importar arquivo erro:', err);
-    toast('Erro ao importar arquivo.', { error:true, ms:5000 });
-  }
-}
 
-function renderTabelaProdutos(){
-  const tbody = document.getElementById('tbody-produtos');
-  const spanCount = document.getElementById('contagem-produtos');
-  const busca = (document.getElementById('busca-produtos')?.value || '').toLowerCase();
+    toast('Formato inválido. Use JSON, CSV ou XLSX.', {
+      error: true,
+      ms: 4200,
+    });
+  } catch (err) {
+    console.error('[Produtos] erro ao importar arquivo:', err);
 
-  if(!tbody) return;
-
-  const filtrados = produtos.filter(p=>{
-    const texto = [p.codigo, p.nome, p.categoria, p.descricao].filter(Boolean).join(' ').toLowerCase();
-    return !busca || texto.includes(busca);
-  });
-
-  tbody.innerHTML = '';
-
-  if(filtrados.length === 0){
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state" style="border: none; text-align: center;">Nenhum produto encontrado.</td></tr>`;
-  } else {
-    filtrados.forEach(p=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><span class="badge-codigo">${escapeHtml(p.codigo || '-')}</span></td>
-        <td><strong>${escapeHtml(p.nome || '-')}</strong></td>
-        <td>${escapeHtml(p.categoria || '-')}</td>
-        <td>R$ ${escapeHtml(p.preco_venda || '-')}</td>
-        <td>${escapeHtml(p.estoque_atual || '-')}</td>
-        <td style="text-align: right;">
-          <button class="btn-icon" data-action="editar" data-id="${p.id}" title="Editar produto">
-            <i class="fa-solid fa-pen"></i>
-          </button>
-          <button class="btn-icon danger" data-action="excluir" data-id="${p.id}" title="Excluir produto">
-            <i class="fa-solid fa-trash"></i>
-          </button>
-        </td>
-      `;
-      tbody.appendChild(tr);
+    toast(err.message || 'Erro ao importar arquivo.', {
+      error: true,
+      ms: 5000,
     });
   }
-
-  if(spanCount) spanCount.textContent = filtrados.length === 1 ? '1 produto' : `${filtrados.length} produtos`;
 }
 
-function renderListaCamposProdutos(){
-  const wrap = document.getElementById('lista-campos-produtos');
-  if(!wrap) return;
+/* =========================================================
+   TABELA / MODAL
+========================================================= */
 
-  if(!camposProdutos.length){
-    wrap.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;">Nenhum campo personalizado criado ainda.</div>`;
+function textoBuscaProduto(produto) {
+  const custom = normalizeCustomFieldsForExport(produto.custom_fields);
+
+  return [
+    produto.codigo,
+    produto.nome,
+    produto.categoria,
+    produto.descricao,
+    produto.unidade,
+    ...Object.values(custom),
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
+function renderTabelaProdutos() {
+  const tbody = $('tbody-produtos');
+  const spanCount = $('contagem-produtos');
+  if (!tbody) return;
+
+  // A filtragem principal agora é feita no backend, com paginação.
+  const filtrados = produtos || [];
+
+  if (!filtrados.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="empty-state">
+          Nenhum produto encontrado.
+        </td>
+      </tr>
+    `;
+
+    if (spanCount) {
+      spanCount.textContent = '0 produtos';
+    }
+
+    renderPaginacaoProdutos();
     return;
   }
 
-  wrap.innerHTML = camposProdutos.map(campo=>{
-    const badgeObrigatorio = campo.obrigatorio ? `<span class="badge-tag brand">Obrigatório</span>` : '';
-    const badgeInativo = campo.ativo === false ? `<span class="badge-tag">Oculto</span>` : '';
-    return `
-      <div class="campo-card">
-        <div>
-          <strong>${escapeHtml(campo.nome || '')}</strong>
-          <span>${escapeHtml(formatTipoCampo(campo.tipo))} • ordem ${Number(campo.ordem || 0)}</span>
-          <div>
-            ${badgeObrigatorio}
-            ${badgeInativo}
-          </div>
-        </div>
-        <div>
-          <button class="btn-icon" data-campo-action="editar" data-id="${campo.id}" title="Editar campo">
+  tbody.innerHTML = filtrados.map((produto) => `
+    <tr>
+      <td><span class="badge-codigo">${escapeHtml(produto.codigo || '-')}</span></td>
+      <td><strong>${escapeHtml(produto.nome || '-')}</strong></td>
+      <td>${escapeHtml(produto.categoria || '-')}</td>
+      <td>R$ ${escapeHtml(produto.preco_venda || '-')}</td>
+      <td>${escapeHtml(produto.estoque_atual || '-')}</td>
+      <td class="text-right">
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+          <button class="btn-icon" data-action="editar" data-id="${produto.id}" title="Editar produto">
             <i class="fa-solid fa-pen"></i>
           </button>
-          <button class="btn-icon danger" data-campo-action="excluir" data-id="${campo.id}" title="Excluir campo">
+
+          <button class="btn-icon danger" data-action="excluir" data-id="${produto.id}" title="Excluir produto">
             <i class="fa-solid fa-trash"></i>
           </button>
         </div>
-      </div>
-    `;
-  }).join('');
-}
+      </td>
+    </tr>
+  `).join('');
 
-function parseCampoOpcoes(campo){
-  if(!campo || !campo.opcoes_json) return [];
-  try{
-    const parsed = JSON.parse(campo.opcoes_json);
-    return Array.isArray(parsed) ? parsed : [];
-  }catch{
-    return [];
-  }
-}
+  if (spanCount) {
+    const total = Number(produtosPage.total || filtrados.length || 0);
+    const ini = total ? Number(produtosPage.offset || 0) + 1 : 0;
+    const fim = Math.min(Number(produtosPage.offset || 0) + filtrados.length, total);
 
-function renderCustomFieldsInputs(values = {}){
-  const container = document.getElementById('custom-fields-container');
-  if(!container) return;
-
-  if(!camposProdutos.length){
-    container.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;">Nenhum campo personalizado cadastrado.</div>`;
-    return;
+    spanCount.textContent = total === filtrados.length
+      ? (filtrados.length === 1 ? '1 produto' : `${filtrados.length} produtos`)
+      : `${ini}-${fim} de ${total} produtos`;
   }
 
-  const ativos = camposProdutos.filter(c => c.ativo !== false);
-  if(!ativos.length){
-    container.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;">Todos os campos personalizados estão ocultos.</div>`;
-    return;
-  }
-
-  container.innerHTML = '';
-
-  ativos.forEach(campo=>{
-    const slug = String(campo.slug || '').trim();
-    const id = `custom-field-${slug}`;
-    const label = campo.nome || slug;
-    const tipo = campo.tipo || 'texto';
-    const obrigatorio = !!campo.obrigatorio;
-    const valor = values?.[slug] ?? '';
-    
-    const field = document.createElement('div');
-    field.className = 'form-group';
-    if(tipo === 'textarea') field.style.gridColumn = '1 / -1';
-
-    let html = `<label for="${id}">${escapeHtml(label)}${obrigatorio ? ' *' : ''}</label>`;
-
-    if(tipo === 'textarea'){
-      html += `<textarea id="${id}" data-custom-field="${escapeHtml(slug)}" rows="3" placeholder="${escapeHtml(label)}">${escapeHtml(valor)}</textarea>`;
-    } else if(tipo === 'numero'){
-      html += `<input type="number" id="${id}" data-custom-field="${escapeHtml(slug)}" value="${escapeHtml(valor)}" placeholder="${escapeHtml(label)}" />`;
-    } else if(tipo === 'data'){
-      html += `<input type="date" id="${id}" data-custom-field="${escapeHtml(slug)}" value="${escapeHtml(valor)}" />`;
-    } else if(tipo === 'checkbox'){
-      const checked = String(valor).toLowerCase() === 'true' || valor === true ? 'checked' : '';
-      html = `
-        <label class="custom-checkbox" style="margin-top:24px;">
-          <input type="checkbox" id="${id}" data-custom-field="${escapeHtml(slug)}" ${checked} />
-          <span>${escapeHtml(label)}</span>
-        </label>
-      `;
-    } else if(tipo === 'select'){
-      const opcoes = parseCampoOpcoes(campo);
-      html += `<select id="${id}" data-custom-field="${escapeHtml(slug)}">
-        <option value="">Selecione</option>
-        ${opcoes.map(opt => {
-          const sel = String(valor) === String(opt) ? 'selected' : '';
-          return `<option value="${escapeHtml(opt)}" ${sel}>${escapeHtml(opt)}</option>`;
-        }).join('')}
-      </select>`;
-    } else {
-      html += `<input type="text" id="${id}" data-custom-field="${escapeHtml(slug)}" value="${escapeHtml(valor)}" placeholder="${escapeHtml(label)}" />`;
-    }
-
-    field.innerHTML = html;
-    container.appendChild(field);
-  });
+  renderPaginacaoProdutos();
 }
 
-function abrirModalProduto(){
-  const backdrop = document.getElementById('modal-produto-backdrop');
-  if(backdrop) backdrop.classList.add('show');
+function renderPaginacaoProdutos() {
+  const wrap = $('paginacao-produtos');
+  if (!wrap) return;
+
+  const offset = Number(produtosPage.offset || 0);
+  const limit = Number(produtosPage.limit || 50);
+  const total = Number(produtosPage.total || 0);
+  const atual = total ? Math.floor(offset / limit) + 1 : 1;
+  const paginas = Math.max(1, Math.ceil(total / limit));
+
+  wrap.innerHTML = `
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="prev" ${offset <= 0 ? 'disabled' : ''}>Anterior</button>
+    <span class="pagination-info">Página ${atual} de ${paginas}</span>
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="next" ${!produtosPage.hasMore ? 'disabled' : ''}>Próxima</button>
+  `;
 }
 
-function fecharModalProduto(){
-  const backdrop = document.getElementById('modal-produto-backdrop');
-  if(backdrop) backdrop.classList.remove('show');
+function abrirModalProduto() {
+  openModal('modal-produto-backdrop');
+}
+
+function fecharModalProduto() {
+  closeModal('modal-produto-backdrop');
   produtoEditandoId = null;
 }
 
-function switchProdutoTab(targetId){
-  document.querySelectorAll('.produto-tab-btn').forEach((btn)=>{
-    btn.classList.toggle('active', btn.dataset.tab === targetId);
-  });
+function abrirModalProdutoNovo() {
+  const titulo = $('modal-produto-titulo');
 
-  document.querySelectorAll('.produto-tab').forEach((tab)=>{
-    tab.classList.toggle('active', tab.id === targetId);
-  });
-}
-
-function abrirModalCampo(){
-  const backdrop = document.getElementById('modal-campo-backdrop');
-  if(backdrop) backdrop.classList.add('show');
-}
-
-function fecharModalCampo(){
-  const backdrop = document.getElementById('modal-campo-backdrop');
-  if(backdrop) backdrop.classList.remove('show');
-  campoEditandoId = null;
-}
-
-function setVal(id, v){ const el = document.getElementById(id); if(el) el.value = (v ?? ''); }
-function getVal(id){ const el = document.getElementById(id); return (el?.value ?? '').trim(); }
-function setCheck(id, v){ const el = document.getElementById(id); if(el) el.checked = !!v; }
-function getCheck(id){ const el = document.getElementById(id); return !!el?.checked; }
-
-function limparCamposProduto(){
-  setVal('campo-codigo-produto', '');
-  setVal('campo-nome-produto', '');
-  setVal('campo-descricao-produto', '');
-  setVal('campo-categoria-produto', '');
-  setVal('campo-unidade-produto', '');
-  setVal('campo-preco-venda-produto', '');
-  setVal('campo-custo-produto', '');
-  setVal('campo-estoque-produto', '');
-  setCheck('campo-ativo-produto', true);
-  renderCustomFieldsInputs({});
-}
-
-function abrirModalProdutoNovo(){
-  const titulo = document.getElementById('modal-produto-titulo');
-  if(titulo) titulo.textContent = 'Novo produto';
+  if (titulo) {
+    titulo.textContent = 'Novo produto';
+  }
 
   produtoEditandoId = null;
-  limparCamposProduto();
 
-  const proximoId = produtos.length > 0 ? Math.max(...produtos.map(p=>Number(p.id) || 0)) + 1 : 1;
-  setVal('campo-codigo-produto', `PRO-${String(proximoId).padStart(4,'0')}`);
+  const values = buildCustomValuesNovoProduto();
+  const base = buildProdutoBaseFromCustom(values);
+  setProdutoFichaCode('');
+  syncFichaPrincipalProdutoUi('');
+  renderCustomFieldsInputs(values);
 
-  switchProdutoTab('tab-produto-cadastro');
   abrirModalProduto();
-  setTimeout(()=>{ try{ document.getElementById('campo-nome-produto')?.focus(); }catch{} }, 0);
 }
 
-function abrirModalProdutoEditar(produto){
-  const titulo = document.getElementById('modal-produto-titulo');
-  if(titulo) titulo.textContent = 'Editar produto';
+function abrirModalProdutoEditar(produto) {
+  const titulo = $('modal-produto-titulo');
+
+  if (titulo) {
+    titulo.textContent = 'Editar produto';
+  }
 
   produtoEditandoId = produto.id;
 
-  setVal('campo-codigo-produto', produto.codigo || '');
-  setVal('campo-nome-produto', produto.nome || '');
-  setVal('campo-descricao-produto', produto.descricao || '');
-  setVal('campo-categoria-produto', produto.categoria || '');
-  setVal('campo-unidade-produto', produto.unidade || '');
-  setVal('campo-preco-venda-produto', produto.preco_venda || '');
-  setVal('campo-custo-produto', produto.custo || '');
-  setVal('campo-estoque-produto', produto.estoque_atual || '');
-  setCheck('campo-ativo-produto', produto.ativo !== false);
+  const values = buildCustomValuesFromProduto(produto);
+  const base = buildProdutoBaseFromCustom(values);
+  setProdutoFichaCode(produto.codigo || base.codigo || '');
+  syncFichaPrincipalProdutoUi(produto.codigo || base.codigo || '');
+  renderCustomFieldsInputs(values);
 
-  renderCustomFieldsInputs(produto.custom_fields || {});
-  switchProdutoTab('tab-produto-cadastro');
   abrirModalProduto();
 }
 
-function collectCustomFieldsValues(){
-  const values = {};
-  const nodes = document.querySelectorAll('[data-custom-field]');
+function buildPayloadProduto() {
+  const customFields = collectCustomFieldsValues();
+  const base = buildProdutoBaseFromCustom(customFields);
 
-  nodes.forEach(el=>{
-    const slug = el.getAttribute('data-custom-field');
-    if(!slug) return;
-    let value = '';
-    if(el.type === 'checkbox'){
-      value = el.checked ? 'true' : 'false';
-    } else {
-      value = String(el.value ?? '').trim();
-    }
-    if(value !== '') values[slug] = value;
-  });
-  return values;
-}
-
-function validarCamposPersonalizados(custom_fields){
-  for(const campo of camposProdutos.filter(c => c.ativo !== false && c.obrigatorio)){
-    const slug = String(campo.slug || '').trim();
-    const tipo = campo.tipo || 'texto';
-    const valor = custom_fields?.[slug];
-
-    if(tipo === 'checkbox'){
-      if(valor !== 'true' && valor !== true) return `Preencha o campo obrigatório: ${campo.nome}`;
-    } else {
-      if(valor == null || String(valor).trim() === '') return `Preencha o campo obrigatório: ${campo.nome}`;
-    }
-  }
-  return null;
-}
-
-function buildPayloadProduto(){
   return {
-    codigo: getVal('campo-codigo-produto'),
-    nome: getVal('campo-nome-produto'),
-    descricao: getVal('campo-descricao-produto'),
-    categoria: getVal('campo-categoria-produto'),
-    unidade: getVal('campo-unidade-produto'),
-    preco_venda: getVal('campo-preco-venda-produto'),
-    custo: getVal('campo-custo-produto'),
-    estoque_atual: getVal('campo-estoque-produto'),
-    ativo: getCheck('campo-ativo-produto'),
-    custom_fields: collectCustomFieldsValues(),
+    ...base,
+    codigo: onlyDigits(base.codigo),
+    custom_fields: customFields,
   };
 }
 
-async function salvarProduto(){
+async function salvarProduto() {
   const payload = buildPayloadProduto();
 
-  if(!payload.nome){
-    toast('Preencha o nome do produto.', { error:true });
-    document.getElementById('campo-nome-produto')?.focus();
+  const erroCustom = validarCamposFormulario(payload.custom_fields);
+
+  if (erroCustom) {
+    toast(erroCustom, {
+      error: true,
+      ms: 4500,
+    });
+
     return;
   }
 
-  const erroCustom = validarCamposPersonalizados(payload.custom_fields);
-  if(erroCustom){
-    switchProdutoTab('tab-produto-campos');
-    toast(erroCustom, { error:true, ms:4500 });
+  if (!payload.nome) {
+    toast('Preencha o nome do produto.', {
+      error: true,
+      ms: 4200,
+    });
+
     return;
   }
 
-  try{
+  const btn = $('btn-salvar-produto');
+  const original = btn ? btn.innerHTML : '';
+
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
+    }
+
     await salvarProdutoNoServidor(payload, produtoEditandoId);
     await carregarProdutos();
+
     fecharModalProduto();
-    toast('Produto salvo com sucesso.', { ms:1800 });
-  }catch(err){
-    console.error('[Produtos] salvar erro:', err);
-    toast(err?.message || 'Erro ao salvar produto.', { error:true, ms:5000 });
+
+    toast('Produto salvo com sucesso.', { ms: 1800 });
+  } catch (err) {
+    console.error('[Produtos] erro ao salvar:', err);
+
+    toast(err.message || 'Erro ao salvar produto.', {
+      error: true,
+      ms: 5000,
+    });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = original || '<i class="fa-solid fa-floppy-disk"></i> Salvar produto';
+    }
   }
 }
 
-function syncCampoTipo(){
-  const tipo = getVal('campo-custom-tipo') || 'texto';
-  const wrap = document.getElementById('wrap-custom-opcoes');
-  const campoOpcoes = document.getElementById('campo-custom-opcoes');
+/* =========================================================
+   CONFIRM
+========================================================= */
 
-  if(!wrap) return;
+let _confirmResolver = null;
 
-  const mostrar = tipo === 'select';
-  wrap.hidden = !mostrar;
-  if(!mostrar && campoOpcoes) campoOpcoes.value = '';
-}
+function confirmDialog({
+  title = 'Confirmar',
+  message = 'Tem certeza?',
+  confirmText = 'OK',
+  cancelText = 'Cancelar',
+  danger = false,
+} = {}) {
+  const backdrop = $('Valora-confirm-backdrop');
+  const titleEl = $('Valora-confirm-title');
+  const msgEl = $('Valora-confirm-message');
+  const okBtn = $('Valora-confirm-ok');
+  const cancelBtn = $('Valora-confirm-cancel');
 
-function limparCamposModalCampo(){
-  setVal('campo-custom-nome', '');
-  setVal('campo-custom-tipo', 'texto');
-  setVal('campo-custom-ordem', '0');
-  setVal('campo-custom-opcoes', '');
-  setCheck('campo-custom-obrigatorio', false);
-  setCheck('campo-custom-ativo', true);
-  syncCampoTipo();
-}
-
-function abrirModalCampoNovo(){
-  const titulo = document.getElementById('modal-campo-titulo');
-  if(titulo) titulo.textContent = 'Novo campo';
-
-  campoEditandoId = null;
-  limparCamposModalCampo();
-  abrirModalCampo();
-  syncCampoTipo();
-
-  setTimeout(()=>{ try{ document.getElementById('campo-custom-nome')?.focus(); }catch{} }, 0);
-}
-
-function abrirModalCampoEditar(campo){
-  const titulo = document.getElementById('modal-campo-titulo');
-  if(titulo) titulo.textContent = 'Editar campo';
-
-  campoEditandoId = campo.id;
-
-  setVal('campo-custom-nome', campo.nome || '');
-  setVal('campo-custom-tipo', campo.tipo || 'texto');
-  setVal('campo-custom-ordem', String(campo.ordem ?? 0));
-  setVal('campo-custom-opcoes', parseCampoOpcoes(campo).join('\n'));
-  setCheck('campo-custom-obrigatorio', !!campo.obrigatorio);
-  setCheck('campo-custom-ativo', campo.ativo !== false);
-
-  abrirModalCampo();
-  syncCampoTipo();
-}
-
-function buildPayloadCampo(){
-  const nome = getVal('campo-custom-nome');
-  const tipo = getVal('campo-custom-tipo') || 'texto';
-  const ordemRaw = getVal('campo-custom-ordem');
-  const obrigatorio = getCheck('campo-custom-obrigatorio');
-  const ativo = getCheck('campo-custom-ativo');
-
-  const slug = slugify(nome);
-  const ordem = Number.isFinite(Number(ordemRaw)) ? Number(ordemRaw) : 0;
-
-  let opcoes_json = null;
-  if(tipo === 'select'){
-    const linhas = getVal('campo-custom-opcoes').split('\n').map(s => s.trim()).filter(Boolean);
-    opcoes_json = JSON.stringify(linhas);
+  if (!backdrop || !okBtn || !cancelBtn) {
+    return Promise.resolve(window.confirm(message));
   }
 
-  return { nome, slug, tipo, obrigatorio, ativo, ordem, opcoes_json };
+  titleEl.textContent = title || 'Confirmar';
+  msgEl.textContent = message || 'Tem certeza?';
+  okBtn.textContent = confirmText || 'OK';
+  cancelBtn.textContent = cancelText || 'Cancelar';
+
+  okBtn.classList.toggle('danger-action', !!danger);
+
+  openModal('Valora-confirm-backdrop');
+
+  return new Promise((resolve) => {
+    _confirmResolver = resolve;
+  });
 }
 
-async function salvarCampo(){
-  const payload = buildPayloadCampo();
+function closeConfirm(result = false) {
+  closeModal('Valora-confirm-backdrop');
 
-  if(!payload.nome){
-    toast('Preencha o nome do campo.', { error:true });
-    document.getElementById('campo-custom-nome')?.focus();
-    return;
+  if (typeof _confirmResolver === 'function') {
+    const fn = _confirmResolver;
+    _confirmResolver = null;
+    fn(!!result);
   }
-  if(!payload.slug){
-    toast('Não foi possível gerar o identificador do campo.', { error:true });
-    document.getElementById('campo-custom-nome')?.focus();
-    return;
-  }
+}
 
-  if(payload.tipo === 'select'){
-    try{
-      const parsed = JSON.parse(payload.opcoes_json || '[]');
-      if(!Array.isArray(parsed) || !parsed.length){
-        toast('Adicione pelo menos uma opção na lista.', { error:true, ms:4200 });
-        document.getElementById('campo-custom-opcoes')?.focus();
-        return;
-      }
-    }catch{
-      toast('As opções da lista estão inválidas.', { error:true });
+/* =========================================================
+   EVENTOS
+========================================================= */
+
+function bindEventos() {
+  const modalProdutoBackdrop = $('modal-produto-backdrop');
+  const confirmBackdrop = $('Valora-confirm-backdrop');
+
+  $('Valora-confirm-cancel')?.addEventListener('click', () => closeConfirm(false));
+  $('Valora-confirm-ok')?.addEventListener('click', () => closeConfirm(true));
+
+  confirmBackdrop?.addEventListener('click', (event) => {
+    if (event.target === confirmBackdrop) {
+      closeConfirm(false);
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+
+    if (confirmBackdrop?.classList.contains('show')) {
+      closeConfirm(false);
       return;
     }
-  }
 
-  try{
-    await salvarCampoProduto(payload, campoEditandoId);
-    await carregarCamposProdutos();
-    fecharModalCampo();
-    toast('Campo salvo com sucesso.', { ms:1800 });
-  }catch(err){
-    console.error('[CamposProdutos] salvar erro:', err);
-    toast(err?.message || 'Erro ao salvar campo.', { error:true, ms:5000 });
-  }
-}
-
-document.addEventListener('DOMContentLoaded', async ()=>{
-  const modalProdutoBackdrop = document.getElementById('modal-produto-backdrop');
-  const modalCampoBackdrop = document.getElementById('modal-campo-backdrop');
-  const confirmBackdrop = document.getElementById('Valora-confirm-backdrop');
-  
-  const btnX = document.getElementById('Valora-confirm-close'); // Modificado caso use X
-  const btnCancel = document.getElementById('Valora-confirm-cancel');
-  const btnOk = document.getElementById('Valora-confirm-ok');
-
-  btnX?.addEventListener('click', ()=>closeConfirm(false));
-  btnCancel?.addEventListener('click', ()=>closeConfirm(false));
-  btnOk?.addEventListener('click', ()=>closeConfirm(true));
-  confirmBackdrop?.addEventListener('click', (e)=>{ if(e.target === confirmBackdrop) closeConfirm(false); });
-
-  document.addEventListener('keydown', (e)=>{
-    if(e.key === 'Escape'){
-      if(confirmBackdrop && confirmBackdrop.classList.contains('show')) closeConfirm(false);
-      if(modalProdutoBackdrop && modalProdutoBackdrop.classList.contains('show')) fecharModalProduto();
-      if(modalCampoBackdrop && modalCampoBackdrop.classList.contains('show')) fecharModalCampo();
+    if (modalProdutoBackdrop?.classList.contains('show')) {
+      fecharModalProduto();
     }
   });
 
-  try{
-    await Promise.all([ carregarCamposProdutos(), carregarProdutos() ]);
-  }catch(err){
-    console.error('[Produtos] init erro:', err);
-    toast(err?.message || 'Erro ao carregar dados.', { error:true, ms:5000 });
-  }
+  let produtosBuscaTimer = null;
 
-  document.getElementById('busca-produtos')?.addEventListener('input', renderTabelaProdutos);
-
-  document.querySelectorAll('.produto-tab-btn').forEach((btn)=>{
-    btn.addEventListener('click', ()=> switchProdutoTab(btn.dataset.tab));
+  $('busca-produtos')?.addEventListener('input', () => {
+    clearTimeout(produtosBuscaTimer);
+    produtosBuscaTimer = setTimeout(() => {
+      carregarProdutos({ offset: 0, silent: true });
+    }, 350);
   });
 
-  document.getElementById('btn-novo-produto')?.addEventListener('click', abrirModalProdutoNovo);
-  document.getElementById('btn-fechar-modal-produto')?.addEventListener('click', fecharModalProduto);
-  document.getElementById('btn-cancelar-produto')?.addEventListener('click', fecharModalProduto);
-  document.getElementById('btn-salvar-produto')?.addEventListener('click', salvarProduto);
-  modalProdutoBackdrop?.addEventListener('click', (e)=>{ if(e.target === modalProdutoBackdrop) fecharModalProduto(); });
+  $('paginacao-produtos')?.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-page-action]');
+    if (!btn || btn.disabled) return;
 
-  document.getElementById('btn-fechar-modal-campo')?.addEventListener('click', fecharModalCampo);
-  document.getElementById('btn-cancelar-campo')?.addEventListener('click', fecharModalCampo);
-  document.getElementById('btn-salvar-campo')?.addEventListener('click', salvarCampo);
-  modalCampoBackdrop?.addEventListener('click', (e)=>{ if(e.target === modalCampoBackdrop) fecharModalCampo(); });
+    const limit = Number(produtosPage.limit || 50);
+    let offset = Number(produtosPage.offset || 0);
 
-  document.getElementById('campo-custom-tipo')?.addEventListener('change', syncCampoTipo);
+    if (btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
+    if (btn.dataset.pageAction === 'next') offset += limit;
 
-  document.getElementById('btn-exportar-produtos-json')?.addEventListener('click', exportarProdutosJSON);
-  document.getElementById('btn-exportar-produtos-csv')?.addEventListener('click', exportarProdutosCSV);
-
-  const btnImport = document.getElementById('btn-importar-produtos');
-  const inputImport = document.getElementById('input-importar-produtos');
-
-  btnImport?.addEventListener('click', ()=>{
-    if(inputImport) inputImport.click();
-    else toast('Faltou o input file para importação.', { error:true, ms:4200 });
+    carregarProdutos({ offset });
   });
 
-  inputImport?.addEventListener('change', async ()=>{
-    const file = inputImport.files && inputImport.files[0] ? inputImport.files[0] : null;
+  $('btn-novo-produto')?.addEventListener('click', abrirModalProdutoNovo);
+  $('btn-fechar-modal-produto')?.addEventListener('click', fecharModalProduto);
+  $('btn-cancelar-produto')?.addEventListener('click', fecharModalProduto);
+  $('btn-salvar-produto')?.addEventListener('click', salvarProduto);
+  $('toggle-ficha-principal-produto')?.addEventListener('change', salvarToggleFichaPrincipalProduto);
+
+  $('formProduto')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    salvarProduto();
+  });
+
+  modalProdutoBackdrop?.addEventListener('click', (event) => {
+    if (event.target === modalProdutoBackdrop) {
+      fecharModalProduto();
+    }
+  });
+
+  $('btn-exportar-produtos-json')?.addEventListener('click', exportarProdutosJSON);
+  $('btn-exportar-produtos-csv')?.addEventListener('click', exportarProdutosCSV);
+
+  const inputImport = $('input-importar-produtos');
+
+  $('btn-importar-produtos')?.addEventListener('click', () => {
+    if (inputImport) {
+      inputImport.click();
+    } else {
+      toast('Faltou o input de importação.', {
+        error: true,
+        ms: 4200,
+      });
+    }
+  });
+
+  inputImport?.addEventListener('change', async () => {
+    const file = inputImport.files && inputImport.files[0]
+      ? inputImport.files[0]
+      : null;
+
     await importarProdutosArquivo(file);
+
     inputImport.value = '';
   });
 
-  const tbody = document.getElementById('tbody-produtos');
-  tbody?.addEventListener('click', async (e)=>{
-    const btn = e.target.closest('.btn-icon');
-    if(!btn) return;
+  $('tbody-produtos')?.addEventListener('click', async (event) => {
+    const btn = event.target.closest('.btn-icon');
+
+    if (!btn) return;
 
     const action = btn.dataset.action;
     const id = Number(btn.dataset.id);
-    if(!id) return;
 
-    if(action === 'editar'){
-      try{
+    if (!id) return;
+
+    if (action === 'editar') {
+      try {
         const full = await obterProdutoNoServidor(id);
         abrirModalProdutoEditar(full);
-      }catch(err){
-        console.error('[Produtos] obter/editar erro:', err);
-        toast(err?.message || 'Não foi possível abrir o produto.', { error:true, ms:5000 });
+      } catch (err) {
+        console.error('[Produtos] erro ao abrir produto:', err);
+
+        toast(err.message || 'Não foi possível abrir o produto.', {
+          error: true,
+          ms: 5000,
+        });
       }
+
       return;
     }
 
-    if(action === 'excluir'){
+    if (action === 'excluir') {
       const ok = await confirmDialog({
-        title:'Excluir produto',
-        message:'Deseja realmente excluir este produto?',
-        confirmText:'Excluir',
-        cancelText:'Cancelar',
-        danger:true,
+        title: 'Excluir produto',
+        message: 'Deseja realmente excluir este produto?',
+        confirmText: 'Excluir',
+        cancelText: 'Cancelar',
+        danger: true,
       });
 
-      if(ok){
-        excluirProdutoNoServidor(id)
-          .then(()=>carregarProdutos())
-          .then(()=>toast('Produto excluído.', { ms:1800 }))
-          .catch(err=>{
-            console.error('[Produtos] excluir erro:', err);
-            toast(err?.message || 'Erro ao excluir produto.', { error:true, ms:5000 });
-          });
+      if (!ok) return;
+
+      try {
+        await excluirProdutoNoServidor(id);
+        await carregarProdutos();
+
+        toast('Produto excluído.', { ms: 1800 });
+      } catch (err) {
+        console.error('[Produtos] erro ao excluir:', err);
+
+        toast(err.message || 'Erro ao excluir produto.', {
+          error: true,
+          ms: 5000,
+        });
       }
     }
   });
+}
 
-  const listaCampos = document.getElementById('lista-campos-produtos');
-  listaCampos?.addEventListener('click', async (e)=>{
-    const btn = e.target.closest('.btn-icon');
-    if(!btn) return;
+document.addEventListener('DOMContentLoaded', async () => {
+  bindEventos();
 
-    const action = btn.dataset.campoAction;
-    const id = Number(btn.dataset.id);
-    if(!id) return;
+  try {
+    await carregarFormularioProdutos({ loadingContainer: '#custom-fields-container' });
+    await carregarProdutos();
+  } catch (err) {
+    console.error('[Produtos] erro ao iniciar:', err);
 
-    if(action === 'editar'){
-      try{
-        const campo = await obterCampoProduto(id);
-        abrirModalCampoEditar(campo);
-      }catch(err){
-        console.error('[CamposProdutos] editar erro:', err);
-        toast(err?.message || 'Não foi possível abrir o campo.', { error:true, ms:5000 });
-      }
-      return;
-    }
-
-    if(action === 'excluir'){
-      const ok = await confirmDialog({
-        title:'Excluir campo',
-        message:'Deseja realmente excluir este campo personalizado?',
-        confirmText:'Excluir',
-        cancelText:'Cancelar',
-        danger:true,
-      });
-
-      if(ok){
-        excluirCampoProduto(id)
-          .then(()=>carregarCamposProdutos())
-          .then(()=>toast('Campo excluído.', { ms:1800 }))
-          .catch(err=>{
-            console.error('[CamposProdutos] excluir erro:', err);
-            toast(err?.message || 'Erro ao excluir campo.', { error:true, ms:5000 });
-          });
-      }
-    }
-  });
+    toast(err.message || 'Erro ao carregar dados de produtos.', {
+      error: true,
+      ms: 5000,
+    });
+  }
 });

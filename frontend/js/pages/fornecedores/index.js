@@ -18,8 +18,21 @@ function renderAll() {
   renderListaCamposFornecedores(state.camposFornecedores);
 }
 
-async function reloadFornecedores() {
-  await carregarFornecedores();
+function setTabelaLoading(message = 'Carregando fornecedores...') {
+  const tbody = $('tbody-fornecedores');
+  if (!tbody) return;
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="8" class="empty-state" style="border:none; text-align:center;">
+        ${message}
+      </td>
+    </tr>
+  `;
+}
+
+async function reloadFornecedores({ offset = 0, silent = false } = {}) {
+  if (!silent) setTabelaLoading('Buscando fornecedores no banco...');
+  await carregarFornecedores({ offset });
   renderAll();
 }
 
@@ -29,7 +42,7 @@ async function reloadCampos() {
 }
 
 async function reloadTudo() {
-  await Promise.all([carregarCamposFornecedores(), carregarFornecedores()]);
+  await Promise.all([carregarCamposFornecedores(), carregarFornecedores({ offset: 0 })]);
   renderAll();
 }
 
@@ -45,7 +58,7 @@ async function handleExcluirFornecedor(id) {
 
   try {
     await excluirFornecedorNoServidor(id);
-    await reloadFornecedores();
+    await reloadFornecedores({ offset: state.fornecedoresPage?.offset || 0 });
     toast('Fornecedor excluído com sucesso.', 'success');
   } catch (err) {
     toast(err.message || 'Erro ao excluir fornecedor.', 'error');
@@ -90,6 +103,26 @@ function bindTabelaActions() {
   });
 }
 
+function bindPagination() {
+  $('paginacao-fornecedores')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-page-action]');
+    if (!btn || btn.disabled) return;
+
+    const page = state.fornecedoresPage || { offset: 0, limit: 50 };
+    const limit = Number(page.limit || 50);
+    let offset = Number(page.offset || 0);
+
+    if (btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
+    if (btn.dataset.pageAction === 'next') offset = offset + limit;
+
+    try {
+      await reloadFornecedores({ offset });
+    } catch (err) {
+      toast(err.message || 'Erro ao carregar página.', 'error');
+    }
+  });
+}
+
 function bindCampoActions() {
   $('lista-campos-fornecedores')?.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-campo-action]');
@@ -114,11 +147,21 @@ function bindTopActions() {
   $('btn-novo-campo')?.addEventListener('click', openFieldModalNew);
   $('btn-novo-campo-inline')?.addEventListener('click', openFieldModalNew);
 
-  $('btn-filtrar-fornecedores')?.addEventListener('click', renderAll);
+  $('btn-filtrar-fornecedores')?.addEventListener('click', async () => {
+    try {
+      await reloadFornecedores({ offset: 0 });
+    } catch (err) {
+      toast(err.message || 'Erro ao filtrar fornecedores.', 'error');
+    }
+  });
 
-  $('btn-limpar-filtros-fornecedores')?.addEventListener('click', () => {
+  $('btn-limpar-filtros-fornecedores')?.addEventListener('click', async () => {
     limparFiltrosFornecedores();
-    renderAll();
+    try {
+      await reloadFornecedores({ offset: 0 });
+    } catch (err) {
+      toast(err.message || 'Erro ao limpar filtros.', 'error');
+    }
   });
 
   $('btn-exportar-fornecedores-json')?.addEventListener('click', exportarFornecedoresJSON);
@@ -129,7 +172,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   bindFornecedorModal({
     afterSave: async () => {
-      await reloadFornecedores();
+      await reloadFornecedores({ offset: state.fornecedoresPage?.offset || 0 });
     },
   });
 
@@ -141,14 +184,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   bindImportExport({
     afterImport: async () => {
-      await reloadFornecedores();
+      await reloadFornecedores({ offset: 0 });
     },
   });
 
   bindTabelaActions();
+  bindPagination();
   bindCampoActions();
   bindTopActions();
-  initFilters(renderAll);
+  initFilters(async () => {
+    try {
+      await reloadFornecedores({ offset: 0, silent: true });
+    } catch (err) {
+      toast(err.message || 'Erro ao filtrar fornecedores.', 'error');
+    }
+  });
 
   try {
     await reloadTudo();

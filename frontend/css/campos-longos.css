@@ -1,0 +1,84 @@
+/* =========================================
+   VALORA CRM — Campos longos globais
+   Abre o próprio campo, no mesmo lugar, sem criar caixa extra embaixo.
+   Vale para clientes, fornecedores, produtos, propostas e demais telas.
+   ========================================= */
+
+.valora-campo-longo-wrap {
+  position: relative;
+}
+
+.valora-campo-longo-wrap.has-campo-longo::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 34px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(75, 195, 199, 0.88);
+  box-shadow: 0 0 0 3px rgba(75, 195, 199, 0.12);
+  pointer-events: none;
+}
+
+.valora-campo-longo-wrap.is-campo-longo-aberto::after,
+.valora-campo-longo-wrap:has(textarea)::after,
+.valora-campo-longo-wrap:has(select)::after,
+.valora-campo-longo-wrap:has(.custom-checkbox)::after {
+  display: none;
+}
+
+.valora-campo-original-oculto {
+  display: none !important;
+}
+
+.valora-campo-longo-editor,
+textarea.valora-campo-longo-expandido {
+  width: 100% !important;
+  min-height: 74px;
+  max-height: 260px;
+  overflow-y: auto;
+  resize: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  transition: min-height 160ms ease, height 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.valora-campo-longo-editor {
+  display: block;
+  margin: 0;
+  animation: valoraCampoLongoAbre 150ms ease both;
+}
+
+.valora-campo-longo-editor:focus,
+textarea.valora-campo-longo-expandido:focus {
+  outline: none;
+  border-color: rgba(75, 195, 199, 0.78) !important;
+  box-shadow: 0 0 0 3px rgba(75, 195, 199, 0.14) !important;
+}
+
+.valora-campo-longo-editor[readonly] {
+  cursor: default;
+}
+
+.valora-campo-longo-wrap.is-campo-longo-aberto {
+  z-index: 12;
+}
+
+@keyframes valoraCampoLongoAbre {
+  from {
+    opacity: 0.78;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .valora-campo-longo-editor,
+  textarea.valora-campo-longo-expandido {
+    max-height: 300px;
+  }
+}

@@ -11,10 +11,14 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <link rel="stylesheet" href="/frontend/css/app.css" />
+  <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/formularios.css" />
 
   <script src="/frontend/js/pages/app.js" defer></script>
-  <script src="/frontend/js/pages/formularios.js" defer></script>
+  <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
+  <script src="/frontend/js/pages/formularios.js?v=20260612-ficha-principal" defer></script>
+  <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
+  <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
 </head>
 
 <body>
@@ -225,7 +229,7 @@
             <textarea id="modelo-descricao-input" rows="3" placeholder="Explique para que este formulário serve."></textarea>
           </div>
 
-          <div class="checks-row two-checks">
+          <div class="checks-row">
             <label class="check-card">
               <input id="modelo-ativo" type="checkbox" checked />
               <span>
@@ -238,7 +242,15 @@
               <input id="modelo-padrao" type="checkbox" />
               <span>
                 <strong>Padrão</strong>
-                <small>Usado como principal do módulo.</small>
+                <small>Usado como formulário padrão do módulo.</small>
+              </span>
+            </label>
+
+            <label class="check-card">
+              <input id="modelo-ficha-principal" type="checkbox" />
+              <span>
+                <strong>Ficha principal</strong>
+                <small>Mostra só o código do sistema e as seções deste formulário no cadastro.</small>
               </span>
             </label>
           </div>

@@ -215,8 +215,11 @@
     renderModelosSelect();
 
     if (state.modelos.length) {
-      const padrao = state.modelos.find((m) => m.padrao) || state.modelos[0];
-      await carregarModeloCompleto(padrao.id);
+      const fichaPrincipal = state.modelos.find((m) => m.usar_como_ficha_principal);
+      const padrao = state.modelos.find((m) => m.padrao);
+      const escolhido = fichaPrincipal || padrao || state.modelos[0];
+
+      await carregarModeloCompleto(escolhido.id);
     } else {
       state.modeloAtual = null;
       renderModeloAtual();
@@ -288,8 +291,19 @@
     }
 
     select.innerHTML = state.modelos.map((modelo) => {
-      const badge = modelo.padrao ? ' • padrão' : '';
-      return `<option value="${modelo.id}">${escapeHtml(modelo.nome)}${badge}</option>`;
+      const badges = [];
+
+      if (modelo.padrao) {
+        badges.push('padrão');
+      }
+
+      if (modelo.usar_como_ficha_principal) {
+        badges.push('ficha principal');
+      }
+
+      const badgeText = badges.length ? ` • ${badges.join(' • ')}` : '';
+
+      return `<option value="${modelo.id}">${escapeHtml(modelo.nome)}${escapeHtml(badgeText)}</option>`;
     }).join('');
   }
 
@@ -307,9 +321,25 @@
     }
 
     if (modeloDescricao) {
-      modeloDescricao.textContent = modelo
-        ? (modelo.descricao || `${moduloLabel()} • ${modelo.padrao ? 'formulário padrão' : 'formulário personalizado'}`)
-        : 'Crie um formulário padrão para começar.';
+      if (!modelo) {
+        modeloDescricao.textContent = 'Crie um formulário padrão para começar.';
+      } else {
+        const flags = [];
+
+        if (modelo.padrao) {
+          flags.push('formulário padrão');
+        }
+
+        if (modelo.usar_como_ficha_principal) {
+          flags.push('ficha principal do cadastro');
+        }
+
+        const fallback = flags.length
+          ? `${moduloLabel()} • ${flags.join(' • ')}`
+          : `${moduloLabel()} • formulário personalizado`;
+
+        modeloDescricao.textContent = modelo.descricao || fallback;
+      }
     }
 
     const hasModelo = !!(modelo?.id || qs('select-modelo')?.value);
@@ -701,6 +731,7 @@
     qs('modelo-descricao-input').value = edit && state.modeloEditando ? state.modeloEditando.descricao || '' : '';
     qs('modelo-ativo').checked = edit && state.modeloEditando ? state.modeloEditando.ativo !== false : true;
     qs('modelo-padrao').checked = edit && state.modeloEditando ? !!state.modeloEditando.padrao : false;
+    qs('modelo-ficha-principal').checked = edit && state.modeloEditando ? !!state.modeloEditando.usar_como_ficha_principal : false;
   }
 
   function resetSecaoForm(secao = null) {
@@ -771,6 +802,7 @@
       descricao: qs('modelo-descricao-input').value.trim() || null,
       ativo: qs('modelo-ativo').checked,
       padrao: qs('modelo-padrao').checked,
+      usar_como_ficha_principal: qs('modelo-ficha-principal').checked,
     };
   }
 

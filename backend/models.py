@@ -1028,6 +1028,7 @@ class FormularioModelo(Base):
 
     ativo = Column(Boolean, nullable=False, server_default="true")
     padrao = Column(Boolean, nullable=False, server_default="false")
+    usar_como_ficha_principal = Column(Boolean, nullable=False, server_default="false")
 
     criado_em = Column(
         DateTime(timezone=True),

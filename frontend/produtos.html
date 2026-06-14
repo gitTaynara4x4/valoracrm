@@ -7,14 +7,22 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <link rel="stylesheet" href="/frontend/css/app.css" />
-  <link rel="stylesheet" href="/frontend/css/produtos.css" />
+  <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
+  <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260614-global-inline" />
+  <link rel="stylesheet" href="/frontend/css/produtos.css?v=20260614-codigos-numericos" />
+  <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
+
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="/frontend/js/pages/app.js" defer></script>
-  <script src="/frontend/js/pages/produtos.js?v=20260525-produtos-sem-cards-campos" defer></script>
+  <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
+  <script src="/frontend/js/shared/ficha-principal.js?v=20260614-global-inline" defer></script>
+  <script src="/frontend/js/pages/produtos.js?v=20260614-codigos-numericos" defer></script>
+  <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
+  <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
 </head>
 
 <body>
@@ -29,31 +37,48 @@
         </div>
 
         <div class="topbar-actions">
-          <button class="btn btn-secondary" type="button" id="btn-importar-produtos" title="Importar produtos">
-            <i class="fa-solid fa-file-import" style="margin-right: 6px;"></i> Importar
+          <button class="btn btn-secondary" type="button" id="btn-importar-produtos">
+            <i class="fa-solid fa-file-import"></i> Importar
           </button>
+
           <button class="btn btn-secondary" type="button" id="btn-exportar-produtos-csv">
-            <i class="fa-solid fa-file-csv" style="margin-right: 6px;"></i> Exportar CSV
+            <i class="fa-solid fa-file-csv"></i> Exportar CSV
           </button>
+
           <button class="btn btn-secondary" type="button" id="btn-exportar-produtos-json">
-            <i class="fa-solid fa-file-code" style="margin-right: 6px;"></i> Exportar JSON
+            <i class="fa-solid fa-file-code"></i> Exportar JSON
           </button>
+
           <button class="btn btn-primary" type="button" id="btn-novo-produto">
-            <i class="fa-solid fa-box-open" style="margin-right: 6px;"></i> Novo produto
+            <i class="fa-solid fa-box-open"></i> Novo produto
           </button>
-          
-          <input id="input-importar-produtos" type="file" accept=".json,.csv,.xlsx,text/csv,application/json" hidden />
+
+          <input
+            id="input-importar-produtos"
+            type="file"
+            accept=".json,.csv,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            hidden
+          />
         </div>
       </header>
 
-      <div class="search-row">
-        <div class="search-box">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input id="busca-produtos" type="text" placeholder="Buscar por nome, código, categoria..." autocomplete="off" />
+      <article class="panel-card produtos-filter-card">
+        <div class="panel-head">
+          <h3>Localizar produtos</h3>
+          <p>Filtro rápido por nome, código, categoria, descrição e campos da ficha.</p>
         </div>
-        <span id="contagem-produtos" class="counter-text">0 produtos</span>
-      </div>
-<article class="panel-card" style="padding: 0;">
+
+        <div class="search-row">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="busca-produtos" type="text" placeholder="Buscar por nome, código, categoria..." autocomplete="off" />
+          </div>
+
+          <span id="contagem-produtos" class="counter-text">0 produtos</span>
+        </div>
+      </article>
+
+      <article class="panel-card panel-card-table">
         <div class="valora-table-wrapper">
           <table class="valora-table">
             <thead>
@@ -63,198 +88,117 @@
                 <th>Categoria</th>
                 <th>Preço</th>
                 <th>Estoque</th>
-                <th style="text-align: right;">Ações</th>
+                <th class="text-right">Ações</th>
               </tr>
             </thead>
+
             <tbody id="tbody-produtos">
               <tr>
-                <td colspan="6" class="empty-state" style="border: none; text-align: center;">Carregando...</td>
+                <td colspan="6" class="empty-state">
+                  Carregando...
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
+        <div class="table-pagination" id="paginacao-produtos"></div>
       </article>
 
-      <div class="modal-overlay" id="modal-produto-backdrop">
-        <div class="modal-content modal-xl">
+      <div class="modal-overlay" id="modal-produto-backdrop" hidden>
+        <div class="modal-content modal-xl" data-close-target="false">
           <div class="modal-header">
             <h3 id="modal-produto-titulo">Novo produto</h3>
-            <button class="btn-close" type="button" id="btn-fechar-modal-produto"><i class="fa-solid fa-xmark"></i></button>
+
+            <button class="btn-close" type="button" id="btn-fechar-modal-produto">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
           </div>
 
           <div class="modal-body">
-            <form class="valora-form" id="formProduto">
-              <div class="produto-tabs">
-                <button type="button" class="produto-tab-btn active" data-tab="tab-produto-cadastro">Cadastro</button>
-                <button type="button" class="produto-tab-btn" data-tab="tab-produto-comercial">Preço / estoque</button>
-                <button type="button" class="produto-tab-btn" data-tab="tab-produto-campos">Campos personalizados</button>
+            <form class="valora-form" id="formProduto" onsubmit="return false;">
+              <div class="produto-ficha-toggle-bar">
+                <label class="produto-ficha-toggle">
+                  <input type="checkbox" id="toggle-ficha-principal-produto" />
+                  <span>
+                    <strong>Usar ficha principal</strong>
+                    <small>Marcar este formulário de Produtos como ficha principal do módulo.</small>
+                  </span>
+                </label>
               </div>
 
-              <section class="produto-tab active" id="tab-produto-cadastro">
-                <article class="section-card">
-                  <h4>Dados principais</h4>
+              <article class="produto-ficha-code-card" id="produto-ficha-principal-code" hidden>
+                <div>
+                  <span class="section-kicker">Código do sistema</span>
+                  <h4>Código do produto</h4>
+                  <p>Este código é gerado pelo próprio sistema e pode ser usado na ficha do produto.</p>
+                </div>
 
-                  <div class="form-row two-cols">
-                    <div class="form-group">
-                      <label for="campo-codigo-produto">Código</label>
-                      <input type="text" id="campo-codigo-produto" placeholder="PRO-0001" />
-                    </div>
-                    <div class="form-group">
-                      <label for="campo-nome-produto">Nome *</label>
-                      <input type="text" id="campo-nome-produto" required placeholder="Nome do produto" />
-                    </div>
+                <div class="form-group produto-ficha-code-field">
+                  <label for="campo-codigo-ficha-principal-produto">Código</label>
+                  <input type="text" id="campo-codigo-ficha-principal-produto" inputmode="numeric" pattern="[0-9]*" readonly placeholder="Gerado ao salvar" />
+                </div>
+              </article>
+
+              <article class="custom-fields-card produto-ficha-card">
+                <div class="custom-fields-head">
+                  <div>
+                    <h3 id="produto-formulario-nome">Ficha do produto</h3>
+                    <p id="produto-formulario-descricao">
+                      Cadastro completo do produto organizado por seções.
+                    </p>
                   </div>
+                </div>
 
-                  <div class="form-row">
-                    <div class="form-group" style="grid-column: 1 / -1;">
-                      <label for="campo-descricao-produto">Descrição</label>
-                      <textarea id="campo-descricao-produto" rows="4" placeholder="Descrição do produto"></textarea>
-                    </div>
+                <div class="custom-fields-info">
+                  <i class="fa-solid fa-layer-group"></i>
+                  <span>
+                    Esta ficha vem do construtor de formulários e segue o mesmo padrão visual usado em Clientes.
+                  </span>
+                </div>
+
+                <div id="custom-fields-container" class="custom-fields-container">
+                  <div class="empty-state">
+                    Carregando ficha do produto...
                   </div>
-
-                  <div class="form-row two-cols">
-                    <div class="form-group">
-                      <label for="campo-categoria-produto">Categoria</label>
-                      <input type="text" id="campo-categoria-produto" placeholder="Ex.: Câmeras" />
-                    </div>
-                    <div class="form-group">
-                      <label for="campo-unidade-produto">Unidade</label>
-                      <input type="text" id="campo-unidade-produto" placeholder="Ex.: UN" />
-                    </div>
-                  </div>
-
-                  <div class="form-row">
-                    <label class="custom-checkbox">
-                      <input type="checkbox" id="campo-ativo-produto" checked />
-                      <span>Produto ativo</span>
-                    </label>
-                  </div>
-                </article>
-              </section>
-
-              <section class="produto-tab" id="tab-produto-comercial">
-                <article class="section-card">
-                  <h4>Preço e estoque</h4>
-
-                  <div class="form-row three-cols">
-                    <div class="form-group">
-                      <label for="campo-preco-venda-produto">Preço de venda</label>
-                      <input type="text" id="campo-preco-venda-produto" placeholder="0,00" />
-                    </div>
-                    <div class="form-group">
-                      <label for="campo-custo-produto">Custo</label>
-                      <input type="text" id="campo-custo-produto" placeholder="0,00" />
-                    </div>
-                    <div class="form-group">
-                      <label for="campo-estoque-produto">Estoque atual</label>
-                      <input type="text" id="campo-estoque-produto" placeholder="0" />
-                    </div>
-                  </div>
-
-                  <div class="empty-soft">
-                    Use esta aba para controlar preço, custo e quantidade atual do produto.
-                  </div>
-                </article>
-              </section>
-
-              <section class="produto-tab" id="tab-produto-campos">
-                <article class="section-card">
-                  <h4>Campos personalizados</h4>
-                  <p class="subtle" style="margin-top:-6px; margin-bottom:14px;">
-                    Campos extras criados para sua empresa, como marca, voltagem, cor, modelo ou qualquer outra informação.
-                  </p>
-
-                  <div id="custom-fields-container" class="form-row">
-                    <div class="empty-state" style="grid-column: 1 / -1;">Nenhum campo personalizado cadastrado.</div>
-                  </div>
-                </article>
-              </section>
+                </div>
+              </article>
             </form>
           </div>
 
           <div class="modal-footer">
-            <button class="btn btn-secondary" type="button" id="btn-cancelar-produto">Cancelar</button>
+            <button class="btn btn-secondary" type="button" id="btn-cancelar-produto">
+              Cancelar
+            </button>
+
             <button class="btn btn-primary" type="button" id="btn-salvar-produto">
-              <i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i> Salvar produto
+              <i class="fa-solid fa-floppy-disk"></i> Salvar produto
             </button>
           </div>
         </div>
       </div>
 
-      <div class="modal-overlay" id="modal-campo-backdrop">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3 id="modal-campo-titulo">Novo campo</h3>
-            <button class="btn-close" type="button" id="btn-fechar-modal-campo"><i class="fa-solid fa-xmark"></i></button>
-          </div>
-
+      <div class="modal-overlay" id="Valora-confirm-backdrop" hidden>
+        <div class="modal-content modal-sm confirm-modal">
           <div class="modal-body">
-            <form class="valora-form">
-              <div class="form-group">
-                <label for="campo-custom-nome">Nome do campo</label>
-                <input type="text" id="campo-custom-nome" placeholder="Ex.: Marca, Voltagem" />
-              </div>
+            <i class="fa-solid fa-triangle-exclamation confirm-icon"></i>
 
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="campo-custom-tipo">Tipo de resposta</label>
-                  <select id="campo-custom-tipo">
-                    <option value="texto">Texto curto</option>
-                    <option value="textarea">Texto longo</option>
-                    <option value="numero">Número</option>
-                    <option value="data">Data</option>
-                    <option value="select">Lista de opções</option>
-                    <option value="checkbox">Caixa de seleção</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="campo-custom-ordem">Ordem no formulário</label>
-                  <input type="number" id="campo-custom-ordem" min="0" step="1" placeholder="0" />
-                </div>
-              </div>
+            <h3 id="Valora-confirm-title">Confirmar</h3>
+            <p id="Valora-confirm-message"></p>
 
-              <div class="form-group" id="wrap-custom-opcoes" hidden>
-                <label for="campo-custom-opcoes">Opções da lista (uma por linha)</label>
-                <textarea id="campo-custom-opcoes" rows="4" placeholder="Branco&#10;Preto&#10;Cinza"></textarea>
-              </div>
+            <div class="confirm-actions">
+              <button class="btn btn-secondary" type="button" id="Valora-confirm-cancel">
+                Cancelar
+              </button>
 
-              <div class="form-row" style="margin-top: 12px;">
-                <label class="custom-checkbox">
-                  <input type="checkbox" id="campo-custom-obrigatorio" />
-                  <span>Campo Obrigatório</span>
-                </label>
-                <label class="custom-checkbox">
-                  <input type="checkbox" id="campo-custom-ativo" checked />
-                  <span>Mostrar no formulário</span>
-                </label>
-              </div>
-            </form>
-          </div>
-
-          <div class="modal-footer">
-            <button class="btn btn-secondary" type="button" id="btn-cancelar-campo">Cancelar</button>
-            <button class="btn btn-primary" type="button" id="btn-salvar-campo">Salvar Campo</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-overlay" id="Valora-confirm-backdrop">
-        <div class="modal-content" style="max-width: 400px; text-align: center;">
-          <div class="modal-body" style="padding-top: 24px;">
-            <i class="fa-solid fa-triangle-exclamation" style="font-size: 40px; color: #ef4444; margin-bottom: 16px;"></i>
-            <h3 id="Valora-confirm-title" style="margin-bottom: 8px; font-size: 18px;">Confirmar</h3>
-            <p id="Valora-confirm-message" style="color: var(--muted); font-size: 14px; margin-bottom: 24px;"></p>
-            
-            <div style="display: flex; gap: 12px; justify-content: center;">
-              <button class="btn btn-secondary" id="Valora-confirm-cancel">Cancelar</button>
-              <button class="btn btn-primary" id="Valora-confirm-ok" style="background: #ef4444; border-color: #ef4444;">Excluir</button>
+              <button class="btn btn-primary danger-action" type="button" id="Valora-confirm-ok">
+                Excluir
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div id="valora-toast" class="toast-message"></div>
-
+      <div id="valora-toast" class="toast-message" aria-live="polite"></div>
     </main>
   </div>
 </body>

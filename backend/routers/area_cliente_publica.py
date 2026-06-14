@@ -263,7 +263,7 @@ def cliente_nome(cliente: core_models.Cliente) -> str:
 def cliente_codigo(cliente: core_models.Cliente) -> str:
     return (
         norm_str(getattr(cliente, "codigo", None))
-        or f"CLI-{int(cliente.id):04d}"
+        or f"{int(cliente.id):04d}"
     )
 
 

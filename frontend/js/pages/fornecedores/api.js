@@ -1,4 +1,5 @@
 import { state, API_FORNECEDORES, API_CAMPOS } from './state.js';
+import { getFiltroFornecedores } from './filters.js';
 
 export async function apiJson(url, options = {}) {
   const resp = await fetch(url, {
@@ -19,9 +20,43 @@ export async function apiJson(url, options = {}) {
   return resp.json();
 }
 
-export async function carregarFornecedores() {
-  const data = await apiJson(API_FORNECEDORES);
-  state.fornecedores = Array.isArray(data) ? data : [];
+function montarUrlFornecedores({ offset = 0, limit = state.fornecedoresPage?.limit || 50 } = {}) {
+  const filtro = getFiltroFornecedores();
+  const params = new URLSearchParams();
+  params.set('paginated', 'true');
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
+
+  if (filtro.busca) params.set('busca', filtro.busca);
+  if (filtro.tipo) params.set('tipo_fornecedor', filtro.tipo);
+  if (filtro.situacao) params.set('situacao', filtro.situacao);
+  if (filtro.cidade) params.set('cidade', filtro.cidade);
+
+  return `${API_FORNECEDORES}?${params.toString()}`;
+}
+
+export async function carregarFornecedores({ offset = state.fornecedoresPage?.offset || 0, limit = state.fornecedoresPage?.limit || 50 } = {}) {
+  const data = await apiJson(montarUrlFornecedores({ offset, limit }));
+
+  if (Array.isArray(data)) {
+    state.fornecedores = data;
+    state.fornecedoresPage = {
+      offset: 0,
+      limit: data.length || limit,
+      total: data.length,
+      hasMore: false,
+    };
+    return state.fornecedores;
+  }
+
+  state.fornecedores = Array.isArray(data?.items) ? data.items : [];
+  state.fornecedoresPage = {
+    offset: Number(data?.offset || 0),
+    limit: Number(data?.limit || limit),
+    total: Number(data?.total || state.fornecedores.length),
+    hasMore: !!data?.has_more,
+  };
+
   return state.fornecedores;
 }
 

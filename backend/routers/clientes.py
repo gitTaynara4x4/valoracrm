@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shutil
 import unicodedata
 from datetime import date, datetime
@@ -562,6 +563,15 @@ class CampoClienteOut(CampoClienteBase, ORMBaseModel):
     empresa_id: int
 
 
+def normalizar_codigo_cliente(codigo: Optional[str]) -> str:
+    """Mantém o código do cliente apenas numérico.
+
+    O código é do sistema, não do formulário personalizado.
+    Ex.: "CLI-0007" vira "0007" para compatibilidade com registros antigos.
+    """
+    return re.sub(r"\D+", "", str(codigo or "")).strip()
+
+
 def gerar_codigo_cliente(db: Session, empresa_id: int) -> str:
     ultimo = (
         db.query(Cliente)
@@ -570,7 +580,7 @@ def gerar_codigo_cliente(db: Session, empresa_id: int) -> str:
         .first()
     )
     proximo = (int(ultimo.id) if ultimo else 0) + 1
-    return f"CLI-{proximo:04d}"
+    return f"{proximo:04d}"
 
 
 def buscar_campos_empresa_map(db: Session, empresa_id: int) -> Dict[str, core_models.CampoCliente]:
@@ -890,6 +900,20 @@ def listar_anexos(db: Session, cliente_id: int) -> List[AnexoOut]:
     ]
 
 
+
+
+def safe_optional_fetch(default: Any, callback):
+    """Evita que tabelas opcionais/antigas derrubem a abertura do cliente.
+
+    Isso é útil em bases que ainda não rodaram todas as migrations de campos
+    personalizados, anexos, referências etc. A tabela principal de clientes
+    continua obrigatória; somente blocos complementares usam fallback.
+    """
+    try:
+        return callback()
+    except OperationalError:
+        return default
+
 def montar_historico_cliente(db: Session, cliente: Cliente) -> Dict[str, Any]:
     historico: Dict[str, Any] = {
         "ultimas_propostas": [],
@@ -916,7 +940,7 @@ def montar_historico_cliente(db: Session, cliente: Cliente) -> Dict[str, Any]:
                     "codigo": getattr(p, "codigo", None),
                     "titulo": getattr(p, "titulo", None),
                     "status": getattr(p, "status", None),
-                    "total": getattr(p, "total", None),
+                    "total": serialize_decimal(getattr(p, "total", None)),
                 }
                 for p in propostas
             ]
@@ -935,11 +959,11 @@ def montar_historico_cliente(db: Session, cliente: Cliente) -> Dict[str, Any]:
     return historico
 
 
-def cliente_to_list_out(db: Session, c: Cliente) -> ClienteListOut:
+def cliente_to_list_out(db: Session, c: Cliente, *, include_custom_fields: bool = False) -> ClienteListOut:
     return ClienteListOut(
         id=int(c.id),
         empresa_id=int(c.empresa_id),
-        codigo=c.codigo or "",
+        codigo=normalizar_codigo_cliente(c.codigo) or "",
         tipo_pessoa=c.tipo_pessoa or "PF",
         situacao=c.situacao or "ativo",
         nome=c.nome or "",
@@ -950,13 +974,23 @@ def cliente_to_list_out(db: Session, c: Cliente) -> ClienteListOut:
         email=c.email,
         cidade=c.cidade,
         estado=c.estado,
-        custom_fields=buscar_custom_fields_cliente(db, int(c.empresa_id), int(c.id)),
+        custom_fields=(
+            buscar_custom_fields_cliente(db, int(c.empresa_id), int(c.id))
+            if include_custom_fields
+            else {}
+        ),
     )
 
 
 def cliente_to_out(db: Session, c: Cliente) -> ClienteOut:
+    base = pydantic_dump(cliente_to_list_out(db, c, include_custom_fields=False))
+    base["custom_fields"] = safe_optional_fetch(
+        {},
+        lambda: buscar_custom_fields_cliente(db, int(c.empresa_id), int(c.id)),
+    )
+
     return ClienteOut(
-        **pydantic_dump(cliente_to_list_out(db, c)),
+        **base,
         rg_ie=c.rg_ie,
         inscricao_municipal=c.inscricao_municipal,
         suframa=c.suframa,
@@ -985,13 +1019,13 @@ def cliente_to_out(db: Session, c: Cliente) -> ClienteOut:
         codigo_ibge_cidade=c.codigo_ibge_cidade,
         codigo_ibge_uf=c.codigo_ibge_uf,
         observacoes=c.observacoes,
-        enderecos=listar_enderecos(db, int(c.id)),
-        referencias_comerciais=listar_refs_comerciais(db, int(c.id)),
-        referencias_bancarias=listar_refs_bancarias(db, int(c.id)),
-        socios=listar_socios(db, int(c.id)),
-        ocorrencias=listar_ocorrencias(db, int(c.id)),
-        anexos=listar_anexos(db, int(c.id)),
-        historico=montar_historico_cliente(db, c),
+        enderecos=safe_optional_fetch([], lambda: listar_enderecos(db, int(c.id))),
+        referencias_comerciais=safe_optional_fetch([], lambda: listar_refs_comerciais(db, int(c.id))),
+        referencias_bancarias=safe_optional_fetch([], lambda: listar_refs_bancarias(db, int(c.id))),
+        socios=safe_optional_fetch([], lambda: listar_socios(db, int(c.id))),
+        ocorrencias=safe_optional_fetch([], lambda: listar_ocorrencias(db, int(c.id))),
+        anexos=safe_optional_fetch([], lambda: listar_anexos(db, int(c.id))),
+        historico=safe_optional_fetch({}, lambda: montar_historico_cliente(db, c)),
     )
 
 
@@ -1005,7 +1039,8 @@ def buscar_cliente_empresa(db: Session, cliente_id: int, empresa_id: int) -> Opt
 
 def apply_cliente_payload(cliente: Cliente, payload: ClienteBaseSchema) -> None:
     tipo_pessoa = norm_upper(payload.tipo_pessoa, {"PF", "PJ"}, "PF")
-    cliente.codigo = (payload.codigo or "").strip() or cliente.codigo
+    # Código não é atualizado pelo payload. Ele é fixo do sistema e sempre numérico.
+    cliente.codigo = normalizar_codigo_cliente(cliente.codigo) or cliente.codigo
     cliente.tipo_pessoa = tipo_pessoa
     cliente.situacao = norm_str(payload.situacao) or "ativo"
     cliente.nome = payload.nome.strip()
@@ -1151,15 +1186,25 @@ def excluir_campo(
     return None
 
 
-@router.get("/api/clientes", response_model=List[ClienteListOut])
+@router.get("/api/clientes")
 def listar_clientes(
     busca: Optional[str] = Query(default=None),
     situacao: Optional[str] = Query(default=None),
     tipo_pessoa: Optional[str] = Query(default=None),
     cidade: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    paginated: bool = Query(default=False),
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
+    """
+    Lista leve e paginada para a tela de Clientes.
+
+    - Quando paginated=true: retorna só a página solicitada + total.
+    - Não carrega custom_fields na tabela para evitar N+1 queries.
+    - O cliente completo + valores personalizados continua vindo em /api/clientes/{id}.
+    """
     try:
         query = db.query(Cliente).filter(Cliente.empresa_id == empresa_id)
 
@@ -1187,8 +1232,22 @@ def listar_clientes(
                 | (Cliente.cidade.ilike(q))
             )
 
-        rows = query.order_by(Cliente.nome.asc(), Cliente.id.asc()).all()
-        return [cliente_to_list_out(db, c) for c in rows]
+        query = query.order_by(Cliente.nome.asc(), Cliente.id.asc())
+
+        if paginated:
+            total = query.count()
+            rows = query.offset(offset).limit(limit).all()
+            items = [pydantic_dump(cliente_to_list_out(db, c, include_custom_fields=False)) for c in rows]
+            return {
+                "items": items,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "has_more": (offset + len(items)) < total,
+            }
+
+        rows = query.all()
+        return [cliente_to_list_out(db, c, include_custom_fields=False) for c in rows]
     except OperationalError as exc:
         raise HTTPException(
             status_code=500,
@@ -1232,7 +1291,7 @@ def criar_cliente(
     current_user: core_models.Usuario = Depends(get_current_user),
 ):
     try:
-        codigo = (payload.codigo or "").strip() or gerar_codigo_cliente(db, empresa_id)
+        codigo = normalizar_codigo_cliente(payload.codigo) or gerar_codigo_cliente(db, empresa_id)
         cliente = Cliente(empresa_id=empresa_id, codigo=codigo, nome=payload.nome.strip())
         apply_cliente_payload(cliente, payload)
 
@@ -1273,8 +1332,9 @@ def atualizar_cliente(
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
     try:
-        if norm_str(payload.codigo):
-            cliente.codigo = str(payload.codigo).strip()
+        # Mantém o código fixo. Se houver registro antigo com prefixo (ex.: CLI-0001),
+        # normaliza na próxima gravação para ficar somente numérico.
+        cliente.codigo = normalizar_codigo_cliente(cliente.codigo) or gerar_codigo_cliente(db, empresa_id)
 
         apply_cliente_payload(cliente, payload)
         sync_enderecos(db, int(cliente.id), payload.enderecos)

@@ -486,20 +486,52 @@ async function probeAPIProdutos() {
   }
 }
 
-async function carregarProdutos() {
+function montarUrlProdutos({ offset = 0, limit = state.produtosPage?.limit || 50 } = {}) {
+  const params = new URLSearchParams();
+  const busca = (getEl('busca-produtos')?.value || '').trim();
+  const filtroOrigem = (getEl('filtro-origem-produto')?.value || '').trim();
+
+  params.set('paginated', 'true');
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
+
+  if (busca) params.set('busca', busca);
+  if (filtroOrigem) params.set('categoria', filtroOrigem);
+
+  return `${API_PRODUTOS}?${params.toString()}`;
+}
+
+async function carregarProdutos({ offset = state.produtosPage?.offset || 0, limit = state.produtosPage?.limit || 50 } = {}) {
   const ok = await probeAPIProdutos();
 
   if (ok) {
     try {
-      let resp = await fetch(`${API_PRODUTOS}?limit=2000&offset=0`);
-      if (!resp.ok) resp = await fetch(API_PRODUTOS);
+      const resp = await fetch(montarUrlProdutos({ offset, limit }));
       if (!resp.ok) throw new Error(await resp.text());
       const data = await resp.json();
-      state.produtos = normalizeProdutosResponse(data);
+
+      if (Array.isArray(data)) {
+        state.produtos = normalizeProdutosResponse(data);
+        state.produtosPage = {
+          offset: 0,
+          limit: state.produtos.length || limit,
+          total: state.produtos.length,
+          hasMore: false
+        };
+      } else {
+        state.produtos = normalizeProdutosResponse(data);
+        state.produtosPage = {
+          offset: Number(data?.offset || 0),
+          limit: Number(data?.limit || limit),
+          total: Number(data?.total || state.produtos.length),
+          hasMore: !!data?.has_more
+        };
+      }
+
       if (!Array.isArray(state.produtos)) state.produtos = [];
       saveProdutosToStorage(state.produtos);
       syncSelectedKeysWithState();
-  renderTabelaProdutos();
+      renderTabelaProdutos();
       return;
     } catch (err) {
       logWarn('Falha API produtos, caindo para localStorage:', err);
@@ -507,6 +539,12 @@ async function carregarProdutos() {
   }
 
   state.produtos = loadProdutosFromStorage();
+  state.produtosPage = {
+    offset: 0,
+    limit: state.produtos.length || 50,
+    total: state.produtos.length || 0,
+    hasMore: false
+  };
   if (!Array.isArray(state.produtos)) state.produtos = [];
   renderTabelaProdutos();
 }
@@ -634,13 +672,37 @@ function renderTabelaProdutos() {
   });
 
   if (spanCount) {
-    const qtd = filtrados.length;
+    const page = state.produtosPage || {};
+    const total = Number(page.total || filtrados.length || 0);
+    const ini = total ? Number(page.offset || 0) + 1 : 0;
+    const fim = Math.min(Number(page.offset || 0) + filtrados.length, total);
     const sel = (Array.isArray(state.produtos) ? state.produtos.filter(p => SELECTED_PROD_KEYS.has(produtoKey(p))).length : 0);
-    spanCount.textContent = qtd === 1 ? '1 item' : `${qtd} itens`;
+    spanCount.textContent = total === filtrados.length
+      ? (filtrados.length === 1 ? '1 item' : `${filtrados.length} itens`)
+      : `${ini}-${fim} de ${total} produtos`;
     if (sel) spanCount.textContent += ` • ${sel} selecionados`;
   }
 
+  renderPaginacaoProdutos();
   updateMasterCheckbox();
+}
+
+function renderPaginacaoProdutos() {
+  const wrap = getEl('paginacao-produtos');
+  if (!wrap) return;
+
+  const page = state.produtosPage || {};
+  const offset = Number(page.offset || 0);
+  const limit = Number(page.limit || 50);
+  const total = Number(page.total || 0);
+  const atual = total ? Math.floor(offset / limit) + 1 : 1;
+  const paginas = Math.max(1, Math.ceil(total / limit));
+
+  wrap.innerHTML = `
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="prev" ${offset <= 0 ? 'disabled' : ''}>Anterior</button>
+    <span class="pagination-info">Página ${atual} de ${paginas}</span>
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="next" ${!page.hasMore ? 'disabled' : ''}>Próxima</button>
+  `;
 }
 
 /* =========================
@@ -1646,8 +1708,42 @@ async function onReady() {
 
   getEl('btn-novo-produto')?.addEventListener('click', abrirModalProdutoNovo);
 
-  getEl('busca-produtos')?.addEventListener('input', renderTabelaProdutos);
-  getEl('filtro-origem-produto')?.addEventListener('change', renderTabelaProdutos);
+  let produtosSearchTimer = null;
+  const reloadProdutosFiltrados = (delay = 350) => {
+    clearTimeout(produtosSearchTimer);
+    produtosSearchTimer = setTimeout(async () => {
+      try {
+        const tbody = getEl('tbody-produtos');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="16" class="empty-state" style="border:none; text-align:center;">Buscando produtos no banco...</td></tr>';
+        await carregarProdutos({ offset: 0 });
+      } catch (err) {
+        toast(err?.message || 'Erro ao filtrar produtos.', 'err', 'Erro');
+      }
+    }, delay);
+  };
+
+  getEl('busca-produtos')?.addEventListener('input', () => reloadProdutosFiltrados(350));
+  getEl('filtro-origem-produto')?.addEventListener('change', () => reloadProdutosFiltrados(0));
+
+  getEl('paginacao-produtos')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-page-action]');
+    if (!btn || btn.disabled) return;
+
+    const page = state.produtosPage || { offset: 0, limit: 50 };
+    const limit = Number(page.limit || 50);
+    let offset = Number(page.offset || 0);
+
+    if (btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
+    if (btn.dataset.pageAction === 'next') offset = offset + limit;
+
+    try {
+      const tbody = getEl('tbody-produtos');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="16" class="empty-state" style="border:none; text-align:center;">Buscando produtos no banco...</td></tr>';
+      await carregarProdutos({ offset });
+    } catch (err) {
+      toast(err?.message || 'Erro ao carregar página.', 'err', 'Erro');
+    }
+  });
 
   /* Seleção: listeners */
   const chkAll = getEl('chk-all-produtos');

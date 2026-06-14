@@ -11,10 +11,17 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <link rel="stylesheet" href="/frontend/css/app.css" />
-  <link rel="stylesheet" href="/frontend/css/clientes.css" />
+  <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
+  <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260614-global-inline" />
+  <link rel="stylesheet" href="/frontend/css/clientes.css?v=20260614-codigos-numericos" />
+  <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
 
   <script src="/frontend/js/pages/app.js" defer></script>
-  <script type="module" src="/frontend/js/pages/clientes/index.js"></script>
+  <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
+  <script src="/frontend/js/shared/ficha-principal.js?v=20260614-global-inline" defer></script>
+  <script type="module" src="/frontend/js/pages/clientes/index.js?v=20260614-codigos-numericos"></script>
+  <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
+  <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
 </head>
 
 <body>
@@ -123,6 +130,7 @@
             </tbody>
           </table>
         </div>
+        <div class="table-pagination" id="paginacao-clientes"></div>
       </article>
 
       <div class="modal-overlay" id="modal-cliente-backdrop" hidden>
@@ -137,6 +145,17 @@
 
           <div class="modal-body">
             <form class="valora-form" id="formCliente">
+              <div class="cliente-ficha-toggle-bar ficha-principal-toggle-bar">
+                <label class="cliente-ficha-toggle ficha-principal-toggle">
+                  <input type="checkbox" id="toggle-ficha-principal-cliente" />
+
+                  <span>
+                    <strong>Usar ficha principal</strong>
+                    <small>Mostrar somente código do cliente e seções/campos personalizados.</small>
+                  </span>
+                </label>
+              </div>
+
               <div class="cliente-tabs">
                 <button type="button" class="cliente-tab-btn active" data-tab="tab-cadastro">Cadastro</button>
                 <button type="button" class="cliente-tab-btn" data-tab="tab-contato">Contato</button>
@@ -156,7 +175,7 @@
                   <div class="form-row">
                     <div class="form-group">
                       <label for="campo-codigo">Código</label>
-                      <input type="text" id="campo-codigo" disabled />
+                      <input type="text" id="campo-codigo" inputmode="numeric" pattern="[0-9]*" readonly />
                     </div>
 
                     <div class="form-group">
@@ -419,14 +438,27 @@
               </section>
 
               <section class="cliente-tab" id="tab-campos-personalizados">
+                <article class="cliente-ficha-code-card ficha-principal-code-card" id="cliente-ficha-principal-code" hidden>
+                  <div>
+                    <span class="section-kicker">Código do sistema</span>
+                    <h4>Código do cliente</h4>
+                    <p>Este código é gerado pelo próprio sistema e não pode ser removido da ficha.</p>
+                  </div>
+
+                  <div class="form-group cliente-ficha-code-field ficha-principal-code-field">
+                    <label for="campo-codigo-ficha-principal">Código</label>
+                    <input type="text" id="campo-codigo-ficha-principal" inputmode="numeric" pattern="[0-9]*" readonly />
+                  </div>
+                </article>
+
                 <article class="section-card custom-fields-card">
                   <div class="custom-fields-head">
                     <div>
                       <span class="section-kicker">Campos configurados no formulário</span>
                       <h4>Campos personalizados</h4>
                       <p>
-                        Esses campos são definidos na tela de Formulários. Aqui o usuário apenas preenche
-                        as informações extras do cadastro do cliente.
+                        Esses campos são definidos na tela de Formulários. Quando o formulário estiver marcado como ficha principal,
+                        o cadastro mostra apenas o código do sistema e as seções configuradas.
                       </p>
                     </div>
 

@@ -11,7 +11,7 @@ from backend.routers.area_cliente_acessos_admin import router as area_cliente_ac
 from backend.routers.area_cliente_admin import router as area_cliente_admin_router
 from backend.routers.area_cliente_publica import router as area_cliente_publica_router
 from backend.routers.contratos_admin import router as contratos_admin_router
-
+from backend.routers.monitoramento import router as monitoramento_router
 from backend.routers import cadastro
 from backend.routers.clientes import router as clientes_router
 from backend.routers.fornecedores import router as fornecedores_router
@@ -242,8 +242,7 @@ app.include_router(area_cliente_admin_router)
 app.include_router(contratos_admin_router)
 app.include_router(area_cliente_acessos_admin_router)
 app.include_router(area_cliente_publica_router)
-
-
+app.include_router(monitoramento_router)
 # ============================================
 # Helpers
 # ============================================

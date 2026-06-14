@@ -43,13 +43,17 @@ function defaultFornecedor() {
   };
 }
 
+function onlyDigits(value) {
+  return String(value ?? '').replace(/\D+/g, '').trim();
+}
+
 function generateNextFornecedorCode() {
   const proximoId =
     state.fornecedores.length > 0
       ? Math.max(...state.fornecedores.map((f) => Number(f.id) || 0)) + 1
       : 1;
 
-  return `FOR-${String(proximoId).padStart(4, '0')}`;
+  return String(proximoId).padStart(4, '0');
 }
 
 function setValue(id, value) {
@@ -70,7 +74,7 @@ function switchTab(targetId) {
 function fillFornecedorForm(fornecedor = {}) {
   const data = { ...defaultFornecedor(), ...(fornecedor || {}) };
 
-  setValue('campo-codigo-fornecedor', data.codigo || generateNextFornecedorCode());
+  setValue('campo-codigo-fornecedor', onlyDigits(data.codigo) || generateNextFornecedorCode());
   setValue('campo-tipo-fornecedor', data.tipo_fornecedor);
   setValue('campo-situacao-fornecedor', data.situacao);
   setValue('campo-nome-fornecedor', data.nome);
@@ -105,7 +109,7 @@ function fillFornecedorForm(fornecedor = {}) {
 
 function buildPayload() {
   return {
-    codigo: String(getValue('campo-codigo-fornecedor') || '').trim(),
+    codigo: onlyDigits(getValue('campo-codigo-fornecedor') || ''),
     tipo_fornecedor: String(getValue('campo-tipo-fornecedor') || '').trim(),
     situacao: String(getValue('campo-situacao-fornecedor') || 'ativo').trim(),
     nome: String(getValue('campo-nome-fornecedor') || '').trim(),

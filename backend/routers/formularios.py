@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
@@ -107,7 +108,7 @@ LARGURAS_PERMITIDAS = {
 
 CAMPOS_SISTEMA_POR_MODULO: Dict[str, List[Dict[str, str]]] = {
     "clientes": [
-        {"campo": "codigo", "label": "Código", "tipo": "texto"},
+        {"campo": "codigo", "label": "Código", "tipo": "numero"},
         {"campo": "nome", "label": "Nome / Razão social", "tipo": "texto"},
         {"campo": "nome_fantasia", "label": "Nome fantasia", "tipo": "texto"},
         {"campo": "tipo_pessoa", "label": "Tipo de pessoa", "tipo": "select"},
@@ -132,13 +133,13 @@ CAMPOS_SISTEMA_POR_MODULO: Dict[str, List[Dict[str, str]]] = {
         {"campo": "observacoes", "label": "Observações", "tipo": "textarea"},
     ],
     "fornecedores": [
-        {"campo": "codigo", "label": "Código", "tipo": "texto"},
+        {"campo": "codigo", "label": "Código", "tipo": "numero"},
         {"campo": "nome", "label": "Nome", "tipo": "texto"},
         {"campo": "whatsapp", "label": "WhatsApp", "tipo": "telefone"},
         {"campo": "email", "label": "E-mail", "tipo": "email"},
     ],
     "produtos": [
-        {"campo": "codigo", "label": "Código", "tipo": "texto"},
+        {"campo": "codigo", "label": "Código", "tipo": "numero"},
         {"campo": "nome", "label": "Nome", "tipo": "texto"},
         {"campo": "descricao", "label": "Descrição", "tipo": "textarea"},
         {"campo": "categoria", "label": "Categoria", "tipo": "texto"},
@@ -149,7 +150,7 @@ CAMPOS_SISTEMA_POR_MODULO: Dict[str, List[Dict[str, str]]] = {
         {"campo": "ativo", "label": "Ativo", "tipo": "checkbox"},
     ],
     "propostas": [
-        {"campo": "codigo", "label": "Código", "tipo": "texto"},
+        {"campo": "codigo", "label": "Código", "tipo": "numero"},
         {"campo": "titulo", "label": "Título", "tipo": "texto"},
         {"campo": "cliente_id", "label": "Cliente", "tipo": "texto"},
         {"campo": "status", "label": "Status", "tipo": "select"},
@@ -335,6 +336,21 @@ def limpar_padrao_anterior(db: Session, empresa_id: int, modulo: str, exceto_id:
         item.padrao = False
 
 
+def limpar_ficha_principal_anterior(db: Session, empresa_id: int, modulo: str, exceto_id: Optional[int] = None) -> None:
+    q = (
+        db.query(models.FormularioModelo)
+        .filter(models.FormularioModelo.empresa_id == empresa_id)
+        .filter(models.FormularioModelo.modulo == modulo)
+        .filter(models.FormularioModelo.usar_como_ficha_principal == True)  # noqa: E712
+    )
+
+    if exceto_id:
+        q = q.filter(models.FormularioModelo.id != exceto_id)
+
+    for item in q.all():
+        item.usar_como_ficha_principal = False
+
+
 def modelo_dict(row) -> Dict[str, Any]:
     return {
         "id": int(row.id),
@@ -344,6 +360,7 @@ def modelo_dict(row) -> Dict[str, Any]:
         "descricao": row.descricao,
         "ativo": bool(row.ativo),
         "padrao": bool(row.padrao),
+        "usar_como_ficha_principal": bool(getattr(row, "usar_como_ficha_principal", False)),
         "criado_em": iso(row.criado_em),
         "atualizado_em": iso(row.atualizado_em),
     }
@@ -441,6 +458,123 @@ def formulario_completo(db: Session, modelo) -> Dict[str, Any]:
     }
 
 
+def formulario_principal_ou_padrao(
+    db: Session,
+    empresa_id: int,
+    modulo: str,
+    *,
+    ativo: bool = True,
+):
+    """Retorna o formulário que deve ser usado pela tela do módulo.
+
+    Prioridade:
+    1. formulário marcado como ficha principal
+    2. formulário padrão
+    3. primeiro formulário ativo do módulo
+    """
+    q = (
+        db.query(models.FormularioModelo)
+        .filter(models.FormularioModelo.empresa_id == empresa_id)
+        .filter(models.FormularioModelo.modulo == modulo)
+    )
+
+    if ativo:
+        q = q.filter(models.FormularioModelo.ativo == True)  # noqa: E712
+
+    return (
+        q.order_by(
+            models.FormularioModelo.usar_como_ficha_principal.desc(),
+            models.FormularioModelo.padrao.desc(),
+            models.FormularioModelo.id.asc(),
+        )
+        .first()
+    )
+
+
+def formulario_cache_version(db: Session, modelo) -> Dict[str, Any]:
+    """Gera uma versão leve para cache da estrutura da ficha.
+
+    A versão considera o formulário, as seções e os campos. Assim, se criar,
+    editar, remover ou reordenar um campo/seção, o navegador percebe que o
+    cache ficou antigo e baixa a ficha completa novamente.
+    """
+    secoes = (
+        db.query(models.FormularioSecao)
+        .filter(models.FormularioSecao.formulario_id == modelo.id)
+        .order_by(models.FormularioSecao.id.asc())
+        .all()
+    )
+
+    campos = (
+        db.query(models.FormularioCampo)
+        .filter(models.FormularioCampo.formulario_id == modelo.id)
+        .order_by(models.FormularioCampo.id.asc())
+        .all()
+    )
+
+    partes: List[str] = [
+        "modelo",
+        str(modelo.id),
+        str(modelo.modulo),
+        str(modelo.nome or ""),
+        str(modelo.descricao or ""),
+        str(bool(modelo.ativo)),
+        str(bool(modelo.padrao)),
+        str(bool(getattr(modelo, "usar_como_ficha_principal", False))),
+        iso(modelo.atualizado_em) or "",
+    ]
+
+    for secao in secoes:
+        partes.extend([
+            "secao",
+            str(secao.id),
+            str(secao.titulo or ""),
+            str(secao.descricao or ""),
+            str(secao.ordem or 0),
+            str(bool(secao.ativo)),
+            iso(secao.atualizado_em) or "",
+        ])
+
+    for campo in campos:
+        partes.extend([
+            "campo",
+            str(campo.id),
+            str(campo.secao_id or ""),
+            str(campo.origem or ""),
+            str(campo.campo_sistema or ""),
+            str(campo.campo_personalizado_id or ""),
+            str(campo.tipo_visual or ""),
+            str(campo.tipo_campo or ""),
+            str(campo.label or ""),
+            str(campo.placeholder or ""),
+            str(campo.ajuda or ""),
+            str(campo.opcoes_json or ""),
+            str(bool(campo.obrigatorio)),
+            str(bool(campo.somente_leitura)),
+            str(bool(campo.ativo)),
+            str(campo.largura or ""),
+            str(campo.ordem or 0),
+            str(campo.visibilidade or ""),
+            str(campo.condicao_json or ""),
+            iso(campo.atualizado_em) or "",
+        ])
+
+    raw = "|".join(partes)
+    version = hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+    return {
+        "modelo_id": int(modelo.id),
+        "modulo": modelo.modulo,
+        "version": version,
+        "modelo_atualizado_em": iso(modelo.atualizado_em),
+        "secoes_total": len(secoes),
+        "campos_total": len(campos),
+        "usar_como_ficha_principal": bool(getattr(modelo, "usar_como_ficha_principal", False)),
+        "padrao": bool(modelo.padrao),
+        "empty": False,
+    }
+
+
 # =========================================================
 # SCHEMAS
 # =========================================================
@@ -450,6 +584,7 @@ class FormularioModeloCreate(BaseModel):
     descricao: Optional[str] = None
     ativo: bool = True
     padrao: bool = False
+    usar_como_ficha_principal: bool = False
 
 
 class FormularioModeloUpdate(BaseModel):
@@ -458,6 +593,7 @@ class FormularioModeloUpdate(BaseModel):
     descricao: Optional[str] = None
     ativo: Optional[bool] = None
     padrao: Optional[bool] = None
+    usar_como_ficha_principal: Optional[bool] = None
 
 
 class FormularioSecaoCreate(BaseModel):
@@ -704,6 +840,9 @@ def criar_modelo(
     if payload.padrao:
         limpar_padrao_anterior(db, empresa_id, modulo)
 
+    if payload.usar_como_ficha_principal:
+        limpar_ficha_principal_anterior(db, empresa_id, modulo)
+
     row = models.FormularioModelo(
         empresa_id=empresa_id,
         modulo=modulo,
@@ -711,6 +850,7 @@ def criar_modelo(
         descricao=norm_str(payload.descricao),
         ativo=bool(payload.ativo),
         padrao=bool(payload.padrao),
+        usar_como_ficha_principal=bool(payload.usar_como_ficha_principal),
     )
 
     try:
@@ -722,6 +862,52 @@ def criar_modelo(
         raise HTTPException(status_code=409, detail="Já existe formulário com esse nome neste módulo.")
 
     return modelo_dict(row)
+
+
+@router.get("/modelos/principal/{modulo}/versao")
+def obter_versao_formulario_principal(
+    modulo: str,
+    request: Request,
+    ativo: bool = Query(default=True),
+    db: Session = Depends(get_db),
+):
+    empresa_id = validar_usuario_empresa(request, db)
+    modulo = validar_modulo(modulo)
+    modelo = formulario_principal_ou_padrao(db, empresa_id, modulo, ativo=ativo)
+
+    if not modelo:
+        return {
+            "modelo_id": None,
+            "modulo": modulo,
+            "version": "empty",
+            "modelo_atualizado_em": None,
+            "secoes_total": 0,
+            "campos_total": 0,
+            "usar_como_ficha_principal": False,
+            "padrao": False,
+            "empty": True,
+        }
+
+    return formulario_cache_version(db, modelo)
+
+
+@router.get("/modelos/principal/{modulo}")
+def obter_formulario_principal(
+    modulo: str,
+    request: Request,
+    ativo: bool = Query(default=True),
+    db: Session = Depends(get_db),
+):
+    empresa_id = validar_usuario_empresa(request, db)
+    modulo = validar_modulo(modulo)
+    modelo = formulario_principal_ou_padrao(db, empresa_id, modulo, ativo=ativo)
+
+    if not modelo:
+        raise HTTPException(status_code=404, detail="Nenhum formulário encontrado para este módulo.")
+
+    out = formulario_completo(db, modelo)
+    out["cache_version"] = formulario_cache_version(db, modelo)
+    return out
 
 
 @router.get("/modelos/{modelo_id}")
@@ -768,6 +954,12 @@ def atualizar_modelo(
 
         if modelo.padrao:
             limpar_padrao_anterior(db, empresa_id, modelo.modulo, exceto_id=modelo.id)
+
+    if "usar_como_ficha_principal" in dados and dados["usar_como_ficha_principal"] is not None:
+        modelo.usar_como_ficha_principal = bool(dados["usar_como_ficha_principal"])
+
+        if modelo.usar_como_ficha_principal:
+            limpar_ficha_principal_anterior(db, empresa_id, modelo.modulo, exceto_id=modelo.id)
 
     try:
         db.commit()
@@ -979,6 +1171,7 @@ def criar_modelo_padrao(
         descricao="Modelo padrão gerado automaticamente pelo ValoraCRM.",
         ativo=True,
         padrao=True,
+        usar_como_ficha_principal=False,
     )
 
     db.add(modelo)

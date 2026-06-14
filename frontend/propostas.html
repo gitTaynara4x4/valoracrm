@@ -11,9 +11,14 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <link rel="stylesheet" href="/frontend/css/app.css" />
+  <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/propostas.css" />
+  <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <script src="/frontend/js/pages/app.js" defer></script>
+  <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
   <script src="/frontend/js/pages/propostas.js?v=20260525-propostas-modal-tabs" defer></script>
+  <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
+  <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
 </head>
 <body>
   <div class="layout">
@@ -126,7 +131,7 @@
                   <div class="form-row">
                     <div class="form-group">
                       <label for="proposta-codigo">Código</label>
-                      <input id="proposta-codigo" type="text" placeholder="PROP-0001" disabled />
+                      <input id="proposta-codigo" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="Gerado ao salvar" readonly />
                     </div>
                     <div class="form-group">
                       <label for="proposta-titulo">Título *</label>

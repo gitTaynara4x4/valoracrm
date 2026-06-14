@@ -1,3 +1,4 @@
+import { state } from './state.js';
 import { escapeHtml, formatTipoCampo } from './utils.js';
 
 function badgeSituacao(situacao) {
@@ -30,6 +31,7 @@ export function renderTabelaFornecedores(fornecedores) {
   if (!fornecedores.length) {
     tbody.innerHTML = `<tr><td colspan="8" class="empty-state" style="border:none; text-align:center;">Nenhum fornecedor encontrado.</td></tr>`;
     if (spanCount) spanCount.textContent = '0 fornecedores';
+    renderPaginacaoFornecedores();
     return;
   }
 
@@ -52,8 +54,34 @@ export function renderTabelaFornecedores(fornecedores) {
   `).join('');
 
   if (spanCount) {
-    spanCount.textContent = fornecedores.length === 1 ? '1 fornecedor' : `${fornecedores.length} fornecedores`;
+    const page = state.fornecedoresPage || {};
+    const total = Number(page.total || fornecedores.length || 0);
+    const ini = total ? Number(page.offset || 0) + 1 : 0;
+    const fim = Math.min(Number(page.offset || 0) + fornecedores.length, total);
+    spanCount.textContent = total === fornecedores.length
+      ? (fornecedores.length === 1 ? '1 fornecedor' : `${fornecedores.length} fornecedores`)
+      : `${ini}-${fim} de ${total} fornecedores`;
   }
+
+  renderPaginacaoFornecedores();
+}
+
+export function renderPaginacaoFornecedores() {
+  const wrap = document.getElementById('paginacao-fornecedores');
+  if (!wrap) return;
+
+  const page = state.fornecedoresPage || {};
+  const offset = Number(page.offset || 0);
+  const limit = Number(page.limit || 50);
+  const total = Number(page.total || 0);
+  const atual = total ? Math.floor(offset / limit) + 1 : 1;
+  const paginas = Math.max(1, Math.ceil(total / limit));
+
+  wrap.innerHTML = `
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="prev" ${offset <= 0 ? 'disabled' : ''}>Anterior</button>
+    <span class="pagination-info">Página ${atual} de ${paginas}</span>
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="next" ${!page.hasMore ? 'disabled' : ''}>Próxima</button>
+  `;
 }
 
 export function renderListaCamposFornecedores(camposFornecedores) {

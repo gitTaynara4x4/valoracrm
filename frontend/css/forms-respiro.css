@@ -1,0 +1,199 @@
+/* =========================================
+   FORMULÁRIOS COM MAIS RESPIRO
+   Aplicado nos modais de Clientes, Fornecedores, Produtos e Propostas.
+   Mantém o layout profissional, mas reduz a sensação de campos grudados.
+   ========================================= */
+
+:root {
+  --form-card-padding: 24px;
+  --form-row-gap-x: 18px;
+  --form-row-gap-y: 18px;
+  --form-section-gap: 20px;
+  --form-control-height: 44px;
+}
+
+/* Área interna do modal */
+.modal-body .valora-form {
+  gap: 20px;
+}
+
+/* Cards padrão: identificação, contato, endereço, comercial etc. */
+.modal-body .valora-form .section-card,
+.modal-body .valora-form .proposal-card,
+.modal-body .valora-form .custom-fields-card,
+.modal-body .valora-form .produto-ficha-code-card {
+  border-radius: 14px;
+  padding: var(--form-card-padding);
+  margin-bottom: 20px;
+}
+
+/* Card de produto já tem header interno; não precisa de padding dobrado */
+.modal-body .valora-form .custom-fields-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Título da seção com mais hierarquia */
+.modal-body .valora-form .section-card > h4,
+.modal-body .valora-form .proposal-card .proposal-section-head,
+.modal-body .valora-form .custom-section-head {
+  margin-bottom: var(--form-section-gap);
+}
+
+.modal-body .valora-form .section-card > h4 {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+/* Linhas do formulário com espaço real entre uma e outra */
+.modal-body .valora-form .form-row {
+  column-gap: var(--form-row-gap-x);
+  row-gap: var(--form-row-gap-y);
+}
+
+.modal-body .valora-form .form-row + .form-row {
+  margin-top: 18px;
+}
+
+/* Campos com mais distância entre label e input */
+.modal-body .valora-form .form-group {
+  min-width: 0;
+}
+
+.modal-body .valora-form .form-group label {
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+
+.modal-body .valora-form .form-group input,
+.modal-body .valora-form .form-group select,
+.modal-body .valora-form .form-group textarea {
+  min-height: var(--form-control-height);
+  border-radius: 10px;
+}
+
+.modal-body .valora-form .form-group textarea {
+  min-height: 112px;
+  line-height: 1.55;
+  padding-top: 13px;
+  padding-bottom: 13px;
+}
+
+/* Observações e campos grandes respiram mais */
+.modal-body .valora-form .form-group.span-all,
+.modal-body .valora-form .form-group:has(textarea) {
+  margin-top: 2px;
+}
+
+/* Campos personalizados / ficha principal */
+.modal-body .valora-form .custom-fields-container {
+  padding: 22px;
+}
+
+.modal-body .valora-form .custom-section-card {
+  border-radius: 14px;
+  margin-bottom: 22px;
+}
+
+.modal-body .valora-form .custom-section-card .custom-fields-grid {
+  gap: 20px 18px;
+  padding: 22px;
+}
+
+.modal-body .valora-form .custom-section-head {
+  padding: 20px 22px;
+}
+
+/* Mini cards/listas dentro dos modais */
+.modal-body .valora-form .mini-list,
+.modal-body .valora-form .stack {
+  gap: 14px;
+}
+
+.modal-body .valora-form .mini-item {
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.modal-body .valora-form .mini-item-grid {
+  gap: 16px;
+}
+
+/* Toggle da ficha principal com um pouco mais de respiro */
+.modal-body .valora-form .ficha-principal-toggle-bar,
+.modal-body .valora-form .cliente-ficha-toggle-bar,
+.modal-body .valora-form .produto-ficha-toggle-bar {
+  margin-bottom: 4px;
+}
+
+/* Responsivo */
+@media (max-width: 1180px) {
+  .modal-body .valora-form .form-row,
+  .modal-body .valora-form .custom-section-card .custom-fields-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --form-card-padding: 18px;
+    --form-row-gap-x: 14px;
+    --form-row-gap-y: 16px;
+  }
+
+  .modal-body .valora-form .form-row,
+  .modal-body .valora-form .custom-section-card .custom-fields-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-body .valora-form .span-2,
+  .modal-body .valora-form .span-all,
+  .modal-body .valora-form .custom-field-item.span-2,
+  .modal-body .valora-form .custom-field-item.span-all {
+    grid-column: 1 / -1;
+  }
+}
+
+
+/* Campos personalizados no mesmo padrão dos campos normais (estilo Bitrix) */
+.modal-body .valora-form .custom-section-card-bitrix .custom-fields-grid {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
+}
+
+.modal-body .valora-form .custom-section-card-bitrix .custom-field-item.bitrix-field-normal {
+  grid-column: auto !important;
+}
+
+.modal-body .valora-form .custom-section-card-bitrix .custom-field-item.bitrix-field-half {
+  grid-column: span 2;
+}
+
+.modal-body .valora-form .custom-section-card-bitrix .custom-field-item.bitrix-field-full {
+  grid-column: 1 / -1 !important;
+}
+
+.modal-body .valora-form .custom-section-card-bitrix .custom-section-head {
+  padding: 18px 22px 14px;
+}
+
+.modal-body .valora-form .custom-section-card-bitrix .custom-section-head h4 {
+  margin-bottom: 0;
+}
+
+.modal-body .valora-form .custom-section-card-bitrix .custom-section-head p {
+  margin-top: 5px;
+}
+
+@media (max-width: 720px) {
+  .modal-body .valora-form .custom-section-card-bitrix .custom-fields-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-body .valora-form .custom-section-card-bitrix .custom-field-item.bitrix-field-half,
+  .modal-body .valora-form .custom-section-card-bitrix .custom-field-item.bitrix-field-full {
+    grid-column: 1 / -1 !important;
+  }
+}

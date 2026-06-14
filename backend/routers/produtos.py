@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from typing import Dict, List, Optional
+import re
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -35,6 +36,14 @@ except Exception:
 def norm_str(s: Optional[str]) -> Optional[str]:
     v = (s or "").strip()
     return v or None
+
+
+def normalizar_codigo_sistema(codigo: Optional[str]) -> str:
+    """Mantém códigos internos do sistema apenas numéricos.
+
+    Ex.: "PRO-0007" vira "0007".
+    """
+    return re.sub(r"\D+", "", str(codigo or "")).strip()
 
 
 def get_empresa_id_from_cookie(request: Request) -> int:
@@ -85,7 +94,7 @@ def gerar_codigo_produto(db: Session, empresa_id: int) -> str:
         .first()
     )
     proximo = (int(ultimo.id) if ultimo else 0) + 1
-    return f"PRO-{proximo:04d}"
+    return f"{proximo:04d}"
 
 
 class ProdutoBase(BaseModel):
@@ -258,7 +267,7 @@ def salvar_custom_fields_produto(
             db.add(novo)
 
 
-def produto_to_out(db: Session, p: models.Produto) -> ProdutoOut:
+def produto_to_out(db: Session, p: models.Produto, *, include_custom_fields: bool = True) -> ProdutoOut:
     empresa_id = int(p.empresa_id)
     return ProdutoOut(
         id=int(p.id),
@@ -272,26 +281,93 @@ def produto_to_out(db: Session, p: models.Produto) -> ProdutoOut:
         custo=p.custo,
         estoque_atual=p.estoque_atual,
         ativo=bool(p.ativo),
-        custom_fields=buscar_custom_fields_produto(db, empresa_id, int(p.id)),
+        custom_fields=(buscar_custom_fields_produto(db, empresa_id, int(p.id)) if include_custom_fields else {}),
     )
 
-@router.get("", response_model=List[ProdutoOut])
-def listar_produtos(request: Request, db: Session = Depends(get_db)):
+
+def produto_to_list_out(p: models.Produto) -> Dict[str, object]:
+    return {
+        "id": int(p.id),
+        "empresa_id": int(p.empresa_id),
+        "codigo": getattr(p, "codigo", None) or "",
+        "cod_ref_id": getattr(p, "codigo", None) or "",
+        "codigo_barras": getattr(p, "codigo_barras", None),
+        "nome": getattr(p, "nome", None) or "",
+        "nome_produto": getattr(p, "nome", None) or "",
+        "nome_generico": getattr(p, "nome_generico", None),
+        "descricao": getattr(p, "descricao", None),
+        "categoria": getattr(p, "categoria", None),
+        "categorias": getattr(p, "categoria", None),
+        "unidade": getattr(p, "unidade", None),
+        "preco_venda": getattr(p, "preco_venda", None),
+        "custo": getattr(p, "custo", None),
+        "estoque_atual": getattr(p, "estoque_atual", None),
+        "ativo": bool(getattr(p, "ativo", True)),
+        "custom_fields": {},
+    }
+
+@router.get("")
+def listar_produtos(
+    request: Request,
+    busca: Optional[str] = Query(default=None),
+    ativo: Optional[bool] = Query(default=None),
+    categoria: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    paginated: bool = Query(default=False),
+    db: Session = Depends(get_db),
+):
+    """
+    Lista leve e paginada para Produtos.
+
+    A tabela não precisa trazer valores de campos personalizados de todos os
+    produtos. O produto completo continua vindo em /api/produtos/{id}.
+    """
     empresa_id = validar_usuario_empresa(request, db)
 
-    rows = (
-        db.query(models.Produto)
-        .filter(models.Produto.empresa_id == empresa_id)
-        .order_by(models.Produto.nome.asc())
-        .all()
-    )
-    return [produto_to_out(db, p) for p in rows]
+    query = db.query(models.Produto).filter(models.Produto.empresa_id == empresa_id)
+
+    if ativo is not None:
+        query = query.filter(models.Produto.ativo == ativo)
+
+    if norm_str(categoria):
+        query = query.filter(models.Produto.categoria.ilike(f"%{str(categoria).strip()}%"))
+
+    texto = norm_str(busca)
+    if texto:
+        q = f"%{texto}%"
+        filtros = [models.Produto.codigo.ilike(q), models.Produto.nome.ilike(q)]
+        if hasattr(models.Produto, "descricao"):
+            filtros.append(models.Produto.descricao.ilike(q))
+        if hasattr(models.Produto, "categoria"):
+            filtros.append(models.Produto.categoria.ilike(q))
+        cond = filtros[0]
+        for item in filtros[1:]:
+            cond = cond | item
+        query = query.filter(cond)
+
+    query = query.order_by(models.Produto.nome.asc(), models.Produto.id.asc())
+
+    if paginated:
+        total = query.count()
+        rows = query.offset(offset).limit(limit).all()
+        items = [produto_to_list_out(p) for p in rows]
+        return {
+            "items": items,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": (offset + len(items)) < total,
+        }
+
+    rows = query.all()
+    return [produto_to_list_out(p) for p in rows]
 
 
 @router.post("", response_model=ProdutoOut, status_code=status.HTTP_201_CREATED)
 def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
-    codigo = (payload.codigo or "").strip() or gerar_codigo_produto(db, empresa_id)
+    codigo = normalizar_codigo_sistema(payload.codigo) or gerar_codigo_produto(db, empresa_id)
 
     p = models.Produto(
         empresa_id=empresa_id,
@@ -468,8 +544,9 @@ def atualizar_produto(
     if not p:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-    if payload.codigo is not None and payload.codigo.strip():
-        p.codigo = payload.codigo.strip()
+    codigo_normalizado = normalizar_codigo_sistema(payload.codigo)
+    if codigo_normalizado:
+        p.codigo = codigo_normalizado
 
     if payload.nome is not None and payload.nome.strip():
         p.nome = payload.nome.strip()

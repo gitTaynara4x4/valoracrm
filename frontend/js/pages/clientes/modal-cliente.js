@@ -10,6 +10,8 @@ import {
 let _afterSave = async () => {};
 let _bound = false;
 let currentDetail = null;
+let originalClienteTabsHtml = '';
+let fichaClienteController = null;
 
 function defaultCliente() {
   return {
@@ -63,13 +65,17 @@ function defaultCliente() {
   };
 }
 
+function onlyDigits(value) {
+  return String(value || '').replace(/\D+/g, '');
+}
+
 function generateNextClientCode() {
   const proximoId =
     state.clientes.length > 0
       ? Math.max(...state.clientes.map((c) => Number(c.id) || 0)) + 1
       : 1;
 
-  return `CLI-${String(proximoId).padStart(4, '0')}`;
+  return String(proximoId).padStart(4, '0');
 }
 
 function setValue(id, value) {
@@ -83,6 +89,10 @@ function getValue(id) {
 }
 
 function switchTab(targetId) {
+  if (state.usarFichaPrincipalClientes) {
+    targetId = 'tab-campos-personalizados';
+  }
+
   $$('.cliente-tab-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.tab === targetId);
   });
@@ -92,11 +102,276 @@ function switchTab(targetId) {
   });
 }
 
-function fillClientForm(cliente = {}) {
+function syncFichaPrincipalCode(codigo) {
+  const value = onlyDigits(codigo) || generateNextClientCode();
+
+  setValue('campo-codigo', value);
+  setValue('campo-codigo-ficha-principal', value);
+}
+
+function getSectionTitleFromCard(card, index) {
+  const raw =
+    card.querySelector('.custom-section-head h4')?.textContent ||
+    card.querySelector('h4')?.textContent ||
+    `Seção ${index + 1}`;
+
+  return String(raw)
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function mostrarSomenteAbaCamposPersonalizados() {
+  $$('.cliente-tab').forEach((tab) => {
+    const isCustomTab = tab.id === 'tab-campos-personalizados';
+    tab.classList.toggle('active', isCustomTab);
+    tab.style.display = isCustomTab ? 'block' : 'none';
+  });
+}
+
+function mostrarTodasSecoesFormulario() {
+  document
+    .querySelectorAll('#custom-fields-container .custom-section-card')
+    .forEach((card) => {
+      card.style.display = '';
+    });
+}
+
+function ativarSecaoFormulario(index = 0) {
+  const cards = Array.from(document.querySelectorAll('#custom-fields-container .custom-section-card'));
+  const buttons = Array.from(document.querySelectorAll('.cliente-tab-btn[data-ficha-section]'));
+
+  if (!cards.length) return;
+
+  cards.forEach((card, cardIndex) => {
+    card.style.display = cardIndex === Number(index) ? 'block' : 'none';
+  });
+
+  buttons.forEach((btn) => {
+    btn.classList.toggle('active', Number(btn.dataset.fichaSection) === Number(index));
+  });
+}
+
+function montarTabsDasSecoesDoFormulario() {
+  const tabs = document.querySelector('.cliente-tabs');
+  const cards = Array.from(document.querySelectorAll('#custom-fields-container .custom-section-card'));
+
+  if (!tabs) return;
+
+  tabs.style.display = '';
+
+  if (!cards.length) {
+    tabs.innerHTML = `
+      <button type="button" class="cliente-tab-btn active" data-ficha-section="0">
+        Campos do formulário
+      </button>
+    `;
+    return;
+  }
+
+  tabs.innerHTML = cards
+    .map((card, index) => {
+      const title = getSectionTitleFromCard(card, index);
+
+      return `
+        <button
+          type="button"
+          class="cliente-tab-btn ${index === 0 ? 'active' : ''}"
+          data-ficha-section="${index}"
+        >
+          ${escapeHtml(title)}
+        </button>
+      `;
+    })
+    .join('');
+}
+
+function ensureFichaClienteController() {
+  if (fichaClienteController || !window.ValoraFichaPrincipal?.createTabFichaController) {
+    return fichaClienteController;
+  }
+
+  fichaClienteController = window.ValoraFichaPrincipal.createTabFichaController({
+    formSelector: '#formCliente',
+    tabsSelector: '.cliente-tabs',
+    tabButtonSelector: '.cliente-tab-btn',
+    tabPanelSelector: '.cliente-tab',
+    customTabId: 'tab-campos-personalizados',
+    customContainerSelector: '#custom-fields-container',
+    codeCardSelector: '#cliente-ficha-principal-code',
+    toggleSelector: '#toggle-ficha-principal-cliente',
+    normalTabId: 'tab-cadastro',
+    buttonClass: 'cliente-tab-btn',
+  });
+
+  return fichaClienteController;
+}
+
+function setFichaPrincipalMode(enabled) {
+  const controller = ensureFichaClienteController();
+
+  if (controller) {
+    controller.setMode(enabled);
+    return;
+  }
+
+  // Fallback antigo caso o arquivo compartilhado não tenha carregado.
+  const form = $('formCliente');
+  const codeCard = $('cliente-ficha-principal-code');
+  const toggle = $('toggle-ficha-principal-cliente');
+  const tabs = document.querySelector('.cliente-tabs');
+
+  if (form) {
+    form.classList.toggle('is-ficha-principal', !!enabled);
+  }
+
+  if (codeCard) {
+    codeCard.hidden = !enabled;
+  }
+
+  if (toggle) {
+    toggle.checked = !!enabled;
+  }
+
+  if (!tabs) return;
+
+  if (!originalClienteTabsHtml) {
+    originalClienteTabsHtml = tabs.innerHTML;
+  }
+
+  if (enabled) {
+    mostrarSomenteAbaCamposPersonalizados();
+    montarTabsDasSecoesDoFormulario();
+    ativarSecaoFormulario(0);
+    return;
+  }
+
+  tabs.innerHTML = originalClienteTabsHtml;
+  tabs.style.display = '';
+
+  $$('.cliente-tab').forEach((tab) => {
+    tab.style.display = '';
+  });
+
+  mostrarTodasSecoesFormulario();
+  switchTab('tab-cadastro');
+}
+
+function getCustomValue(custom, keys, fallback = '') {
+  for (const key of keys) {
+    const value = custom?.[key];
+
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return String(value).trim();
+    }
+  }
+
+  return fallback;
+}
+
+function buildBaseFromFichaPrincipal(customFields, fallback = {}) {
+  const custom = customFields || {};
+
+  const tipoCliente = getCustomValue(custom, ['tipo_cliente'], fallback.tipo_pessoa || 'PF');
+
+  const tipoPessoa =
+    String(tipoCliente).toLowerCase().includes('jur') ||
+    String(tipoCliente).toLowerCase() === 'pj'
+      ? 'PJ'
+      : 'PF';
+
+  const nome = getCustomValue(
+    custom,
+    [
+      'cliente',
+      'nome',
+      'nome_razao_social',
+      'razao_social',
+      'nome_completo',
+      'nome_fantasia',
+    ],
+    fallback.nome || ''
+  );
+
+  const telefoneContato = getCustomValue(
+    custom,
+    [
+      'telefone_contato_whatsapp',
+      'telefone_contato',
+      'telefone_principal',
+      'telefone_celular',
+      'telefone',
+      'whatsapp',
+    ],
+    fallback.telefone || ''
+  );
+
+  const email = getCustomValue(
+    custom,
+    [
+      'e_mail',
+      'email',
+      'email_principal',
+      'e_mail_principal',
+    ],
+    fallback.email || ''
+  );
+
+  return {
+    codigo:
+      onlyDigits(fallback.codigo) ||
+      onlyDigits(getValue('campo-codigo')) ||
+      onlyDigits(getValue('campo-codigo-ficha-principal')) ||
+      generateNextClientCode(),
+
+    tipo_pessoa: tipoPessoa,
+    situacao: fallback.situacao || 'ativo',
+
+    nome,
+    nome_fantasia: getCustomValue(custom, ['nome_fantasia'], fallback.nome_fantasia || ''),
+    cpf_cnpj: getCustomValue(custom, ['cpf_cnpj', 'cnpj', 'cpf'], fallback.cpf_cnpj || ''),
+    rg_ie: getCustomValue(custom, ['rg', 'inscricao_estadual'], fallback.rg_ie || ''),
+    inscricao_municipal: getCustomValue(custom, ['inscricao_municipal'], fallback.inscricao_municipal || ''),
+    suframa: getCustomValue(custom, ['suframa'], fallback.suframa || ''),
+
+    telefone: telefoneContato,
+    whatsapp: getCustomValue(
+      custom,
+      ['whatsapp', 'telefone_contato_whatsapp', 'telefone_celular'],
+      fallback.whatsapp || telefoneContato
+    ),
+
+    fax: getCustomValue(custom, ['fax'], fallback.fax || ''),
+    contato: getCustomValue(custom, ['contato', 'responsavel', 'nome_completo_responsavel'], fallback.contato || ''),
+    email,
+    email_nfe: getCustomValue(custom, ['email_nfe', 'e_mail_nfe'], fallback.email_nfe || ''),
+    email_cobranca: getCustomValue(custom, ['email_cobranca', 'e_mail_cobranca'], fallback.email_cobranca || ''),
+    email_fiscal: getCustomValue(custom, ['email_fiscal', 'e_mail_fiscal'], fallback.email_fiscal || ''),
+
+    site: getCustomValue(custom, ['home_page', 'site'], fallback.site || ''),
+
+    cep: getCustomValue(custom, ['cep'], fallback.cep || ''),
+    endereco: getCustomValue(custom, ['endereco', 'logradouro'], fallback.endereco || ''),
+    numero: getCustomValue(custom, ['numero'], fallback.numero || ''),
+    complemento: getCustomValue(custom, ['complemento'], fallback.complemento || ''),
+    bairro: getCustomValue(custom, ['bairro'], fallback.bairro || ''),
+    cidade: getCustomValue(custom, ['cidade'], fallback.cidade || ''),
+    estado: getCustomValue(custom, ['uf', 'estado'], fallback.estado || ''),
+    pais: getCustomValue(custom, ['pais'], fallback.pais || 'Brasil'),
+
+    regiao: getCustomValue(custom, ['regiao'], fallback.regiao || ''),
+    segmento: getCustomValue(custom, ['tipo_de_imovel', 'tipo_imovel', 'segmento'], fallback.segmento || ''),
+    classificacao: getCustomValue(custom, ['classificacao', 'tipo_cliente'], fallback.classificacao || ''),
+
+    observacoes: getCustomValue(custom, ['observacoes', 'observacao'], fallback.observacoes || ''),
+  };
+}
+
+async function fillClientForm(cliente = {}) {
   const data = { ...defaultCliente(), ...(cliente || {}) };
   currentDetail = data;
 
-  setValue('campo-codigo', data.codigo || generateNextClientCode());
+  syncFichaPrincipalCode(data.codigo || generateNextClientCode());
+
   setValue('campo-tipo-pessoa', data.tipo_pessoa);
   setValue('campo-situacao', data.situacao);
   setValue('campo-nome', data.nome);
@@ -136,7 +411,11 @@ function fillClientForm(cliente = {}) {
   setValue('campo-codigo-ibge-uf', data.codigo_ibge_uf);
   setValue('campo-observacoes', data.observacoes);
 
-  renderCustomFieldsInputs(state.camposClientes, data.custom_fields || {});
+  await renderCustomFieldsInputs(state.camposClientes, data.custom_fields || {});
+
+  syncFichaPrincipalCode(data.codigo || getValue('campo-codigo') || generateNextClientCode());
+  setFichaPrincipalMode(state.usarFichaPrincipalClientes);
+
   renderEnderecos(data.enderecos || []);
   renderRefsComerciais(data.referencias_comerciais || []);
   renderRefsBancarias(data.referencias_bancarias || []);
@@ -145,7 +424,7 @@ function fillClientForm(cliente = {}) {
   renderAnexos(data.anexos || []);
   renderHistorico(data.historico || {});
 
-  switchTab('tab-cadastro');
+  switchTab(state.usarFichaPrincipalClientes ? 'tab-campos-personalizados' : 'tab-cadastro');
 }
 
 function getRowsData(containerId) {
@@ -154,16 +433,20 @@ function getRowsData(containerId) {
 
   return $$('.mini-item', wrap).map((item) => {
     const data = {};
+
     $$('[data-key]', item).forEach((input) => {
       data[input.dataset.key] = input.value;
     });
+
     return data;
   });
 }
 
 function buildPayload() {
-  return {
-    codigo: String(getValue('campo-codigo') || '').trim(),
+  const customFields = normalizeCustomFieldsPayload();
+
+  const payload = {
+    codigo: onlyDigits(getValue('campo-codigo') || getValue('campo-codigo-ficha-principal')),
     tipo_pessoa: String(getValue('campo-tipo-pessoa') || 'PF').trim(),
     situacao: String(getValue('campo-situacao') || 'ativo').trim(),
     nome: String(getValue('campo-nome') || '').trim(),
@@ -207,8 +490,19 @@ function buildPayload() {
     referencias_bancarias: getRowsData('lista-refs-bancarias'),
     socios: getRowsData('lista-socios'),
     ocorrencias: getRowsData('lista-ocorrencias'),
-    custom_fields: normalizeCustomFieldsPayload(),
+    custom_fields: customFields,
   };
+
+  if (state.usarFichaPrincipalClientes) {
+    Object.assign(payload, buildBaseFromFichaPrincipal(customFields, payload));
+  }
+
+  if (!payload.codigo) {
+    payload.codigo = generateNextClientCode();
+  }
+  payload.codigo = onlyDigits(payload.codigo);
+
+  return payload;
 }
 
 function enderecoVazio() {
@@ -268,6 +562,7 @@ function socioVazio() {
 
 function ocorrenciaVazia() {
   const dt = new Date().toISOString().slice(0, 16);
+
   return {
     data_movimento: dt,
     tipo: 'Interna',
@@ -299,49 +594,62 @@ function renderEnderecos(items = []) {
                 <option value="outro" ${item.tipo_endereco === 'outro' ? 'selected' : ''}>Outro</option>
               </select>
             </div>
+
             <div class="form-group">
               <label>Descrição</label>
               <input type="text" data-key="descricao" value="${escapeHtml(item.descricao || '')}" />
             </div>
+
             <div class="form-group">
               <label>CEP</label>
               <input type="text" data-key="cep" value="${escapeHtml(item.cep || '')}" />
             </div>
+
             <div class="form-group">
               <label>E-mail destino</label>
               <input type="text" data-key="email_destino" value="${escapeHtml(item.email_destino || '')}" />
             </div>
+
             <div class="form-group" style="grid-column: span 2;">
               <label>Logradouro</label>
               <input type="text" data-key="logradouro" value="${escapeHtml(item.logradouro || '')}" />
             </div>
+
             <div class="form-group">
               <label>Número</label>
               <input type="text" data-key="numero" value="${escapeHtml(item.numero || '')}" />
             </div>
+
             <div class="form-group">
               <label>Complemento</label>
               <input type="text" data-key="complemento" value="${escapeHtml(item.complemento || '')}" />
             </div>
+
             <div class="form-group">
               <label>Bairro</label>
               <input type="text" data-key="bairro" value="${escapeHtml(item.bairro || '')}" />
             </div>
+
             <div class="form-group">
               <label>Cidade</label>
               <input type="text" data-key="cidade" value="${escapeHtml(item.cidade || '')}" />
             </div>
+
             <div class="form-group">
               <label>UF</label>
               <input type="text" data-key="estado" value="${escapeHtml(item.estado || '')}" />
             </div>
+
             <div class="form-group">
               <label>País</label>
               <input type="text" data-key="pais" value="${escapeHtml(item.pais || 'Brasil')}" />
             </div>
           </div>
+
           <div class="mini-item-actions">
-            <button type="button" class="btn btn-secondary btn-sm" data-remove="endereco" data-index="${idx}">Remover</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-remove="endereco" data-index="${idx}">
+              Remover
+            </button>
           </div>
         </div>
       `
@@ -363,16 +671,46 @@ function renderRefsComerciais(items = []) {
       (item, idx) => `
         <div class="mini-item" data-index="${idx}">
           <div class="mini-item-grid">
-            <div class="form-group"><label>Empresa</label><input type="text" data-key="empresa_nome" value="${escapeHtml(item.empresa_nome || '')}" /></div>
-            <div class="form-group"><label>Telefone</label><input type="text" data-key="telefone" value="${escapeHtml(item.telefone || '')}" /></div>
-            <div class="form-group"><label>Data última compra</label><input type="date" data-key="data_ultima_compra" value="${escapeHtml(item.data_ultima_compra || '')}" /></div>
-            <div class="form-group"><label>Valor última compra</label><input type="text" data-key="valor_ultima_compra" value="${escapeHtml(item.valor_ultima_compra || '')}" /></div>
-            <div class="form-group"><label>Valor prestação</label><input type="text" data-key="valor_prestacao" value="${escapeHtml(item.valor_prestacao || '')}" /></div>
-            <div class="form-group"><label>Venc. última parcela</label><input type="date" data-key="vencimento_ultima_parcela" value="${escapeHtml(item.vencimento_ultima_parcela || '')}" /></div>
-            <div class="form-group" style="grid-column: span 2;"><label>Observações</label><input type="text" data-key="observacoes" value="${escapeHtml(item.observacoes || '')}" /></div>
+            <div class="form-group">
+              <label>Empresa</label>
+              <input type="text" data-key="empresa_nome" value="${escapeHtml(item.empresa_nome || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Telefone</label>
+              <input type="text" data-key="telefone" value="${escapeHtml(item.telefone || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Data última compra</label>
+              <input type="date" data-key="data_ultima_compra" value="${escapeHtml(item.data_ultima_compra || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Valor última compra</label>
+              <input type="text" data-key="valor_ultima_compra" value="${escapeHtml(item.valor_ultima_compra || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Valor prestação</label>
+              <input type="text" data-key="valor_prestacao" value="${escapeHtml(item.valor_prestacao || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Venc. última parcela</label>
+              <input type="date" data-key="vencimento_ultima_parcela" value="${escapeHtml(item.vencimento_ultima_parcela || '')}" />
+            </div>
+
+            <div class="form-group" style="grid-column: span 2;">
+              <label>Observações</label>
+              <input type="text" data-key="observacoes" value="${escapeHtml(item.observacoes || '')}" />
+            </div>
           </div>
+
           <div class="mini-item-actions">
-            <button type="button" class="btn btn-secondary btn-sm" data-remove="refcom" data-index="${idx}">Remover</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-remove="refcom" data-index="${idx}">
+              Remover
+            </button>
           </div>
         </div>
       `
@@ -394,17 +732,51 @@ function renderRefsBancarias(items = []) {
       (item, idx) => `
         <div class="mini-item" data-index="${idx}">
           <div class="mini-item-grid">
-            <div class="form-group"><label>Banco</label><input type="text" data-key="banco" value="${escapeHtml(item.banco || '')}" /></div>
-            <div class="form-group"><label>Agência</label><input type="text" data-key="agencia" value="${escapeHtml(item.agencia || '')}" /></div>
-            <div class="form-group"><label>Conta Corrente</label><input type="text" data-key="conta_corrente" value="${escapeHtml(item.conta_corrente || '')}" /></div>
-            <div class="form-group"><label>Gerente</label><input type="text" data-key="gerente" value="${escapeHtml(item.gerente || '')}" /></div>
-            <div class="form-group"><label>Telefone agência</label><input type="text" data-key="telefone_agencia" value="${escapeHtml(item.telefone_agencia || '')}" /></div>
-            <div class="form-group"><label>Limite</label><input type="text" data-key="limite_credito" value="${escapeHtml(item.limite_credito || '')}" /></div>
-            <div class="form-group"><label>Status</label><input type="text" data-key="status" value="${escapeHtml(item.status || '')}" /></div>
-            <div class="form-group"><label>Observações</label><input type="text" data-key="observacoes" value="${escapeHtml(item.observacoes || '')}" /></div>
+            <div class="form-group">
+              <label>Banco</label>
+              <input type="text" data-key="banco" value="${escapeHtml(item.banco || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Agência</label>
+              <input type="text" data-key="agencia" value="${escapeHtml(item.agencia || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Conta Corrente</label>
+              <input type="text" data-key="conta_corrente" value="${escapeHtml(item.conta_corrente || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Gerente</label>
+              <input type="text" data-key="gerente" value="${escapeHtml(item.gerente || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Telefone agência</label>
+              <input type="text" data-key="telefone_agencia" value="${escapeHtml(item.telefone_agencia || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Limite</label>
+              <input type="text" data-key="limite_credito" value="${escapeHtml(item.limite_credito || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Status</label>
+              <input type="text" data-key="status" value="${escapeHtml(item.status || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Observações</label>
+              <input type="text" data-key="observacoes" value="${escapeHtml(item.observacoes || '')}" />
+            </div>
           </div>
+
           <div class="mini-item-actions">
-            <button type="button" class="btn btn-secondary btn-sm" data-remove="refbanc" data-index="${idx}">Remover</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-remove="refbanc" data-index="${idx}">
+              Remover
+            </button>
           </div>
         </div>
       `
@@ -426,16 +798,46 @@ function renderSocios(items = []) {
       (item, idx) => `
         <div class="mini-item" data-index="${idx}">
           <div class="mini-item-grid">
-            <div class="form-group"><label>Nome</label><input type="text" data-key="nome" value="${escapeHtml(item.nome || '')}" /></div>
-            <div class="form-group"><label>CPF</label><input type="text" data-key="cpf" value="${escapeHtml(item.cpf || '')}" /></div>
-            <div class="form-group"><label>RG</label><input type="text" data-key="rg" value="${escapeHtml(item.rg || '')}" /></div>
-            <div class="form-group"><label>Nascimento</label><input type="date" data-key="data_nascimento" value="${escapeHtml(item.data_nascimento || '')}" /></div>
-            <div class="form-group"><label>Telefone</label><input type="text" data-key="telefone" value="${escapeHtml(item.telefone || '')}" /></div>
-            <div class="form-group"><label>Cargo</label><input type="text" data-key="cargo" value="${escapeHtml(item.cargo || '')}" /></div>
-            <div class="form-group"><label>% Participação</label><input type="text" data-key="participacao_percentual" value="${escapeHtml(item.participacao_percentual || '')}" /></div>
+            <div class="form-group">
+              <label>Nome</label>
+              <input type="text" data-key="nome" value="${escapeHtml(item.nome || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>CPF</label>
+              <input type="text" data-key="cpf" value="${escapeHtml(item.cpf || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>RG</label>
+              <input type="text" data-key="rg" value="${escapeHtml(item.rg || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Nascimento</label>
+              <input type="date" data-key="data_nascimento" value="${escapeHtml(item.data_nascimento || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Telefone</label>
+              <input type="text" data-key="telefone" value="${escapeHtml(item.telefone || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Cargo</label>
+              <input type="text" data-key="cargo" value="${escapeHtml(item.cargo || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>% Participação</label>
+              <input type="text" data-key="participacao_percentual" value="${escapeHtml(item.participacao_percentual || '')}" />
+            </div>
           </div>
+
           <div class="mini-item-actions">
-            <button type="button" class="btn btn-secondary btn-sm" data-remove="socio" data-index="${idx}">Remover</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-remove="socio" data-index="${idx}">
+              Remover
+            </button>
           </div>
         </div>
       `
@@ -457,16 +859,31 @@ function renderOcorrencias(items = []) {
       (item, idx) => `
         <div class="mini-item" data-index="${idx}">
           <div class="mini-item-grid">
-            <div class="form-group"><label>Data</label><input type="datetime-local" data-key="data_movimento" value="${escapeHtml(String(item.data_movimento || '').slice(0, 16))}" /></div>
-            <div class="form-group"><label>Tipo</label><input type="text" data-key="tipo" value="${escapeHtml(item.tipo || '')}" /></div>
-            <div class="form-group"><label>Status</label><input type="text" data-key="status" value="${escapeHtml(item.status || '')}" /></div>
+            <div class="form-group">
+              <label>Data</label>
+              <input type="datetime-local" data-key="data_movimento" value="${escapeHtml(String(item.data_movimento || '').slice(0, 16))}" />
+            </div>
+
+            <div class="form-group">
+              <label>Tipo</label>
+              <input type="text" data-key="tipo" value="${escapeHtml(item.tipo || '')}" />
+            </div>
+
+            <div class="form-group">
+              <label>Status</label>
+              <input type="text" data-key="status" value="${escapeHtml(item.status || '')}" />
+            </div>
+
             <div class="form-group" style="grid-column: span 4;">
               <label>Descrição</label>
               <textarea rows="3" data-key="descricao">${escapeHtml(item.descricao || '')}</textarea>
             </div>
           </div>
+
           <div class="mini-item-actions">
-            <button type="button" class="btn btn-secondary btn-sm" data-remove="ocorrencia" data-index="${idx}">Remover</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-remove="ocorrencia" data-index="${idx}">
+              Remover
+            </button>
           </div>
         </div>
       `
@@ -489,12 +906,20 @@ function renderAnexos(items = []) {
         <div class="anexo-row">
           <div style="display:flex; flex-direction:column; gap:4px;">
             <strong>${escapeHtml(item.arquivo_nome || '')}</strong>
-            <span class="subtle">${escapeHtml(item.tipo_documento || '')}${item.descricao ? ` • ${escapeHtml(item.descricao)}` : ''}</span>
+            <span class="subtle">
+              ${escapeHtml(item.tipo_documento || '')}${item.descricao ? ` • ${escapeHtml(item.descricao)}` : ''}
+            </span>
             <span class="subtle">${escapeHtml(item.usuario_nome || '')}</span>
           </div>
+
           <div style="display:flex; gap:8px;">
-            <a class="btn btn-secondary btn-sm" href="${escapeHtml(item.arquivo_path || '#')}" target="_blank" rel="noopener noreferrer">Abrir</a>
-            <button type="button" class="btn btn-secondary btn-sm" data-remove-anexo="${item.id}">Excluir</button>
+            <a class="btn btn-secondary btn-sm" href="${escapeHtml(item.arquivo_path || '#')}" target="_blank" rel="noopener noreferrer">
+              Abrir
+            </a>
+
+            <button type="button" class="btn btn-secondary btn-sm" data-remove-anexo="${item.id}">
+              Excluir
+            </button>
           </div>
         </div>
       `
@@ -513,8 +938,13 @@ function renderHistorico(data = {}) {
 
   if (resumo) {
     resumo.innerHTML = `
-      <div class="history-item"><strong>Total de propostas:</strong> ${escapeHtml(resumoData.total_propostas ?? 0)}</div>
-      <div class="history-item"><strong>Propostas aprovadas:</strong> ${escapeHtml(resumoData.propostas_aprovadas ?? 0)}</div>
+      <div class="history-item">
+        <strong>Total de propostas:</strong> ${escapeHtml(resumoData.total_propostas ?? 0)}
+      </div>
+
+      <div class="history-item">
+        <strong>Propostas aprovadas:</strong> ${escapeHtml(resumoData.propostas_aprovadas ?? 0)}
+      </div>
     `;
   }
 
@@ -526,7 +956,9 @@ function renderHistorico(data = {}) {
               <div class="history-item">
                 <strong>${escapeHtml(item.codigo || 'Sem código')}</strong>
                 <div class="subtle">${escapeHtml(item.titulo || '')}</div>
-                <div class="subtle">Status: ${escapeHtml(item.status || '-')} • Total: ${escapeHtml(item.total || '-')}</div>
+                <div class="subtle">
+                  Status: ${escapeHtml(item.status || '-')} • Total: ${escapeHtml(item.total || '-')}
+                </div>
               </div>
             `
           )
@@ -559,6 +991,7 @@ async function uploadAnexo() {
 
   const input = $('input-anexo');
   const file = input?.files?.[0];
+
   if (!file) {
     toast('Escolha um arquivo primeiro.', 'error');
     return;
@@ -577,9 +1010,13 @@ async function uploadAnexo() {
     });
 
     const text = await resp.text();
-    if (!resp.ok) throw new Error(text || 'Erro ao enviar anexo.');
+
+    if (!resp.ok) {
+      throw new Error(text || 'Erro ao enviar anexo.');
+    }
 
     toast('Anexo enviado com sucesso.', 'success');
+
     input.value = '';
     setValue('anexo-descricao', '');
     setValue('anexo-tipo', '');
@@ -593,7 +1030,9 @@ async function uploadAnexo() {
 async function excluirAnexo(anexoId) {
   try {
     await apiJsonDelete(`/api/clientes/anexos/${anexoId}`);
+
     toast('Anexo excluído.', 'success');
+
     if (state.clienteEditandoId) {
       await openClientModalEdit(state.clienteEditandoId);
     }
@@ -610,8 +1049,80 @@ async function apiJsonDelete(url) {
   });
 
   const text = await resp.text();
-  if (!resp.ok) throw new Error(text || 'Erro na requisição.');
+
+  if (!resp.ok) {
+    throw new Error(text || 'Erro na requisição.');
+  }
+
   return text ? JSON.parse(text) : null;
+}
+
+async function salvarToggleFichaPrincipalCliente(event) {
+  const checked = !!event.target.checked;
+
+  try {
+    if (!state.formularioClientes?.modelo?.id) {
+      await renderCustomFieldsInputs(state.camposClientes, currentDetail?.custom_fields || {});
+    }
+
+    const modelo = state.formularioClientes?.modelo;
+
+    if (!modelo?.id) {
+      event.target.checked = false;
+      toast('Nenhum formulário de Clientes encontrado para ativar como ficha principal.', 'error');
+      return;
+    }
+
+    event.target.disabled = true;
+    window.ValoraFichaPrincipal?.showLoading?.(
+      '#custom-fields-container',
+      checked ? 'Montando ficha principal...' : 'Voltando para o cadastro padrão...'
+    );
+
+    const atualizado = window.ValoraFichaPrincipal?.atualizarFichaPrincipalModelo
+      ? await window.ValoraFichaPrincipal.atualizarFichaPrincipalModelo(modelo, checked, {
+          apiJsonImpl: apiJson,
+          moduloFallback: 'clientes',
+        })
+      : await apiJson(`/api/formularios/modelos/${modelo.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modulo: modelo.modulo || 'clientes',
+            nome: modelo.nome,
+            descricao: modelo.descricao || null,
+            ativo: modelo.ativo !== false,
+            padrao: !!modelo.padrao,
+            usar_como_ficha_principal: checked,
+          }),
+        });
+
+    state.usarFichaPrincipalClientes = checked;
+
+    state.formularioClientes = {
+      ...state.formularioClientes,
+      modelo: {
+        ...modelo,
+        ...(atualizado || {}),
+        usar_como_ficha_principal: checked,
+      },
+    };
+
+    await renderCustomFieldsInputs(state.camposClientes, currentDetail?.custom_fields || {});
+    setFichaPrincipalMode(checked);
+
+    toast(
+      checked
+        ? 'Ficha principal ativada para Clientes.'
+        : 'Ficha principal desativada para Clientes.',
+      'success'
+    );
+  } catch (err) {
+    event.target.checked = !checked;
+    toast(err.message || 'Erro ao alterar ficha principal.', 'error');
+  } finally {
+    event.target.disabled = false;
+  }
 }
 
 export function bindClientModal({ afterSave } = {}) {
@@ -620,13 +1131,30 @@ export function bindClientModal({ afterSave } = {}) {
   if (_bound) return;
   _bound = true;
 
-  $$('.cliente-tab-btn').forEach((btn) => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  document.addEventListener('click', (e) => {
+    const sectionBtn = e.target.closest('.cliente-tab-btn[data-ficha-section]');
+    if (!sectionBtn) return;
+
+    const controller = ensureFichaClienteController();
+    if (controller) {
+      controller.activateSection(sectionBtn.dataset.fichaSection);
+      return;
+    }
+
+    ativarSecaoFormulario(sectionBtn.dataset.fichaSection);
+  });
+
+  document.addEventListener('click', (e) => {
+    const tabBtn = e.target.closest('.cliente-tab-btn[data-tab]');
+    if (!tabBtn) return;
+
+    switchTab(tabBtn.dataset.tab);
   });
 
   $('btn-fechar-modal-cliente')?.addEventListener('click', closeClientModal);
   $('btn-cancelar-cliente')?.addEventListener('click', closeClientModal);
   $('btn-salvar-cliente')?.addEventListener('click', saveCliente);
+  $('toggle-ficha-principal-cliente')?.addEventListener('change', salvarToggleFichaPrincipalCliente);
 
   $('modal-cliente-backdrop')?.addEventListener('click', (e) => {
     if (e.target === $('modal-cliente-backdrop')) {
@@ -670,16 +1198,20 @@ export function bindClientModal({ afterSave } = {}) {
   $('lista-anexos')?.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-remove-anexo]');
     if (!btn) return;
+
     const id = Number(btn.dataset.removeAnexo);
     if (!id) return;
+
     await excluirAnexo(id);
   });
 
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-remove]');
+
     if (!btn || !currentDetail) return;
 
     const index = Number(btn.dataset.index);
+
     if (Number.isNaN(index)) return;
 
     const map = {
@@ -691,32 +1223,53 @@ export function bindClientModal({ afterSave } = {}) {
     };
 
     const key = map[btn.dataset.remove];
+
     if (!key || !Array.isArray(currentDetail[key])) return;
 
     currentDetail[key].splice(index, 1);
 
-    if (key === 'enderecos') renderEnderecos(currentDetail.enderecos);
-    if (key === 'referencias_comerciais') renderRefsComerciais(currentDetail.referencias_comerciais);
-    if (key === 'referencias_bancarias') renderRefsBancarias(currentDetail.referencias_bancarias);
-    if (key === 'socios') renderSocios(currentDetail.socios);
-    if (key === 'ocorrencias') renderOcorrencias(currentDetail.ocorrencias);
+    if (key === 'enderecos') {
+      renderEnderecos(currentDetail.enderecos);
+    }
+
+    if (key === 'referencias_comerciais') {
+      renderRefsComerciais(currentDetail.referencias_comerciais);
+    }
+
+    if (key === 'referencias_bancarias') {
+      renderRefsBancarias(currentDetail.referencias_bancarias);
+    }
+
+    if (key === 'socios') {
+      renderSocios(currentDetail.socios);
+    }
+
+    if (key === 'ocorrencias') {
+      renderOcorrencias(currentDetail.ocorrencias);
+    }
   });
 }
 
-export function openClientModalNew() {
+export async function openClientModalNew() {
   state.clienteEditandoId = null;
+
   $('modal-cliente-titulo').textContent = 'Novo cliente';
   $('formCliente')?.reset();
-  fillClientForm({ codigo: generateNextClientCode() });
+
+  await fillClientForm({ codigo: generateNextClientCode() });
+
   openModal('modal-cliente-backdrop');
 }
 
 export async function openClientModalEdit(id) {
   try {
     const cliente = await obterClienteNoServidor(id);
+
     state.clienteEditandoId = cliente.id;
     $('modal-cliente-titulo').textContent = 'Editar cliente';
-    fillClientForm(cliente);
+
+    await fillClientForm(cliente);
+
     openModal('modal-cliente-backdrop');
   } catch (err) {
     toast(err.message || 'Erro ao carregar cliente.', 'error');
@@ -728,21 +1281,28 @@ export function closeClientModal() {
 }
 
 export async function saveCliente(e) {
-  if (e?.preventDefault) e.preventDefault();
-
-  const nome = String(getValue('campo-nome') || '').trim();
-  if (!nome) {
-    toast('Preencha o nome do cliente.', 'error');
-    return;
+  if (e?.preventDefault) {
+    e.preventDefault();
   }
 
   const payload = buildPayload();
+
   const requiredCheck = validateRequiredCustomFields(state.camposClientes, payload.custom_fields);
 
   if (!requiredCheck.ok) {
     toast(requiredCheck.message, 'error');
     return;
   }
+
+  if (!payload.nome) {
+    toast('Preencha o nome do cliente.', 'error');
+    return;
+  }
+
+  if (!payload.codigo) {
+    payload.codigo = generateNextClientCode();
+  }
+  payload.codigo = onlyDigits(payload.codigo);
 
   const btn = $('btn-salvar-cliente');
   const original = btn?.innerHTML || 'Salvar cliente';
@@ -755,7 +1315,9 @@ export async function saveCliente(e) {
 
     await salvarClienteNoServidor(payload, state.clienteEditandoId);
     await _afterSave();
+
     closeClientModal();
+
     toast('Cliente salvo com sucesso.', 'success');
   } catch (err) {
     toast(err.message || 'Erro ao salvar cliente.', 'error');

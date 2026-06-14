@@ -1,23 +1,6 @@
+import { state } from './state.js';
+import { carregarFormularioClientes } from './api.js';
 import { escapeHtml, slugify } from './utils.js';
-
-async function apiJson(url, options = {}) {
-  const resp = await fetch(url, {
-    credentials: 'include',
-    ...options,
-    headers: {
-      Accept: 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(text || 'Erro ao carregar dados.');
-  }
-
-  if (resp.status === 204) return null;
-  return resp.json();
-}
 
 function parseCampoOpcoes(campo) {
   if (!campo) return [];
@@ -35,10 +18,12 @@ function parseCampoOpcoes(campo) {
   }
 
   const text = String(raw || '').trim();
+
   if (!text) return [];
 
   try {
     const parsed = JSON.parse(text);
+
     if (Array.isArray(parsed)) {
       return parsed.map((x) => String(x || '').trim()).filter(Boolean);
     }
@@ -75,12 +60,26 @@ function normalizarTipo(tipo) {
 }
 
 function getCampoSlug(campo) {
-  return String(campo?.slug || slugify(campo?.nome || campo?.label || '')).trim();
+  return String(
+    campo?.slug ||
+    campo?.campo_personalizado_slug ||
+    campo?.campo_sistema ||
+    slugify(campo?.nome || campo?.label || '')
+  ).trim();
 }
 
 function montarCampoFinal(campoCliente, campoFormulario = null) {
-  const nome = campoCliente?.nome || campoFormulario?.label || campoFormulario?.nome || '';
-  const slug = campoCliente?.slug || slugify(nome);
+  const nome =
+    campoCliente?.nome ||
+    campoFormulario?.label ||
+    campoFormulario?.nome ||
+    campoFormulario?.campo_sistema ||
+    '';
+
+  const slug =
+    campoCliente?.slug ||
+    campoFormulario?.campo_sistema ||
+    slugify(nome);
 
   if (!slug) return null;
 
@@ -91,11 +90,12 @@ function montarCampoFinal(campoCliente, campoFormulario = null) {
     tipo: normalizarTipo(campoCliente?.tipo || campoFormulario?.tipo_campo || 'texto'),
     obrigatorio: campoCliente?.obrigatorio ?? campoFormulario?.obrigatorio ?? false,
     ativo: campoCliente?.ativo ?? campoFormulario?.ativo ?? true,
+    somente_leitura: campoCliente?.somente_leitura ?? campoFormulario?.somente_leitura ?? false,
     opcoes_json: campoCliente?.opcoes_json || campoFormulario?.opcoes_json || campoFormulario?.opcoes || null,
     ordem: Number(campoCliente?.ordem ?? campoFormulario?.ordem ?? 0),
-    largura: campoFormulario?.largura || '50',
-    ajuda: campoFormulario?.ajuda || '',
-    placeholder: campoFormulario?.placeholder || '',
+    largura: campoFormulario?.largura || campoCliente?.largura || '50',
+    ajuda: campoFormulario?.ajuda || campoCliente?.ajuda || '',
+    placeholder: campoFormulario?.placeholder || campoCliente?.placeholder || '',
   };
 }
 
@@ -114,38 +114,49 @@ function indexarCamposClientes(camposClientes = []) {
   return { bySlug, byNome };
 }
 
-async function carregarFormularioPadraoClientes() {
-  const modelos = await apiJson('/api/formularios/modelos?modulo=clientes&ativo=true');
+async function carregarFormularioPadraoClientes({ loadingContainer = null } = {}) {
+  // Faz uma checagem leve de versão. Se a estrutura não mudou, vem do cache.
+  // Se criou/editou campo no construtor, a versão muda e baixa a ficha nova.
+  if (window.ValoraFichaPrincipal?.carregarFormularioModulo) {
+    return carregarFormularioClientes({ loadingContainer });
+  }
 
-  const lista = Array.isArray(modelos) ? modelos : [];
-  if (!lista.length) return null;
+  if (state.formularioClientes?.modelo) {
+    return state.formularioClientes;
+  }
 
-  const modelo = lista.find((m) => m.padrao) || lista[0];
-  if (!modelo?.id) return null;
-
-  return apiJson(`/api/formularios/modelos/${modelo.id}`);
+  return carregarFormularioClientes({ loadingContainer });
 }
 
 function montarSecoesPeloFormulario(formulario, camposClientes = []) {
   const { bySlug, byNome } = indexarCamposClientes(camposClientes);
   const usados = new Set();
-
   const secoes = [];
 
   const formSecoes = Array.isArray(formulario?.secoes) ? formulario.secoes : [];
 
   formSecoes.forEach((secao) => {
-    const campos = [];
+    if (secao?.ativo === false) return;
 
+    const campos = [];
     const camposFormulario = Array.isArray(secao.campos) ? secao.campos : [];
 
     camposFormulario
       .filter((campo) => campo?.ativo !== false)
       .filter((campo) => String(campo?.origem || 'personalizado') !== 'visual')
-      .sort((a, b) => Number(a.ordem || 0) - Number(b.ordem || 0))
+      .sort(
+        (a, b) =>
+          Number(a.ordem || 0) - Number(b.ordem || 0) ||
+          Number(a.id || 0) - Number(b.id || 0)
+      )
       .forEach((campoFormulario) => {
-        const label = campoFormulario?.label || campoFormulario?.nome || '';
-        const slug = slugify(label);
+        const label =
+          campoFormulario?.label ||
+          campoFormulario?.nome ||
+          campoFormulario?.campo_sistema ||
+          '';
+
+        const slug = campoFormulario?.campo_sistema || slugify(label);
 
         const campoCliente =
           bySlug.get(slug) ||
@@ -153,6 +164,7 @@ function montarSecoesPeloFormulario(formulario, camposClientes = []) {
           null;
 
         const campoFinal = montarCampoFinal(campoCliente, campoFormulario);
+
         if (!campoFinal) return;
 
         usados.add(campoFinal.slug);
@@ -177,7 +189,7 @@ function montarSecoesPeloFormulario(formulario, camposClientes = []) {
     .filter((campo) => !usados.has(campo.slug))
     .sort((a, b) => Number(a.ordem || 0) - Number(b.ordem || 0));
 
-  if (extras.length) {
+  if (extras.length && !state.usarFichaPrincipalClientes) {
     secoes.push({
       id: 'extras',
       titulo: 'Outros campos',
@@ -210,6 +222,17 @@ function montarSecoesFlat(camposClientes = []) {
   ];
 }
 
+function getCampoClass(campo) {
+  const largura = String(campo?.largura || '50').replace('%', '');
+  const tipo = normalizarTipo(campo?.tipo);
+
+  if (tipo === 'textarea' || largura === '100') return 'span-all';
+  if (largura === '50') return '';
+  if (largura === '25' || largura === '33') return '';
+
+  return '';
+}
+
 function renderInputCampo(campo, values = {}) {
   const slug = campo.slug;
   const id = `custom-field-${slug}`;
@@ -218,8 +241,10 @@ function renderInputCampo(campo, values = {}) {
   const valor = values?.[slug] ?? '';
   const required = campo.obrigatorio ? ' *' : '';
   const placeholder = campo.placeholder || '';
+  const disabled = campo.somente_leitura ? 'disabled' : '';
+  const fieldClass = getCampoClass(campo);
 
-  let html = `<div class="form-group custom-field-item">`;
+  let html = `<div class="form-group custom-field-item ${fieldClass}">`;
 
   if (tipo === 'checkbox') {
     const checked =
@@ -235,7 +260,10 @@ function renderInputCampo(campo, values = {}) {
           type="checkbox"
           id="${id}"
           data-custom-field="${escapeHtml(slug)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${campo.obrigatorio ? 'true' : 'false'}"
           ${checked}
+          ${disabled}
         />
         <span>${escapeHtml(label)}${required}</span>
       </label>
@@ -248,8 +276,11 @@ function renderInputCampo(campo, values = {}) {
         <textarea
           id="${id}"
           data-custom-field="${escapeHtml(slug)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${campo.obrigatorio ? 'true' : 'false'}"
           rows="3"
           placeholder="${escapeHtml(placeholder)}"
+          ${disabled}
         >${escapeHtml(valor)}</textarea>
       `;
     } else if (tipo === 'numero') {
@@ -258,8 +289,11 @@ function renderInputCampo(campo, values = {}) {
           type="number"
           id="${id}"
           data-custom-field="${escapeHtml(slug)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${campo.obrigatorio ? 'true' : 'false'}"
           value="${escapeHtml(valor)}"
           placeholder="${escapeHtml(placeholder)}"
+          ${disabled}
         />
       `;
     } else if (tipo === 'data') {
@@ -268,14 +302,23 @@ function renderInputCampo(campo, values = {}) {
           type="date"
           id="${id}"
           data-custom-field="${escapeHtml(slug)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${campo.obrigatorio ? 'true' : 'false'}"
           value="${escapeHtml(valor)}"
+          ${disabled}
         />
       `;
     } else if (tipo === 'select') {
       const opcoes = parseCampoOpcoes(campo);
 
       html += `
-        <select id="${id}" data-custom-field="${escapeHtml(slug)}">
+        <select
+          id="${id}"
+          data-custom-field="${escapeHtml(slug)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${campo.obrigatorio ? 'true' : 'false'}"
+          ${disabled}
+        >
           <option value="">Selecione</option>
           ${opcoes
             .map((opcao) => {
@@ -291,8 +334,11 @@ function renderInputCampo(campo, values = {}) {
           type="email"
           id="${id}"
           data-custom-field="${escapeHtml(slug)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${campo.obrigatorio ? 'true' : 'false'}"
           value="${escapeHtml(valor)}"
           placeholder="${escapeHtml(placeholder)}"
+          ${disabled}
         />
       `;
     } else if (tipo === 'telefone') {
@@ -301,8 +347,11 @@ function renderInputCampo(campo, values = {}) {
           type="tel"
           id="${id}"
           data-custom-field="${escapeHtml(slug)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${campo.obrigatorio ? 'true' : 'false'}"
           value="${escapeHtml(valor)}"
           placeholder="${escapeHtml(placeholder)}"
+          ${disabled}
         />
       `;
     } else {
@@ -311,8 +360,11 @@ function renderInputCampo(campo, values = {}) {
           type="text"
           id="${id}"
           data-custom-field="${escapeHtml(slug)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${campo.obrigatorio ? 'true' : 'false'}"
           value="${escapeHtml(valor)}"
           placeholder="${escapeHtml(placeholder)}"
+          ${disabled}
         />
       `;
     }
@@ -347,64 +399,91 @@ function renderSecao(secao, values = {}) {
   `;
 }
 
-export function renderCustomFieldsInputs(camposClientes, values = {}) {
+export async function renderCustomFieldsInputs(camposClientes, values = {}) {
   const container = document.getElementById('custom-fields-container');
-  if (!container) return;
+
+  if (!container) return null;
 
   container.classList.add('custom-form-sections');
   container.classList.remove('custom-fields-grid');
 
-  if (!Array.isArray(camposClientes) || !camposClientes.length) {
+  if (window.ValoraFichaPrincipal?.showLoading) {
+    window.ValoraFichaPrincipal.showLoading(
+      container,
+      'Verificando ficha principal...',
+      'Conferindo cache e banco de dados antes de montar os campos.'
+    );
+  } else {
     container.innerHTML = `
       <div class="empty-state" style="grid-column:1 / -1;">
-        Nenhum campo personalizado cadastrado.
+        Carregando estrutura do formulário...
       </div>
     `;
-    return;
   }
 
-  container.innerHTML = `
-    <div class="empty-state" style="grid-column:1 / -1;">
-      Carregando estrutura do formulário...
-    </div>
-  `;
+  try {
+    const formulario = await carregarFormularioPadraoClientes({ loadingContainer: container });
 
-  carregarFormularioPadraoClientes()
-    .then((formulario) => {
-      let secoes = [];
+    // Agora Clientes também usa o componente universal de ficha principal,
+    // igual Fornecedores e Produtos. O código antigo fica só como fallback.
+    if (window.ValoraFichaPrincipal?.renderCustomFormSections) {
+      window.ValoraFichaPrincipal.renderCustomFormSections({
+        container,
+        formulario,
+        camposAvulsos: camposClientes,
+        values,
+        usarFichaPrincipal: state.usarFichaPrincipalClientes,
+        flatTitle: 'Campos personalizados',
+        flatDescription: 'Campos extras do cadastro do cliente.',
+        emptyMessage: formulario?.modelo
+          ? 'Nenhum campo ativo neste formulário de clientes.'
+          : 'Nenhum formulário de clientes encontrado. Crie um formulário em Configurações > Formulários.',
+      });
 
-      if (formulario?.modelo) {
-        secoes = montarSecoesPeloFormulario(formulario, camposClientes);
-      }
+      return formulario;
+    }
 
-      if (!secoes.length) {
-        secoes = montarSecoesFlat(camposClientes);
-      }
+    let secoes = [];
 
-      if (!secoes.length) {
-        container.innerHTML = `
-          <div class="empty-state" style="grid-column:1 / -1;">
-            Todos os campos personalizados estão ocultos.
-          </div>
-        `;
-        return;
-      }
+    if (formulario?.modelo) {
+      secoes = montarSecoesPeloFormulario(formulario, camposClientes);
+    }
 
-      container.innerHTML = secoes.map((secao) => renderSecao(secao, values)).join('');
-    })
-    .catch((err) => {
-      console.warn('[Clientes] Não foi possível carregar seções do formulário:', err);
+    if (!secoes.length && !state.usarFichaPrincipalClientes) {
+      secoes = montarSecoesFlat(camposClientes);
+    }
 
-      const secoes = montarSecoesFlat(camposClientes);
+    if (!secoes.length) {
+      container.innerHTML = `
+        <div class="empty-state" style="grid-column:1 / -1;">
+          Nenhum campo configurado para este formulário.
+        </div>
+      `;
 
-      container.innerHTML = secoes.length
-        ? secoes.map((secao) => renderSecao(secao, values)).join('')
-        : `
-          <div class="empty-state" style="grid-column:1 / -1;">
-            Nenhum campo personalizado cadastrado.
-          </div>
-        `;
-    });
+      return formulario;
+    }
+
+    container.innerHTML = secoes.map((secao) => renderSecao(secao, values)).join('');
+
+    return formulario;
+  } catch (err) {
+    console.warn('[Clientes] Não foi possível carregar seções do formulário:', err);
+
+    state.formularioClientes = null;
+    state.usarFichaPrincipalClientes = false;
+
+    const secoes = montarSecoesFlat(camposClientes);
+
+    container.innerHTML = secoes.length
+      ? secoes.map((secao) => renderSecao(secao, values)).join('')
+      : `
+        <div class="empty-state" style="grid-column:1 / -1;">
+          Nenhum campo personalizado cadastrado.
+        </div>
+      `;
+
+    return null;
+  }
 }
 
 export function normalizeCustomFieldsPayload() {
@@ -412,6 +491,7 @@ export function normalizeCustomFieldsPayload() {
 
   document.querySelectorAll('[data-custom-field]').forEach((el) => {
     const slug = String(el.dataset.customField || '').trim();
+
     if (!slug) return;
 
     if (el.type === 'checkbox') {
@@ -430,6 +510,30 @@ export function normalizeCustomFieldsPayload() {
 }
 
 export function validateRequiredCustomFields(camposClientes, values = {}) {
+  const domRequired = Array.from(document.querySelectorAll('[data-custom-field][data-required="true"]'));
+
+  for (const el of domRequired) {
+    const label = el.dataset.customLabel || el.dataset.customField || 'Campo obrigatório';
+
+    if (el.type === 'checkbox') {
+      if (!el.checked) {
+        return {
+          ok: false,
+          message: `Preencha o campo obrigatório: ${label}`,
+        };
+      }
+
+      continue;
+    }
+
+    if (String(el.value ?? '').trim() === '') {
+      return {
+        ok: false,
+        message: `Preencha o campo obrigatório: ${label}`,
+      };
+    }
+  }
+
   const campos = Array.isArray(camposClientes) ? camposClientes : [];
 
   for (const campo of campos) {

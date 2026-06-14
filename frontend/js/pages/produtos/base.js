@@ -6,6 +6,7 @@
 
 export const state = {
   produtos: [],
+  produtosPage: { offset: 0, limit: 50, total: 0, hasMore: false },
   produtoEditandoId: null,
 
   // movimentações temporárias do modal

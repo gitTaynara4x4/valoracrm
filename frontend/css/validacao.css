@@ -1,0 +1,240 @@
+/* /frontend/css/validacao.css
+   Validação profissional global do Valora CRM.
+   Padrão inspirado em CRMs grandes: marcador discreto, erro inline,
+   resumo no topo e foco automático no primeiro campo inválido. */
+
+:root {
+  --valora-error: var(--danger, #ef4444);
+  --valora-error-soft: var(--danger-soft, rgba(239, 68, 68, 0.10));
+  --valora-error-border: rgba(239, 68, 68, 0.78);
+  --valora-error-ring: rgba(239, 68, 68, 0.18);
+  --valora-error-ring-strong: rgba(239, 68, 68, 0.32);
+}
+
+.valora-required-mark {
+  color: var(--valora-error);
+  font-weight: 800;
+  margin-left: 3px;
+}
+
+.form-group.is-required > label,
+.input-group.is-required > label,
+.custom-field-item.is-required > label,
+.valora-required-label {
+  color: var(--text-soft, #334155);
+}
+
+.form-group.is-invalid > label,
+.input-group.is-invalid > label,
+.custom-field-item.is-invalid > label,
+.valora-field-wrapper.is-invalid > label,
+label.is-invalid {
+  color: var(--valora-error) !important;
+}
+
+.form-group.is-invalid input:not([type='checkbox']):not([type='radio']),
+.form-group.is-invalid select,
+.form-group.is-invalid textarea,
+.input-group.is-invalid input:not([type='checkbox']):not([type='radio']),
+.input-group.is-invalid select,
+.input-group.is-invalid textarea,
+.custom-field-item.is-invalid input:not([type='checkbox']):not([type='radio']),
+.custom-field-item.is-invalid select,
+.custom-field-item.is-invalid textarea,
+.valora-field-wrapper.is-invalid input:not([type='checkbox']):not([type='radio']),
+.valora-field-wrapper.is-invalid select,
+.valora-field-wrapper.is-invalid textarea,
+input.valora-field-invalid:not([type='checkbox']):not([type='radio']),
+select.valora-field-invalid,
+textarea.valora-field-invalid {
+  border-color: var(--valora-error-border) !important;
+  background: linear-gradient(0deg, var(--valora-error-soft), var(--valora-error-soft)), var(--panel, #fff) !important;
+  box-shadow:
+    0 0 0 1px rgba(239, 68, 68, 0.18),
+    0 0 0 4px var(--valora-error-ring) !important;
+}
+
+
+.form-group.is-invalid .check-card,
+.custom-field-item.is-invalid .check-card,
+label.check-card.is-invalid,
+label.custom-checkbox.is-invalid {
+  border-color: var(--valora-error-border) !important;
+  background: var(--valora-error-soft) !important;
+  box-shadow:
+    0 0 0 1px rgba(239, 68, 68, 0.18),
+    0 0 0 4px var(--valora-error-ring) !important;
+}
+
+/* Destaque claro do campo obrigatório pendente.
+   A borda abaixo contorna o bloco inteiro do campo, não só o input,
+   para o usuário bater o olho e saber exatamente o que falta preencher. */
+.form-group.is-invalid,
+.input-group.is-invalid,
+.custom-field-item.is-invalid,
+.field-group.is-invalid,
+.form-field.is-invalid,
+.valora-field-wrapper.is-invalid {
+  position: relative;
+  border-radius: 14px;
+  isolation: isolate;
+}
+
+.form-group.is-invalid::after,
+.input-group.is-invalid::after,
+.custom-field-item.is-invalid::after,
+.field-group.is-invalid::after,
+.form-field.is-invalid::after,
+.valora-field-wrapper.is-invalid::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border: 2px solid var(--valora-error-border);
+  border-radius: 16px;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.08);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.form-group.valora-first-invalid::after,
+.input-group.valora-first-invalid::after,
+.custom-field-item.valora-first-invalid::after,
+.field-group.valora-first-invalid::after,
+.form-field.valora-first-invalid::after,
+.valora-field-wrapper.valora-first-invalid::after {
+  border-color: var(--valora-error);
+  box-shadow:
+    0 0 0 4px var(--valora-error-ring-strong),
+    0 8px 22px rgba(239, 68, 68, 0.18);
+  animation: valoraMissingFieldPulse 1.1s ease both;
+}
+
+input.valora-first-invalid-field:not([type='checkbox']):not([type='radio']),
+select.valora-first-invalid-field,
+textarea.valora-first-invalid-field {
+  border-color: var(--valora-error) !important;
+  box-shadow:
+    0 0 0 1px rgba(239, 68, 68, 0.22),
+    0 0 0 5px var(--valora-error-ring-strong) !important;
+}
+
+
+.valora-field-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--valora-error);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  animation: valoraErrorIn 0.16s ease both;
+}
+
+.valora-field-error::before {
+  content: '!';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--valora-error);
+  font-size: 10px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+
+.valora-validation-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--valora-error-border);
+  border-radius: 12px;
+  background: var(--valora-error-soft);
+  color: var(--text, #172033);
+  font-size: 13px;
+  line-height: 1.45;
+  animation: valoraErrorIn 0.18s ease both;
+}
+
+.valora-validation-summary .valora-summary-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--valora-error);
+  color: #fff;
+  font-size: 12px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.valora-validation-summary strong {
+  display: block;
+  color: var(--text, #172033);
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.valora-validation-summary span {
+  display: block;
+  color: var(--muted, #64748b);
+  font-size: 12.5px;
+}
+
+.valora-field-shake {
+  animation: valoraFieldShake 0.22s ease both;
+}
+
+@keyframes valoraErrorIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+@keyframes valoraMissingFieldPulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.006);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes valoraFieldShake {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-3px); }
+  60% { transform: translateX(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .valora-field-error,
+  .valora-validation-summary,
+  .valora-field-shake,
+  .form-group.valora-first-invalid::after,
+  .input-group.valora-first-invalid::after,
+  .custom-field-item.valora-first-invalid::after,
+  .field-group.valora-first-invalid::after,
+  .form-field.valora-first-invalid::after,
+  .valora-field-wrapper.valora-first-invalid::after {
+    animation: none !important;
+  }
+}

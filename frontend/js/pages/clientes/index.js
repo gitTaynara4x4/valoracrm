@@ -11,13 +11,26 @@ function renderAll() {
   renderTabelaClientes(filtrarClientes(state.clientes));
 }
 
-async function reloadClientes() {
-  await carregarClientes();
+function setTabelaLoading(message = 'Carregando clientes...') {
+  const tbody = $('tbody-clientes');
+  if (!tbody) return;
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="8" class="empty-state" style="border:none; text-align:center;">
+        ${message}
+      </td>
+    </tr>
+  `;
+}
+
+async function reloadClientes({ offset = 0, silent = false } = {}) {
+  if (!silent) setTabelaLoading('Buscando clientes no banco...');
+  await carregarClientes({ offset });
   renderAll();
 }
 
 async function reloadTudo() {
-  await Promise.all([carregarCamposClientes(), carregarClientes()]);
+  await Promise.all([carregarCamposClientes(), carregarClientes({ offset: 0 })]);
   renderAll();
 }
 
@@ -33,7 +46,7 @@ async function handleExcluirCliente(id) {
 
   try {
     await excluirClienteNoServidor(id);
-    await reloadClientes();
+    await reloadClientes({ offset: state.clientesPage?.offset || 0 });
     toast('Cliente excluído com sucesso.', 'success');
   } catch (err) {
     toast(err.message || 'Erro ao excluir cliente.', 'error');
@@ -59,14 +72,44 @@ function bindTabelaActions() {
   });
 }
 
+function bindPagination() {
+  $('paginacao-clientes')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-page-action]');
+    if (!btn || btn.disabled) return;
+
+    const page = state.clientesPage || { offset: 0, limit: 50 };
+    const limit = Number(page.limit || 50);
+    let offset = Number(page.offset || 0);
+
+    if (btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
+    if (btn.dataset.pageAction === 'next') offset = offset + limit;
+
+    try {
+      await reloadClientes({ offset });
+    } catch (err) {
+      toast(err.message || 'Erro ao carregar página.', 'error');
+    }
+  });
+}
+
 function bindTopActions() {
   $('btn-novo-cliente')?.addEventListener('click', openClientModalNew);
 
-  $('btn-filtrar-clientes')?.addEventListener('click', renderAll);
+  $('btn-filtrar-clientes')?.addEventListener('click', async () => {
+    try {
+      await reloadClientes({ offset: 0 });
+    } catch (err) {
+      toast(err.message || 'Erro ao filtrar clientes.', 'error');
+    }
+  });
 
-  $('btn-limpar-filtros')?.addEventListener('click', () => {
+  $('btn-limpar-filtros')?.addEventListener('click', async () => {
     limparFiltrosClientes();
-    renderAll();
+    try {
+      await reloadClientes({ offset: 0 });
+    } catch (err) {
+      toast(err.message || 'Erro ao limpar filtros.', 'error');
+    }
   });
 
   $('btn-exportar-clientes-json')?.addEventListener('click', exportarClientesJSON);
@@ -83,20 +126,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   bindClientModal({
     afterSave: async () => {
-      await reloadClientes();
+      await reloadClientes({ offset: state.clientesPage?.offset || 0 });
     },
   });
 
   bindImportExport({
     afterImport: async () => {
-      await reloadClientes();
+      await reloadClientes({ offset: 0 });
     },
   });
 
   bindTabelaActions();
+  bindPagination();
   bindTopActions();
   bindFormularioActions();
-  initFilters(renderAll);
+  initFilters(async () => {
+    try {
+      await reloadClientes({ offset: 0, silent: true });
+    } catch (err) {
+      toast(err.message || 'Erro ao filtrar clientes.', 'error');
+    }
+  });
 
   try {
     await reloadTudo();

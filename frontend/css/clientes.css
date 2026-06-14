@@ -1159,3 +1159,347 @@ html[data-theme="dark"] .custom-fields-info {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* =========================================
+   MODO FICHA PRINCIPAL DO CADASTRO
+   ========================================= */
+
+#formCliente.is-ficha-principal .cliente-tabs {
+  display: none !important;
+}
+
+#formCliente.is-ficha-principal .cliente-tab {
+  display: none !important;
+}
+
+#formCliente.is-ficha-principal #tab-campos-personalizados {
+  display: block !important;
+  animation: none !important;
+}
+
+.cliente-ficha-code-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+  background: var(--panel);
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  grid-template-columns: 1fr minmax(220px, 320px);
+  gap: 18px;
+  align-items: end;
+}
+
+.cliente-ficha-code-card[hidden] {
+  display: none !important;
+}
+
+.cliente-ficha-code-card h4 {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.cliente-ficha-code-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cliente-ficha-code-field {
+  margin: 0;
+}
+
+.cliente-ficha-code-field input {
+  background: var(--bg-soft);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+#formCliente.is-ficha-principal .custom-fields-card {
+  margin-bottom: 0;
+}
+
+#formCliente.is-ficha-principal .custom-fields-head {
+  margin-bottom: 14px;
+}
+
+#formCliente.is-ficha-principal .custom-fields-head h4::after {
+  content: ' • Ficha principal';
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.custom-form-sections {
+  display: block !important;
+  margin-top: 4px;
+}
+
+.custom-section-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  margin-bottom: 18px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.custom-section-card:last-child {
+  margin-bottom: 0;
+}
+
+.custom-section-head {
+  padding: 17px 18px;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+}
+
+.custom-section-head h4 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.custom-section-head h4 i {
+  color: #4bc3c7;
+  font-size: 15px;
+}
+
+.custom-section-head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.custom-section-card .custom-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  padding: 18px;
+  margin-top: 0;
+}
+
+.custom-section-card .custom-field-item.span-all {
+  grid-column: 1 / -1;
+}
+
+.custom-section-card .custom-field-item.span-2 {
+  grid-column: span 2;
+}
+
+.custom-section-card .custom-field-item {
+  min-width: 0;
+}
+
+.custom-section-card .custom-field-item label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.custom-section-card .custom-field-item input,
+.custom-section-card .custom-field-item select,
+.custom-section-card .custom-field-item textarea {
+  width: 100%;
+  height: 42px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 0 13px;
+  outline: none;
+  transition: var(--transition);
+}
+
+.custom-section-card .custom-field-item textarea {
+  height: auto;
+  min-height: 96px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  resize: vertical;
+}
+
+.custom-section-card .custom-field-item input:focus,
+.custom-section-card .custom-field-item select:focus,
+.custom-section-card .custom-field-item textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+html[data-theme="dark"] .cliente-ficha-code-card,
+html[data-theme="dark"] .custom-section-card {
+  background: var(--panel);
+}
+
+html[data-theme="dark"] .custom-section-head,
+html[data-theme="dark"] .cliente-ficha-code-field input {
+  background: var(--bg-soft);
+}
+
+@media (max-width: 760px) {
+  .cliente-ficha-code-card {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-section-card .custom-fields-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-section-card .custom-field-item.span-all,
+  .custom-section-card .custom-field-item.span-2 {
+    grid-column: auto !important;
+  }
+}
+/* =========================================
+   TOGGLE FICHA PRINCIPAL NO MODAL CLIENTE
+   ========================================= */
+
+.cliente-ficha-toggle-bar {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(75, 195, 199, 0.22);
+  border-radius: 10px;
+  background: rgba(75, 195, 199, 0.08);
+}
+
+.cliente-ficha-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.cliente-ficha-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--brand);
+  flex: 0 0 auto;
+}
+
+.cliente-ficha-toggle span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cliente-ficha-toggle strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cliente-ficha-toggle small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* =========================================
+   FICHA PRINCIPAL: SEÇÕES VIRAM ABAS
+   ========================================= */
+
+.cliente-ficha-toggle-bar {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(75, 195, 199, 0.22);
+  border-radius: 10px;
+  background: rgba(75, 195, 199, 0.08);
+}
+
+.cliente-ficha-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.cliente-ficha-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--brand);
+  flex: 0 0 auto;
+}
+
+.cliente-ficha-toggle span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cliente-ficha-toggle strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cliente-ficha-toggle small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+#formCliente.is-ficha-principal .custom-fields-head,
+#formCliente.is-ficha-principal .custom-fields-info {
+  display: none !important;
+}
+
+#formCliente.is-ficha-principal .custom-fields-card {
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+}
+
+#formCliente.is-ficha-principal #custom-fields-container {
+  margin-top: 0;
+}
+
+#formCliente.is-ficha-principal .cliente-tabs {
+  display: flex !important;
+}
+
+#formCliente.is-ficha-principal .cliente-ficha-code-card {
+  margin-bottom: 16px;
+}
+/* Paginação leve para listas grandes */
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 4px 0;
+  color: var(--muted, #64748b);
+  font-size: 13px;
+}
+
+.table-pagination .btn[disabled],
+.table-pagination button[disabled] {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .table-pagination {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+

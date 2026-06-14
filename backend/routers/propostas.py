@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -38,6 +39,14 @@ def norm_str(s: Optional[str]) -> Optional[str]:
     return v or None
 
 
+def normalizar_codigo_sistema(codigo: Optional[str]) -> str:
+    """Mantém códigos internos do sistema apenas numéricos.
+
+    Ex.: "PROP-0007" vira "0007".
+    """
+    return re.sub(r"\D+", "", str(codigo or "")).strip()
+
+
 def get_fields_set(payload) -> set:
     return set(
         getattr(payload, "model_fields_set", None)
@@ -64,7 +73,7 @@ def gerar_codigo_proposta(db: Session, empresa_id: int) -> str:
         .first()
     )
     proximo = (int(ultimo.id) if ultimo else 0) + 1
-    return f"PROP-{proximo:04d}"
+    return f"{proximo:04d}"
 
 
 class PropostaItemIn(BaseModel):
@@ -332,7 +341,7 @@ def obter_proposta(proposta_id: int, request: Request, db: Session = Depends(get
 @router.post("", response_model=PropostaOut, status_code=status.HTTP_201_CREATED)
 def criar_proposta(payload: PropostaCreate, request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
-    codigo = (payload.codigo or "").strip() or gerar_codigo_proposta(db, empresa_id)
+    codigo = normalizar_codigo_sistema(payload.codigo) or gerar_codigo_proposta(db, empresa_id)
 
     p = models.Proposta(
         empresa_id=empresa_id,
@@ -375,8 +384,9 @@ def atualizar_proposta(proposta_id: int, payload: PropostaUpdate, request: Reque
 
     fields_set = get_fields_set(payload)
 
-    if "codigo" in fields_set and payload.codigo is not None and payload.codigo.strip():
-        p.codigo = payload.codigo.strip()
+    codigo_normalizado = normalizar_codigo_sistema(payload.codigo)
+    if "codigo" in fields_set and codigo_normalizado:
+        p.codigo = codigo_normalizado
 
     if "cliente_id" in fields_set:
         p.cliente_id = payload.cliente_id
