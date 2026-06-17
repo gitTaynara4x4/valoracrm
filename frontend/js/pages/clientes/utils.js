@@ -60,19 +60,20 @@ export function toast(message, type = 'success', ms = 2600) {
 }
 
 export function openModal(id) {
+  if (window.ValoraModal) return window.ValoraModal.open(id);
   const modal = $(id);
   if (!modal) return;
   modal.hidden = false;
+  modal.style.display = 'flex';
   requestAnimationFrame(() => modal.classList.add('show'));
 }
 
 export function closeModal(id) {
+  if (window.ValoraModal) return window.ValoraModal.close(id);
   const modal = $(id);
   if (!modal) return;
   modal.classList.remove('show');
-  setTimeout(() => {
-    modal.hidden = true;
-  }, 180);
+  setTimeout(() => { modal.hidden = true; modal.style.display = 'none'; }, 160);
 }
 
 export function downloadFile(filename, content, mime = 'application/octet-stream') {

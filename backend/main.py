@@ -18,13 +18,15 @@ from backend.routers.fornecedores import router as fornecedores_router
 from backend.routers.auth import router as auth_router
 from backend.routers.perfil import router as perfil_router
 from backend.routers.produtos import router as produtos_router
+from backend.routers.patrimonio import router as patrimonio_router
+from backend.routers.cotacoes import router as cotacoes_router
 from backend.routers.propostas import router as propostas_router
 from backend.routers.dashboard import router as dashboard_router
 from backend.routers.usuarios import router as usuarios_router
 from backend.routers.permissoes import router as permissoes_router
 from backend.routers.formularios import router as formularios_router
 from backend.routers import empresa
-from backend.routers import propostas, campos_propostas
+from backend.routers import campos_propostas
 
 
 # ============================================
@@ -228,12 +230,13 @@ app.include_router(auth_router)
 app.include_router(cadastro.router)
 app.include_router(perfil_router)
 app.include_router(produtos_router)
+app.include_router(patrimonio_router)
+app.include_router(cotacoes_router)
 app.include_router(empresa.router)
 app.include_router(propostas_router)
 app.include_router(dashboard_router)
 app.include_router(usuarios_router)
 app.include_router(permissoes_router)
-app.include_router(propostas.router)
 app.include_router(campos_propostas.router)
 app.include_router(formularios_router)
 

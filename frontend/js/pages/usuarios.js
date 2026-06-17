@@ -3,7 +3,10 @@ const MODULOS = [
   { key: "clientes", label: "Clientes", desc: "Cadastro e gestão de clientes" },
   { key: "fornecedores", label: "Fornecedores", desc: "Cadastro e gestão de fornecedores" },
   { key: "produtos", label: "Produtos", desc: "Catálogo e itens" },
+  { key: "patrimonio", label: "Patrimônio", desc: "Bens, equipamentos e localização" },
+  { key: "cotacoes", label: "Cotações", desc: "Solicitações e comparativos" },
   { key: "propostas", label: "Propostas", desc: "Orçamentos e propostas" },
+  { key: "contratos", label: "Contratos", desc: "Contratos e documentos" },
   { key: "usuarios", label: "Usuários", desc: "Gestão de acessos" },
   { key: "empresa", label: "Empresa", desc: "Dados da empresa" },
   { key: "configuracoes", label: "Configurações", desc: "Preferências e ajustes" },
@@ -125,13 +128,15 @@ function closeConfirm(result = false) {
 }
 
 function openModal(edicao = false) {
-  $("modal-usuario-backdrop")?.classList.add("show");
-  $("modal-title").textContent = edicao ? "Editar usuário" : "Novo usuário";
-  setTimeout(() => $("usuario-nome")?.focus(), 80);
+  if (window.ValoraModal) window.ValoraModal.open('modal-usuario-backdrop');
+  else $('modal-usuario-backdrop')?.classList.add('show');
+  $('modal-title').textContent = edicao ? 'Editar usuário' : 'Novo usuário';
+  setTimeout(() => $('usuario-nome')?.focus(), 80);
 }
 
 function closeModal() {
-  $("modal-usuario-backdrop")?.classList.remove("show");
+  if (window.ValoraModal) window.ValoraModal.close('modal-usuario-backdrop');
+  else $('modal-usuario-backdrop')?.classList.remove('show');
   limparFormulario();
 }
 

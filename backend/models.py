@@ -815,6 +815,323 @@ class ProdutoCampoValor(Base):
         return f"<ProdutoCampoValor id={self.id} produto_id={self.produto_id} campo_id={self.campo_id}>"
 
 
+
+
+class Patrimonio(Base):
+    __tablename__ = "patrimonios"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    codigo = Column(String(50), nullable=False, index=True)
+    nome = Column(String(180), nullable=False, index=True)
+    descricao = Column(Text, nullable=True)
+
+    categoria = Column(String(120), nullable=True, index=True)
+    marca = Column(String(120), nullable=True)
+    modelo = Column(String(120), nullable=True)
+    numero_serie = Column(String(120), nullable=True, index=True)
+    localizacao = Column(String(180), nullable=True, index=True)
+    responsavel = Column(String(180), nullable=True, index=True)
+    status = Column(String(40), nullable=False, server_default="ativo", index=True)
+
+    valor_aquisicao = Column(String(40), nullable=True)
+    data_aquisicao = Column(Date, nullable=True)
+    observacoes = Column(Text, nullable=True)
+    ativo = Column(Boolean, nullable=False, server_default="true")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Patrimonio id={self.id} codigo={self.codigo!r} nome={self.nome!r} empresa_id={self.empresa_id}>"
+
+
+class CampoPatrimonio(Base):
+    __tablename__ = "campos_patrimonios"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    nome = Column(String(120), nullable=False)
+    slug = Column(String(120), nullable=False, index=True)
+    tipo = Column(String(30), nullable=False, index=True)
+
+    obrigatorio = Column(Boolean, nullable=False, server_default="false")
+    ativo = Column(Boolean, nullable=False, server_default="true")
+
+    opcoes_json = Column(Text, nullable=True)
+    ordem = Column(BigInteger, nullable=False, server_default="0")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CampoPatrimonio id={self.id} empresa_id={self.empresa_id} slug={self.slug!r} tipo={self.tipo!r}>"
+
+
+class PatrimonioCampoValor(Base):
+    __tablename__ = "patrimonios_campos_valores"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    patrimonio_id = Column(
+        BigInteger,
+        ForeignKey("patrimonios.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    campo_id = Column(
+        BigInteger,
+        ForeignKey("campos_patrimonios.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    valor = Column(Text, nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<PatrimonioCampoValor id={self.id} patrimonio_id={self.patrimonio_id} campo_id={self.campo_id}>"
+
+
+class Cotacao(Base):
+    __tablename__ = "cotacoes"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    codigo = Column(String(50), nullable=False, index=True)
+    item_nome = Column(String(180), nullable=False, index=True)
+    descricao = Column(Text, nullable=True)
+
+    quantidade = Column(String(40), nullable=True)
+    unidade = Column(String(30), nullable=True)
+    categoria = Column(String(120), nullable=True, index=True)
+
+    status = Column(String(40), nullable=False, server_default="rascunho", index=True)
+    urgencia = Column(String(30), nullable=True, index=True)
+    observacoes = Column(Text, nullable=True)
+
+    fornecedor_vencedor_id = Column(
+        BigInteger,
+        ForeignKey("fornecedores.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    fornecedor_vencedor_item_id = Column(BigInteger, nullable=True, index=True)
+
+    valor_aprovado = Column(String(40), nullable=True)
+    data_aprovacao = Column(DateTime(timezone=True), nullable=True)
+
+    produto_id = Column(
+        BigInteger,
+        ForeignKey("produtos.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Cotacao id={self.id} codigo={self.codigo!r} item={self.item_nome!r} empresa_id={self.empresa_id}>"
+
+
+class CotacaoFornecedor(Base):
+    __tablename__ = "cotacoes_fornecedores"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    cotacao_id = Column(
+        BigInteger,
+        ForeignKey("cotacoes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    fornecedor_id = Column(
+        BigInteger,
+        ForeignKey("fornecedores.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    fornecedor_nome = Column(String(180), nullable=True, index=True)
+    valor_unitario = Column(String(40), nullable=True)
+    frete = Column(String(40), nullable=True)
+    valor_total = Column(String(40), nullable=True)
+    prazo_entrega = Column(String(80), nullable=True)
+    condicao_pagamento = Column(String(160), nullable=True)
+    observacoes = Column(Text, nullable=True)
+    vencedor = Column(Boolean, nullable=False, server_default="false", index=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CotacaoFornecedor id={self.id} cotacao_id={self.cotacao_id} fornecedor={self.fornecedor_nome!r}>"
+
+
+class CampoCotacao(Base):
+    __tablename__ = "campos_cotacoes"
+    __allow_unmapped__ = True
+
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "slug", name="uq_campos_cotacoes_empresa_slug"),
+    )
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    nome = Column(String(120), nullable=False)
+    slug = Column(String(120), nullable=False, index=True)
+    tipo = Column(String(30), nullable=False, index=True)
+
+    obrigatorio = Column(Boolean, nullable=False, server_default="false")
+    ativo = Column(Boolean, nullable=False, server_default="true")
+
+    opcoes_json = Column(Text, nullable=True)
+    ordem = Column(BigInteger, nullable=False, server_default="0")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CampoCotacao id={self.id} empresa_id={self.empresa_id} slug={self.slug!r} tipo={self.tipo!r}>"
+
+
+class CotacaoCampoValor(Base):
+    __tablename__ = "cotacoes_campos_valores"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+
+    cotacao_id = Column(
+        BigInteger,
+        ForeignKey("cotacoes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    campo_id = Column(
+        BigInteger,
+        ForeignKey("campos_cotacoes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    valor = Column(Text, nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CotacaoCampoValor id={self.id} cotacao_id={self.cotacao_id} campo_id={self.campo_id}>"
+
+
 class Proposta(Base):
     __tablename__ = "propostas"
     __allow_unmapped__ = True

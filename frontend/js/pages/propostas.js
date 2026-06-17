@@ -552,12 +552,14 @@ function renderTabela(){
 // PROPOSTAS - MODAL
 // ==========================================
 function openModal(){
-  qs('proposal-modal')?.classList.add('show');
+  if (window.ValoraModal) window.ValoraModal.open('proposal-modal');
+  else qs('proposal-modal')?.classList.add('show');
   updateWhatsAppModalButton();
 }
 
 function closeModal(){
-  qs('proposal-modal')?.classList.remove('show');
+  if (window.ValoraModal) window.ValoraModal.close('proposal-modal');
+  else qs('proposal-modal')?.classList.remove('show');
   fecharResultadosClientes();
 }
 

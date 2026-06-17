@@ -1,0 +1,901 @@
+/* =========================================================
+   VALORA CRM | RESPONSIVO FINAL GLOBAL
+   Objetivo: responsivo completo sem centralizar/estreitar desktop.
+   Mantém largura normal no desktop e adapta mobile/tablet.
+   ========================================================= */
+
+:root {
+  --mobile-safe-pad: 16px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html,
+body {
+  max-width: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+/* Desktop: não centraliza, não estreita. */
+body .main,
+body .layout .main {
+  width: 100% !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Evita qualquer componente estourar a tela */
+body .panel-card,
+body .hero-card,
+body .stat-card,
+body .section-card,
+body .config-card,
+body .dashboard-panel,
+body .dashboard-kpi-card,
+body .dashboard-graph-card,
+body .dashboard-summary-panel,
+body .form-builder-hero,
+body .builder-main,
+body .builder-sidebar,
+body .modal-content,
+body .modal-xl,
+body .modal-md,
+body .modal-sm,
+body .cotacao-modal,
+body .proposal-modal-content,
+body .cliente-ficha-code-card,
+body .ficha-principal-code-card,
+body .produto-ficha-code-card,
+body .custom-section-card,
+body .custom-section-card-bitrix {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Topo das páginas */
+body .topbar,
+body .dashboard-header,
+body .formularios-topbar,
+body .config-toolbar,
+body .builder-toolbar,
+body .panel-head,
+body .custom-fields-head,
+body .proposal-section-head,
+body .cotacao-section-head,
+body .form-builder-hero,
+body .modal-header,
+body .proposal-modal-header,
+body .modal-footer,
+body .cotacao-modal-footer,
+body .proposal-modal-footer,
+body .footer-actions,
+body .form-actions,
+body .modal-client-footer,
+body .table-pagination {
+  min-width: 0;
+}
+
+body .topbar-actions,
+body .dashboard-header-right,
+body .toolbar-actions,
+body .filter-actions,
+body .footer-actions,
+body .modal-footer,
+body .cotacao-footer-right,
+body .proposal-header-actions,
+body .config-form-actions,
+body .table-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Inputs e botões nunca estouram o container */
+body input,
+body select,
+body textarea,
+body button,
+body .btn,
+body .search-box,
+body .search-box-compact,
+body .client-picker,
+body .autocomplete-list {
+  max-width: 100%;
+}
+
+body input,
+body select,
+body textarea {
+  min-width: 0;
+}
+
+/* Tabelas: no desktop normal, no mobile rolagem horizontal. */
+body .valora-table-wrapper,
+body .table-wrapper,
+body .proposal-table-wrap,
+body .contatos-table-wrapper,
+body .fornecedores-cotados-wrapper,
+body .config-table-panel,
+body .panel-card-table,
+body .cotacoes-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+body .valora-table,
+body table,
+body .config-table {
+  width: 100%;
+}
+
+body .valora-table th,
+body .valora-table td,
+body table th,
+body table td {
+  white-space: nowrap;
+}
+
+body td .btn,
+body td button,
+body .text-right .btn,
+body .text-right button {
+  white-space: nowrap;
+}
+
+/* Grids gerais: permitem encolher sem quebrar layout. */
+body .filters-grid,
+body .cotacoes-filters-grid,
+body .form-row,
+body .form-grid,
+body .valora-form,
+body .campos-grid,
+body .custom-fields-grid,
+body .cotacao-form-grid,
+body .cotacao-add-fornecedor,
+body .proposal-extra-grid,
+body .proposal-totals-grid,
+body .checks-row,
+body .detail-summary-grid,
+body .mini-item-grid,
+body .history-grid,
+body .history-grid-spaced,
+body .modules-grid,
+body .hero-mini-grid,
+body .builder-layout,
+body .config-layout,
+body .dashboard-kpi-grid,
+body .dashboard-graph-grid,
+body .dashboard-actions-grid,
+body .dashboard-bottom-grid,
+body .dashboard-main,
+body .ficha-principal-grid,
+body .ficha-principal-code-card,
+body .produto-ficha-code-card,
+body .custom-section-grid,
+body .custom-section-card-bitrix .custom-fields-grid {
+  min-width: 0;
+}
+
+body .span-all,
+body .span-2,
+body .field-large {
+  min-width: 0;
+}
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+@media (max-width: 1180px) {
+  body .main,
+  body .layout .main {
+    padding-left: 28px !important;
+    padding-right: 28px !important;
+  }
+
+  body .filters-grid,
+  body .clientes-filter-card .filters-grid,
+  body .fornecedores-filter-card .filters-grid,
+  body .produtos-filter-card .filters-grid,
+  body .monitoramento-filter-card .filters-grid,
+  body .cotacoes-filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  body .dashboard-kpi-grid,
+  body .dashboard-actions-grid,
+  body .hero-mini-grid,
+  body .modules-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  body .builder-layout,
+  body .config-layout,
+  body .content-grid,
+  body .settings-layout,
+  body .dashboard-main,
+  body .dashboard-bottom-grid,
+  body .area-admin-layout,
+  body .contratos-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  body .modal-xl,
+  body .proposal-modal-content,
+  body .cotacao-modal {
+    width: calc(100vw - 44px) !important;
+    max-width: calc(100vw - 44px) !important;
+  }
+}
+
+/* =========================================================
+   MOBILE GERAL
+   ========================================================= */
+@media (max-width: 760px) {
+  :root {
+    --mobile-safe-pad: 14px;
+  }
+
+  body {
+    font-size: 12.5px !important;
+  }
+
+  body .main,
+  body .layout .main {
+    padding-left: var(--mobile-safe-pad) !important;
+    padding-right: var(--mobile-safe-pad) !important;
+    padding-bottom: 22px !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  body .topbar,
+  body .dashboard-header,
+  body .formularios-topbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+  }
+
+  body .topbar-title,
+  body .dashboard-header-left,
+  body .panel-head,
+  body .custom-fields-head,
+  body .proposal-section-head,
+  body .cotacao-section-head,
+  body .config-panel-head,
+  body .form-builder-hero {
+    min-width: 0 !important;
+  }
+
+  body .topbar h1,
+  body .topbar-title h1,
+  body h1.page-title {
+    font-size: 20px !important;
+    line-height: 1.18 !important;
+  }
+
+  body .topbar-actions,
+  body .dashboard-header-right,
+  body .toolbar-actions,
+  body .filter-actions,
+  body .footer-actions,
+  body .proposal-header-actions,
+  body .config-toolbar,
+  body .builder-toolbar,
+  body .table-pagination {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+
+  body .topbar-actions .btn,
+  body .dashboard-header-right .btn,
+  body .toolbar-actions .btn,
+  body .filter-actions .btn,
+  body .footer-actions .btn,
+  body .modal-footer .btn,
+  body .cotacao-modal-footer .btn,
+  body .proposal-modal-footer .btn,
+  body .config-form-actions .btn {
+    flex: 1 1 150px;
+    min-width: 0;
+  }
+
+  /* Cards e painéis com padding menor no mobile */
+  body .panel-card,
+  body .section-card,
+  body .dashboard-panel,
+  body .dashboard-kpi-card,
+  body .dashboard-graph-card,
+  body .dashboard-summary-panel,
+  body .clientes-filter-card,
+  body .fornecedores-filter-card,
+  body .produtos-filter-card,
+  body .monitoramento-filter-card,
+  body .cotacoes-filter-card,
+  body .config-card,
+  body .proposal-card,
+  body .cotacao-section-card,
+  body .fornecedores-cotados-card,
+  body .custom-fields-card,
+  body .produto-ficha-card,
+  body .ficha-principal-code-card,
+  body .produto-ficha-code-card {
+    border-radius: 12px !important;
+  }
+
+  /* Todos os grids viram uma coluna no celular */
+  body .filters-grid,
+  body .clientes-filter-card .filters-grid,
+  body .fornecedores-filter-card .filters-grid,
+  body .produtos-filter-card .filters-grid,
+  body .monitoramento-filter-card .filters-grid,
+  body .cotacoes-filters-grid,
+  body .form-row,
+  body .form-grid,
+  body .campos-grid,
+  body .custom-fields-grid,
+  body .cotacao-form-grid,
+  body .cotacao-add-fornecedor,
+  body .proposal-extra-grid,
+  body .proposal-totals-grid,
+  body .checks-row,
+  body .detail-summary-grid,
+  body .mini-item-grid,
+  body .history-grid,
+  body .history-grid-spaced,
+  body .modules-grid,
+  body .hero-mini-grid,
+  body .builder-layout,
+  body .config-layout,
+  body .dashboard-kpi-grid,
+  body .dashboard-graph-grid,
+  body .dashboard-actions-grid,
+  body .dashboard-bottom-grid,
+  body .dashboard-main,
+  body .ficha-principal-grid,
+  body .ficha-principal-code-card,
+  body .produto-ficha-code-card,
+  body .custom-section-grid,
+  body .custom-section-card-bitrix .custom-fields-grid,
+  body .config-form-panel,
+  body .config-table-panel,
+  body .area-admin-layout,
+  body .contratos-layout,
+  body .detail-panel,
+  body .monitoramento-detail-top,
+  body .proposal-modal-body,
+  body .cotacao-comparativo {
+    grid-template-columns: 1fr !important;
+  }
+
+  body .span-all,
+  body .span-2,
+  body .field-large,
+  body .field-medium,
+  body .field-small {
+    grid-column: 1 / -1 !important;
+  }
+
+  body .modal-overlay,
+  body .confirm-modal {
+    align-items: stretch !important;
+    justify-content: center !important;
+    padding: 10px !important;
+  }
+
+  body .modal-content,
+  body .modal-xl,
+  body .modal-md,
+  body .modal-sm,
+  body .cotacao-modal,
+  body .proposal-modal-content,
+  body .modal-campo-content {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    border-radius: 14px !important;
+  }
+
+  body .modal-body,
+  body .proposal-modal-body,
+  body .cotacao-modal .modal-body {
+    max-height: calc(100dvh - 142px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body .modal-header,
+  body .proposal-modal-header,
+  body .modal-footer,
+  body .cotacao-modal-footer,
+  body .proposal-modal-footer,
+  body .modal-client-footer {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  body .modal-footer,
+  body .cotacao-modal-footer,
+  body .proposal-modal-footer,
+  body .modal-client-footer {
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+  }
+
+  body .modal-footer .btn,
+  body .cotacao-modal-footer .btn,
+  body .proposal-modal-footer .btn,
+  body .modal-client-footer .btn {
+    width: 100% !important;
+    flex: 1 1 auto !important;
+  }
+
+  /* Abas viram rolagem horizontal */
+  body .cliente-tabs,
+  body .fornecedor-tabs,
+  body .produto-tabs,
+  body .proposal-tabs,
+  body .detail-tabs,
+  body .modal-tabs,
+  body .tabs {
+    display: flex !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  body .cliente-tab-btn,
+  body .fornecedor-tab-btn,
+  body .produto-tab-btn,
+  body .proposal-tab-btn,
+  body .detail-tab-btn,
+  body .tab-btn,
+  body .tabs button,
+  body .modal-tabs button {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+
+  /* Tabelas no mobile: rolagem horizontal real */
+  body .valora-table-wrapper,
+  body .table-wrapper,
+  body .proposal-table-wrap,
+  body .contatos-table-wrapper,
+  body .fornecedores-cotados-wrapper,
+  body .config-table-panel,
+  body .panel-card-table {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    overflow-x: auto !important;
+  }
+
+  body .valora-table,
+  body table,
+  body .config-table {
+    min-width: 680px;
+  }
+
+  body .fornecedores-cotados-table,
+  body .cotacoes-table table,
+  body .cotacoes-table .valora-table {
+    min-width: 760px;
+  }
+
+  body .valora-table th,
+  body .valora-table td,
+  body table th,
+  body table td {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  /* Campo longo no mobile não deve estourar */
+  body .valora-long-field-expanded,
+  body input.valora-long-field-expanded,
+  body textarea.valora-long-field-expanded {
+    max-width: 100% !important;
+  }
+
+  body .valora-toast {
+    left: 12px !important;
+    right: 12px !important;
+    top: 72px !important;
+    min-width: 0 !important;
+    width: auto !important;
+  }
+}
+
+/* =========================================================
+   CELULAR PEQUENO
+   ========================================================= */
+@media (max-width: 480px) {
+  :root {
+    --mobile-safe-pad: 12px;
+  }
+
+  body .main,
+  body .layout .main {
+    padding-left: var(--mobile-safe-pad) !important;
+    padding-right: var(--mobile-safe-pad) !important;
+  }
+
+  body .topbar-actions .btn,
+  body .dashboard-header-right .btn,
+  body .toolbar-actions .btn,
+  body .filter-actions .btn,
+  body .footer-actions .btn,
+  body .table-pagination .btn,
+  body .table-pagination button {
+    width: 100% !important;
+    flex-basis: 100% !important;
+  }
+
+  body .table-pagination {
+    align-items: stretch !important;
+  }
+
+  body .valora-table,
+  body table,
+  body .config-table {
+    min-width: 620px;
+  }
+
+  body .modal-header,
+  body .proposal-modal-header {
+    gap: 10px !important;
+  }
+
+  body .modal-header h2,
+  body .modal-header h3,
+  body .modal-title,
+  body .proposal-modal-header h2,
+  body .proposal-modal-header h3 {
+    font-size: 15px !important;
+  }
+}
+
+/* Corrige regra antiga que deixava TODO botão 100% no mobile. */
+@media (max-width: 760px) {
+  body .btn,
+  body button.btn,
+  body .btn-sm,
+  body .btn-close,
+  body td .btn,
+  body td button,
+  body .text-right .btn,
+  body .text-right button,
+  body .mini-actions .btn,
+  body .mini-actions button,
+  body .table-pagination .btn,
+  body .table-pagination button {
+    width: auto !important;
+  }
+
+  body .topbar-actions > .btn,
+  body .dashboard-header-right > .btn,
+  body .toolbar-actions > .btn,
+  body .filter-actions > .btn,
+  body .footer-actions > .btn,
+  body .modal-footer > .btn,
+  body .cotacao-modal-footer > .btn,
+  body .proposal-modal-footer > .btn,
+  body .modal-client-footer > .btn,
+  body .form-actions > .btn {
+    width: auto !important;
+  }
+}
+
+@media (max-width: 480px) {
+  body .topbar-actions > .btn,
+  body .dashboard-header-right > .btn,
+  body .toolbar-actions > .btn,
+  body .filter-actions > .btn,
+  body .footer-actions > .btn,
+  body .modal-footer > .btn,
+  body .cotacao-modal-footer > .btn,
+  body .proposal-modal-footer > .btn,
+  body .modal-client-footer > .btn,
+  body .form-actions > .btn {
+    width: 100% !important;
+  }
+
+  body .table-pagination .btn,
+  body .table-pagination button {
+    width: auto !important;
+  }
+}
+
+/* =========================================================
+   MOBILE REAL: tabela vira card, não corta texto.
+   Antes a tabela só ganhava scroll horizontal; no celular isso não é
+   responsivo de verdade para listas como Clientes/Fornecedores.
+   ========================================================= */
+@media (max-width: 640px) {
+  body .panel-card-table,
+  body .valora-table-wrapper,
+  body .table-wrapper,
+  body .proposal-table-wrap,
+  body .contatos-table-wrapper,
+  body .fornecedores-cotados-wrapper,
+  body .config-table-panel,
+  body .cotacoes-table {
+    overflow: visible !important;
+  }
+
+  body .valora-table,
+  body table.valora-table,
+  body .config-table {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    background: transparent !important;
+  }
+
+  body .valora-table thead,
+  body table.valora-table thead,
+  body .config-table thead {
+    display: none !important;
+  }
+
+  body .valora-table tbody,
+  body table.valora-table tbody,
+  body .config-table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  body .valora-table tr,
+  body table.valora-table tr,
+  body .config-table tr {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    padding: 10px 12px !important;
+    box-shadow: var(--shadow-sm) !important;
+    overflow: hidden !important;
+  }
+
+  body .valora-table td,
+  body table.valora-table td,
+  body .config-table td {
+    display: grid !important;
+    grid-template-columns: 92px minmax(0, 1fr) !important;
+    align-items: start !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    padding: 6px 0 !important;
+    border: 0 !important;
+    text-align: left !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: anywhere !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+  }
+
+  body .valora-table td + td,
+  body table.valora-table td + td,
+  body .config-table td + td {
+    border-top: 1px solid rgba(148, 163, 184, 0.16) !important;
+  }
+
+  body .valora-table td[data-label]::before,
+  body table.valora-table td[data-label]::before,
+  body .config-table td[data-label]::before {
+    content: attr(data-label) !important;
+    color: var(--muted) !important;
+    font-size: 10.5px !important;
+    font-weight: 600 !important;
+    line-height: 1.35 !important;
+    min-width: 0 !important;
+  }
+
+  body .valora-table td[colspan],
+  body table.valora-table td[colspan],
+  body .config-table td[colspan] {
+    display: block !important;
+    padding: 18px 8px !important;
+    text-align: center !important;
+  }
+
+  body .valora-table td[colspan]::before,
+  body table.valora-table td[colspan]::before,
+  body .config-table td[colspan]::before {
+    content: none !important;
+  }
+
+  body .valora-table td > *,
+  body table.valora-table td > *,
+  body .config-table td > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  body .valora-table td strong,
+  body table.valora-table td strong,
+  body .config-table td strong,
+  body .valora-table .subtle,
+  body .valora-table .muted-line,
+  body .config-table .subtle {
+    display: block !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+    line-height: 1.35 !important;
+  }
+
+  body .valora-table .text-right,
+  body table.valora-table .text-right,
+  body .config-table .text-right {
+    text-align: left !important;
+  }
+
+  body .valora-table td:last-child,
+  body table.valora-table td:last-child,
+  body .config-table td:last-child {
+    padding-top: 10px !important;
+  }
+
+  body .valora-table td:last-child > div,
+  body table.valora-table td:last-child > div,
+  body .config-table td:last-child > div,
+  body .valora-table .row-actions,
+  body .valora-table .cotacao-actions,
+  body .config-table .row-actions {
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+  }
+
+  body .valora-table .btn-icon,
+  body table.valora-table .btn-icon,
+  body .config-table .btn-icon,
+  body .valora-table .cotacao-icon-btn {
+    width: 34px !important;
+    height: 34px !important;
+    flex: 0 0 auto !important;
+  }
+
+  body .table-pagination,
+  body .pagination-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  body .table-pagination .counter-text,
+  body .table-pagination .pagination-info {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    text-align: left !important;
+  }
+
+  body .table-pagination .btn,
+  body .pagination-actions .btn,
+  body .table-pagination button,
+  body .pagination-actions button {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 390px) {
+  body .valora-table td,
+  body table.valora-table td,
+  body .config-table td {
+    grid-template-columns: 82px minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+}
+
+/* =========================================================
+   ESPAÇAMENTO PROFISSIONAL ENTRE SIDEBAR E CONTEÚDO
+   Corrige título/breadcrumb colado na barra superior.
+   ========================================================= */
+
+:root {
+  --valora-sidebar-height: 54px;
+  --valora-page-top-gap: 26px;
+}
+
+/* Área principal de todas as páginas */
+.main,
+main.main {
+  padding-top: calc(var(--valora-sidebar-height) + var(--valora-page-top-gap)) !important;
+}
+
+/* Garante respiro no primeiro bloco da página */
+.main > *:first-child,
+main.main > *:first-child {
+  margin-top: 0 !important;
+}
+
+/* Breadcrumb tipo "CADASTROS" */
+.eyebrow,
+.page-eyebrow,
+.module-eyebrow,
+.breadcrumb,
+.page-kicker {
+  display: block;
+  margin-bottom: 8px !important;
+}
+
+/* Títulos principais das páginas */
+.main h1,
+main.main h1 {
+  margin-top: 0 !important;
+  margin-bottom: 22px !important;
+  line-height: 1.15 !important;
+}
+
+/* Headers comuns das páginas */
+.page-header,
+.module-header,
+.content-header,
+.topbar,
+.header-page {
+  margin-top: 0 !important;
+  margin-bottom: 24px !important;
+}
+
+/* Quando a página começa direto com o breadcrumb e o h1 */
+.main > .eyebrow:first-child,
+main.main > .eyebrow:first-child,
+.main > .page-eyebrow:first-child,
+main.main > .page-eyebrow:first-child {
+  margin-top: 0 !important;
+}
+
+/* Cards/filtros abaixo do título */
+.main .card:first-of-type,
+main.main .card:first-of-type,
+.main .panel-card:first-of-type,
+main.main .panel-card:first-of-type,
+.main .filter-card:first-of-type,
+main.main .filter-card:first-of-type,
+.main .section-card:first-of-type,
+main.main .section-card:first-of-type {
+  margin-top: 0 !important;
+}
+
+/* Mobile */
+@media (max-width: 920px) {
+  :root {
+    --valora-sidebar-height: 52px;
+    --valora-page-top-gap: 20px;
+  }
+
+  .main,
+  main.main {
+    padding-top: calc(var(--valora-sidebar-height) + var(--valora-page-top-gap)) !important;
+  }
+
+  .main h1,
+  main.main h1 {
+    margin-bottom: 18px !important;
+  }
+}

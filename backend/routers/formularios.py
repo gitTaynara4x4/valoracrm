@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/formularios", tags=["Formulários"])
 
 
 # =========================================================
-# BANCO / AUTH SIMPLES PELO COOKIE DO VALORA
+# BANCO / AUTH
 # =========================================================
 def get_db():
     db = SessionLocal()
@@ -29,8 +29,10 @@ def get_db():
 
 def _int_cookie(request: Request, name: str) -> int:
     value = request.cookies.get(name)
+
     if not value:
         raise HTTPException(status_code=401, detail="Não autenticado.")
+
     try:
         return int(value)
     except ValueError:
@@ -64,6 +66,8 @@ MODULOS_PERMITIDOS = {
     "clientes",
     "fornecedores",
     "produtos",
+    "patrimonio",
+    "cotacoes",
     "propostas",
     "contratos",
     "dados_contrato",
@@ -106,7 +110,8 @@ LARGURAS_PERMITIDAS = {
     "inteiro",
 }
 
-CAMPOS_SISTEMA_POR_MODULO: Dict[str, List[Dict[str, str]]] = {
+
+CAMPOS_SISTEMA_POR_MODULO: Dict[str, List[Dict[str, Any]]] = {
     "clientes": [
         {"campo": "codigo", "label": "Código", "tipo": "numero"},
         {"campo": "nome", "label": "Nome / Razão social", "tipo": "texto"},
@@ -149,6 +154,40 @@ CAMPOS_SISTEMA_POR_MODULO: Dict[str, List[Dict[str, str]]] = {
         {"campo": "estoque_atual", "label": "Estoque atual", "tipo": "numero"},
         {"campo": "ativo", "label": "Ativo", "tipo": "checkbox"},
     ],
+    "patrimonio": [
+        {"campo": "codigo", "label": "Código", "tipo": "numero"},
+        {"campo": "nome", "label": "Nome do patrimônio", "tipo": "texto"},
+        {"campo": "descricao", "label": "Descrição", "tipo": "textarea"},
+        {"campo": "categoria", "label": "Categoria", "tipo": "texto"},
+        {"campo": "marca", "label": "Marca", "tipo": "texto"},
+        {"campo": "modelo", "label": "Modelo", "tipo": "texto"},
+        {"campo": "numero_serie", "label": "Número de série", "tipo": "texto"},
+        {"campo": "localizacao", "label": "Localização", "tipo": "texto"},
+        {"campo": "responsavel", "label": "Responsável", "tipo": "texto"},
+        {
+            "campo": "status",
+            "label": "Status",
+            "tipo": "select",
+            "opcoes": ["ativo", "manutencao", "baixado", "extraviado"],
+        },
+        {"campo": "valor_aquisicao", "label": "Valor de aquisição", "tipo": "moeda"},
+        {"campo": "data_aquisicao", "label": "Data de aquisição", "tipo": "data"},
+        {"campo": "observacoes", "label": "Observações", "tipo": "textarea"},
+        {"campo": "ativo", "label": "Ativo", "tipo": "checkbox"},
+    ],
+    "cotacoes": [
+        {"campo": "codigo", "label": "Código", "tipo": "numero"},
+        {"campo": "item_nome", "label": "Item desejado", "tipo": "texto"},
+        {"campo": "descricao", "label": "Descrição", "tipo": "textarea"},
+        {"campo": "quantidade", "label": "Quantidade", "tipo": "numero"},
+        {"campo": "unidade", "label": "Unidade", "tipo": "texto"},
+        {"campo": "categoria", "label": "Categoria", "tipo": "texto"},
+        {"campo": "status", "label": "Status", "tipo": "select"},
+        {"campo": "urgencia", "label": "Urgência", "tipo": "select"},
+        {"campo": "observacoes", "label": "Observações", "tipo": "textarea"},
+        {"campo": "fornecedor_vencedor_id", "label": "Fornecedor vencedor", "tipo": "texto"},
+        {"campo": "valor_aprovado", "label": "Valor aprovado", "tipo": "moeda"},
+    ],
     "propostas": [
         {"campo": "codigo", "label": "Código", "tipo": "numero"},
         {"campo": "titulo", "label": "Título", "tipo": "texto"},
@@ -161,13 +200,26 @@ CAMPOS_SISTEMA_POR_MODULO: Dict[str, List[Dict[str, str]]] = {
         {"campo": "total", "label": "Total", "tipo": "moeda"},
     ],
     "contratos": [
-        {"campo": "numero", "label": "Número do contrato", "tipo": "texto"},
+        {"campo": "numero_contrato", "label": "Número do contrato", "tipo": "texto"},
         {"campo": "cliente_id", "label": "Cliente", "tipo": "texto"},
-        {"campo": "tipo", "label": "Tipo de contrato", "tipo": "select"},
-        {"campo": "status", "label": "Status", "tipo": "select"},
+        {"campo": "proposta_id", "label": "Proposta vinculada", "tipo": "texto"},
+        {"campo": "tipo_contrato", "label": "Tipo de contrato", "tipo": "select"},
+        {
+            "campo": "status",
+            "label": "Status",
+            "tipo": "select",
+            "opcoes": ["rascunho", "emitido", "enviado_assinatura", "assinado", "cancelado"],
+        },
         {"campo": "valor_mensal", "label": "Valor mensal", "tipo": "moeda"},
-        {"campo": "data_inicio", "label": "Data de início", "tipo": "data"},
         {"campo": "data_pagamento", "label": "Data de pagamento", "tipo": "data"},
+        {"campo": "data_inicio", "label": "Data de início", "tipo": "data"},
+        {"campo": "data_fim", "label": "Data de fim", "tipo": "data"},
+        {"campo": "data_assinatura", "label": "Data de assinatura", "tipo": "data"},
+        {"campo": "proposta_codigo", "label": "Código da proposta", "tipo": "texto"},
+        {"campo": "proposta_titulo", "label": "Título da proposta", "tipo": "texto"},
+        {"campo": "vendedor_nome", "label": "Vendedor", "tipo": "texto"},
+        {"campo": "data_aprovacao", "label": "Data de aprovação", "tipo": "data"},
+        {"campo": "indicacao", "label": "Indicação", "tipo": "texto"},
         {"campo": "observacoes", "label": "Observações", "tipo": "textarea"},
     ],
     "dados_contrato": [
@@ -204,6 +256,7 @@ CAMPOS_SISTEMA_POR_MODULO: Dict[str, List[Dict[str, str]]] = {
 def dump_model(model: BaseModel, *, exclude_unset: bool = False) -> Dict[str, Any]:
     if hasattr(model, "model_dump"):
         return model.model_dump(exclude_unset=exclude_unset)
+
     return model.dict(exclude_unset=exclude_unset)
 
 
@@ -219,6 +272,7 @@ def norm_lower(value: Any) -> str:
 def to_int(value: Any, default: int = 0) -> int:
     if value in (None, "", "null"):
         return default
+
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -228,25 +282,31 @@ def to_int(value: Any, default: int = 0) -> int:
 def iso(value: Any) -> Optional[str]:
     if value is None:
         return None
+
     if isinstance(value, (datetime, date)):
         return value.isoformat()
+
     return str(value)
 
 
 def validar_modulo(modulo: Any) -> str:
     value = norm_lower(modulo)
+
     if value not in MODULOS_PERMITIDOS:
         raise HTTPException(
             status_code=422,
             detail="Módulo inválido. Use: " + ", ".join(sorted(MODULOS_PERMITIDOS)),
         )
+
     return value
 
 
 def validar_valor(value: Any, permitidos: set[str], campo: str, padrao: str) -> str:
     value_norm = norm_lower(value) or padrao
+
     if value_norm not in permitidos:
         raise HTTPException(status_code=422, detail=f"{campo} inválido.")
+
     return value_norm
 
 
@@ -256,8 +316,10 @@ def json_text(value: Any) -> Optional[str]:
 
     if isinstance(value, str):
         value = value.strip()
+
         if not value:
             return None
+
         return value
 
     try:
@@ -273,8 +335,10 @@ def modelo_ou_404(db: Session, modelo_id: int, empresa_id: int):
         .filter(models.FormularioModelo.empresa_id == empresa_id)
         .first()
     )
+
     if not item:
         raise HTTPException(status_code=404, detail="Formulário não encontrado.")
+
     return item
 
 
@@ -286,8 +350,10 @@ def secao_ou_404(db: Session, secao_id: int, empresa_id: int):
         .filter(models.FormularioModelo.empresa_id == empresa_id)
         .first()
     )
+
     if not item:
         raise HTTPException(status_code=404, detail="Seção não encontrada.")
+
     return item
 
 
@@ -299,8 +365,10 @@ def campo_ou_404(db: Session, campo_id: int, empresa_id: int):
         .filter(models.FormularioModelo.empresa_id == empresa_id)
         .first()
     )
+
     if not item:
         raise HTTPException(status_code=404, detail="Campo não encontrado.")
+
     return item
 
 
@@ -465,13 +533,6 @@ def formulario_principal_ou_padrao(
     *,
     ativo: bool = True,
 ):
-    """Retorna o formulário que deve ser usado pela tela do módulo.
-
-    Prioridade:
-    1. formulário marcado como ficha principal
-    2. formulário padrão
-    3. primeiro formulário ativo do módulo
-    """
     q = (
         db.query(models.FormularioModelo)
         .filter(models.FormularioModelo.empresa_id == empresa_id)
@@ -492,12 +553,6 @@ def formulario_principal_ou_padrao(
 
 
 def formulario_cache_version(db: Session, modelo) -> Dict[str, Any]:
-    """Gera uma versão leve para cache da estrutura da ficha.
-
-    A versão considera o formulário, as seções e os campos. Assim, se criar,
-    editar, remover ou reordenar um campo/seção, o navegador percebe que o
-    cache ficou antigo e baixa a ficha completa novamente.
-    """
     secoes = (
         db.query(models.FormularioSecao)
         .filter(models.FormularioSecao.formulario_id == modelo.id)
@@ -918,6 +973,7 @@ def obter_modelo(
 ):
     empresa_id = validar_usuario_empresa(request, db)
     modelo = modelo_ou_404(db, modelo_id, empresa_id)
+
     return formulario_completo(db, modelo)
 
 
@@ -1142,6 +1198,101 @@ def excluir_campo(
 # =========================================================
 # CRIAR PADRÃO DO MÓDULO
 # =========================================================
+def garantir_estrutura_padrao(db: Session, modelo, modulo: str) -> None:
+    """
+    Garante que o formulário padrão tenha pelo menos:
+    - uma seção padrão
+    - campos do sistema do módulo
+
+    Correção importante:
+    antes, se já existisse um formulário padrão vazio, a API só devolvia ele.
+    A tela ficava com formulário selecionado, mas sem seção/campos.
+    Aí Nova seção, Campo do sistema e Novo campo pareciam não funcionar.
+    """
+    modulo = validar_modulo(modulo)
+
+    secao = (
+        db.query(models.FormularioSecao)
+        .filter(models.FormularioSecao.formulario_id == modelo.id)
+        .order_by(models.FormularioSecao.ordem.asc(), models.FormularioSecao.id.asc())
+        .first()
+    )
+
+    if not secao:
+        secao = models.FormularioSecao(
+            formulario_id=modelo.id,
+            titulo="Dados principais",
+            descricao="Campos principais do cadastro.",
+            ordem=1,
+            ativo=True,
+        )
+
+        db.add(secao)
+        db.flush()
+
+    campos_existentes = (
+        db.query(models.FormularioCampo)
+        .filter(models.FormularioCampo.formulario_id == modelo.id)
+        .filter(models.FormularioCampo.origem == "sistema")
+        .all()
+    )
+
+    campos_sistema_existentes = {
+        str(c.campo_sistema or "").strip()
+        for c in campos_existentes
+        if str(c.campo_sistema or "").strip()
+    }
+
+    ultimo_campo = (
+        db.query(models.FormularioCampo)
+        .filter(models.FormularioCampo.formulario_id == modelo.id)
+        .order_by(models.FormularioCampo.ordem.desc(), models.FormularioCampo.id.desc())
+        .first()
+    )
+
+    ordem_atual = int(getattr(ultimo_campo, "ordem", 0) or 0)
+
+    for item in CAMPOS_SISTEMA_POR_MODULO.get(modulo, []):
+        campo_sistema = str(item.get("campo") or "").strip()
+
+        if not campo_sistema:
+            continue
+
+        if campo_sistema in campos_sistema_existentes:
+            continue
+
+        ordem_atual += 1
+
+        campo = models.FormularioCampo(
+            formulario_id=modelo.id,
+            secao_id=secao.id,
+            origem="sistema",
+            campo_sistema=campo_sistema,
+            campo_personalizado_id=None,
+            tipo_visual=None,
+            tipo_campo=item.get("tipo") or "texto",
+            label=item.get("label") or campo_sistema,
+            placeholder=None,
+            ajuda=None,
+            opcoes_json=json.dumps(item.get("opcoes"), ensure_ascii=False) if item.get("opcoes") else None,
+            obrigatorio=bool(item.get("obrigatorio", False)),
+            somente_leitura=bool(item.get("somente_leitura", False)),
+            ativo=True,
+            largura=str(item.get("largura") or "50"),
+            ordem=ordem_atual,
+            visibilidade="todos",
+            condicao_json=None,
+        )
+
+        db.add(campo)
+
+    modelo.ativo = True
+    modelo.padrao = True
+
+    if not getattr(modelo, "descricao", None):
+        modelo.descricao = "Modelo padrão gerado automaticamente pelo ValoraCRM."
+
+
 @router.post("/modelos/padrao/{modulo}", status_code=status.HTTP_201_CREATED)
 def criar_modelo_padrao(
     modulo: str,
@@ -1160,6 +1311,9 @@ def criar_modelo_padrao(
     )
 
     if existente:
+        garantir_estrutura_padrao(db, existente, modulo)
+        db.commit()
+        db.refresh(existente)
         return formulario_completo(db, existente)
 
     limpar_padrao_anterior(db, empresa_id, modulo)
@@ -1174,45 +1328,16 @@ def criar_modelo_padrao(
         usar_como_ficha_principal=False,
     )
 
-    db.add(modelo)
-    db.flush()
+    try:
+        db.add(modelo)
+        db.flush()
 
-    secao = models.FormularioSecao(
-        formulario_id=modelo.id,
-        titulo="Dados principais",
-        descricao="Campos principais do cadastro.",
-        ordem=1,
-        ativo=True,
-    )
+        garantir_estrutura_padrao(db, modelo, modulo)
 
-    db.add(secao)
-    db.flush()
-
-    for idx, item in enumerate(CAMPOS_SISTEMA_POR_MODULO.get(modulo, []), start=1):
-        campo = models.FormularioCampo(
-            formulario_id=modelo.id,
-            secao_id=secao.id,
-            origem="sistema",
-            campo_sistema=item["campo"],
-            campo_personalizado_id=None,
-            tipo_visual=None,
-            tipo_campo=item.get("tipo") or "texto",
-            label=item["label"],
-            placeholder=None,
-            ajuda=None,
-            opcoes_json=None,
-            obrigatorio=False,
-            somente_leitura=False,
-            ativo=True,
-            largura="50",
-            ordem=idx,
-            visibilidade="todos",
-            condicao_json=None,
-        )
-
-        db.add(campo)
-
-    db.commit()
-    db.refresh(modelo)
+        db.commit()
+        db.refresh(modelo)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Já existe formulário padrão para este módulo.")
 
     return formulario_completo(db, modelo)

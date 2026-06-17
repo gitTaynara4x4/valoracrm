@@ -25,6 +25,16 @@
       icon: 'fa-box-open',
       customEndpoint: null,
     },
+    patrimonio: {
+      label: 'Patrimônio',
+      icon: 'fa-tags',
+      customEndpoint: null,
+    },
+    cotacoes: {
+      label: 'Cotações',
+      icon: 'fa-scale-balanced',
+      customEndpoint: null,
+    },
     propostas: {
       label: 'Propostas',
       icon: 'fa-file-signature',
@@ -110,18 +120,21 @@
   }
 
   function openModal(id) {
-    const modal = qs(id);
-    if (!modal) {
-      console.warn(`[Formulários] Modal não encontrado: ${id}`);
-      return;
-    }
-
-    modal.classList.add('show');
-  }
+  if (window.ValoraModal) return window.ValoraModal.open(id);
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  modal.hidden = false;
+  modal.style.display = 'flex';
+  requestAnimationFrame(() => modal.classList.add('show'));
+}
 
   function closeModal(id) {
-    qs(id)?.classList.remove('show');
-  }
+  if (window.ValoraModal) return window.ValoraModal.close(id);
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  modal.classList.remove('show');
+  setTimeout(() => { modal.hidden = true; modal.style.display = 'none'; }, 160);
+}
 
   function closeAllModals() {
     document.querySelectorAll('.modal-overlay.show').forEach((modal) => {
@@ -244,6 +257,57 @@
     renderModeloAtual();
   }
 
+  async function garantirModeloAtual() {
+    let modeloId = state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+
+    if (modeloId) {
+      if (!state.modeloAtual?.modelo?.id) {
+        await carregarModeloCompleto(modeloId);
+      }
+
+      return state.modeloAtual?.modelo?.id || modeloId;
+    }
+
+    const data = await apiJson(`${API_BASE}/modelos/padrao/${state.modulo}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    await carregarModelos();
+
+    modeloId = data?.modelo?.id || state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+
+    if (modeloId) {
+      await carregarModeloCompleto(modeloId);
+      return modeloId;
+    }
+
+    throw new Error('Não foi possível criar ou selecionar o formulário padrão.');
+  }
+
+  async function garantirSecaoPadrao() {
+    const modeloId = await garantirModeloAtual();
+
+    if (getSecoes().length) {
+      return true;
+    }
+
+    await apiJson(`${API_BASE}/modelos/${modeloId}/secoes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        titulo: 'Dados principais',
+        descricao: 'Campos principais do cadastro.',
+        ordem: 1,
+        ativo: true,
+      }),
+    });
+
+    await carregarModeloCompleto(modeloId);
+
+    return true;
+  }
+
   async function carregarCamposSistema() {
     try {
       const data = await apiJson(`${API_BASE}/campos-sistema?modulo=${encodeURIComponent(state.modulo)}`);
@@ -350,9 +414,14 @@
     const btnNovoCampo = qs('btn-novo-campo');
 
     if (btnEditar) btnEditar.disabled = !hasModelo;
-    if (btnNovaSecao) btnNovaSecao.disabled = !hasModelo;
-    if (btnCampoSistema) btnCampoSistema.disabled = !hasModelo;
-    if (btnNovoCampo) btnNovoCampo.disabled = !hasModelo;
+
+    /*
+      Estes botões não ficam mais travados.
+      Se não tiver formulário/seção, o clique cria o padrão automaticamente.
+    */
+    if (btnNovaSecao) btnNovaSecao.disabled = false;
+    if (btnCampoSistema) btnCampoSistema.disabled = false;
+    if (btnNovoCampo) btnNovoCampo.disabled = false;
 
     const empty = qs('builder-empty');
     const wrap = qs('secoes-container');
@@ -1023,8 +1092,10 @@
   async function criarPadrao() {
     const btn = qs('btn-criar-padrao');
 
-    btn.disabled = true;
-    btn.textContent = 'Criando...';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Criando...';
+    }
 
     try {
       const data = await apiJson(`${API_BASE}/modelos/padrao/${state.modulo}`, {
@@ -1034,17 +1105,23 @@
 
       await carregarModelos();
 
-      if (data?.modelo?.id) {
-        await carregarModeloCompleto(data.modelo.id);
+      const modeloId = data?.modelo?.id || state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+
+      if (modeloId) {
+        await carregarModeloCompleto(modeloId);
       }
 
-      toast(`Formulário padrão de ${moduloLabel()} criado.`);
+      toast(`Formulário padrão de ${moduloLabel()} pronto para uso.`);
+      return data;
     } catch (err) {
       console.error(err);
       toast(err.message || 'Erro ao criar formulário padrão.', true);
+      throw err;
     } finally {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Criar padrão';
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Criar padrão';
+      }
     }
   }
 
@@ -1158,43 +1235,53 @@
   }
 
   async function abrirNovaSecao() {
-    const modeloId = state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+    try {
+      await garantirModeloAtual();
 
-    if (!modeloId) {
-      toast('Crie ou selecione um formulário antes de criar uma seção.', true);
-      return;
+      resetSecaoForm(null);
+      openModal('modal-secao');
+    } catch (err) {
+      console.error(err);
+      toast(err.message || 'Erro ao preparar o formulário para criar seção.', true);
     }
-
-    if (!state.modeloAtual?.modelo?.id) {
-      await carregarModeloCompleto(modeloId);
-    }
-
-    resetSecaoForm(null);
-    openModal('modal-secao');
   }
 
   async function abrirCampoSistema(campo = null) {
-    if (!campo && !podeAbrirCampo()) return;
+    try {
+      if (!campo) {
+        await garantirSecaoPadrao();
+      }
 
-    await Promise.all([
-      carregarCamposSistema(),
-      carregarCamposPersonalizados(),
-    ]);
+      await Promise.all([
+        carregarCamposSistema(),
+        carregarCamposPersonalizados(),
+      ]);
 
-    resetCampoForm(campo, 'sistema');
-    openModal('modal-campo');
+      resetCampoForm(campo, 'sistema');
+      openModal('modal-campo');
+    } catch (err) {
+      console.error(err);
+      toast(err.message || 'Erro ao preparar o campo do sistema.', true);
+    }
   }
 
   async function abrirNovoCampo(campo = null) {
-    if (!campo && !podeAbrirCampo()) return;
+    try {
+      if (!campo) {
+        await garantirSecaoPadrao();
+      }
 
-    await Promise.all([
-      carregarCamposSistema(),
-      carregarCamposPersonalizados(),
-    ]);
+      await Promise.all([
+        carregarCamposSistema(),
+        carregarCamposPersonalizados(),
+      ]);
 
-    resetCampoForm(campo, 'novo');
-    openModal('modal-campo');
+      resetCampoForm(campo, 'novo');
+      openModal('modal-campo');
+    } catch (err) {
+      console.error(err);
+      toast(err.message || 'Erro ao preparar o novo campo.', true);
+    }
   }
 
   function abrirCampoParaEditar(campo) {

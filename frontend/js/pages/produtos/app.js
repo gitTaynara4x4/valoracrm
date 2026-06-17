@@ -710,16 +710,22 @@ function renderPaginacaoProdutos() {
 ========================= */
 
 function abrirModalProduto() {
+  if (window.ValoraModal) return window.ValoraModal.open('modal-produto-backdrop');
   const bd = getEl('modal-produto-backdrop');
   if (!bd) return;
   bd.hidden = false;
+  bd.style.display = 'flex';
   document.body.classList.add('modal-open');
+  requestAnimationFrame(() => bd.classList.add('show'));
 }
 
 function fecharModalProduto() {
-  const bd = getEl('modal-produto-backdrop');
-  if (bd) bd.hidden = true;
-  document.body.classList.remove('modal-open');
+  if (window.ValoraModal) window.ValoraModal.close('modal-produto-backdrop');
+  else {
+    const bd = getEl('modal-produto-backdrop');
+    if (bd) { bd.classList.remove('show'); bd.hidden = true; bd.style.display = 'none'; }
+    document.body.classList.remove('modal-open');
+  }
   state.produtoEditandoId = null;
 }
 

@@ -1,0 +1,788 @@
+/* =========================================
+   COTAÇÕES | VALORA CRM
+   Padrão visual igual Clientes/Fornecedores/Produtos
+   ========================================= */
+
+.main {
+  max-width: 1280px;
+  width: 100%;
+  padding-left: 32px;
+  padding-right: 32px;
+}
+
+/* =========================================
+   TOPO
+   ========================================= */
+.topbar {
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.topbar-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topbar-title .eyebrow {
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.topbar-title h1 {
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.topbar-actions .btn {
+  min-height: 38px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.topbar-actions .btn i {
+  font-size: 13px;
+  margin-right: 6px;
+}
+
+/* =========================================
+   FILTROS
+   ========================================= */
+.cotacoes-filter-card {
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  padding: 20px !important;
+  margin-bottom: 20px !important;
+}
+
+.cotacoes-filter-card .panel-head {
+  margin-bottom: 18px;
+}
+
+.cotacoes-filter-card .panel-head h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.03em;
+}
+
+.cotacoes-filter-card .panel-head p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.cotacoes-filters-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 2fr) minmax(180px, 280px);
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.cotacoes-filters-grid .form-group {
+  margin: 0;
+}
+
+.form-group label,
+.cotacao-form-grid label,
+.cotacao-add-fornecedor label,
+.fornecedores-cotados-table label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea,
+.cotacao-form-grid input,
+.cotacao-form-grid select,
+.cotacao-form-grid textarea,
+.cotacao-add-fornecedor input,
+.cotacao-add-fornecedor select,
+.cotacao-add-fornecedor textarea,
+.fornecedores-cotados-table input,
+.fornecedores-cotados-table select {
+  width: 100%;
+  height: 38px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 0 13px;
+  outline: none;
+  transition: var(--transition);
+  box-shadow: none;
+}
+
+.form-group textarea,
+.cotacao-form-grid textarea,
+.cotacao-add-fornecedor textarea {
+  height: auto;
+  min-height: 96px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder,
+.cotacao-form-grid input::placeholder,
+.cotacao-form-grid textarea::placeholder,
+.cotacao-add-fornecedor input::placeholder,
+.cotacao-add-fornecedor textarea::placeholder {
+  color: var(--muted-soft);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus,
+.cotacao-form-grid input:focus,
+.cotacao-form-grid select:focus,
+.cotacao-form-grid textarea:focus,
+.cotacao-add-fornecedor input:focus,
+.cotacao-add-fornecedor select:focus,
+.cotacao-add-fornecedor textarea:focus,
+.fornecedores-cotados-table input:focus,
+.fornecedores-cotados-table select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-actions {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.counter-text {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* =========================================
+   TABELA
+   ========================================= */
+.panel-card-table {
+  padding: 0 !important;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+
+.valora-table-wrapper {
+  width: 100%;
+  overflow: auto;
+}
+
+.valora-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  background: var(--panel);
+}
+
+.valora-table thead {
+  background: var(--bg-soft);
+}
+
+.valora-table th {
+  height: 48px;
+  padding: 0 16px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.valora-table td {
+  min-height: 58px;
+  padding: 14px 16px;
+  color: var(--text-soft);
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.valora-table tbody tr {
+  transition: var(--transition);
+}
+
+.valora-table tbody tr:hover {
+  background: var(--bg-soft);
+}
+
+.valora-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.valora-table td strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.text-right {
+  text-align: right !important;
+}
+
+.muted-line {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.row-badges {
+  margin-top: 6px;
+}
+
+.empty-state {
+  color: var(--muted);
+  padding: 24px 18px !important;
+  text-align: center;
+  border: 1px dashed var(--border) !important;
+  border-radius: 10px;
+  background: var(--bg-soft);
+  font-size: 13px;
+}
+
+.valora-table .empty-state {
+  border: none !important;
+  background: transparent;
+  border-radius: 0;
+  padding: 32px 18px !important;
+}
+
+.table-pagination {
+  min-height: 56px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  background: var(--panel);
+}
+
+.table-pagination > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* =========================================
+   AÇÕES / BADGES
+   ========================================= */
+.cotacao-actions {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cotacao-icon-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.cotacao-icon-btn:hover {
+  background: var(--bg-soft);
+  border-color: var(--brand);
+  color: var(--brand);
+  transform: translateY(-1px);
+}
+
+.cotacao-icon-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.28);
+  color: #dc2626;
+}
+
+.cotacao-best-badge,
+.status-badge-cotacao,
+.urgencia-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 25px;
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cotacao-best-badge {
+  color: #047857;
+  background: #d1fae5;
+}
+
+.status-badge-cotacao.rascunho { background: #f1f5f9; color: #475569; }
+.status-badge-cotacao.em_cotacao { background: #dbeafe; color: #1d4ed8; }
+.status-badge-cotacao.respondida { background: #ede9fe; color: #6d28d9; }
+.status-badge-cotacao.em_analise { background: #fef3c7; color: #92400e; }
+.status-badge-cotacao.aprovada { background: #dcfce7; color: #166534; }
+.status-badge-cotacao.convertida { background: #ccfbf1; color: #0f766e; }
+.status-badge-cotacao.recusada,
+.status-badge-cotacao.cancelada { background: #fee2e2; color: #b91c1c; }
+
+.urgencia-badge.alta,
+.urgencia-badge.critica { background: #fee2e2; color: #b91c1c; }
+.urgencia-badge.media { background: #fef3c7; color: #92400e; }
+.urgencia-badge.baixa { background: #e0f2fe; color: #0369a1; }
+
+/* =========================================
+   MODAL
+   ========================================= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 24, 39, 0.42);
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+
+.modal-overlay.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.modal-overlay[hidden] {
+  display: none !important;
+}
+
+.modal-content {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  width: min(540px, calc(100vw - 40px));
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(14px) scale(0.985);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  will-change: transform, opacity;
+}
+
+.modal-overlay.show .modal-content {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.modal-xl {
+  width: min(1180px, calc(100vw - 56px));
+  max-width: none;
+  max-height: min(88vh, 860px);
+  height: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  contain: layout paint;
+}
+
+.modal-header {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.section-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px 22px 22px;
+  background: var(--bg);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.modal-footer {
+  flex: 0 0 auto;
+  padding: 16px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-close {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.btn-close:hover {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.22);
+  color: #dc2626;
+}
+
+/* =========================================
+   FORMULÁRIO DA COTAÇÃO
+   ========================================= */
+.cotacao-modal .modal-body {
+  background: var(--bg);
+}
+
+.cotacao-section-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+}
+
+.custom-section-head {
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.custom-section-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.custom-section-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.custom-section-title h4 {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.custom-section-title p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.cotacao-form-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 20px 18px;
+}
+
+.cotacao-form-grid .form-group,
+.cotacao-add-fornecedor .form-group {
+  margin: 0;
+}
+
+.cotacao-form-grid .field-small { grid-column: span 2; }
+.cotacao-form-grid .field-medium { grid-column: span 3; }
+.cotacao-form-grid .field-large { grid-column: span 7; }
+.cotacao-form-grid .span-all,
+.cotacao-add-fornecedor .span-all { grid-column: 1 / -1; }
+
+.cotacao-add-fornecedor {
+  display: grid;
+  grid-template-columns: 1.1fr 1.1fr .7fr .7fr .7fr 1fr;
+  gap: 16px;
+  align-items: end;
+  padding: 18px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.cotacao-add-btn {
+  grid-column: 1 / -1;
+  justify-self: flex-start;
+}
+
+.cotacao-comparativo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.cotacao-comparativo-item {
+  min-height: 72px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.cotacao-comparativo-item span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.cotacao-comparativo-item strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.fornecedores-cotados-wrapper {
+  margin-top: 18px;
+}
+
+.fornecedores-cotados-table {
+  min-width: 1060px;
+}
+
+.fornecedores-cotados-table th,
+.fornecedores-cotados-table td {
+  vertical-align: middle;
+}
+
+.fornecedores-cotados-table input,
+.fornecedores-cotados-table select {
+  min-height: 38px;
+  height: 38px;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.fornecedor-vencedor-radio {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--brand);
+}
+
+.cotacao-row-vencedor td {
+  background: rgba(75, 195, 199, 0.06);
+}
+
+.cotacao-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cotacao-footer-left,
+.cotacao-footer-right {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cotacao-empty-help {
+  padding: 22px;
+  color: var(--muted);
+  text-align: center;
+}
+
+html[data-theme="dark"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+@media (max-width: 1100px) {
+  .cotacoes-filters-grid,
+  .cotacao-form-grid,
+  .cotacao-add-fornecedor {
+    grid-template-columns: 1fr;
+  }
+
+  .cotacao-form-grid .field-small,
+  .cotacao-form-grid .field-medium,
+  .cotacao-form-grid .field-large,
+  .cotacao-form-grid .span-all,
+  .cotacao-add-fornecedor .span-all {
+    grid-column: 1 / -1;
+  }
+
+  .cotacao-comparativo {
+    grid-template-columns: 1fr;
+  }
+
+  .cotacao-modal-footer {
+    flex-direction: column;
+  }
+
+  .cotacao-footer-left,
+  .cotacao-footer-right {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 720px) {
+  .main {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbar-actions {
+    justify-content: flex-start;
+  }
+
+  .modal-overlay {
+    padding: 10px;
+    align-items: stretch;
+  }
+
+  .modal-xl {
+    width: 100%;
+    max-height: calc(100vh - 20px);
+  }
+}
+
+
+/* =========================================
+   RESPONSIVO COTAÇÕES
+   ========================================= */
+@media (max-width: 900px) {
+  .main {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .cotacoes-filters-grid,
+  .cotacao-form-grid,
+  .cotacao-add-fornecedor {
+    grid-template-columns: 1fr !important;
+  }
+
+  .footer-actions,
+  .filter-actions {
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .filter-actions .counter-text {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .valora-table {
+    min-width: 820px;
+  }
+}
+
+@media (max-width: 560px) {
+  .main {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .topbar-title h1 {
+    font-size: 20px;
+  }
+
+  .cotacoes-filter-card {
+    padding: 16px !important;
+  }
+
+  .cotacoes-filter-card .panel-head {
+    margin-bottom: 14px;
+  }
+
+  .topbar-actions .btn {
+    width: 100%;
+  }
+}

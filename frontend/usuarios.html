@@ -10,21 +10,23 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-  <link rel="stylesheet" href="/frontend/css/app.css" />
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/usuarios.css" />
 
-  <script src="/frontend/js/pages/app.js" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
   <script src="/frontend/js/pages/usuarios.js" defer></script>
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
+  <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
 </head>
 
 <body>
   <div class="layout">
     <iframe
-      src="/frontend/partials/sidebar.html"
+      src="/frontend/partials/sidebar.html?v=20260615-menu-fix"
       class="sidebar-frame"
       title="Menu lateral"
       loading="eager">
@@ -88,14 +90,14 @@
         </div>
       </article>
 
-      <div class="modal-overlay" id="modal-usuario-backdrop">
+      <div class="modal-overlay" id="modal-usuario-backdrop" hidden>
         <div class="modal-content modal-content-large">
           <div class="modal-header">
             <div>
               <span class="modal-kicker">Cadastro</span>
               <h3 id="modal-title">Novo usuário</h3>
             </div>
-            <button class="btn-close" type="button" id="btn-fechar-modal" aria-label="Fechar">
+            <button class="btn-close" type="button" id="btn-fechar-modal" aria-label="Fechar" data-modal-close="modal-usuario-backdrop">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
@@ -210,7 +212,7 @@
         </div>
       </div>
 
-      <div class="modal-overlay" id="Valora-confirm-backdrop">
+      <div class="modal-overlay" id="Valora-confirm-backdrop" hidden>
         <div class="modal-content modal-content-confirm">
           <div class="modal-body modal-confirm-body">
             <i class="fa-solid fa-triangle-exclamation confirm-icon"></i>

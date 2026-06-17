@@ -42,7 +42,7 @@
   --radius-xs: 8px;
 
   --sidebar-w: 0px;
-  --topbar-h: 64px;
+  --topbar-h: 56px;
 
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow-md: 0 10px 28px rgba(15, 23, 42, 0.07);
@@ -96,7 +96,7 @@ body {
   font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bg);
   color: var(--text);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
@@ -149,8 +149,8 @@ img {
 }
 
 .main {
-  padding: calc(var(--topbar-h) + 34px) 48px 36px;
-  max-width: 1220px;
+  padding: calc(var(--topbar-h) + 28px) 32px 32px;
+  max-width: 1280px;
   margin: 0 auto;
   width: 100%;
 
@@ -166,20 +166,20 @@ img {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 28px;
+  gap: 14px;
+  margin-bottom: 22px;
 }
 
 .eyebrow {
   color: var(--blue);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .topbar h1 {
-  font-size: 26px;
+  font-size: 22px;
   line-height: 1.18;
   font-weight: 600;
   margin-top: 4px;
@@ -190,7 +190,15 @@ img {
 .topbar p {
   margin-top: 6px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 /* =========================================
@@ -370,11 +378,11 @@ html[data-theme="dark"] .status-indicator {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 40px;
-  padding: 0 17px;
-  border-radius: 10px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
   font-weight: 500;
-  font-size: 13px;
+  font-size: 12px;
   transition: var(--transition);
   cursor: pointer;
   border: 1px solid transparent;
@@ -508,7 +516,7 @@ html[data-theme="dark"] .stat-value.online {
 }
 
 .panel-card {
-  padding: 24px;
+  padding: 20px;
 }
 
 .panel-head {
@@ -879,8 +887,8 @@ html[data-theme="dark"] .stat-value.online {
    ========================================= */
 @media (max-width: 1100px) {
   .main {
-    padding-left: 32px;
-    padding-right: 32px;
+    padding-left: 22px;
+    padding-right: 22px;
   }
 
   .hero-card {
@@ -908,16 +916,43 @@ html[data-theme="dark"] .stat-value.online {
 
 @media (max-width: 760px) {
   :root {
-    --topbar-h: 64px;
+    --topbar-h: 56px;
+  }
+
+  body {
+    font-size: 12.5px;
   }
 
   .main {
-    padding: calc(var(--topbar-h) + 24px) 18px 28px;
+    padding: calc(var(--topbar-h) + 18px) 14px 24px;
   }
 
   .topbar {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .topbar h1 {
+    font-size: 20px;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .topbar-actions .btn,
+  .topbar-actions button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .panel-card {
+    padding: 16px;
   }
 
   .stats-grid,
@@ -931,6 +966,11 @@ html[data-theme="dark"] .stat-value.online {
 
   .btn {
     width: 100%;
+  }
+
+  .valora-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .form-row {
@@ -955,5 +995,659 @@ html[data-theme="dark"] .stat-value.online {
 
   .footer-divider {
     display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .main {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .topbar-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .btn {
+    min-height: 34px;
+    font-size: 11.5px;
+    padding: 0 12px;
+  }
+}
+
+
+/* =========================================================
+   FIX SIDEBAR IFRAME / DROPDOWN
+   O menu está dentro de iframe. Sem isso, o dropdown fica cortado.
+   ========================================================= */
+
+.sidebar-frame {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 54px !important;
+  min-height: 54px !important;
+  max-height: 54px !important;
+  border: 0 !important;
+  overflow: visible !important;
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+  background: transparent !important;
+}
+
+body.sidebar-open .sidebar-frame,
+.sidebar-frame.is-open {
+  height: 340px !important;
+  min-height: 340px !important;
+  max-height: 340px !important;
+}
+
+body.sidebar-mobile-open .sidebar-frame,
+.sidebar-frame.is-mobile-open {
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  max-height: 100dvh !important;
+}
+
+.layout {
+  overflow: visible !important;
+}
+
+.main {
+  padding-top: 54px !important;
+}
+
+
+/* =========================================================
+   MODAL UNIFICADO VALORA - PADRÃO REAL
+   Este bloco fica no app.css para não criar arquivo extra.
+   Ele sobrescreve os estilos antigos de clientes/produtos/etc.
+   ========================================================= */
+body.modal-open {
+  overflow: hidden !important;
+}
+
+body .modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  display: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 14px !important;
+  background: rgba(15, 23, 42, .62) !important;
+  backdrop-filter: blur(6px) !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  overflow: hidden !important;
+  transition: opacity .16s ease, visibility .16s ease !important;
+}
+
+body .modal-overlay.show {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+body .modal-overlay[hidden] {
+  display: none !important;
+}
+
+body .modal-overlay.show[hidden] {
+  display: flex !important;
+}
+
+body .modal-content,
+body .proposal-modal-content,
+body .modal-content-large {
+  position: relative !important;
+  z-index: 100000 !important;
+  width: min(1180px, calc(100vw - 28px)) !important;
+  height: auto !important;
+  max-height: calc(100vh - 28px) !important;
+  margin: 0 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  background: var(--panel, #ffffff) !important;
+  color: var(--text, #0f172a) !important;
+  border: 1px solid var(--border, #e5e7eb) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 28px 90px rgba(15, 23, 42, .34) !important;
+  transform: translateY(10px) scale(.985) !important;
+  transition: transform .18s ease !important;
+}
+
+body .modal-overlay.show .modal-content,
+body .modal-overlay.show .proposal-modal-content,
+body .modal-overlay.show .modal-content-large {
+  transform: translateY(0) scale(1) !important;
+}
+
+body .modal-sm,
+body .modal-content-confirm,
+body .confirm-content {
+  width: min(520px, calc(100vw - 28px)) !important;
+}
+
+body .modal-md {
+  width: min(760px, calc(100vw - 28px)) !important;
+}
+
+body .modal-lg {
+  width: min(980px, calc(100vw - 28px)) !important;
+}
+
+body .modal-xl,
+body .modal-content-large,
+body .proposal-modal-content {
+  width: min(1180px, calc(100vw - 28px)) !important;
+}
+
+body .modal-header,
+body .proposal-modal-header {
+  flex: 0 0 auto !important;
+  min-height: 80px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  padding: 20px 24px !important;
+  border-bottom: 1px solid var(--border, #e5e7eb) !important;
+  background: var(--panel, #ffffff) !important;
+}
+
+body .modal-header > div,
+body .proposal-modal-header > div:first-child,
+body .modal-title-wrap {
+  min-width: 0 !important;
+  display: block !important;
+}
+
+body .modal-header h2,
+body .modal-header h3,
+body .proposal-modal-header h2,
+body .proposal-modal-header h3 {
+  margin: 0 !important;
+  color: var(--text, #0f172a) !important;
+  font-size: 18px !important;
+  line-height: 1.2 !important;
+  font-weight: 700 !important;
+  letter-spacing: -.03em !important;
+}
+
+body .modal-header p,
+body .proposal-modal-header p {
+  margin: 6px 0 0 !important;
+  color: var(--muted, #64748b) !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+  font-weight: 500 !important;
+}
+
+body .section-kicker,
+body .modal-kicker,
+body .proposal-kicker {
+  display: block !important;
+  margin: 0 0 4px !important;
+  color: var(--blue, #65acde) !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
+}
+
+body .modal-close,
+body .btn-close {
+  flex: 0 0 auto !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  border: 1px solid var(--border, #e5e7eb) !important;
+  border-radius: 10px !important;
+  background: var(--panel, #ffffff) !important;
+  color: var(--muted, #64748b) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  transition: .16s ease !important;
+}
+
+body .modal-close:hover,
+body .btn-close:hover {
+  color: var(--danger, #dc2626) !important;
+  border-color: rgba(220, 38, 38, .24) !important;
+  background: rgba(220, 38, 38, .06) !important;
+}
+
+body .modal-body,
+body .proposal-modal-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+  padding: 20px 24px !important;
+  background: var(--bg, #f6f8fb) !important;
+}
+
+body .modal-footer,
+body .proposal-modal-footer,
+body .cotacao-modal-footer {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  padding: 16px 24px !important;
+  border-top: 1px solid var(--border, #e5e7eb) !important;
+  background: var(--panel, #ffffff) !important;
+}
+
+body .modal-footer .footer-spacer,
+body .footer-spacer,
+body .cotacao-footer-left {
+  flex: 1 1 auto !important;
+}
+
+body .cotacao-footer-left,
+body .cotacao-footer-right,
+body .proposal-footer-left,
+body .proposal-footer-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+}
+
+/* Formulário interno padronizado */
+body .modal-body .valora-form,
+body .modal-body form,
+body .proposal-modal-body .valora-form,
+body .proposal-modal-body form {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+}
+
+body .modal-body .form-row,
+body .proposal-modal-body .form-row,
+body .cotacao-form-grid,
+body .proposal-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  align-items: start !important;
+}
+
+body .modal-body .form-row.two-cols {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+body .modal-body .form-row.three-cols {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+body .modal-body .form-row.four-cols {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+body .modal-body .form-group,
+body .proposal-modal-body .form-group,
+body .custom-field-item {
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 7px !important;
+}
+
+body .modal-body .form-group label,
+body .proposal-modal-body .form-group label,
+body .custom-field-item label {
+  margin: 0 !important;
+  color: var(--text, #0f172a) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+}
+
+body .modal-body input,
+body .modal-body select,
+body .modal-body textarea,
+body .proposal-modal-body input,
+body .proposal-modal-body select,
+body .proposal-modal-body textarea,
+body .custom-field-item input,
+body .custom-field-item select,
+body .custom-field-item textarea {
+  width: 100% !important;
+  min-height: 42px !important;
+  border: 1px solid var(--border, #dbe3ef) !important;
+  border-radius: 9px !important;
+  background: var(--panel, #ffffff) !important;
+  color: var(--text, #0f172a) !important;
+  padding: 0 12px !important;
+  outline: none !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+  transition: border-color .16s ease, box-shadow .16s ease !important;
+}
+
+body .modal-body textarea,
+body .proposal-modal-body textarea,
+body .custom-field-item textarea {
+  min-height: 90px !important;
+  resize: vertical !important;
+  padding-top: 10px !important;
+  line-height: 1.5 !important;
+}
+
+body .modal-body input:focus,
+body .modal-body select:focus,
+body .modal-body textarea:focus,
+body .proposal-modal-body input:focus,
+body .proposal-modal-body select:focus,
+body .proposal-modal-body textarea:focus,
+body .custom-field-item input:focus,
+body .custom-field-item select:focus,
+body .custom-field-item textarea:focus {
+  border-color: var(--brand, #4bc3c7) !important;
+  box-shadow: 0 0 0 3px rgba(75, 195, 199, .16) !important;
+}
+
+body .modal-body .span-all,
+body .proposal-modal-body .span-all,
+body .field-large,
+body .span-4 {
+  grid-column: 1 / -1 !important;
+}
+
+body .modal-body .span-2,
+body .proposal-modal-body .span-2,
+body .field-medium {
+  grid-column: span 2 !important;
+}
+
+body .modal-body .field-small {
+  grid-column: span 1 !important;
+}
+
+/* Cards/seções padronizados */
+body .modal-body .section-card,
+body .modal-body .custom-fields-card,
+body .modal-body .custom-section-card,
+body .modal-body .cotacao-section-card,
+body .modal-body .produto-ficha-code-card,
+body .modal-body .valora-modal-section,
+body .proposal-card,
+body .proposal-section,
+body .proposal-items-card,
+body .fields-builder-card {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid var(--border, #e5e7eb) !important;
+  border-radius: 14px !important;
+  background: var(--panel, #ffffff) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04) !important;
+}
+
+body .modal-body .section-card > h4,
+body .modal-body .custom-fields-head,
+body .modal-body .custom-section-head,
+body .modal-body .valora-section-head,
+body .proposal-section-head,
+body .proposal-card-head {
+  min-height: 64px !important;
+  margin: 0 !important;
+  padding: 18px 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  border-bottom: 1px solid var(--border, #e5e7eb) !important;
+  background: var(--panel, #ffffff) !important;
+}
+
+body .modal-body .section-card > h4 {
+  color: var(--text, #0f172a) !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+}
+
+body .modal-body .custom-fields-head h3,
+body .modal-body .custom-section-head h4,
+body .modal-body .valora-section-head h4,
+body .proposal-section-head h4,
+body .proposal-card-head h4 {
+  margin: 0 !important;
+  color: var(--text, #0f172a) !important;
+  font-size: 15px !important;
+  line-height: 1.25 !important;
+  font-weight: 800 !important;
+}
+
+body .modal-body .custom-fields-head p,
+body .modal-body .custom-section-head p,
+body .modal-body .valora-section-head p,
+body .proposal-section-head p,
+body .proposal-card-head p {
+  margin: 4px 0 0 !important;
+  color: var(--muted, #64748b) !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+  font-weight: 500 !important;
+}
+
+body .modal-body .section-card > .form-row,
+body .modal-body .section-card > .stack,
+body .modal-body .section-card > .mini-list,
+body .modal-body .custom-fields-container,
+body .modal-body .cotacao-form-grid,
+body .modal-body .valora-section-body,
+body .proposal-card-body,
+body .proposal-section-body {
+  padding: 20px !important;
+}
+
+body .modal-body .section-card > .form-row + .form-row {
+  padding-top: 0 !important;
+}
+
+body .modal-body .custom-fields-info,
+body .modal-body .produto-ficha-code-card > p,
+body .modal-body .field-hint {
+  color: var(--muted, #64748b) !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+/* Toggle ficha principal padronizado */
+body .modal-body .ficha-principal-toggle-bar,
+body .modal-body .cliente-ficha-toggle-bar,
+body .modal-body .produto-ficha-toggle-bar {
+  margin: 0 !important;
+  padding: 14px 16px !important;
+  border: 1px solid rgba(75, 195, 199, .30) !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, rgba(75,195,199,.13), rgba(101,172,222,.10)) !important;
+}
+
+body .modal-body .ficha-principal-toggle,
+body .modal-body .cliente-ficha-toggle,
+body .modal-body .produto-ficha-toggle,
+body .modal-body .check-card.single {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  cursor: pointer !important;
+}
+
+body .modal-body .ficha-principal-toggle input,
+body .modal-body .cliente-ficha-toggle input,
+body .modal-body .produto-ficha-toggle input,
+body .modal-body .check-card.single input {
+  width: 18px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  padding: 0 !important;
+  accent-color: var(--brand, #4bc3c7) !important;
+}
+
+body .modal-body .ficha-principal-toggle strong,
+body .modal-body .cliente-ficha-toggle strong,
+body .modal-body .produto-ficha-toggle strong,
+body .modal-body .check-card.single strong {
+  display: block !important;
+  color: var(--text, #0f172a) !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+}
+
+body .modal-body .ficha-principal-toggle small,
+body .modal-body .cliente-ficha-toggle small,
+body .modal-body .produto-ficha-toggle small,
+body .modal-body .check-card.single small {
+  display: block !important;
+  color: var(--muted, #64748b) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  margin-top: 2px !important;
+}
+
+/* Tabs padronizadas */
+body .modal-body .cliente-tabs,
+body .modal-body .fornecedor-tabs,
+body .proposal-tabs,
+body .form-tabs,
+body .modal-tabs {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  margin: 0 !important;
+  padding: 8px !important;
+  border: 1px solid var(--border, #e5e7eb) !important;
+  border-radius: 12px !important;
+  background: var(--panel, #ffffff) !important;
+}
+
+body .modal-body .cliente-tab-btn,
+body .modal-body .fornecedor-tab-btn,
+body .proposal-tab-btn,
+body .form-tab-btn,
+body .modal-tab-btn {
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  border: 1px solid transparent !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  color: var(--muted, #64748b) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: .16s ease !important;
+}
+
+body .modal-body .cliente-tab-btn:hover,
+body .modal-body .fornecedor-tab-btn:hover,
+body .proposal-tab-btn:hover,
+body .form-tab-btn:hover,
+body .modal-tab-btn:hover,
+body .modal-body .cliente-tab-btn.active,
+body .modal-body .fornecedor-tab-btn.active,
+body .proposal-tab-btn.active,
+body .form-tab-btn.active,
+body .modal-tab-btn.active {
+  border-color: rgba(75, 195, 199, .35) !important;
+  background: rgba(75, 195, 199, .12) !important;
+  color: var(--brand-dark, #0694a2) !important;
+}
+
+body .modal-body .empty-state {
+  padding: 22px !important;
+  color: var(--muted, #64748b) !important;
+  text-align: center !important;
+  font-size: 13px !important;
+}
+
+body .modal-body table {
+  background: var(--panel, #ffffff) !important;
+}
+
+@media (max-width: 920px) {
+  body .modal-overlay {
+    align-items: flex-end !important;
+    padding: 10px !important;
+  }
+
+  body .modal-content,
+  body .proposal-modal-content,
+  body .modal-content-large,
+  body .modal-sm,
+  body .modal-md,
+  body .modal-lg,
+  body .modal-xl {
+    width: 100% !important;
+    max-height: calc(100dvh - 20px) !important;
+    border-radius: 16px !important;
+  }
+
+  body .modal-header,
+  body .proposal-modal-header,
+  body .modal-body,
+  body .proposal-modal-body,
+  body .modal-footer,
+  body .proposal-modal-footer,
+  body .cotacao-modal-footer {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  body .modal-body .form-row,
+  body .modal-body .form-row.two-cols,
+  body .modal-body .form-row.three-cols,
+  body .modal-body .form-row.four-cols,
+  body .proposal-modal-body .form-row,
+  body .cotacao-form-grid,
+  body .proposal-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  body .modal-body .span-2,
+  body .modal-body .span-all,
+  body .field-small,
+  body .field-medium,
+  body .field-large {
+    grid-column: 1 / -1 !important;
+  }
+
+  body .modal-footer,
+  body .proposal-modal-footer,
+  body .cotacao-modal-footer {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  body .modal-footer .btn,
+  body .proposal-modal-footer .btn,
+  body .cotacao-modal-footer .btn {
+    width: 100% !important;
+  }
+
+  body .footer-spacer,
+  body .cotacao-footer-left {
+    display: none !important;
   }
 }

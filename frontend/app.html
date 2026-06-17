@@ -5,22 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel | Valora CRM</title>
 
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem('valora_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-  <link rel="stylesheet" href="/frontend/css/app.css" />
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
-  <script src="/frontend/js/pages/app.js" defer></script>
-  <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
+  <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
+
+  <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
+  <script src="/frontend/js/pages/dashboard.js?v=20260615-dashboard-fix" defer></script>
+  <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
 </head>
+
 <body>
   <div class="layout">
     <iframe
-      src="/frontend/partials/sidebar.html"
+      src="/frontend/partials/sidebar.html?v=20260615-menu-fix"
       class="sidebar-frame"
       title="Menu lateral"
       loading="eager">
@@ -46,9 +58,11 @@
         <div class="hero-content">
           <div class="status-indicator">
             <span class="dot"></span>
-            Sistema Online e Ativo
+            <span id="dashboardStatusText">Sistema Online e Ativo</span>
           </div>
+
           <h2 id="welcomeTitle">Pronto para começar?</h2>
+
           <p id="welcomeText">
             Configure sua conta, cadastre seus primeiros clientes e comece a gerar propostas de forma rápida e profissional.
           </p>
@@ -69,19 +83,22 @@
       <section class="stats-grid">
         <article class="stat-card">
           <span class="stat-label">Total de Clientes</span>
-          <strong class="stat-value">0</strong>
+          <strong class="stat-value" id="statClientes">0</strong>
         </article>
+
         <article class="stat-card">
           <span class="stat-label">Propostas Ativas</span>
-          <strong class="stat-value">0</strong>
+          <strong class="stat-value" id="statPropostas">0</strong>
         </article>
+
         <article class="stat-card">
           <span class="stat-label">Usuários</span>
-          <strong class="stat-value">1</strong>
+          <strong class="stat-value" id="statUsuarios">1</strong>
         </article>
+
         <article class="stat-card">
           <span class="stat-label">Status da Licença</span>
-          <strong class="stat-value online">Regular</strong>
+          <strong class="stat-value online" id="statLicenca">Regular</strong>
         </article>
       </section>
 
@@ -91,19 +108,23 @@
             <h3>Acesso Rápido</h3>
             <p>Atalhos para as funções mais usadas.</p>
           </div>
+
           <div class="quick-grid">
             <a href="/clientes" class="quick-card">
               <strong>Gestão de Clientes</strong>
               <small>Adicione ou edite contatos</small>
             </a>
+
             <a href="/propostas" class="quick-card">
               <strong>Módulo de Propostas</strong>
               <small>Gere novos orçamentos</small>
             </a>
-            <a href="/frontend/config.html" class="quick-card">
+
+            <a href="/configuracoes" class="quick-card">
               <strong>Configurações</strong>
               <small>Ajustes da sua empresa</small>
             </a>
+
             <a href="/ajuda" class="quick-card">
               <strong>Central de Ajuda</strong>
               <small>Tutoriais e suporte</small>
@@ -116,24 +137,28 @@
             <h3>Primeiros Passos</h3>
             <p>Conclua estas etapas para configurar seu CRM.</p>
           </div>
+
           <div class="checklist">
             <label class="check-item">
-              <input type="checkbox" />
+              <input type="checkbox" id="checkConfig" />
               <span class="fake-check"></span>
               <span class="check-text">Confirmar dados nas configurações</span>
             </label>
+
             <label class="check-item">
-              <input type="checkbox" />
+              <input type="checkbox" id="checkClientes" />
               <span class="fake-check"></span>
               <span class="check-text">Cadastrar cliente de teste</span>
             </label>
+
             <label class="check-item">
-              <input type="checkbox" />
+              <input type="checkbox" id="checkPropostas" />
               <span class="fake-check"></span>
               <span class="check-text">Gerar proposta modelo</span>
             </label>
+
             <label class="check-item">
-              <input type="checkbox" />
+              <input type="checkbox" id="checkSeguranca" />
               <span class="fake-check"></span>
               <span class="check-text">Ativar segurança da conta</span>
             </label>

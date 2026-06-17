@@ -83,25 +83,20 @@ async function apiJson(url, options = {}) {
 }
 
 function openModal(id) {
-  const modal = $(id);
+  if (window.ValoraModal) return window.ValoraModal.open(id);
+  const modal = document.getElementById(id);
   if (!modal) return;
-
   modal.hidden = false;
-
-  requestAnimationFrame(() => {
-    modal.classList.add('show');
-  });
+  modal.style.display = 'flex';
+  requestAnimationFrame(() => modal.classList.add('show'));
 }
 
 function closeModal(id) {
-  const modal = $(id);
+  if (window.ValoraModal) return window.ValoraModal.close(id);
+  const modal = document.getElementById(id);
   if (!modal) return;
-
   modal.classList.remove('show');
-
-  setTimeout(() => {
-    modal.hidden = true;
-  }, 180);
+  setTimeout(() => { modal.hidden = true; modal.style.display = 'none'; }, 160);
 }
 
 function setValue(id, value) {

@@ -10,20 +10,22 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-  <link rel="stylesheet" href="/frontend/css/app.css" />
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/formularios.css" />
 
-  <script src="/frontend/js/pages/app.js" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/formularios.js?v=20260612-ficha-principal" defer></script>
+  <script src="/frontend/js/pages/formularios.js?v=20260617-patrimonio-forms-sem-design" defer></script>
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
+  <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
 </head>
 
 <body>
   <div class="layout">
-    <iframe src="/frontend/partials/sidebar.html" class="sidebar-frame" title="Menu lateral"></iframe>
+    <iframe src="/frontend/partials/sidebar.html?v=20260615-menu-fix" class="sidebar-frame" title="Menu lateral"></iframe>
 
     <main class="main">
       <header class="topbar formularios-topbar">
@@ -88,6 +90,18 @@
           <span class="module-icon"><i class="fa-solid fa-box-open"></i></span>
           <strong>Produtos</strong>
           <small>Dados de item ou serviço</small>
+        </button>
+
+        <button class="module-card" type="button" data-modulo="patrimonio">
+          <span class="module-icon"><i class="fa-solid fa-tags"></i></span>
+          <strong>Patrimônio</strong>
+          <small>Bens e equipamentos</small>
+        </button>
+
+        <button class="module-card" type="button" data-modulo="cotacoes">
+          <span class="module-icon"><i class="fa-solid fa-scale-balanced"></i></span>
+          <strong>Cotações</strong>
+          <small>Pesquisa antes do produto</small>
         </button>
 
         <button class="module-card" type="button" data-modulo="propostas">
@@ -191,7 +205,7 @@
   </div>
 
   <!-- MODAL MODELO -->
-  <div class="modal-overlay" id="modal-modelo">
+  <div class="modal-overlay" id="modal-modelo" hidden>
     <div class="modal-content modal-md">
       <div class="modal-header">
         <div>
@@ -214,6 +228,8 @@
               <option value="clientes">Clientes</option>
               <option value="fornecedores">Fornecedores</option>
               <option value="produtos">Produtos</option>
+              <option value="patrimonio">Patrimônio</option>
+              <option value="cotacoes">Cotações</option>
               <option value="propostas">Propostas</option>
               <option value="contratos">Contratos</option>
             </select>
@@ -269,7 +285,7 @@
   </div>
 
   <!-- MODAL SEÇÃO -->
-  <div class="modal-overlay" id="modal-secao">
+  <div class="modal-overlay" id="modal-secao" hidden>
     <div class="modal-content modal-md">
       <div class="modal-header">
         <div>
@@ -332,7 +348,7 @@
   </div>
 
   <!-- MODAL CAMPO -->
-  <div class="modal-overlay" id="modal-campo">
+  <div class="modal-overlay" id="modal-campo" hidden>
     <div class="modal-content modal-md campo-modal-simples">
       <div class="modal-header">
         <div>

@@ -10,23 +10,25 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-  <link rel="stylesheet" href="/frontend/css/app.css" />
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260614-global-inline" />
   <link rel="stylesheet" href="/frontend/css/clientes.css?v=20260614-codigos-numericos" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
 
-  <script src="/frontend/js/pages/app.js" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
   <script src="/frontend/js/shared/ficha-principal.js?v=20260614-global-inline" defer></script>
   <script type="module" src="/frontend/js/pages/clientes/index.js?v=20260614-codigos-numericos"></script>
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
+  <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
 </head>
 
 <body>
   <div class="layout">
-    <iframe src="/frontend/partials/sidebar.html" class="sidebar-frame" title="Menu lateral"></iframe>
+    <iframe src="/frontend/partials/sidebar.html?v=20260615-menu-fix" class="sidebar-frame" title="Menu lateral"></iframe>
 
     <main class="main">
       <header class="topbar">
@@ -136,7 +138,10 @@
       <div class="modal-overlay" id="modal-cliente-backdrop" hidden>
         <div class="modal-content modal-xl" data-close-target="false">
           <div class="modal-header">
-            <h3 id="modal-cliente-titulo">Novo cliente</h3>
+            <div class="modal-title-wrap">
+              <h3 id="modal-cliente-titulo">Novo cliente</h3>
+              <p>Cadastre e organize as informações principais do cliente.</p>
+            </div>
 
             <button class="btn-close" type="button" id="btn-fechar-modal-cliente">
               <i class="fa-solid fa-xmark"></i>

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cotações | Valora CRM</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
+  <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
+  <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
+  <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
+  <link rel="stylesheet" href="/frontend/css/cotacoes.css?v=20260614-cotacoes-ajustada" />
+
+  <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
+  <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
+  <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
+  <script src="/frontend/js/pages/cotacoes.js?v=20260614-cotacoes-ajustada" defer></script>
+  <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
+</head>
+
+<body>
+  <div class="layout">
+    <iframe src="/frontend/partials/sidebar.html?v=20260615-menu-fix" class="sidebar-frame" title="Menu lateral"></iframe>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Compras</span>
+          <h1>Cotações</h1>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" type="button" id="btn-atualizar-cotacoes">
+            <i class="fa-solid fa-rotate-right"></i> Atualizar
+          </button>
+
+          <button class="btn btn-primary" type="button" id="btn-nova-cotacao">
+            <i class="fa-solid fa-scale-balanced"></i> Nova cotação
+          </button>
+        </div>
+      </header>
+
+      <article class="panel-card cotacoes-filter-card">
+        <div class="panel-head">
+          <h3>Localizar cotações</h3>
+          <p>Busque por código, item, categoria, descrição ou fornecedor vencedor.</p>
+        </div>
+
+        <div class="filters-grid cotacoes-filters-grid">
+          <div class="form-group">
+            <label for="busca-cotacoes">Busca</label>
+            <input id="busca-cotacoes" type="text" placeholder="Código, item, categoria, descrição ou fornecedor..." autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label for="filtro-status-cotacoes">Status</label>
+            <select id="filtro-status-cotacoes" aria-label="Filtrar por status">
+              <option value="">Todos os status</option>
+              <option value="rascunho">Rascunho</option>
+              <option value="em_cotacao">Em cotação</option>
+              <option value="respondida">Respondida</option>
+              <option value="em_analise">Em análise</option>
+              <option value="aprovada">Aprovada</option>
+              <option value="convertida">Convertida em produto</option>
+              <option value="recusada">Recusada</option>
+              <option value="cancelada">Cancelada</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="footer-actions filter-actions">
+          <span id="contagem-cotacoes" class="counter-text">0 cotações</span>
+        </div>
+      </article>
+
+      <article class="panel-card panel-card-table">
+        <div class="valora-table-wrapper">
+          <table class="valora-table cotacoes-table">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Item desejado</th>
+                <th>Quantidade</th>
+                <th>Status</th>
+                <th>Fornecedor vencedor</th>
+                <th>Valor aprovado</th>
+                <th class="text-right">Ações</th>
+              </tr>
+            </thead>
+
+            <tbody id="tbody-cotacoes">
+              <tr>
+                <td colspan="7" class="empty-state">Carregando...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-pagination" id="paginacao-cotacoes"></div>
+      </article>
+
+      <div class="modal-overlay" id="modal-cotacao-backdrop" hidden>
+        <div class="modal-content modal-xl cotacao-modal" data-close-target="false">
+          <div class="modal-header">
+            <div class="modal-title-wrap">
+              <span class="section-kicker">Cotação de compra</span>
+              <h3 id="modal-cotacao-titulo">Nova cotação</h3>
+              <p>Compare fornecedores e transforme a melhor opção em produto.</p>
+            </div>
+
+            <button class="btn-close" type="button" id="btn-fechar-modal-cotacao" data-modal-close="modal-cotacao-backdrop">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <div class="modal-body">
+            <form class="valora-form" id="formCotacao" onsubmit="return false;">
+              <section class="cotacao-section-card">
+                <div class="custom-section-head">
+                  <div class="custom-section-title">
+                    <span class="custom-section-icon"><i class="fa-solid fa-circle-info"></i></span>
+                    <div>
+                      <h4>Identificação da cotação</h4>
+                      <p>Dados principais do item que ainda será comparado entre fornecedores.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="cotacao-form-grid">
+                  <div class="form-group field-small">
+                    <label for="cotacao-codigo">Código</label>
+                    <input id="cotacao-codigo" type="text" inputmode="numeric" pattern="[0-9]*" readonly placeholder="Gerado ao salvar" />
+                  </div>
+
+                  <div class="form-group field-medium">
+                    <label for="cotacao-status">Status</label>
+                    <select id="cotacao-status">
+                      <option value="rascunho">Rascunho</option>
+                      <option value="em_cotacao">Em cotação</option>
+                      <option value="respondida">Respondida</option>
+                      <option value="em_analise">Em análise</option>
+                      <option value="aprovada">Aprovada</option>
+                      <option value="convertida">Convertida em produto</option>
+                      <option value="recusada">Recusada</option>
+                      <option value="cancelada">Cancelada</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group field-medium">
+                    <label for="cotacao-urgencia">Urgência</label>
+                    <select id="cotacao-urgencia">
+                      <option value="">Normal</option>
+                      <option value="baixa">Baixa</option>
+                      <option value="media">Média</option>
+                      <option value="alta">Alta</option>
+                      <option value="critica">Crítica</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group field-large">
+                    <label for="cotacao-item-nome">Item desejado *</label>
+                    <input id="cotacao-item-nome" type="text" placeholder="Ex.: Cabo CFTV 4mm" data-required="true" required />
+                  </div>
+
+                  <div class="form-group field-small">
+                    <label for="cotacao-quantidade">Quantidade *</label>
+                    <input id="cotacao-quantidade" type="text" inputmode="decimal" placeholder="Ex.: 10" value="1" data-required="true" required />
+                  </div>
+
+                  <div class="form-group field-small">
+                    <label for="cotacao-unidade">Unidade</label>
+                    <input id="cotacao-unidade" type="text" placeholder="Un, cx, m..." />
+                  </div>
+
+                  <div class="form-group field-medium">
+                    <label for="cotacao-categoria">Categoria</label>
+                    <input id="cotacao-categoria" type="text" placeholder="Ex.: CFTV" />
+                  </div>
+
+                  <div class="form-group span-all">
+                    <label for="cotacao-descricao">Descrição do item</label>
+                    <textarea id="cotacao-descricao" rows="3" placeholder="Detalhes técnicos, marca desejada, modelo, características..."></textarea>
+                  </div>
+
+                  <div class="form-group span-all">
+                    <label for="cotacao-observacoes">Observações internas</label>
+                    <textarea id="cotacao-observacoes" rows="3" placeholder="Observações sobre a necessidade da compra ou decisão."></textarea>
+                  </div>
+                </div>
+              </section>
+
+              <section class="cotacao-section-card fornecedores-cotados-card">
+                <div class="custom-section-head cotacao-fornecedor-head">
+                  <div class="custom-section-title">
+                    <span class="custom-section-icon"><i class="fa-solid fa-truck"></i></span>
+                    <div>
+                      <h4>Fornecedores cotados</h4>
+                      <p>Adicione fornecedores, preços, frete e prazo para comparar.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="cotacao-add-fornecedor">
+                  <div class="form-group">
+                    <label for="cotacao-fornecedor-id">Fornecedor</label>
+                    <select id="cotacao-fornecedor-id">
+                      <option value="">Selecione ou digite o nome ao lado</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="cotacao-fornecedor-nome">Nome livre</label>
+                    <input id="cotacao-fornecedor-nome" type="text" placeholder="Fornecedor não cadastrado" />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="cotacao-valor-unitario">Valor unitário</label>
+                    <input id="cotacao-valor-unitario" type="text" inputmode="decimal" placeholder="0,00" />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="cotacao-frete">Frete</label>
+                    <input id="cotacao-frete" type="text" inputmode="decimal" placeholder="0,00" />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="cotacao-prazo">Prazo</label>
+                    <input id="cotacao-prazo" type="text" placeholder="Ex.: 3 dias" />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="cotacao-condicao">Pagamento</label>
+                    <input id="cotacao-condicao" type="text" placeholder="Ex.: 30 dias" />
+                  </div>
+
+                  <div class="form-group span-all">
+                    <label for="cotacao-fornecedor-observacoes">Observação do fornecedor</label>
+                    <textarea id="cotacao-fornecedor-observacoes" rows="2" placeholder="Condições, marca, validade do orçamento..."></textarea>
+                  </div>
+
+                  <button class="btn btn-secondary cotacao-add-btn" type="button" id="btn-adicionar-fornecedor-cotacao">
+                    <i class="fa-solid fa-plus"></i> Adicionar fornecedor
+                  </button>
+                </div>
+
+                <div class="cotacao-comparativo" id="cotacao-comparativo" hidden>
+                  <div class="cotacao-comparativo-item">
+                    <span>Menor total</span>
+                    <strong id="cotacao-menor-total">--</strong>
+                  </div>
+                  <div class="cotacao-comparativo-item">
+                    <span>Fornecedor indicado</span>
+                    <strong id="cotacao-fornecedor-indicado">--</strong>
+                  </div>
+                </div>
+
+                <div class="valora-table-wrapper fornecedores-cotados-wrapper">
+                  <table class="valora-table fornecedores-cotados-table">
+                    <thead>
+                      <tr>
+                        <th>Vencedor</th>
+                        <th>Fornecedor</th>
+                        <th>Unitário</th>
+                        <th>Frete</th>
+                        <th>Total</th>
+                        <th>Prazo</th>
+                        <th>Pagamento</th>
+                        <th class="text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-cotacao-fornecedores">
+                      <tr>
+                        <td colspan="8" class="empty-state">Nenhum fornecedor adicionado.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </form>
+          </div>
+
+          <div class="modal-footer cotacao-modal-footer">
+            <div class="cotacao-footer-left">
+              <button class="btn btn-secondary" type="button" id="btn-aprovar-cotacao" hidden>
+                <i class="fa-solid fa-circle-check"></i> Aprovar
+              </button>
+
+              <button class="btn btn-secondary" type="button" id="btn-converter-cotacao-produto" hidden>
+                <i class="fa-solid fa-box-open"></i> Converter em produto
+              </button>
+            </div>
+
+            <div class="cotacao-footer-right">
+              <button class="btn btn-secondary" type="button" id="btn-cancelar-cotacao">Cancelar</button>
+              <button class="btn btn-primary" type="button" id="btn-salvar-cotacao" data-valora-submit>
+                <i class="fa-solid fa-floppy-disk"></i> Salvar cotação
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="valora-toast" class="toast-message" aria-live="polite"></div>
+    </main>
+  </div>
+</body>
+</html>

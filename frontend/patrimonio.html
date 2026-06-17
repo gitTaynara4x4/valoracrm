@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Patrimônio | Valora CRM</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
+  <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260617-patrimonio" />
+  <link rel="stylesheet" href="/frontend/css/patrimonio.css?v=20260617-patrimonio" />
+  <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
+
+  <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
+  <script src="/frontend/js/shared/validacao.js?v=20260617-patrimonio" defer></script>
+  <script src="/frontend/js/pages/patrimonio.js?v=20260617-patrimonio" defer></script>
+</head>
+<body>
+  <div class="layout">
+    <iframe src="/frontend/partials/sidebar.html?v=20260617-patrimonio" class="sidebar-frame" title="Menu lateral"></iframe>
+
+    <main class="main patrimonio-page">
+      <header class="topbar patrimonio-topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Cadastros</span>
+          <h1>Patrimônio</h1>
+          <p class="topbar-subtitle">Controle bens, equipamentos, localização, responsável e status do patrimônio da empresa.</p>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" type="button" id="btn-atualizar-patrimonio">
+            <i class="fa-solid fa-rotate"></i>
+            Atualizar
+          </button>
+          <button class="btn btn-primary" type="button" id="btn-novo-patrimonio">
+            <i class="fa-solid fa-plus"></i>
+            Novo patrimônio
+          </button>
+        </div>
+      </header>
+
+      <section class="patrimonio-filter-card panel-card">
+        <div class="panel-head">
+          <div>
+            <h3>Lista de patrimônios</h3>
+            <p>Pesquise por código, nome, número de série, localização ou responsável.</p>
+          </div>
+          <span class="counter-text" id="patrimonio-contador">0 itens</span>
+        </div>
+
+        <div class="search-row">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="patrimonio-busca" type="search" placeholder="Buscar patrimônio..." autocomplete="off" />
+          </div>
+
+          <select id="patrimonio-status-filter" class="status-filter" aria-label="Filtrar por status">
+            <option value="">Todos os status</option>
+            <option value="ativo">Ativo</option>
+            <option value="manutencao">Em manutenção</option>
+            <option value="baixado">Baixado</option>
+            <option value="extraviado">Extraviado</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="panel-card-table">
+        <div class="valora-table-wrapper">
+          <table class="valora-table patrimonio-table">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Patrimônio</th>
+                <th>Categoria</th>
+                <th>Série</th>
+                <th>Localização</th>
+                <th>Responsável</th>
+                <th>Status</th>
+                <th class="text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="patrimonio-tbody">
+              <tr><td colspan="8" class="empty-state">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div id="valora-toast" class="toast-message" aria-live="polite"></div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="modal-patrimonio" hidden>
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <h3 id="modal-patrimonio-title">Novo patrimônio</h3>
+          <p>Cadastre e organize os bens/equipamentos da empresa.</p>
+        </div>
+        <button class="modal-close" type="button" data-close-modal="modal-patrimonio">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form class="valora-form" id="form-patrimonio" onsubmit="return false;">
+          <input type="hidden" id="patrimonio-id" />
+
+          <article class="valora-modal-section patrimonio-modal-section">
+            <div class="valora-section-head">
+              <span class="custom-section-icon"><i class="fa-solid fa-tags"></i></span>
+              <div>
+                <h4>Identificação do patrimônio</h4>
+                <p>Dados principais para controle do bem, localização, responsável e status.</p>
+              </div>
+            </div>
+            <div class="valora-section-body">
+
+          <div class="form-row two-cols">
+            <div class="form-group">
+              <label for="patrimonio-codigo">Código</label>
+              <input id="patrimonio-codigo" type="text" inputmode="numeric" placeholder="Automático se deixar vazio" />
+            </div>
+            <div class="form-group required-field">
+              <label for="patrimonio-nome">Nome do patrimônio *</label>
+              <input id="patrimonio-nome" type="text" placeholder="Ex.: Notebook Dell Financeiro" required />
+            </div>
+          </div>
+
+          <div class="form-row three-cols">
+            <div class="form-group">
+              <label for="patrimonio-categoria">Categoria</label>
+              <input id="patrimonio-categoria" type="text" placeholder="Ex.: Informática" />
+            </div>
+            <div class="form-group">
+              <label for="patrimonio-marca">Marca</label>
+              <input id="patrimonio-marca" type="text" placeholder="Ex.: Dell" />
+            </div>
+            <div class="form-group">
+              <label for="patrimonio-modelo">Modelo</label>
+              <input id="patrimonio-modelo" type="text" placeholder="Ex.: Latitude 3420" />
+            </div>
+          </div>
+
+          <div class="form-row three-cols">
+            <div class="form-group">
+              <label for="patrimonio-numero-serie">Número de série</label>
+              <input id="patrimonio-numero-serie" type="text" placeholder="Serial / patrimônio antigo" />
+            </div>
+            <div class="form-group">
+              <label for="patrimonio-localizacao">Localização</label>
+              <input id="patrimonio-localizacao" type="text" placeholder="Ex.: Escritório / Sala técnica" />
+            </div>
+            <div class="form-group">
+              <label for="patrimonio-responsavel">Responsável</label>
+              <input id="patrimonio-responsavel" type="text" placeholder="Nome do responsável" />
+            </div>
+          </div>
+
+          <div class="form-row three-cols">
+            <div class="form-group">
+              <label for="patrimonio-status">Status</label>
+              <select id="patrimonio-status">
+                <option value="ativo">Ativo</option>
+                <option value="manutencao">Em manutenção</option>
+                <option value="baixado">Baixado</option>
+                <option value="extraviado">Extraviado</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="patrimonio-valor-aquisicao">Valor de aquisição</label>
+              <input id="patrimonio-valor-aquisicao" type="text" placeholder="Ex.: 2500,00" />
+            </div>
+            <div class="form-group">
+              <label for="patrimonio-data-aquisicao">Data de aquisição</label>
+              <input id="patrimonio-data-aquisicao" type="date" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="patrimonio-descricao">Descrição</label>
+            <textarea id="patrimonio-descricao" rows="3" placeholder="Detalhes do bem/equipamento."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="patrimonio-observacoes">Observações</label>
+            <textarea id="patrimonio-observacoes" rows="3" placeholder="Manutenções, observações internas, acessórios, etc."></textarea>
+          </div>
+
+            </div>
+          </article>
+
+          <label class="check-card single patrimonio-ativo-card">
+            <input id="patrimonio-ativo" type="checkbox" checked />
+            <span>
+              <strong>Ativo</strong>
+              <small>Mostrar este patrimônio nas listagens.</small>
+            </span>
+          </label>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-danger-soft" type="button" id="btn-excluir-patrimonio" style="display:none;">
+          <i class="fa-solid fa-trash"></i>
+          Excluir
+        </button>
+        <div class="footer-spacer"></div>
+        <button class="btn btn-secondary" type="button" data-close-modal="modal-patrimonio">Cancelar</button>
+        <button class="btn btn-primary" type="button" id="btn-salvar-patrimonio">
+          <i class="fa-solid fa-floppy-disk"></i>
+          Salvar patrimônio
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

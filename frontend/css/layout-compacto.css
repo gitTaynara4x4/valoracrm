@@ -1,0 +1,249 @@
+/* =========================================
+   VALORA CRM | TIPOGRAFIA COMPACTA
+   Objetivo: diminuir a sensação de zoom alto SEM centralizar,
+   SEM estreitar conteúdo e SEM reduzir cards/paddings da página.
+   ========================================= */
+
+:root {
+  --valora-font-body: 13px;
+  --valora-font-small: 11.5px;
+  --valora-font-label: 11.5px;
+  --valora-font-input: 12.5px;
+  --valora-font-button: 12.5px;
+  --valora-font-table: 12.5px;
+  --valora-font-h1: 22px;
+  --valora-font-h2: 18px;
+  --valora-font-h3: 15px;
+}
+
+html,
+body {
+  font-size: var(--valora-font-body) !important;
+  line-height: 1.45;
+}
+
+/* Mantém o conteúdo ocupando a tela. Não deixa a página “no meio”. */
+body .main,
+body .layout .main {
+  max-width: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+}
+
+/* Títulos das páginas */
+body .topbar h1,
+body .topbar-title h1,
+body h1.page-title {
+  font-size: var(--valora-font-h1) !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.025em;
+}
+
+body .topbar p,
+body .page-subtitle,
+body .muted,
+body .muted-line,
+body .counter-text,
+body .table-muted {
+  font-size: 12px !important;
+}
+
+body .eyebrow,
+body .topbar-title .eyebrow {
+  font-size: 10.5px !important;
+  letter-spacing: 0.07em !important;
+}
+
+body h2,
+body .section-title,
+body .modal-header h2 {
+  font-size: var(--valora-font-h2) !important;
+}
+
+body h3,
+body .panel-head h3,
+body .clientes-filter-card .panel-head h3,
+body .fornecedores-filter-card .panel-head h3,
+body .produtos-filter-card .panel-head h3,
+body .propostas-filter-card .panel-head h3,
+body .cotacoes-filter-card .panel-head h3,
+body .dashboard-card h3,
+body .settings-card h3,
+body .config-card h3 {
+  font-size: var(--valora-font-h3) !important;
+  line-height: 1.25 !important;
+}
+
+body h4,
+body .section-card h4,
+body .proposal-section-head h4,
+body .custom-section-head h4,
+body .cotacao-section-head h4 {
+  font-size: 14px !important;
+  line-height: 1.25 !important;
+}
+
+/* Labels e textos auxiliares */
+body label,
+body .form-group label,
+body .field-label,
+body .valora-form label,
+body .cotacao-form-grid label,
+body .cotacao-add-fornecedor label,
+body .custom-field-item label,
+body .filter-label {
+  font-size: var(--valora-font-label) !important;
+  line-height: 1.25 !important;
+}
+
+body small,
+body .help-text,
+body .hint,
+body .form-help,
+body .field-hint,
+body .validation-message,
+body .field-error-message {
+  font-size: var(--valora-font-small) !important;
+}
+
+/* Campos: diminui a letra, não diminui o tamanho da caixa */
+body input,
+body select,
+body textarea,
+body .form-group input,
+body .form-group select,
+body .form-group textarea,
+body .valora-form input,
+body .valora-form select,
+body .valora-form textarea,
+body .mini-actions input,
+body .custom-section-card .custom-field-item input,
+body .custom-section-card .custom-field-item select,
+body .custom-section-card .custom-field-item textarea,
+body .custom-section-card-bitrix .custom-field-item input,
+body .custom-section-card-bitrix .custom-field-item select,
+body .custom-section-card-bitrix .custom-field-item textarea {
+  font-size: var(--valora-font-input) !important;
+  line-height: 1.35 !important;
+}
+
+body input::placeholder,
+body textarea::placeholder {
+  font-size: var(--valora-font-input) !important;
+}
+
+/* Botões */
+body .btn,
+body button,
+body button.btn,
+body .topbar-actions .btn,
+body .modal-footer .btn,
+body .footer-actions .btn,
+body .form-actions .btn {
+  font-size: var(--valora-font-button) !important;
+}
+
+/* Tabelas */
+body table,
+body .valora-table,
+body .table-wrapper {
+  font-size: var(--valora-font-table) !important;
+}
+
+body .valora-table th,
+body table th {
+  font-size: 11.5px !important;
+  line-height: 1.25 !important;
+}
+
+body .valora-table td,
+body table td,
+body .valora-table td strong,
+body table td strong {
+  font-size: var(--valora-font-table) !important;
+  line-height: 1.35 !important;
+}
+
+/* Badges/chips/status */
+body .badge,
+body .status-badge,
+body .chip,
+body .pill {
+  font-size: 11px !important;
+}
+
+/* Modais: só tipografia */
+body .modal-header h3,
+body .modal-title,
+body .modal-header h2 {
+  font-size: 16px !important;
+  line-height: 1.2 !important;
+}
+
+body .modal-body,
+body .modal-content,
+body .modal-xl,
+body .modal-campo-content,
+body .cotacao-modal {
+  font-size: var(--valora-font-body) !important;
+}
+
+/* Abas internas */
+body .tab-btn,
+body .tabs button,
+body .modal-tabs button,
+body .cliente-tabs button,
+body .fornecedor-tabs button,
+body .produto-tabs button,
+body .cotacao-tabs button {
+  font-size: 12px !important;
+}
+
+/* Dashboard */
+body .stat-value {
+  font-size: 22px !important;
+}
+
+body .stat-label,
+body .plan-label,
+body .quick-card small,
+body .quick-card strong {
+  font-size: 12px !important;
+}
+
+/* Rodapé */
+body .app-footer,
+body footer {
+  font-size: 12px !important;
+}
+
+/* Mobile: mantém responsivo sem mexer na largura do conteúdo */
+@media (max-width: 760px) {
+  :root {
+    --valora-font-body: 12.5px;
+    --valora-font-input: 12.5px;
+    --valora-font-button: 12.5px;
+    --valora-font-h1: 20px;
+    --valora-font-h2: 17px;
+    --valora-font-h3: 14.5px;
+  }
+
+  body .topbar h1,
+  body .topbar-title h1,
+  body h1.page-title {
+    font-size: var(--valora-font-h1) !important;
+  }
+
+  body .topbar-actions .btn,
+  body .modal-footer .btn,
+  body .form-actions .btn {
+    font-size: 12px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  :root {
+    --valora-font-h1: 19px;
+  }
+}
