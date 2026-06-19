@@ -1,17 +1,17 @@
-.contratos-main {
-  max-width: 1480px;
-}
+/* =========================================
+   CONTRATOS ADMIN | VALORA CRM
+   Arquivo limpo.
+   Mantém apenas estilos específicos da tela de contratos.
+   Base global fica no app.css.
+   ========================================= */
+
+/* =========================================
+   TOPO ESPECÍFICO
+   ========================================= */
 
 .contratos-topbar {
   align-items: flex-start;
   gap: 18px;
-}
-
-.page-subtitle {
-  margin-top: 8px;
-  color: var(--muted);
-  max-width: 720px;
-  font-size: 13px;
 }
 
 .contratos-actions {
@@ -21,11 +21,9 @@
   justify-content: flex-end;
 }
 
-.contratos-actions .btn,
-.sticky-actions .btn,
-.history-head .btn {
-  gap: 8px;
-}
+/* =========================================
+   INTRODUÇÃO
+   ========================================= */
 
 .contratos-intro {
   display: grid;
@@ -36,38 +34,44 @@
 
 .intro-card {
   min-height: 92px;
+  padding: 16px;
+
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+
   display: flex;
   gap: 14px;
   align-items: center;
 }
 
 .intro-card-main {
-  border-color: rgba(16, 163, 127, 0.32);
-  background: linear-gradient(135deg, var(--panel), rgba(16, 163, 127, 0.08));
+  border-color: rgba(75, 195, 199, 0.32);
+  background: linear-gradient(135deg, var(--panel), rgba(75, 195, 199, 0.08));
 }
 
 .intro-icon {
   width: 42px;
   height: 42px;
+  min-width: 42px;
+
   border-radius: 12px;
   background: var(--brand-soft);
   color: var(--brand);
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
+
   font-size: 17px;
 }
 
 .intro-card strong {
   display: block;
-  font-size: 14px;
-  color: var(--text);
   margin-bottom: 2px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .intro-card span {
@@ -77,6 +81,10 @@
   line-height: 1.45;
 }
 
+/* =========================================
+   LAYOUT PRINCIPAL
+   ========================================= */
+
 .contratos-grid {
   display: grid;
   grid-template-columns: 410px minmax(0, 1fr);
@@ -84,11 +92,19 @@
   align-items: start;
 }
 
+.contratos-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
 .contratos-list-card {
   position: sticky;
-  top: 24px;
-  max-height: calc(100vh - 48px);
+  top: calc(var(--topbar-h) + 18px);
+  max-height: calc(100vh - var(--topbar-h) - 36px);
   overflow: hidden;
+
   display: flex;
   flex-direction: column;
 }
@@ -96,6 +112,10 @@
 .compact-head {
   margin-bottom: 16px;
 }
+
+/* =========================================
+   FILTROS / LISTA LATERAL
+   ========================================= */
 
 .contratos-filtros {
   display: flex;
@@ -116,6 +136,7 @@
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
+
   color: var(--muted);
   font-size: 13px;
   pointer-events: none;
@@ -128,17 +149,22 @@
 .contratos-status {
   margin-top: 14px;
   padding: 10px 12px;
-  background: var(--bg);
+
+  background: var(--bg-soft);
   border: 1px solid var(--border);
-  color: var(--muted);
   border-radius: var(--radius-sm);
+
+  color: var(--muted);
   font-size: 12px;
+  line-height: 1.45;
 }
 
 .contratos-list {
   margin-top: 12px;
-  overflow: auto;
   padding-right: 4px;
+
+  overflow: auto;
+
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -146,11 +172,13 @@
 
 .contrato-item {
   width: 100%;
+  padding: 13px;
+
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--bg-soft);
   color: var(--text);
   border-radius: 12px;
-  padding: 13px;
+
   cursor: pointer;
   text-align: left;
   transition: var(--transition);
@@ -162,7 +190,7 @@
 }
 
 .contrato-item.active {
-  border-color: rgba(16, 163, 127, 0.45);
+  border-color: rgba(75, 195, 199, 0.45);
   box-shadow: 0 0 0 3px var(--brand-soft);
 }
 
@@ -175,19 +203,22 @@
 }
 
 .contrato-numero {
+  color: var(--text);
   font-size: 13px;
   font-weight: 800;
-  color: var(--text);
   line-height: 1.3;
 }
 
 .contrato-status {
-  font-size: 11px;
-  color: var(--brand);
-  background: var(--brand-soft);
-  border-radius: 999px;
-  padding: 2px 8px;
   flex: 0 0 auto;
+
+  padding: 2px 8px;
+  border-radius: 999px;
+
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -196,8 +227,10 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.4;
 }
 
 .contrato-item-meta strong {
@@ -205,12 +238,9 @@
   font-weight: 700;
 }
 
-.contratos-content {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  min-width: 0;
-}
+/* =========================================
+   CONTRATO SELECIONADO
+   ========================================= */
 
 .selected-contract-card {
   min-height: 120px;
@@ -225,13 +255,15 @@
 
 .selected-contract-header h2 {
   margin: 4px 0 6px;
-  font-size: 20px;
   color: var(--text);
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .selected-contract-header p {
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.5;
 }
 
 .selected-contract-badges {
@@ -245,21 +277,29 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   min-height: 28px;
   padding: 5px 10px;
+
   border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #60a5fa;
+  background: var(--blue-soft);
+  color: var(--blue);
+
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
   text-align: center;
+  white-space: nowrap;
 }
 
 .soft-badge-green {
   background: var(--brand-soft);
-  color: var(--brand);
+  color: var(--brand-dark);
 }
+
+/* =========================================
+   FORMULÁRIO DO CONTRATO
+   ========================================= */
 
 .contrato-form-card {
   padding: 0;
@@ -269,6 +309,7 @@
 .form-card-head {
   padding: 22px 24px;
   border-bottom: 1px solid var(--border);
+
   display: flex;
   justify-content: space-between;
   gap: 18px;
@@ -276,22 +317,26 @@
 }
 
 .form-card-head h3 {
-  font-size: 17px;
-  color: var(--text);
   margin-bottom: 4px;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
 }
 
 .form-card-head p {
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.5;
 }
 
 .record-meta {
+  padding: 7px 12px;
+
   color: var(--muted);
-  background: var(--bg);
+  background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 7px 12px;
+
   font-size: 12px;
   white-space: nowrap;
 }
@@ -310,22 +355,16 @@
 }
 
 .section-title-row h4 {
+  margin-bottom: 3px;
   color: var(--text);
   font-size: 15px;
-  margin-bottom: 3px;
+  font-weight: 600;
 }
 
 .section-title-row p {
   color: var(--muted);
   font-size: 12px;
-}
-
-.form-row.three-cols {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.form-row.single-col {
-  grid-template-columns: 1fr;
+  line-height: 1.5;
 }
 
 .inline-control {
@@ -333,12 +372,6 @@
   grid-template-columns: minmax(0, 1fr) 44px;
   gap: 8px;
   align-items: center;
-}
-
-.btn-icon {
-  width: 44px;
-  padding: 0;
-  justify-content: center;
 }
 
 .proposta-row {
@@ -358,10 +391,12 @@
 
 .proposta-preview {
   margin: 2px 0 18px;
-  border: 1px solid rgba(16, 163, 127, 0.28);
-  background: linear-gradient(135deg, var(--bg), rgba(16, 163, 127, 0.08));
-  border-radius: var(--radius);
   padding: 14px;
+
+  border: 1px solid rgba(75, 195, 199, 0.28);
+  background: linear-gradient(135deg, var(--bg-soft), rgba(75, 195, 199, 0.08));
+  border-radius: var(--radius);
+
   display: flex;
   gap: 12px;
   align-items: flex-start;
@@ -374,13 +409,15 @@
 .proposta-preview-icon {
   width: 38px;
   height: 38px;
+  min-width: 38px;
+
   border-radius: 12px;
   background: var(--brand-soft);
   color: var(--brand);
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
 }
 
 .proposta-preview-content {
@@ -389,9 +426,10 @@
 
 .proposta-preview-content strong {
   display: block;
+  margin-bottom: 4px;
   color: var(--text);
   font-size: 13px;
-  margin-bottom: 4px;
+  font-weight: 700;
 }
 
 .proposta-preview-content span {
@@ -401,71 +439,57 @@
   line-height: 1.45;
 }
 
-.valora-form textarea {
-  width: 100%;
-  min-height: 92px;
-  resize: vertical;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
-  color: var(--text);
-  font-size: 14px;
-  font-family: inherit;
-  transition: var(--transition);
-  line-height: 1.45;
-}
-
-.valora-form textarea:focus {
-  outline: none;
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-soft);
-}
-
-.valora-form textarea::placeholder {
-  color: #555;
-}
-
 .helper-box {
   min-height: 44px;
+  padding: 10px 12px;
+
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--bg-soft);
   color: var(--muted);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+
   display: flex;
   gap: 8px;
   align-items: center;
+
   font-size: 13px;
+  line-height: 1.45;
 }
 
 .helper-box i {
   color: var(--brand);
 }
 
+.field-hint {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* =========================================
+   AÇÕES FIXAS
+   ========================================= */
+
 .sticky-actions {
   position: sticky;
   bottom: 0;
-  background: var(--panel);
+  z-index: 2;
+
   margin-top: 0;
   padding: 16px 24px;
+
+  background: var(--panel);
   border-top: 1px solid var(--border);
+
   justify-content: flex-end;
   gap: 10px;
-  z-index: 2;
 }
 
-button:disabled,
-.btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.btn-sm {
-  height: 34px;
-  padding: 0 12px;
-  font-size: 12px;
-}
+/* =========================================
+   HISTÓRICO
+   ========================================= */
 
 .history-head {
   display: flex;
@@ -484,16 +508,17 @@ button:disabled,
   border: 1px dashed var(--border);
   border-radius: var(--radius);
   padding: 18px;
+
   text-align: center;
   color: var(--muted);
-  background: var(--bg);
+  background: var(--bg-soft);
 }
 
 .history-item {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px;
-  background: var(--bg);
+  background: var(--bg-soft);
 }
 
 .history-item-top {
@@ -523,24 +548,25 @@ button:disabled,
 
 .history-diff {
   margin-top: 10px;
+
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
 .diff-box {
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px;
   background: var(--panel);
-  min-width: 0;
 }
 
 .diff-box small {
   display: block;
+  margin-bottom: 4px;
   color: var(--muted);
   font-size: 11px;
-  margin-bottom: 4px;
 }
 
 .diff-box span {
@@ -550,16 +576,21 @@ button:disabled,
   overflow-wrap: anywhere;
 }
 
+/* =========================================
+   ANEXOS
+   ========================================= */
+
 .anexos-card {
   overflow: hidden;
 }
 
 .anexo-upload-box {
-  border: 1px solid rgba(16, 163, 127, 0.25);
-  background: linear-gradient(135deg, var(--bg), rgba(16, 163, 127, 0.06));
-  border-radius: var(--radius);
-  padding: 16px;
   margin-bottom: 14px;
+  padding: 16px;
+
+  border: 1px solid rgba(75, 195, 199, 0.25);
+  background: linear-gradient(135deg, var(--bg-soft), rgba(75, 195, 199, 0.06));
+  border-radius: var(--radius);
 }
 
 .anexo-upload-row {
@@ -569,13 +600,6 @@ button:disabled,
 .anexo-upload-row-2 {
   grid-template-columns: minmax(0, 1fr) 190px;
   align-items: start;
-}
-
-.field-hint {
-  display: block;
-  margin-top: 7px;
-  color: var(--muted);
-  font-size: 11px;
 }
 
 .anexo-submit-group {
@@ -591,11 +615,14 @@ button:disabled,
 .anexos-status {
   margin: 12px 0;
   padding: 10px 12px;
-  background: var(--bg);
+
+  background: var(--bg-soft);
   border: 1px solid var(--border);
-  color: var(--muted);
   border-radius: var(--radius-sm);
+
+  color: var(--muted);
   font-size: 12px;
+  line-height: 1.45;
 }
 
 .anexos-list {
@@ -605,10 +632,12 @@ button:disabled,
 }
 
 .anexo-item {
-  border: 1px solid var(--border);
-  background: var(--bg);
-  border-radius: 13px;
   padding: 14px;
+
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  border-radius: 13px;
+
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr) auto;
   gap: 12px;
@@ -618,12 +647,16 @@ button:disabled,
 .anexo-icon {
   width: 42px;
   height: 42px;
+  min-width: 42px;
+
   border-radius: 12px;
   background: var(--brand-soft);
   color: var(--brand);
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   font-size: 17px;
 }
 
@@ -665,16 +698,46 @@ button:disabled,
   gap: 7px;
 }
 
+/* =========================================
+   BOTÃO PERIGOSO SUAVE
+   ========================================= */
+
 .btn-danger-soft {
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  background: rgba(239, 68, 68, 0.08);
-  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.30);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .btn-danger-soft:hover {
-  border-color: rgba(239, 68, 68, 0.55);
+  border-color: rgba(239, 68, 68, 0.46);
   background: rgba(239, 68, 68, 0.14);
+  color: var(--danger);
 }
+
+/* =========================================
+   DARK — AJUSTES ESPECÍFICOS
+   ========================================= */
+
+html[data-theme="dark"] .intro-card-main,
+html[data-theme="dark"] .proposta-preview,
+html[data-theme="dark"] .anexo-upload-box {
+  background: linear-gradient(135deg, var(--panel), rgba(75, 195, 199, 0.08));
+}
+
+html[data-theme="dark"] .contratos-status,
+html[data-theme="dark"] .contrato-item,
+html[data-theme="dark"] .record-meta,
+html[data-theme="dark"] .helper-box,
+html[data-theme="dark"] .history-empty,
+html[data-theme="dark"] .history-item,
+html[data-theme="dark"] .anexos-status,
+html[data-theme="dark"] .anexo-item {
+  background: var(--bg-soft);
+}
+
+/* =========================================
+   RESPONSIVO
+   ========================================= */
 
 @media (max-width: 1180px) {
   .contratos-grid {
@@ -708,10 +771,9 @@ button:disabled,
     justify-content: flex-start;
   }
 
-  .form-row.three-cols,
-  .history-diff,
   .filtro-row,
   .proposta-row,
+  .history-diff,
   .anexo-upload-row,
   .anexo-upload-row-2 {
     grid-template-columns: 1fr;
@@ -722,6 +784,10 @@ button:disabled,
     flex-direction: column-reverse;
   }
 
+  .sticky-actions .btn {
+    width: 100%;
+  }
+
   .anexo-item {
     grid-template-columns: 42px minmax(0, 1fr);
   }
@@ -730,5 +796,18 @@ button:disabled,
     grid-column: 1 / -1;
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 600px) {
+  .contratos-actions .btn,
+  .anexo-actions .btn {
+    width: 100%;
+  }
+
+  .form-card-head,
+  .form-section {
+    padding-left: 16px;
+    padding-right: 16px;
   }
 }

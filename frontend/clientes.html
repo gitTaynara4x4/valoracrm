@@ -3,32 +3,52 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <title>Clientes | Valora CRM</title>
+
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem("valora_theme") || "light";
+      document.documentElement.setAttribute("data-theme", savedTheme);
+    })();
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+  >
 
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260614-global-inline" />
-  <link rel="stylesheet" href="/frontend/css/clientes.css?v=20260614-codigos-numericos" />
+  <link rel="stylesheet" href="/frontend/css/clientes.css?v=20260618-sidebar-user" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
+  <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
+  <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
 
   <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
   <script src="/frontend/js/shared/ficha-principal.js?v=20260614-global-inline" defer></script>
-  <script type="module" src="/frontend/js/pages/clientes/index.js?v=20260614-codigos-numericos"></script>
-  <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
-  <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
-  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
+  <script type="module" src="/frontend/js/pages/clientes/index.js?v=20260618-sidebar-user"></script>
 </head>
 
 <body>
   <div class="layout">
-    <iframe src="/frontend/partials/sidebar.html?v=20260615-menu-fix" class="sidebar-frame" title="Menu lateral"></iframe>
+    <iframe
+      src="/frontend/partials/sidebar.html?v=20260615-menu-fix"
+      class="sidebar-frame"
+      title="Menu lateral"
+      loading="eager">
+    </iframe>
 
     <main class="main">
       <header class="topbar">
@@ -39,19 +59,23 @@
 
         <div class="topbar-actions">
           <button class="btn btn-secondary" type="button" id="btn-exportar-clientes-json">
-            <i class="fa-solid fa-file-code"></i> Exportar JSON
+            <i class="fa-solid fa-file-code"></i>
+            Exportar JSON
           </button>
 
           <button class="btn btn-secondary" type="button" id="btn-exportar-clientes-csv">
-            <i class="fa-solid fa-file-csv"></i> Exportar CSV
+            <i class="fa-solid fa-file-csv"></i>
+            Exportar CSV
           </button>
 
           <button class="btn btn-secondary" type="button" id="btn-importar-clientes">
-            <i class="fa-solid fa-file-import"></i> Importar
+            <i class="fa-solid fa-file-import"></i>
+            Importar
           </button>
 
           <button class="btn btn-primary" type="button" id="btn-novo-cliente">
-            <i class="fa-solid fa-user-plus"></i> Novo cliente
+            <i class="fa-solid fa-user-plus"></i>
+            Novo cliente
           </button>
 
           <input
@@ -72,7 +96,11 @@
         <div class="filters-grid">
           <div class="form-group">
             <label for="filtro-busca">Busca</label>
-            <input id="filtro-busca" type="text" placeholder="Nome, código, CPF/CNPJ, telefone, e-mail..." />
+            <input
+              id="filtro-busca"
+              type="text"
+              placeholder="Nome, código, CPF/CNPJ, telefone, e-mail..."
+            />
           </div>
 
           <div class="form-group">
@@ -102,8 +130,14 @@
 
         <div class="footer-actions filter-actions">
           <span id="contagem-clientes" class="counter-text">0 clientes</span>
-          <button class="btn btn-secondary" type="button" id="btn-limpar-filtros">Limpar filtros</button>
-          <button class="btn btn-primary" type="button" id="btn-filtrar-clientes">Filtrar</button>
+
+          <button class="btn btn-secondary" type="button" id="btn-limpar-filtros">
+            Limpar filtros
+          </button>
+
+          <button class="btn btn-primary" type="button" id="btn-filtrar-clientes">
+            Filtrar
+          </button>
         </div>
       </article>
 
@@ -132,482 +166,585 @@
             </tbody>
           </table>
         </div>
+
         <div class="table-pagination" id="paginacao-clientes"></div>
       </article>
 
       <div class="modal-overlay" id="modal-cliente-backdrop" hidden>
-        <div class="modal-content modal-xl" data-close-target="false">
-          <div class="modal-header">
-            <div class="modal-title-wrap">
-              <h3 id="modal-cliente-titulo">Novo cliente</h3>
-              <p>Cadastre e organize as informações principais do cliente.</p>
-            </div>
+        <div class="modal-content modal-xl cliente-modal-content" data-close-target="false">
+          <form class="valora-form cliente-modal-shell" id="formCliente">
+            <aside class="cliente-modal-sidebar">
+              <div class="cliente-sidebar-top">
+                <div class="cliente-sidebar-avatar">
+                  <i class="fa-solid fa-user"></i>
+                </div>
 
-            <button class="btn-close" type="button" id="btn-fechar-modal-cliente">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
+                <div class="cliente-sidebar-user">
+                  <strong id="cliente-sidebar-nome">Novo cliente</strong>
+                  <span id="cliente-sidebar-codigo">Código não gerado</span>
+                </div>
+              </div>
 
-          <div class="modal-body">
-            <form class="valora-form" id="formCliente">
-              <div class="cliente-ficha-toggle-bar ficha-principal-toggle-bar">
+              <nav class="cliente-tabs cliente-sidebar-nav" aria-label="Seções do cliente">
+                <button type="button" class="cliente-tab-btn active" data-tab="tab-cadastro">
+                  <i class="fa-regular fa-address-card"></i>
+                  <span>Cadastro</span>
+                </button>
+
+                <button type="button" class="cliente-tab-btn" data-tab="tab-contato">
+                  <i class="fa-regular fa-user"></i>
+                  <span>Contato</span>
+                </button>
+
+                <button type="button" class="cliente-tab-btn" data-tab="tab-enderecos">
+                  <i class="fa-solid fa-location-dot"></i>
+                  <span>Endereços</span>
+                </button>
+
+                <button type="button" class="cliente-tab-btn" data-tab="tab-comercial">
+                  <i class="fa-solid fa-briefcase"></i>
+                  <span>Comercial</span>
+                </button>
+
+                <button type="button" class="cliente-tab-btn" data-tab="tab-campos-personalizados">
+                  <i class="fa-solid fa-sliders"></i>
+                  <span>Personalizados</span>
+                </button>
+
+                <button type="button" class="cliente-tab-btn" data-tab="tab-dados-adicionais">
+                  <i class="fa-solid fa-layer-group"></i>
+                  <span>Dados adicionais</span>
+                </button>
+
+                <button type="button" class="cliente-tab-btn" data-tab="tab-ocorrencias">
+                  <i class="fa-regular fa-clipboard"></i>
+                  <span>Ocorrências</span>
+                </button>
+
+                <button type="button" class="cliente-tab-btn" data-tab="tab-anexos">
+                  <i class="fa-solid fa-paperclip"></i>
+                  <span>Anexos</span>
+                </button>
+
+                <button type="button" class="cliente-tab-btn" data-tab="tab-historico">
+                  <i class="fa-solid fa-clock-rotate-left"></i>
+                  <span>Histórico</span>
+                </button>
+              </nav>
+
+              <div class="cliente-sidebar-bottom">
                 <label class="cliente-ficha-toggle ficha-principal-toggle">
                   <input type="checkbox" id="toggle-ficha-principal-cliente" />
 
                   <span>
                     <strong>Usar ficha principal</strong>
-                    <small>Mostrar somente código do cliente e seções/campos personalizados.</small>
+                    <small>Mostrar somente código e campos personalizados.</small>
                   </span>
                 </label>
               </div>
+            </aside>
 
-              <div class="cliente-tabs">
-                <button type="button" class="cliente-tab-btn active" data-tab="tab-cadastro">Cadastro</button>
-                <button type="button" class="cliente-tab-btn" data-tab="tab-contato">Contato</button>
-                <button type="button" class="cliente-tab-btn" data-tab="tab-enderecos">Endereços</button>
-                <button type="button" class="cliente-tab-btn" data-tab="tab-comercial">Comercial</button>
-                <button type="button" class="cliente-tab-btn" data-tab="tab-campos-personalizados">Campos personalizados</button>
-                <button type="button" class="cliente-tab-btn" data-tab="tab-dados-adicionais">Dados adicionais</button>
-                <button type="button" class="cliente-tab-btn" data-tab="tab-ocorrencias">Ocorrências</button>
-                <button type="button" class="cliente-tab-btn" data-tab="tab-anexos">Anexos</button>
-                <button type="button" class="cliente-tab-btn" data-tab="tab-historico">Histórico</button>
-              </div>
+            <section class="cliente-modal-main">
+              <header class="cliente-modal-topbar">
+                <div>
+                  <h3 id="modal-cliente-titulo">Novo cliente</h3>
+                  <p>Cadastre e organize as informações principais do cliente.</p>
+                </div>
 
-              <section class="cliente-tab active" id="tab-cadastro">
-                <article class="section-card">
-                  <h4>Identificação principal</h4>
+                <div class="cliente-modal-top-actions">
+                  <span class="cliente-status-pill" id="cliente-status-pill">
+                    <i class="fa-solid fa-circle"></i>
+                    Ativo
+                  </span>
 
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="campo-codigo">Código</label>
-                      <input type="text" id="campo-codigo" inputmode="numeric" pattern="[0-9]*" readonly />
+                  <button
+                    class="btn-close"
+                    type="button"
+                    id="btn-fechar-modal-cliente"
+                    title="Fechar">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+              </header>
+
+              <div class="cliente-modal-scroll">
+                <section class="cliente-tab active" id="tab-cadastro">
+                  <article class="section-card cliente-main-card">
+                    <div class="cliente-section-head">
+                      <h4>Identificação principal</h4>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-tipo-pessoa">Tipo</label>
-                      <select id="campo-tipo-pessoa">
-                        <option value="PF">Pessoa Física</option>
-                        <option value="PJ">Pessoa Jurídica</option>
-                      </select>
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="campo-codigo">Código</label>
+                        <input
+                          type="text"
+                          id="campo-codigo"
+                          inputmode="numeric"
+                          pattern="[0-9]*"
+                          readonly
+                        />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-tipo-pessoa">Tipo</label>
+                        <select id="campo-tipo-pessoa">
+                          <option value="PF">Pessoa Física</option>
+                          <option value="PJ">Pessoa Jurídica</option>
+                        </select>
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-situacao">Situação</label>
+                        <select id="campo-situacao">
+                          <option value="ativo">Ativo</option>
+                          <option value="inativo">Inativo</option>
+                          <option value="bloqueado">Bloqueado</option>
+                        </select>
+                      </div>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-situacao">Situação</label>
-                      <select id="campo-situacao">
-                        <option value="ativo">Ativo</option>
-                        <option value="inativo">Inativo</option>
-                        <option value="bloqueado">Bloqueado</option>
-                      </select>
-                    </div>
-                  </div>
+                    <div class="form-row">
+                      <div class="form-group span-2">
+                        <label for="campo-nome">Nome / Razão Social *</label>
+                        <input type="text" id="campo-nome" required />
+                      </div>
 
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="campo-nome">Nome / Razão Social *</label>
-                      <input type="text" id="campo-nome" required />
+                      <div class="form-group span-2">
+                        <label for="campo-nome-fantasia">Nome Fantasia</label>
+                        <input type="text" id="campo-nome-fantasia" />
+                      </div>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-nome-fantasia">Nome Fantasia</label>
-                      <input type="text" id="campo-nome-fantasia" />
-                    </div>
-                  </div>
+                    <div class="form-row">
+                      <div class="form-group span-2">
+                        <label for="campo-cpf-cnpj">CPF / CNPJ</label>
+                        <input type="text" id="campo-cpf-cnpj" />
+                      </div>
 
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="campo-cpf-cnpj">CPF / CNPJ</label>
-                      <input type="text" id="campo-cpf-cnpj" />
-                    </div>
-
-                    <div class="form-group">
-                      <label for="campo-rg-ie">RG / Inscrição Estadual</label>
-                      <input type="text" id="campo-rg-ie" />
+                      <div class="form-group span-2">
+                        <label for="campo-rg-ie">RG / Inscrição Estadual</label>
+                        <input type="text" id="campo-rg-ie" />
+                      </div>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-inscricao-municipal">Inscrição Municipal</label>
-                      <input type="text" id="campo-inscricao-municipal" />
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="campo-inscricao-municipal">Inscrição Municipal</label>
+                        <input type="text" id="campo-inscricao-municipal" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-suframa">Suframa</label>
+                        <input type="text" id="campo-suframa" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-data-nascimento">Data de Nascimento</label>
+                        <input type="date" id="campo-data-nascimento" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-codigo-referencia">Cód. Referência</label>
+                        <input type="text" id="campo-codigo-referencia" />
+                      </div>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-suframa">Suframa</label>
-                      <input type="text" id="campo-suframa" />
-                    </div>
-                  </div>
-
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="campo-data-nascimento">Data de Nascimento</label>
-                      <input type="date" id="campo-data-nascimento" />
+                    <div class="form-row">
+                      <div class="form-group span-all">
+                        <label for="campo-site">Site</label>
+                        <input type="text" id="campo-site" />
+                      </div>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-codigo-referencia">Cód. Referência</label>
-                      <input type="text" id="campo-codigo-referencia" />
+                    <div class="form-row">
+                      <div class="form-group span-all">
+                        <label for="campo-observacoes">Observações</label>
+                        <textarea id="campo-observacoes" rows="4"></textarea>
+                      </div>
+                    </div>
+                  </article>
+                </section>
+
+                <section class="cliente-tab" id="tab-contato">
+                  <article class="section-card cliente-main-card">
+                    <div class="cliente-section-head">
+                      <h4>Contato principal</h4>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-site">Site</label>
-                      <input type="text" id="campo-site" />
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="campo-telefone">Telefone</label>
+                        <input type="text" id="campo-telefone" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-whatsapp">WhatsApp</label>
+                        <input type="text" id="campo-whatsapp" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-fax">Fax</label>
+                        <input type="text" id="campo-fax" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-contato">Contato / Responsável</label>
+                        <input type="text" id="campo-contato" />
+                      </div>
                     </div>
-                  </div>
+                  </article>
 
-                  <div class="form-row">
-                    <div class="form-group span-all">
-                      <label for="campo-observacoes">Observações</label>
-                      <textarea id="campo-observacoes" rows="4"></textarea>
-                    </div>
-                  </div>
-                </article>
-              </section>
-
-              <section class="cliente-tab" id="tab-contato">
-                <article class="section-card">
-                  <h4>Contato principal</h4>
-
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="campo-telefone">Telefone</label>
-                      <input type="text" id="campo-telefone" />
-                    </div>
-
-                    <div class="form-group">
-                      <label for="campo-whatsapp">WhatsApp</label>
-                      <input type="text" id="campo-whatsapp" />
+                  <article class="section-card cliente-main-card">
+                    <div class="cliente-section-head">
+                      <h4>E-mails</h4>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-fax">Fax</label>
-                      <input type="text" id="campo-fax" />
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="campo-email">E-mail principal</label>
+                        <input type="email" id="campo-email" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-email-nfe">E-mail NFe</label>
+                        <input type="email" id="campo-email-nfe" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-email-cobranca">E-mail cobrança</label>
+                        <input type="email" id="campo-email-cobranca" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-email-fiscal">E-mail fiscal</label>
+                        <input type="email" id="campo-email-fiscal" />
+                      </div>
+                    </div>
+                  </article>
+                </section>
+
+                <section class="cliente-tab" id="tab-enderecos">
+                  <article class="section-card cliente-main-card">
+                    <div class="cliente-section-head">
+                      <h4>Endereço principal</h4>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-contato">Contato / Responsável</label>
-                      <input type="text" id="campo-contato" />
-                    </div>
-                  </div>
-                </article>
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="campo-cep">CEP</label>
+                        <input type="text" id="campo-cep" />
+                      </div>
 
-                <article class="section-card">
-                  <h4>E-mails</h4>
+                      <div class="form-group span-2">
+                        <label for="campo-endereco">Endereço</label>
+                        <input type="text" id="campo-endereco" />
+                      </div>
 
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="campo-email">E-mail principal</label>
-                      <input type="email" id="campo-email" />
-                    </div>
-
-                    <div class="form-group">
-                      <label for="campo-email-nfe">E-mail NFe</label>
-                      <input type="email" id="campo-email-nfe" />
+                      <div class="form-group">
+                        <label for="campo-numero">Número</label>
+                        <input type="text" id="campo-numero" />
+                      </div>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-email-cobranca">E-mail cobrança</label>
-                      <input type="email" id="campo-email-cobranca" />
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="campo-complemento">Complemento</label>
+                        <input type="text" id="campo-complemento" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-bairro">Bairro</label>
+                        <input type="text" id="campo-bairro" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-cidade">Cidade</label>
+                        <input type="text" id="campo-cidade" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-estado">UF</label>
+                        <input type="text" id="campo-estado" />
+                      </div>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-email-fiscal">E-mail fiscal</label>
-                      <input type="email" id="campo-email-fiscal" />
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="campo-pais">País</label>
+                        <input type="text" id="campo-pais" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-codigo-ibge-cidade">Cód. IBGE Cidade</label>
+                        <input type="text" id="campo-codigo-ibge-cidade" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-codigo-ibge-uf">Cód. IBGE UF</label>
+                        <input type="text" id="campo-codigo-ibge-uf" />
+                      </div>
                     </div>
-                  </div>
-                </article>
-              </section>
+                  </article>
 
-              <section class="cliente-tab" id="tab-enderecos">
-                <article class="section-card">
-                  <h4>Endereço principal</h4>
+                  <article class="section-card cliente-main-card">
+                    <div class="mini-actions">
+                      <div class="left">
+                        <strong>Endereços adicionais</strong>
+                        <span class="subtle">Cobrança, entrega, fiscal e outros.</span>
+                      </div>
 
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="campo-cep">CEP</label>
-                      <input type="text" id="campo-cep" />
-                    </div>
-
-                    <div class="form-group span-2">
-                      <label for="campo-endereco">Endereço</label>
-                      <input type="text" id="campo-endereco" />
-                    </div>
-
-                    <div class="form-group">
-                      <label for="campo-numero">Número</label>
-                      <input type="text" id="campo-numero" />
-                    </div>
-                  </div>
-
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="campo-complemento">Complemento</label>
-                      <input type="text" id="campo-complemento" />
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-add-endereco">
+                        <i class="fa-solid fa-plus"></i>
+                        Adicionar endereço
+                      </button>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-bairro">Bairro</label>
-                      <input type="text" id="campo-bairro" />
+                    <div id="lista-enderecos" class="mini-list"></div>
+                  </article>
+                </section>
+
+                <section class="cliente-tab" id="tab-comercial">
+                  <article class="section-card cliente-main-card">
+                    <div class="cliente-section-head">
+                      <h4>Contato comercial / classificação</h4>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-cidade">Cidade</label>
-                      <input type="text" id="campo-cidade" />
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="campo-parceiro-comercial">Parceiro Comercial</label>
+                        <input type="text" id="campo-parceiro-comercial" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-percentual-comissao">% Comissão</label>
+                        <input type="text" id="campo-percentual-comissao" placeholder="0,00" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-percentual-desconto">% Desconto</label>
+                        <input type="text" id="campo-percentual-desconto" placeholder="0,00" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-retencao-percentual">% Retenção</label>
+                        <input type="text" id="campo-retencao-percentual" placeholder="0,00" />
+                      </div>
                     </div>
 
-                    <div class="form-group">
-                      <label for="campo-estado">UF</label>
-                      <input type="text" id="campo-estado" />
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="campo-modalidade-pagamento">Modalidade de Pagamento</label>
+                        <input type="text" id="campo-modalidade-pagamento" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-regiao">Região</label>
+                        <input type="text" id="campo-regiao" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-segmento">Segmento</label>
+                        <input type="text" id="campo-segmento" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="campo-classificacao">Classificação</label>
+                        <input type="text" id="campo-classificacao" />
+                      </div>
                     </div>
-                  </div>
+                  </article>
+                </section>
 
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="campo-pais">País</label>
-                      <input type="text" id="campo-pais" />
-                    </div>
-
-                    <div class="form-group">
-                      <label for="campo-codigo-ibge-cidade">Cód. IBGE Cidade</label>
-                      <input type="text" id="campo-codigo-ibge-cidade" />
-                    </div>
-
-                    <div class="form-group">
-                      <label for="campo-codigo-ibge-uf">Cód. IBGE UF</label>
-                      <input type="text" id="campo-codigo-ibge-uf" />
-                    </div>
-                  </div>
-                </article>
-
-                <article class="section-card">
-                  <div class="mini-actions">
-                    <div class="left">
-                      <strong>Endereços adicionais</strong>
-                      <span class="subtle">Cobrança, entrega, fiscal e outros.</span>
-                    </div>
-
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-endereco">
-                      <i class="fa-solid fa-plus"></i> Adicionar endereço
-                    </button>
-                  </div>
-
-                  <div id="lista-enderecos" class="mini-list"></div>
-                </article>
-              </section>
-
-              <section class="cliente-tab" id="tab-comercial">
-                <article class="section-card">
-                  <h4>Contato comercial / classificação</h4>
-
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="campo-parceiro-comercial">Parceiro Comercial</label>
-                      <input type="text" id="campo-parceiro-comercial" />
-                    </div>
-
-                    <div class="form-group">
-                      <label for="campo-percentual-comissao">% Comissão</label>
-                      <input type="text" id="campo-percentual-comissao" placeholder="0,00" />
-                    </div>
-
-                    <div class="form-group">
-                      <label for="campo-percentual-desconto">% Desconto</label>
-                      <input type="text" id="campo-percentual-desconto" placeholder="0,00" />
-                    </div>
-
-                    <div class="form-group">
-                      <label for="campo-retencao-percentual">% Retenção</label>
-                      <input type="text" id="campo-retencao-percentual" placeholder="0,00" />
-                    </div>
-                  </div>
-
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="campo-modalidade-pagamento">Modalidade de Pagamento</label>
-                      <input type="text" id="campo-modalidade-pagamento" />
-                    </div>
-
-                    <div class="form-group">
-                      <label for="campo-regiao">Região</label>
-                      <input type="text" id="campo-regiao" />
-                    </div>
-
-                    <div class="form-group">
-                      <label for="campo-segmento">Segmento</label>
-                      <input type="text" id="campo-segmento" />
-                    </div>
-
-                    <div class="form-group">
-                      <label for="campo-classificacao">Classificação</label>
-                      <input type="text" id="campo-classificacao" />
-                    </div>
-                  </div>
-                </article>
-              </section>
-
-              <section class="cliente-tab" id="tab-campos-personalizados">
-                <article class="cliente-ficha-code-card ficha-principal-code-card" id="cliente-ficha-principal-code" hidden>
-                  <div>
-                    <span class="section-kicker">Código do sistema</span>
-                    <h4>Código do cliente</h4>
-                    <p>Este código é gerado pelo próprio sistema e não pode ser removido da ficha.</p>
-                  </div>
-
-                  <div class="form-group cliente-ficha-code-field ficha-principal-code-field">
-                    <label for="campo-codigo-ficha-principal">Código</label>
-                    <input type="text" id="campo-codigo-ficha-principal" inputmode="numeric" pattern="[0-9]*" readonly />
-                  </div>
-                </article>
-
-                <article class="section-card custom-fields-card">
-                  <div class="custom-fields-head">
+                <section class="cliente-tab" id="tab-campos-personalizados">
+                  <article
+                    class="cliente-ficha-code-card ficha-principal-code-card"
+                    id="cliente-ficha-principal-code"
+                    hidden>
                     <div>
-                      <span class="section-kicker">Campos configurados no formulário</span>
-                      <h4>Campos personalizados</h4>
+                      <span class="section-kicker">Código do sistema</span>
+                      <h4>Código do cliente</h4>
+                      <p>Este código é gerado pelo próprio sistema e não pode ser removido da ficha.</p>
+                    </div>
+
+                    <div class="form-group cliente-ficha-code-field ficha-principal-code-field">
+                      <label for="campo-codigo-ficha-principal">Código</label>
+
+                      <input
+                        type="text"
+                        id="campo-codigo-ficha-principal"
+                        inputmode="numeric"
+                        pattern="[0-9]*"
+                        readonly
+                      />
+                    </div>
+                  </article>
+
+                  <article class="section-card custom-fields-card cliente-main-card">
+                    <div class="custom-fields-head">
+                      <div>
+                        <span class="section-kicker">Campos configurados no formulário</span>
+
+                        <h4>Campos personalizados</h4>
+
+                        <p>
+                          Esses campos são definidos na tela de Formulários. Quando o formulário estiver marcado como ficha principal,
+                          o cadastro mostra apenas o código do sistema e as seções configuradas.
+                        </p>
+                      </div>
+
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-gerenciar-formulario-cliente">
+                        <i class="fa-solid fa-sliders"></i>
+                        Gerenciar formulário
+                      </button>
+                    </div>
+
+                    <div class="custom-fields-info">
+                      <div>
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                      </div>
+
                       <p>
-                        Esses campos são definidos na tela de Formulários. Quando o formulário estiver marcado como ficha principal,
-                        o cadastro mostra apenas o código do sistema e as seções configuradas.
+                        Para criar, remover ou organizar campos personalizados, acesse Configurações &gt; Formulários.
                       </p>
                     </div>
 
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-gerenciar-formulario-cliente">
-                      <i class="fa-solid fa-sliders"></i> Gerenciar formulário
-                    </button>
-                  </div>
+                    <div id="custom-fields-container" class="form-row custom-fields-grid"></div>
+                  </article>
+                </section>
 
-                  <div class="custom-fields-info">
-                    <div>
-                      <i class="fa-solid fa-wand-magic-sparkles"></i>
-                    </div>
+                <section class="cliente-tab" id="tab-dados-adicionais">
+                  <article class="section-card cliente-main-card">
+                    <div class="mini-actions">
+                      <div class="left">
+                        <strong>Referências comerciais</strong>
+                      </div>
 
-                    <p>
-                      Para criar, remover ou organizar campos personalizados, acesse Configurações &gt; Formulários.
-                    </p>
-                  </div>
-
-                  <div id="custom-fields-container" class="form-row custom-fields-grid"></div>
-                </article>
-              </section>
-
-              <section class="cliente-tab" id="tab-dados-adicionais">
-                <article class="section-card">
-                  <div class="mini-actions">
-                    <div class="left">
-                      <strong>Referências comerciais</strong>
-                    </div>
-
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-ref-comercial">
-                      <i class="fa-solid fa-plus"></i> Adicionar
-                    </button>
-                  </div>
-
-                  <div id="lista-refs-comerciais" class="mini-list"></div>
-                </article>
-
-                <article class="section-card">
-                  <div class="mini-actions">
-                    <div class="left">
-                      <strong>Referências bancárias</strong>
-                    </div>
-
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-ref-bancaria">
-                      <i class="fa-solid fa-plus"></i> Adicionar
-                    </button>
-                  </div>
-
-                  <div id="lista-refs-bancarias" class="mini-list"></div>
-                </article>
-
-                <article class="section-card">
-                  <div class="mini-actions">
-                    <div class="left">
-                      <strong>Sócios</strong>
-                    </div>
-
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-socio">
-                      <i class="fa-solid fa-plus"></i> Adicionar
-                    </button>
-                  </div>
-
-                  <div id="lista-socios" class="mini-list"></div>
-                </article>
-              </section>
-
-              <section class="cliente-tab" id="tab-ocorrencias">
-                <article class="section-card">
-                  <div class="mini-actions">
-                    <div class="left">
-                      <strong>Ocorrências do cliente</strong>
-                    </div>
-
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-ocorrencia">
-                      <i class="fa-solid fa-plus"></i> Nova ocorrência
-                    </button>
-                  </div>
-
-                  <div id="lista-ocorrencias" class="mini-list"></div>
-                </article>
-              </section>
-
-              <section class="cliente-tab" id="tab-anexos">
-                <article class="section-card">
-                  <div class="mini-actions">
-                    <div class="left">
-                      <strong>Anexos do cliente</strong>
-                      <span class="subtle">Salve o cadastro antes de enviar arquivos.</span>
-                    </div>
-
-                    <div class="left">
-                      <input type="text" id="anexo-descricao" placeholder="Descrição do anexo" />
-                      <input type="text" id="anexo-tipo" placeholder="Tipo do documento" />
-
-                      <button type="button" class="btn btn-secondary btn-sm" id="btn-escolher-anexo">
-                        <i class="fa-solid fa-paperclip"></i> Escolher arquivo
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-add-ref-comercial">
+                        <i class="fa-solid fa-plus"></i>
+                        Adicionar
                       </button>
-
-                      <input type="file" id="input-anexo" hidden />
                     </div>
+
+                    <div id="lista-refs-comerciais" class="mini-list"></div>
+                  </article>
+
+                  <article class="section-card cliente-main-card">
+                    <div class="mini-actions">
+                      <div class="left">
+                        <strong>Referências bancárias</strong>
+                      </div>
+
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-add-ref-bancaria">
+                        <i class="fa-solid fa-plus"></i>
+                        Adicionar
+                      </button>
+                    </div>
+
+                    <div id="lista-refs-bancarias" class="mini-list"></div>
+                  </article>
+
+                  <article class="section-card cliente-main-card">
+                    <div class="mini-actions">
+                      <div class="left">
+                        <strong>Sócios</strong>
+                      </div>
+
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-add-socio">
+                        <i class="fa-solid fa-plus"></i>
+                        Adicionar
+                      </button>
+                    </div>
+
+                    <div id="lista-socios" class="mini-list"></div>
+                  </article>
+                </section>
+
+                <section class="cliente-tab" id="tab-ocorrencias">
+                  <article class="section-card cliente-main-card">
+                    <div class="mini-actions">
+                      <div class="left">
+                        <strong>Ocorrências do cliente</strong>
+                      </div>
+
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-add-ocorrencia">
+                        <i class="fa-solid fa-plus"></i>
+                        Nova ocorrência
+                      </button>
+                    </div>
+
+                    <div id="lista-ocorrencias" class="mini-list"></div>
+                  </article>
+                </section>
+
+                <section class="cliente-tab" id="tab-anexos">
+                  <article class="section-card cliente-main-card">
+                    <div class="mini-actions">
+                      <div class="left">
+                        <strong>Anexos do cliente</strong>
+                        <span class="subtle">Salve o cadastro antes de enviar arquivos.</span>
+                      </div>
+
+                      <div class="left anexo-inputs">
+                        <input type="text" id="anexo-descricao" placeholder="Descrição do anexo" />
+                        <input type="text" id="anexo-tipo" placeholder="Tipo do documento" />
+
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-escolher-anexo">
+                          <i class="fa-solid fa-paperclip"></i>
+                          Escolher arquivo
+                        </button>
+
+                        <input type="file" id="input-anexo" hidden />
+                      </div>
+                    </div>
+
+                    <div id="lista-anexos" class="stack"></div>
+                  </article>
+                </section>
+
+                <section class="cliente-tab" id="tab-historico">
+                  <div class="history-grid">
+                    <article class="history-box">
+                      <h5>Resumo</h5>
+                      <div id="historico-resumo" class="history-list"></div>
+                    </article>
+
+                    <article class="history-box">
+                      <h5>Últimas propostas</h5>
+                      <div id="historico-propostas" class="history-list"></div>
+                    </article>
                   </div>
 
-                  <div id="lista-anexos" class="stack"></div>
-                </article>
-              </section>
+                  <div class="history-grid history-grid-spaced">
+                    <article class="history-box">
+                      <h5>Últimas ocorrências</h5>
+                      <div id="historico-ocorrencias" class="history-list"></div>
+                    </article>
 
-              <section class="cliente-tab" id="tab-historico">
-                <div class="history-grid">
-                  <article class="history-box">
-                    <h5>Resumo</h5>
-                    <div id="historico-resumo" class="history-list"></div>
-                  </article>
+                    <article class="history-box">
+                      <h5>Visão geral</h5>
 
-                  <article class="history-box">
-                    <h5>Últimas propostas</h5>
-                    <div id="historico-propostas" class="history-list"></div>
-                  </article>
-                </div>
-
-                <div class="history-grid history-grid-spaced">
-                  <article class="history-box">
-                    <h5>Últimas ocorrências</h5>
-                    <div id="historico-ocorrencias" class="history-list"></div>
-                  </article>
-
-                  <article class="history-box">
-                    <h5>Visão geral</h5>
-                    <div class="subtle">
-                      Esta área já nasce pronta para receber compras, financeiro, O.S. e itens vendidos,
-                      assim que os próximos módulos forem implementados.
-                    </div>
-                  </article>
-                </div>
-              </section>
-
-              <div class="footer-actions modal-client-footer">
-                <button type="button" class="btn btn-secondary" id="btn-cancelar-cliente">Cancelar</button>
-
-                <button type="button" class="btn btn-primary" id="btn-salvar-cliente">
-                  <i class="fa-solid fa-floppy-disk"></i> Salvar cliente
-                </button>
+                      <div class="subtle">
+                        Esta área já nasce pronta para receber compras, financeiro, O.S. e itens vendidos,
+                        assim que os próximos módulos forem implementados.
+                      </div>
+                    </article>
+                  </div>
+                </section>
               </div>
-            </form>
-          </div>
+
+              <footer class="footer-actions modal-client-footer">
+                <button type="button" class="btn btn-secondary" id="btn-cancelar-cliente">
+                  Cancelar
+                </button>
+
+                <button type="submit" class="btn btn-primary" id="btn-salvar-cliente">
+                  <i class="fa-solid fa-floppy-disk"></i>
+                  Salvar cliente
+                </button>
+              </footer>
+            </section>
+          </form>
         </div>
       </div>
 
@@ -622,8 +759,13 @@
           </div>
 
           <div class="footer-actions modal-field-footer">
-            <button type="button" class="btn btn-secondary" id="Valora-confirm-cancel">Cancelar</button>
-            <button type="button" class="btn btn-primary" id="Valora-confirm-ok">Confirmar</button>
+            <button type="button" class="btn btn-secondary" id="Valora-confirm-cancel">
+              Cancelar
+            </button>
+
+            <button type="button" class="btn btn-primary" id="Valora-confirm-ok">
+              Confirmar
+            </button>
           </div>
         </div>
       </div>

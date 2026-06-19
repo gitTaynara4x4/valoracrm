@@ -47,6 +47,36 @@
     },
   };
 
+  const ICONES_SECOES = [
+    { value: 'fa-id-card', label: 'Cadastro / Dados básicos' },
+    { value: 'fa-address-book', label: 'Contato' },
+    { value: 'fa-house', label: 'Imóvel / Endereço' },
+    { value: 'fa-location-dot', label: 'Localização' },
+    { value: 'fa-user-shield', label: 'Responsável / Titular' },
+    { value: 'fa-building', label: 'Empresa / Pessoa jurídica' },
+    { value: 'fa-user-gear', label: 'Administrativo / Gerência' },
+    { value: 'fa-wallet', label: 'Financeiro / Cobrança' },
+    { value: 'fa-credit-card', label: 'Pagamento' },
+    { value: 'fa-share-nodes', label: 'Redes sociais' },
+    { value: 'fa-file-signature', label: 'Contratos / Assinatura' },
+    { value: 'fa-scale-balanced', label: 'Jurídico / Legal' },
+    { value: 'fa-tags', label: 'Classificação / Categoria' },
+    { value: 'fa-briefcase', label: 'Comercial' },
+    { value: 'fa-folder-open', label: 'Dados adicionais' },
+    { value: 'fa-sliders', label: 'Campos personalizados' },
+    { value: 'fa-clipboard-list', label: 'Ocorrências / Registros' },
+    { value: 'fa-paperclip', label: 'Anexos / Documentos' },
+    { value: 'fa-clock-rotate-left', label: 'Histórico' },
+    { value: 'fa-list-check', label: 'Checklist' },
+    { value: 'fa-box', label: 'Produto / Item' },
+    { value: 'fa-barcode', label: 'Código / Série' },
+    { value: 'fa-truck', label: 'Fornecedor / Entrega' },
+    { value: 'fa-file-contract', label: 'Contrato formal' },
+    { value: 'fa-circle-info', label: 'Informações' },
+    { value: 'fa-triangle-exclamation', label: 'Aviso / Atenção' },
+    { value: 'fa-layer-group', label: 'Padrão / Outro' },
+  ];
+
   const state = {
     modulo: getInitialModulo(),
     modelos: [],
@@ -103,10 +133,12 @@
 
     if (!resp.ok) {
       let detail = text || 'Erro na requisição.';
+
       try {
         const json = JSON.parse(text);
         detail = json.detail || json.message || detail;
       } catch (_) {}
+
       throw new Error(detail);
     }
 
@@ -120,21 +152,30 @@
   }
 
   function openModal(id) {
-  if (window.ValoraModal) return window.ValoraModal.open(id);
-  const modal = document.getElementById(id);
-  if (!modal) return;
-  modal.hidden = false;
-  modal.style.display = 'flex';
-  requestAnimationFrame(() => modal.classList.add('show'));
-}
+    if (window.ValoraModal) return window.ValoraModal.open(id);
+
+    const modal = document.getElementById(id);
+    if (!modal) return;
+
+    modal.hidden = false;
+    modal.style.display = 'flex';
+
+    requestAnimationFrame(() => modal.classList.add('show'));
+  }
 
   function closeModal(id) {
-  if (window.ValoraModal) return window.ValoraModal.close(id);
-  const modal = document.getElementById(id);
-  if (!modal) return;
-  modal.classList.remove('show');
-  setTimeout(() => { modal.hidden = true; modal.style.display = 'none'; }, 160);
-}
+    if (window.ValoraModal) return window.ValoraModal.close(id);
+
+    const modal = document.getElementById(id);
+    if (!modal) return;
+
+    modal.classList.remove('show');
+
+    setTimeout(() => {
+      modal.hidden = true;
+      modal.style.display = 'none';
+    }, 160);
+  }
 
   function closeAllModals() {
     document.querySelectorAll('.modal-overlay.show').forEach((modal) => {
@@ -198,6 +239,339 @@
     return '';
   }
 
+  function normalizarTextoIcone(value) {
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function normalizarIconeSecao(icone) {
+    let value = String(icone || '').trim();
+
+    if (!value) return '';
+
+    value = value
+      .replaceAll('fa-solid', '')
+      .replaceAll('fas', '')
+      .replaceAll('far', '')
+      .trim();
+
+    if (!value.startsWith('fa-')) return '';
+
+    return value;
+  }
+
+  function iconeFallbackSecao(titulo = '') {
+    const t = normalizarTextoIcone(titulo);
+
+    if (!t) return 'fa-layer-group';
+
+    if (
+      t.includes('dados basicos') ||
+      t.includes('basico') ||
+      t.includes('cadastro') ||
+      t.includes('identificacao') ||
+      t.includes('principal')
+    ) {
+      return 'fa-id-card';
+    }
+
+    if (
+      t.includes('imovel') ||
+      t.includes('endereco') ||
+      t.includes('residencia') ||
+      t.includes('casa') ||
+      t.includes('local')
+    ) {
+      return 'fa-house';
+    }
+
+    if (
+      t.includes('titular responsavel') ||
+      t.includes('responsavel legal') ||
+      t.includes('responsavel') ||
+      t.includes('titular')
+    ) {
+      return 'fa-user-shield';
+    }
+
+    if (
+      t.includes('pessoa juridica') ||
+      t.includes('juridica') ||
+      t.includes('cnpj') ||
+      t.includes('empresa')
+    ) {
+      return 'fa-building';
+    }
+
+    if (
+      t.includes('administrativo') ||
+      t.includes('administracao') ||
+      t.includes('gerencia') ||
+      t.includes('gerente')
+    ) {
+      return 'fa-user-gear';
+    }
+
+    if (
+      t.includes('financeiro') ||
+      t.includes('cobranca') ||
+      t.includes('pagamento') ||
+      t.includes('boleto') ||
+      t.includes('pix') ||
+      t.includes('cartao')
+    ) {
+      return 'fa-wallet';
+    }
+
+    if (
+      t.includes('redes sociais') ||
+      t.includes('rede social') ||
+      t.includes('social') ||
+      t.includes('instagram') ||
+      t.includes('facebook') ||
+      t.includes('linkedin') ||
+      t.includes('site')
+    ) {
+      return 'fa-share-nodes';
+    }
+
+    if (
+      t.includes('contrato') ||
+      t.includes('contratos') ||
+      t.includes('emissao') ||
+      t.includes('assinatura')
+    ) {
+      return 'fa-file-signature';
+    }
+
+    if (
+      t.includes('legal') ||
+      t.includes('legais') ||
+      t.includes('juridico') ||
+      t.includes('lgpd')
+    ) {
+      return 'fa-scale-balanced';
+    }
+
+    if (
+      t.includes('classificacao') ||
+      t.includes('categoria') ||
+      t.includes('segmento') ||
+      t.includes('tipo')
+    ) {
+      return 'fa-tags';
+    }
+
+    if (
+      t.includes('contato') ||
+      t.includes('telefone') ||
+      t.includes('whatsapp') ||
+      t.includes('email')
+    ) {
+      return 'fa-address-book';
+    }
+
+    if (
+      t.includes('comercial') ||
+      t.includes('venda') ||
+      t.includes('negociacao')
+    ) {
+      return 'fa-briefcase';
+    }
+
+    if (
+      t.includes('ocorrencia') ||
+      t.includes('historico') ||
+      t.includes('registro')
+    ) {
+      return 'fa-clipboard-list';
+    }
+
+    if (
+      t.includes('anexo') ||
+      t.includes('arquivo') ||
+      t.includes('documento')
+    ) {
+      return 'fa-paperclip';
+    }
+
+    if (
+      t.includes('personalizado') ||
+      t.includes('campo')
+    ) {
+      return 'fa-sliders';
+    }
+
+    return 'fa-layer-group';
+  }
+
+  function getIconeSecao(secao) {
+    return normalizarIconeSecao(secao?.icone) || iconeFallbackSecao(secao?.titulo);
+  }
+
+  function getIconeOptionsComSelecionado(selectedValue = '') {
+    const selected = normalizarIconeSecao(selectedValue);
+    const exists = ICONES_SECOES.some((item) => item.value === selected);
+    const options = [...ICONES_SECOES];
+
+    if (selected && !exists) {
+      options.unshift({
+        value: selected,
+        label: selected,
+      });
+    }
+
+    return { selected, options };
+  }
+
+  function renderIconeSecaoPicker(selectedValue = '') {
+    const picker = qs('secao-icones-picker');
+    if (!picker) return;
+
+    const { selected, options } = getIconeOptionsComSelecionado(selectedValue || 'fa-layer-group');
+    const selectedFinal = selected || 'fa-layer-group';
+
+    picker.innerHTML = options.map((item) => {
+      const active = item.value === selectedFinal ? 'is-active' : '';
+
+      return `
+        <button
+          class="secao-icone-option ${active}"
+          type="button"
+          data-secao-icon="${escapeHtml(item.value)}"
+          title="${escapeHtml(item.label)}"
+          aria-label="${escapeHtml(item.label)}"
+        >
+          <i class="fa-solid ${escapeHtml(item.value)}"></i>
+        </button>
+      `;
+    }).join('');
+  }
+
+  function marcarIconeSecaoAtivo(value = '') {
+    const picker = qs('secao-icones-picker');
+    if (!picker) return;
+
+    const selected = normalizarIconeSecao(value) || 'fa-layer-group';
+
+    picker.querySelectorAll('.secao-icone-option').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.secaoIcon === selected);
+    });
+  }
+
+  function abrirPickerIconesSecao() {
+    const popover = qs('secao-icones-popover');
+    const trigger = qs('btn-abrir-icones-secao');
+    if (!popover || !trigger) return;
+
+    popover.hidden = false;
+    trigger.setAttribute('aria-expanded', 'true');
+    trigger.classList.add('is-open');
+  }
+
+  function fecharPickerIconesSecao() {
+    const popover = qs('secao-icones-popover');
+    const trigger = qs('btn-abrir-icones-secao');
+    if (!popover || !trigger) return;
+
+    popover.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.classList.remove('is-open');
+  }
+
+  function togglePickerIconesSecao() {
+    const popover = qs('secao-icones-popover');
+    if (!popover) return;
+
+    if (popover.hidden) {
+      abrirPickerIconesSecao();
+    } else {
+      fecharPickerIconesSecao();
+    }
+  }
+
+  function atualizarTriggerIconeSecao() {
+    const select = qs('secao-icone');
+    const icon = normalizarIconeSecao(select?.value) || 'fa-layer-group';
+    const triggerIcon = document.querySelector('#btn-abrir-icones-secao .secao-icone-trigger-box i');
+    const triggerText = qs('secao-icone-trigger-text');
+
+    if (triggerIcon) {
+      triggerIcon.className = `fa-solid ${icon}`;
+    }
+
+    if (triggerText) {
+      triggerText.textContent = 'Escolher ícone';
+    }
+  }
+
+  function selecionarIconeSecao(value = '') {
+    const icon = normalizarIconeSecao(value) || 'fa-layer-group';
+    const select = qs('secao-icone');
+
+    if (select) {
+      const hasOption = Array.from(select.options || []).some((opt) => opt.value === icon);
+
+      if (!hasOption) {
+        const opt = document.createElement('option');
+        opt.value = icon;
+        opt.textContent = icon;
+        select.prepend(opt);
+      }
+
+      select.value = icon;
+    }
+
+    marcarIconeSecaoAtivo(icon);
+    atualizarPreviewIconeSecao();
+    atualizarTriggerIconeSecao();
+    fecharPickerIconesSecao();
+  }
+
+  function renderIconeSecaoOptions(selectedValue = '') {
+    const select = qs('secao-icone');
+    if (!select) return;
+
+    const { selected, options } = getIconeOptionsComSelecionado(selectedValue);
+
+    select.innerHTML = options.map((item) => {
+      const isSelected = item.value === selected ? 'selected' : '';
+
+      return `
+        <option value="${escapeHtml(item.value)}" ${isSelected}>
+          ${escapeHtml(item.label)} — ${escapeHtml(item.value)}
+        </option>
+      `;
+    }).join('');
+
+    renderIconeSecaoPicker(selected || 'fa-layer-group');
+  }
+
+  function atualizarPreviewIconeSecao() {
+    const select = qs('secao-icone');
+    const titulo = qs('secao-titulo')?.value || state.secaoEditando?.titulo || '';
+    const icon = normalizarIconeSecao(select?.value) || iconeFallbackSecao(titulo);
+
+    const previewIcon = document.querySelector('#secao-icone-preview i');
+    const previewText = qs('secao-icone-preview-text');
+
+    if (previewIcon) {
+      previewIcon.className = `fa-solid ${icon}`;
+    }
+
+    if (previewText) {
+      previewText.textContent = 'Ícone selecionado';
+    }
+
+    marcarIconeSecaoAtivo(icon);
+    atualizarTriggerIconeSecao();
+  }
+
   function getSecoes() {
     return Array.isArray(state.modeloAtual?.secoes) ? state.modeloAtual.secoes : [];
   }
@@ -250,6 +624,7 @@
     state.modeloAtual = data;
 
     const select = qs('select-modelo');
+
     if (select) {
       select.value = String(id);
     }
@@ -298,6 +673,7 @@
       body: JSON.stringify({
         titulo: 'Dados principais',
         descricao: 'Campos principais do cadastro.',
+        icone: 'fa-id-card',
         ordem: 1,
         ativo: true,
       }),
@@ -415,10 +791,6 @@
 
     if (btnEditar) btnEditar.disabled = !hasModelo;
 
-    /*
-      Estes botões não ficam mais travados.
-      Se não tiver formulário/seção, o clique cria o padrão automaticamente.
-    */
     if (btnNovaSecao) btnNovaSecao.disabled = false;
     if (btnCampoSistema) btnCampoSistema.disabled = false;
     if (btnNovoCampo) btnNovoCampo.disabled = false;
@@ -481,6 +853,7 @@
         id: '',
         titulo: 'Campos sem seção',
         descricao: 'Campos antigos que ainda não foram organizados em uma seção.',
+        icone: 'fa-layer-group',
         ativo: true,
         campos: camposSemSecao,
         semSecao: true,
@@ -493,12 +866,14 @@
   function renderSecaoCard(secao) {
     const campos = camposOrdenados(secao.campos || []);
     const inactive = secao.ativo === false ? '<span class="badge off">Inativa</span>' : '';
+    const icon = getIconeSecao(secao);
 
     const actions = secao.semSecao ? '' : `
       <div class="secao-actions">
         <button class="icon-btn" type="button" data-action="editar-secao" data-id="${secao.id}" title="Editar seção">
           <i class="fa-solid fa-pen"></i>
         </button>
+
         <button class="icon-btn danger" type="button" data-action="excluir-secao" data-id="${secao.id}" title="Excluir seção">
           <i class="fa-solid fa-trash"></i>
         </button>
@@ -514,10 +889,11 @@
         <div class="secao-head">
           <div class="secao-title-wrap">
             <h4 class="secao-title">
-              <i class="fa-solid fa-layer-group"></i>
+              <i class="fa-solid ${escapeHtml(icon)}"></i>
               <span>${escapeHtml(secao.titulo || 'Seção')}</span>
               ${inactive}
             </h4>
+
             ${secao.descricao ? `<p class="secao-desc">${escapeHtml(secao.descricao)}</p>` : ''}
           </div>
 
@@ -813,6 +1189,16 @@
     qs('secao-ordem').value = secao ? Number(secao.ordem || 0) : proximaOrdemSecao();
     qs('secao-ativo').checked = secao ? secao.ativo !== false : true;
     qs('btn-excluir-secao').style.display = secao ? '' : 'none';
+
+    const icon = normalizarIconeSecao(secao?.icone) || iconeFallbackSecao(secao?.titulo || '');
+    renderIconeSecaoOptions(icon);
+
+    const selectIcon = qs('secao-icone');
+    if (selectIcon) {
+      selectIcon.value = icon;
+    }
+
+    atualizarPreviewIconeSecao();
   }
 
   function resetCampoForm(campo = null, modo = 'novo') {
@@ -876,9 +1262,13 @@
   }
 
   function buildSecaoPayload() {
+    const titulo = qs('secao-titulo').value.trim();
+    const iconeSelecionado = normalizarIconeSecao(qs('secao-icone')?.value);
+
     return {
-      titulo: qs('secao-titulo').value.trim(),
+      titulo,
       descricao: qs('secao-descricao').value.trim() || null,
+      icone: iconeSelecionado || iconeFallbackSecao(titulo),
       ordem: Number(qs('secao-ordem').value || 0),
       ativo: qs('secao-ativo').checked,
     };
@@ -1348,6 +1738,38 @@
     qs('btn-nova-secao')?.addEventListener('click', abrirNovaSecao);
     qs('btn-salvar-secao')?.addEventListener('click', salvarSecao);
 
+    qs('secao-titulo')?.addEventListener('input', () => {
+      const select = qs('secao-icone');
+
+      if (select && (!select.value || select.value === 'fa-layer-group')) {
+        const icon = iconeFallbackSecao(qs('secao-titulo').value);
+        select.value = icon;
+      }
+
+      atualizarPreviewIconeSecao();
+    });
+
+    qs('secao-icone')?.addEventListener('change', atualizarPreviewIconeSecao);
+
+    qs('btn-abrir-icones-secao')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePickerIconesSecao();
+    });
+
+    qs('secao-icones-picker')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-secao-icon]');
+      if (!btn) return;
+
+      selecionarIconeSecao(btn.dataset.secaoIcon);
+    });
+
+    document.addEventListener('click', (e) => {
+      const selector = qs('secao-icone-selector');
+      if (!selector) return;
+      if (selector.contains(e.target)) return;
+      fecharPickerIconesSecao();
+    });
+
     qs('btn-excluir-secao')?.addEventListener('click', () => {
       const id = qs('secao-id').value;
       closeModal('modal-secao');
@@ -1404,6 +1826,9 @@
     console.log('[Formulários] JS carregou corretamente');
 
     bindEventos();
+    renderIconeSecaoOptions('fa-layer-group');
+    atualizarTriggerIconeSecao();
+    fecharPickerIconesSecao();
 
     try {
       marcarModuloAtivo();

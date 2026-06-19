@@ -1,21 +1,25 @@
 /* =========================================
-   ESTILOS DA TELA DE AJUDA
+   AJUDA | VALORA CRM
+   Arquivo limpo.
+   Mantém apenas estilos específicos da tela de ajuda.
+   Base global fica no app.css.
+   ========================================= */
+
+/* =========================================
+   LAYOUT DA AJUDA
    ========================================= */
 
 .help-layout {
   display: grid;
-  grid-template-columns: 1fr 380px; /* Divide a tela: área maior pro FAQ, menor pro Contato */
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: 24px;
   align-items: start;
 }
 
-@media (max-width: 960px) {
-  .help-layout { grid-template-columns: 1fr; }
-}
-
 /* =========================================
-   MENU SANFONA (FAQ)
+   FAQ / SANFONA
    ========================================= */
+
 .faq-accordion {
   display: flex;
   flex-direction: column;
@@ -25,27 +29,33 @@
 .faq-item {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--panel);
   overflow: hidden;
   transition: var(--transition);
 }
 
 .faq-item.active {
   border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
 }
 
 .faq-question {
   width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   padding: 16px 20px;
+
   background: transparent;
   border: none;
   color: var(--text);
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+
   font-size: 14px;
   font-weight: 500;
   text-align: left;
+
   cursor: pointer;
   transition: var(--transition);
 }
@@ -57,7 +67,7 @@
 .faq-question i {
   color: var(--muted);
   font-size: 12px;
-  transition: transform 0.3s ease;
+  transition: transform 0.22s ease, color 0.22s ease;
 }
 
 .faq-item.active .faq-question i {
@@ -68,13 +78,14 @@
 .faq-answer {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease-out;
   background: var(--panel);
+  transition: max-height 0.28s ease;
 }
 
 .faq-answer p {
-  padding: 0 20px 20px 20px;
   margin: 0;
+  padding: 0 20px 20px;
+
   color: var(--muted);
   font-size: 13px;
   line-height: 1.6;
@@ -82,56 +93,68 @@
 
 .faq-answer strong {
   color: var(--text);
+  font-weight: 600;
 }
 
 /* =========================================
-   CARTÃO DE SUPORTE WHATSAPP
+   CARD DE SUPORTE
    ========================================= */
+
 .support-card {
   text-align: center;
   padding: 32px 24px;
+
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: linear-gradient(180deg, var(--panel) 0%, var(--bg) 100%);
+
+  background: linear-gradient(180deg, var(--panel) 0%, var(--bg-soft) 100%);
 }
 
 .support-icon {
   width: 64px;
   height: 64px;
+  min-width: 64px;
+
   border-radius: 50%;
   background: var(--brand-soft);
   color: var(--brand);
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   font-size: 28px;
   margin-bottom: 20px;
 }
 
 .support-card h3 {
-  font-size: 18px;
-  color: var(--text);
   margin-bottom: 8px;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .support-card p {
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.5;
   margin-bottom: 24px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .support-info {
+  width: 100%;
+  margin-bottom: 24px;
+  padding: 16px;
+
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: 100%;
-  margin-bottom: 24px;
-  background: var(--panel);
-  padding: 16px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+
   text-align: left;
 }
 
@@ -139,24 +162,33 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 12px;
+
   color: var(--muted);
+  font-size: 12px;
   font-weight: 500;
+  line-height: 1.45;
 }
 
 .support-detail i {
   color: var(--brand);
 }
 
+/* =========================================
+   BOTÃO WHATSAPP
+   ========================================= */
+
 .btn-whatsapp {
   width: 100%;
   height: 44px;
-  background: #25D366; /* Verde oficial do WhatsApp */
+
+  background: #25D366;
   color: #ffffff;
   border: none;
-  font-weight: 600;
-  font-size: 14px;
+
   gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+
   box-shadow: 0 8px 20px rgba(37, 211, 102, 0.25);
 }
 
@@ -165,8 +197,58 @@
 }
 
 .btn-whatsapp:hover {
-  background: #1ebc59;
+  background: #1EBC59;
+  color: #ffffff;
   transform: translateY(-2px);
   box-shadow: 0 12px 25px rgba(37, 211, 102, 0.35);
-  color: #ffffff;
+}
+
+/* =========================================
+   DARK — AJUSTES ESPECÍFICOS
+   ========================================= */
+
+html[data-theme="dark"] .support-card {
+  background: linear-gradient(180deg, var(--panel) 0%, var(--bg-soft) 100%);
+}
+
+html[data-theme="dark"] .support-info,
+html[data-theme="dark"] .faq-item,
+html[data-theme="dark"] .faq-answer {
+  background: var(--panel);
+}
+
+/* =========================================
+   ACESSIBILIDADE
+   ========================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-item,
+  .faq-answer,
+  .faq-question i {
+    transition: none !important;
+  }
+}
+
+/* =========================================
+   RESPONSIVO
+   ========================================= */
+
+@media (max-width: 960px) {
+  .help-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .support-card {
+    padding: 24px 18px;
+  }
+
+  .faq-question {
+    padding: 14px 16px;
+  }
+
+  .faq-answer p {
+    padding: 0 16px 16px;
+  }
 }

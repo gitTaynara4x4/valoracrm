@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import unicodedata
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
@@ -108,6 +109,36 @@ LARGURAS_PERMITIDAS = {
     "grande",
     "metade",
     "inteiro",
+}
+
+ICONES_SECOES_PERMITIDOS = {
+    "fa-id-card",
+    "fa-address-book",
+    "fa-house",
+    "fa-location-dot",
+    "fa-user-shield",
+    "fa-building",
+    "fa-user-gear",
+    "fa-wallet",
+    "fa-credit-card",
+    "fa-share-nodes",
+    "fa-file-signature",
+    "fa-scale-balanced",
+    "fa-tags",
+    "fa-briefcase",
+    "fa-folder-open",
+    "fa-sliders",
+    "fa-clipboard-list",
+    "fa-paperclip",
+    "fa-clock-rotate-left",
+    "fa-layer-group",
+    "fa-circle-info",
+    "fa-triangle-exclamation",
+    "fa-list-check",
+    "fa-box",
+    "fa-barcode",
+    "fa-truck",
+    "fa-file-contract",
 }
 
 
@@ -267,6 +298,89 @@ def norm_str(value: Any) -> Optional[str]:
 
 def norm_lower(value: Any) -> str:
     return str(value or "").strip().lower()
+
+
+def normalizar_texto_busca(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    return " ".join(text.replace("/", " ").replace("-", " ").split())
+
+
+def icone_fallback_por_titulo(titulo: Any) -> str:
+    t = normalizar_texto_busca(titulo)
+
+    if any(x in t for x in ("basico", "cadastro", "identificacao", "principal")):
+        return "fa-id-card"
+
+    if any(x in t for x in ("imovel", "endereco", "residencia", "casa", "local")):
+        return "fa-house"
+
+    if any(x in t for x in ("responsavel", "titular")):
+        return "fa-user-shield"
+
+    if any(x in t for x in ("pessoa juridica", "juridica", "cnpj", "empresa")):
+        return "fa-building"
+
+    if any(x in t for x in ("administrativo", "administracao", "gerencia", "gerente")):
+        return "fa-user-gear"
+
+    if any(x in t for x in ("financeiro", "cobranca", "pagamento", "boleto", "pix", "cartao")):
+        return "fa-wallet"
+
+    if any(x in t for x in ("rede", "social", "instagram", "facebook", "linkedin", "site")):
+        return "fa-share-nodes"
+
+    if any(x in t for x in ("contrato", "emissao", "assinatura")):
+        return "fa-file-signature"
+
+    if any(x in t for x in ("contato", "telefone", "whatsapp", "email")):
+        return "fa-address-book"
+
+    if any(x in t for x in ("ocorrencia", "historico", "registro")):
+        return "fa-clipboard-list"
+
+    if any(x in t for x in ("anexo", "arquivo", "documento")):
+        return "fa-paperclip"
+
+    if any(x in t for x in ("classificacao", "categoria", "segmento", "tipo")):
+        return "fa-tags"
+
+    if any(x in t for x in ("comercial", "venda", "negociacao")):
+        return "fa-briefcase"
+
+    return "fa-layer-group"
+
+
+def normalizar_icone_secao(icone: Any, titulo: Any = None) -> Optional[str]:
+    value = norm_str(icone)
+
+    if value:
+        value = (
+            value.replace("fa-solid", "")
+            .replace("fas", "")
+            .replace("far", "")
+            .strip()
+        )
+
+        if value in ICONES_SECOES_PERMITIDOS:
+            return value
+
+        # Aceita classes Font Awesome válidas sem travar o sistema
+        # se você adicionar novos ícones no frontend depois.
+        permitido = value.startswith("fa-") and len(value) <= 80 and all(
+            ch.isalnum() or ch in {"-", "_"} for ch in value
+        )
+
+        if permitido:
+            return value
+
+        raise HTTPException(status_code=422, detail="Ícone da seção inválido.")
+
+    if titulo is not None:
+        return icone_fallback_por_titulo(titulo)
+
+    return None
 
 
 def to_int(value: Any, default: int = 0) -> int:
@@ -440,6 +554,7 @@ def secao_dict(row) -> Dict[str, Any]:
         "formulario_id": int(row.formulario_id),
         "titulo": row.titulo,
         "descricao": row.descricao,
+        "icone": getattr(row, "icone", None),
         "ordem": int(row.ordem or 0),
         "ativo": bool(row.ativo),
         "criado_em": iso(row.criado_em),
@@ -585,6 +700,7 @@ def formulario_cache_version(db: Session, modelo) -> Dict[str, Any]:
             str(secao.id),
             str(secao.titulo or ""),
             str(secao.descricao or ""),
+            str(getattr(secao, "icone", "") or ""),
             str(secao.ordem or 0),
             str(bool(secao.ativo)),
             iso(secao.atualizado_em) or "",
@@ -654,6 +770,7 @@ class FormularioModeloUpdate(BaseModel):
 class FormularioSecaoCreate(BaseModel):
     titulo: str = Field(..., min_length=1, max_length=180)
     descricao: Optional[str] = None
+    icone: Optional[str] = None
     ordem: int = 0
     ativo: bool = True
 
@@ -661,6 +778,7 @@ class FormularioSecaoCreate(BaseModel):
 class FormularioSecaoUpdate(BaseModel):
     titulo: Optional[str] = None
     descricao: Optional[str] = None
+    icone: Optional[str] = None
     ordem: Optional[int] = None
     ativo: Optional[bool] = None
 
@@ -829,6 +947,7 @@ def listar_modulos(request: Request, db: Session = Depends(get_db)):
         "tipos_campos": sorted(TIPOS_CAMPOS_PERMITIDOS),
         "visibilidades": sorted(VISIBILIDADES_PERMITIDAS),
         "larguras": sorted(LARGURAS_PERMITIDAS),
+        "icones_secoes": sorted(ICONES_SECOES_PERMITIDOS),
     }
 
 
@@ -1064,6 +1183,7 @@ def criar_secao(
         formulario_id=modelo.id,
         titulo=titulo,
         descricao=norm_str(payload.descricao),
+        icone=normalizar_icone_secao(payload.icone, titulo),
         ordem=int(payload.ordem or 0),
         ativo=bool(payload.ativo),
     )
@@ -1096,6 +1216,11 @@ def atualizar_secao(
 
     if "descricao" in dados:
         secao.descricao = norm_str(dados.get("descricao"))
+
+    if "icone" in dados:
+        secao.icone = normalizar_icone_secao(dados.get("icone"), secao.titulo)
+    elif not getattr(secao, "icone", None):
+        secao.icone = normalizar_icone_secao(None, secao.titulo)
 
     if "ordem" in dados and dados["ordem"] is not None:
         secao.ordem = int(dados["ordem"] or 0)
@@ -1223,12 +1348,15 @@ def garantir_estrutura_padrao(db: Session, modelo, modulo: str) -> None:
             formulario_id=modelo.id,
             titulo="Dados principais",
             descricao="Campos principais do cadastro.",
+            icone="fa-id-card",
             ordem=1,
             ativo=True,
         )
 
         db.add(secao)
         db.flush()
+    elif not getattr(secao, "icone", None):
+        secao.icone = normalizar_icone_secao(None, secao.titulo)
 
     campos_existentes = (
         db.query(models.FormularioCampo)

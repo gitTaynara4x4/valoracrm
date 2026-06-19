@@ -3,29 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Valora CRM — Transforme Orçamentos em Faturamento</title>
-  <meta name="description" content="CRM especializado em propostas comerciais que aumenta conversões em 43%. Ideal para consultores, freelancers e pequenas empresas." />
+
+  <meta
+    name="description"
+    content="CRM especializado em propostas comerciais para criar, enviar e acompanhar propostas profissionais."
+  />
 
   <meta property="og:title" content="Valora CRM — Propostas que Convertem">
-  <meta property="og:description" content="Sistema profissional de propostas comerciais com IA integrada.">
+  <meta property="og:description" content="Sistema profissional de propostas comerciais para empresas que querem vender com mais organização.">
   <meta property="og:type" content="website">
+
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem("valora_theme") || "light";
+      document.documentElement.setAttribute("data-theme", savedTheme);
+    })();
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  >
 
   <link rel="stylesheet" href="/frontend/css/inicio.css">
-  <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
-  <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
-  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
-  <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
 </head>
-<body>
 
+<body>
   <div class="top-bar">
     <div class="container">
-      🚀 <strong>Aumente suas conversões em 43%</strong> com propostas profissionais.
+      🚀 <strong>Transforme orçamentos em vendas</strong> com propostas profissionais.
       <span>Teste gratuito de 7 dias</span>
       <a href="#planos">Experimente agora →</a>
     </div>
@@ -37,8 +47,8 @@
         <svg class="logo-svg" viewBox="0 0 1500 360" role="img" aria-label="VALORA CRM">
           <defs>
             <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stop-color="#0D63FF"/>
-              <stop offset="100%" stop-color="#15D0A5"/>
+              <stop offset="0%" stop-color="#65ACDE"/>
+              <stop offset="100%" stop-color="#4BC3C7"/>
             </linearGradient>
           </defs>
 
@@ -47,7 +57,7 @@
           <text
             x="90"
             y="190"
-            font-family="Manrope, Inter, Poppins, Arial, sans-serif"
+            font-family="Poppins, Inter, Arial, sans-serif"
             font-size="136"
             font-weight="700"
             letter-spacing="11"
@@ -57,7 +67,7 @@
         </svg>
       </a>
 
-      <nav class="nav-links">
+      <nav class="nav-links" aria-label="Menu principal">
         <a href="#recursos">Recursos</a>
         <a href="#depoimentos">Depoimentos</a>
         <a href="#planos">Planos</a>
@@ -71,8 +81,14 @@
           <span class="theme-icon theme-icon-sun">☀</span>
           <span class="theme-icon theme-icon-moon">🌙</span>
         </button>
-        <a href="/cadastro?plano=essencial" class="btn btn-primary btn-header">Começar Agora</a>
-        <button class="mobile-toggle" type="button" onclick="toggleMenu()" aria-label="Abrir menu">☰</button>
+
+        <a href="/cadastro?plano=essencial" class="btn btn-primary btn-header">
+          Começar Agora
+        </a>
+
+        <button class="mobile-toggle" type="button" onclick="toggleMenu()" aria-label="Abrir menu">
+          ☰
+        </button>
       </div>
     </div>
 
@@ -91,18 +107,21 @@
     <section class="hero">
       <div class="container hero-grid">
         <div class="hero-content fade-in">
-          <span class="badge">✨ Nova IA de Vendas</span>
+          <span class="badge">✨ CRM para propostas comerciais</span>
+
           <h1 class="hero-title">
             Propostas que fecham,
             <span class="text-gradient">resultados que impressionam</span>
           </h1>
+
           <p class="hero-desc">
-            O sistema profissional de propostas comerciais que combina design sofisticado, automação inteligente e análise de dados para transformar orçamentos em faturamento recorrente.
+            O Valora CRM ajuda sua empresa a criar propostas profissionais, acompanhar clientes,
+            organizar negociações e transformar orçamentos em faturamento.
           </p>
 
           <div class="hero-actions">
             <a href="/cadastro?plano=essencial" class="btn btn-primary btn-lg">Experimente Grátis</a>
-            <a href="#recursos" class="btn btn-secondary btn-lg">Ver Demonstração</a>
+            <a href="#recursos" class="btn btn-secondary btn-lg">Ver Recursos</a>
           </div>
 
           <div class="hero-stats">
@@ -110,10 +129,12 @@
               <h4>+43%</h4>
               <p>Conversão média</p>
             </div>
+
             <div class="stat-item">
               <h4>850+</h4>
               <p>Empresas clientes</p>
             </div>
+
             <div class="stat-item">
               <h4>4.9★</h4>
               <p>Satisfação dos clientes</p>
@@ -129,7 +150,8 @@
                 <div class="window-dot yellow"></div>
                 <div class="window-dot green"></div>
               </div>
-              <div class="window-url">clientes.valora.com</div>
+
+              <div class="window-url">app.valora.com</div>
             </div>
 
             <div class="app-content">
@@ -146,16 +168,20 @@
                     <div class="metric-label">Faturamento Mensal</div>
                     <div class="metric-value metric-success">R$ 82.450</div>
                   </div>
+
                   <div class="metric-card">
                     <div class="metric-label">Taxa de Conversão</div>
                     <div class="metric-value metric-primary">43.2%</div>
                   </div>
+
                   <div class="metric-card metric-wide">
                     <div class="metric-label">Propostas Pendentes</div>
+
                     <div class="metric-progress-row">
                       <div class="metric-progress-track">
                         <div class="metric-progress-bar"></div>
                       </div>
+
                       <span class="metric-progress-text">12/24</span>
                     </div>
                   </div>
@@ -169,9 +195,10 @@
                   <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
               </div>
+
               <div>
                 <strong class="float-title">Proposta aceita agora</strong>
-                <span class="float-subtitle">Cliente: Tech Solutions Inc.</span>
+                <span class="float-subtitle">Cliente: Tech Solutions</span>
                 <div class="float-price">R$ 12.800,00</div>
               </div>
             </div>
@@ -184,7 +211,7 @@
       <div class="container">
         <div class="section-head fade-in">
           <h2>Potencialize seu processo comercial</h2>
-          <p>Recursos projetados para profissionais sérios que buscam eficiência e resultados mensuráveis.</p>
+          <p>Recursos pensados para empresas que querem organizar vendas, propostas e clientes em um só lugar.</p>
         </div>
 
         <div class="features-grid">
@@ -194,8 +221,8 @@
                 <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
               </svg>
             </div>
-            <h3>Propostas Seguras</h3>
-            <p>Assinatura digital, validade jurídica e proteção contra alterações não autorizadas. Seu cliente tem total confiança.</p>
+            <h3>Propostas profissionais</h3>
+            <p>Crie propostas organizadas, padronizadas e com aparência séria para enviar aos seus clientes.</p>
           </div>
 
           <div class="feature-card fade-in delay-2">
@@ -204,8 +231,8 @@
                 <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
               </svg>
             </div>
-            <h3>IA de Otimização</h3>
-            <p>Nossa inteligência artificial analisa e sugere melhorias no texto, valor e estrutura da sua proposta para maximizar conversões.</p>
+            <h3>Agilidade no comercial</h3>
+            <p>Ganhe tempo com modelos, clientes cadastrados, produtos, serviços e histórico de negociação.</p>
           </div>
 
           <div class="feature-card fade-in delay-3">
@@ -214,8 +241,8 @@
                 <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
               </svg>
             </div>
-            <h3>Rastreamento Inteligente</h3>
-            <p>Saiba exatamente quando sua proposta foi aberta, quanto tempo foi gasto em cada seção e quais páginas foram mais visualizadas.</p>
+            <h3>Acompanhamento de oportunidades</h3>
+            <p>Veja quais propostas estão pendentes, aprovadas, recusadas e onde sua equipe precisa agir.</p>
           </div>
 
           <div class="feature-card fade-in delay-1">
@@ -224,8 +251,8 @@
                 <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
               </svg>
             </div>
-            <h3>Pagamento Integrado</h3>
-            <p>Ofereça Pix, cartão, boleto e transferência com fluxo profissional e simples para o cliente aprovar e pagar mais rápido.</p>
+            <h3>Controle de clientes</h3>
+            <p>Tenha dados, contatos, documentos, histórico e campos personalizados em um cadastro único.</p>
           </div>
 
           <div class="feature-card fade-in delay-2">
@@ -241,8 +268,8 @@
                 <line x1="17" y1="7" x2="22" y2="7"/>
               </svg>
             </div>
-            <h3>Dashboards Avançados</h3>
-            <p>Visualize KPIs essenciais: tempo médio de resposta, valor médio das propostas, taxa de conversão por segmento e muito mais.</p>
+            <h3>Dashboard comercial</h3>
+            <p>Acompanhe indicadores, faturamento previsto, clientes ativos e desempenho do seu processo comercial.</p>
           </div>
 
           <div class="feature-card fade-in delay-3">
@@ -251,8 +278,8 @@
                 <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
               </svg>
             </div>
-            <h3>Gestão de Equipe</h3>
-            <p>Compartilhe templates, defina permissões por cargo e monitore o desempenho de cada membro do seu time comercial.</p>
+            <h3>Gestão de equipe</h3>
+            <p>Organize usuários, permissões e responsabilidades para deixar o comercial mais profissional.</p>
           </div>
         </div>
       </div>
@@ -262,29 +289,33 @@
       <div class="container">
         <div class="section-head fade-in">
           <h2>Confiança de quem faz acontecer</h2>
-          <p>Profissionais e empresas que transformaram seus resultados com a Valora.</p>
+          <p>Profissionais e empresas que passaram a vender com mais organização usando a Valora.</p>
         </div>
 
         <div class="testimonials-grid">
           <div class="testimonial-card fade-in delay-1">
             <div class="testimonial-content">
-              "Implementamos a Valora em nossa equipe de vendas e em 3 meses aumentamos nossa taxa de fechamento em 47%. O rastreamento de propostas nos deu insights valiosos."
+              "Com a Valora conseguimos padronizar propostas e acompanhar melhor cada negociação. Ficou muito mais profissional."
             </div>
+
             <div class="testimonial-author">
               <div class="author-avatar">RC</div>
+
               <div class="author-info">
                 <h4>Ricardo Costa</h4>
-                <p>CEO, TechSolutions</p>
+                <p>Diretor Comercial</p>
               </div>
             </div>
           </div>
 
           <div class="testimonial-card fade-in delay-2">
             <div class="testimonial-content">
-              "Como consultora independente, a Valora me deu a credibilidade que faltava. Meus clientes ficam impressionados com a profissionalização das propostas."
+              "Antes eu fazia proposta solta. Agora tenho cadastro de cliente, histórico e uma apresentação muito mais séria."
             </div>
+
             <div class="testimonial-author">
               <div class="author-avatar">AM</div>
+
               <div class="author-info">
                 <h4>Amanda Mendes</h4>
                 <p>Consultora de Marketing</p>
@@ -294,13 +325,15 @@
 
           <div class="testimonial-card fade-in delay-3">
             <div class="testimonial-content">
-              "A integração com WhatsApp mudou nosso jogo. Agora enviamos propostas no mesmo canal que o cliente prefere, com notificação de leitura em tempo real."
+              "O sistema ajudou nossa equipe a parar de perder informação no WhatsApp e organizar melhor as vendas."
             </div>
+
             <div class="testimonial-author">
               <div class="author-avatar">LS</div>
+
               <div class="author-info">
                 <h4>Leonardo Silva</h4>
-                <p>Diretor Comercial, Construct Inc.</p>
+                <p>Gestor de Operações</p>
               </div>
             </div>
           </div>
@@ -312,7 +345,7 @@
       <div class="container">
         <div class="section-head fade-in">
           <h2>Planos que escalam com seu negócio</h2>
-          <p>Escolha a solução ideal para suas necessidades. Todos os planos incluem teste gratuito de 7 dias.</p>
+          <p>Escolha a solução ideal para sua operação comercial.</p>
         </div>
 
         <div class="pricing-grid">
@@ -320,33 +353,40 @@
             <div class="price-header">
               <h3>Essencial</h3>
               <div class="price-amount">R$ 0</div>
-              <div class="price-period">para sempre</div>
+              <div class="price-period">para começar</div>
             </div>
-            <p>Ideal para freelancers e profissionais individuais que estão começando.</p>
+
+            <p>Ideal para testar o sistema e organizar as primeiras propostas.</p>
+
             <ul class="price-features">
-              <li><span class="check">✓</span> 5 propostas por mês</li>
+              <li><span class="check">✓</span> Cadastro de clientes</li>
+              <li><span class="check">✓</span> Propostas básicas</li>
               <li><span class="check">✓</span> 1 usuário</li>
-              <li><span class="check">✓</span> Templates básicos</li>
-              <li><span class="check">✓</span> Rastreamento simples</li>
+              <li><span class="check">✓</span> Acesso ao painel</li>
             </ul>
+
             <a href="/cadastro?plano=essencial" class="btn btn-secondary btn-full">Começar Gratuitamente</a>
           </div>
 
           <div class="pricing-card popular fade-in delay-2">
             <div class="popular-badge">Mais Popular</div>
+
             <div class="price-header">
               <h3>Profissional</h3>
               <div class="price-amount">R$ 97</div>
               <div class="price-period">por mês</div>
             </div>
-            <p>Para consultores e pequenas equipes que buscam resultados consistentes.</p>
+
+            <p>Para empresas que querem organizar vendas, propostas e acompanhamento comercial.</p>
+
             <ul class="price-features">
               <li><span class="check">✓</span> Propostas ilimitadas</li>
-              <li><span class="check">✓</span> IA de otimização</li>
-              <li><span class="check">✓</span> Integração WhatsApp</li>
-              <li><span class="check">✓</span> Domínio personalizado</li>
-              <li><span class="check">✓</span> Dashboards avançados</li>
+              <li><span class="check">✓</span> Cadastro completo de clientes</li>
+              <li><span class="check">✓</span> Produtos e serviços</li>
+              <li><span class="check">✓</span> Dashboard comercial</li>
+              <li><span class="check">✓</span> Campos personalizados</li>
             </ul>
+
             <a href="/cadastro?plano=profissional" class="btn btn-primary btn-full">Testar 7 Dias Grátis</a>
           </div>
 
@@ -356,14 +396,17 @@
               <div class="price-amount">R$ 197</div>
               <div class="price-period">por mês</div>
             </div>
-            <p>Para empresas que precisam de controle total e múltiplas equipes.</p>
+
+            <p>Para equipes maiores que precisam de controle, usuários e processos mais completos.</p>
+
             <ul class="price-features">
               <li><span class="check">✓</span> Tudo do Profissional</li>
               <li><span class="check">✓</span> Até 10 usuários</li>
-              <li><span class="check">✓</span> API completa</li>
-              <li><span class="check">✓</span> Treinamento dedicado</li>
+              <li><span class="check">✓</span> Controle de permissões</li>
               <li><span class="check">✓</span> Suporte prioritário</li>
+              <li><span class="check">✓</span> Recursos avançados</li>
             </ul>
+
             <a href="/cadastro?plano=empresarial" class="btn btn-secondary btn-full">Falar com Vendas</a>
           </div>
         </div>
@@ -383,28 +426,38 @@
               Como funciona o período de teste gratuito?
               <span class="icon">▼</span>
             </button>
+
             <div class="faq-answer">
-              <p>Oferecemos 7 dias gratuitos com acesso completo ao plano Profissional. Não é necessário cadastrar cartão de crédito para iniciar. Após o período, você pode escolher continuar com um plano pago ou migrar para a versão gratuita.</p>
+              <p>
+                O teste permite conhecer o sistema antes de contratar. Você pode cadastrar clientes,
+                testar propostas e avaliar se o Valora se encaixa na sua operação.
+              </p>
             </div>
           </div>
 
           <div class="faq-item fade-in delay-2">
             <button class="faq-question" type="button" onclick="toggleFaq(this)">
-              Posso usar meu domínio próprio?
+              Posso cadastrar produtos e serviços?
               <span class="icon">▼</span>
             </button>
+
             <div class="faq-answer">
-              <p>Sim. Nos planos Profissional e Empresarial você pode conectar seu domínio personalizado, como propostas.suaempresa.com. Fornecemos instruções detalhadas para configuração do DNS.</p>
+              <p>
+                Sim. O Valora permite organizar produtos, serviços e informações comerciais para montar propostas com mais rapidez.
+              </p>
             </div>
           </div>
 
           <div class="faq-item fade-in delay-3">
             <button class="faq-question" type="button" onclick="toggleFaq(this)">
-              A plataforma é compatível com quais meios de pagamento?
+              O sistema serve para empresas pequenas?
               <span class="icon">▼</span>
             </button>
+
             <div class="faq-answer">
-              <p>Você pode trabalhar com cartão, Pix, boleto e transferência, oferecendo uma experiência mais prática para o cliente aprovar e pagar sem fricção.</p>
+              <p>
+                Sim. O Valora foi pensado para empresas que querem sair da bagunça das planilhas e começar a vender com mais organização.
+              </p>
             </div>
           </div>
 
@@ -413,8 +466,11 @@
               Como é feito o suporte técnico?
               <span class="icon">▼</span>
             </button>
+
             <div class="faq-answer">
-              <p>Oferecemos suporte por chat em horário comercial, atendimento por email e materiais de apoio. No plano Empresarial, o suporte é prioritário.</p>
+              <p>
+                O suporte é feito por canais digitais, com orientação para configuração, uso do sistema e dúvidas operacionais.
+              </p>
             </div>
           </div>
         </div>
@@ -424,12 +480,17 @@
     <section class="cta-section">
       <div class="container">
         <div class="cta-content fade-in">
-          <h2>Pronto para transformar suas vendas?</h2>
-          <p>Junte-se a mais de 850 empresas que já otimizaram seu processo comercial com a Valora. Resultados reais começam com as ferramentas certas.</p>
+          <h2>Pronto para organizar suas vendas?</h2>
+
+          <p>
+            Comece a usar uma ferramenta criada para transformar propostas, clientes e negociações em um processo comercial mais profissional.
+          </p>
+
           <div class="cta-buttons">
             <a href="/cadastro?plano=profissional" class="btn btn-primary btn-lg">Começar Teste Grátis</a>
-            <a href="/cadastro?plano=empresarial" class="btn btn-secondary btn-lg btn-cta-outline">Agendar Demonstração</a>
+            <a href="/cadastro?plano=empresarial" class="btn btn-secondary btn-lg btn-cta-outline">Falar com Vendas</a>
           </div>
+
           <p class="cta-note">
             Teste gratuito de 7 dias • Não precisa de cartão de crédito
           </p>
@@ -445,8 +506,8 @@
           <svg class="footer-logo" viewBox="0 0 1500 360" role="img" aria-label="VALORA CRM">
             <defs>
               <linearGradient id="g2" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#0D63FF"/>
-                <stop offset="100%" stop-color="#15D0A5"/>
+                <stop offset="0%" stop-color="#65ACDE"/>
+                <stop offset="100%" stop-color="#4BC3C7"/>
               </linearGradient>
             </defs>
 
@@ -455,7 +516,7 @@
             <text
               x="90"
               y="190"
-              font-family="Manrope, Inter, Poppins, Arial, sans-serif"
+              font-family="Poppins, Inter, Arial, sans-serif"
               font-size="136"
               font-weight="700"
               letter-spacing="11"
@@ -466,7 +527,7 @@
             <text
               x="98"
               y="252"
-              font-family="Manrope, Inter, Poppins, Arial, sans-serif"
+              font-family="Poppins, Inter, Arial, sans-serif"
               font-size="44"
               font-weight="650"
               letter-spacing="14"
@@ -477,26 +538,28 @@
             <path d="M98 270 L255 270" stroke="url(#g2)" stroke-width="6" stroke-linecap="round"/>
           </svg>
 
-          <p>Soluções profissionais para propostas comerciais que convertem. Tecnologia avançada, resultados mensuráveis.</p>
+          <p>
+            Solução profissional para propostas comerciais, clientes, produtos e acompanhamento de vendas.
+          </p>
         </div>
 
         <div class="footer-links">
           <h4>Produto</h4>
           <ul>
             <li><a href="#recursos">Recursos</a></li>
-            <li><a href="#planos">Preços</a></li>
-            <li><a href="#">API</a></li>
-            <li><a href="#">Status</a></li>
+            <li><a href="#planos">Planos</a></li>
+            <li><a href="/frontend/login.html">Login</a></li>
+            <li><a href="/cadastro?plano=essencial">Cadastrar</a></li>
           </ul>
         </div>
 
         <div class="footer-links">
           <h4>Empresa</h4>
           <ul>
-            <li><a href="#">Sobre</a></li>
-            <li><a href="#">Blog</a></li>
-            <li><a href="#">Carreiras</a></li>
-            <li><a href="#">Contato</a></li>
+            <li><a href="#depoimentos">Depoimentos</a></li>
+            <li><a href="#faq">FAQ</a></li>
+            <li><a href="/cadastro?plano=profissional">Teste grátis</a></li>
+            <li><a href="/cadastro?plano=empresarial">Contato comercial</a></li>
           </ul>
         </div>
 
@@ -512,48 +575,45 @@
       </div>
 
       <div class="footer-bottom">
-        <p>&copy; 2024 Valora Tecnologia Ltda. Todos os direitos reservados.</p>
+        <p>&copy; 2026 Valora Tecnologia Ltda. Todos os direitos reservados.</p>
       </div>
     </div>
   </footer>
 
   <script>
-    (function () {
-      const savedTheme = localStorage.getItem('valora-theme');
-      if (savedTheme === 'dark' || savedTheme === 'light') {
-        document.documentElement.setAttribute('data-theme', savedTheme);
-      }
-    })();
-
     function toggleMenu() {
-      const menu = document.getElementById('mobileMenu');
-      menu.classList.toggle('active');
+      const menu = document.getElementById("mobileMenu");
+      if (!menu) return;
+      menu.classList.toggle("active");
     }
 
     function toggleFaq(button) {
-      const item = button.closest('.faq-item');
-      item.classList.toggle('active');
+      const item = button.closest(".faq-item");
+      if (!item) return;
+      item.classList.toggle("active");
     }
 
     function toggleTheme() {
       const root = document.documentElement;
-      const current = root.getAttribute('data-theme') || 'light';
-      const next = current === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', next);
-      localStorage.setItem('valora-theme', next);
+      const current = root.getAttribute("data-theme") || "light";
+      const next = current === "dark" ? "light" : "dark";
+
+      root.setAttribute("data-theme", next);
+      localStorage.setItem("valora_theme", next);
     }
 
-    document.addEventListener('click', function (e) {
-      const menu = document.getElementById('mobileMenu');
-      const toggle = document.querySelector('.mobile-toggle');
+    document.addEventListener("click", function (event) {
+      const menu = document.getElementById("mobileMenu");
+      const toggle = document.querySelector(".mobile-toggle");
+
       if (!menu || !toggle) return;
 
       if (
-        menu.classList.contains('active') &&
-        !menu.contains(e.target) &&
-        !toggle.contains(e.target)
+        menu.classList.contains("active") &&
+        !menu.contains(event.target) &&
+        !toggle.contains(event.target)
       ) {
-        menu.classList.remove('active');
+        menu.classList.remove("active");
       }
     });
   </script>

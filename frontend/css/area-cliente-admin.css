@@ -1,17 +1,17 @@
-.area-cliente-main {
-  max-width: 1480px;
-}
+/* =========================================
+   ÁREA DO CLIENTE ADMIN | VALORA CRM
+   Arquivo limpo.
+   Mantém apenas estilos específicos da área do cliente.
+   Base global fica no app.css.
+   ========================================= */
+
+/* =========================================
+   TOPO ESPECÍFICO
+   ========================================= */
 
 .area-cliente-topbar {
   align-items: flex-start;
   gap: 18px;
-}
-
-.page-subtitle {
-  margin-top: 8px;
-  color: var(--muted);
-  max-width: 760px;
-  font-size: 13px;
 }
 
 .area-cliente-actions {
@@ -21,12 +21,9 @@
   justify-content: flex-end;
 }
 
-.area-cliente-actions .btn,
-.sticky-actions .btn,
-.acesso-actions .btn,
-.history-head .btn {
-  gap: 8px;
-}
+/* =========================================
+   INTRODUÇÃO
+   ========================================= */
 
 .area-intro {
   display: grid;
@@ -37,38 +34,44 @@
 
 .intro-card {
   min-height: 92px;
+  padding: 16px;
+
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+
   display: flex;
   gap: 14px;
   align-items: center;
 }
 
 .intro-card-main {
-  border-color: rgba(16, 163, 127, 0.32);
-  background: linear-gradient(135deg, var(--panel), rgba(16, 163, 127, 0.08));
+  border-color: rgba(75, 195, 199, 0.32);
+  background: linear-gradient(135deg, var(--panel), rgba(75, 195, 199, 0.08));
 }
 
 .intro-icon {
   width: 42px;
   height: 42px;
+  min-width: 42px;
+
   border-radius: 12px;
   background: var(--brand-soft);
   color: var(--brand);
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
+
   font-size: 17px;
 }
 
 .intro-card strong {
   display: block;
-  font-size: 14px;
-  color: var(--text);
   margin-bottom: 2px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .intro-card span {
@@ -77,6 +80,10 @@
   font-size: 12px;
   line-height: 1.45;
 }
+
+/* =========================================
+   LAYOUT PRINCIPAL
+   ========================================= */
 
 .area-grid {
   display: grid;
@@ -87,26 +94,12 @@
 
 .cliente-panel {
   position: sticky;
-  top: 24px;
+  top: calc(var(--topbar-h) + 18px);
   padding: 22px;
 }
 
 .compact-head {
   margin-bottom: 16px;
-}
-
-.panel-head h3,
-.form-card-head h3,
-.section-title-row h4 {
-  color: var(--text);
-}
-
-.panel-head p,
-.form-card-head p,
-.section-title-row p {
-  color: var(--muted);
-  font-size: 13px;
-  margin-top: 4px;
 }
 
 .area-content {
@@ -116,12 +109,18 @@
   min-width: 0;
 }
 
+/* =========================================
+   RESUMO DO CLIENTE
+   ========================================= */
+
 .cliente-resumo {
   margin-top: 16px;
   padding: 14px;
+
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--bg-soft);
   border-radius: var(--radius);
+
   display: flex;
   gap: 12px;
   align-items: flex-start;
@@ -130,20 +129,23 @@
 .cliente-resumo-icon {
   width: 38px;
   height: 38px;
+  min-width: 38px;
+
   border-radius: 12px;
   background: var(--brand-soft);
   color: var(--brand);
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
 }
 
 .cliente-resumo strong {
   display: block;
+  margin-bottom: 3px;
   color: var(--text);
   font-size: 13px;
-  margin-bottom: 3px;
+  font-weight: 700;
 }
 
 .cliente-resumo span {
@@ -157,12 +159,19 @@
 .acessos-status {
   margin-top: 14px;
   padding: 10px 12px;
-  background: var(--bg);
+
+  background: var(--bg-soft);
   border: 1px solid var(--border);
-  color: var(--muted);
   border-radius: var(--radius-sm);
+
+  color: var(--muted);
   font-size: 12px;
+  line-height: 1.45;
 }
+
+/* =========================================
+   CARD DE DADOS
+   ========================================= */
 
 .dados-card {
   padding: 0;
@@ -172,17 +181,32 @@
 .form-card-head {
   padding: 22px 24px;
   border-bottom: 1px solid var(--border);
+
   display: flex;
   justify-content: space-between;
   gap: 18px;
   align-items: flex-start;
 }
 
+.form-card-head h3,
+.section-title-row h4 {
+  color: var(--text);
+}
+
+.form-card-head p,
+.section-title-row p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .record-meta {
   color: var(--muted);
-  background: var(--bg);
+  background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: 999px;
+
   padding: 7px 12px;
   font-size: 12px;
   white-space: nowrap;
@@ -201,78 +225,76 @@
   margin-bottom: 16px;
 }
 
-.form-row.three-cols {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.form-row.single-col {
-  grid-template-columns: 1fr;
-}
-
 .form-small {
   max-width: 220px;
 }
 
-.valora-form textarea,
+/* Textarea específico quando não estiver coberto por .valora-form */
 .acesso-card textarea {
   width: 100%;
   min-height: 92px;
   resize: vertical;
-  background: var(--bg);
+
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+
   padding: 12px 14px;
   color: var(--text);
-  font-size: 14px;
+  font-size: 13px;
   font-family: inherit;
-  transition: var(--transition);
   line-height: 1.45;
+
+  outline: none;
+  transition: var(--transition);
 }
 
-.valora-form textarea:focus,
 .acesso-card textarea:focus {
-  outline: none;
   border-color: var(--brand);
   box-shadow: 0 0 0 3px var(--brand-soft);
 }
 
-.valora-form textarea::placeholder,
 .acesso-card textarea::placeholder {
-  color: #555;
+  color: var(--muted-soft);
 }
+
+/* =========================================
+   AÇÕES FIXAS DO FORM
+   ========================================= */
 
 .sticky-actions {
   position: sticky;
   bottom: 0;
-  background: var(--panel);
+  z-index: 2;
+
   margin-top: 0;
   padding: 16px 24px;
+
+  background: var(--panel);
   border-top: 1px solid var(--border);
+
   justify-content: flex-end;
   gap: 10px;
-  z-index: 2;
 }
 
-button:disabled,
-.btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.btn-sm {
-  height: 34px;
-  padding: 0 12px;
-  font-size: 12px;
-}
+/* =========================================
+   ACESSOS
+   ========================================= */
 
 .acesso-card {
   padding: 0;
   overflow: hidden;
 }
 
+.acesso-card[hidden],
+.historico-card[hidden] {
+  display: none !important;
+}
+
 .acesso-head {
   padding: 22px 24px;
   border-bottom: 1px solid var(--border);
+
   display: flex;
   justify-content: space-between;
   gap: 18px;
@@ -283,11 +305,11 @@ button:disabled,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   min-height: 28px;
   padding: 5px 10px;
+
   border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #60a5fa;
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -297,57 +319,62 @@ button:disabled,
 
 .soft-badge.is-pendente {
   background: var(--brand-soft);
-  color: var(--brand);
+  color: var(--brand-dark);
 }
 
 .soft-badge.is-usado {
-  background: rgba(59, 130, 246, 0.12);
-  color: #60a5fa;
+  background: var(--blue-soft);
+  color: var(--blue);
 }
 
 .soft-badge.is-expirado {
-  background: rgba(245, 158, 11, 0.13);
-  color: #f59e0b;
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 .soft-badge.is-revogado {
-  background: rgba(239, 68, 68, 0.12);
-  color: #f87171;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .acesso-ativo-box {
   margin: 18px 24px 0;
   padding: 15px;
+
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--bg-soft);
   border-radius: var(--radius);
+
   display: flex;
   gap: 12px;
   align-items: flex-start;
 }
 
 .acesso-ativo-box.is-active {
-  border-color: rgba(16, 163, 127, 0.32);
-  background: linear-gradient(135deg, var(--bg), rgba(16, 163, 127, 0.08));
+  border-color: rgba(75, 195, 199, 0.32);
+  background: linear-gradient(135deg, var(--bg-soft), rgba(75, 195, 199, 0.08));
 }
 
 .acesso-ativo-icon {
   width: 40px;
   height: 40px;
+  min-width: 40px;
+
   border-radius: 12px;
   background: var(--brand-soft);
   color: var(--brand);
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
 }
 
 .acesso-ativo-box strong {
   display: block;
+  margin-bottom: 3px;
   color: var(--text);
   font-size: 14px;
-  margin-bottom: 3px;
+  font-weight: 700;
 }
 
 .acesso-ativo-box span {
@@ -357,11 +384,16 @@ button:disabled,
   line-height: 1.45;
 }
 
+/* =========================================
+   GERAR ACESSO
+   ========================================= */
+
 .gerar-acesso-box {
   margin: 16px 24px 0;
   padding: 16px;
-  border: 1px solid rgba(16, 163, 127, 0.24);
-  background: linear-gradient(135deg, var(--bg), rgba(16, 163, 127, 0.06));
+
+  border: 1px solid rgba(75, 195, 199, 0.24);
+  background: linear-gradient(135deg, var(--bg-soft), rgba(75, 195, 199, 0.06));
   border-radius: var(--radius);
 }
 
@@ -371,11 +403,15 @@ button:disabled,
 
 .check-line {
   margin-top: 12px;
+
   display: flex;
   gap: 9px;
   align-items: flex-start;
+
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.45;
+
   cursor: pointer;
 }
 
@@ -394,23 +430,24 @@ button:disabled,
 .acesso-gerado-box {
   margin: 16px 24px 0;
   padding: 16px;
+
   border: 1px solid rgba(245, 158, 11, 0.35);
   background: rgba(245, 158, 11, 0.07);
   border-radius: var(--radius);
 }
 
-.acesso-gerado-box[hidden],
-.acesso-card[hidden],
-.historico-card[hidden] {
+.acesso-gerado-box[hidden] {
   display: none !important;
 }
 
 .alerta-senha {
   margin-bottom: 14px;
+
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  color: #fbbf24;
+
+  color: var(--warning);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -426,11 +463,9 @@ button:disabled,
   align-items: center;
 }
 
-.btn-icon {
-  width: 44px;
-  padding: 0;
-  justify-content: center;
-}
+/* =========================================
+   LISTA DE ACESSOS
+   ========================================= */
 
 .acessos-list-wrap {
   padding: 22px 24px 24px;
@@ -438,16 +473,19 @@ button:disabled,
 
 .acessos-lista {
   margin-top: 12px;
+
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
 .acesso-item {
-  border: 1px solid var(--border);
-  background: var(--bg);
-  border-radius: 13px;
   padding: 14px;
+
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  border-radius: 13px;
+
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
@@ -463,6 +501,7 @@ button:disabled,
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+
   color: var(--text);
   font-size: 13px;
   font-weight: 800;
@@ -481,16 +520,25 @@ button:disabled,
   align-items: center;
 }
 
+/* =========================================
+   BOTÃO PERIGOSO SUAVE
+   ========================================= */
+
 .btn-danger-soft {
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  background: rgba(239, 68, 68, 0.08);
-  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.30);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .btn-danger-soft:hover {
-  border-color: rgba(239, 68, 68, 0.55);
+  border-color: rgba(239, 68, 68, 0.46);
   background: rgba(239, 68, 68, 0.14);
+  color: var(--danger);
 }
+
+/* =========================================
+   HISTÓRICO
+   ========================================= */
 
 .history-head {
   display: flex;
@@ -509,16 +557,17 @@ button:disabled,
   border: 1px dashed var(--border);
   border-radius: var(--radius);
   padding: 18px;
+
   text-align: center;
   color: var(--muted);
-  background: var(--bg);
+  background: var(--bg-soft);
 }
 
 .history-item {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px;
-  background: var(--bg);
+  background: var(--bg-soft);
 }
 
 .history-item-top {
@@ -548,24 +597,25 @@ button:disabled,
 
 .history-diff {
   margin-top: 10px;
+
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
 .diff-box {
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px;
   background: var(--panel);
-  min-width: 0;
 }
 
 .diff-box small {
   display: block;
+  margin-bottom: 4px;
   color: var(--muted);
   font-size: 11px;
-  margin-bottom: 4px;
 }
 
 .diff-box span {
@@ -574,6 +624,30 @@ button:disabled,
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+
+/* =========================================
+   DARK — AJUSTES ESPECÍFICOS
+   ========================================= */
+
+html[data-theme="dark"] .intro-card-main,
+html[data-theme="dark"] .acesso-ativo-box.is-active,
+html[data-theme="dark"] .gerar-acesso-box {
+  background: linear-gradient(135deg, var(--panel), rgba(75, 195, 199, 0.08));
+}
+
+html[data-theme="dark"] .cliente-resumo,
+html[data-theme="dark"] .status-box,
+html[data-theme="dark"] .acessos-status,
+html[data-theme="dark"] .acesso-ativo-box,
+html[data-theme="dark"] .acesso-item,
+html[data-theme="dark"] .history-empty,
+html[data-theme="dark"] .history-item {
+  background: var(--bg-soft);
+}
+
+/* =========================================
+   RESPONSIVO
+   ========================================= */
 
 @media (max-width: 1180px) {
   .area-grid {
@@ -601,8 +675,6 @@ button:disabled,
     justify-content: flex-start;
   }
 
-  .form-row.three-cols,
-  .form-row,
   .gerar-acesso-row,
   .history-diff {
     grid-template-columns: 1fr !important;
@@ -617,6 +689,10 @@ button:disabled,
     flex-direction: column-reverse;
   }
 
+  .sticky-actions .btn {
+    width: 100%;
+  }
+
   .acesso-item {
     grid-template-columns: 1fr;
   }
@@ -624,5 +700,27 @@ button:disabled,
   .acesso-item-actions {
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 600px) {
+  .area-cliente-actions .btn,
+  .acesso-actions .btn {
+    width: 100%;
+  }
+
+  .form-card-head,
+  .form-section,
+  .acesso-head,
+  .acessos-list-wrap {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .acesso-ativo-box,
+  .gerar-acesso-box,
+  .acesso-gerado-box {
+    margin-left: 16px;
+    margin-right: 16px;
   }
 }

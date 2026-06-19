@@ -3,30 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Painel | Valora CRM</title>
 
   <script>
     (() => {
-      const savedTheme = localStorage.getItem('valora_theme') || 'light';
-      document.documentElement.setAttribute('data-theme', savedTheme);
+      const savedTheme = localStorage.getItem("valora_theme") || "light";
+      document.documentElement.setAttribute("data-theme", savedTheme);
     })();
   </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+  >
 
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
-  <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
-  <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
-  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
 
   <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
   <script src="/frontend/js/pages/dashboard.js?v=20260615-dashboard-fix" defer></script>
-  <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
 </head>
 
 <body>
@@ -47,6 +51,7 @@
 
         <div class="user-badge">
           <div class="user-avatar" id="userAvatar">U</div>
+
           <div class="user-meta">
             <strong id="userName">Usuário</strong>
             <span id="userEmail">email@empresa.com</span>
@@ -58,36 +63,44 @@
         <div class="hero-content">
           <div class="status-indicator">
             <span class="dot"></span>
-            <span id="dashboardStatusText">Sistema Online e Ativo</span>
+            <span id="dashboardStatusText">Sistema online e ativo</span>
           </div>
 
           <h2 id="welcomeTitle">Pronto para começar?</h2>
 
           <p id="welcomeText">
-            Configure sua conta, cadastre seus primeiros clientes e comece a gerar propostas de forma rápida e profissional.
+            Configure sua conta, cadastre seus primeiros clientes e comece a gerar propostas
+            de forma rápida e profissional.
           </p>
 
           <div class="hero-actions">
-            <a href="/clientes" class="btn btn-primary">Cadastrar Cliente</a>
-            <a href="/propostas" class="btn btn-secondary">Criar Proposta</a>
+            <a href="/clientes" class="btn btn-primary">
+              <i class="fa-solid fa-user-plus"></i>
+              Cadastrar cliente
+            </a>
+
+            <a href="/propostas" class="btn btn-secondary">
+              <i class="fa-solid fa-file-circle-plus"></i>
+              Criar proposta
+            </a>
           </div>
         </div>
 
-        <div class="plan-card">
-          <span class="plan-label">Seu Plano</span>
+        <aside class="plan-card">
+          <span class="plan-label">Seu plano</span>
           <strong id="planName">Essencial</strong>
           <small id="companyIdInfo">ID da Empresa: #--</small>
-        </div>
+        </aside>
       </section>
 
-      <section class="stats-grid">
+      <section class="stats-grid" aria-label="Indicadores do painel">
         <article class="stat-card">
-          <span class="stat-label">Total de Clientes</span>
+          <span class="stat-label">Total de clientes</span>
           <strong class="stat-value" id="statClientes">0</strong>
         </article>
 
         <article class="stat-card">
-          <span class="stat-label">Propostas Ativas</span>
+          <span class="stat-label">Propostas ativas</span>
           <strong class="stat-value" id="statPropostas">0</strong>
         </article>
 
@@ -97,7 +110,7 @@
         </article>
 
         <article class="stat-card">
-          <span class="stat-label">Status da Licença</span>
+          <span class="stat-label">Status da licença</span>
           <strong class="stat-value online" id="statLicenca">Regular</strong>
         </article>
       </section>
@@ -105,18 +118,18 @@
       <section class="content-grid">
         <article class="panel-card">
           <div class="panel-head">
-            <h3>Acesso Rápido</h3>
+            <h3>Acesso rápido</h3>
             <p>Atalhos para as funções mais usadas.</p>
           </div>
 
           <div class="quick-grid">
             <a href="/clientes" class="quick-card">
-              <strong>Gestão de Clientes</strong>
+              <strong>Gestão de clientes</strong>
               <small>Adicione ou edite contatos</small>
             </a>
 
             <a href="/propostas" class="quick-card">
-              <strong>Módulo de Propostas</strong>
+              <strong>Módulo de propostas</strong>
               <small>Gere novos orçamentos</small>
             </a>
 
@@ -126,7 +139,7 @@
             </a>
 
             <a href="/ajuda" class="quick-card">
-              <strong>Central de Ajuda</strong>
+              <strong>Central de ajuda</strong>
               <small>Tutoriais e suporte</small>
             </a>
           </div>
@@ -134,7 +147,7 @@
 
         <article class="panel-card">
           <div class="panel-head">
-            <h3>Primeiros Passos</h3>
+            <h3>Primeiros passos</h3>
             <p>Conclua estas etapas para configurar seu CRM.</p>
           </div>
 
@@ -165,6 +178,8 @@
           </div>
         </article>
       </section>
+
+      <div id="valora-toast" class="toast-message" aria-live="polite"></div>
     </main>
   </div>
 </body>

@@ -1,38 +1,45 @@
 /* =========================================
-   ESTILOS DA TELA DE EMPRESA
+   EMPRESA | VALORA CRM
+   Arquivo limpo.
+   Mantém apenas estilos específicos da tela de empresa.
+   Base global fica no app.css.
    ========================================= */
 
-.logo-upload-box {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
+/* =========================================
+   LOGO DA EMPRESA
+   ========================================= */
 
 .logo-preview {
   width: 90px;
   height: 90px;
+  min-width: 90px;
+
   border-radius: 12px;
+  border: 1px solid rgba(75, 195, 199, 0.22);
   background: var(--brand-soft);
   color: var(--brand);
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   font-size: 32px;
-  border: 1px solid rgba(16, 163, 127, 0.2);
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .logo-preview img {
   width: 100%;
   height: 100%;
-  object-fit: contain; 
-  background: #ffffff; 
+  object-fit: contain;
+  background: #ffffff;
 }
 
-@media (max-width: 600px) {
-  .logo-upload-box {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+/* =========================================
+   DARK — AJUSTE ESPECÍFICO
+   ========================================= */
+
+html[data-theme="dark"] .logo-preview {
+  border-color: rgba(75, 195, 199, 0.26);
+  background: rgba(75, 195, 199, 0.12);
 }

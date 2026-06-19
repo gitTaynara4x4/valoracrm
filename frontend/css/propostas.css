@@ -1,190 +1,64 @@
 /* =========================================
-   CABEÇALHO E AÇÕES (TOPBAR)
+   PROPOSTAS | VALORA CRM
+   Arquivo limpo.
+   Mantém apenas estilos específicos da tela de propostas.
+   Base global fica no app.css.
    ========================================= */
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
 
 /* =========================================
-   ESTILOS DA TELA DE PROPOSTAS
+   CARDS / SEÇÕES DA PROPOSTA
    ========================================= */
 
-.search-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  gap: 16px;
-}
-
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 8px 16px;
-  width: 100%;
-  max-width: 400px;
-  transition: var(--transition);
-}
-
-.search-box.search-box-compact {
-  max-width: none;
-}
-
-.search-box:focus-within {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-soft);
-}
-
-.search-box i {
-  color: var(--muted);
-}
-
-.search-box input {
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text);
-  width: 100%;
-  font-size: 14px;
-}
-
-.counter-text {
-  font-size: 13px;
-  color: var(--muted);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.btn-sm {
-  height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
-}
-
-/* =========================================
-   TABELA PRINCIPAL
-   ========================================= */
-.valora-table-wrapper {
-  width: 100%;
-  overflow-x: auto;
-}
-
-.valora-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.valora-table th {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-}
-
-.valora-table td {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
-  font-size: 14px;
-  vertical-align: middle;
-}
-
-.valora-table tr:hover td {
-  background: var(--panel-hover);
-}
-
-.badge-codigo {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.btn-icon {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 6px;
-  transition: var(--transition);
-  font-size: 14px;
-}
-
-.btn-icon:hover {
-  background: var(--border);
-  color: var(--text);
-}
-
-.btn-icon[data-action="whatsapp"] {
-  color: #25d366;
-}
-
-.btn-icon[data-action="whatsapp"]:hover {
-  background: rgba(37, 211, 102, 0.12);
-  color: #25d366;
-}
-
-.btn-icon.danger:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.row-actions {
-  display: inline-flex;
-  gap: 6px;
-  justify-content: flex-end;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-/* =========================================
-   MODAL PROPOSTA
-   ========================================= */
 .proposal-card,
 .config-card {
-  background: var(--bg);
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+.proposal-card:last-child,
+.config-card:last-child {
+  margin-bottom: 0;
 }
 
 .proposal-section-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 16px;
   gap: 12px;
 }
 
+.proposal-section-head h4,
+.proposal-card h4,
+.config-card h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.proposal-section-head p,
+.proposal-card p,
+.config-card p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .proposal-status-chip,
 .config-status-chip {
-  padding: 4px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 12px;
   border-radius: 999px;
-  background: var(--panel);
+  background: var(--bg-soft);
   color: var(--text);
   font-size: 12px;
   font-weight: 600;
@@ -192,49 +66,68 @@
   white-space: nowrap;
 }
 
+/* =========================================
+   TABELA DE ITENS DA PROPOSTA
+   Estrutura global da tabela vem do app.css.
+   ========================================= */
+
 .proposal-table-wrap {
+  width: 100%;
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--panel);
+  -webkit-overflow-scrolling: touch;
 }
 
-.valora-table td input {
+.proposal-table-wrap .valora-table {
+  min-width: 960px;
+}
+
+.proposal-table-wrap .valora-table td input {
   width: 100%;
-  background: var(--bg);
+  min-width: 110px;
+  height: 38px;
+  background: var(--panel);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 6px;
-  padding: 8px 10px;
+  border-radius: 8px;
+  padding: 0 10px;
   font-size: 13px;
   font-family: inherit;
   outline: none;
   transition: var(--transition);
 }
 
-.valora-table td input:focus {
+.proposal-table-wrap .valora-table td input:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px var(--brand-soft);
+  box-shadow: 0 0 0 3px var(--brand-soft);
 }
 
 .btn-icon-danger {
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  min-width: 32px;
+  border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   transition: var(--transition);
 }
 
 .btn-icon-danger:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: var(--danger-soft);
+  border-color: rgba(239, 68, 68, 0.22);
+  color: var(--danger);
 }
+
+/* =========================================
+   CAMPOS EXTRAS / TOTAIS
+   ========================================= */
 
 .proposal-extra-grid {
   display: grid;
@@ -246,6 +139,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .proposal-extra-field.is-full {
@@ -253,10 +147,24 @@
 }
 
 .proposal-extra-field label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text);
 }
+
+.proposal-totals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.proposal-empty-extra-card .empty-state {
+  margin: 0;
+}
+
+/* =========================================
+   CHECKS / OPÇÕES
+   ========================================= */
 
 .checkbox-inline {
   display: inline-flex;
@@ -264,27 +172,54 @@
   gap: 10px;
   font-weight: 500;
   color: var(--text);
+  cursor: pointer;
+}
+
+.checkbox-inline input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand);
+}
+
+.checks-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.checks-row .check-card {
+  background: var(--bg-soft);
+}
+
+.checks-row .check-card:hover {
+  border-color: rgba(75, 195, 199, 0.28);
+  background: var(--panel-hover);
 }
 
 /* =========================================
-   CLIENTE - AUTOCOMPLETE
+   CLIENTE — AUTOCOMPLETE
    ========================================= */
+
 .client-picker {
   position: relative;
+  min-width: 0;
 }
 
 .autocomplete-list {
   position: absolute;
-  top: calc(100% - 6px);
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
+  z-index: 1000100;
+
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-lg);
+
   max-height: 280px;
   overflow-y: auto;
-  z-index: 40;
   padding: 6px;
 }
 
@@ -305,7 +240,7 @@
 }
 
 .autocomplete-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text);
 }
@@ -324,19 +259,54 @@
 }
 
 /* =========================================
-   MODAL CONFIGURAR CAMPOS
+   MODAL DE PROPOSTA — APENAS AJUSTES ESPECÍFICOS
+   O modal base vem do app.css.
    ========================================= */
-#fields-config-modal {
-  z-index: 10020;
+
+.proposal-modal-header {
+  align-items: flex-start;
 }
 
-#Valora-confirm-backdrop {
-  z-index: 10040;
+.proposal-modal-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 4px 0 0;
+  line-height: 1.5;
 }
 
-.modal-xl {
-  max-width: 1120px;
+.proposal-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
 }
+
+.proposal-tab-panel {
+  display: none;
+}
+
+.proposal-tab-panel.active {
+  display: block;
+  animation: proposalTabFade 0.14s ease;
+}
+
+@keyframes proposalTabFade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================================
+   MODAL CONFIGURAR CAMPOS — CONTEÚDO
+   O modal base vem do app.css.
+   ========================================= */
 
 .config-toolbar {
   display: flex;
@@ -358,6 +328,7 @@
   background: var(--panel);
   border-radius: var(--radius);
   overflow: hidden;
+  min-width: 0;
 }
 
 .config-panel-head,
@@ -366,7 +337,24 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 18px 18px 0 18px;
+  padding: 18px 18px 0;
+}
+
+.config-panel-head h4,
+.config-form-head h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.config-panel-head p,
+.config-form-head p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .config-form-panel .valora-form {
@@ -388,72 +376,6 @@
   background: var(--brand-soft);
 }
 
-.mini-badge,
-.pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 26px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.pill-warning {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.22);
-}
-
-.pill-success {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.22);
-}
-
-.checks-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.check-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  border-radius: 12px;
-  padding: 14px;
-  cursor: pointer;
-}
-
-.check-card input {
-  margin-top: 3px;
-}
-
-.check-card span {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.check-card small {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.field-hint {
-  display: block;
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
 .config-form-actions {
   display: flex;
   align-items: center;
@@ -463,144 +385,99 @@
   border-top: 1px solid var(--border);
 }
 
+.config-form-actions > div {
+  margin-left: auto;
+}
+
+/* =========================================
+   PILLS / MINI BADGES ESPECÍFICOS
+   Badge padrão já existe no app.css.
+   ========================================= */
+
+.mini-badge,
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pill-warning {
+  background: var(--warning-soft);
+  border-color: rgba(245, 158, 11, 0.22);
+  color: #B45309;
+}
+
+.pill-success {
+  background: var(--success-soft);
+  border-color: rgba(34, 197, 94, 0.22);
+  color: #15803D;
+}
+
 .btn-danger-soft {
-  color: #ef4444;
+  color: var(--danger);
   border-color: rgba(239, 68, 68, 0.25);
 }
 
 .btn-danger-soft:hover {
-  background: rgba(239, 68, 68, 0.08);
-  color: #ef4444;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 /* =========================================
-   MODAIS E TOAST
+   DARK — AJUSTES ESPECÍFICOS
    ========================================= */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
 
-.modal-overlay.show {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.modal-content {
+html[data-theme="dark"] .proposal-card,
+html[data-theme="dark"] .config-card,
+html[data-theme="dark"] .config-table-panel,
+html[data-theme="dark"] .config-form-panel {
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  width: 100%;
-  max-width: 500px;
-  padding: 24px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-  max-height: 90vh;
-  overflow-y: auto;
-  opacity: 0;
-  transform: scale(0.96) translateY(10px);
-  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
 }
 
-.modal-lg {
-  max-width: 760px;
+html[data-theme="dark"] .proposal-table-wrap {
+  background: var(--panel);
 }
 
-.modal-overlay.show .modal-content {
-  opacity: 1;
-  transform: scale(1) translateY(0);
+html[data-theme="dark"] .proposal-table-wrap .valora-table td input {
+  background: var(--bg-soft);
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  gap: 12px;
+html[data-theme="dark"] .autocomplete-list {
+  background: var(--panel);
 }
 
-.modal-header h3 {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0;
+html[data-theme="dark"] .autocomplete-item:hover {
+  background: var(--panel-hover);
 }
 
-.valora-form select,
-.valora-form textarea,
-.valora-form input[type="text"],
-.valora-form input[type="number"],
-.valora-form input[type="email"],
-.valora-form input[type="date"] {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  color: var(--text);
-  font-size: 14px;
-  font-family: inherit;
-  transition: var(--transition);
-  outline: none;
+html[data-theme="dark"] .config-table tr.is-selected td {
+  background: rgba(75, 195, 199, 0.14);
 }
 
-.valora-form select {
-  height: 42px;
-}
+/* =========================================
+   ACESSIBILIDADE
+   ========================================= */
 
-.valora-form textarea {
-  height: auto;
-  resize: vertical;
-}
-
-.valora-form select:focus,
-.valora-form textarea:focus,
-.valora-form input:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-soft);
-}
-
-.valora-form input:disabled {
-  background: rgba(0, 0, 0, 0.03);
-  color: var(--muted);
-  cursor: not-allowed;
-  border-color: transparent;
-}
-
-.toast-message {
-  position: fixed;
-  bottom: -60px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #333;
-  color: #fff;
-  padding: 12px 24px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 500;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  transition: bottom 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  z-index: 10060;
-  pointer-events: none;
-}
-
-.toast-message.show {
-  bottom: 24px;
-}
-
-.toast-message.is-error {
-  background: #ef4444;
+@media (prefers-reduced-motion: reduce) {
+  .proposal-tab-panel {
+    transition: none !important;
+    animation: none !important;
+  }
 }
 
 /* =========================================
    RESPONSIVO
    ========================================= */
+
 @media (max-width: 980px) {
   .config-layout {
     grid-template-columns: 1fr;
@@ -608,23 +485,18 @@
 }
 
 @media (max-width: 768px) {
-  .search-row,
+  .proposal-section-head,
   .config-toolbar,
-  .modal-header,
-  .topbar {
+  .config-panel-head,
+  .config-form-head,
+  .proposal-modal-header,
+  .proposal-header-actions {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .topbar-actions {
-    justify-content: flex-start;
-  }
-
-  .search-box {
-    max-width: 100%;
-  }
-
   .proposal-extra-grid,
+  .proposal-totals-grid,
   .checks-row {
     grid-template-columns: 1fr;
   }
@@ -635,210 +507,27 @@
   }
 
   .config-form-actions > div {
-    margin-left: 0 !important;
+    margin-left: 0;
     width: 100%;
   }
 
   .config-form-actions button {
     width: 100%;
   }
-}
-
-/* =========================================================
-   PROPOSTAS - MODAL LARGO, ABAS E ALTURA CONTROLADA
-   Organização visual igual ao padrão aplicado em Clientes/Fornecedores/Produtos
-========================================================= */
-
-.modal-overlay {
-  padding: 16px;
-}
-
-.modal-overlay .modal-content.modal-xl,
-.modal-overlay .modal-content.proposal-modal-content {
-  width: min(1120px, calc(100vw - 56px));
-  max-width: none !important;
-  max-height: min(84vh, 780px);
-  height: auto;
-  padding: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-overlay .modal-content.modal-xl .modal-header,
-.modal-overlay .modal-content.proposal-modal-content .modal-header {
-  flex: 0 0 auto;
-  margin-bottom: 0;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border);
-}
-
-.proposal-modal-header {
-  align-items: flex-start;
-}
-
-.proposal-modal-subtitle {
-  font-size: 13px;
-  color: var(--muted);
-  margin: 4px 0 0;
-}
-
-.proposal-header-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
-}
-
-.proposal-tabs {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 14px 24px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
-}
-
-.proposal-tab-btn {
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--muted);
-  padding: 10px 14px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 13px;
-  font-family: inherit;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: var(--transition);
-}
-
-.proposal-tab-btn:hover {
-  border-color: var(--brand);
-  color: var(--text);
-}
-
-.proposal-tab-btn.active {
-  background: var(--brand-soft);
-  border-color: rgba(16, 163, 127, 0.35);
-  color: var(--brand);
-}
-
-.modal-overlay .modal-content.proposal-modal-content .proposal-modal-body,
-.modal-overlay .modal-content.modal-xl .modal-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 22px 24px 24px;
-}
-
-.proposal-tab-panel {
-  display: none;
-}
-
-.proposal-tab-panel.active {
-  display: block;
-}
-
-.proposal-modal-footer {
-  flex: 0 0 auto;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid var(--border);
-  background: var(--panel);
-}
-
-.proposal-card {
-  margin-bottom: 16px;
-}
-
-.proposal-card:last-child {
-  margin-bottom: 0;
-}
-
-.proposal-totals-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-}
-
-.proposal-empty-extra-card .empty-state {
-  margin: 0;
-}
-
-#fields-config-modal .modal-content.modal-xl {
-  width: min(1120px, calc(100vw - 56px));
-  max-width: none !important;
-  max-height: min(84vh, 780px);
-  padding: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-#fields-config-modal .modal-header {
-  flex: 0 0 auto;
-  padding: 20px 24px;
-  margin-bottom: 0;
-  border-bottom: 1px solid var(--border);
-}
-
-#fields-config-modal .modal-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 22px 24px 24px;
-}
-
-@media (max-width: 900px) {
-  .modal-overlay {
-    padding: 10px;
-  }
-
-  .modal-overlay .modal-content.modal-xl,
-  .modal-overlay .modal-content.proposal-modal-content,
-  #fields-config-modal .modal-content.modal-xl {
-    width: calc(100vw - 20px);
-    max-height: calc(100vh - 20px);
-  }
-
-  .proposal-modal-header,
-  .proposal-header-actions,
-  .proposal-modal-footer {
-    align-items: stretch;
-    flex-direction: column;
-  }
 
   .proposal-tabs {
-    padding: 12px 16px;
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    scrollbar-width: thin;
   }
 
   .proposal-tab-btn {
-    flex: 1 1 auto;
-    justify-content: center;
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
 
-  .modal-overlay .modal-content.modal-xl .modal-header,
-  .modal-overlay .modal-content.proposal-modal-content .modal-header,
-  #fields-config-modal .modal-header {
-    padding: 16px;
-  }
-
-  .modal-overlay .modal-content.proposal-modal-content .proposal-modal-body,
-  .modal-overlay .modal-content.modal-xl .modal-body,
-  #fields-config-modal .modal-body {
-    padding: 16px;
-  }
-
-  .proposal-modal-footer {
-    padding: 14px 16px;
-  }
-
-  .proposal-totals-grid {
-    grid-template-columns: 1fr !important;
+  .proposal-header-actions .btn,
+  .proposal-modal-footer .btn {
+    width: 100%;
   }
 }

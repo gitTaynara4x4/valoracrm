@@ -1,13 +1,14 @@
-.dashboard-main {
-  max-width: none;
-  width: 100%;
-  padding-left: 26px;
-  padding-right: 26px;
-}
+/* =========================================
+   DASHBOARD | VALORA CRM
+   Arquivo limpo.
+   Mantém apenas estilos específicos da dashboard.
+   Base global fica no app.css.
+   ========================================= */
 
 /* =========================================
-   HEADER TIPO AUVO, MAS COM CORES VALORA
+   HEADER DA DASHBOARD
    ========================================= */
+
 .dashboard-header {
   display: flex;
   align-items: flex-start;
@@ -16,10 +17,15 @@
   margin-bottom: 18px;
 }
 
+.dashboard-header-left {
+  min-width: 0;
+}
+
 .dashboard-title-row {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
 }
 
 .dashboard-title-row h1 {
@@ -35,32 +41,7 @@
   margin-top: 8px;
   color: var(--muted);
   font-size: 13px;
-}
-
-.dashboard-tutorial-btn {
-  height: 36px;
-  border: 0;
-  border-radius: 5px;
-  padding: 0 14px;
-  background: var(--navy);
-  color: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 14px;
-  font-weight: 500;
-  box-shadow: 0 8px 18px rgba(7, 24, 39, 0.18);
-  transition: var(--transition);
-}
-
-.dashboard-tutorial-btn:hover {
-  background: var(--navy-soft);
-  transform: translateY(-1px);
-}
-
-.dashboard-tutorial-btn i {
-  font-size: 13px;
-  color: var(--brand);
+  line-height: 1.5;
 }
 
 .dashboard-header-right {
@@ -71,16 +52,52 @@
   flex-wrap: wrap;
 }
 
+/* =========================================
+   BOTÕES / BADGES ESPECÍFICOS
+   ========================================= */
+
+.dashboard-tutorial-btn {
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+
+  background: var(--navy);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(7, 24, 39, 0.18);
+
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+
+  font-size: 13px;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.dashboard-tutorial-btn:hover {
+  background: var(--navy-soft);
+  transform: translateY(-1px);
+}
+
+.dashboard-tutorial-btn i {
+  color: var(--brand);
+  font-size: 13px;
+}
+
 .dashboard-badge {
   min-height: 34px;
   padding: 0 13px;
+
   border-radius: 999px;
   border: 1px solid rgba(75, 195, 199, 0.28);
-  background: rgba(75, 195, 199, 0.12);
-  color: #178b91;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
@@ -89,16 +106,19 @@
 .dashboard-filter-btn {
   height: 38px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 8px;
   padding: 0 15px;
+
   background: var(--brand);
   color: #ffffff;
+  box-shadow: 0 8px 18px rgba(75, 195, 199, 0.22);
+
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  font-size: 14px;
+
+  font-size: 13px;
   font-weight: 500;
-  box-shadow: 0 8px 18px rgba(75, 195, 199, 0.22);
   transition: var(--transition);
 }
 
@@ -114,16 +134,14 @@
 /* =========================================
    WELCOME STRIP
    ========================================= */
+
 .dashboard-welcome-strip {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
   padding: 18px 20px;
   margin-bottom: 20px;
+
   display: flex;
   justify-content: space-between;
   gap: 22px;
-  box-shadow: var(--shadow-sm);
 }
 
 .dashboard-welcome-strip h2 {
@@ -138,6 +156,7 @@
   min-width: 210px;
   border-left: 1px solid var(--border);
   padding-left: 22px;
+
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -161,8 +180,9 @@
 }
 
 /* =========================================
-   GRÁFICOS NO TOPO
+   GRÁFICOS
    ========================================= */
+
 .dashboard-graph-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -171,12 +191,8 @@
 }
 
 .dashboard-graph-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 4px;
   min-height: 360px;
   padding: 22px 22px 20px;
-  box-shadow: var(--shadow-sm);
 }
 
 .graph-card-head {
@@ -189,7 +205,7 @@
 
 .graph-card-head h3 {
   color: var(--text-soft);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -203,12 +219,15 @@
 .graph-card-head button {
   width: 28px;
   height: 28px;
+
   border: 0;
   background: transparent;
   color: var(--text-soft);
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   transition: var(--transition);
 }
 
@@ -223,6 +242,7 @@
   justify-content: center;
   align-items: center;
   gap: 18px;
+
   color: var(--muted);
   font-size: 12px;
   margin-bottom: 12px;
@@ -246,7 +266,7 @@
 }
 
 .legend-orange {
-  color: #f59e0b;
+  color: var(--warning);
 }
 
 .legend-line {
@@ -260,8 +280,10 @@
 .fake-chart {
   position: relative;
   height: 245px;
+
   border-left: 1px solid rgba(100, 116, 139, 0.28);
   border-bottom: 1px solid rgba(100, 116, 139, 0.28);
+
   overflow: hidden;
 }
 
@@ -279,6 +301,7 @@
 }
 
 .fake-chart-bars {
+  height: 100%;
   display: flex;
   align-items: end;
   justify-content: center;
@@ -309,7 +332,7 @@
 }
 
 .bar-group span:nth-child(3) {
-  background: #f59e0b;
+  background: var(--warning);
 }
 
 .fake-chart-line {
@@ -340,6 +363,7 @@
 /* =========================================
    KPIS
    ========================================= */
+
 .dashboard-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -348,16 +372,14 @@
 }
 
 .dashboard-kpi-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 4px;
   min-height: 118px;
   padding: 22px;
+
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 18px;
-  box-shadow: var(--shadow-sm);
+
   transition: var(--transition);
 }
 
@@ -369,12 +391,13 @@
 
 .kpi-value {
   display: block;
+  margin-bottom: 10px;
+
   color: var(--blue);
   font-size: 30px;
   line-height: 1;
   font-weight: 400;
   letter-spacing: -0.04em;
-  margin-bottom: 10px;
 }
 
 .kpi-value.online {
@@ -391,12 +414,15 @@
 .kpi-icon {
   width: 42px;
   height: 42px;
+  flex: 0 0 auto;
+
   color: #546371;
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   font-size: 34px;
-  flex: 0 0 auto;
   opacity: 0.9;
 }
 
@@ -409,7 +435,7 @@
 }
 
 .kpi-green {
-  color: #22c55e;
+  color: var(--success);
 }
 
 .kpi-money {
@@ -419,6 +445,7 @@
 /* =========================================
    BLOCOS INFERIORES
    ========================================= */
+
 .dashboard-bottom-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -427,11 +454,7 @@
 }
 
 .dashboard-panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 4px;
   padding: 22px;
-  box-shadow: var(--shadow-sm);
 }
 
 .dashboard-summary-panel {
@@ -443,20 +466,22 @@
 }
 
 .dashboard-panel-head h3 {
+  margin-bottom: 4px;
   color: var(--text);
   font-size: 16px;
   font-weight: 600;
-  margin-bottom: 4px;
 }
 
 .dashboard-panel-head p {
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.5;
 }
 
 /* =========================================
-   AÇÕES
+   AÇÕES RÁPIDAS
    ========================================= */
+
 .dashboard-actions-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -465,16 +490,20 @@
 
 .dashboard-action-card {
   min-height: 94px;
+  padding: 16px;
+
   background: var(--bg-soft);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 16px;
+  border-radius: 10px;
   color: var(--text);
+
   text-align: left;
+
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 7px;
+
   transition: var(--transition);
 }
 
@@ -490,6 +519,7 @@
 }
 
 .dashboard-action-card strong {
+  color: var(--text);
   font-size: 14px;
   font-weight: 600;
 }
@@ -502,6 +532,7 @@
 /* =========================================
    CHECKLIST
    ========================================= */
+
 .dashboard-checklist {
   display: flex;
   flex-direction: column;
@@ -513,9 +544,11 @@
   display: flex;
   align-items: center;
   gap: 11px;
+
   color: var(--text);
   font-size: 13px;
   font-weight: 500;
+
   cursor: pointer;
 }
 
@@ -526,10 +559,11 @@
 .dashboard-checklist span {
   width: 17px;
   height: 17px;
+  flex: 0 0 auto;
+
   border-radius: 4px;
   border: 1px solid var(--border-hover);
   position: relative;
-  flex: 0 0 auto;
 }
 
 .dashboard-checklist input:checked + span {
@@ -544,8 +578,10 @@
   top: 1px;
   width: 5px;
   height: 9px;
+
   border: solid #ffffff;
   border-width: 0 2px 2px 0;
+
   transform: rotate(45deg);
 }
 
@@ -555,8 +591,9 @@
 }
 
 /* =========================================
-   SUMMARY
+   RESUMO
    ========================================= */
+
 .summary-list {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -564,19 +601,21 @@
 }
 
 .summary-row {
+  min-width: 0;
+  padding: 14px;
+
   background: var(--bg-soft);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 14px;
-  min-width: 0;
+  border-radius: 10px;
 }
 
 .summary-row span {
   display: block;
+  margin-bottom: 7px;
+
   color: var(--muted);
   font-size: 12px;
   font-weight: 500;
-  margin-bottom: 7px;
 }
 
 .summary-row strong {
@@ -584,14 +623,16 @@
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
+
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 /* =========================================
-   DARK MODE
+   DARK — AJUSTES ESPECÍFICOS
    ========================================= */
+
 html[data-theme="dark"] .dashboard-title-row h1 {
   color: var(--blue);
 }
@@ -601,21 +642,10 @@ html[data-theme="dark"] .dashboard-tutorial-btn {
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
 }
 
-html[data-theme="dark"] .dashboard-filter-btn {
-  background: var(--brand);
-}
-
 html[data-theme="dark"] .dashboard-badge {
   color: var(--brand);
   background: rgba(75, 195, 199, 0.14);
   border-color: rgba(75, 195, 199, 0.22);
-}
-
-html[data-theme="dark"] .dashboard-graph-card,
-html[data-theme="dark"] .dashboard-kpi-card,
-html[data-theme="dark"] .dashboard-panel,
-html[data-theme="dark"] .dashboard-welcome-strip {
-  background: var(--panel);
 }
 
 html[data-theme="dark"] .dashboard-plan-mini {
@@ -647,6 +677,7 @@ html[data-theme="dark"] .kpi-money {
 /* =========================================
    RESPONSIVO
    ========================================= */
+
 @media (max-width: 1180px) {
   .dashboard-graph-grid,
   .dashboard-bottom-grid {
@@ -660,11 +691,6 @@ html[data-theme="dark"] .kpi-money {
 }
 
 @media (max-width: 760px) {
-  .dashboard-main {
-    padding-left: 18px;
-    padding-right: 18px;
-  }
-
   .dashboard-header,
   .dashboard-welcome-strip {
     flex-direction: column;
@@ -676,7 +702,8 @@ html[data-theme="dark"] .kpi-money {
   }
 
   .dashboard-filter-btn,
-  .dashboard-badge {
+  .dashboard-badge,
+  .dashboard-tutorial-btn {
     width: 100%;
     justify-content: center;
   }

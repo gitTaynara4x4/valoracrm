@@ -1382,6 +1382,7 @@ class FormularioSecao(Base):
 
     titulo = Column(String(180), nullable=False)
     descricao = Column(Text, nullable=True)
+    icone = Column(String(80), nullable=True)
 
     ordem = Column(BigInteger, nullable=False, server_default="0")
     ativo = Column(Boolean, nullable=False, server_default="true")

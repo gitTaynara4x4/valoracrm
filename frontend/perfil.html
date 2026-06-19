@@ -3,20 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Meu Perfil | Valora CRM</title>
+
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem("valora_theme") || "light";
+      document.documentElement.setAttribute("data-theme", savedTheme);
+    })();
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+  >
+
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
-  <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script> 
-  <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
-  <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
+  <link rel="stylesheet" href="/frontend/css/perfil.css" />
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
-  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
+
+  <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
+  <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
 </head>
+
 <body>
   <div class="layout">
     <iframe
@@ -31,29 +49,41 @@
         <div class="topbar-title">
           <span class="eyebrow">Configurações de Conta</span>
           <h1>Meu Perfil</h1>
+          <p class="topbar-subtitle">
+            Atualize seus dados, foto de perfil e informações de segurança.
+          </p>
         </div>
       </header>
 
-      <div class="settings-layout">
-        
+      <section class="settings-layout perfil-layout">
         <div class="settings-col">
-          
           <article class="panel-card">
             <div class="panel-head">
               <h3>Foto de Perfil</h3>
               <p>Esta imagem será exibida na barra lateral e nas suas propostas.</p>
             </div>
-            
+
             <div class="avatar-upload-box">
               <div class="avatar-preview" id="avatarPreviewBox">
-                <span id="avatarInitials">T</span>
+                <span id="avatarInitials">U</span>
               </div>
+
               <div class="avatar-actions">
-                <input type="file" id="avatarInput" accept="image/png, image/jpeg, image/webp" style="display: none;" />
+                <input
+                  type="file"
+                  id="avatarInput"
+                  accept="image/png, image/jpeg, image/webp"
+                  hidden
+                />
+
                 <button type="button" class="btn btn-secondary" id="btnUploadAvatar">
-                  <i class="fa-solid fa-upload" style="margin-right: 8px;"></i> Carregar nova
+                  <i class="fa-solid fa-upload"></i>
+                  Carregar nova
                 </button>
-                <button type="button" class="btn btn-text" id="btnRemoveAvatar">Remover</button>
+
+                <button type="button" class="btn btn-text" id="btnRemoveAvatar">
+                  Remover
+                </button>
               </div>
             </div>
           </article>
@@ -64,152 +94,220 @@
               <p>Atualize seus dados básicos de contato.</p>
             </div>
 
-            <form class="valora-form" id="formPerfil">
-              <div class="form-group">
-                <label for="nome">Nome completo</label>
-                <input type="text" id="nome" required />
-              </div>
+            <form class="valora-form" id="formPerfil" novalidate>
+              <div class="form-row single-col">
+                <div class="form-group">
+                  <label for="nome">Nome completo</label>
+                  <input type="text" id="nome" autocomplete="name" required />
+                </div>
 
-              <div class="form-group">
-                <label for="email">Endereço de e-mail</label>
-                <input type="email" id="email" required />
+                <div class="form-group">
+                  <label for="email">Endereço de e-mail</label>
+                  <input type="email" id="email" autocomplete="email" required />
+                </div>
               </div>
 
               <div class="form-row">
                 <div class="form-group">
                   <label for="telefone">Telefone (WhatsApp)</label>
-                  <input type="tel" id="telefone" />
+                  <input type="tel" id="telefone" autocomplete="tel" />
                 </div>
+
                 <div class="form-group">
                   <label for="cargo">Cargo</label>
-                  <input type="text" id="cargo" />
+                  <input type="text" id="cargo" autocomplete="organization-title" />
                 </div>
               </div>
 
-              <div class="form-actions">
-                <button type="submit" class="btn btn-primary" id="btnSalvarPerfil">Salvar alterações</button>
+              <div class="footer-actions">
+                <button type="submit" class="btn btn-primary" id="btnSalvarPerfil">
+                  <i class="fa-solid fa-floppy-disk"></i>
+                  Salvar alterações
+                </button>
               </div>
             </form>
           </article>
-
         </div>
 
         <div class="settings-col">
-          
           <article class="panel-card">
             <div class="panel-head">
               <h3>Segurança</h3>
               <p>Gerencie sua senha e métodos de acesso.</p>
             </div>
 
-            <form class="valora-form" id="formSenha">
-              <div class="form-group">
-                <label for="senha_atual">Senha atual</label>
-                <input type="password" id="senha_atual" required />
+            <form class="valora-form" id="formSenha" novalidate>
+              <div class="form-row single-col">
+                <div class="form-group">
+                  <label for="senha_atual">Senha atual</label>
+                  <input type="password" id="senha_atual" autocomplete="current-password" required />
+                </div>
+
+                <div class="form-group">
+                  <label for="nova_senha">Nova senha</label>
+                  <input type="password" id="nova_senha" autocomplete="new-password" required />
+                </div>
+
+                <div class="form-group">
+                  <label for="confirma_senha">Confirmar nova senha</label>
+                  <input type="password" id="confirma_senha" autocomplete="new-password" required />
+                </div>
               </div>
 
-              <div class="form-group">
-                <label for="nova_senha">Nova senha</label>
-                <input type="password" id="nova_senha" required />
-              </div>
-
-              <div class="form-group">
-                <label for="confirma_senha">Confirmar nova senha</label>
-                <input type="password" id="confirma_senha" required />
-              </div>
-
-              <div class="form-actions">
-                <button type="submit" class="btn btn-secondary" id="btnSalvarSenha">Atualizar senha</button>
+              <div class="footer-actions">
+                <button type="submit" class="btn btn-secondary" id="btnSalvarSenha">
+                  <i class="fa-solid fa-shield-halved"></i>
+                  Atualizar senha
+                </button>
               </div>
             </form>
           </article>
-
         </div>
+      </section>
 
-      </div>
+      <div id="valora-toast" class="toast-message" aria-live="polite"></div>
     </main>
   </div>
 
   <script>
     document.addEventListener("DOMContentLoaded", async () => {
-      // Carregar dados
+      const avatarPreviewBox = document.getElementById("avatarPreviewBox");
+      const avatarInitials = document.getElementById("avatarInitials");
+      const btnUpload = document.getElementById("btnUploadAvatar");
+      const btnRemove = document.getElementById("btnRemoveAvatar");
+      const avatarInput = document.getElementById("avatarInput");
+      const formPerfil = document.getElementById("formPerfil");
+      const formSenha = document.getElementById("formSenha");
+
+      function notify(message, type = "success") {
+        if (typeof window.showToast === "function") {
+          window.showToast(message, type);
+          return;
+        }
+
+        const toast = document.getElementById("valora-toast");
+        if (!toast) return;
+
+        toast.textContent = message;
+        toast.className = `toast-message show ${type === "error" ? "is-error" : ""}`;
+
+        window.clearTimeout(window.__perfilToastTimer);
+        window.__perfilToastTimer = window.setTimeout(() => {
+          toast.className = "toast-message";
+        }, 2800);
+      }
+
+      function setButtonLoading(button, loadingText, loading) {
+        if (!button) return;
+
+        if (loading) {
+          button.dataset.originalHtml = button.innerHTML;
+          button.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${loadingText}`;
+          button.disabled = true;
+          return;
+        }
+
+        button.innerHTML = button.dataset.originalHtml || button.textContent;
+        button.disabled = false;
+      }
+
+      function getInitial(name) {
+        return (name || "U").trim().charAt(0).toUpperCase() || "U";
+      }
+
+      function renderAvatar(url, name = "Usuário") {
+        if (url) {
+          avatarPreviewBox.innerHTML = `<img class="avatar-preview-img" src="${url}" alt="Foto de perfil">`;
+          return;
+        }
+
+        avatarPreviewBox.innerHTML = `<span id="avatarInitials">${getInitial(name)}</span>`;
+      }
+
+      function updateSidebarAvatar(url) {
+        try {
+          const iframe = document.querySelector(".sidebar-frame");
+          const doc = iframe && iframe.contentWindow && iframe.contentWindow.document;
+          const sidebarAvatar = doc && doc.querySelector(".Valora-user-avatar");
+
+          if (sidebarAvatar && url) {
+            sidebarAvatar.innerHTML = `<img class="sidebar-avatar-img" src="${url}" alt="Foto de perfil">`;
+          }
+        } catch (error) {
+          console.warn("Não foi possível atualizar o avatar no menu lateral.", error);
+        }
+      }
+
       try {
-        const res = await fetch("/api/perfil");
-        if (res.ok) {
-          const user = await res.json();
+        const response = await fetch("/api/perfil");
+
+        if (response.ok) {
+          const user = await response.json();
+
           document.getElementById("nome").value = user.nome || "";
           document.getElementById("email").value = user.email || "";
           document.getElementById("telefone").value = user.telefone || "";
           document.getElementById("cargo").value = user.cargo || "";
-          
-          if (user.avatar_url) {
-            document.getElementById("avatarPreviewBox").innerHTML = `<img src="${user.avatar_url}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
-          } else {
-            document.getElementById("avatarInitials").textContent = (user.nome || "U").charAt(0).toUpperCase();
-          }
+
+          renderAvatar(user.avatar_url, user.nome);
         }
-      } catch (err) {
-        console.error("Erro ao carregar perfil:", err);
+      } catch (error) {
+        console.error("Erro ao carregar perfil:", error);
       }
 
-      // UPLOAD DE FOTO
-      const btnUpload = document.getElementById("btnUploadAvatar");
-      const avatarInput = document.getElementById("avatarInput");
+      btnUpload.addEventListener("click", () => {
+        avatarInput.click();
+      });
 
-      btnUpload.addEventListener("click", () => avatarInput.click());
+      btnRemove.addEventListener("click", () => {
+        avatarInput.value = "";
+        const nome = document.getElementById("nome").value;
+        renderAvatar("", nome);
+        notify("Foto removida da pré-visualização.", "success");
+      });
 
-      avatarInput.addEventListener("change", async (e) => {
-        const file = e.target.files[0];
+      avatarInput.addEventListener("change", async (event) => {
+        const file = event.target.files && event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (ev) => {
-          document.getElementById("avatarPreviewBox").innerHTML = `<img src="${ev.target.result}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+
+        reader.onload = (readerEvent) => {
+          renderAvatar(readerEvent.target.result, document.getElementById("nome").value);
         };
+
         reader.readAsDataURL(file);
 
         const formData = new FormData();
         formData.append("file", file);
 
-        const btn = btnUpload;
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
-        btn.disabled = true;
+        setButtonLoading(btnUpload, "Salvando...", true);
 
         try {
-          const res = await fetch("/api/perfil/avatar", {
+          const response = await fetch("/api/perfil/avatar", {
             method: "POST",
             body: formData
           });
-          const data = await res.json();
-          
-          if (!res.ok) throw new Error(data.detail || "Erro ao salvar foto");
-          
-          // Chama a função global diretamente!
-          showToast("Foto de perfil atualizada!", "success");
 
-          try {
-             const iframe = document.querySelector('.sidebar-frame');
-             if(iframe && iframe.contentWindow) {
-                 const sidebarAvatar = iframe.contentWindow.document.querySelector('.Valora-user-avatar');
-                 if(sidebarAvatar) sidebarAvatar.innerHTML = `<img src="${data.avatar_url}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
-             }
-          } catch(e) {}
+          const data = await response.json();
 
-        } catch (err) {
-          showToast(err.message, "error");
+          if (!response.ok) {
+            throw new Error(data.detail || "Erro ao salvar foto");
+          }
+
+          notify("Foto de perfil atualizada!", "success");
+          updateSidebarAvatar(data.avatar_url);
+        } catch (error) {
+          notify(error.message || "Erro ao salvar foto.", "error");
         } finally {
-          btn.innerHTML = originalText;
-          btn.disabled = false;
+          setButtonLoading(btnUpload, "", false);
         }
       });
 
-      // SALVAR DADOS PESSOAIS
-      document.getElementById("formPerfil").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById("btnSalvarPerfil");
-        btn.textContent = "Salvando...";
-        btn.disabled = true;
+      formPerfil.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const button = document.getElementById("btnSalvarPerfil");
 
         const payload = {
           nome: document.getElementById("nome").value,
@@ -218,33 +316,35 @@
           cargo: document.getElementById("cargo").value
         };
 
+        setButtonLoading(button, "Salvando...", true);
+
         try {
-          const res = await fetch("/api/perfil", {
+          const response = await fetch("/api/perfil", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
           });
-          const data = await res.json();
-          if (res.ok) {
-            showToast("Perfil atualizado com sucesso!", "success");
-            document.cookie = `user_nome=${payload.nome}; path=/`;
-          } else {
-            showToast(data.detail || "Erro ao atualizar perfil", "error");
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.detail || "Erro ao atualizar perfil");
           }
-        } catch (err) {
-          showToast("Erro de conexão.", "error");
+
+          notify("Perfil atualizado com sucesso!", "success");
+          document.cookie = `user_nome=${payload.nome}; path=/`;
+          renderAvatar("", payload.nome);
+        } catch (error) {
+          notify(error.message || "Erro de conexão.", "error");
         } finally {
-          btn.textContent = "Salvar alterações";
-          btn.disabled = false;
+          setButtonLoading(button, "", false);
         }
       });
 
-      // ATUALIZAR SENHA
-      document.getElementById("formSenha").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById("btnSalvarSenha");
-        btn.textContent = "Validando...";
-        btn.disabled = true;
+      formSenha.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const button = document.getElementById("btnSalvarSenha");
 
         const payload = {
           senha_atual: document.getElementById("senha_atual").value,
@@ -252,24 +352,27 @@
           confirma_senha: document.getElementById("confirma_senha").value
         };
 
+        setButtonLoading(button, "Validando...", true);
+
         try {
-          const res = await fetch("/api/perfil/senha", {
+          const response = await fetch("/api/perfil/senha", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
           });
-          const data = await res.json();
-          if (res.ok) {
-            showToast("Senha atualizada com segurança!", "success");
-            document.getElementById("formSenha").reset();
-          } else {
-            showToast(data.detail || "Erro ao atualizar senha", "error");
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.detail || "Erro ao atualizar senha");
           }
-        } catch (err) {
-          showToast("Erro de conexão.", "error");
+
+          notify("Senha atualizada com segurança!", "success");
+          formSenha.reset();
+        } catch (error) {
+          notify(error.message || "Erro de conexão.", "error");
         } finally {
-          btn.textContent = "Atualizar senha";
-          btn.disabled = false;
+          setButtonLoading(button, "", false);
         }
       });
     });

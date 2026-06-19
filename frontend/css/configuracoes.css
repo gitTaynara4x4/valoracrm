@@ -1,18 +1,31 @@
 /* =========================================
-   ESTILOS ESPECÍFICOS DA PÁGINA DE CONFIGURAÇÕES
+   CONFIGURAÇÕES | VALORA CRM
+   Arquivo limpo.
+   Mantém apenas estilos específicos da página de configurações.
+   Base global fica no app.css.
+   ========================================= */
+
+/* =========================================
+   EMPTY STATE ESPECÍFICO
    ========================================= */
 
 .empty-state-config {
   border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+
   padding: 24px;
   text-align: center;
-  border-radius: var(--radius);
+
   color: var(--muted);
   font-size: 13px;
-  background: rgba(0, 0, 0, 0.1);
+  line-height: 1.5;
 }
 
-/* Caso o tema seja light, ajusta a transparência do fundo do empty state */
-html[data-theme="light"] .empty-state-config {
-  background: rgba(0, 0, 0, 0.02);
+/* =========================================
+   DARK — AJUSTE ESPECÍFICO
+   ========================================= */
+
+html[data-theme="dark"] .empty-state-config {
+  background: var(--bg-soft);
 }

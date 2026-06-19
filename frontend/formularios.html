@@ -12,11 +12,12 @@
 
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
-  <link rel="stylesheet" href="/frontend/css/formularios.css" />
+  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260619-icon-popup-picker" />
 
   <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/formularios.js?v=20260617-patrimonio-forms-sem-design" defer></script>
+  <script src="/frontend/js/pages/formularios.js?v=20260619-icon-popup-picker" defer></script>
+
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
@@ -305,6 +306,52 @@
           <div class="form-group">
             <label for="secao-titulo">Título da seção *</label>
             <input id="secao-titulo" type="text" placeholder="Ex.: 01 - Dados básicos" />
+          </div>
+
+          <div class="form-row two-cols">
+            <div class="form-group">
+              <label for="secao-icone">Ícone da seção</label>
+              <select id="secao-icone" class="secao-icone-native" aria-hidden="true" tabindex="-1">
+                <option value="fa-layer-group">fa-layer-group</option>
+              </select>
+              <small class="field-hint">
+                A pessoa clica para abrir os ícones. Não fica a lista aberta direto.
+              </small>
+
+              <div class="secao-icone-selector" id="secao-icone-selector">
+                <button
+                  class="secao-icone-trigger"
+                  type="button"
+                  id="btn-abrir-icones-secao"
+                  aria-expanded="false"
+                  aria-controls="secao-icones-popover"
+                >
+                  <span class="secao-icone-trigger-box">
+                    <i class="fa-solid fa-layer-group"></i>
+                  </span>
+                  <span class="secao-icone-trigger-text" id="secao-icone-trigger-text">Escolher ícone</span>
+                  <i class="fa-solid fa-chevron-down secao-icone-trigger-caret"></i>
+                </button>
+
+                <div class="secao-icones-popover" id="secao-icones-popover" hidden>
+                  <div class="secao-icones-picker" id="secao-icones-picker" aria-label="Escolher ícone da seção"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Ícone selecionado</label>
+              <div class="secao-icone-preview" id="secao-icone-preview">
+                <span class="secao-icone-preview-box">
+                  <i class="fa-solid fa-layer-group"></i>
+                </span>
+
+                <div>
+                  <strong id="secao-icone-preview-text">Ícone selecionado</strong>
+                  <small>Clique em “Escolher ícone” para trocar.</small>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="form-group">

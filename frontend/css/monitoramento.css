@@ -1,71 +1,16 @@
 /* =========================================
    MONITORAMENTO | VALORA CRM
-   Igual ao visual de Clientes + detalhe estilo Segware
+   Arquivo limpo.
+   Mantém apenas estilos específicos da tela de monitoramento.
+   Base global fica no app.css.
    ========================================= */
-
-.main {
-  max-width: none;
-  width: 100%;
-  padding-left: 26px;
-  padding-right: 26px;
-}
 
 /* =========================================
-   TOPO DA PÁGINA
+   CARD DE FILTROS
    ========================================= */
-.topbar {
-  align-items: flex-start;
-  margin-bottom: 20px;
-}
 
-.topbar-title {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.topbar-title .eyebrow {
-  color: var(--blue);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-}
-
-.topbar-title h1 {
-  color: var(--text);
-  font-size: 26px;
-  line-height: 1.15;
-  font-weight: 600;
-  letter-spacing: -0.04em;
-}
-
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.topbar-actions .btn {
-  min-height: 38px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.topbar-actions .btn i {
-  font-size: 13px;
-}
-
-/* =========================================
-   FILTROS
-   ========================================= */
 .monitoramento-filter-card {
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  box-shadow: var(--shadow-sm);
+  border-radius: 8px;
   padding: 22px !important;
   margin-bottom: 20px !important;
 }
@@ -74,226 +19,33 @@
   margin-bottom: 18px;
 }
 
-.monitoramento-filter-card .panel-head h3 {
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: -0.03em;
-}
-
-.monitoramento-filter-card .panel-head p {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.filters-grid {
-  display: grid;
-  grid-template-columns: 2fr repeat(3, minmax(160px, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.filters-grid .form-group {
-  margin: 0;
-}
-
-.form-group label {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-  margin-bottom: 6px;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea,
-.mini-actions input,
-.mini-item input,
-.mini-item select,
-.mini-item textarea {
-  width: 100%;
-  height: 42px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 13px;
-  padding: 0 13px;
-  outline: none;
-  transition: var(--transition);
-}
-
-.form-group textarea,
-.mini-item textarea {
-  height: auto;
-  min-height: 96px;
-  padding-top: 12px;
-  padding-bottom: 12px;
-}
-
-.form-group input::placeholder,
-.form-group textarea::placeholder,
-.mini-actions input::placeholder,
-.mini-item input::placeholder {
-  color: var(--muted-soft);
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus,
-.mini-actions input:focus,
-.mini-item input:focus,
-.mini-item select:focus,
-.mini-item textarea:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-soft);
-}
-
-.footer-actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 10px;
-}
-
-.filter-actions {
-  border-top: none;
-  padding-top: 0;
-  margin-top: 0;
-}
-
-.counter-text {
-  margin-right: auto;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-
 /* =========================================
-   TABELA
+   TABELA — AJUSTES ESPECÍFICOS DE MONITORAMENTO
+   Estrutura global da tabela fica no app.css.
    ========================================= */
-.panel-card-table,
-.detail-panel {
-  padding: 0 !important;
-  overflow: hidden;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  box-shadow: var(--shadow-sm);
-}
 
-.valora-table-wrapper {
-  width: 100%;
-  overflow: auto;
-}
-
-.valora-table {
-  width: 100%;
+#monitoramento-list-view .valora-table,
+.monitoramento-table,
+.contatos-segware-table {
   min-width: 1180px;
-  border-collapse: collapse;
-  background: var(--panel);
 }
 
-.valora-table thead {
-  background: var(--bg-soft);
+#tbody-monitoramento td:last-child {
+  text-align: right;
 }
 
-.valora-table th {
-  height: 48px;
-  padding: 0 16px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: left;
-  white-space: nowrap;
-  border-bottom: 1px solid var(--border);
-}
-
-.valora-table td {
-  min-height: 58px;
-  padding: 14px 16px;
-  color: var(--text-soft);
-  font-size: 13px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-
-.valora-table tbody tr {
-  transition: var(--transition);
-}
-
-.valora-table tbody tr:hover {
-  background: var(--bg-soft);
-}
-
-.valora-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.valora-table td strong {
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.empty-state {
-  color: var(--muted);
-  padding: 32px 18px !important;
-  text-align: center;
-  border: none !important;
-}
-
-.text-right {
-  text-align: right !important;
-}
-
-/* =========================================
-   BADGES / CÉLULAS
-   ========================================= */
-.badge-codigo {
+#tbody-monitoramento td:last-child > div {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  padding: 0 9px;
-  border-radius: 999px;
-  background: rgba(101, 172, 222, 0.12);
-  color: var(--blue);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.badge-status {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  border-radius: 999px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: capitalize;
-  white-space: nowrap;
-}
-
-.badge-status.ativo {
-  background: rgba(34, 197, 94, 0.12);
-  color: #16a34a;
-}
-
-.badge-status.inativo {
-  background: rgba(100, 116, 139, 0.12);
-  color: #64748b;
-}
-
-.badge-status.bloqueado {
-  background: rgba(239, 68, 68, 0.12);
-  color: #dc2626;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .monitoramento-client-cell {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .monitoramento-client-cell strong {
@@ -305,6 +57,7 @@
 .monitoramento-client-cell span {
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.35;
 }
 
 .monitoramento-mini-counts {
@@ -318,10 +71,12 @@
   align-items: center;
   min-height: 24px;
   padding: 0 8px;
+
   border-radius: 999px;
   background: var(--bg-soft);
   border: 1px solid var(--border);
   color: var(--muted);
+
   font-size: 11px;
   font-weight: 600;
 }
@@ -329,49 +84,15 @@
 .subtle {
   color: var(--muted);
   font-size: 12px;
-}
-
-/* =========================================
-   BOTÕES
-   ========================================= */
-.btn-icon {
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--muted);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: var(--transition);
-}
-
-.btn-icon:hover {
-  background: var(--bg-soft);
-  border-color: var(--brand);
-  color: var(--brand);
-  transform: translateY(-1px);
-}
-
-.btn-icon.danger:hover {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.28);
-  color: #dc2626;
-}
-
-.btn-sm {
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 7px;
-  font-size: 12px;
+  line-height: 1.35;
 }
 
 /* =========================================
    DETALHE DA CONTA
    ========================================= */
+
 #monitoramento-detail-view {
-  animation: detailFade .16s ease;
+  animation: detailFade 0.16s ease;
 }
 
 @keyframes detailFade {
@@ -391,8 +112,10 @@
   border: 1px solid var(--border);
   background: var(--panel);
   box-shadow: var(--shadow-sm);
+
   padding: 18px 20px;
   margin-bottom: 16px;
+
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 20px;
@@ -412,13 +135,15 @@
 .detail-home-icon {
   width: 34px;
   height: 34px;
+  min-width: 34px;
+
   border-radius: 999px;
-  background: rgba(34, 197, 94, 0.14);
-  color: #16a34a;
+  background: var(--success-soft);
+  color: var(--success);
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
 }
 
 .detail-title-line h1 {
@@ -433,10 +158,12 @@
   margin: 3px 0 0;
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.5;
 }
 
 .detail-info-row {
   margin-top: 18px;
+
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
@@ -447,14 +174,16 @@
   background: var(--bg-soft);
   border-radius: 8px;
   padding: 10px 12px;
+  min-width: 0;
 }
 
 .detail-info-row span {
   display: block;
+  margin-bottom: 4px;
+
   color: var(--muted);
   font-size: 11px;
   font-weight: 600;
-  margin-bottom: 4px;
 }
 
 .detail-info-row strong {
@@ -462,6 +191,7 @@
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
+
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -474,11 +204,16 @@
   flex-wrap: wrap;
 }
 
+/* =========================================
+   TABS DO DETALHE
+   ========================================= */
+
 .detail-tabs-card {
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--panel);
   box-shadow: var(--shadow-sm);
+
   padding: 8px;
   margin-bottom: 16px;
 }
@@ -494,11 +229,14 @@
   border: 1px solid transparent;
   background: transparent;
   color: var(--muted);
+
   padding: 9px 12px;
   border-radius: 8px;
+
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
+
   transition: var(--transition);
 }
 
@@ -508,9 +246,9 @@
 }
 
 .detail-tab-btn.active {
-  background: rgba(75, 195, 199, 0.14);
+  background: var(--brand-soft);
   border-color: rgba(75, 195, 199, 0.22);
-  color: #178b91;
+  color: var(--brand-dark);
 }
 
 .detail-tab {
@@ -521,14 +259,29 @@
   display: block;
 }
 
+/* =========================================
+   PAINEL DO DETALHE
+   ========================================= */
+
+.detail-panel {
+  padding: 0 !important;
+  overflow: hidden;
+
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+
 .detail-panel-head {
   padding: 18px 20px;
   border-bottom: 1px solid var(--border);
+  background: var(--panel);
+
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  background: var(--panel);
 }
 
 .detail-panel-head h3 {
@@ -542,6 +295,7 @@
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.5;
 }
 
 .detail-panel-actions {
@@ -558,26 +312,32 @@
   min-width: 1240px;
 }
 
+/* =========================================
+   CONTATOS / STATUS
+   ========================================= */
+
 .contato-status-icon {
   width: 22px;
   height: 22px;
   border-radius: 999px;
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #16a34a;
+
+  color: var(--success);
   border: 1px solid rgba(34, 197, 94, 0.28);
-  background: rgba(34, 197, 94, 0.10);
+  background: var(--success-soft);
 }
 
 .contato-status-icon.off {
-  color: #94a3b8;
+  color: var(--muted-soft);
   border-color: var(--border);
   background: var(--bg-soft);
 }
 
 .whatsapp-check {
-  color: #16a34a;
+  color: #16A34A;
   font-size: 15px;
 }
 
@@ -585,8 +345,13 @@
   color: var(--muted-soft);
 }
 
+/* =========================================
+   RESUMO DO DETALHE
+   ========================================= */
+
 .detail-summary-grid {
   padding: 18px 20px;
+
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
@@ -597,14 +362,16 @@
   background: var(--bg-soft);
   border-radius: 10px;
   padding: 14px;
+  min-width: 0;
 }
 
 .detail-summary-item span {
   display: block;
+  margin-bottom: 6px;
+
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
-  margin-bottom: 6px;
 }
 
 .detail-summary-item strong {
@@ -616,173 +383,10 @@
 }
 
 /* =========================================
-   MODAL BASE + ANIMAÇÃO
+   TABS DO MODAL DE MONITORAMENTO
+   Visual base das tabs vem do app.css.
+   Aqui fica só funcionamento.
    ========================================= */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(7, 24, 39, 0.42);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  z-index: 100000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 0.18s ease,
-    visibility 0.18s ease;
-}
-
-.modal-overlay.show {
-  opacity: 1;
-  visibility: visible;
-}
-
-.modal-overlay[hidden] {
-  display: none !important;
-}
-
-.modal-content {
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: var(--shadow-lg);
-  width: min(540px, calc(100vw - 40px));
-  max-height: calc(100vh - 48px);
-  overflow: hidden;
-  opacity: 0;
-  transform: translateY(14px) scale(0.985);
-  transition:
-    opacity 0.22s ease,
-    transform 0.22s ease;
-  will-change: transform, opacity;
-}
-
-.modal-overlay.show .modal-content {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.modal-xl {
-  width: min(1180px, calc(100vw - 56px));
-  max-width: none;
-  max-height: min(86vh, 820px);
-  height: auto;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  contain: layout paint;
-}
-
-.modal-md {
-  width: min(820px, calc(100vw - 56px));
-  max-width: none;
-  max-height: min(86vh, 820px);
-  height: auto;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-}
-
-.modal-xl .modal-header,
-.modal-md .modal-header {
-  flex: 0 0 auto;
-  margin-bottom: 0;
-  padding: 18px 22px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: var(--text);
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-}
-
-.modal-xl .modal-body,
-.modal-md .modal-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  padding: 20px 22px 22px;
-  background: var(--bg);
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-}
-
-.modal-xl .modal-header,
-.modal-md .modal-header,
-.modal-client-footer {
-  flex-shrink: 0;
-}
-
-.btn-close {
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--panel);
-  color: var(--muted);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: var(--transition);
-}
-
-.btn-close:hover {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.22);
-  color: #dc2626;
-}
-
-/* =========================================
-   TABS IGUAL CLIENTES
-   ========================================= */
-.cliente-tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-  padding: 4px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-
-.cliente-tab-btn {
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--muted);
-  padding: 9px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: var(--transition);
-}
-
-.cliente-tab-btn:hover {
-  color: var(--text);
-  background: var(--bg-soft);
-}
-
-.cliente-tab-btn.active {
-  background: rgba(75, 195, 199, 0.14);
-  border-color: rgba(75, 195, 199, 0.22);
-  color: #178b91;
-}
 
 .cliente-tab {
   display: none;
@@ -806,42 +410,9 @@
 }
 
 /* =========================================
-   CARDS INTERNOS DO MODAL
+   FORMULÁRIO / BUSCA ESPECÍFICA
+   Form base vem do app.css.
    ========================================= */
-.section-card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 18px;
-  background: var(--panel);
-  margin-bottom: 16px;
-  box-shadow: var(--shadow-sm);
-}
-
-.section-card h4 {
-  margin: 0 0 14px;
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.form-row .form-group {
-  min-width: 0;
-}
-
-.span-all {
-  grid-column: 1 / -1;
-}
-
-.span-2 {
-  grid-column: span 2;
-}
 
 .cliente-search-row {
   display: grid;
@@ -852,46 +423,7 @@
 
 .field-help {
   display: block;
-  color: var(--muted);
   margin-top: 5px;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-/* =========================================
-   CHECK CARD
-   ========================================= */
-.check-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  background: var(--bg-soft);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px;
-  cursor: pointer;
-  color: var(--text);
-}
-
-.check-card input {
-  margin-top: 3px;
-  width: 16px;
-  height: 16px;
-  accent-color: var(--brand);
-}
-
-.check-card span {
-  display: grid;
-  gap: 2px;
-}
-
-.check-card strong {
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.check-card small {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.4;
@@ -905,6 +437,7 @@
 /* =========================================
    MINI LISTAS
    ========================================= */
+
 .mini-actions {
   display: flex;
   gap: 10px;
@@ -959,6 +492,7 @@
   border-radius: 10px;
   padding: 14px;
   background: var(--bg-soft);
+
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
@@ -991,10 +525,13 @@
   border: 1px dashed var(--border-hover);
   border-radius: 10px;
   padding: 18px;
+
   text-align: center;
   color: var(--muted);
   background: var(--bg-soft);
+
   font-size: 13px;
+  line-height: 1.5;
 }
 
 .contato-form-card {
@@ -1002,79 +539,27 @@
 }
 
 /* =========================================
-   TOAST
+   DARK — AJUSTES ESPECÍFICOS
    ========================================= */
-.toast-message {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: -80px;
-  background: var(--navy);
-  color: #ffffff;
-  padding: 12px 18px;
-  border-radius: 999px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, .22);
-  z-index: 100001;
-  transition: bottom .22s ease;
-  font-size: 14px;
-  font-weight: 500;
-}
 
-.toast-message.show {
-  bottom: 24px;
-}
-
-.toast-message.is-error {
-  background: #dc2626;
-}
-
-/* =========================================
-   DARK MODE
-   ========================================= */
-html[data-theme="dark"] .badge-codigo {
-  color: var(--blue);
-  background: rgba(101, 172, 222, 0.14);
-}
-
-html[data-theme="dark"] .cliente-tab-btn.active,
 html[data-theme="dark"] .detail-tab-btn.active {
   color: var(--brand);
-}
-
-html[data-theme="dark"] .valora-table thead {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-html[data-theme="dark"] .valora-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-html[data-theme="dark"] .modal-overlay {
-  background: rgba(0, 0, 0, 0.58);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-html[data-theme="dark"] .modal-xl .modal-body,
-html[data-theme="dark"] .modal-md .modal-body {
-  background: var(--bg);
 }
 
 html[data-theme="dark"] .mini-item,
 html[data-theme="dark"] .monitoramento-list-card,
 html[data-theme="dark"] .monitoramento-empty,
-html[data-theme="dark"] .check-card,
 html[data-theme="dark"] .detail-info-row div,
-html[data-theme="dark"] .detail-summary-item {
+html[data-theme="dark"] .detail-summary-item,
+html[data-theme="dark"] .contato-status-icon.off {
   background: var(--bg-soft);
 }
 
 /* =========================================
    ACESSIBILIDADE
    ========================================= */
+
 @media (prefers-reduced-motion: reduce) {
-  .modal-overlay,
-  .modal-content,
   .cliente-tab,
   #monitoramento-detail-view {
     transition: none !important;
@@ -1085,21 +570,8 @@ html[data-theme="dark"] .detail-summary-item {
 /* =========================================
    RESPONSIVO
    ========================================= */
+
 @media (max-width: 1180px) {
-  .topbar {
-    flex-direction: column;
-  }
-
-  .topbar-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .filters-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .form-row,
   .mini-item-grid,
   .detail-info-row,
   .detail-summary-grid {
@@ -1116,17 +588,6 @@ html[data-theme="dark"] .detail-summary-item {
 }
 
 @media (max-width: 760px) {
-  .main {
-    padding-left: 18px;
-    padding-right: 18px;
-  }
-
-  .topbar-actions .btn {
-    width: 100%;
-  }
-
-  .filters-grid,
-  .form-row,
   .mini-item-grid,
   .cliente-search-row,
   .detail-info-row,
@@ -1134,54 +595,17 @@ html[data-theme="dark"] .detail-summary-item {
     grid-template-columns: 1fr;
   }
 
-  .span-all,
-  .span-2 {
-    grid-column: auto !important;
+  .detail-tabs,
+  .cliente-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    scrollbar-width: thin;
   }
 
-  .footer-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .footer-actions .btn,
-  .footer-actions button {
-    width: 100%;
-  }
-
-  .counter-text {
-    margin-right: 0;
-  }
-
-  .modal-overlay {
-    padding: 10px;
-  }
-
-  .modal-xl,
-  .modal-md {
-    width: calc(100vw - 20px);
-    max-height: calc(100vh - 20px);
-  }
-
-  .modal-xl .modal-header,
-  .modal-md .modal-header {
-    padding: 16px;
-  }
-
-  .modal-xl .modal-body,
-  .modal-md .modal-body {
-    padding: 16px;
-  }
-
-  .cliente-tabs,
-  .detail-tabs {
-    overflow: auto;
-    flex-wrap: nowrap;
-  }
-
-  .cliente-tab-btn,
-  .detail-tab-btn {
+  .detail-tab-btn,
+  .cliente-tab-btn {
     white-space: nowrap;
+    flex: 0 0 auto;
   }
 
   .mini-actions {
@@ -1203,5 +627,15 @@ html[data-theme="dark"] .detail-summary-item {
 
   .detail-panel-actions .btn {
     width: 100%;
+  }
+
+  .monitoramento-list-card,
+  .mini-card {
+    grid-template-columns: 1fr;
+  }
+
+  .monitoramento-list-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }
