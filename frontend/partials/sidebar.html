@@ -115,19 +115,19 @@
     .brand-logo {
       width: 28px;
       height: 28px;
-      border-radius: 8px;
-      background: #ffffff;
+      border-radius: 0;
+      background: transparent;
       display: block;
-      object-fit: cover;
-      box-shadow: 0 8px 18px rgba(3, 25, 92, 0.18);
+      object-fit: contain;
+      box-shadow: none;
     }
 
     .brand-fallback {
       width: 28px;
       height: 28px;
-      border-radius: 8px;
-      background: #ffffff;
-      color: var(--navy);
+      border-radius: 0;
+      background: transparent;
+      color: #ffffff;
       display: none;
       align-items: center;
       justify-content: center;
@@ -138,15 +138,8 @@
     }
 
     .brand-fallback::after {
-      content: "";
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: var(--logo-aqua);
-      border: 2px solid #ffffff;
-      position: absolute;
-      right: 0;
-      top: 0;
+      content: none;
+      display: none;
     }
 
     .desktop-nav {
@@ -782,7 +775,7 @@
     <button class="brand-btn" type="button" onclick="irPara('home')" aria-label="Valora">
       <img
         class="brand-logo"
-        src="/frontend/img/logo-favicon.jpg"
+        src="/frontend/img/logo-favicon-dark.png"
         alt="Valora"
         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
       />

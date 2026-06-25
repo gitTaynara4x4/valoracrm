@@ -1,8 +1,7 @@
 /* =========================================
    PRODUTOS | VALORA CRM
-   Arquivo limpo.
-   Mantém apenas estilos específicos da tela de produtos.
-   Base global fica no app.css.
+   Modal usando a mesma base visual de Clientes
+   e campos vindos do construtor de Formulários.
    ========================================= */
 
 /* =========================================
@@ -20,8 +19,7 @@
 }
 
 /* =========================================
-   TABELA — AJUSTES ESPECÍFICOS DE PRODUTOS
-   Estrutura global da tabela fica no app.css.
+   TABELA
    ========================================= */
 
 #tbody-produtos td:last-child {
@@ -57,49 +55,552 @@
 }
 
 /* =========================================
-   FICHA ÚNICA / CAMPOS PERSONALIZADOS
+   MODAL PRODUTO — BASE CLIENTES
    ========================================= */
 
-.custom-fields-card {
+#modal-produto-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  padding: 20px 28px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  overflow: hidden !important;
+  background: rgba(15, 23, 42, 0.50);
+
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#modal-produto-backdrop[hidden] {
+  display: none !important;
+}
+
+#modal-produto-backdrop .cliente-modal-content,
+#modal-produto-backdrop .produto-modal-content {
+  width: min(1180px, calc(100vw - 56px)) !important;
+  height: calc(100dvh - 40px) !important;
+  max-height: calc(100dvh - 40px) !important;
+
+  padding: 0 !important;
+  border-radius: 14px;
   border: 1px solid var(--border);
-  border-radius: 12px;
   background: var(--panel);
-  overflow: hidden;
+  overflow: hidden !important;
+
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.22);
+}
+
+#modal-produto-backdrop .cliente-modal-shell,
+#modal-produto-backdrop .produto-modal-shell {
+  height: 100% !important;
+  min-height: 0 !important;
+
+  display: grid;
+  grid-template-columns: 238px minmax(0, 1fr);
+  background: var(--panel);
+  overflow: hidden !important;
+}
+
+/* =========================================
+   SIDEBAR — IGUAL CLIENTES
+   ========================================= */
+
+#modal-produto-backdrop .cliente-modal-sidebar,
+#modal-produto-backdrop .produto-modal-sidebar {
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+
+  border-right: 1px solid var(--border);
+  background: #ffffff;
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden !important;
+}
+
+#modal-produto-backdrop .cliente-sidebar-top,
+#modal-produto-backdrop .produto-sidebar-top {
+  flex: 0 0 auto;
+  padding: 28px 24px 18px;
+}
+
+#modal-produto-backdrop .cliente-sidebar-avatar,
+#modal-produto-backdrop .produto-sidebar-avatar {
+  width: 52px;
+  height: 52px;
+
+  border-radius: 13px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--brand);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 19px;
   box-shadow: var(--shadow-sm);
 }
 
-.produto-ficha-card {
+#modal-produto-backdrop .cliente-sidebar-user,
+#modal-produto-backdrop .produto-sidebar-user {
+  margin-top: 14px;
+  min-width: 0;
+}
+
+#modal-produto-backdrop .cliente-sidebar-user strong,
+#modal-produto-backdrop .produto-sidebar-user strong {
+  display: block;
+
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#modal-produto-backdrop .cliente-sidebar-user span,
+#modal-produto-backdrop .produto-sidebar-user span {
+  display: block;
+  margin-top: 4px;
+
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.35;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#modal-produto-backdrop .cliente-tabs,
+#modal-produto-backdrop .cliente-sidebar-nav,
+#modal-produto-backdrop .produto-tabs,
+#modal-produto-backdrop .produto-sidebar-nav {
+  min-height: 0;
+  margin: 0 !important;
+  padding: 8px 0 12px !important;
+
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 2px !important;
+
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  box-shadow: none !important;
+}
+
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn,
+#modal-produto-backdrop .produto-sidebar-nav .produto-tab-btn {
+  position: relative !important;
+
+  width: calc(100% - 14px) !important;
+  min-height: 44px !important;
+  margin-left: 0 !important;
+  padding: 0 14px 0 58px !important;
+
+  border: 1px solid transparent !important;
+  border-radius: 0 10px 10px 0 !important;
+  background: transparent !important;
+  color: #475569 !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.25 !important;
+  text-align: left !important;
+
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+
+  cursor: pointer;
+  transition: background-color 0.08s ease, color 0.08s ease, border-color 0.08s ease;
+}
+
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn::before,
+#modal-produto-backdrop .produto-sidebar-nav .produto-tab-btn::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: transparent;
+}
+
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn::after,
+#modal-produto-backdrop .produto-sidebar-nav .produto-tab-btn::after {
+  display: none !important;
+  content: none !important;
+}
+
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn > i,
+#modal-produto-backdrop .produto-sidebar-nav .produto-tab-btn > i {
+  position: absolute !important;
+  left: 30px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  color: inherit !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  opacity: 0.92 !important;
+  pointer-events: none !important;
+}
+
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn span,
+#modal-produto-backdrop .produto-sidebar-nav .produto-tab-btn span {
+  display: block !important;
+  min-width: 0 !important;
+  line-height: 1.25 !important;
+}
+
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn:hover,
+#modal-produto-backdrop .produto-sidebar-nav .produto-tab-btn:hover {
+  background: rgba(75, 195, 199, 0.07) !important;
+  color: #0f172a !important;
+}
+
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn.active,
+#modal-produto-backdrop .produto-sidebar-nav .produto-tab-btn.active {
+  background: rgba(75, 195, 199, 0.10) !important;
+  border-color: transparent !important;
+  color: #078f96 !important;
+  box-shadow: none !important;
+}
+
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn.active::before,
+#modal-produto-backdrop .produto-sidebar-nav .produto-tab-btn.active::before {
+  background: var(--brand);
+}
+
+#modal-produto-backdrop .cliente-sidebar-bottom,
+#modal-produto-backdrop .produto-sidebar-bottom {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding: 14px 14px 18px;
+}
+
+#modal-produto-backdrop .produto-ficha-toggle {
+  padding: 11px 12px;
+
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+#modal-produto-backdrop .produto-ficha-toggle input {
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  accent-color: var(--brand);
+}
+
+#modal-produto-backdrop .produto-ficha-toggle strong {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+#modal-produto-backdrop .produto-ficha-toggle small {
+  display: block;
+  margin-top: 3px;
+
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+/* =========================================
+   ÁREA PRINCIPAL — IGUAL CLIENTES
+   ========================================= */
+
+#modal-produto-backdrop .cliente-modal-main,
+#modal-produto-backdrop .produto-modal-main {
+  min-width: 0;
+  height: 100% !important;
+  min-height: 0 !important;
+
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) auto !important;
+
+  background: #f8fafc;
+  overflow: hidden !important;
+}
+
+#modal-produto-backdrop .cliente-modal-topbar,
+#modal-produto-backdrop .produto-modal-topbar {
+  flex: 0 0 auto !important;
+  min-height: 102px;
+  padding: 30px 48px 22px;
+
+  border-bottom: 1px solid var(--border);
+  background: #ffffff;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+#modal-produto-backdrop .cliente-modal-topbar h3,
+#modal-produto-backdrop .produto-modal-topbar h3 {
+  margin: 0;
+
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+#modal-produto-backdrop .produto-modal-topbar .section-kicker + h3 {
+  margin-top: 3px;
+}
+
+#modal-produto-backdrop .cliente-modal-topbar p,
+#modal-produto-backdrop .produto-modal-topbar p {
+  margin: 7px 0 0;
+
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.section-kicker {
+  display: block;
+  margin: 0 0 5px !important;
+
+  color: var(--brand);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#modal-produto-backdrop .cliente-modal-top-actions,
+#modal-produto-backdrop .produto-modal-top-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#modal-produto-backdrop .cliente-status-pill,
+#modal-produto-backdrop .produto-status-pill {
+  min-height: 32px;
+  padding: 0 12px;
+
+  border-radius: 9px;
+  border: 1px solid rgba(34, 197, 94, 0.18);
+  background: rgba(34, 197, 94, 0.09);
+  color: #15803D;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#modal-produto-backdrop .cliente-status-pill i,
+#modal-produto-backdrop .produto-status-pill i {
+  font-size: 8px;
+}
+
+#modal-produto-backdrop .btn-close {
+  width: 36px;
+  height: 36px;
+
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  box-shadow: none;
+}
+
+#modal-produto-backdrop .btn-close:hover {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.07);
+  color: var(--danger);
+}
+
+#modal-produto-backdrop .cliente-modal-scroll,
+#modal-produto-backdrop .produto-modal-scroll {
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+
+  padding: 28px 48px 34px;
+
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* =========================================
+   TABS E CARDS
+   ========================================= */
+
+#modal-produto-backdrop .cliente-tab,
+#modal-produto-backdrop .produto-tab {
+  display: none;
+}
+
+#modal-produto-backdrop .cliente-tab.active,
+#modal-produto-backdrop .produto-tab.active {
+  display: block;
+  animation: none !important;
+}
+
+#modal-produto-backdrop .cliente-main-card,
+#modal-produto-backdrop .produto-main-card,
+#modal-produto-backdrop .produto-ficha-card {
+  margin-bottom: 20px;
+  padding: 0;
+
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+
+  overflow: hidden;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+#modal-produto-backdrop .cliente-main-card:last-child,
+#modal-produto-backdrop .produto-main-card:last-child {
   margin-bottom: 0;
 }
 
-.custom-fields-head {
-  padding: 18px 20px;
-  background: var(--panel);
+#modal-produto-backdrop .cliente-section-head,
+#modal-produto-backdrop .produto-section-head,
+#modal-produto-backdrop .custom-fields-head {
+  padding: 22px 26px 16px;
   border-bottom: 1px solid var(--border);
 
   display: flex;
   justify-content: space-between;
-  gap: 16px;
   align-items: flex-start;
+  gap: 16px;
 }
 
-.custom-fields-head h3 {
+#modal-produto-backdrop .cliente-section-head h4,
+#modal-produto-backdrop .produto-section-head h4,
+#modal-produto-backdrop .custom-fields-head h4,
+#modal-produto-backdrop .custom-fields-head h3 {
   margin: 0;
+
   color: var(--text);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.03em;
 }
 
-.custom-fields-head p {
-  margin: 4px 0 0;
+#modal-produto-backdrop .produto-section-head p,
+#modal-produto-backdrop .custom-fields-head p {
+  margin: 5px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12.5px;
+  font-weight: 400;
   line-height: 1.5;
 }
 
-.custom-fields-info {
-  padding: 12px 18px;
+/* =========================================
+   CARD DO CÓDIGO NA FICHA PRINCIPAL
+   ========================================= */
+
+#modal-produto-backdrop .produto-ficha-code-card {
+  margin-bottom: 16px;
+  padding: 18px 20px !important;
+
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+
+  overflow: visible !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px) !important;
+  gap: 18px !important;
+  align-items: end !important;
+}
+
+#modal-produto-backdrop .produto-ficha-code-card[hidden] {
+  display: none !important;
+}
+
+#modal-produto-backdrop .produto-ficha-code-card h4 {
+  margin: 0 0 6px !important;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+#modal-produto-backdrop .produto-ficha-code-card p {
+  margin: 0 !important;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+#modal-produto-backdrop .produto-ficha-code-field {
+  margin: 0 !important;
+}
+
+/* =========================================
+   CAMPOS DO FORMULÁRIO
+   ========================================= */
+
+#modal-produto-backdrop .produto-custom-info,
+#modal-produto-backdrop .custom-fields-info {
+  padding: 12px 26px;
   display: flex;
   gap: 10px;
   align-items: flex-start;
@@ -112,78 +613,179 @@
   line-height: 1.45;
 }
 
-.custom-fields-info i {
+#modal-produto-backdrop .produto-custom-info i,
+#modal-produto-backdrop .custom-fields-info i {
   color: var(--brand);
   margin-top: 2px;
 }
 
-.custom-fields-container {
-  padding: 18px;
-  background: var(--panel);
+#modal-produto-backdrop .custom-fields-container,
+#modal-produto-backdrop #custom-fields-container {
+  padding: 20px 26px 26px;
+  background: #ffffff;
 }
 
-.custom-section-card {
+#modal-produto-backdrop #custom-fields-container.custom-form-sections {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 16px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  align-items: stretch !important;
+}
+
+#modal-produto-backdrop #custom-fields-container.custom-form-sections > .custom-section-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  grid-column: 1 / -1 !important;
+}
+
+#modal-produto-backdrop .custom-section-card {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 11px;
   background: var(--panel);
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
-.custom-section-card:last-child {
+#modal-produto-backdrop .custom-section-card:last-child {
   margin-bottom: 0;
 }
 
-.custom-section-head {
-  padding: 17px 18px;
-  background: var(--bg-soft);
+#modal-produto-backdrop .custom-section-head {
+  padding: 16px 18px;
+  background: #ffffff;
   border-bottom: 1px solid var(--border);
 }
 
-.custom-section-title {
-  display: flex;
+#modal-produto-backdrop .custom-section-title {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
 }
 
-.custom-section-icon {
+#modal-produto-backdrop .custom-section-icon {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+
+  border-radius: 11px;
+  background: rgba(75, 195, 199, 0.12);
   color: var(--brand);
-  font-size: 16px;
-  margin-top: 2px;
-  flex: 0 0 auto;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 13px;
+  line-height: 1;
+  margin-top: 1px;
 }
 
-.custom-section-title h4 {
+#modal-produto-backdrop .custom-section-icon i {
+  color: inherit;
+  font-size: 13px;
+  line-height: 1;
+}
+
+#modal-produto-backdrop .custom-section-head h4 {
   margin: 0;
+
   color: var(--text);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.35;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
 }
 
-.custom-section-title p {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.45;
+#modal-produto-backdrop .custom-section-head p {
+  max-width: 760px;
+  margin: 5px 0 0;
+
+  color: #52627a;
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.5;
 }
 
-.custom-fields-grid {
-  padding: 18px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 16px;
+#modal-produto-backdrop .custom-fields-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px 16px !important;
+  padding: 18px !important;
+  margin-top: 0 !important;
 }
 
-.custom-fields-grid .form-group {
+#modal-produto-backdrop .custom-fields-grid .form-group,
+#modal-produto-backdrop .custom-fields-grid .custom-field-item {
   min-width: 0;
+  margin: 0;
 }
 
-/* =========================================
-   AJUDAS / CHECKS ESPECÍFICOS
-   ========================================= */
+#modal-produto-backdrop .custom-fields-grid .form-group.span-all,
+#modal-produto-backdrop .custom-fields-grid .custom-field-item.span-all,
+#modal-produto-backdrop .custom-fields-grid .form-group.bitrix-field-full,
+#modal-produto-backdrop .custom-fields-grid .custom-field-item.bitrix-field-full {
+  grid-column: 1 / -1 !important;
+}
 
-.field-help {
+#modal-produto-backdrop .form-group label,
+#modal-produto-backdrop .custom-field-item label {
+  display: block;
+  margin-bottom: 8px;
+
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+#modal-produto-backdrop .form-group input,
+#modal-produto-backdrop .form-group select,
+#modal-produto-backdrop .form-group textarea,
+#modal-produto-backdrop .custom-field-item input,
+#modal-produto-backdrop .custom-field-item select,
+#modal-produto-backdrop .custom-field-item textarea {
+  width: 100%;
+  min-height: 42px;
+
+  border-radius: 9px;
+  border: 1px solid #dfe7f1;
+  background: #ffffff;
+  color: var(--text);
+
+  font-size: 13px;
+  font-weight: 400;
+}
+
+#modal-produto-backdrop .form-group textarea,
+#modal-produto-backdrop .custom-field-item textarea {
+  min-height: 96px;
+  padding-top: 12px;
+  resize: vertical;
+}
+
+#modal-produto-backdrop .form-group input:focus,
+#modal-produto-backdrop .form-group select:focus,
+#modal-produto-backdrop .form-group textarea:focus,
+#modal-produto-backdrop .custom-field-item input:focus,
+#modal-produto-backdrop .custom-field-item select:focus,
+#modal-produto-backdrop .custom-field-item textarea:focus {
+  border-color: rgba(75, 195, 199, 0.68);
+  box-shadow: 0 0 0 3px rgba(75, 195, 199, 0.12);
+}
+
+#modal-produto-backdrop input[readonly] {
+  background: #f8fafc;
+  color: var(--text);
+  font-weight: 400;
+}
+
+.field-help,
+#modal-produto-backdrop .field-hint {
   display: block;
   margin-top: 5px;
   color: var(--muted);
@@ -191,21 +793,65 @@
   line-height: 1.4;
 }
 
+#modal-produto-backdrop .custom-checkbox,
 #formProduto .check-card {
-  background: var(--bg-soft);
+  min-height: 42px;
+  padding: 0 13px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 8px;
+  background: var(--panel);
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-#formProduto .check-card:hover {
-  border-color: rgba(75, 195, 199, 0.28);
-  background: var(--panel-hover);
+#modal-produto-backdrop .custom-checkbox input,
+#formProduto .check-card input {
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  accent-color: var(--brand);
+}
+
+#modal-produto-backdrop .custom-checkbox span strong,
+#formProduto .check-card span strong {
+  display: block;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+#modal-produto-backdrop .custom-checkbox span small,
+#formProduto .check-card span small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+/* Quando vira ficha principal, o card externo fica limpo e as seções viram abas laterais */
+#formProduto.is-ficha-principal .custom-fields-head,
+#formProduto.is-ficha-principal .custom-fields-info {
+  display: none !important;
+}
+
+#formProduto.is-ficha-principal .custom-fields-card {
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  background: transparent !important;
+  margin-bottom: 0 !important;
+  overflow: visible !important;
+}
+
+#formProduto.is-ficha-principal #custom-fields-container {
+  padding: 0 !important;
+  background: transparent !important;
 }
 
 /* =========================================
-   CONFIRMAÇÃO — CONTEÚDO ESPECÍFICO
-   O modal base fica no app.css.
+   CONFIRMAÇÃO
    ========================================= */
 
 .confirm-modal .modal-body {
@@ -247,8 +893,40 @@
 }
 
 /* =========================================
+   FOOTER
+   ========================================= */
+
+#modal-produto-backdrop .modal-client-footer,
+#modal-produto-backdrop .produto-modal-footer {
+  flex: 0 0 auto !important;
+  min-height: 74px;
+  padding: 15px 42px;
+
+  border-top: 1px solid var(--border);
+  background: #ffffff;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+
+  box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.035);
+}
+
+#modal-produto-backdrop .modal-client-footer .btn,
+#modal-produto-backdrop .produto-modal-footer .btn {
+  min-width: 132px;
+  min-height: 42px;
+  font-weight: 500;
+}
+
+#modal-produto-backdrop .modal-client-footer .btn-primary,
+#modal-produto-backdrop .produto-modal-footer .btn-primary {
+  min-width: 170px;
+}
+
+/* =========================================
    PAGINAÇÃO
-   Base global existe no app.css.
    ========================================= */
 
 #paginacao-produtos {
@@ -260,53 +938,345 @@
 }
 
 /* =========================================
-   DARK — AJUSTES ESPECÍFICOS
+   DARK
    ========================================= */
 
-html[data-theme="dark"] .custom-section-head,
-html[data-theme="dark"] #formProduto .check-card {
+html[data-theme="dark"] #modal-produto-backdrop .cliente-modal-main,
+html[data-theme="dark"] #modal-produto-backdrop .produto-modal-main {
+  background: var(--bg);
+}
+
+html[data-theme="dark"] #modal-produto-backdrop .cliente-modal-sidebar,
+html[data-theme="dark"] #modal-produto-backdrop .produto-modal-sidebar,
+html[data-theme="dark"] #modal-produto-backdrop .cliente-modal-topbar,
+html[data-theme="dark"] #modal-produto-backdrop .produto-modal-topbar,
+html[data-theme="dark"] #modal-produto-backdrop .cliente-main-card,
+html[data-theme="dark"] #modal-produto-backdrop .produto-main-card,
+html[data-theme="dark"] #modal-produto-backdrop .produto-ficha-card,
+html[data-theme="dark"] #modal-produto-backdrop .produto-ficha-code-card,
+html[data-theme="dark"] #modal-produto-backdrop .modal-client-footer,
+html[data-theme="dark"] #modal-produto-backdrop .produto-modal-footer,
+html[data-theme="dark"] #modal-produto-backdrop .custom-section-card,
+html[data-theme="dark"] #modal-produto-backdrop .custom-section-head,
+html[data-theme="dark"] #modal-produto-backdrop .custom-fields-container,
+html[data-theme="dark"] #modal-produto-backdrop .produto-ficha-toggle {
+  background: var(--panel);
+}
+
+html[data-theme="dark"] #modal-produto-backdrop .form-group input,
+html[data-theme="dark"] #modal-produto-backdrop .form-group select,
+html[data-theme="dark"] #modal-produto-backdrop .form-group textarea,
+html[data-theme="dark"] #modal-produto-backdrop .custom-field-item input,
+html[data-theme="dark"] #modal-produto-backdrop .custom-field-item select,
+html[data-theme="dark"] #modal-produto-backdrop .custom-field-item textarea {
+  background: var(--panel);
+}
+
+html[data-theme="dark"] #modal-produto-backdrop input[readonly] {
   background: var(--bg-soft);
 }
 
-html[data-theme="dark"] .custom-fields-card,
-html[data-theme="dark"] .custom-section-card {
-  background: var(--panel);
+html[data-theme="dark"] #modal-produto-backdrop .cliente-tab-btn,
+html[data-theme="dark"] #modal-produto-backdrop .produto-tab-btn {
+  color: var(--muted) !important;
+}
+
+html[data-theme="dark"] #modal-produto-backdrop .cliente-tab-btn:hover,
+html[data-theme="dark"] #modal-produto-backdrop .cliente-tab-btn.active,
+html[data-theme="dark"] #modal-produto-backdrop .produto-tab-btn:hover,
+html[data-theme="dark"] #modal-produto-backdrop .produto-tab-btn.active {
+  color: var(--brand) !important;
 }
 
 /* =========================================
    RESPONSIVO
    ========================================= */
 
+@media (max-width: 1180px) {
+  #modal-produto-backdrop {
+    padding: 14px 20px !important;
+  }
+
+  #modal-produto-backdrop .cliente-modal-content,
+  #modal-produto-backdrop .produto-modal-content {
+    width: calc(100vw - 40px) !important;
+    height: calc(100dvh - 28px) !important;
+    max-height: calc(100dvh - 28px) !important;
+  }
+
+  #modal-produto-backdrop .cliente-modal-shell,
+  #modal-produto-backdrop .produto-modal-shell {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  #modal-produto-backdrop .cliente-modal-topbar,
+  #modal-produto-backdrop .produto-modal-topbar,
+  #modal-produto-backdrop .cliente-modal-scroll,
+  #modal-produto-backdrop .produto-modal-scroll,
+  #modal-produto-backdrop .modal-client-footer,
+  #modal-produto-backdrop .produto-modal-footer {
+    padding-left: 34px;
+    padding-right: 34px;
+  }
+}
+
+@media (max-width: 900px) {
+  #modal-produto-backdrop .cliente-modal-shell,
+  #modal-produto-backdrop .produto-modal-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  #modal-produto-backdrop .cliente-modal-sidebar,
+  #modal-produto-backdrop .produto-modal-sidebar {
+    height: auto;
+    min-height: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #modal-produto-backdrop .cliente-sidebar-top,
+  #modal-produto-backdrop .produto-sidebar-top {
+    display: none;
+  }
+
+  #modal-produto-backdrop .cliente-tabs,
+  #modal-produto-backdrop .cliente-sidebar-nav,
+  #modal-produto-backdrop .produto-tabs,
+  #modal-produto-backdrop .produto-sidebar-nav {
+    padding: 10px !important;
+
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+
+  #modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn,
+  #modal-produto-backdrop .produto-sidebar-nav .produto-tab-btn {
+    width: auto !important;
+    min-height: 38px !important;
+    padding: 0 13px 0 38px !important;
+    border-radius: 10px !important;
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+
+  #modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn::before,
+  #modal-produto-backdrop .produto-sidebar-nav .produto-tab-btn::before {
+    display: none;
+  }
+
+  #modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn > i,
+  #modal-produto-backdrop .produto-sidebar-nav .produto-tab-btn > i {
+    left: 14px !important;
+  }
+
+  #modal-produto-backdrop .cliente-sidebar-bottom,
+  #modal-produto-backdrop .produto-sidebar-bottom {
+    display: none;
+  }
+
+  #modal-produto-backdrop .custom-fields-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
 @media (max-width: 760px) {
-  .custom-fields-head {
+  #modal-produto-backdrop {
+    padding: 8px !important;
+  }
+
+  #modal-produto-backdrop .cliente-modal-content,
+  #modal-produto-backdrop .produto-modal-content {
+    width: calc(100vw - 16px) !important;
+    height: calc(100dvh - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    border-radius: 14px;
+  }
+
+  #modal-produto-backdrop .cliente-modal-topbar,
+  #modal-produto-backdrop .produto-modal-topbar {
+    min-height: auto;
+    padding: 17px;
+  }
+
+  #modal-produto-backdrop .cliente-modal-topbar h3,
+  #modal-produto-backdrop .produto-modal-topbar h3 {
+    font-size: 20px;
+  }
+
+  #modal-produto-backdrop .cliente-status-pill,
+  #modal-produto-backdrop .produto-status-pill {
+    display: none;
+  }
+
+  #modal-produto-backdrop .cliente-modal-scroll,
+  #modal-produto-backdrop .produto-modal-scroll {
+    padding: 15px 13px 20px;
+  }
+
+  #modal-produto-backdrop .cliente-section-head,
+  #modal-produto-backdrop .produto-section-head,
+  #modal-produto-backdrop .custom-fields-head,
+  #modal-produto-backdrop .custom-fields-container,
+  #modal-produto-backdrop #custom-fields-container {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+
+  #modal-produto-backdrop .custom-fields-head {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .custom-fields-container,
-  .custom-fields-grid {
-    padding: 14px;
-  }
-
-  .custom-fields-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .custom-fields-grid .span-all,
-  .custom-fields-grid .span-2 {
-    grid-column: auto !important;
-  }
-
-  .confirm-actions {
-    flex-direction: column;
-  }
-
-  .confirm-actions .btn {
+  #modal-produto-backdrop .custom-fields-head .btn {
     width: 100%;
   }
 
-  #paginacao-produtos {
-    justify-content: center;
-    flex-wrap: wrap;
+  #modal-produto-backdrop .custom-fields-grid {
+    grid-template-columns: 1fr !important;
   }
+
+  #modal-produto-backdrop .custom-fields-grid .form-group,
+  #modal-produto-backdrop .custom-fields-grid .custom-field-item,
+  #modal-produto-backdrop .custom-fields-grid .form-group.span-all,
+  #modal-produto-backdrop .custom-fields-grid .custom-field-item.span-all,
+  #modal-produto-backdrop .custom-fields-grid .form-group.bitrix-field-half,
+  #modal-produto-backdrop .custom-fields-grid .custom-field-item.bitrix-field-half {
+    grid-column: 1 / -1 !important;
+  }
+
+  #modal-produto-backdrop .produto-ficha-code-card {
+    grid-template-columns: 1fr !important;
+    align-items: stretch !important;
+    padding: 16px !important;
+  }
+
+  #modal-produto-backdrop .modal-client-footer,
+  #modal-produto-backdrop .produto-modal-footer {
+    padding: 13px;
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  #modal-produto-backdrop .modal-client-footer .btn,
+  #modal-produto-backdrop .produto-modal-footer .btn {
+    width: 100%;
+  }
+}
+
+/* =========================================
+   VALIDAÇÃO
+   ========================================= */
+
+.campo-obrigatorio-pendente input,
+.campo-obrigatorio-pendente select,
+.campo-obrigatorio-pendente textarea,
+input.campo-obrigatorio-pendente,
+select.campo-obrigatorio-pendente,
+textarea.campo-obrigatorio-pendente {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
+
+.campo-obrigatorio-pendente label,
+.campo-obrigatorio-pendente .custom-checkbox span {
+  color: #b91c1c !important;
+}
+
+/* =========================================
+   CORREÇÃO — PRODUTOS COM CAMPOS NATIVOS + FORMULÁRIOS
+   Os nativos ficam sempre visíveis em aba própria.
+   ========================================= */
+
+#modal-produto-backdrop .produto-native-card {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+#modal-produto-backdrop .produto-native-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 20px 18px !important;
+  padding: 20px 26px 26px !important;
+  margin: 0 !important;
+}
+
+#modal-produto-backdrop .produto-native-grid .form-group {
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+
+#modal-produto-backdrop .produto-native-grid .span-2 {
+  grid-column: span 2 !important;
+}
+
+#modal-produto-backdrop .produto-native-grid .span-all {
+  grid-column: 1 / -1 !important;
+}
+
+#modal-produto-backdrop .produto-native-grid textarea {
+  min-height: 96px !important;
+}
+
+/* Mesmo quando a ficha principal está ativa, não esconda os dados nativos de Produtos */
+#formProduto.is-ficha-principal #tab-produto-dados,
+#formProduto.is-ficha-principal #tab-produto-ficha {
+  animation: none !important;
+}
+
+#formProduto.is-ficha-principal .produto-tabs {
+  display: flex !important;
+}
+
+#formProduto.is-ficha-principal .produto-tab-btn[data-tab="tab-produto-dados"],
+#formProduto.is-ficha-principal .produto-tab-btn[data-tab="tab-produto-ficha"] {
+  display: flex !important;
+}
+
+/* Card do código da ficha não deve substituir a aba de dados nativos */
+#formProduto.is-ficha-principal #produto-ficha-principal-code {
+  margin-bottom: 16px !important;
+}
+
+@media (max-width: 900px) {
+  #modal-produto-backdrop .produto-native-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #modal-produto-backdrop .produto-native-grid .span-2,
+  #modal-produto-backdrop .produto-native-grid .span-all {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #modal-produto-backdrop .produto-native-grid {
+    grid-template-columns: 1fr !important;
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+}
+
+/* Correção: a validação global não pode quebrar o grid do modal de Produto. */
+#formProduto > .valora-validation-summary {
+  grid-column: 1 / -1 !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 16px 12px !important;
+  position: relative !important;
+  z-index: 5 !important;
+}
+
+#modal-produto-backdrop .campo-obrigatorio-pendente input,
+#modal-produto-backdrop .campo-obrigatorio-pendente select,
+#modal-produto-backdrop .campo-obrigatorio-pendente textarea,
+#modal-produto-backdrop input.campo-obrigatorio-pendente,
+#modal-produto-backdrop select.campo-obrigatorio-pendente,
+#modal-produto-backdrop textarea.campo-obrigatorio-pendente {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
 }

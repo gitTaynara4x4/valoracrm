@@ -811,3 +811,10 @@ html[data-theme="dark"] .anexo-item {
     padding-right: 16px;
   }
 }
+
+/* Número do contrato: código do sistema, somente leitura */
+#numero_contrato[readonly] {
+  background: var(--bg-soft);
+  color: var(--text);
+  cursor: not-allowed;
+}

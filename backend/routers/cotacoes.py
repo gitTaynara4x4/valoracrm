@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 import re
+import unicodedata
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, status
@@ -113,6 +114,16 @@ def ensure_cotacoes_schema(db: Session) -> None:
     ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
     CREATE UNIQUE INDEX IF NOT EXISTS uq_cotacoes_empresa_codigo ON cotacoes(empresa_id, codigo);
+
+    CREATE TABLE IF NOT EXISTS codigos_sequenciais (
+        empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+        modulo VARCHAR(80) NOT NULL,
+        ultimo_codigo BIGINT NOT NULL DEFAULT 0,
+        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (empresa_id, modulo)
+    );
+
     CREATE INDEX IF NOT EXISTS ix_cotacoes_empresa ON cotacoes(empresa_id);
     CREATE INDEX IF NOT EXISTS ix_cotacoes_item_nome ON cotacoes(item_nome);
     CREATE INDEX IF NOT EXISTS ix_cotacoes_status ON cotacoes(status);
@@ -215,6 +226,164 @@ def normalizar_status(status_value: Any) -> str:
     return value if value in STATUS_VALIDOS else "rascunho"
 
 
+
+
+def slugify_campo_formulario(value: Any) -> str:
+    text_value = str(value or "").strip()
+    if not text_value:
+        return ""
+
+    text_value = unicodedata.normalize("NFD", text_value)
+    text_value = "".join(ch for ch in text_value if unicodedata.category(ch) != "Mn")
+    text_value = text_value.lower()
+
+    out = []
+    last_underscore = False
+
+    for ch in text_value:
+        if ch.isalnum():
+            out.append(ch)
+            last_underscore = False
+        else:
+            if not last_underscore:
+                out.append("_")
+                last_underscore = True
+
+    return "".join(out).strip("_")[:120]
+
+
+def tipo_campo_cotacao_from_formulario(tipo: Any) -> str:
+    tipo_norm = str(tipo or "texto").strip().lower()
+
+    mapa = {
+        "texto": "texto",
+        "textarea": "textarea",
+        "numero": "numero",
+        "data": "data",
+        "select": "select",
+        "checkbox": "checkbox",
+        "email": "texto",
+        "telefone": "texto",
+        "moeda": "numero",
+        "percentual": "numero",
+    }
+
+    return mapa.get(tipo_norm, "texto")
+
+
+def sincronizar_campos_cotacoes_do_formulario(
+    db: Session,
+    empresa_id: int,
+    *,
+    commit: bool = False,
+) -> None:
+    """
+    Mantém /api/cotacoes/campos compatível com o construtor de Formulários.
+
+    A tela de Cotações agora renderiza campos personalizados pelo módulo
+    Formulários, igual Clientes/Fornecedores. Como os valores da cotação
+    continuam sendo salvos em cotacoes_campos_valores, sincronizamos os
+    campos personalizados do formulário ativo/principal para campos_cotacoes.
+    """
+    FormularioModelo = getattr(models, "FormularioModelo", None)
+    FormularioCampo = getattr(models, "FormularioCampo", None)
+
+    if FormularioModelo is None or FormularioCampo is None:
+        return
+
+    modelo = (
+        db.query(FormularioModelo)
+        .filter(FormularioModelo.empresa_id == empresa_id)
+        .filter(FormularioModelo.modulo == "cotacoes")
+        .filter(FormularioModelo.ativo == True)  # noqa: E712
+        .order_by(
+            FormularioModelo.usar_como_ficha_principal.desc(),
+            FormularioModelo.padrao.desc(),
+            FormularioModelo.id.desc(),
+        )
+        .first()
+    )
+
+    if not modelo:
+        return
+
+    campos_formulario = (
+        db.query(FormularioCampo)
+        .filter(FormularioCampo.formulario_id == modelo.id)
+        .filter(FormularioCampo.origem == "personalizado")
+        .order_by(FormularioCampo.ordem.asc(), FormularioCampo.id.asc())
+        .all()
+    )
+
+    if not campos_formulario:
+        return
+
+    existentes = (
+        db.query(CampoCotacao)
+        .filter(CampoCotacao.empresa_id == empresa_id)
+        .all()
+    )
+    por_slug = {str(c.slug): c for c in existentes}
+
+    changed = False
+
+    for campo_form in campos_formulario:
+        label = norm_str(getattr(campo_form, "label", None))
+        if not label:
+            continue
+
+        slug = slugify_campo_formulario(label)
+        if not slug:
+            continue
+
+        tipo = tipo_campo_cotacao_from_formulario(getattr(campo_form, "tipo_campo", None))
+        opcoes_json = getattr(campo_form, "opcoes_json", None)
+        obrigatorio = bool(getattr(campo_form, "obrigatorio", False))
+        ativo = bool(getattr(campo_form, "ativo", True))
+        ordem = int(getattr(campo_form, "ordem", 0) or 0)
+
+        campo_cotacao = por_slug.get(slug)
+
+        if campo_cotacao:
+            if campo_cotacao.nome != label:
+                campo_cotacao.nome = label
+                changed = True
+            if campo_cotacao.tipo != tipo:
+                campo_cotacao.tipo = tipo
+                changed = True
+            if bool(campo_cotacao.obrigatorio) != obrigatorio:
+                campo_cotacao.obrigatorio = obrigatorio
+                changed = True
+            if bool(campo_cotacao.ativo) != ativo:
+                campo_cotacao.ativo = ativo
+                changed = True
+            if (campo_cotacao.opcoes_json or None) != (opcoes_json or None):
+                campo_cotacao.opcoes_json = opcoes_json
+                changed = True
+            if int(campo_cotacao.ordem or 0) != ordem:
+                campo_cotacao.ordem = ordem
+                changed = True
+        else:
+            campo_cotacao = CampoCotacao(
+                empresa_id=empresa_id,
+                nome=label,
+                slug=slug,
+                tipo=tipo,
+                obrigatorio=obrigatorio,
+                ativo=ativo,
+                opcoes_json=opcoes_json,
+                ordem=ordem,
+            )
+            db.add(campo_cotacao)
+            por_slug[slug] = campo_cotacao
+            changed = True
+
+    if changed:
+        db.flush()
+        if commit:
+            db.commit()
+
+
 def parse_decimal(value: Any) -> Optional[Decimal]:
     if value in (None, "", "null"):
         return None
@@ -251,16 +420,81 @@ def calcular_total(quantidade: Any, valor_unitario: Any, frete: Any) -> Optional
     return decimal_to_str((qtd * unitario) + frete_dec)
 
 
-def gerar_codigo_cotacao(db: Session, empresa_id: int) -> str:
-    ultimo = (
-        db.query(Cotacao)
+def maior_codigo_cotacao_existente(db: Session, empresa_id: int) -> int:
+    """Retorna o maior código numérico já usado nas cotações da empresa."""
+    rows = (
+        db.query(Cotacao.codigo)
         .filter(Cotacao.empresa_id == empresa_id)
-        .order_by(Cotacao.id.desc())
-        .first()
+        .all()
     )
-    proximo = (int(ultimo.id) if ultimo else 0) + 1
+
+    maior = 0
+    for (codigo,) in rows:
+        digitos = normalizar_codigo_sistema(codigo)
+        if not digitos:
+            continue
+
+        try:
+            maior = max(maior, int(digitos))
+        except (TypeError, ValueError):
+            continue
+
+    return maior
+
+
+def proximo_codigo_cotacao_preview(db: Session, empresa_id: int) -> str:
+    """Mostra o próximo código sem reservar.
+
+    Usa a sequência persistente quando existir. Assim, se o código 0002 foi
+    criado e depois apagado, o próximo continua 0003.
+    """
+    maior_existente = maior_codigo_cotacao_existente(db, empresa_id)
+
+    ultimo_sequencia = db.execute(
+        text(
+            """
+            SELECT ultimo_codigo
+            FROM codigos_sequenciais
+            WHERE empresa_id = :empresa_id AND modulo = 'cotacoes'
+            """
+        ),
+        {"empresa_id": empresa_id},
+    ).scalar()
+
+    proximo = max(maior_existente, int(ultimo_sequencia or 0)) + 1
     return f"{proximo:04d}"
 
+
+def gerar_codigo_cotacao(db: Session, empresa_id: int) -> str:
+    """Reserva e retorna o próximo código oficial da cotação.
+
+    Regra:
+    - código é único por empresa;
+    - código nunca é alterado;
+    - código não depende do ID do banco;
+    - código apagado não é reaproveitado.
+    """
+    maior_existente = maior_codigo_cotacao_existente(db, empresa_id)
+
+    row = db.execute(
+        text(
+            """
+            INSERT INTO codigos_sequenciais (empresa_id, modulo, ultimo_codigo)
+            VALUES (:empresa_id, 'cotacoes', :novo_codigo)
+            ON CONFLICT (empresa_id, modulo) DO UPDATE
+            SET
+                ultimo_codigo = GREATEST(codigos_sequenciais.ultimo_codigo + 1, :novo_codigo),
+                atualizado_em = NOW()
+            RETURNING ultimo_codigo
+            """
+        ),
+        {
+            "empresa_id": empresa_id,
+            "novo_codigo": maior_existente + 1,
+        },
+    ).scalar()
+
+    return f"{int(row or 1):04d}"
 
 def gerar_codigo_produto(db: Session, empresa_id: int) -> str:
     ultimo = (
@@ -424,6 +658,8 @@ def listar_fornecedores_cotacao(db: Session, cotacao_id: int) -> List[CotacaoFor
 
 
 def buscar_custom_fields_cotacao(db: Session, empresa_id: int, cotacao_id: int) -> Dict[str, Any]:
+    sincronizar_campos_cotacoes_do_formulario(db, empresa_id, commit=False)
+
     rows = (
         db.query(CotacaoCampoValor, CampoCotacao)
         .join(CampoCotacao, CampoCotacao.id == CotacaoCampoValor.campo_id)
@@ -442,6 +678,8 @@ def salvar_custom_fields_cotacao(
 ) -> None:
     if custom_fields is None:
         return
+
+    sincronizar_campos_cotacoes_do_formulario(db, empresa_id, commit=False)
 
     campos = db.query(CampoCotacao).filter(CampoCotacao.empresa_id == empresa_id).all()
     campos_map = {str(c.slug): c for c in campos}
@@ -623,6 +861,15 @@ def listar_cotacoes(
     return [cotacao_to_out(db, row, include_fornecedores=True) for row in rows]
 
 
+@router.get("/proximo-codigo")
+def obter_proximo_codigo_cotacao(
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id),
+):
+    ensure_cotacoes_schema(db)
+    return {"codigo": proximo_codigo_cotacao_preview(db, empresa_id)}
+
+
 @router.post("", response_model=CotacaoOut, status_code=status.HTTP_201_CREATED)
 def criar_cotacao(
     payload: CotacaoCreate,
@@ -631,31 +878,45 @@ def criar_cotacao(
 ):
     ensure_cotacoes_schema(db)
 
-    codigo = normalizar_codigo_sistema(payload.codigo) or gerar_codigo_cotacao(db, empresa_id)
-    cotacao = Cotacao(
-        empresa_id=empresa_id,
-        codigo=codigo,
-        item_nome=payload.item_nome.strip(),
-        status=normalizar_status(payload.status),
-    )
-    aplicar_cotacao_payload(cotacao, payload)
+    if not norm_str(payload.item_nome):
+        raise HTTPException(status_code=400, detail="Informe o item desejado.")
 
-    try:
-        db.add(cotacao)
-        db.flush()
-        salvar_custom_fields_cotacao(db, empresa_id, int(cotacao.id), payload.custom_fields)
-        db.commit()
-        db.refresh(cotacao)
-        return cotacao_to_out(db, cotacao)
-    except HTTPException:
-        db.rollback()
-        raise
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="Já existe cotação com este código para a empresa.")
-    except OperationalError as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Não foi possível criar as tabelas de cotações.") from exc
+    ultimo_erro_integridade: Optional[Exception] = None
+
+    # Tenta algumas vezes para evitar colisão em salvamentos simultâneos.
+    for _ in range(5):
+        codigo = gerar_codigo_cotacao(db, empresa_id)
+        cotacao = Cotacao(
+            empresa_id=empresa_id,
+            codigo=codigo,
+            item_nome=payload.item_nome.strip(),
+            status=normalizar_status(payload.status),
+        )
+        aplicar_cotacao_payload(cotacao, payload)
+
+        try:
+            db.add(cotacao)
+            db.flush()
+            salvar_custom_fields_cotacao(db, empresa_id, int(cotacao.id), payload.custom_fields)
+            db.commit()
+            db.refresh(cotacao)
+            return cotacao_to_out(db, cotacao)
+        except HTTPException:
+            db.rollback()
+            raise
+        except IntegrityError as exc:
+            ultimo_erro_integridade = exc
+            db.rollback()
+            continue
+        except OperationalError as exc:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Não foi possível criar as tabelas de cotações.") from exc
+
+    raise HTTPException(
+        status_code=409,
+        detail="Não foi possível gerar um código livre para a cotação. Tente novamente.",
+    ) from ultimo_erro_integridade
+
 
 # =========================================================
 # Campos personalizados simples de cotações
@@ -666,6 +927,7 @@ def listar_campos_cotacao(
     empresa_id: int = Depends(get_empresa_id),
 ):
     ensure_cotacoes_schema(db)
+    sincronizar_campos_cotacoes_do_formulario(db, empresa_id, commit=True)
     return (
         db.query(CampoCotacao)
         .filter(CampoCotacao.empresa_id == empresa_id)
@@ -760,10 +1022,8 @@ def atualizar_cotacao(
     if not cotacao:
         raise HTTPException(status_code=404, detail="Cotação não encontrada.")
 
-    codigo = normalizar_codigo_sistema(payload.codigo)
-    if codigo:
-        cotacao.codigo = codigo
-
+    # Código é do sistema: único, sequencial e imutável.
+    # Mesmo que o front mande payload.codigo, ele não pode alterar a cotação.
     aplicar_cotacao_payload(cotacao, payload)
 
     try:

@@ -1,8 +1,6 @@
 /* =========================================
    PATRIMÔNIO | VALORA CRM
-   Arquivo limpo.
-   Mantém apenas estilos específicos da tela de patrimônio.
-   Base global fica no app.css.
+   Padrão igual Clientes/Fornecedores + Formulários/Ficha Principal.
    ========================================= */
 
 /* =========================================
@@ -14,11 +12,6 @@
   padding: 22px !important;
   margin-bottom: 20px !important;
 }
-
-/* =========================================
-   FILTRO ESPECÍFICO DE STATUS
-   O restante de busca/filtros vem do app.css.
-   ========================================= */
 
 .status-filter {
   min-width: 200px;
@@ -40,15 +33,16 @@
 }
 
 /* =========================================
-   TABELA — AJUSTES ESPECÍFICOS DE PATRIMÔNIO
-   Estrutura global da tabela fica no app.css.
+   TABELA
    ========================================= */
 
+#patrimonio-tbody td:last-child,
 #tbody-patrimonios td:last-child,
 #tbody-patrimonio td:last-child {
   text-align: right;
 }
 
+#patrimonio-tbody td:last-child > div,
 #tbody-patrimonios td:last-child > div,
 #tbody-patrimonio td:last-child > div {
   display: inline-flex;
@@ -57,11 +51,17 @@
   gap: 8px;
 }
 
+#patrimonio-tbody td strong,
 #tbody-patrimonios td strong,
 #tbody-patrimonio td strong {
   display: block;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
+#patrimonio-tbody td small,
 #tbody-patrimonios td small,
 #tbody-patrimonio td small {
   display: block;
@@ -71,12 +71,32 @@
   line-height: 1.35;
 }
 
-/* =========================================
-   STATUS DO PATRIMÔNIO
-   Badge base existe no app.css.
-   ========================================= */
+.badge-codigo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 25px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
 
 .status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 25px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
   text-transform: capitalize;
 }
 
@@ -100,49 +120,720 @@
 }
 
 /* =========================================
-   FORMULÁRIO DE PATRIMÔNIO — AJUSTES ESPECÍFICOS
-   Formulário base e modal vêm do app.css.
+   MODAL — BASE IGUAL CLIENTES
    ========================================= */
 
-.required-field label::after {
-  content: "";
+#modal-patrimonio {
+  position: fixed !important;
+  inset: 0 !important;
+  padding: 20px 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  background: rgba(15, 23, 42, 0.50);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-.patrimonio-ativo-card {
-  margin-top: 4px;
+#modal-patrimonio[hidden] {
+  display: none !important;
 }
 
-#formPatrimonio .check-card.single,
-#form-patrimonio .check-card.single {
-  background: var(--bg-soft);
+#modal-patrimonio .cliente-modal-content,
+#modal-patrimonio .patrimonio-modal-content {
+  width: min(1180px, calc(100vw - 56px)) !important;
+  height: calc(100dvh - 40px) !important;
+  max-height: calc(100dvh - 40px) !important;
+  padding: 0 !important;
+  border-radius: 14px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 13px 14px;
+  background: var(--panel);
+  overflow: hidden !important;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.22);
 }
 
-#formPatrimonio .check-card.single:hover,
-#form-patrimonio .check-card.single:hover {
-  border-color: rgba(75, 195, 199, 0.28);
-  background: var(--panel-hover);
+#modal-patrimonio .cliente-modal-shell,
+#modal-patrimonio .patrimonio-modal-shell {
+  height: 100% !important;
+  min-height: 0 !important;
+  display: grid;
+  grid-template-columns: 238px minmax(0, 1fr);
+  background: var(--panel);
+  overflow: hidden !important;
 }
 
-#formPatrimonio .check-card.single strong,
-#form-patrimonio .check-card.single strong {
+/* =========================================
+   SIDEBAR
+   ========================================= */
+
+#modal-patrimonio .cliente-modal-sidebar,
+#modal-patrimonio .patrimonio-modal-sidebar {
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden !important;
+}
+
+#modal-patrimonio .cliente-sidebar-top,
+#modal-patrimonio .patrimonio-sidebar-top {
+  flex: 0 0 auto;
+  padding: 28px 24px 18px;
+}
+
+#modal-patrimonio .cliente-sidebar-avatar,
+#modal-patrimonio .patrimonio-sidebar-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 13px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--brand);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  box-shadow: var(--shadow-sm);
+}
+
+#modal-patrimonio .cliente-sidebar-user,
+#modal-patrimonio .patrimonio-sidebar-user {
+  margin-top: 14px;
+  min-width: 0;
+}
+
+#modal-patrimonio .cliente-sidebar-user strong,
+#modal-patrimonio .patrimonio-sidebar-user strong {
+  display: block;
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-#formPatrimonio .check-card.single small,
-#form-patrimonio .check-card.single small {
+#modal-patrimonio .cliente-sidebar-user span,
+#modal-patrimonio .patrimonio-sidebar-user span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#modal-patrimonio .cliente-tabs,
+#modal-patrimonio .cliente-sidebar-nav,
+#modal-patrimonio .patrimonio-tabs,
+#modal-patrimonio .patrimonio-sidebar-nav {
+  min-height: 0;
+  margin: 0 !important;
+  padding: 8px 0 12px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 2px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  box-shadow: none !important;
+}
+
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn,
+#modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn {
+  position: relative !important;
+  width: calc(100% - 14px) !important;
+  min-height: 44px !important;
+  margin-left: 0 !important;
+  padding: 0 14px 0 58px !important;
+  border: 1px solid transparent !important;
+  border-radius: 0 10px 10px 0 !important;
+  background: transparent !important;
+  color: #475569 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.25 !important;
+  text-align: left !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  cursor: pointer;
+  transition: background-color 0.08s ease, color 0.08s ease, border-color 0.08s ease;
+}
+
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn::before,
+#modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: transparent;
+}
+
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn::after,
+#modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn::after {
+  display: none !important;
+  content: none !important;
+}
+
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn > i,
+#modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn > i {
+  position: absolute !important;
+  left: 30px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: inherit !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  opacity: 0.92 !important;
+  pointer-events: none !important;
+}
+
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn span,
+#modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn span {
+  display: block !important;
+  min-width: 0 !important;
+  line-height: 1.25 !important;
+}
+
+#modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn[data-ficha-section] {
+  padding-left: 18px !important;
+}
+
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn:hover,
+#modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn:hover {
+  background: rgba(75, 195, 199, 0.07) !important;
+  color: #0f172a !important;
+}
+
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn.active,
+#modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn.active {
+  background: rgba(75, 195, 199, 0.10) !important;
+  border-color: transparent !important;
+  color: #078f96 !important;
+  box-shadow: none !important;
+}
+
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn.active::before,
+#modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn.active::before {
+  background: var(--brand);
+}
+
+#modal-patrimonio .cliente-sidebar-bottom,
+#modal-patrimonio .patrimonio-sidebar-bottom {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding: 14px 14px 18px;
+}
+
+.ficha-principal-toggle,
+.patrimonio-ficha-toggle {
+  width: 100%;
+  padding: 13px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.ficha-principal-toggle input,
+.patrimonio-ficha-toggle input {
+  margin-top: 2px;
+  accent-color: var(--brand);
+}
+
+.ficha-principal-toggle strong,
+.patrimonio-ficha-toggle strong {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.ficha-principal-toggle small,
+.patrimonio-ficha-toggle small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/* =========================================
+   ÁREA PRINCIPAL DO MODAL
+   ========================================= */
+
+#modal-patrimonio .cliente-modal-main,
+#modal-patrimonio .patrimonio-modal-main {
+  min-width: 0;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) auto !important;
+  background: #f8fafc;
+  overflow: hidden !important;
+}
+
+#modal-patrimonio .cliente-modal-topbar,
+#modal-patrimonio .patrimonio-modal-topbar {
+  flex: 0 0 auto !important;
+  min-height: 102px;
+  padding: 30px 48px 22px;
+  border-bottom: 1px solid var(--border);
+  background: #ffffff;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+#modal-patrimonio .cliente-modal-topbar h3,
+#modal-patrimonio .patrimonio-modal-topbar h3 {
+  margin: 3px 0 0;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+#modal-patrimonio .cliente-modal-topbar p,
+#modal-patrimonio .patrimonio-modal-topbar p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.section-kicker {
+  display: block;
+  margin: 0 0 5px !important;
+  color: var(--brand);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#modal-patrimonio .cliente-modal-top-actions,
+#modal-patrimonio .patrimonio-modal-top-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#modal-patrimonio .cliente-status-pill,
+#modal-patrimonio .patrimonio-status-pill {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(34, 197, 94, 0.18);
+  background: rgba(34, 197, 94, 0.09);
+  color: #15803D;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#modal-patrimonio .cliente-status-pill i,
+#modal-patrimonio .patrimonio-status-pill i {
+  font-size: 8px;
+}
+
+#modal-patrimonio .btn-close,
+#modal-patrimonio .modal-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+}
+
+#modal-patrimonio .btn-close:hover,
+#modal-patrimonio .modal-close:hover {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.07);
+  color: var(--danger);
+}
+
+#modal-patrimonio .cliente-modal-scroll,
+#modal-patrimonio .patrimonio-modal-scroll {
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  padding: 28px 48px 34px;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* =========================================
+   TABS E CARDS
+   ========================================= */
+
+#modal-patrimonio .cliente-tab,
+#modal-patrimonio .patrimonio-tab {
+  display: none;
+}
+
+#modal-patrimonio .cliente-tab.active,
+#modal-patrimonio .patrimonio-tab.active {
+  display: block;
+  animation: none !important;
+}
+
+#modal-patrimonio .cliente-main-card,
+#modal-patrimonio .patrimonio-main-card,
+#modal-patrimonio .custom-fields-card {
+  margin-bottom: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+#modal-patrimonio .cliente-main-card:last-child,
+#modal-patrimonio .patrimonio-main-card:last-child,
+#modal-patrimonio .custom-fields-card:last-child {
+  margin-bottom: 0;
+}
+
+#modal-patrimonio .cliente-section-head,
+#modal-patrimonio .patrimonio-section-head,
+#modal-patrimonio .custom-fields-head {
+  padding: 22px 26px 16px;
+  border-bottom: 1px solid var(--border);
+  background: #ffffff;
+}
+
+#modal-patrimonio .cliente-section-head h4,
+#modal-patrimonio .patrimonio-section-head h4,
+#modal-patrimonio .custom-fields-head h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+#modal-patrimonio .cliente-section-head p,
+#modal-patrimonio .patrimonio-section-head p,
+#modal-patrimonio .custom-fields-head p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* =========================================
+   FORM NATIVO
+   ========================================= */
+
+#modal-patrimonio .patrimonio-native-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px 18px;
+  padding: 20px 26px 26px;
+  margin: 0;
+}
+
+#modal-patrimonio .form-group {
+  margin: 0;
+}
+
+#modal-patrimonio .span-2 {
+  grid-column: span 2;
+}
+
+#modal-patrimonio .span-all {
+  grid-column: 1 / -1;
+}
+
+#modal-patrimonio .form-group label {
+  margin-bottom: 8px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+#modal-patrimonio .form-group input,
+#modal-patrimonio .form-group select,
+#modal-patrimonio .form-group textarea {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 9px;
+  border: 1px solid #dfe7f1;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+#modal-patrimonio .form-group textarea {
+  min-height: 76px;
+  padding-top: 12px;
+  resize: vertical;
+}
+
+#modal-patrimonio .form-group input:focus,
+#modal-patrimonio .form-group select:focus,
+#modal-patrimonio .form-group textarea:focus {
+  border-color: rgba(75, 195, 199, 0.68);
+  box-shadow: 0 0 0 3px rgba(75, 195, 199, 0.12);
+}
+
+#modal-patrimonio input[readonly] {
+  background: #f8fafc;
+  color: var(--text);
+  font-weight: 400;
+}
+
+/* =========================================
+   FICHA / CAMPOS PERSONALIZADOS
+   ========================================= */
+
+#modal-patrimonio .patrimonio-ficha-code-card {
+  margin: 0 0 16px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 18px;
+  align-items: end;
+}
+
+#modal-patrimonio .patrimonio-ficha-code-card h4 {
+  margin: 3px 0 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+#modal-patrimonio .patrimonio-ficha-code-card p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.custom-fields-info {
+  padding: 12px 18px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--brand-soft);
+  border-bottom: 1px solid rgba(75, 195, 199, 0.20);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.custom-fields-info i {
+  color: var(--brand);
+  margin-top: 2px;
+}
+
+.custom-fields-container {
+  padding: 18px;
+  background: var(--panel);
+}
+
+#modal-patrimonio .custom-form-sections {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 16px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 18px !important;
+  margin: 0 !important;
+}
+
+#modal-patrimonio .custom-form-sections > .custom-section-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  grid-column: 1 / -1 !important;
+}
+
+#modal-patrimonio .custom-section-card {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--panel);
+  margin-bottom: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+#modal-patrimonio .custom-section-card:last-child {
+  margin-bottom: 0;
+}
+
+#modal-patrimonio .custom-section-head {
+  padding: 16px 18px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--border);
+}
+
+#modal-patrimonio .custom-section-title {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 12px;
+}
+
+#modal-patrimonio .custom-section-icon {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 11px;
+  background: rgba(75, 195, 199, 0.12);
+  color: var(--brand);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+#modal-patrimonio .custom-section-head h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+#modal-patrimonio .custom-section-head p {
+  max-width: 760px;
+  margin: 5px 0 0;
+  color: #52627a;
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+#modal-patrimonio .custom-section-card .custom-fields-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px 16px !important;
+  padding: 18px !important;
+  margin-top: 0 !important;
+}
+
+#modal-patrimonio .custom-section-card .span-all,
+#modal-patrimonio .custom-section-card .custom-field-item.span-all,
+#modal-patrimonio .custom-section-card .form-group.span-all,
+#modal-patrimonio .custom-section-card .custom-field-item.bitrix-field-full,
+#modal-patrimonio .custom-section-card .form-group.bitrix-field-full {
+  grid-column: 1 / -1 !important;
+}
+
+#modal-patrimonio .field-help,
+#modal-patrimonio .field-hint {
+  display: block;
+  margin-top: 5px;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.4;
 }
 
+#formPatrimonio.is-ficha-principal .custom-fields-head,
+#formPatrimonio.is-ficha-principal .custom-fields-info {
+  display: none !important;
+}
+
+#formPatrimonio.is-ficha-principal .custom-fields-card {
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  background: transparent !important;
+  margin-bottom: 0 !important;
+  overflow: visible !important;
+}
+
+#formPatrimonio.is-ficha-principal .custom-form-sections {
+  padding: 0 !important;
+}
+
 /* =========================================
-   BOTÃO DE AÇÃO PERIGOSA SUAVE
+   FOOTER
    ========================================= */
+
+#modal-patrimonio .modal-client-footer,
+#modal-patrimonio .patrimonio-modal-footer {
+  flex: 0 0 auto !important;
+  min-height: 74px;
+  padding: 15px 42px;
+  border-top: 1px solid var(--border);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.035);
+}
+
+.footer-spacer {
+  flex: 1 1 auto;
+}
+
+#modal-patrimonio .modal-client-footer .btn,
+#modal-patrimonio .patrimonio-modal-footer .btn {
+  min-width: 132px;
+  min-height: 42px;
+  font-weight: 500;
+}
+
+#modal-patrimonio .modal-client-footer .btn-primary,
+#modal-patrimonio .patrimonio-modal-footer .btn-primary {
+  min-width: 190px;
+}
 
 .btn-danger-soft {
   color: var(--danger) !important;
@@ -157,21 +848,105 @@
 }
 
 /* =========================================
-   DARK — AJUSTES ESPECÍFICOS
+   VALIDAÇÃO
    ========================================= */
+
+.campo-obrigatorio-pendente input,
+.campo-obrigatorio-pendente select,
+.campo-obrigatorio-pendente textarea,
+input.campo-obrigatorio-pendente,
+select.campo-obrigatorio-pendente,
+textarea.campo-obrigatorio-pendente {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
+
+.campo-obrigatorio-pendente label {
+  color: #b91c1c !important;
+}
+
+/* =========================================
+   DARK
+   ========================================= */
+
+html[data-theme="dark"] #modal-patrimonio .cliente-modal-main,
+html[data-theme="dark"] #modal-patrimonio .patrimonio-modal-main {
+  background: var(--bg);
+}
+
+html[data-theme="dark"] #modal-patrimonio .cliente-modal-sidebar,
+html[data-theme="dark"] #modal-patrimonio .patrimonio-modal-sidebar,
+html[data-theme="dark"] #modal-patrimonio .cliente-modal-topbar,
+html[data-theme="dark"] #modal-patrimonio .patrimonio-modal-topbar,
+html[data-theme="dark"] #modal-patrimonio .cliente-main-card,
+html[data-theme="dark"] #modal-patrimonio .patrimonio-main-card,
+html[data-theme="dark"] #modal-patrimonio .custom-fields-card,
+html[data-theme="dark"] #modal-patrimonio .modal-client-footer,
+html[data-theme="dark"] #modal-patrimonio .patrimonio-modal-footer,
+html[data-theme="dark"] #modal-patrimonio .patrimonio-ficha-code-card,
+html[data-theme="dark"] #modal-patrimonio .ficha-principal-toggle,
+html[data-theme="dark"] #modal-patrimonio .patrimonio-ficha-toggle,
+html[data-theme="dark"] #modal-patrimonio .custom-section-head {
+  background: var(--panel);
+}
+
+html[data-theme="dark"] #modal-patrimonio .form-group input,
+html[data-theme="dark"] #modal-patrimonio .form-group select,
+html[data-theme="dark"] #modal-patrimonio .form-group textarea {
+  background: var(--panel);
+}
+
+html[data-theme="dark"] #modal-patrimonio input[readonly] {
+  background: var(--bg-soft);
+}
+
+html[data-theme="dark"] #modal-patrimonio .cliente-tab-btn,
+html[data-theme="dark"] #modal-patrimonio .patrimonio-tab-btn {
+  color: var(--muted) !important;
+}
+
+html[data-theme="dark"] #modal-patrimonio .cliente-tab-btn:hover,
+html[data-theme="dark"] #modal-patrimonio .cliente-tab-btn.active,
+html[data-theme="dark"] #modal-patrimonio .patrimonio-tab-btn:hover,
+html[data-theme="dark"] #modal-patrimonio .patrimonio-tab-btn.active {
+  color: var(--brand) !important;
+}
 
 html[data-theme="dark"] .status-ativo {
   color: var(--brand);
 }
 
-html[data-theme="dark"] #formPatrimonio .check-card.single,
-html[data-theme="dark"] #form-patrimonio .check-card.single {
-  background: var(--bg-soft);
-}
-
 /* =========================================
    RESPONSIVO
    ========================================= */
+
+@media (max-width: 1180px) {
+  #modal-patrimonio {
+    padding: 14px 20px !important;
+  }
+
+  #modal-patrimonio .cliente-modal-content,
+  #modal-patrimonio .patrimonio-modal-content {
+    width: calc(100vw - 40px) !important;
+    height: calc(100dvh - 28px) !important;
+    max-height: calc(100dvh - 28px) !important;
+  }
+
+  #modal-patrimonio .cliente-modal-shell,
+  #modal-patrimonio .patrimonio-modal-shell {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  #modal-patrimonio .cliente-modal-topbar,
+  #modal-patrimonio .patrimonio-modal-topbar,
+  #modal-patrimonio .cliente-modal-scroll,
+  #modal-patrimonio .patrimonio-modal-scroll,
+  #modal-patrimonio .modal-client-footer,
+  #modal-patrimonio .patrimonio-modal-footer {
+    padding-left: 34px;
+    padding-right: 34px;
+  }
+}
 
 @media (max-width: 920px) {
   .status-filter {
@@ -182,4 +957,164 @@ html[data-theme="dark"] #form-patrimonio .check-card.single {
     flex-direction: column;
     align-items: stretch;
   }
+
+  #modal-patrimonio .cliente-modal-shell,
+  #modal-patrimonio .patrimonio-modal-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  #modal-patrimonio .cliente-modal-sidebar,
+  #modal-patrimonio .patrimonio-modal-sidebar {
+    height: auto;
+    min-height: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #modal-patrimonio .cliente-sidebar-top,
+  #modal-patrimonio .patrimonio-sidebar-top {
+    display: none;
+  }
+
+  #modal-patrimonio .cliente-tabs,
+  #modal-patrimonio .cliente-sidebar-nav,
+  #modal-patrimonio .patrimonio-tabs,
+  #modal-patrimonio .patrimonio-sidebar-nav {
+    padding: 10px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+
+  #modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn,
+  #modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn {
+    width: auto !important;
+    min-height: 38px !important;
+    padding: 0 13px 0 38px !important;
+    border-radius: 10px !important;
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+
+  #modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section],
+  #modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn[data-ficha-section] {
+    padding-left: 13px !important;
+  }
+
+  #modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn::before,
+  #modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn::before {
+    display: none;
+  }
+
+  #modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn > i,
+  #modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn > i {
+    left: 14px !important;
+  }
+
+  #modal-patrimonio .cliente-sidebar-bottom,
+  #modal-patrimonio .patrimonio-sidebar-bottom {
+    display: none;
+  }
+
+  #modal-patrimonio .patrimonio-native-grid,
+  #modal-patrimonio .custom-section-card .custom-fields-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #modal-patrimonio .span-2,
+  #modal-patrimonio .span-all {
+    grid-column: 1 / -1;
+  }
+
+  #modal-patrimonio .patrimonio-ficha-code-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  #modal-patrimonio {
+    padding: 8px !important;
+  }
+
+  #modal-patrimonio .cliente-modal-content,
+  #modal-patrimonio .patrimonio-modal-content {
+    width: calc(100vw - 16px) !important;
+    height: calc(100dvh - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    border-radius: 14px;
+  }
+
+  #modal-patrimonio .cliente-modal-topbar,
+  #modal-patrimonio .patrimonio-modal-topbar {
+    min-height: auto;
+    padding: 17px;
+  }
+
+  #modal-patrimonio .cliente-modal-topbar h3,
+  #modal-patrimonio .patrimonio-modal-topbar h3 {
+    font-size: 20px;
+  }
+
+  #modal-patrimonio .cliente-status-pill,
+  #modal-patrimonio .patrimonio-status-pill {
+    display: none;
+  }
+
+  #modal-patrimonio .cliente-modal-scroll,
+  #modal-patrimonio .patrimonio-modal-scroll {
+    padding: 15px 13px 20px;
+  }
+
+  #modal-patrimonio .patrimonio-native-grid,
+  #modal-patrimonio .custom-section-card .custom-fields-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #modal-patrimonio .cliente-section-head,
+  #modal-patrimonio .patrimonio-section-head,
+  #modal-patrimonio .patrimonio-native-grid,
+  #modal-patrimonio .custom-fields-container,
+  #modal-patrimonio .custom-form-sections {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+
+  #modal-patrimonio .modal-client-footer,
+  #modal-patrimonio .patrimonio-modal-footer {
+    padding: 13px;
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  #modal-patrimonio .footer-spacer {
+    display: none;
+  }
+
+  #modal-patrimonio .modal-client-footer .btn,
+  #modal-patrimonio .patrimonio-modal-footer .btn {
+    width: 100%;
+  }
+}
+
+/* Correção: a validação global não pode quebrar o grid do modal de Patrimônio. */
+#formPatrimonio > .valora-validation-summary {
+  grid-column: 1 / -1 !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 16px 12px !important;
+  position: relative !important;
+  z-index: 5 !important;
+}
+
+#modal-patrimonio .campo-obrigatorio-pendente input,
+#modal-patrimonio .campo-obrigatorio-pendente select,
+#modal-patrimonio .campo-obrigatorio-pendente textarea,
+#modal-patrimonio input.campo-obrigatorio-pendente,
+#modal-patrimonio select.campo-obrigatorio-pendente,
+#modal-patrimonio textarea.campo-obrigatorio-pendente {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
 }

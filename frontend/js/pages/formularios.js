@@ -1070,6 +1070,21 @@
     }
   }
 
+  function syncCampoOpcoesVisibility() {
+    const tipo = qs('campo-tipo-campo')?.value || 'texto';
+    const row = qs('campo-opcoes')?.closest('.form-group');
+    if (!row) return;
+
+    const shouldShow = tipo === 'select';
+    row.hidden = !shouldShow;
+    row.classList.toggle('is-hidden', !shouldShow);
+
+    if (!shouldShow && !state.campoEditando) {
+      const input = qs('campo-opcoes');
+      if (input) input.value = '';
+    }
+  }
+
   function aplicarModoCampo(origem) {
     origem = origem || 'personalizado';
 
@@ -1130,6 +1145,7 @@
       }
     }
 
+    syncCampoOpcoesVisibility();
     atualizarCampoPreview();
   }
 
@@ -1149,6 +1165,7 @@
     if (nomeLimpo) qs('campo-label').value = nomeLimpo;
     qs('campo-tipo-campo').value = tipo || 'texto';
 
+    syncCampoOpcoesVisibility();
     atualizarCampoPreview();
   }
 
@@ -1163,6 +1180,7 @@
     if (nomeLimpo) qs('campo-label').value = nomeLimpo;
     qs('campo-tipo-campo').value = tipo || 'texto';
 
+    syncCampoOpcoesVisibility();
     atualizarCampoPreview();
   }
 
@@ -1235,6 +1253,7 @@
     if (avancado) avancado.open = false;
 
     aplicarModoCampo(origemInicial);
+    syncCampoOpcoesVisibility();
     atualizarCampoPreview();
   }
 
@@ -1785,7 +1804,10 @@
     qs('campo-sistema')?.addEventListener('change', preencherLabelPorSistema);
     qs('campo-personalizado')?.addEventListener('change', preencherLabelPorPersonalizado);
     qs('campo-label')?.addEventListener('input', atualizarCampoPreview);
-    qs('campo-tipo-campo')?.addEventListener('change', atualizarCampoPreview);
+    qs('campo-tipo-campo')?.addEventListener('change', () => {
+      syncCampoOpcoesVisibility();
+      atualizarCampoPreview();
+    });
     qs('campo-tipo-visual')?.addEventListener('change', atualizarCampoPreview);
 
     qs('secoes-container')?.addEventListener('click', (e) => {

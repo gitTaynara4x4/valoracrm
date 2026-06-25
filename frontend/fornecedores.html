@@ -28,7 +28,7 @@
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260614-global-inline" />
-  <link rel="stylesheet" href="/frontend/css/fornecedores.css?v=20260619-modal-cliente-style" />
+  <link rel="stylesheet" href="/frontend/css/fornecedores.css?v=20260620-fornecedores-igual-clientes" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
@@ -39,7 +39,7 @@
   <script src="/frontend/js/shared/ficha-principal.js?v=20260614-global-inline" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="/frontend/js/pages/fornecedores.js?v=20260614-codigos-numericos" defer></script>
+  <script src="/frontend/js/pages/fornecedores.js?v=20260620-fornecedores-igual-clientes" defer></script>
 </head>
 
 <body>
@@ -74,10 +74,6 @@
             Importar
           </button>
 
-          <button class="btn btn-secondary" type="button" id="btn-novo-campo">
-            <i class="fa-solid fa-sliders"></i>
-            Novo campo
-          </button>
 
           <button class="btn btn-primary" type="button" id="btn-novo-fornecedor">
             <i class="fa-solid fa-truck"></i>
@@ -139,23 +135,6 @@
         </div>
       </article>
 
-      <article class="panel-card fornecedores-custom-card">
-        <div class="panel-head custom-head">
-          <div>
-            <h3>Campos personalizados</h3>
-            <p>Campos exclusivos para complementar o cadastro dos fornecedores.</p>
-          </div>
-
-          <button class="btn btn-secondary btn-sm" type="button" id="btn-novo-campo-inline">
-            <i class="fa-solid fa-plus"></i>
-            Adicionar campo
-          </button>
-        </div>
-
-        <div id="lista-campos-fornecedores" class="campos-grid">
-          <div class="empty-state">Nenhum campo personalizado criado ainda.</div>
-        </div>
-      </article>
 
       <article class="panel-card panel-card-table">
         <div class="valora-table-wrapper">
@@ -492,18 +471,28 @@
                   <article class="section-card fornecedor-main-card custom-fields-card">
                     <div class="custom-fields-head">
                       <div>
-                        <span class="section-kicker">Campos configurados</span>
+                        <span class="section-kicker">Campos configurados no formulário</span>
                         <h4>Campos personalizados</h4>
                         <p>
-                          Esses campos vêm do construtor de formulários. Quando a ficha principal estiver ativa,
-                          as abas laterais viram as seções do formulário.
+                          Esses campos são definidos na tela de Formulários. Quando o formulário estiver marcado como ficha principal,
+                          o cadastro mostra apenas o código do sistema e as seções configuradas.
                         </p>
                       </div>
 
-                      <button class="btn btn-secondary btn-sm" type="button" id="btn-novo-campo-modal">
-                        <i class="fa-solid fa-plus"></i>
-                        Novo campo
+                      <button class="btn btn-secondary btn-sm" type="button" id="btn-gerenciar-formulario-fornecedor">
+                        <i class="fa-solid fa-sliders"></i>
+                        Gerenciar formulário
                       </button>
+                    </div>
+
+                    <div class="custom-fields-info">
+                      <div>
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                      </div>
+
+                      <p>
+                        Para criar, remover ou organizar campos personalizados, acesse Configurações &gt; Formulários.
+                      </p>
                     </div>
 
                     <div id="custom-fields-container" class="form-row custom-fields-grid"></div>

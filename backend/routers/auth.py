@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import re
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response, Cookie
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 
@@ -26,7 +27,7 @@ COOKIE_PATH = "/"
 COOKIE_DOMAIN = None
 COOKIE_SAMESITE = "lax"
 COOKIE_SECURE = False   # em produção com HTTPS, troque para True
-COOKIE_HTTPONLY_USER_ID = False  # deixe False se você quiser manter compatibilidade atual
+COOKIE_HTTPONLY_USER_ID = False  # mantenha False para compatibilidade atual
 
 
 # =========================================================
@@ -42,15 +43,18 @@ def get_db():
 
 # =========================================================
 # SCHEMAS
+# IMPORTANTE:
+# Aqui NÃO usamos EmailStr para evitar erro 422 automático.
+# A validação será manual, com mensagem limpa.
 # =========================================================
 class LoginIn(BaseModel):
-    email: EmailStr
+    email: str
     senha: str
     remember: bool = False
 
 
 class TokenIn(BaseModel):
-    email: EmailStr
+    email: str
     token: str
     remember: bool = False
 
@@ -58,16 +62,41 @@ class TokenIn(BaseModel):
 # =========================================================
 # HELPERS
 # =========================================================
+def normalizar_email_login(value: str) -> str:
+    email = (value or "").strip().lower()
+
+    if not email:
+        raise HTTPException(status_code=400, detail="E-mail é obrigatório.")
+
+    if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$", email):
+        raise HTTPException(
+            status_code=400,
+            detail="Informe um e-mail válido. Exemplo: nome@empresa.com.br",
+        )
+
+    return email
+
+
+def normalizar_senha_login(value: str) -> str:
+    senha = (value or "").strip()
+
+    if not senha:
+        raise HTTPException(status_code=400, detail="Senha é obrigatória.")
+
+    return senha
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     if not hashed_password:
         return False
 
     try:
-        if hashed_password.startswith("$2") or hashed_password.startswith("$pbkdf2-sha256$"):
+        if hashed_password.startswith("$pbkdf2-sha256$"):
             return pwd_context.verify(plain_password, hashed_password)
     except Exception:
         return False
 
+    # Compatibilidade antiga, caso exista senha salva em texto puro no banco.
     return plain_password == hashed_password
 
 
@@ -176,18 +205,19 @@ def build_login_response(user: Usuario, remember: bool):
 # =========================================================
 @router.post("/login")
 def login(data: LoginIn, db: Session = Depends(get_db)):
-    email = (data.email or "").strip().lower()
-    senha = (data.senha or "").strip()
+    email = normalizar_email_login(data.email)
+    senha = normalizar_senha_login(data.senha)
 
     print("[LOGIN] email recebido =", repr(email))
 
-    todos = db.query(Usuario).order_by(Usuario.id.desc()).all()
-    print("[LOGIN] usuarios encontrados no banco =", [
-        (u.id, u.email, u.empresa_id, u.ativo) for u in todos
-    ])
-
     user = db.query(Usuario).filter(Usuario.email == email).first()
-    print("[LOGIN] usuario encontrado =", user)
+
+    print("[LOGIN] usuario encontrado =", {
+        "id": getattr(user, "id", None),
+        "email": getattr(user, "email", None),
+        "empresa_id": getattr(user, "empresa_id", None),
+        "ativo": getattr(user, "ativo", None),
+    } if user else None)
 
     if not user:
         raise HTTPException(status_code=404, detail="E-mail não cadastrado.")
@@ -230,9 +260,15 @@ def login(data: LoginIn, db: Session = Depends(get_db)):
 # =========================================================
 @router.post("/login/token")
 def login_token(data: TokenIn, db: Session = Depends(get_db)):
+    email = normalizar_email_login(data.email)
+    token = (data.token or "").strip()
+
+    if not token:
+        raise HTTPException(status_code=400, detail="Código é obrigatório.")
+
     user = (
         db.query(Usuario)
-        .filter(Usuario.email == data.email.lower().strip())
+        .filter(Usuario.email == email)
         .first()
     )
 
@@ -243,7 +279,7 @@ def login_token(data: TokenIn, db: Session = Depends(get_db)):
 
     row = (
         db.query(LoginToken)
-        .filter(LoginToken.email == user.email, LoginToken.token == data.token.strip())
+        .filter(LoginToken.email == user.email, LoginToken.token == token)
         .order_by(LoginToken.id.desc())
         .first()
     )
@@ -268,7 +304,7 @@ def logout():
     response = JSONResponse(
         content={
             "ok": True,
-            "message": "Logout realizado com sucesso."
+            "message": "Logout realizado com sucesso.",
         }
     )
     clear_login_cookies(response)
@@ -292,6 +328,7 @@ def me(
         raise HTTPException(status_code=401, detail="user_id inválido.")
 
     user = db.query(Usuario).filter(Usuario.id == user_id_int).first()
+
     if not user:
         raise HTTPException(status_code=401, detail="Usuário não encontrado.")
 
@@ -301,4 +338,7 @@ def me(
         "empresa_id": user.empresa_id,
         "nome": user.nome,
         "email": user.email,
+        "cargo": user.cargo,
+        "ativo": user.ativo,
+        "papel": user.papel,
     }

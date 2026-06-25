@@ -128,7 +128,7 @@ async function importarFornecedoresFromItems(items) {
 
   const ok = await confirmDialog({
     title: 'Importar fornecedores',
-    message: `Importar ${items.length} fornecedor(es)? O sistema criará ou atualizará por código/WhatsApp.`,
+    message: `Importar ${items.length} fornecedor(es)? O sistema tentará atualizar por código/WhatsApp quando encontrar; novos registros recebem código automático.`,
     confirmText: 'Importar',
     cancelText: 'Cancelar',
   });

@@ -10,6 +10,10 @@ function parseCampoOpcoes(campo) {
   }
 }
 
+function requiredAttrs(campo) {
+  return campo?.obrigatorio ? 'data-required="true" required aria-required="true"' : 'data-required="false"';
+}
+
 export function renderCustomFieldsInputs(camposFornecedores, values = {}) {
   const container = document.getElementById('custom-fields-container');
   if (!container) return;
@@ -38,20 +42,23 @@ export function renderCustomFieldsInputs(camposFornecedores, values = {}) {
 
   ativos.forEach((campo) => {
     const slug = String(campo.slug || '').trim();
+    if (!slug) return;
+
     const id = `custom-field-${slug}`;
     const label = campo.nome || slug;
     const tipo = campo.tipo || 'texto';
     const valor = values?.[slug] ?? '';
+    const attrs = requiredAttrs(campo);
 
     const field = document.createElement('div');
-    field.className = 'form-group';
+    field.className = 'form-group custom-field-item';
+    field.dataset.customFieldWrap = slug;
 
     let html = `<label for="${id}">${escapeHtml(label)}${campo.obrigatorio ? ' *' : ''}</label>`;
 
     if (tipo === 'textarea') {
       html += `
-        <textarea id="${id}" data-custom-field="${escapeHtml(slug)}" rows="3">
-${escapeHtml(valor)}</textarea>
+        <textarea id="${id}" data-custom-field="${escapeHtml(slug)}" ${attrs} rows="3">${escapeHtml(valor)}</textarea>
       `;
     } else if (tipo === 'numero') {
       html += `
@@ -59,6 +66,7 @@ ${escapeHtml(valor)}</textarea>
           type="number"
           id="${id}"
           data-custom-field="${escapeHtml(slug)}"
+          ${attrs}
           value="${escapeHtml(valor)}"
         />
       `;
@@ -68,6 +76,7 @@ ${escapeHtml(valor)}</textarea>
           type="date"
           id="${id}"
           data-custom-field="${escapeHtml(slug)}"
+          ${attrs}
           value="${escapeHtml(valor)}"
         />
       `;
@@ -85,9 +94,10 @@ ${escapeHtml(valor)}</textarea>
             type="checkbox"
             id="${id}"
             data-custom-field="${escapeHtml(slug)}"
+            ${attrs}
             ${checked}
           />
-          <span>${escapeHtml(label)}</span>
+          <span>${escapeHtml(label)}${campo.obrigatorio ? ' *' : ''}</span>
         </label>
       `;
     } else if (tipo === 'select') {
@@ -97,6 +107,7 @@ ${escapeHtml(valor)}</textarea>
         <select
           id="${id}"
           data-custom-field="${escapeHtml(slug)}"
+          ${attrs}
           style="width:100%; height:42px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); padding:0 14px;"
         >
           <option value="">Selecione</option>
@@ -117,6 +128,7 @@ ${escapeHtml(valor)}</textarea>
           type="text"
           id="${id}"
           data-custom-field="${escapeHtml(slug)}"
+          ${attrs}
           value="${escapeHtml(valor)}"
         />
       `;
@@ -164,6 +176,7 @@ export function validateRequiredCustomFields(camposFornecedores, payload) {
       if (valor !== 'true') {
         return {
           ok: false,
+          slug: campo.slug,
           message: `O campo "${campo.nome}" é obrigatório.`,
         };
       }
@@ -173,6 +186,7 @@ export function validateRequiredCustomFields(camposFornecedores, payload) {
     if (valor == null || String(valor).trim() === '') {
       return {
         ok: false,
+        slug: campo.slug,
         message: `O campo "${campo.nome}" é obrigatório.`,
       };
     }

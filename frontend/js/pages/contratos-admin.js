@@ -88,6 +88,13 @@ function initDom() {
   dom.historicoCard = byId('historico-card');
   dom.historicoLista = byId('historico-lista');
   dom.btnRecarregarHistorico = byId('btn-recarregar-historico');
+
+  if (dom.numeroContrato) {
+    dom.numeroContrato.readOnly = true;
+    dom.numeroContrato.required = false;
+    dom.numeroContrato.setAttribute('aria-readonly', 'true');
+    dom.numeroContrato.title = 'Número gerado automaticamente pelo sistema';
+  }
 }
 
 async function apiJson(url, options = {}) {
@@ -515,6 +522,8 @@ async function preencherFormulario(contrato) {
   }
 
   dom.numeroContrato.value = contrato.numero_contrato || '';
+  dom.numeroContrato.readOnly = true;
+  dom.numeroContrato.required = false;
   dom.tipoContrato.value = contrato.tipo_contrato || 'outro';
   dom.status.value = contrato.status || 'rascunho';
   byId('valor_mensal').value = contrato.valor_mensal || '';
@@ -545,7 +554,11 @@ function montarPayload() {
   return {
     cliente_id: Number(dom.clienteId.value || 0),
     proposta_id: rawPropostaId ? Number(rawPropostaId) : null,
-    numero_contrato: String(dom.numeroContrato.value || '').trim() || null,
+    // Número de contrato é do sistema. No POST o backend reserva o número real.
+    // Na edição, o número é mantido apenas para exibição e não é alterado.
+    numero_contrato: state.contratoSelecionado?.id
+      ? String(dom.numeroContrato.value || '').trim() || null
+      : null,
     tipo_contrato: String(dom.tipoContrato.value || 'outro').trim() || 'outro',
     status: String(dom.status.value || 'rascunho').trim() || 'rascunho',
     valor_mensal: String(byId('valor_mensal').value || '').trim() || null,
@@ -574,12 +587,8 @@ async function salvarContrato(event) {
     return;
   }
 
-  if (!payload.numero_contrato) {
-    toast('Informe ou gere o número do contrato.', 'error');
-    dom.numeroContrato.focus();
-    return;
-  }
-
+  // O número é gerado/confirmado pelo backend no momento de salvar.
+  // A sugestão visível na tela é apenas prévia e não bloqueia o cadastro.
   setSaving(true);
 
   try {

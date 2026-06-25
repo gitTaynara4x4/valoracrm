@@ -103,12 +103,32 @@ function switchTab(targetId) {
 }
 
 function syncFichaPrincipalCode(codigo) {
-  const value = onlyDigits(codigo) || generateNextClientCode();
+  const value = onlyDigits(codigo);
 
   setValue('campo-codigo', value);
   setValue('campo-codigo-ficha-principal', value);
 
+  ['campo-codigo', 'campo-codigo-ficha-principal'].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+
+    el.readOnly = true;
+    el.setAttribute('readonly', 'readonly');
+    el.classList.add('codigo-sistema-readonly');
+    el.title = 'Código único gerado pelo sistema. Não pode ser alterado.';
+  });
+
   atualizarResumoSidebarCliente(currentDetail || { codigo: value });
+}
+
+async function obterProximoCodigoClienteServidor() {
+  try {
+    const data = await apiJson('/api/clientes/proximo-codigo');
+    return onlyDigits(data?.codigo);
+  } catch (err) {
+    toast(err.message || 'Não foi possível buscar o próximo código do cliente.', 'error');
+    return '';
+  }
 }
 
 function getValorResumoCliente(...ids) {
@@ -407,7 +427,7 @@ function buildBaseFromFichaPrincipal(customFields, fallback = {}) {
       onlyDigits(fallback.codigo) ||
       onlyDigits(getValue('campo-codigo')) ||
       onlyDigits(getValue('campo-codigo-ficha-principal')) ||
-      generateNextClientCode(),
+      '',
 
     tipo_pessoa: tipoPessoa,
     situacao: fallback.situacao || 'ativo',
@@ -456,7 +476,7 @@ async function fillClientForm(cliente = {}) {
   const data = { ...defaultCliente(), ...(cliente || {}) };
   currentDetail = data;
 
-  syncFichaPrincipalCode(data.codigo || generateNextClientCode());
+  syncFichaPrincipalCode(data.codigo);
 
   setValue('campo-tipo-pessoa', data.tipo_pessoa);
   setValue('campo-situacao', data.situacao);
@@ -499,7 +519,7 @@ async function fillClientForm(cliente = {}) {
 
   await renderCustomFieldsInputs(state.camposClientes, data.custom_fields || {});
 
-  syncFichaPrincipalCode(data.codigo || getValue('campo-codigo') || generateNextClientCode());
+  syncFichaPrincipalCode(data.codigo || getValue('campo-codigo'));
   setFichaPrincipalMode(state.usarFichaPrincipalClientes);
 
   renderEnderecos(data.enderecos || []);
@@ -584,10 +604,6 @@ function buildPayload() {
 
   if (state.usarFichaPrincipalClientes) {
     Object.assign(payload, buildBaseFromFichaPrincipal(customFields, payload));
-  }
-
-  if (!payload.codigo) {
-    payload.codigo = generateNextClientCode();
   }
 
   payload.codigo = onlyDigits(payload.codigo);
@@ -1246,7 +1262,7 @@ export function bindClientModal({ afterSave } = {}) {
 
   $('btn-fechar-modal-cliente')?.addEventListener('click', closeClientModal);
   $('btn-cancelar-cliente')?.addEventListener('click', closeClientModal);
-  $('btn-salvar-cliente')?.addEventListener('click', saveCliente);
+  $('formCliente')?.addEventListener('submit', saveCliente);
   $('toggle-ficha-principal-cliente')?.addEventListener('change', salvarToggleFichaPrincipalCliente);
   bindResumoSidebarCliente();
 
@@ -1360,7 +1376,8 @@ export async function openClientModalNew() {
   $('modal-cliente-titulo').textContent = 'Novo cliente';
   $('formCliente')?.reset();
 
-  await fillClientForm({ codigo: generateNextClientCode() });
+  const proximoCodigo = await obterProximoCodigoClienteServidor();
+  await fillClientForm({ codigo: proximoCodigo });
 
   openModal('modal-cliente-backdrop');
 
@@ -1574,11 +1591,14 @@ export async function saveCliente(e) {
     return;
   }
 
-  if (!payload.codigo) {
-    payload.codigo = generateNextClientCode();
+  // Código é único, fixo e pertence ao sistema.
+  // Na criação, o backend gera e decide o código real.
+  // Na edição, mantemos o código que veio do banco, mesmo que alguém altere o DOM.
+  if (!state.clienteEditandoId) {
+    delete payload.codigo;
+  } else {
+    payload.codigo = onlyDigits(currentDetail?.codigo || payload.codigo);
   }
-
-  payload.codigo = onlyDigits(payload.codigo);
 
   const btn = $('btn-salvar-cliente');
   const original = btn?.innerHTML || 'Salvar cliente';

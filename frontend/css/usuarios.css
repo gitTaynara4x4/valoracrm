@@ -425,3 +425,37 @@ html[data-theme="dark"] .avatar-preview-wrap {
     width: 100%;
   }
 }
+/* Validação local da tela de usuários */
+#form-usuario input.is-invalid,
+#form-usuario select.is-invalid,
+#form-usuario textarea.is-invalid {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
+
+
+/* Correções do modal/validação para usuários */
+#modal-usuario-backdrop[hidden],
+#Valora-confirm-backdrop[hidden] {
+  display: none !important;
+}
+
+#modal-usuario-backdrop.show,
+#Valora-confirm-backdrop.show {
+  display: flex !important;
+}
+
+#tabela-usuarios td:last-child {
+  text-align: right;
+}
+
+#tabela-usuarios td:last-child .btn-icon {
+  margin-left: 6px;
+}
+
+#form-usuario input.is-invalid,
+#form-usuario select.is-invalid,
+#form-usuario textarea.is-invalid {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}

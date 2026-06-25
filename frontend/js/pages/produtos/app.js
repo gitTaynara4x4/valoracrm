@@ -1010,11 +1010,34 @@ function preencherFormProduto(p) {
   updateProdutoControladoUI();
 }
 
+
+function desativarValidacaoGlobalProduto() {
+  const form = getEl('formProduto');
+  const btn = getEl('btn-salvar-produto');
+  form?.setAttribute('data-skip-valora-validation', 'true');
+  btn?.setAttribute('data-skip-valora-validation', 'true');
+  btn?.removeAttribute('data-valora-submit');
+  form?.querySelectorAll(':scope > .valora-validation-summary').forEach((el) => el.remove());
+}
+
+function marcarCampoObrigatorioProduto(el) {
+  if (!el) return;
+  const group = el.closest('.form-group, .Valora-field, .field-group, .section-card') || el.parentElement;
+  el.classList.add('campo-obrigatorio-pendente', 'valora-field-invalid');
+  el.setAttribute('aria-invalid', 'true');
+  group?.classList.add('campo-obrigatorio-pendente', 'is-invalid');
+  setTimeout(() => {
+    try { (group || el).scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) { (group || el).scrollIntoView?.(); }
+    try { el.focus({ preventScroll: true }); } catch (_) { el.focus?.(); }
+  }, 120);
+}
+
 /* =========================
    Modal Novo/Editar/Salvar
 ========================= */
 
 async function abrirModalProdutoNovo() {
+  desativarValidacaoGlobalProduto();
   state.produtoEditandoId = null;
   const ttl = getEl('modal-produto-titulo');
   if (ttl) ttl.textContent = 'Novo produto';
@@ -1027,6 +1050,7 @@ async function abrirModalProdutoNovo() {
 }
 
 async function abrirModalProdutoEditar(p) {
+  desativarValidacaoGlobalProduto();
   state.produtoEditandoId = p?.id ?? null;
   const ttl = getEl('modal-produto-titulo');
   if (ttl) ttl.textContent = 'Editar produto';
@@ -1038,10 +1062,12 @@ async function abrirModalProdutoEditar(p) {
 }
 
 async function salvarProduto() {
+  desativarValidacaoGlobalProduto();
   const payload = lerFormProduto();
 
   if (!payload.nome_produto && !payload.nome_generico) {
     toast('Preencha pelo menos Produto ou Nome Genérico.', 'warn', 'Validação');
+    marcarCampoObrigatorioProduto(getEl('campo-nome-produto') || getEl('campo-nome-generico'));
     return;
   }
 
@@ -1801,6 +1827,7 @@ async function onReady() {
 
   getEl('btn-fechar-modal-produto')?.addEventListener('click', fecharModalProduto);
   getEl('btn-cancelar-produto')?.addEventListener('click', fecharModalProduto);
+  desativarValidacaoGlobalProduto();
   getEl('btn-salvar-produto')?.addEventListener('click', salvarProduto);
 
   const bd = getEl('modal-produto-backdrop');

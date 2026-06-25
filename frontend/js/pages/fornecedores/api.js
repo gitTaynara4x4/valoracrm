@@ -11,13 +11,26 @@ export async function apiJson(url, options = {}) {
     },
   });
 
+  const text = await resp.text();
+
   if (!resp.ok) {
-    const txt = await resp.text();
-    throw new Error(txt || 'Erro na requisição.');
+    let message = text || 'Erro na requisição.';
+
+    try {
+      const parsed = JSON.parse(text);
+      message = parsed.detail || parsed.message || message;
+    } catch (_) {}
+
+    throw new Error(typeof message === 'string' ? message : 'Erro na requisição.');
   }
 
-  if (resp.status === 204) return null;
-  return resp.json();
+  if (resp.status === 204 || !text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    return text;
+  }
 }
 
 function montarUrlFornecedores({ offset = 0, limit = state.fornecedoresPage?.limit || 50 } = {}) {
@@ -64,12 +77,22 @@ export async function obterFornecedorNoServidor(id) {
   return apiJson(`${API_FORNECEDORES}/${id}`);
 }
 
+export async function obterProximoCodigoFornecedor() {
+  return apiJson(`${API_FORNECEDORES}/proximo-codigo`);
+}
+
 export async function salvarFornecedorNoServidor(payload, editandoId) {
   const url = editandoId == null ? API_FORNECEDORES : `${API_FORNECEDORES}/${editandoId}`;
+  const bodyPayload = { ...(payload || {}) };
+
+  // Código é do sistema: único e imutável.
+  // Nunca deixa o front decidir/alterar código de fornecedor.
+  delete bodyPayload.codigo;
+
   return apiJson(url, {
     method: editandoId == null ? 'POST' : 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(bodyPayload),
   });
 }
 

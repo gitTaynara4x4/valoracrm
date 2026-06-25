@@ -1,8 +1,7 @@
 /* =========================================
    COTAÇÕES | VALORA CRM
-   Arquivo limpo.
-   Mantém apenas estilos específicos da tela de cotações.
-   Base global fica no app.css.
+   Modal usando a mesma base visual de Clientes
+   e campos personalizados vindos de Formulários.
    ========================================= */
 
 /* =========================================
@@ -19,11 +18,6 @@
   margin-bottom: 18px;
 }
 
-/* =========================================
-   FILTROS ESPECÍFICOS DE COTAÇÕES
-   Formulários e inputs base vêm do app.css.
-   ========================================= */
-
 .cotacoes-filters-grid {
   display: grid;
   grid-template-columns: minmax(280px, 2fr) minmax(180px, 280px);
@@ -36,8 +30,7 @@
 }
 
 /* =========================================
-   TABELA — AJUSTES ESPECÍFICOS DE COTAÇÕES
-   Estrutura global da tabela fica no app.css.
+   TABELA DA PÁGINA
    ========================================= */
 
 #tbody-cotacoes td:last-child {
@@ -66,10 +59,6 @@
   gap: 6px;
 }
 
-/* =========================================
-   AÇÕES DA COTAÇÃO
-   ========================================= */
-
 .cotacao-actions {
   display: inline-flex;
   justify-content: flex-end;
@@ -81,6 +70,7 @@
   width: 34px;
   height: 34px;
   min-width: 34px;
+
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--muted);
@@ -108,21 +98,25 @@
 }
 
 /* =========================================
-   BADGES ESPECÍFICOS DE COTAÇÕES
-   Badge base existe no app.css.
+   BADGES
    ========================================= */
 
+.status-badge-cotacao,
+.urgencia-badge,
 .cotacao-best-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+
   min-height: 25px;
-  border-radius: 999px;
   padding: 0 9px;
-  color: #047857;
-  background: #D1FAE5;
+
+  border: 1px solid transparent;
+  border-radius: 999px;
+
   font-size: 11px;
   font-weight: 700;
+  line-height: 1;
   white-space: nowrap;
 }
 
@@ -196,134 +190,835 @@
   border-color: #BAE6FD;
 }
 
+.cotacao-best-badge {
+  gap: 6px;
+  color: #047857;
+  background: #D1FAE5;
+}
+
 /* =========================================
-   FORMULÁRIO DA COTAÇÃO
-   Modal base vem do app.css.
+   MODAL — BASE IGUAL CLIENTES
    ========================================= */
 
-.cotacao-section-card {
-  background: var(--panel);
+#modal-cotacao-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  padding: 20px 28px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  overflow: hidden !important;
+  background: rgba(15, 23, 42, 0.50);
+
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#modal-cotacao-backdrop[hidden] {
+  display: none !important;
+}
+
+#modal-cotacao-backdrop .cliente-modal-content,
+#modal-cotacao-backdrop .cotacao-modal-content {
+  width: min(1180px, calc(100vw - 56px)) !important;
+  height: calc(100dvh - 40px) !important;
+  max-height: calc(100dvh - 40px) !important;
+
+  padding: 0 !important;
+  border-radius: 14px;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: var(--shadow-sm);
-  margin-bottom: 20px;
+  background: var(--panel);
+  overflow: hidden !important;
+
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.22);
 }
 
-.cotacao-section-card:last-child {
-  margin-bottom: 0;
+#modal-cotacao-backdrop .cliente-modal-shell,
+#modal-cotacao-backdrop .cotacao-modal-shell {
+  height: 100% !important;
+  min-height: 0 !important;
+
+  display: grid;
+  grid-template-columns: 238px minmax(0, 1fr);
+  background: var(--panel);
+  overflow: hidden !important;
 }
 
-.cotacao-section-card .custom-section-head {
-  padding-bottom: 16px;
-  margin-bottom: 18px;
-  border-bottom: 1px solid var(--border);
-}
+/* =========================================
+   SIDEBAR — IGUAL CLIENTES
+   ========================================= */
 
-.custom-section-title {
+#modal-cotacao-backdrop .cliente-modal-sidebar,
+#modal-cotacao-backdrop .cotacao-modal-sidebar {
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+
+  border-right: 1px solid var(--border);
+  background: #ffffff;
+
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+
+  overflow: hidden !important;
 }
 
-.custom-section-icon {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  border-radius: 10px;
-  background: var(--brand-soft);
+#modal-cotacao-backdrop .cliente-sidebar-top,
+#modal-cotacao-backdrop .cotacao-sidebar-top {
+  flex: 0 0 auto;
+  padding: 28px 24px 18px;
+}
+
+#modal-cotacao-backdrop .cliente-sidebar-avatar,
+#modal-cotacao-backdrop .cotacao-sidebar-avatar {
+  width: 52px;
+  height: 52px;
+
+  border-radius: 13px;
+  border: 1px solid var(--border);
+  background: var(--panel);
   color: var(--brand);
 
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
+  font-size: 19px;
+  box-shadow: var(--shadow-sm);
 }
 
-.custom-section-title h4 {
+#modal-cotacao-backdrop .cliente-sidebar-user,
+#modal-cotacao-backdrop .cotacao-sidebar-user {
+  margin-top: 14px;
+  min-width: 0;
+}
+
+#modal-cotacao-backdrop .cliente-sidebar-user strong,
+#modal-cotacao-backdrop .cotacao-sidebar-user strong {
+  display: block;
+
   color: var(--text);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  margin: 0;
-}
-
-.custom-section-title p {
-  color: var(--muted);
   font-size: 13px;
-  margin: 2px 0 0;
-  line-height: 1.5;
+  font-weight: 600;
+  line-height: 1.3;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.cotacao-form-grid {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 20px 18px;
+#modal-cotacao-backdrop .cliente-sidebar-user span,
+#modal-cotacao-backdrop .cotacao-sidebar-user span {
+  display: block;
+  margin-top: 4px;
+
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.35;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.cotacao-form-grid .form-group,
-.cotacao-add-fornecedor .form-group {
-  margin: 0;
+#modal-cotacao-backdrop .cliente-tabs,
+#modal-cotacao-backdrop .cliente-sidebar-nav,
+#modal-cotacao-backdrop .cotacao-tabs,
+#modal-cotacao-backdrop .cotacao-sidebar-nav {
+  min-height: 0;
+  margin: 0 !important;
+  padding: 8px 0 12px !important;
+
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 2px !important;
+
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  box-shadow: none !important;
 }
 
-.cotacao-form-grid .field-small {
-  grid-column: span 2;
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn,
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn {
+  position: relative !important;
+
+  width: calc(100% - 14px) !important;
+  min-height: 44px !important;
+  margin-left: 0 !important;
+  padding: 0 14px 0 58px !important;
+
+  border: 1px solid transparent !important;
+  border-radius: 0 10px 10px 0 !important;
+  background: transparent !important;
+  color: #475569 !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.25 !important;
+  text-align: left !important;
+
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+
+  cursor: pointer;
+  transition: background-color 0.08s ease, color 0.08s ease, border-color 0.08s ease;
 }
 
-.cotacao-form-grid .field-medium {
-  grid-column: span 3;
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn::before,
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: transparent;
 }
 
-.cotacao-form-grid .field-large {
-  grid-column: span 7;
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn::after,
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn::after {
+  display: none !important;
+  content: none !important;
 }
 
-.cotacao-form-grid .span-all,
-.cotacao-add-fornecedor .span-all {
-  grid-column: 1 / -1;
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn > i,
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn > i {
+  position: absolute !important;
+  left: 30px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  color: inherit !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  opacity: 0.92 !important;
+  pointer-events: none !important;
+}
+
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn span,
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn span {
+  display: block !important;
+  min-width: 0 !important;
+  line-height: 1.25 !important;
+}
+
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn:hover,
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn:hover {
+  background: rgba(75, 195, 199, 0.07) !important;
+  color: #0f172a !important;
+}
+
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn.active,
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn.active {
+  background: rgba(75, 195, 199, 0.10) !important;
+  border-color: transparent !important;
+  color: #078f96 !important;
+  box-shadow: none !important;
+}
+
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn.active::before,
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn.active::before {
+  background: var(--brand);
+}
+
+#modal-cotacao-backdrop .cliente-sidebar-bottom,
+#modal-cotacao-backdrop .cotacao-sidebar-bottom {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding: 14px 14px 18px;
+}
+
+#modal-cotacao-backdrop .cotacao-ficha-toggle {
+  padding: 11px 12px;
+
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+#modal-cotacao-backdrop .cotacao-ficha-toggle input {
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  accent-color: var(--brand);
+}
+
+#modal-cotacao-backdrop .cotacao-ficha-toggle strong {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+#modal-cotacao-backdrop .cotacao-ficha-toggle small {
+  display: block;
+  margin-top: 3px;
+
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
 }
 
 /* =========================================
-   ADICIONAR FORNECEDOR NA COTAÇÃO
+   ÁREA PRINCIPAL — IGUAL CLIENTES
    ========================================= */
 
-.cotacao-add-fornecedor {
-  display: grid;
-  grid-template-columns: 1.1fr 1.1fr 0.7fr 0.7fr 0.7fr 1fr;
-  gap: 16px;
-  align-items: end;
+#modal-cotacao-backdrop .cliente-modal-main,
+#modal-cotacao-backdrop .cotacao-modal-main {
+  min-width: 0;
+  height: 100% !important;
+  min-height: 0 !important;
 
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) auto !important;
+
+  background: #f8fafc;
+  overflow: hidden !important;
+}
+
+#modal-cotacao-backdrop .cliente-modal-topbar,
+#modal-cotacao-backdrop .cotacao-modal-topbar {
+  flex: 0 0 auto !important;
+  min-height: 102px;
+  padding: 30px 48px 22px;
+
+  border-bottom: 1px solid var(--border);
+  background: #ffffff;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+#modal-cotacao-backdrop .cliente-modal-topbar h3,
+#modal-cotacao-backdrop .cotacao-modal-topbar h3 {
+  margin: 0;
+
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+#modal-cotacao-backdrop .cotacao-modal-topbar .section-kicker + h3 {
+  margin-top: 3px;
+}
+
+#modal-cotacao-backdrop .cliente-modal-topbar p,
+#modal-cotacao-backdrop .cotacao-modal-topbar p {
+  margin: 7px 0 0;
+
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.section-kicker {
+  display: block;
+  margin: 0 0 5px !important;
+
+  color: var(--brand);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#modal-cotacao-backdrop .cliente-modal-top-actions,
+#modal-cotacao-backdrop .cotacao-modal-top-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#modal-cotacao-backdrop .cliente-status-pill,
+#modal-cotacao-backdrop .cotacao-status-pill {
+  min-height: 32px;
+  padding: 0 12px;
+
+  border-radius: 9px;
+  border: 1px solid rgba(34, 197, 94, 0.18);
+  background: rgba(34, 197, 94, 0.09);
+  color: #15803D;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#modal-cotacao-backdrop .cliente-status-pill i,
+#modal-cotacao-backdrop .cotacao-status-pill i {
+  font-size: 8px;
+}
+
+#modal-cotacao-backdrop .btn-close {
+  width: 36px;
+  height: 36px;
+
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  box-shadow: none;
+}
+
+#modal-cotacao-backdrop .btn-close:hover {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.07);
+  color: var(--danger);
+}
+
+#modal-cotacao-backdrop .cliente-modal-scroll,
+#modal-cotacao-backdrop .cotacao-modal-scroll {
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+
+  padding: 28px 48px 34px;
+
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* =========================================
+   TABS
+   ========================================= */
+
+#modal-cotacao-backdrop .cliente-tab,
+#modal-cotacao-backdrop .cotacao-tab {
+  display: none;
+}
+
+#modal-cotacao-backdrop .cliente-tab.active,
+#modal-cotacao-backdrop .cotacao-tab.active {
+  display: block;
+  animation: none !important;
+}
+
+/* =========================================
+   CARDS — IGUAL CLIENTES
+   ========================================= */
+
+#modal-cotacao-backdrop .cliente-main-card,
+#modal-cotacao-backdrop .cotacao-section-card {
+  margin-bottom: 20px;
+  padding: 0;
+
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+
+  overflow: hidden;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+#modal-cotacao-backdrop .cliente-main-card:last-child,
+#modal-cotacao-backdrop .cotacao-section-card:last-child {
+  margin-bottom: 0;
+}
+
+#modal-cotacao-backdrop .cliente-section-head,
+#modal-cotacao-backdrop .cotacao-section-head {
+  padding: 22px 26px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+#modal-cotacao-backdrop .cliente-section-head h4,
+#modal-cotacao-backdrop .cotacao-section-head h4 {
+  margin: 0;
+
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+#modal-cotacao-backdrop .cotacao-section-head p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* =========================================
+   FORMULÁRIO
+   ========================================= */
+
+#modal-cotacao-backdrop .cotacao-form-grid,
+#modal-cotacao-backdrop .cotacao-add-fornecedor {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px 18px;
+
+  padding: 20px 26px 26px;
+  margin: 0;
+}
+
+#modal-cotacao-backdrop .cotacao-add-fornecedor {
+  margin: 20px 26px 0;
   padding: 18px;
   background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: 12px;
 }
 
-.cotacao-add-btn {
+#modal-cotacao-backdrop .cotacao-form-grid .form-group,
+#modal-cotacao-backdrop .cotacao-add-fornecedor .form-group {
+  margin: 0;
+}
+
+#modal-cotacao-backdrop .span-2 {
+  grid-column: span 2;
+}
+
+#modal-cotacao-backdrop .span-all {
+  grid-column: 1 / -1;
+}
+
+#modal-cotacao-backdrop .form-group label {
+  margin-bottom: 8px;
+
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+#modal-cotacao-backdrop .form-group input,
+#modal-cotacao-backdrop .form-group select,
+#modal-cotacao-backdrop .form-group textarea {
+  width: 100%;
+  min-height: 42px;
+
+  border-radius: 9px;
+  border: 1px solid #dfe7f1;
+  background: #ffffff;
+  color: var(--text);
+
+  font-size: 13px;
+  font-weight: 400;
+}
+
+#modal-cotacao-backdrop .form-group textarea {
+  min-height: 76px;
+  padding-top: 12px;
+  resize: vertical;
+}
+
+#modal-cotacao-backdrop .form-group input:focus,
+#modal-cotacao-backdrop .form-group select:focus,
+#modal-cotacao-backdrop .form-group textarea:focus {
+  border-color: rgba(75, 195, 199, 0.68);
+  box-shadow: 0 0 0 3px rgba(75, 195, 199, 0.12);
+}
+
+#modal-cotacao-backdrop input[readonly] {
+  background: #f8fafc;
+  color: var(--text);
+  font-weight: 400;
+}
+
+#modal-cotacao-backdrop .cotacao-add-btn {
   grid-column: 1 / -1;
   justify-self: flex-start;
 }
 
 /* =========================================
-   COMPARATIVO
+   CAMPOS PERSONALIZADOS DO FORMULÁRIO
    ========================================= */
 
-.cotacao-comparativo {
+#modal-cotacao-backdrop #custom-fields-container.custom-form-sections {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 16px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  align-items: stretch !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+#modal-cotacao-backdrop #custom-fields-container.custom-form-sections > .custom-section-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  grid-column: 1 / -1 !important;
+}
+
+#formCotacao.is-ficha-principal .custom-fields-head,
+#formCotacao.is-ficha-principal .custom-fields-info {
+  display: none !important;
+}
+
+#formCotacao.is-ficha-principal .custom-fields-card {
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  background: transparent !important;
+  margin-bottom: 0 !important;
+  overflow: visible !important;
+}
+
+#formCotacao.is-ficha-principal .cotacao-tab,
+#formCotacao.is-ficha-principal .cliente-tab {
+  display: none !important;
+}
+
+#formCotacao.is-ficha-principal #tab-cotacao-campos {
+  display: block !important;
+  animation: none !important;
+}
+
+#modal-cotacao-backdrop .cotacao-ficha-code-card {
+  margin-bottom: 16px;
+  padding: 18px 20px !important;
+
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+
+  overflow: visible !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px) !important;
+  gap: 18px !important;
+  align-items: end !important;
+}
+
+#modal-cotacao-backdrop .cotacao-ficha-code-card[hidden] {
+  display: none !important;
+}
+
+#modal-cotacao-backdrop .cotacao-ficha-code-card h4 {
+  margin: 0 0 6px !important;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+#modal-cotacao-backdrop .cotacao-ficha-code-card p {
+  margin: 0 !important;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+#modal-cotacao-backdrop .cotacao-ficha-code-field {
+  margin: 0 !important;
+}
+
+#formCotacao .custom-section-card {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--panel);
+  margin-bottom: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+#formCotacao .custom-section-card:last-child {
+  margin-bottom: 0;
+}
+
+#formCotacao .custom-section-head {
+  padding: 16px 18px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--border);
+}
+
+#formCotacao .custom-section-title {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 12px;
+}
+
+#formCotacao .custom-section-icon {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+
+  border-radius: 11px;
+  background: rgba(75, 195, 199, 0.12);
+  color: var(--brand);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 13px;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+#formCotacao .custom-section-head h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+#formCotacao .custom-section-head p {
+  max-width: 760px;
+  margin: 5px 0 0;
+  color: #52627a;
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+#formCotacao .custom-section-card .custom-fields-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px 16px !important;
+  padding: 18px !important;
+  margin-top: 0 !important;
+}
+
+#formCotacao .custom-section-card .custom-field-item.span-all,
+#formCotacao .custom-section-card .form-group.span-all,
+#formCotacao .custom-section-card .custom-field-item.bitrix-field-full,
+#formCotacao .custom-section-card .form-group.bitrix-field-full {
+  grid-column: 1 / -1 !important;
+}
+
+#formCotacao .custom-section-card .custom-field-item.span-2,
+#formCotacao .custom-section-card .form-group.span-2,
+#formCotacao .custom-section-card .custom-field-item.bitrix-field-half,
+#formCotacao .custom-section-card .form-group.bitrix-field-half {
+  grid-column: span 2 !important;
+}
+
+#formCotacao .custom-section-card .custom-field-item.bitrix-field-normal {
+  grid-column: auto !important;
+}
+
+#formCotacao .custom-fields-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  padding: 22px 26px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+#formCotacao .custom-fields-head h4 {
+  margin: 0 0 5px;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+#formCotacao .custom-fields-head p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.55;
+}
+
+#formCotacao .custom-fields-info {
+  margin: 18px 26px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-soft);
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+#formCotacao .custom-fields-info i {
+  color: var(--brand);
+}
+
+#formCotacao .custom-fields-info p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+#formCotacao .custom-fields-card > #custom-fields-container {
+  margin: 18px 26px 26px !important;
+}
+
+/* =========================================
+   FORNECEDORES COTADOS
+   ========================================= */
+
+#modal-cotacao-backdrop .cotacao-comparativo {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-  margin-top: 18px;
+
+  margin: 18px 26px 0;
 }
 
-.cotacao-comparativo-item {
+#modal-cotacao-backdrop .cotacao-comparativo-item {
   min-height: 72px;
+
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--panel);
+
   padding: 14px 16px;
   box-shadow: var(--shadow-sm);
 }
 
-.cotacao-comparativo-item span {
+#modal-cotacao-backdrop .cotacao-comparativo-item span {
   display: block;
   color: var(--muted);
   font-size: 12px;
@@ -331,39 +1026,46 @@
   margin-bottom: 4px;
 }
 
-.cotacao-comparativo-item strong {
+#modal-cotacao-backdrop .cotacao-comparativo-item strong {
   color: var(--text);
   font-size: 18px;
   font-weight: 600;
 }
 
-/* =========================================
-   FORNECEDORES COTADOS
-   ========================================= */
+#modal-cotacao-backdrop .fornecedores-cotados-wrapper {
+  margin: 18px 26px 26px;
+  width: auto;
 
-.fornecedores-cotados-wrapper {
-  margin-top: 18px;
-  width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-.fornecedores-cotados-table {
+#modal-cotacao-backdrop .fornecedores-cotados-table {
   min-width: 1060px;
 }
 
-.fornecedores-cotados-table th,
-.fornecedores-cotados-table td {
+#modal-cotacao-backdrop .fornecedores-cotados-table th,
+#modal-cotacao-backdrop .fornecedores-cotados-table td {
   vertical-align: middle;
 }
 
-.fornecedores-cotados-table input,
-.fornecedores-cotados-table select {
+#modal-cotacao-backdrop .fornecedores-cotados-table input,
+#modal-cotacao-backdrop .fornecedores-cotados-table select {
   min-height: 38px;
   height: 38px;
+
   border-radius: 8px;
   padding: 0 10px;
+
   font-size: 13px;
+}
+
+#modal-cotacao-backdrop .fornecedores-cotados-table td:nth-child(2) {
+  min-width: 260px;
+}
+
+#modal-cotacao-backdrop .fornecedores-cotados-table td:nth-child(2) select {
+  margin-bottom: 8px;
 }
 
 .fornecedor-vencedor-radio {
@@ -377,13 +1079,24 @@
 }
 
 /* =========================================
-   FOOTER ESPECÍFICO DO MODAL DE COTAÇÃO
-   Base do modal-footer vem do app.css.
+   FOOTER — IGUAL CLIENTES
    ========================================= */
 
-.cotacao-modal-footer {
+#modal-cotacao-backdrop .modal-client-footer,
+#modal-cotacao-backdrop .cotacao-modal-footer {
+  flex: 0 0 auto !important;
+  min-height: 74px;
+  padding: 15px 42px;
+
+  border-top: 1px solid var(--border);
+  background: #ffffff;
+
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
+
+  box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.035);
 }
 
 .cotacao-footer-left,
@@ -398,17 +1111,20 @@
   margin-right: auto;
 }
 
-.cotacao-empty-help {
-  padding: 22px;
-  color: var(--muted);
-  text-align: center;
-  font-size: 13px;
-  line-height: 1.5;
+#modal-cotacao-backdrop .modal-client-footer .btn,
+#modal-cotacao-backdrop .cotacao-modal-footer .btn {
+  min-width: 132px;
+  min-height: 42px;
+  font-weight: 500;
+}
+
+#modal-cotacao-backdrop .modal-client-footer .btn-primary,
+#modal-cotacao-backdrop .cotacao-modal-footer .btn-primary {
+  min-width: 170px;
 }
 
 /* =========================================
    PAGINAÇÃO
-   Base global existe no app.css.
    ========================================= */
 
 #paginacao-cotacoes,
@@ -427,53 +1143,87 @@
 }
 
 /* =========================================
-   DARK — AJUSTES ESPECÍFICOS
+   DARK
    ========================================= */
 
-html[data-theme="dark"] .cotacao-section-card,
-html[data-theme="dark"] .cotacao-comparativo-item {
+html[data-theme="dark"] #modal-cotacao-backdrop .cliente-modal-main,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-modal-main {
+  background: var(--bg);
+}
+
+html[data-theme="dark"] #modal-cotacao-backdrop .cliente-modal-sidebar,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-modal-sidebar,
+html[data-theme="dark"] #modal-cotacao-backdrop .cliente-modal-topbar,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-modal-topbar,
+html[data-theme="dark"] #modal-cotacao-backdrop .cliente-main-card,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-section-card,
+html[data-theme="dark"] #modal-cotacao-backdrop .modal-client-footer,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-modal-footer,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-comparativo-item,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-ficha-toggle,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-ficha-code-card,
+html[data-theme="dark"] #formCotacao .custom-section-head,
+html[data-theme="dark"] #formCotacao .custom-section-card {
   background: var(--panel);
 }
 
-html[data-theme="dark"] .cotacao-add-fornecedor {
+html[data-theme="dark"] #modal-cotacao-backdrop .form-group input,
+html[data-theme="dark"] #modal-cotacao-backdrop .form-group select,
+html[data-theme="dark"] #modal-cotacao-backdrop .form-group textarea {
+  background: var(--panel);
+}
+
+html[data-theme="dark"] #modal-cotacao-backdrop input[readonly],
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-add-fornecedor,
+html[data-theme="dark"] #formCotacao .custom-fields-info {
   background: var(--bg-soft);
 }
 
-html[data-theme="dark"] .cotacao-row-vencedor td {
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-row-vencedor td {
   background: rgba(75, 195, 199, 0.10);
+}
+
+html[data-theme="dark"] #modal-cotacao-backdrop .cliente-tab-btn,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-tab-btn {
+  color: var(--muted) !important;
+}
+
+html[data-theme="dark"] #modal-cotacao-backdrop .cliente-tab-btn:hover,
+html[data-theme="dark"] #modal-cotacao-backdrop .cliente-tab-btn.active,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-tab-btn:hover,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-tab-btn.active {
+  color: var(--brand) !important;
 }
 
 /* =========================================
    RESPONSIVO
    ========================================= */
 
-@media (max-width: 1100px) {
-  .cotacoes-filters-grid,
-  .cotacao-form-grid,
-  .cotacao-add-fornecedor {
-    grid-template-columns: 1fr;
+@media (max-width: 1180px) {
+  #modal-cotacao-backdrop {
+    padding: 14px 20px !important;
   }
 
-  .cotacao-form-grid .field-small,
-  .cotacao-form-grid .field-medium,
-  .cotacao-form-grid .field-large,
-  .cotacao-form-grid .span-all,
-  .cotacao-add-fornecedor .span-all {
-    grid-column: 1 / -1;
+  #modal-cotacao-backdrop .cliente-modal-content,
+  #modal-cotacao-backdrop .cotacao-modal-content {
+    width: calc(100vw - 40px) !important;
+    height: calc(100dvh - 28px) !important;
+    max-height: calc(100dvh - 28px) !important;
   }
 
-  .cotacao-comparativo {
-    grid-template-columns: 1fr;
+  #modal-cotacao-backdrop .cliente-modal-shell,
+  #modal-cotacao-backdrop .cotacao-modal-shell {
+    grid-template-columns: 220px minmax(0, 1fr);
   }
 
-  .cotacao-modal-footer {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .cotacao-footer-left,
-  .cotacao-footer-right {
-    justify-content: flex-end;
+  #modal-cotacao-backdrop .cliente-modal-topbar,
+  #modal-cotacao-backdrop .cotacao-modal-topbar,
+  #modal-cotacao-backdrop .cliente-modal-scroll,
+  #modal-cotacao-backdrop .cotacao-modal-scroll,
+  #modal-cotacao-backdrop .modal-client-footer,
+  #modal-cotacao-backdrop .cotacao-modal-footer {
+    padding-left: 34px;
+    padding-right: 34px;
   }
 }
 
@@ -486,10 +1236,179 @@ html[data-theme="dark"] .cotacao-row-vencedor td {
     padding: 18px !important;
   }
 
+  #modal-cotacao-backdrop .cliente-modal-shell,
+  #modal-cotacao-backdrop .cotacao-modal-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  #modal-cotacao-backdrop .cliente-modal-sidebar,
+  #modal-cotacao-backdrop .cotacao-modal-sidebar {
+    height: auto;
+    min-height: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #modal-cotacao-backdrop .cliente-sidebar-top,
+  #modal-cotacao-backdrop .cotacao-sidebar-top {
+    display: none;
+  }
+
+  #modal-cotacao-backdrop .cliente-tabs,
+  #modal-cotacao-backdrop .cliente-sidebar-nav,
+  #modal-cotacao-backdrop .cotacao-tabs,
+  #modal-cotacao-backdrop .cotacao-sidebar-nav {
+    padding: 10px !important;
+
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+
+  #modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn,
+  #modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn {
+    width: auto !important;
+    min-height: 38px !important;
+    padding: 0 13px 0 38px !important;
+    border-radius: 10px !important;
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+
+  #modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn::before,
+  #modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn::before {
+    display: none;
+  }
+
+  #modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn > i,
+  #modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn > i {
+    left: 14px !important;
+  }
+
+  #modal-cotacao-backdrop .cliente-sidebar-bottom,
+  #modal-cotacao-backdrop .cotacao-sidebar-bottom {
+    display: none;
+  }
+
+  #modal-cotacao-backdrop .cotacao-form-grid,
+  #modal-cotacao-backdrop .cotacao-add-fornecedor {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #modal-cotacao-backdrop .span-2,
+  #modal-cotacao-backdrop .span-all {
+    grid-column: 1 / -1;
+  }
+
+  #modal-cotacao-backdrop .cotacao-comparativo {
+    grid-template-columns: 1fr;
+  }
+
+  #formCotacao .custom-section-card .custom-fields-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
   #paginacao-cotacoes,
   #pagination-cotacoes {
     justify-content: center;
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 760px) {
+  #modal-cotacao-backdrop {
+    padding: 8px !important;
+  }
+
+  #modal-cotacao-backdrop .cliente-modal-content,
+  #modal-cotacao-backdrop .cotacao-modal-content {
+    width: calc(100vw - 16px) !important;
+    height: calc(100dvh - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    border-radius: 14px;
+  }
+
+  #modal-cotacao-backdrop .cliente-modal-topbar,
+  #modal-cotacao-backdrop .cotacao-modal-topbar {
+    min-height: auto;
+    padding: 17px;
+  }
+
+  #modal-cotacao-backdrop .cliente-modal-topbar h3,
+  #modal-cotacao-backdrop .cotacao-modal-topbar h3 {
+    font-size: 20px;
+  }
+
+  #modal-cotacao-backdrop .cliente-modal-topbar p,
+  #modal-cotacao-backdrop .cotacao-modal-topbar p {
+    font-size: 13px;
+  }
+
+  #modal-cotacao-backdrop .cliente-status-pill,
+  #modal-cotacao-backdrop .cotacao-status-pill {
+    display: none;
+  }
+
+  #modal-cotacao-backdrop .cliente-modal-scroll,
+  #modal-cotacao-backdrop .cotacao-modal-scroll {
+    padding: 15px 13px 20px;
+  }
+
+  #modal-cotacao-backdrop .cotacao-form-grid,
+  #modal-cotacao-backdrop .cotacao-add-fornecedor,
+  #formCotacao .custom-section-card .custom-fields-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #modal-cotacao-backdrop .cliente-section-head,
+  #modal-cotacao-backdrop .cotacao-section-head,
+  #modal-cotacao-backdrop .cotacao-form-grid {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+
+  #modal-cotacao-backdrop .cotacao-add-fornecedor,
+  #modal-cotacao-backdrop .cotacao-comparativo,
+  #modal-cotacao-backdrop .fornecedores-cotados-wrapper,
+  #formCotacao .custom-fields-info,
+  #formCotacao .custom-fields-card > #custom-fields-container {
+    margin-left: 15px !important;
+    margin-right: 15px !important;
+  }
+
+  #formCotacao .custom-fields-head {
+    flex-direction: column;
+    align-items: stretch;
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+
+  #formCotacao .custom-fields-head .btn {
+    width: 100%;
+  }
+
+  #modal-cotacao-backdrop .cotacao-ficha-code-card {
+    grid-template-columns: 1fr !important;
+    align-items: stretch !important;
+    padding: 16px !important;
+  }
+
+  #modal-cotacao-backdrop .modal-client-footer,
+  #modal-cotacao-backdrop .cotacao-modal-footer {
+    padding: 13px;
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  #modal-cotacao-backdrop .cotacao-footer-left,
+  #modal-cotacao-backdrop .cotacao-footer-right,
+  #modal-cotacao-backdrop .modal-client-footer .btn,
+  #modal-cotacao-backdrop .cotacao-modal-footer .btn {
+    width: 100%;
   }
 }
 
@@ -501,17 +1420,38 @@ html[data-theme="dark"] .cotacao-row-vencedor td {
   .cotacoes-filter-card .panel-head {
     margin-bottom: 14px;
   }
+}
 
-  .cotacao-section-card {
-    padding: 18px;
-  }
+/* =========================================
+   VALIDAÇÃO
+   ========================================= */
 
-  .cotacao-add-fornecedor {
-    padding: 14px;
-  }
+.campo-obrigatorio-pendente input,
+.campo-obrigatorio-pendente select,
+.campo-obrigatorio-pendente textarea,
+input.campo-obrigatorio-pendente,
+select.campo-obrigatorio-pendente,
+textarea.campo-obrigatorio-pendente {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
 
-  .cotacao-footer-left .btn,
-  .cotacao-footer-right .btn {
-    width: 100%;
-  }
+.campo-obrigatorio-pendente label {
+  color: #b91c1c !important;
+}
+
+
+/* Destaque usado pelo foco automático em campos obrigatórios. */
+.is-required-missing input,
+.is-required-missing select,
+.is-required-missing textarea,
+input.is-required-missing,
+select.is-required-missing,
+textarea.is-required-missing {
+  border-color: rgba(239, 68, 68, 0.75) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
+
+.is-required-missing label {
+  color: #b91c1c !important;
 }

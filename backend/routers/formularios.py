@@ -41,23 +41,27 @@ def _int_cookie(request: Request, name: str) -> int:
 
 
 def validar_usuario_empresa(request: Request, db: Session) -> int:
-    empresa_id = _int_cookie(request, "empresa_id")
+    # O user_id é a fonte segura da sessão.
+    # Não confie no cookie empresa_id para validar a empresa, porque ele pode ficar
+    # antigo no navegador e causar o erro: "Usuário inválido para esta empresa".
     user_id = _int_cookie(request, "user_id")
 
     usuario = (
         db.query(models.Usuario)
         .filter(models.Usuario.id == user_id)
-        .filter(models.Usuario.empresa_id == empresa_id)
         .first()
     )
 
     if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário inválido para esta empresa.")
+        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
+
+    if getattr(usuario, "empresa_id", None) is None:
+        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
 
     if hasattr(usuario, "ativo") and usuario.ativo is False:
         raise HTTPException(status_code=403, detail="Usuário inativo.")
 
-    return empresa_id
+    return int(usuario.empresa_id)
 
 
 # =========================================================

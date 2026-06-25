@@ -297,6 +297,34 @@ function generateNextFornecedorCode() {
   return String(proximoId).padStart(4, '0');
 }
 
+async function obterProximoCodigoFornecedorNoServidor() {
+  try {
+    const data = await apiJson(`${API_FORNECEDORES}/proximo-codigo`);
+    const codigo = onlyDigits(data?.codigo || data?.proximo_codigo || '');
+
+    if (codigo) {
+      return codigo;
+    }
+  } catch (err) {
+    console.warn('[Valora][Fornecedores] Falha ao buscar próximo código:', err);
+  }
+
+  return generateNextFornecedorCode();
+}
+
+function setCodigoFornecedorReadonly() {
+  ['campo-codigo-fornecedor', 'campo-codigo-ficha-principal-fornecedor'].forEach((id) => {
+    const el = $(id);
+
+    if (!el) return;
+
+    el.readOnly = true;
+    el.setAttribute('readonly', 'readonly');
+    el.classList.add('is-system-code');
+    el.title = 'Código único gerado pelo sistema. Não pode ser alterado.';
+  });
+}
+
 function pick(obj, keys, fallback = '') {
   for (const key of keys) {
     const value = obj?.[key];
@@ -732,9 +760,10 @@ function switchFornecedorTab(targetId) {
 }
 
 function syncFornecedorFichaCode(codigo) {
-  const value = onlyDigits(codigo) || generateNextFornecedorCode();
+  const value = onlyDigits(codigo);
   setValue('campo-codigo-fornecedor', value);
   setValue('campo-codigo-ficha-principal-fornecedor', value);
+  setCodigoFornecedorReadonly();
 }
 
 function ensureFichaFornecedorController() {
@@ -807,7 +836,7 @@ function buildBaseFromFornecedorFichaPrincipal(customFields, fallback = {}) {
       onlyDigits(fallback.codigo) ||
       onlyDigits(getValue('campo-codigo-fornecedor')) ||
       onlyDigits(getValue('campo-codigo-ficha-principal-fornecedor')) ||
-      generateNextFornecedorCode(),
+      '',
     tipo_fornecedor: getCustomValue(custom, ['tipo_fornecedor', 'tipo'], fallback.tipo_fornecedor || fallback.tipo || ''),
     tipo: getCustomValue(custom, ['tipo_fornecedor', 'tipo'], fallback.tipo || fallback.tipo_fornecedor || ''),
     situacao: normalizeSituacao(getCustomValue(custom, ['situacao', 'status'], fallback.situacao || 'ativo')),
@@ -897,7 +926,7 @@ async function fillFornecedorForm(fornecedor = {}) {
   const data = { ...defaultFornecedor(), ...(fornecedor || {}) };
   fornecedorAtualDetalhe = data;
 
-  syncFornecedorFichaCode(onlyDigits(data.codigo) || generateNextFornecedorCode());
+  syncFornecedorFichaCode(onlyDigits(data.codigo));
   setValue('campo-tipo-fornecedor', pick(data, ['tipo_fornecedor', 'tipo'], ''));
   setValue('campo-situacao-fornecedor', normalizeSituacao(data.situacao));
 
@@ -931,7 +960,7 @@ async function fillFornecedorForm(fornecedor = {}) {
   setValue('campo-observacoes-fornecedor', data.observacoes);
 
   await renderCustomFieldsInputs(data.custom_fields || {});
-  syncFornecedorFichaCode(onlyDigits(data.codigo) || onlyDigits(getValue('campo-codigo-fornecedor')) || generateNextFornecedorCode());
+  syncFornecedorFichaCode(onlyDigits(data.codigo) || onlyDigits(getValue('campo-codigo-fornecedor')));
   aplicarModoFichaFornecedor();
   switchFornecedorTab(usarFichaPrincipalFornecedores ? 'tab-fornecedor-campos' : 'tab-fornecedor-cadastro');
 }
@@ -990,10 +1019,6 @@ function buildFornecedorPayload() {
 
   payload.codigo = onlyDigits(payload.codigo);
 
-  if (!payload.codigo) {
-    payload.codigo = generateNextFornecedorCode();
-  }
-
   return payload;
 }
 
@@ -1003,8 +1028,11 @@ async function abrirModalFornecedorNovo() {
   $('modal-fornecedor-titulo').textContent = 'Novo fornecedor';
   $('formFornecedor')?.reset();
 
-  const novo = { ...defaultFornecedor(), codigo: generateNextFornecedorCode() };
+  const novo = { ...defaultFornecedor(), codigo: '' };
   await fillFornecedorForm(novo);
+
+  const proximoCodigo = await obterProximoCodigoFornecedorNoServidor();
+  syncFornecedorFichaCode(proximoCodigo);
 
   openModal('modal-fornecedor-backdrop');
 }
@@ -1034,6 +1062,12 @@ async function salvarFornecedor(event) {
   if (!validateRequiredCustomFields()) return;
 
   const payload = buildFornecedorPayload();
+
+  // Código é único, gerado pelo sistema e imutável.
+  // Na criação, o backend decide o código real; na edição, o backend ignora qualquer alteração.
+  if (!fornecedorEditandoId) {
+    delete payload.codigo;
+  }
 
   if (!payload.nome) {
     toast('Preencha o nome do fornecedor.', 'error');
@@ -1664,9 +1698,10 @@ function bindTopActions() {
   $('formFornecedor')?.addEventListener('submit', salvarFornecedor);
   $('toggle-ficha-principal-fornecedor')?.addEventListener('change', salvarToggleFichaPrincipalFornecedor);
 
-  $('btn-novo-campo')?.addEventListener('click', abrirModalCampoNovo);
-  $('btn-novo-campo-inline')?.addEventListener('click', abrirModalCampoNovo);
-  $('btn-novo-campo-modal')?.addEventListener('click', abrirModalCampoNovo);
+  $('btn-gerenciar-formulario-fornecedor')?.addEventListener('click', () => {
+    window.location.href = '/frontend/formularios.html?modulo=fornecedores';
+  });
+
   $('btn-fechar-modal-campo')?.addEventListener('click', fecharModalCampo);
   $('btn-cancelar-campo')?.addEventListener('click', fecharModalCampo);
   $('btn-salvar-campo')?.addEventListener('click', salvarCampo);

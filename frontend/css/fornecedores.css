@@ -659,6 +659,42 @@
   letter-spacing: 0.08em;
 }
 
+
+
+.custom-fields-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  margin: 18px 26px 0;
+  padding: 12px 14px;
+
+  border: 1px solid rgba(75, 195, 199, 0.20);
+  background: rgba(75, 195, 199, 0.08);
+  border-radius: 10px;
+}
+
+.custom-fields-info div {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+
+  border-radius: 10px;
+  background: var(--brand);
+  color: #ffffff;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-fields-info p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 #modal-fornecedor-backdrop .fornecedor-ficha-code-card h4 {
   margin: 0 0 6px !important;
 

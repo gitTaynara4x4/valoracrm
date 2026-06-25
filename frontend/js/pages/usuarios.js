@@ -17,6 +17,7 @@ const stateUsuarios = {
   filtrados: [],
   editandoId: null,
   currentUser: null,
+  fotoBase64: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -32,6 +33,35 @@ function escapeHtml(value) {
 
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+function isEmailValido(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(String(email || "").trim());
+}
+
+function limparErroCampo(el) {
+  if (!el) return;
+  el.classList.remove("is-invalid", "field-invalid", "input-error");
+}
+
+function marcarErroCampo(el, msg) {
+  if (!el) return;
+  el.classList.add("is-invalid");
+
+  const modalBody = el.closest(".modal-body");
+  if (modalBody && typeof el.scrollIntoView === "function") {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  setTimeout(() => {
+    try {
+      el.focus({ preventScroll: true });
+    } catch (_) {
+      el.focus();
+    }
+  }, 120);
+
+  if (msg) toast(msg, true);
 }
 
 function roleLabel(role) {
@@ -109,7 +139,9 @@ function confirmDialog({
   $("Valora-confirm-cancel").textContent = cancelText;
 
   if (!backdrop) return Promise.resolve(false);
-  backdrop.classList.add("show");
+  backdrop.hidden = false;
+  backdrop.style.display = "flex";
+  requestAnimationFrame(() => backdrop.classList.add("show"));
 
   return new Promise((resolve) => {
     _confirmResolver = resolve;
@@ -118,7 +150,13 @@ function confirmDialog({
 
 function closeConfirm(result = false) {
   const backdrop = $("Valora-confirm-backdrop");
-  if (backdrop) backdrop.classList.remove("show");
+  if (backdrop) {
+    backdrop.classList.remove("show");
+    setTimeout(() => {
+      backdrop.hidden = true;
+      backdrop.style.display = "none";
+    }, 160);
+  }
 
   if (typeof _confirmResolver === "function") {
     const fn = _confirmResolver;
@@ -128,15 +166,29 @@ function closeConfirm(result = false) {
 }
 
 function openModal(edicao = false) {
-  if (window.ValoraModal) window.ValoraModal.open('modal-usuario-backdrop');
-  else $('modal-usuario-backdrop')?.classList.add('show');
+  const backdrop = $('modal-usuario-backdrop');
+  if (window.ValoraModal) {
+    window.ValoraModal.open('modal-usuario-backdrop');
+  } else if (backdrop) {
+    backdrop.hidden = false;
+    backdrop.style.display = 'flex';
+    requestAnimationFrame(() => backdrop.classList.add('show'));
+  }
   $('modal-title').textContent = edicao ? 'Editar usuário' : 'Novo usuário';
   setTimeout(() => $('usuario-nome')?.focus(), 80);
 }
 
 function closeModal() {
-  if (window.ValoraModal) window.ValoraModal.close('modal-usuario-backdrop');
-  else $('modal-usuario-backdrop')?.classList.remove('show');
+  const backdrop = $('modal-usuario-backdrop');
+  if (window.ValoraModal) {
+    window.ValoraModal.close('modal-usuario-backdrop');
+  } else if (backdrop) {
+    backdrop.classList.remove('show');
+    setTimeout(() => {
+      backdrop.hidden = true;
+      backdrop.style.display = 'none';
+    }, 160);
+  }
   limparFormulario();
 }
 
@@ -165,6 +217,7 @@ function setPermissionsVisibility() {
 
 function limparFormulario() {
   stateUsuarios.editandoId = null;
+  stateUsuarios.fotoBase64 = null;
   $("form-usuario")?.reset();
   $("usuario-id").value = "";
   $("usuario-papel").value = "colaborador";
@@ -187,6 +240,7 @@ function limparFormulario() {
 
 function preencherFormularioBasico(usuario) {
   stateUsuarios.editandoId = usuario.id;
+  stateUsuarios.fotoBase64 = null;
   $("usuario-id").value = usuario.id;
   $("usuario-nome").value = usuario.nome || "";
   $("usuario-email").value = usuario.email || "";
@@ -334,20 +388,42 @@ function aplicarFiltro() {
   renderTabela();
 }
 
+function formatApiError(data, statusCode) {
+  const detail = data?.detail ?? data?.message ?? data;
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === "string") return item;
+
+        const campo = Array.isArray(item?.loc)
+          ? item.loc.filter((p) => p !== "body").join(".")
+          : "";
+
+        const msg = item?.msg || item?.message || "Dados inválidos.";
+        return campo ? `${campo}: ${msg}` : msg;
+      })
+      .join(" | ");
+  }
+
+  if (detail && typeof detail === "object") {
+    return JSON.stringify(detail);
+  }
+
+  return detail || `Erro HTTP ${statusCode}`;
+}
+
 async function api(url, options = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+
   const res = await fetch(url, {
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
     ...options,
+    headers,
   });
-
-  if (res.status === 401) {
-    toast("Sessão expirada. Faça login novamente.", true);
-    throw new Error("Sessão expirada");
-  }
 
   const raw = await res.text();
   let data = null;
@@ -358,9 +434,13 @@ async function api(url, options = {}) {
     data = raw;
   }
 
+  if (res.status === 401) {
+    toast("Sessão expirada. Faça login novamente.", true);
+    throw new Error("Sessão expirada");
+  }
+
   if (!res.ok) {
-    const msg = data?.detail || data?.message || `Erro HTTP ${res.status}`;
-    throw new Error(msg);
+    throw new Error(formatApiError(data, res.status));
   }
 
   return data;
@@ -395,18 +475,27 @@ async function carregarUsuarios() {
 }
 
 function coletarPayloadUsuario() {
-  // Nota: Como as requisições para a API são em application/json, 
-  // caso queira enviar o arquivo da foto no futuro, precisaremos alterar o payload
-  // para usar o formato FormData ou enviar a foto como string Base64.
-  return {
+  const senha = $("usuario-senha").value.trim();
+  const papel = $("usuario-papel").value;
+  const role = normalizeText(papel);
+
+  const payload = {
     nome: $("usuario-nome").value.trim(),
-    email: $("usuario-email").value.trim(),
+    email: $("usuario-email").value.trim().toLowerCase(),
     telefone: $("usuario-telefone").value.trim() || null,
     cargo: $("usuario-cargo").value.trim() || null,
-    senha: $("usuario-senha").value || null,
-    papel: $("usuario-papel").value,
+    papel,
     ativo: $("usuario-ativo").value === "true",
+    permissoes: role === "colaborador" || role === "visualizador" ? coletarPermissoes() : [],
   };
+
+  // No modo edição, não manda senha vazia/null para não validar à toa no backend.
+  if (senha) payload.senha = senha;
+
+  // Se escolheu foto, envia em Base64 porque a API recebe JSON.
+  if (stateUsuarios.fotoBase64) payload.foto_base64 = stateUsuarios.fotoBase64;
+
+  return payload;
 }
 
 async function salvarPermissoesDoUsuario(usuarioId, papel) {
@@ -432,18 +521,30 @@ async function salvarUsuario(event) {
   const payload = coletarPayloadUsuario();
   const btnSalvar = $("btn-salvar-usuario");
 
+  ["usuario-nome", "usuario-email", "usuario-senha", "usuario-papel"].forEach((id) => limparErroCampo($(id)));
+
   if (!payload.nome) {
-    toast("Informe o nome do usuário.", true);
+    marcarErroCampo($("usuario-nome"), "Informe o nome do usuário.");
     return;
   }
 
   if (!payload.email) {
-    toast("Informe o e-mail do usuário.", true);
+    marcarErroCampo($("usuario-email"), "Informe o e-mail do usuário.");
+    return;
+  }
+
+  if (!isEmailValido(payload.email)) {
+    marcarErroCampo($("usuario-email"), "Informe um e-mail válido. Exemplo: nome@empresa.com.br");
     return;
   }
 
   if (!stateUsuarios.editandoId && !payload.senha) {
-    toast("Informe a senha do novo usuário.", true);
+    marcarErroCampo($("usuario-senha"), "Informe a senha do novo usuário.");
+    return;
+  }
+
+  if (payload.senha && payload.senha.length < 6) {
+    marcarErroCampo($("usuario-senha"), "A senha deve ter no mínimo 6 caracteres.");
     return;
   }
 
@@ -459,7 +560,6 @@ async function salvarUsuario(event) {
         body: JSON.stringify(payload),
       });
 
-      await salvarPermissoesDoUsuario(stateUsuarios.editandoId, payload.papel);
       toast("Usuário atualizado com sucesso!");
     } else {
       usuarioSalvo = await api("/api/usuarios", {
@@ -467,7 +567,6 @@ async function salvarUsuario(event) {
         body: JSON.stringify(payload),
       });
 
-      await salvarPermissoesDoUsuario(usuarioSalvo.id, payload.papel);
       toast("Usuário cadastrado com sucesso!");
     }
 
@@ -489,7 +588,14 @@ async function carregarUsuarioParaEdicao(id) {
   preencherFormularioBasico(usuario);
 
   try {
-    const resp = await api(`/api/permissoes/usuarios/${id}`);
+    let resp = usuario;
+
+    // Backend novo já devolve permissoes dentro de /api/usuarios.
+    // Mantém fallback para projetos que ainda usam /api/permissoes.
+    if (!resp?.permissoes) {
+      resp = await api(`/api/permissoes/usuarios/${id}`);
+    }
+
     if (resp?.papel) {
       $("usuario-papel").value = resp.papel;
     }
@@ -548,18 +654,34 @@ function bindAvatarUpload() {
   if (!inputFoto) return;
 
   inputFoto.addEventListener("change", function(e) {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        $("avatar-preview").src = event.target.result;
-        $("avatar-preview").style.display = "block";
-        if ($("avatar-default-icon")) {
-          $("avatar-default-icon").style.display = "none";
-        }
-      };
-      reader.readAsDataURL(file);
+    const file = e.target.files?.[0];
+    stateUsuarios.fotoBase64 = null;
+
+    if (!file) return;
+
+    const tiposPermitidos = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!tiposPermitidos.includes(file.type)) {
+      inputFoto.value = "";
+      toast("Use uma imagem JPG, PNG ou WEBP.", true);
+      return;
     }
+
+    if (file.size > 2 * 1024 * 1024) {
+      inputFoto.value = "";
+      toast("A foto deve ter no máximo 2MB.", true);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      stateUsuarios.fotoBase64 = String(event.target.result || "");
+      $("avatar-preview").src = stateUsuarios.fotoBase64;
+      $("avatar-preview").style.display = "block";
+      if ($("avatar-default-icon")) {
+        $("avatar-default-icon").style.display = "none";
+      }
+    };
+    reader.readAsDataURL(file);
   });
 }
 

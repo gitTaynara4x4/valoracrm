@@ -21,7 +21,7 @@ from backend.routers.produtos import router as produtos_router
 from backend.routers.patrimonio import router as patrimonio_router
 from backend.routers.cotacoes import router as cotacoes_router
 from backend.routers.propostas import router as propostas_router
-from backend.routers.dashboard import router as dashboard_router
+from backend.routers.dashboard import router as dashboard_router, compat_router as dashboard_compat_router
 from backend.routers.usuarios import router as usuarios_router
 from backend.routers.permissoes import router as permissoes_router
 from backend.routers.formularios import router as formularios_router
@@ -74,6 +74,8 @@ PUBLIC_EXACT_PATHS = {
     # assets básicos do login
     "/frontend/js/pages/login.js",
     "/frontend/css/login.css",
+    "/frontend/css/validacao.css",
+    "/frontend/js/shared/validacao.js",
     "/frontend/img/logo-favicon.jpg",
 }
 
@@ -235,6 +237,7 @@ app.include_router(cotacoes_router)
 app.include_router(empresa.router)
 app.include_router(propostas_router)
 app.include_router(dashboard_router)
+app.include_router(dashboard_compat_router)
 app.include_router(usuarios_router)
 app.include_router(permissoes_router)
 app.include_router(campos_propostas.router)

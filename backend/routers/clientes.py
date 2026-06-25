@@ -573,14 +573,41 @@ def normalizar_codigo_cliente(codigo: Optional[str]) -> str:
 
 
 def gerar_codigo_cliente(db: Session, empresa_id: int) -> str:
-    ultimo = (
-        db.query(Cliente)
+    """Gera o próximo código numérico livre por empresa.
+
+    Código de cliente é único, fixo e pertence ao sistema.
+    Nunca deve ser escolhido pelo front nem alterado pelo usuário.
+    """
+    rows = (
+        db.query(Cliente.codigo)
         .filter(Cliente.empresa_id == empresa_id)
-        .order_by(Cliente.id.desc())
-        .first()
+        .all()
     )
-    proximo = (int(ultimo.id) if ultimo else 0) + 1
-    return f"{proximo:04d}"
+
+    usados = set()
+    maior = 0
+
+    for row in rows:
+        raw = row[0] if isinstance(row, tuple) else getattr(row, "codigo", None)
+        codigo_norm = normalizar_codigo_cliente(raw)
+
+        if not codigo_norm:
+            continue
+
+        usados.add(codigo_norm)
+
+        try:
+            maior = max(maior, int(codigo_norm))
+        except ValueError:
+            continue
+
+    proximo = maior + 1
+
+    while True:
+        codigo = f"{proximo:04d}"
+        if codigo not in usados:
+            return codigo
+        proximo += 1
 
 
 def buscar_campos_empresa_map(db: Session, empresa_id: int) -> Dict[str, core_models.CampoCliente]:
@@ -1255,6 +1282,20 @@ def listar_clientes(
         ) from exc
 
 
+@router.get("/api/clientes/proximo-codigo")
+def obter_proximo_codigo_cliente(
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id),
+):
+    try:
+        return {"codigo": gerar_codigo_cliente(db, empresa_id)}
+    except OperationalError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Rode a query SQL do módulo Clientes antes de buscar o próximo código.",
+        ) from exc
+
+
 @router.get("/api/clientes/{cliente_id}", response_model=ClienteOut)
 def obter_cliente(
     cliente_id: int,
@@ -1290,33 +1331,45 @@ def criar_cliente(
     empresa_id: int = Depends(get_empresa_id),
     current_user: core_models.Usuario = Depends(get_current_user),
 ):
-    try:
-        codigo = normalizar_codigo_cliente(payload.codigo) or gerar_codigo_cliente(db, empresa_id)
-        cliente = Cliente(empresa_id=empresa_id, codigo=codigo, nome=payload.nome.strip())
-        apply_cliente_payload(cliente, payload)
+    # Código é único, fixo e gerado pelo backend.
+    # O payload.codigo é ignorado na criação para ninguém conseguir alterar/inventar código pelo front.
+    ultimo_integrity_error: Optional[IntegrityError] = None
 
-        db.add(cliente)
-        db.flush()
+    for _tentativa in range(10):
+        try:
+            codigo = gerar_codigo_cliente(db, empresa_id)
+            cliente = Cliente(empresa_id=empresa_id, codigo=codigo, nome=payload.nome.strip())
+            apply_cliente_payload(cliente, payload)
+            cliente.codigo = codigo
 
-        sync_enderecos(db, int(cliente.id), payload.enderecos)
-        sync_refs_comerciais(db, int(cliente.id), payload.referencias_comerciais)
-        sync_refs_bancarias(db, int(cliente.id), payload.referencias_bancarias)
-        sync_socios(db, int(cliente.id), payload.socios)
-        sync_ocorrencias(db, int(cliente.id), payload.ocorrencias, current_user)
-        salvar_custom_fields_cliente(db, empresa_id, int(cliente.id), payload.custom_fields)
+            db.add(cliente)
+            db.flush()
 
-        db.commit()
-        db.refresh(cliente)
-        return cliente_to_out(db, cliente)
-    except OperationalError as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Rode a query SQL do módulo Clientes antes de criar registros.") from exc
-    except HTTPException:
-        db.rollback()
-        raise
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="Já existe cliente com este código para a empresa.")
+            sync_enderecos(db, int(cliente.id), payload.enderecos)
+            sync_refs_comerciais(db, int(cliente.id), payload.referencias_comerciais)
+            sync_refs_bancarias(db, int(cliente.id), payload.referencias_bancarias)
+            sync_socios(db, int(cliente.id), payload.socios)
+            sync_ocorrencias(db, int(cliente.id), payload.ocorrencias, current_user)
+            salvar_custom_fields_cliente(db, empresa_id, int(cliente.id), payload.custom_fields)
+
+            db.commit()
+            db.refresh(cliente)
+            return cliente_to_out(db, cliente)
+        except IntegrityError as exc:
+            db.rollback()
+            ultimo_integrity_error = exc
+            continue
+        except OperationalError as exc:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Rode a query SQL do módulo Clientes antes de criar registros.") from exc
+        except HTTPException:
+            db.rollback()
+            raise
+
+    raise HTTPException(
+        status_code=409,
+        detail="Não foi possível gerar um código único para o cliente. Verifique duplicidade de códigos no banco.",
+    ) from ultimo_integrity_error
 
 
 @router.put("/api/clientes/{cliente_id}", response_model=ClienteOut)
@@ -1332,11 +1385,14 @@ def atualizar_cliente(
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
     try:
-        # Mantém o código fixo. Se houver registro antigo com prefixo (ex.: CLI-0001),
-        # normaliza na próxima gravação para ficar somente numérico.
-        cliente.codigo = normalizar_codigo_cliente(cliente.codigo) or gerar_codigo_cliente(db, empresa_id)
+        # Código nunca é atualizado pelo payload.
+        # Mantém o código fixo que já está no banco; se um registro antigo estiver sem código,
+        # gera uma única vez pelo backend.
+        codigo_fixo = normalizar_codigo_cliente(cliente.codigo) or gerar_codigo_cliente(db, empresa_id)
+        cliente.codigo = codigo_fixo
 
         apply_cliente_payload(cliente, payload)
+        cliente.codigo = codigo_fixo
         sync_enderecos(db, int(cliente.id), payload.enderecos)
         sync_refs_comerciais(db, int(cliente.id), payload.referencias_comerciais)
         sync_refs_bancarias(db, int(cliente.id), payload.referencias_bancarias)

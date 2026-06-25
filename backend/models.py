@@ -61,6 +61,10 @@ class Usuario(Base):
     __tablename__ = "usuarios"
     __allow_unmapped__ = True
 
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "email", name="uq_usuarios_empresa_email"),
+    )
+
     id = Column(BigInteger, primary_key=True, index=True)
 
     empresa_id = Column(
@@ -71,7 +75,7 @@ class Usuario(Base):
     )
 
     nome = Column(String(120), nullable=False)
-    email = Column(String(255), nullable=False, unique=True, index=True)
+    email = Column(String(255), nullable=False, index=True)
     telefone = Column(String(20), nullable=True)
 
     senha_hash = Column(String(255), nullable=False)
@@ -211,6 +215,10 @@ class CadastroToken(Base):
 class Cliente(Base):
     __tablename__ = "clientes"
     __allow_unmapped__ = True
+
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "codigo", name="uq_clientes_empresa_codigo"),
+    )
 
     id = Column(BigInteger, primary_key=True, index=True)
 
@@ -584,6 +592,10 @@ class Fornecedor(Base):
     __tablename__ = "fornecedores"
     __allow_unmapped__ = True
 
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "codigo", name="uq_fornecedores_empresa_codigo"),
+    )
+
     id = Column(BigInteger, primary_key=True, index=True)
 
     empresa_id = Column(
@@ -594,9 +606,37 @@ class Fornecedor(Base):
     )
 
     codigo = Column(String(50), nullable=False, index=True)
+    tipo_fornecedor = Column(String(120), nullable=True, index=True)
+    situacao = Column(String(20), nullable=False, server_default="ativo", index=True)
+
     nome = Column(String(180), nullable=False, index=True)
+    nome_fantasia = Column(String(180), nullable=True, index=True)
+    cpf_cnpj = Column(String(30), nullable=True, index=True)
+    inscricao_estadual = Column(String(30), nullable=True)
+    inscricao_municipal = Column(String(30), nullable=True)
+
+    contato = Column(String(120), nullable=True)
+    telefone = Column(String(30), nullable=True)
     whatsapp = Column(String(30), nullable=True, index=True)
+    fax = Column(String(30), nullable=True)
     email = Column(String(255), nullable=True, index=True)
+    site = Column(String(255), nullable=True)
+
+    cep = Column(String(20), nullable=True)
+    endereco = Column(String(200), nullable=True)
+    numero = Column(String(20), nullable=True)
+    complemento = Column(String(120), nullable=True)
+    bairro = Column(String(120), nullable=True)
+    cidade = Column(String(120), nullable=True, index=True)
+    estado = Column(String(10), nullable=True, index=True)
+    pais = Column(String(120), nullable=True)
+    codigo_ibge_cidade = Column(String(20), nullable=True)
+    codigo_ibge_uf = Column(String(20), nullable=True)
+
+    limite_compras = Column(Numeric(14, 2), nullable=True)
+    classificacao = Column(String(120), nullable=True)
+    plano_contas = Column(String(120), nullable=True)
+    observacoes = Column(Text, nullable=True)
 
     criado_em = Column(
         DateTime(timezone=True),
@@ -697,6 +737,10 @@ class FornecedorCampoValor(Base):
 class Produto(Base):
     __tablename__ = "produtos"
     __allow_unmapped__ = True
+
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "codigo", name="uq_produtos_empresa_codigo"),
+    )
 
     id = Column(BigInteger, primary_key=True, index=True)
 
@@ -946,6 +990,10 @@ class PatrimonioCampoValor(Base):
 class Cotacao(Base):
     __tablename__ = "cotacoes"
     __allow_unmapped__ = True
+
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "codigo", name="uq_cotacoes_empresa_codigo"),
+    )
 
     id = Column(BigInteger, primary_key=True, index=True)
 

@@ -5,6 +5,7 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -67,33 +68,139 @@ def get_user_id_from_cookie(request: Request) -> int:
 
 
 def validar_usuario_empresa(request: Request, db: Session) -> int:
-    empresa_id = get_empresa_id_from_cookie(request)
+    # O user_id é a fonte segura da sessão.
+    # Não use o cookie empresa_id para validar o vínculo, pois ele pode ficar
+    # antigo no navegador e derrubar a tela com "Usuário inválido para esta empresa".
     user_id = get_user_id_from_cookie(request)
 
     user = (
         db.query(models.Usuario)
         .filter(models.Usuario.id == user_id)
-        .filter(models.Usuario.empresa_id == empresa_id)
         .first()
     )
 
     if not user:
-        raise HTTPException(status_code=401, detail="Usuário inválido para esta empresa.")
+        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
+
+    if getattr(user, "empresa_id", None) is None:
+        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
 
     if hasattr(user, "ativo") and user.ativo is False:
         raise HTTPException(status_code=403, detail="Usuário inativo.")
 
-    return empresa_id
+    return int(user.empresa_id)
+
+
+def garantir_tabela_sequencias_codigo(db: Session) -> None:
+    """Cria a tabela de sequência se ela ainda não existir.
+
+    Essa tabela evita usar o ID do banco como código do produto.
+    O código passa a seguir uma sequência própria por empresa e por módulo.
+    """
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS cadastro_sequencias (
+            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+            modulo VARCHAR(40) NOT NULL,
+            ultimo_codigo BIGINT NOT NULL DEFAULT 0,
+            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (empresa_id, modulo)
+        )
+    """))
+
+
+def maior_codigo_produto_existente(db: Session, empresa_id: int) -> int:
+    rows = (
+        db.query(models.Produto.codigo)
+        .filter(models.Produto.empresa_id == empresa_id)
+        .all()
+    )
+
+    maior = 0
+
+    for row in rows:
+        raw = row[0] if isinstance(row, tuple) else getattr(row, "codigo", None)
+        codigo_norm = normalizar_codigo_sistema(raw)
+
+        if not codigo_norm:
+            continue
+
+        try:
+            maior = max(maior, int(codigo_norm))
+        except (TypeError, ValueError):
+            continue
+
+    return maior
+
+
+def preparar_sequencia_produto(db: Session, empresa_id: int) -> int:
+    garantir_tabela_sequencias_codigo(db)
+
+    maior_atual = maior_codigo_produto_existente(db, empresa_id)
+
+    db.execute(
+        text("""
+            INSERT INTO cadastro_sequencias (empresa_id, modulo, ultimo_codigo)
+            VALUES (:empresa_id, 'produtos', :maior_atual)
+            ON CONFLICT (empresa_id, modulo)
+            DO UPDATE SET
+                ultimo_codigo = GREATEST(cadastro_sequencias.ultimo_codigo, EXCLUDED.ultimo_codigo),
+                atualizado_em = NOW()
+        """),
+        {"empresa_id": empresa_id, "maior_atual": maior_atual},
+    )
+
+    ultimo = db.execute(
+        text("""
+            SELECT ultimo_codigo
+            FROM cadastro_sequencias
+            WHERE empresa_id = :empresa_id AND modulo = 'produtos'
+        """),
+        {"empresa_id": empresa_id},
+    ).scalar_one()
+
+    return int(ultimo or 0)
+
+
+def prever_proximo_codigo_produto(db: Session, empresa_id: int) -> str:
+    """Mostra uma previsão sem consumir código.
+
+    Abrir o modal não pode pular numeração. O número só é consumido no POST.
+    """
+    ultimo = preparar_sequencia_produto(db, empresa_id)
+    return f"{ultimo + 1:04d}"
 
 
 def gerar_codigo_produto(db: Session, empresa_id: int) -> str:
-    ultimo = (
-        db.query(models.Produto)
-        .filter(models.Produto.empresa_id == empresa_id)
-        .order_by(models.Produto.id.desc())
-        .first()
+    """Gera e consome o próximo código sequencial do produto.
+
+    Não usa ID do banco.
+    Não reutiliza código consumido depois que esta sequência existe.
+    Se hoje só existe código 0001, o próximo será 0002, mesmo que o ID do banco esteja em 10.
+    """
+    preparar_sequencia_produto(db, empresa_id)
+
+    ultimo = db.execute(
+        text("""
+            SELECT ultimo_codigo
+            FROM cadastro_sequencias
+            WHERE empresa_id = :empresa_id AND modulo = 'produtos'
+            FOR UPDATE
+        """),
+        {"empresa_id": empresa_id},
+    ).scalar_one()
+
+    proximo = int(ultimo or 0) + 1
+
+    db.execute(
+        text("""
+            UPDATE cadastro_sequencias
+            SET ultimo_codigo = :proximo, atualizado_em = NOW()
+            WHERE empresa_id = :empresa_id AND modulo = 'produtos'
+        """),
+        {"empresa_id": empresa_id, "proximo": proximo},
     )
-    proximo = (int(ultimo.id) if ultimo else 0) + 1
+
     return f"{proximo:04d}"
 
 
@@ -180,6 +287,152 @@ def buscar_campos_empresa_map(db: Session, empresa_id: int) -> Dict[str, models.
     return {str(c.slug): c for c in campos}
 
 
+# =========================================================
+# Sincronização com o construtor de Formulários
+# Produtos deve aceitar campos que vêm de /api/formularios,
+# igual Clientes e Fornecedores.
+# =========================================================
+
+def slugify_formulario(value: Optional[str]) -> str:
+    text = str(value or "").strip().lower()
+    repl = {
+        "á": "a", "à": "a", "â": "a", "ã": "a", "ä": "a",
+        "é": "e", "è": "e", "ê": "e", "ë": "e",
+        "í": "i", "ì": "i", "î": "i", "ï": "i",
+        "ó": "o", "ò": "o", "ô": "o", "õ": "o", "ö": "o",
+        "ú": "u", "ù": "u", "û": "u", "ü": "u",
+        "ç": "c",
+    }
+    for a, b in repl.items():
+        text = text.replace(a, b)
+    text = re.sub(r"[^a-z0-9]+", "_", text)
+    text = re.sub(r"^_+|_+$", "", text)
+    return text[:120]
+
+
+def normalizar_tipo_formulario(tipo: Optional[str]) -> str:
+    t = str(tipo or "texto").strip().lower()
+    mapa = {
+        "text": "texto",
+        "texto": "texto",
+        "textarea": "textarea",
+        "numero": "numero",
+        "number": "numero",
+        "data": "data",
+        "date": "data",
+        "select": "select",
+        "lista": "select",
+        "checkbox": "checkbox",
+        "email": "email",
+        "telefone": "telefone",
+        "phone": "telefone",
+        "tel": "telefone",
+        "moeda": "moeda",
+        "money": "moeda",
+        "percentual": "percentual",
+        "percent": "percentual",
+    }
+    return mapa.get(t, "texto")
+
+
+def campo_formulario_slug(campo: models.FormularioCampo) -> str:
+    return str(
+        getattr(campo, "slug", None)
+        or getattr(campo, "campo_personalizado_slug", None)
+        or getattr(campo, "campo_sistema", None)
+        or slugify_formulario(getattr(campo, "label", None))
+    ).strip()
+
+
+def campo_formulario_nome(campo: models.FormularioCampo) -> str:
+    return str(
+        getattr(campo, "label", None)
+        or getattr(campo, "nome", None)
+        or getattr(campo, "campo_sistema", None)
+        or campo_formulario_slug(campo)
+        or "Campo"
+    ).strip()
+
+
+def campo_formulario_visual(campo: models.FormularioCampo) -> bool:
+    origem = str(getattr(campo, "origem", "") or "").lower()
+    return origem == "visual" or bool(getattr(campo, "tipo_visual", None))
+
+
+def buscar_formulario_produtos_principal(db: Session, empresa_id: int) -> Optional[models.FormularioModelo]:
+    return (
+        db.query(models.FormularioModelo)
+        .filter(models.FormularioModelo.empresa_id == empresa_id)
+        .filter(models.FormularioModelo.modulo == "produtos")
+        .filter(models.FormularioModelo.ativo == True)  # noqa: E712
+        .order_by(
+            models.FormularioModelo.usar_como_ficha_principal.desc(),
+            models.FormularioModelo.padrao.desc(),
+            models.FormularioModelo.id.desc(),
+        )
+        .first()
+    )
+
+
+def campos_formulario_produtos_map(db: Session, empresa_id: int) -> Dict[str, models.FormularioCampo]:
+    modelo = buscar_formulario_produtos_principal(db, empresa_id)
+    if not modelo:
+        return {}
+
+    rows = (
+        db.query(models.FormularioCampo)
+        .filter(models.FormularioCampo.formulario_id == modelo.id)
+        .filter(models.FormularioCampo.ativo == True)  # noqa: E712
+        .order_by(models.FormularioCampo.ordem.asc(), models.FormularioCampo.id.asc())
+        .all()
+    )
+
+    out: Dict[str, models.FormularioCampo] = {}
+    for campo in rows:
+        if campo_formulario_visual(campo):
+            continue
+        slug = campo_formulario_slug(campo)
+        if slug:
+            out[slug] = campo
+    return out
+
+
+def sincronizar_campos_produtos_com_formulario(
+    db: Session,
+    empresa_id: int,
+    somente_slugs: Optional[set[str]] = None,
+) -> Dict[str, models.CampoProduto]:
+    campos_map = buscar_campos_empresa_map(db, empresa_id)
+    campos_formulario = campos_formulario_produtos_map(db, empresa_id)
+
+    for slug, campo_form in campos_formulario.items():
+        if somente_slugs is not None and slug not in somente_slugs:
+            continue
+        if slug in campos_map:
+            campo_produto = campos_map[slug]
+            if not campo_produto.nome:
+                campo_produto.nome = campo_formulario_nome(campo_form)
+            if not campo_produto.tipo:
+                campo_produto.tipo = normalizar_tipo_formulario(getattr(campo_form, "tipo_campo", None))
+            continue
+
+        novo = models.CampoProduto(
+            empresa_id=empresa_id,
+            nome=campo_formulario_nome(campo_form),
+            slug=slug,
+            tipo=normalizar_tipo_formulario(getattr(campo_form, "tipo_campo", None)),
+            obrigatorio=bool(getattr(campo_form, "obrigatorio", False)),
+            ativo=bool(getattr(campo_form, "ativo", True)),
+            opcoes_json=norm_str(getattr(campo_form, "opcoes_json", None)),
+            ordem=int(getattr(campo_form, "ordem", 0) or 0),
+        )
+        db.add(novo)
+        db.flush()
+        campos_map[slug] = novo
+
+    return buscar_campos_empresa_map(db, empresa_id)
+
+
 def buscar_produto_empresa(db: Session, produto_id: int, empresa_id: int) -> Optional[models.Produto]:
     return (
         db.query(models.Produto)
@@ -219,8 +472,15 @@ def salvar_custom_fields_produto(
 ) -> None:
     payload = custom_fields or {}
 
-    campos_map = buscar_campos_empresa_map(db, empresa_id)
-    slugs_payload = set(payload.keys())
+    # Garante que campos criados no construtor de Formulários também sejam
+    # aceitos pelo módulo Produtos. Sem isso, o front envia custom_fields
+    # do formulário e o backend responde "campos personalizados inválidos".
+    slugs_payload = set(str(k).strip() for k in payload.keys() if str(k).strip())
+    campos_map = sincronizar_campos_produtos_com_formulario(
+        db=db,
+        empresa_id=empresa_id,
+        somente_slugs=slugs_payload or None,
+    )
     slugs_validos = set(campos_map.keys())
 
     slugs_invalidos = sorted(slugs_payload - slugs_validos)
@@ -364,10 +624,20 @@ def listar_produtos(
     return [produto_to_list_out(p) for p in rows]
 
 
+@router.get("/proximo-codigo")
+def obter_proximo_codigo_produto(request: Request, db: Session = Depends(get_db)):
+    empresa_id = validar_usuario_empresa(request, db)
+    codigo = prever_proximo_codigo_produto(db, empresa_id)
+    db.commit()
+    return {"codigo": codigo}
+
+
 @router.post("", response_model=ProdutoOut, status_code=status.HTTP_201_CREATED)
 def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
-    codigo = normalizar_codigo_sistema(payload.codigo) or gerar_codigo_produto(db, empresa_id)
+    # Código de produto é gerado pelo sistema, único e imutável.
+    # Não confiar em payload.codigo vindo do front/importação.
+    codigo = gerar_codigo_produto(db, empresa_id)
 
     p = models.Produto(
         empresa_id=empresa_id,
@@ -412,6 +682,10 @@ def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depend
 @router.get("/campos/lista", response_model=List[CampoProdutoOut])
 def listar_campos_produtos(request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
+
+    # Mantém campos_produtos sincronizado com o construtor de Formulários.
+    sincronizar_campos_produtos_com_formulario(db, empresa_id)
+    db.commit()
 
     rows = (
         db.query(models.CampoProduto)
@@ -544,9 +818,7 @@ def atualizar_produto(
     if not p:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-    codigo_normalizado = normalizar_codigo_sistema(payload.codigo)
-    if codigo_normalizado:
-        p.codigo = codigo_normalizado
+    # Código de produto é imutável: edição nunca altera p.codigo.
 
     if payload.nome is not None and payload.nome.strip():
         p.nome = payload.nome.strip()

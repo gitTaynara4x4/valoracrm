@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
@@ -522,9 +522,7 @@ def proposta_to_out(db: Session, proposta: core_models.Proposta) -> PropostaResu
     )
 
 
-def gerar_numero_contrato(
-    db: Session,
-    empresa_id: int,
+def montar_prefixo_numero_contrato(
     cliente: core_models.Cliente,
     tipo_contrato: str,
 ) -> str:
@@ -536,23 +534,146 @@ def gerar_numero_contrato(
         fallback=f"CLI{int(cliente.id)}",
     )
 
-    prefixo = f"{cliente_codigo}-{sigla}"
+    return f"{cliente_codigo}-{sigla}"
 
-    contador = 1
-    while True:
-        numero = f"{prefixo}-{contador:03d}"
 
-        existe = (
-            db.query(Contrato.id)
-            .filter(Contrato.empresa_id == empresa_id)
-            .filter(Contrato.numero_contrato == numero)
-            .first()
+def garantir_tabela_codigos_sequenciais(db: Session) -> None:
+    db.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS codigos_sequenciais (
+                empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+                modulo VARCHAR(80) NOT NULL,
+                ultimo_codigo BIGINT NOT NULL DEFAULT 0,
+                criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (empresa_id, modulo)
+            )
+            """
         )
+    )
 
-        if not existe:
-            return numero
 
-        contador += 1
+def maior_numero_contrato_existente(db: Session, empresa_id: int, prefixo: str) -> int:
+    maior = 0
+    pattern = re.compile(rf"^{re.escape(prefixo)}-(\d+)$")
+
+    rows = (
+        db.query(Contrato.numero_contrato)
+        .filter(Contrato.empresa_id == empresa_id)
+        .filter(Contrato.numero_contrato.like(f"{prefixo}-%"))
+        .all()
+    )
+
+    for row in rows:
+        numero_atual = row[0] if isinstance(row, tuple) else getattr(row, "numero_contrato", None)
+        match = pattern.match(str(numero_atual or "").strip())
+        if not match:
+            continue
+
+        try:
+            maior = max(maior, int(match.group(1)))
+        except (TypeError, ValueError):
+            continue
+
+    return maior
+
+
+def garantir_sequencial_contrato(db: Session, empresa_id: int, prefixo: str) -> str:
+    garantir_tabela_codigos_sequenciais(db)
+
+    modulo = f"contratos:{prefixo}"
+    maior_existente = maior_numero_contrato_existente(db, empresa_id, prefixo)
+
+    db.execute(
+        text(
+            """
+            INSERT INTO codigos_sequenciais (empresa_id, modulo, ultimo_codigo)
+            VALUES (:empresa_id, :modulo, :ultimo_codigo)
+            ON CONFLICT (empresa_id, modulo) DO UPDATE
+            SET
+                ultimo_codigo = GREATEST(codigos_sequenciais.ultimo_codigo, EXCLUDED.ultimo_codigo),
+                atualizado_em = NOW()
+            """
+        ),
+        {
+            "empresa_id": empresa_id,
+            "modulo": modulo,
+            "ultimo_codigo": maior_existente,
+        },
+    )
+
+    return modulo
+
+
+def numero_contrato_existe(db: Session, empresa_id: int, numero_contrato: str) -> bool:
+    return bool(
+        db.query(Contrato.id)
+        .filter(Contrato.empresa_id == empresa_id)
+        .filter(Contrato.numero_contrato == numero_contrato)
+        .first()
+    )
+
+
+def gerar_numero_contrato(
+    db: Session,
+    empresa_id: int,
+    cliente: core_models.Cliente,
+    tipo_contrato: str,
+) -> str:
+    """Mostra o próximo número provável, sem consumir sequência."""
+    prefixo = montar_prefixo_numero_contrato(cliente, tipo_contrato)
+    modulo = garantir_sequencial_contrato(db, empresa_id, prefixo)
+
+    row = db.execute(
+        text(
+            """
+            SELECT ultimo_codigo
+            FROM codigos_sequenciais
+            WHERE empresa_id = :empresa_id AND modulo = :modulo
+            """
+        ),
+        {"empresa_id": empresa_id, "modulo": modulo},
+    ).first()
+
+    proximo = int(row[0] if row else 0) + 1
+    return f"{prefixo}-{proximo:03d}"
+
+
+def reservar_numero_contrato(
+    db: Session,
+    empresa_id: int,
+    cliente: core_models.Cliente,
+    tipo_contrato: str,
+) -> str:
+    """Consome a sequência no momento de salvar.
+
+    Regra: número de contrato é do sistema, único e não deve reaproveitar
+    número apagado. O front pode mostrar uma sugestão, mas o backend decide
+    o número real no POST.
+    """
+    prefixo = montar_prefixo_numero_contrato(cliente, tipo_contrato)
+    modulo = garantir_sequencial_contrato(db, empresa_id, prefixo)
+
+    row = db.execute(
+        text(
+            """
+            UPDATE codigos_sequenciais
+            SET ultimo_codigo = ultimo_codigo + 1,
+                atualizado_em = NOW()
+            WHERE empresa_id = :empresa_id AND modulo = :modulo
+            RETURNING ultimo_codigo
+            """
+        ),
+        {"empresa_id": empresa_id, "modulo": modulo},
+    ).first()
+
+    if not row:
+        raise HTTPException(status_code=500, detail="Não foi possível gerar o número do contrato.")
+
+    contador = int(row[0])
+    return f"{prefixo}-{contador:03d}"
+
 
 
 def aplicar_snapshot_proposta(contrato: Contrato, proposta: Optional[core_models.Proposta]) -> None:
@@ -1093,11 +1214,18 @@ def criar_contrato(
         tipo = norm_lower(payload.tipo_contrato, set(TIPOS_CONTRATO.keys()), "outro")
         status_atual = norm_lower(payload.status, set(STATUS_CONTRATO.keys()), "rascunho")
 
-        numero = norm_str(payload.numero_contrato)
-        if not numero:
-            numero = gerar_numero_contrato(db, empresa_id, cliente, tipo)
+        numero = None
+        for _tentativa in range(30):
+            candidato = reservar_numero_contrato(db, empresa_id, cliente, tipo)
+            if not numero_contrato_existe(db, empresa_id, candidato):
+                numero = candidato
+                break
 
-        validar_numero_unico(db, empresa_id, numero)
+        if not numero:
+            raise HTTPException(
+                status_code=409,
+                detail="Não foi possível gerar um número livre para o contrato.",
+            )
 
         vendedor_importado = proposta_vendedor_nome(proposta) if proposta else None
         data_aprovacao_importada = proposta_data_aprovacao(proposta) if proposta else None
@@ -1186,12 +1314,11 @@ def atualizar_contrato(
             contrato.proposta_id = int(proposta.id) if proposta else None
             aplicar_snapshot_proposta(contrato, proposta)
 
+        # Número do contrato é código do sistema: único e imutável.
+        # Mantemos qualquer numero_contrato recebido no payload apenas por compatibilidade
+        # com telas antigas, mas ele não altera o registro.
         if "numero_contrato" in changed_fields:
-            numero = norm_str(payload.numero_contrato)
-            if not numero:
-                raise HTTPException(status_code=422, detail="Número do contrato não pode ficar vazio.")
-            validar_numero_unico(db, empresa_id, numero, contrato_id=int(contrato.id))
-            contrato.numero_contrato = numero
+            pass
 
         if "tipo_contrato" in changed_fields:
             contrato.tipo_contrato = norm_lower(payload.tipo_contrato, set(TIPOS_CONTRATO.keys()), "outro")

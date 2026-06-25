@@ -218,34 +218,138 @@ def ensure_patrimonio_schema(db: Session) -> None:
 
 
 def validar_usuario_empresa(request: Request, db: Session) -> int:
-    empresa_id = get_empresa_id_from_cookie(request)
+    # O user_id é a fonte segura da sessão.
+    # Não use o cookie empresa_id para validar o vínculo, pois ele pode ficar
+    # antigo no navegador e derrubar a tela com "Usuário inválido para esta empresa".
     user_id = get_user_id_from_cookie(request)
 
     user = (
         db.query(models.Usuario)
         .filter(models.Usuario.id == user_id)
-        .filter(models.Usuario.empresa_id == empresa_id)
         .first()
     )
 
     if not user:
-        raise HTTPException(status_code=401, detail="Usuário inválido para esta empresa.")
+        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
+
+    if getattr(user, "empresa_id", None) is None:
+        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
 
     if hasattr(user, "ativo") and user.ativo is False:
         raise HTTPException(status_code=403, detail="Usuário inativo.")
 
     ensure_patrimonio_schema(db)
-    return empresa_id
+    return int(user.empresa_id)
+
+
+def garantir_tabela_sequencias_codigo(db: Session) -> None:
+    """Cria a tabela de sequência própria dos códigos do sistema.
+
+    O código do Patrimônio não pode depender do ID do banco.
+    Abrir modal apenas prevê; salvar consome o próximo número.
+    """
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS cadastro_sequencias (
+            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+            modulo VARCHAR(40) NOT NULL,
+            ultimo_codigo BIGINT NOT NULL DEFAULT 0,
+            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (empresa_id, modulo)
+        )
+    """))
+
+
+def maior_codigo_patrimonio_existente(db: Session, empresa_id: int) -> int:
+    rows = (
+        db.query(models.Patrimonio.codigo)
+        .filter(models.Patrimonio.empresa_id == empresa_id)
+        .all()
+    )
+
+    maior = 0
+
+    for row in rows:
+        raw = row[0] if isinstance(row, tuple) else getattr(row, "codigo", None)
+        codigo_norm = normalizar_codigo_sistema(raw)
+
+        if not codigo_norm:
+            continue
+
+        try:
+            maior = max(maior, int(codigo_norm))
+        except (TypeError, ValueError):
+            continue
+
+    return maior
+
+
+def preparar_sequencia_patrimonio(db: Session, empresa_id: int) -> int:
+    garantir_tabela_sequencias_codigo(db)
+
+    maior_atual = maior_codigo_patrimonio_existente(db, empresa_id)
+
+    db.execute(
+        text("""
+            INSERT INTO cadastro_sequencias (empresa_id, modulo, ultimo_codigo)
+            VALUES (:empresa_id, 'patrimonio', :maior_atual)
+            ON CONFLICT (empresa_id, modulo)
+            DO UPDATE SET
+                ultimo_codigo = GREATEST(cadastro_sequencias.ultimo_codigo, EXCLUDED.ultimo_codigo),
+                atualizado_em = NOW()
+        """),
+        {"empresa_id": empresa_id, "maior_atual": maior_atual},
+    )
+
+    ultimo = db.execute(
+        text("""
+            SELECT ultimo_codigo
+            FROM cadastro_sequencias
+            WHERE empresa_id = :empresa_id AND modulo = 'patrimonio'
+        """),
+        {"empresa_id": empresa_id},
+    ).scalar_one()
+
+    return int(ultimo or 0)
+
+
+def prever_proximo_codigo_patrimonio(db: Session, empresa_id: int) -> str:
+    """Mostra uma previsão sem consumir código."""
+    ultimo = preparar_sequencia_patrimonio(db, empresa_id)
+    return f"{ultimo + 1:04d}"
 
 
 def gerar_codigo_patrimonio(db: Session, empresa_id: int) -> str:
-    ultimo = (
-        db.query(models.Patrimonio)
-        .filter(models.Patrimonio.empresa_id == empresa_id)
-        .order_by(models.Patrimonio.id.desc())
-        .first()
+    """Gera e consome o próximo código sequencial do patrimônio.
+
+    Regras:
+    - Não usa ID do banco.
+    - Não confia no código vindo do front.
+    - Depois que a sequência existe, código consumido não volta a ser reutilizado.
+    """
+    preparar_sequencia_patrimonio(db, empresa_id)
+
+    ultimo = db.execute(
+        text("""
+            SELECT ultimo_codigo
+            FROM cadastro_sequencias
+            WHERE empresa_id = :empresa_id AND modulo = 'patrimonio'
+            FOR UPDATE
+        """),
+        {"empresa_id": empresa_id},
+    ).scalar_one()
+
+    proximo = int(ultimo or 0) + 1
+
+    db.execute(
+        text("""
+            UPDATE cadastro_sequencias
+            SET ultimo_codigo = :proximo, atualizado_em = NOW()
+            WHERE empresa_id = :empresa_id AND modulo = 'patrimonio'
+        """),
+        {"empresa_id": empresa_id, "proximo": proximo},
     )
-    proximo = (int(ultimo.id) if ultimo else 0) + 1
+
     return f"{proximo:04d}"
 
 
@@ -478,6 +582,14 @@ def listar_patrimonios(
     return [patrimonio_to_list_out(p) for p in query.all()]
 
 
+@router.get("/proximo-codigo")
+def obter_proximo_codigo_patrimonio(request: Request, db: Session = Depends(get_db)):
+    empresa_id = validar_usuario_empresa(request, db)
+    codigo = prever_proximo_codigo_patrimonio(db, empresa_id)
+    db.commit()
+    return {"codigo": codigo}
+
+
 @router.post("", response_model=PatrimonioOut, status_code=status.HTTP_201_CREATED)
 def criar_patrimonio(payload: PatrimonioCreate, request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
@@ -485,7 +597,9 @@ def criar_patrimonio(payload: PatrimonioCreate, request: Request, db: Session = 
     if not nome:
         raise HTTPException(status_code=422, detail="Informe o nome do patrimônio.")
 
-    codigo = normalizar_codigo_sistema(payload.codigo) or gerar_codigo_patrimonio(db, empresa_id)
+    # Código de patrimônio é gerado pelo sistema, único e imutável.
+    # Não confiar em payload.codigo vindo do front/importação.
+    codigo = gerar_codigo_patrimonio(db, empresa_id)
     item = models.Patrimonio(
         empresa_id=empresa_id,
         codigo=codigo,
@@ -625,9 +739,7 @@ def atualizar_patrimonio(patrimonio_id: int, payload: PatrimonioUpdate, request:
     if not item:
         raise HTTPException(status_code=404, detail="Patrimônio não encontrado.")
 
-    codigo = normalizar_codigo_sistema(payload.codigo)
-    if codigo:
-        item.codigo = codigo
+    # Código de patrimônio é imutável: edição nunca altera item.codigo.
     if payload.nome is not None and payload.nome.strip():
         item.nome = payload.nome.strip()
     if payload.descricao is not None:

@@ -196,14 +196,53 @@ class FornecedorOut(ORMBaseModel):
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
 
 
-def gerar_codigo_fornecedor(db: Session, empresa_id: int) -> str:
-    ultimo = (
-        db.query(Fornecedor)
+def codigo_fornecedor_existe(db: Session, empresa_id: int, codigo: str) -> bool:
+    codigo_norm = normalizar_codigo_sistema(codigo)
+    if not codigo_norm:
+        return False
+
+    return (
+        db.query(Fornecedor.id)
         .filter(Fornecedor.empresa_id == empresa_id)
-        .order_by(Fornecedor.id.desc())
+        .filter(Fornecedor.codigo == codigo_norm)
         .first()
+        is not None
     )
-    proximo = (int(ultimo.id) if ultimo else 0) + 1
+
+
+def gerar_codigo_fornecedor(db: Session, empresa_id: int) -> str:
+    """Gera o próximo código numérico livre por empresa.
+
+    Código de fornecedor é interno do sistema:
+    - aparece na tela;
+    - é único por empresa;
+    - não pode ser alterado pelo front.
+    """
+    rows = (
+        db.query(Fornecedor.codigo)
+        .filter(Fornecedor.empresa_id == empresa_id)
+        .all()
+    )
+
+    maior = 0
+
+    for row in rows:
+        raw = row[0] if isinstance(row, tuple) else getattr(row, "codigo", None)
+        codigo = normalizar_codigo_sistema(raw)
+
+        if not codigo:
+            continue
+
+        try:
+            maior = max(maior, int(codigo))
+        except (TypeError, ValueError):
+            continue
+
+    proximo = maior + 1
+
+    while codigo_fornecedor_existe(db, empresa_id, f"{proximo:04d}"):
+        proximo += 1
+
     return f"{proximo:04d}"
 
 
@@ -236,15 +275,13 @@ def salvar_custom_fields_fornecedor(
     payload = custom_fields or {}
     campos_map = buscar_campos_empresa_map(db, empresa_id)
 
-    slugs_payload = set(payload.keys())
-    slugs_validos = set(campos_map.keys())
-
-    invalidos = sorted(slugs_payload - slugs_validos)
-    if invalidos:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Campos personalizados inválidos: {', '.join(invalidos)}",
-        )
+    # O formulário/ficha principal pode renderizar campos-base com data-custom-field.
+    # Esses campos não pertencem à tabela campos_fornecedores e não devem bloquear o cadastro.
+    payload = {
+        str(slug): value
+        for slug, value in payload.items()
+        if str(slug) in campos_map
+    }
 
     valores_existentes = (
         db.query(FornecedorCampoValor)
@@ -288,7 +325,8 @@ def buscar_fornecedor_empresa(db: Session, fornecedor_id: int, empresa_id: int) 
 
 
 def apply_fornecedor_payload(f: Fornecedor, payload: FornecedorBaseSchema) -> None:
-    f.codigo = (payload.codigo or "").strip() or f.codigo
+    # Não alterar f.codigo aqui.
+    # O código é único/imutável e só é definido pelo backend no POST.
     f.tipo_fornecedor = norm_str(payload.tipo_fornecedor)
     f.situacao = norm_str(payload.situacao) or "ativo"
 
@@ -549,33 +587,57 @@ def listar_fornecedores(
         ) from exc
 
 
+@router.get("/api/fornecedores/proximo-codigo")
+def obter_proximo_codigo_fornecedor(
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id),
+):
+    try:
+        return {"codigo": gerar_codigo_fornecedor(db, empresa_id)}
+    except OperationalError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Rode a query SQL do módulo Fornecedores antes de gerar código.",
+        ) from exc
+
+
 @router.post("/api/fornecedores", response_model=FornecedorOut, status_code=status.HTTP_201_CREATED)
 def criar_fornecedor(
     payload: FornecedorCreate,
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    try:
-        codigo = normalizar_codigo_sistema(payload.codigo) or gerar_codigo_fornecedor(db, empresa_id)
-        f = Fornecedor(empresa_id=empresa_id, codigo=codigo, nome=payload.nome.strip())
-        apply_fornecedor_payload(f, payload)
+    # Código de fornecedor é gerado pelo backend.
+    # O front pode mostrar uma previsão, mas o POST nunca manda/define código.
+    ultima_integrity: Optional[IntegrityError] = None
 
-        db.add(f)
-        db.flush()
-        salvar_custom_fields_fornecedor(db, empresa_id, int(f.id), payload.custom_fields)
+    for _tentativa in range(10):
+        try:
+            codigo = gerar_codigo_fornecedor(db, empresa_id)
+            f = Fornecedor(empresa_id=empresa_id, codigo=codigo, nome=payload.nome.strip())
+            apply_fornecedor_payload(f, payload)
 
-        db.commit()
-        db.refresh(f)
-        return fornecedor_to_out(db, f)
-    except OperationalError as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Rode a query SQL do módulo Fornecedores antes de criar registros.") from exc
-    except HTTPException:
-        db.rollback()
-        raise
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="Já existe fornecedor com este código para a empresa.")
+            db.add(f)
+            db.flush()
+            salvar_custom_fields_fornecedor(db, empresa_id, int(f.id), payload.custom_fields)
+
+            db.commit()
+            db.refresh(f)
+            return fornecedor_to_out(db, f)
+        except IntegrityError as exc:
+            # Pode acontecer se duas pessoas cadastrarem ao mesmo tempo.
+            # Volta e tenta gerar o próximo código livre.
+            ultima_integrity = exc
+            db.rollback()
+            continue
+        except OperationalError as exc:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Rode a query SQL do módulo Fornecedores antes de criar registros.") from exc
+        except HTTPException:
+            db.rollback()
+            raise
+
+    raise HTTPException(status_code=409, detail="Não foi possível gerar um código livre para o fornecedor.") from ultima_integrity
 
 
 @router.get("/api/fornecedores/{fornecedor_id}", response_model=FornecedorOut)
@@ -606,10 +668,7 @@ def atualizar_fornecedor(
         raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
 
     try:
-        codigo_normalizado = normalizar_codigo_sistema(payload.codigo)
-        if codigo_normalizado:
-            f.codigo = codigo_normalizado
-
+        # Código é imutável: edição de fornecedor nunca altera o código.
         apply_fornecedor_payload(f, payload)
         salvar_custom_fields_fornecedor(db, empresa_id, int(f.id), payload.custom_fields)
 
