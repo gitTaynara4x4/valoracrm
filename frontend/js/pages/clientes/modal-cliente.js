@@ -517,7 +517,7 @@ async function fillClientForm(cliente = {}) {
   setValue('campo-codigo-ibge-uf', data.codigo_ibge_uf);
   setValue('campo-observacoes', data.observacoes);
 
-  await renderCustomFieldsInputs(state.camposClientes, data.custom_fields || {});
+  await renderCustomFieldsInputs(state.camposClientes, { ...(data.custom_fields || {}), ...data, data_cadastro: data.data_cadastro || data.criado_em || data.created_at || '' });
 
   syncFichaPrincipalCode(data.codigo || getValue('campo-codigo'));
   setFichaPrincipalMode(state.usarFichaPrincipalClientes);
@@ -1168,7 +1168,7 @@ async function salvarToggleFichaPrincipalCliente(event) {
 
   try {
     if (!state.formularioClientes?.modelo?.id) {
-      await renderCustomFieldsInputs(state.camposClientes, currentDetail?.custom_fields || {});
+      await renderCustomFieldsInputs(state.camposClientes, { ...(currentDetail?.custom_fields || {}), ...(currentDetail || {}), data_cadastro: currentDetail?.data_cadastro || currentDetail?.criado_em || currentDetail?.created_at || '' });
     }
 
     const modelo = state.formularioClientes?.modelo;
@@ -1214,7 +1214,7 @@ async function salvarToggleFichaPrincipalCliente(event) {
       },
     };
 
-    await renderCustomFieldsInputs(state.camposClientes, currentDetail?.custom_fields || {});
+    await renderCustomFieldsInputs(state.camposClientes, { ...(currentDetail?.custom_fields || {}), ...(currentDetail || {}), data_cadastro: currentDetail?.data_cadastro || currentDetail?.criado_em || currentDetail?.created_at || '' });
     setFichaPrincipalMode(checked);
     bindResumoSidebarCliente();
     agendarResumoSidebarCliente(currentDetail);

@@ -1369,19 +1369,3 @@ html[data-theme="dark"] #formFornecedor .custom-section-card {
     grid-column: 1 / -1 !important;
   }
 }
-
-/* Ícones dinâmicos das seções configuradas em Formulários */
-#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] {
-  padding-left: 58px !important;
-}
-#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .ficha-section-tab-icon {
-  position: absolute !important;
-  left: 30px !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-}
-#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .ficha-section-tab-icon i {
-  display: inline-block !important;
-  font-family: "Font Awesome 6 Free" !important;
-  font-weight: 900 !important;
-}

@@ -47,6 +47,101 @@
     },
   };
 
+
+  const CAMPOS_SISTEMA_FALLBACK = {
+    clientes: [
+      { campo: 'codigo', label: 'Código', tipo: 'numero' },
+      { campo: 'data_cadastro', label: 'Data de cadastro', tipo: 'data', somente_leitura: true },
+      { campo: 'nome', label: 'Nome / Razão social', tipo: 'texto' },
+      { campo: 'nome_fantasia', label: 'Nome fantasia', tipo: 'texto' },
+      { campo: 'tipo_pessoa', label: 'Tipo de pessoa', tipo: 'select' },
+      { campo: 'situacao', label: 'Situação', tipo: 'select' },
+      { campo: 'cpf_cnpj', label: 'CPF / CNPJ', tipo: 'texto' },
+      { campo: 'telefone', label: 'Telefone', tipo: 'telefone' },
+      { campo: 'whatsapp', label: 'WhatsApp', tipo: 'telefone' },
+      { campo: 'email', label: 'E-mail', tipo: 'email' },
+      { campo: 'cep', label: 'CEP', tipo: 'texto' },
+      { campo: 'endereco', label: 'Endereço', tipo: 'texto' },
+      { campo: 'cidade', label: 'Cidade', tipo: 'texto' },
+      { campo: 'estado', label: 'Estado', tipo: 'texto' },
+      { campo: 'observacoes', label: 'Observações', tipo: 'textarea' },
+    ],
+    fornecedores: [
+      { campo: 'codigo', label: 'Código', tipo: 'numero' },
+      { campo: 'data_cadastro', label: 'Data de cadastro', tipo: 'data', somente_leitura: true },
+      { campo: 'nome', label: 'Nome', tipo: 'texto' },
+      { campo: 'whatsapp', label: 'WhatsApp', tipo: 'telefone' },
+      { campo: 'email', label: 'E-mail', tipo: 'email' },
+    ],
+    produtos: [
+      { campo: 'codigo', label: 'Código', tipo: 'numero' },
+      { campo: 'data_cadastro', label: 'Data de cadastro', tipo: 'data', somente_leitura: true },
+      { campo: 'nome', label: 'Nome', tipo: 'texto' },
+      { campo: 'descricao', label: 'Descrição', tipo: 'textarea' },
+      { campo: 'categoria', label: 'Categoria', tipo: 'texto' },
+      { campo: 'unidade', label: 'Unidade', tipo: 'texto' },
+      { campo: 'preco_venda', label: 'Preço de venda', tipo: 'moeda' },
+      { campo: 'custo', label: 'Custo', tipo: 'moeda' },
+      { campo: 'estoque_atual', label: 'Estoque atual', tipo: 'numero' },
+      { campo: 'ativo', label: 'Ativo', tipo: 'checkbox' },
+    ],
+    patrimonio: [
+      { campo: 'codigo', label: 'Código', tipo: 'numero' },
+      { campo: 'data_cadastro', label: 'Data de cadastro', tipo: 'data', somente_leitura: true },
+      { campo: 'nome', label: 'Nome do patrimônio', tipo: 'texto' },
+      { campo: 'descricao', label: 'Descrição', tipo: 'textarea' },
+      { campo: 'categoria', label: 'Categoria', tipo: 'texto' },
+      { campo: 'marca', label: 'Marca', tipo: 'texto' },
+      { campo: 'modelo', label: 'Modelo', tipo: 'texto' },
+      { campo: 'numero_serie', label: 'Número de série', tipo: 'texto' },
+      { campo: 'localizacao', label: 'Localização', tipo: 'texto' },
+      { campo: 'responsavel', label: 'Responsável', tipo: 'texto' },
+      { campo: 'status', label: 'Status', tipo: 'select' },
+      { campo: 'valor_aquisicao', label: 'Valor de aquisição', tipo: 'moeda' },
+      { campo: 'data_aquisicao', label: 'Data de aquisição', tipo: 'data' },
+      { campo: 'observacoes', label: 'Observações', tipo: 'textarea' },
+    ],
+    cotacoes: [
+      { campo: 'codigo', label: 'Código', tipo: 'numero' },
+      { campo: 'data_cadastro', label: 'Data de cadastro', tipo: 'data', somente_leitura: true },
+      { campo: 'item_nome', label: 'Item desejado', tipo: 'texto' },
+      { campo: 'descricao', label: 'Descrição', tipo: 'textarea' },
+      { campo: 'quantidade', label: 'Quantidade', tipo: 'numero' },
+      { campo: 'unidade', label: 'Unidade', tipo: 'texto' },
+      { campo: 'categoria', label: 'Categoria', tipo: 'texto' },
+      { campo: 'status', label: 'Status', tipo: 'select' },
+      { campo: 'urgencia', label: 'Urgência', tipo: 'select' },
+      { campo: 'observacoes', label: 'Observações', tipo: 'textarea' },
+      { campo: 'valor_aprovado', label: 'Valor aprovado', tipo: 'moeda' },
+    ],
+    propostas: [
+      { campo: 'codigo', label: 'Código', tipo: 'numero' },
+      { campo: 'data_cadastro', label: 'Data de cadastro', tipo: 'data', somente_leitura: true },
+      { campo: 'titulo', label: 'Título', tipo: 'texto' },
+      { campo: 'cliente_id', label: 'Cliente', tipo: 'relacao_cliente' },
+      { campo: 'status', label: 'Status', tipo: 'select' },
+      { campo: 'valor_total', label: 'Valor total', tipo: 'moeda' },
+      { campo: 'observacoes', label: 'Observações', tipo: 'textarea' },
+    ],
+    contratos: [
+      { campo: 'numero_contrato', label: 'Número do contrato', tipo: 'texto' },
+      { campo: 'data_cadastro', label: 'Data de cadastro', tipo: 'data', somente_leitura: true },
+      { campo: 'cliente_id', label: 'Cliente', tipo: 'relacao_cliente' },
+      { campo: 'tipo_contrato', label: 'Tipo de contrato', tipo: 'select' },
+      { campo: 'status', label: 'Status', tipo: 'select' },
+      { campo: 'valor_mensal', label: 'Valor mensal', tipo: 'moeda' },
+      { campo: 'data_pagamento', label: 'Data de pagamento', tipo: 'data' },
+      { campo: 'data_inicio', label: 'Data de início', tipo: 'data' },
+      { campo: 'data_fim', label: 'Data de fim', tipo: 'data' },
+      { campo: 'data_assinatura', label: 'Data de assinatura', tipo: 'data' },
+      { campo: 'observacoes', label: 'Observações', tipo: 'textarea' },
+    ],
+  };
+
+  function camposSistemaFallback(modulo = state.modulo) {
+    return (CAMPOS_SISTEMA_FALLBACK[modulo] || []).map((campo) => ({ ...campo }));
+  }
+
   const ICONES_SECOES = [
     { value: 'fa-id-card', label: 'Cadastro / Dados básicos' },
     { value: 'fa-address-book', label: 'Contato' },
@@ -205,7 +300,37 @@
   function tipoLabel(campo) {
     if (!campo) return '-';
     if (campo.origem === 'visual') return campo.tipo_visual || 'visual';
-    return campo.tipo_campo || 'texto';
+
+    const map = {
+      texto: 'Texto',
+      textarea: 'Texto longo',
+      numero: 'Número',
+      data: 'Data',
+      select: 'Lista',
+      multiselect: 'Lista múltipla',
+      checkbox: 'Checkbox / flag',
+      email: 'E-mail',
+      telefone: 'Telefone',
+      moeda: 'Moeda',
+      percentual: 'Percentual',
+      relacao_cliente: 'Puxa Clientes',
+      relacao_fornecedor: 'Puxa Fornecedores',
+      relacao_produto: 'Puxa Produtos',
+      relacao_patrimonio: 'Puxa Patrimônio',
+      relacao_cotacao: 'Puxa Cotações',
+      relacao_proposta: 'Puxa Propostas',
+      relacao_contrato: 'Puxa Contratos',
+      relacao_cliente_multi: 'Puxa vários Clientes',
+      relacao_fornecedor_multi: 'Puxa vários Fornecedores',
+      relacao_produto_multi: 'Puxa vários Produtos',
+      relacao_patrimonio_multi: 'Puxa vários Patrimônios',
+      relacao_cotacao_multi: 'Puxa várias Cotações',
+      relacao_proposta_multi: 'Puxa várias Propostas',
+      relacao_contrato_multi: 'Puxa vários Contratos',
+    };
+
+    const tipo = campo.tipo_campo || 'texto';
+    return map[tipo] || tipo;
   }
 
   function widthLabel(width) {
@@ -685,12 +810,14 @@
   }
 
   async function carregarCamposSistema() {
+    const fallback = camposSistemaFallback(state.modulo);
+
     try {
       const data = await apiJson(`${API_BASE}/campos-sistema?modulo=${encodeURIComponent(state.modulo)}`);
-      state.camposSistema = Array.isArray(data?.campos) ? data.campos : [];
+      state.camposSistema = Array.isArray(data?.campos) && data.campos.length ? data.campos : fallback;
     } catch (err) {
-      console.error('[Formulários] erro ao carregar campos do sistema:', err);
-      state.camposSistema = [];
+      console.warn('[Formulários] campos do sistema vieram do fallback local:', err);
+      state.camposSistema = fallback;
     }
 
     renderCampoSistemaSelect();
@@ -1050,9 +1177,20 @@
       icon = 'fa-heading';
     } else {
       texto = qs('campo-label')?.value || '';
-      const tipo = qs('campo-tipo-campo')?.selectedOptions?.[0]?.textContent || 'Texto';
+      const selectTipo = qs('campo-tipo-campo');
+      const tipoValue = selectTipo?.value || 'texto';
+      const tipo = selectTipo?.selectedOptions?.[0]?.textContent || 'Texto';
       dica = `Novo campo personalizado • Tipo: ${tipo}`;
-      icon = 'fa-pen-to-square';
+
+      if (tipoValue === 'multiselect') {
+        icon = 'fa-list-check';
+      } else if (String(tipoValue).startsWith('relacao_') && String(tipoValue).endsWith('_multi')) {
+        icon = 'fa-object-group';
+      } else if (String(tipoValue).startsWith('relacao_')) {
+        icon = 'fa-database';
+      } else {
+        icon = 'fa-pen-to-square';
+      }
     }
 
     texto = String(texto || '').replace(/\s*\(.+\)\s*$/, '').trim();
@@ -1073,11 +1211,24 @@
   function syncCampoOpcoesVisibility() {
     const tipo = qs('campo-tipo-campo')?.value || 'texto';
     const row = qs('campo-opcoes')?.closest('.form-group');
+    const hint = row?.querySelector('.field-hint');
     if (!row) return;
 
-    const shouldShow = tipo === 'select';
+    const shouldShow = tipo === 'select' || tipo === 'multiselect';
+    const isRelation = String(tipo).startsWith('relacao_');
+    const isRelationMulti = isRelation && String(tipo).endsWith('_multi');
+
     row.hidden = !shouldShow;
     row.classList.toggle('is-hidden', !shouldShow);
+    row.classList.toggle('is-relation-hidden', isRelation);
+
+    if (hint) {
+      hint.textContent = isRelationMulti
+        ? 'Esse campo puxará cadastros do sistema e permitirá selecionar vários registros.'
+        : (tipo === 'multiselect'
+          ? 'Uma opção por linha. O usuário poderá selecionar mais de uma.'
+          : 'Preencha só em Lista ou Lista com múltipla seleção. Campos que puxam cadastros usam os dados do sistema.');
+    }
 
     if (!shouldShow && !state.campoEditando) {
       const input = qs('campo-opcoes');

@@ -378,6 +378,8 @@
   function buildCustomValuesForRender(data = {}) {
     return {
       ...(data.custom_fields || {}),
+      ...data,
+      data_cadastro: data.data_cadastro || data.criado_em || data.created_at || '',
       codigo: data.codigo || '',
       cotacao_codigo: data.codigo || '',
       status: data.status || 'rascunho',

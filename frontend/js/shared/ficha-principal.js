@@ -245,6 +245,249 @@
     return [];
   }
 
+  function parseMultiValor(value) {
+    if (value === null || value === undefined || value === '') return [];
+
+    if (Array.isArray(value)) {
+      return value.map((x) => String(x ?? '').trim()).filter(Boolean);
+    }
+
+    const text = String(value ?? '').trim();
+    if (!text) return [];
+
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        return parsed.map((x) => String(x ?? '').trim()).filter(Boolean);
+      }
+    } catch (_) {}
+
+    return text
+      .split(/\n|,|;/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+
+  function isTipoRelacao(tipo) {
+    return String(tipo || '').startsWith('relacao_');
+  }
+
+  function isTipoRelacaoMultipla(tipo) {
+    return isTipoRelacao(tipo) && String(tipo || '').endsWith('_multi');
+  }
+
+  function getTipoRelacaoBase(tipo) {
+    return String(tipo || '').replace(/_multi$/, '');
+  }
+
+  const LOOKUP_CONFIG = {
+    relacao_cliente: {
+      endpoint: '/api/formularios/opcoes-relacao?tipo=cliente',
+      fallbackEndpoint: '/api/clientes',
+      keys: ['items', 'clientes', 'data'],
+      empty: 'Nenhum cliente encontrado',
+      label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.codigo} • ${item.nome}` : '', item.nome, item.razao_social, item.nome_fantasia, item.pessoa_contato, `Cliente #${item.id}`),
+    },
+    relacao_fornecedor: {
+      endpoint: '/api/formularios/opcoes-relacao?tipo=fornecedor',
+      fallbackEndpoint: '/api/fornecedores',
+      keys: ['items', 'fornecedores', 'data'],
+      empty: 'Nenhum fornecedor encontrado',
+      label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.codigo} • ${item.nome}` : '', item.nome, item.razao_social, item.nome_fantasia, item.email, `Fornecedor #${item.id}`),
+    },
+    relacao_produto: {
+      endpoint: '/api/formularios/opcoes-relacao?tipo=produto',
+      fallbackEndpoint: '/api/produtos',
+      keys: ['items', 'produtos', 'data'],
+      empty: 'Nenhum produto encontrado',
+      label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.codigo} • ${item.nome}` : '', item.nome, item.descricao, item.categoria, `Produto #${item.id}`),
+    },
+    relacao_patrimonio: {
+      endpoint: '/api/formularios/opcoes-relacao?tipo=patrimonio',
+      fallbackEndpoint: '/api/patrimonio',
+      keys: ['items', 'patrimonios', 'patrimonio', 'data'],
+      empty: 'Nenhum patrimônio encontrado',
+      label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.codigo} • ${item.nome}` : '', item.nome, item.descricao, item.numero_serie, `Patrimônio #${item.id}`),
+    },
+    relacao_cotacao: {
+      endpoint: '/api/formularios/opcoes-relacao?tipo=cotacao',
+      fallbackEndpoint: '/api/cotacoes',
+      keys: ['items', 'cotacoes', 'data'],
+      empty: 'Nenhuma cotação encontrada',
+      label: (item) => firstFilled(item.label, item.codigo && item.item_nome ? `${item.codigo} • ${item.item_nome}` : '', item.item_nome, item.titulo, item.descricao, `Cotação #${item.id}`),
+    },
+    relacao_proposta: {
+      endpoint: '/api/formularios/opcoes-relacao?tipo=proposta',
+      fallbackEndpoint: '/api/propostas',
+      keys: ['items', 'propostas', 'data'],
+      empty: 'Nenhuma proposta encontrada',
+      label: (item) => firstFilled(item.label, item.codigo && item.titulo ? `${item.codigo} • ${item.titulo}` : '', item.titulo, item.codigo, item.cliente_nome, `Proposta #${item.id}`),
+    },
+    relacao_contrato: {
+      endpoint: '/api/formularios/opcoes-relacao?tipo=contrato',
+      fallbackEndpoint: '/api/contratos-admin',
+      keys: ['items', 'contratos', 'data'],
+      empty: 'Nenhum contrato encontrado',
+      label: (item) => firstFilled(item.label, item.numero_contrato && item.cliente_nome ? `${item.numero_contrato} • ${item.cliente_nome}` : '', item.numero_contrato, item.cliente_nome, `Contrato #${item.id}`),
+    },
+  };
+
+  const lookupCache = new Map();
+
+  function firstFilled(...values) {
+    for (const value of values) {
+      const text = String(value ?? '').trim();
+      if (text) return text;
+    }
+    return '';
+  }
+
+  function extractArray(data, keys = []) {
+    if (Array.isArray(data)) return data;
+    if (!data || typeof data !== 'object') return [];
+
+    for (const key of keys) {
+      if (Array.isArray(data[key])) return data[key];
+    }
+
+    for (const key of ['items', 'data', 'resultados', 'rows']) {
+      if (Array.isArray(data[key])) return data[key];
+    }
+
+    return [];
+  }
+
+  async function fetchLookupOptions(tipo) {
+    const tipoBase = getTipoRelacaoBase(tipo);
+    const config = LOOKUP_CONFIG[tipoBase];
+    if (!config?.endpoint) return [];
+
+    if (lookupCache.has(tipoBase)) return lookupCache.get(tipoBase);
+
+    const promise = apiJson(config.endpoint)
+      .then((data) => extractArray(data, config.keys))
+      .then((items) => {
+        if (items.length || !config.fallbackEndpoint) return items;
+        return apiJson(config.fallbackEndpoint).then((fallbackData) => extractArray(fallbackData, config.keys));
+      })
+      .catch((error) => {
+        console.warn('[ValoraFichaPrincipal] erro ao carregar relação principal, tentando fallback:', tipoBase, error);
+        if (!config.fallbackEndpoint) return [];
+        return apiJson(config.fallbackEndpoint)
+          .then((fallbackData) => extractArray(fallbackData, config.keys))
+          .catch((fallbackError) => {
+            console.warn('[ValoraFichaPrincipal] erro ao carregar fallback da relação:', tipoBase, fallbackError);
+            return [];
+          });
+      });
+
+    lookupCache.set(tipoBase, promise);
+    return promise;
+  }
+
+  function getLookupValue(item) {
+    return String(item?.value ?? item?.id ?? item?.codigo ?? item?.numero_contrato ?? '').trim();
+  }
+
+  function hydrateLookupFields(root = document) {
+    const base = root || document;
+    const selects = Array.from(base.querySelectorAll('select[data-custom-lookup]'));
+    const multiPanels = Array.from(base.querySelectorAll('.custom-relation-multi-panel[data-custom-lookup-multi]'));
+    if (!selects.length && !multiPanels.length) return;
+
+    selects.forEach(async (select) => {
+      const tipo = select.getAttribute('data-custom-lookup');
+      const tipoBase = getTipoRelacaoBase(tipo);
+      const config = LOOKUP_CONFIG[tipoBase];
+      const selectedValue = String(select.getAttribute('data-current-value') || '').trim();
+
+      if (!config) return;
+
+      select.disabled = true;
+      const items = await fetchLookupOptions(tipoBase);
+      const options = [];
+
+      options.push('<option value="">Selecione</option>');
+
+      let foundSelected = false;
+
+      if (items.length) {
+        items.forEach((item) => {
+          const value = getLookupValue(item);
+          if (!value) return;
+          const label = config.label(item) || value;
+          const selected = String(value) === String(selectedValue) ? 'selected' : '';
+          if (selected) foundSelected = true;
+          options.push(`<option value="${escapeHtml(value)}" ${selected}>${escapeHtml(label)}</option>`);
+        });
+
+        if (selectedValue && !foundSelected) {
+          options.push(`<option value="${escapeHtml(selectedValue)}" selected>Registro salvo #${escapeHtml(selectedValue)}</option>`);
+        }
+      } else {
+        if (selectedValue) {
+          options.push(`<option value="${escapeHtml(selectedValue)}" selected>Registro salvo #${escapeHtml(selectedValue)}</option>`);
+        }
+        options.push(`<option value="" disabled>${escapeHtml(config.empty || 'Nenhum item encontrado')}</option>`);
+      }
+
+      select.innerHTML = options.join('');
+      select.disabled = select.hasAttribute('data-original-disabled');
+    });
+
+    multiPanels.forEach(async (panel) => {
+      if (panel.dataset.lookupMultiBound === 'true') return;
+      panel.dataset.lookupMultiBound = 'true';
+
+      const tipo = panel.getAttribute('data-custom-lookup-multi');
+      const tipoBase = getTipoRelacaoBase(tipo);
+      const config = LOOKUP_CONFIG[tipoBase];
+      const slug = String(panel.getAttribute('data-multiselect-ui') || '').trim();
+      const hidden = slug ? base.querySelector(`input.custom-relation-hidden[data-custom-field="${cssEscape(slug)}"]`) : null;
+      const selecionados = new Set(parseMultiValor(hidden?.value || panel.getAttribute('data-current-value') || ''));
+      const disabled = panel.getAttribute('data-disabled') === 'true';
+
+      if (!config || !hidden) return;
+
+      panel.innerHTML = '<div class="custom-multiselect-empty">Carregando registros...</div>';
+      const items = await fetchLookupOptions(tipoBase);
+
+      if (!items.length) {
+        panel.innerHTML = `<div class="custom-multiselect-empty">${escapeHtml(config.empty || 'Nenhum item encontrado')}</div>`;
+        updateCustomMultiselectValue(base, slug);
+        return;
+      }
+
+      panel.innerHTML = items.map((item, index) => {
+        const value = getLookupValue(item);
+        if (!value) return '';
+        const label = config.label(item) || value;
+        const checked = selecionados.has(String(value)) ? 'checked' : '';
+        const optionId = `custom-lookup-${slug}-${index}`;
+        return `
+          <label class="custom-multiselect-option" for="${escapeHtml(optionId)}">
+            <input
+              type="checkbox"
+              id="${escapeHtml(optionId)}"
+              value="${escapeHtml(value)}"
+              data-multiselect-option="${escapeHtml(slug)}"
+              ${checked}
+              ${disabled ? 'disabled' : ''}
+            />
+            <span>${escapeHtml(label)}</span>
+          </label>
+        `;
+      }).join('') || `<div class="custom-multiselect-empty">${escapeHtml(config.empty || 'Nenhum item encontrado')}</div>`;
+
+      updateCustomMultiselectValue(base, slug);
+      panel.addEventListener('change', (event) => {
+        const input = event.target;
+        if (!input || !input.matches('[data-multiselect-option]')) return;
+        updateCustomMultiselectValue(base, slug);
+      });
+    });
+  }
+
   function normalizarTipo(tipo) {
     const t = String(tipo || 'texto').trim().toLowerCase();
 
@@ -259,6 +502,11 @@
       select: 'select',
       lista: 'select',
       checkbox: 'checkbox',
+      multiselect: 'multiselect',
+      multi_select: 'multiselect',
+      multivalor: 'multiselect',
+      lista_multipla: 'multiselect',
+      lista_multiplas: 'multiselect',
       email: 'email',
       telefone: 'telefone',
       phone: 'telefone',
@@ -267,6 +515,34 @@
       money: 'moeda',
       percentual: 'percentual',
       percent: 'percentual',
+      relacao_cliente: 'relacao_cliente',
+      lookup_cliente: 'relacao_cliente',
+      relacao_cliente_multi: 'relacao_cliente_multi',
+      lookup_cliente_multi: 'relacao_cliente_multi',
+      relacao_fornecedor: 'relacao_fornecedor',
+      lookup_fornecedor: 'relacao_fornecedor',
+      relacao_fornecedor_multi: 'relacao_fornecedor_multi',
+      lookup_fornecedor_multi: 'relacao_fornecedor_multi',
+      relacao_produto: 'relacao_produto',
+      lookup_produto: 'relacao_produto',
+      relacao_produto_multi: 'relacao_produto_multi',
+      lookup_produto_multi: 'relacao_produto_multi',
+      relacao_patrimonio: 'relacao_patrimonio',
+      lookup_patrimonio: 'relacao_patrimonio',
+      relacao_patrimonio_multi: 'relacao_patrimonio_multi',
+      lookup_patrimonio_multi: 'relacao_patrimonio_multi',
+      relacao_cotacao: 'relacao_cotacao',
+      lookup_cotacao: 'relacao_cotacao',
+      relacao_cotacao_multi: 'relacao_cotacao_multi',
+      lookup_cotacao_multi: 'relacao_cotacao_multi',
+      relacao_proposta: 'relacao_proposta',
+      lookup_proposta: 'relacao_proposta',
+      relacao_proposta_multi: 'relacao_proposta_multi',
+      lookup_proposta_multi: 'relacao_proposta_multi',
+      relacao_contrato: 'relacao_contrato',
+      lookup_contrato: 'relacao_contrato',
+      relacao_contrato_multi: 'relacao_contrato_multi',
+      lookup_contrato_multi: 'relacao_contrato_multi',
     };
 
     return map[t] || 'texto';
@@ -274,28 +550,6 @@
 
   function isVisualCampo(campo) {
     return String(campo?.origem || '').toLowerCase() === 'visual' || !!campo?.tipo_visual;
-  }
-
-  function normalizarIconeSecao(icone, fallback = 'fa-layer-group') {
-    let value = String(icone || '').trim();
-
-    if (!value) return fallback;
-
-    value = value
-      .replace(/\bfa-solid\b/g, '')
-      .replace(/\bfas\b/g, '')
-      .replace(/\bfa-regular\b/g, '')
-      .replace(/\bfar\b/g, '')
-      .replace(/\bfa-brands\b/g, '')
-      .replace(/\bfab\b/g, '')
-      .trim();
-
-    const found = value
-      .split(/\s+/)
-      .map((item) => item.trim())
-      .find((item) => /^fa-[a-z0-9-]+$/i.test(item));
-
-    return found || fallback;
   }
 
   function ordenarPorOrdemId(items = []) {
@@ -356,6 +610,8 @@
       obrigatorio: campoAvulso?.obrigatorio ?? campoFormulario?.obrigatorio ?? false,
       ativo: campoAvulso?.ativo ?? campoFormulario?.ativo ?? true,
       somente_leitura: campoAvulso?.somente_leitura ?? campoFormulario?.somente_leitura ?? false,
+      origem: campoFormulario?.origem || campoAvulso?.origem || '',
+      campo_sistema: campoFormulario?.campo_sistema || campoAvulso?.campo_sistema || '',
       opcoes_json: campoAvulso?.opcoes_json ?? campoFormulario?.opcoes_json ?? campoFormulario?.opcoes ?? null,
       ordem: Number(campoAvulso?.ordem ?? campoFormulario?.ordem ?? 0),
       largura: campoFormulario?.largura || campoAvulso?.largura || '50',
@@ -403,7 +659,7 @@
           id: secao.id,
           titulo: secao.titulo || 'Seção',
           descricao: secao.descricao || '',
-          icone: normalizarIconeSecao(secao.icone),
+          icone: secao.icone || 'fa-layer-group',
           ordem: Number(secao.ordem || 0),
           campos,
         });
@@ -468,7 +724,7 @@
         id: 'flat',
         titulo,
         descricao,
-        icone: 'fa-layer-group',
+        icone: 'fa-sliders',
         ordem: 1,
         campos,
       },
@@ -505,10 +761,27 @@
 
     if (values[slug] !== undefined && values[slug] !== null) return values[slug];
 
+    if (slug === 'data_cadastro') {
+      return values.data_cadastro || values.criado_em || values.created_at || values.criadoEm || '';
+    }
+
+    if (slug === 'criado_em') {
+      return values.criado_em || values.data_cadastro || values.created_at || values.criadoEm || '';
+    }
+
     const labelSlug = slugify(campo?.nome || '');
     if (labelSlug && values[labelSlug] !== undefined && values[labelSlug] !== null) return values[labelSlug];
 
     return '';
+  }
+
+  function formatDateInput(value) {
+    if (value === null || value === undefined || value === '') return '';
+    const text = String(value || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+    const br = text.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+    return text;
   }
 
   function renderInputCampo(campo, values = {}) {
@@ -521,6 +794,7 @@
     const placeholder = campo.placeholder || '';
     const disabled = campo.somente_leitura ? 'disabled' : '';
     const fieldClass = getCampoClass(campo);
+    const readonlyAttr = campo.somente_leitura ? 'data-custom-readonly="true"' : '';
 
     if (tipo === 'checkbox') {
       const checked =
@@ -587,7 +861,8 @@
           data-custom-field="${escapeHtml(slug)}"
           data-custom-label="${escapeHtml(label)}"
           data-required="${campo.obrigatorio ? 'true' : 'false'}"
-          value="${escapeHtml(valor)}"
+          value="${escapeHtml(formatDateInput(valor))}"
+          ${readonlyAttr}
           ${disabled}
         />
       `;
@@ -611,6 +886,100 @@
             .join('')}
         </select>
       `;
+    } else if (tipo === 'multiselect') {
+      const opcoes = parseCampoOpcoes(campo);
+      const selecionados = new Set(parseMultiValor(valor));
+      const initialValue = JSON.stringify(Array.from(selecionados));
+      const disabledAttr = disabled ? 'disabled' : '';
+
+      html += `
+        <input
+          type="hidden"
+          id="${id}"
+          class="custom-multiselect-hidden"
+          data-custom-field="${escapeHtml(slug)}"
+          data-custom-label="${escapeHtml(label)}"
+          data-required="${campo.obrigatorio ? 'true' : 'false'}"
+          data-custom-multiple="true"
+          value="${escapeHtml(initialValue)}"
+        />
+        <div
+          class="custom-multiselect-panel"
+          data-multiselect-ui="${escapeHtml(slug)}"
+          data-disabled="${disabled ? 'true' : 'false'}"
+          role="group"
+          aria-label="${escapeHtml(label)}"
+        >
+          ${opcoes.length
+            ? opcoes
+                .map((opcao, index) => {
+                  const checked = selecionados.has(String(opcao)) ? 'checked' : '';
+                  const optionId = `${id}-opcao-${index}`;
+                  return `
+                    <label class="custom-multiselect-option" for="${escapeHtml(optionId)}">
+                      <input
+                        type="checkbox"
+                        id="${escapeHtml(optionId)}"
+                        value="${escapeHtml(opcao)}"
+                        data-multiselect-option="${escapeHtml(slug)}"
+                        ${checked}
+                        ${disabledAttr}
+                      />
+                      <span>${escapeHtml(opcao)}</span>
+                    </label>
+                  `;
+                })
+                .join('')
+            : '<div class="custom-multiselect-empty">Nenhuma opção cadastrada.</div>'}
+        </div>
+      `;
+
+      html += '<small class="field-hint field-help">Selecione uma ou mais opções.</small>';
+    } else if (isTipoRelacao(tipo)) {
+      if (isTipoRelacaoMultipla(tipo)) {
+        const selecionados = parseMultiValor(valor);
+        const initialValue = JSON.stringify(selecionados);
+        html += `
+          <input
+            type="hidden"
+            id="${id}"
+            class="custom-multiselect-hidden custom-relation-hidden"
+            data-custom-field="${escapeHtml(slug)}"
+            data-custom-label="${escapeHtml(label)}"
+            data-required="${campo.obrigatorio ? 'true' : 'false'}"
+            data-custom-multiple="true"
+            data-current-value="${escapeHtml(initialValue)}"
+            value="${escapeHtml(initialValue)}"
+          />
+          <div
+            class="custom-multiselect-panel custom-relation-multi-panel"
+            data-multiselect-ui="${escapeHtml(slug)}"
+            data-custom-lookup-multi="${escapeHtml(tipo)}"
+            data-current-value="${escapeHtml(initialValue)}"
+            data-disabled="${disabled ? 'true' : 'false'}"
+            role="group"
+            aria-label="${escapeHtml(label)}"
+          >
+            <div class="custom-multiselect-empty">Carregando registros...</div>
+          </div>
+        `;
+        html += '<small class="field-hint field-help">Selecione um ou mais registros do sistema.</small>';
+      } else {
+        html += `
+          <select
+            id="${id}"
+            class="custom-lookup-select"
+            data-custom-field="${escapeHtml(slug)}"
+            data-custom-label="${escapeHtml(label)}"
+            data-required="${campo.obrigatorio ? 'true' : 'false'}"
+            data-custom-lookup="${escapeHtml(tipo)}"
+            data-current-value="${escapeHtml(valor)}"
+            ${disabled ? 'data-original-disabled="true" disabled' : ''}
+          >
+            <option value="">Carregando...</option>
+          </select>
+        `;
+      }
     } else if (tipo === 'email') {
       html += `
         <input
@@ -661,13 +1030,13 @@
   }
 
   function renderSecao(secao, values = {}) {
-    const icone = normalizarIconeSecao(secao?.icone);
+    const icon = String(secao?.icone || 'fa-layer-group').replace(/^(fa-solid|fas|far)\s+/, '').trim() || 'fa-layer-group';
 
     return `
-      <article class="custom-section-card custom-section-card-bitrix" data-section-icon="${escapeHtml(icone)}">
+      <article class="custom-section-card custom-section-card-bitrix" data-custom-section-icon="${escapeHtml(icon)}">
         <div class="custom-section-head">
           <div class="custom-section-title">
-            <span class="custom-section-icon"><i class="fa-solid ${escapeHtml(icone)}"></i></span>
+            <span class="custom-section-icon"><i class="fa-solid ${escapeHtml(icon)}"></i></span>
             <div>
               <h4>${escapeHtml(secao.titulo || 'Seção')}</h4>
               ${secao.descricao ? `<p>${escapeHtml(secao.descricao)}</p>` : ''}
@@ -831,6 +1200,51 @@
     // Eventos reais ficam no componente global campos-longos.js.
   }
 
+
+  function cssEscape(value) {
+    if (global.CSS && typeof global.CSS.escape === 'function') return global.CSS.escape(String(value));
+    return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+  }
+
+  function updateCustomMultiselectValue(root, slug) {
+    const base = root || document;
+    const safeSlug = cssEscape(slug);
+    const hidden = base.querySelector(`input.custom-multiselect-hidden[data-custom-field="${safeSlug}"]`);
+    if (!hidden) return;
+
+    const checked = Array.from(base.querySelectorAll(`[data-multiselect-option="${safeSlug}"]:checked`))
+      .map((input) => String(input.value ?? '').trim())
+      .filter(Boolean);
+
+    hidden.value = JSON.stringify(checked);
+
+    const panel = base.querySelector(`[data-multiselect-ui="${safeSlug}"]`);
+    if (panel) {
+      panel.classList.toggle('has-value', checked.length > 0);
+      if (checked.length > 0) panel.classList.remove('is-invalid');
+    }
+  }
+
+  function hydrateCustomMultiselects(root = document) {
+    const base = root || document;
+
+    base.querySelectorAll('.custom-multiselect-panel[data-multiselect-ui]:not(.custom-relation-multi-panel)').forEach((panel) => {
+      const slug = String(panel.getAttribute('data-multiselect-ui') || '').trim();
+      if (!slug) return;
+
+      updateCustomMultiselectValue(base, slug);
+
+      if (panel.dataset.multiselectBound === 'true') return;
+      panel.dataset.multiselectBound = 'true';
+
+      panel.addEventListener('change', (event) => {
+        const input = event.target;
+        if (!input || !input.matches('[data-multiselect-option]')) return;
+        updateCustomMultiselectValue(base, slug);
+      });
+    });
+  }
+
   function renderCustomFormSections({
     container,
     formulario = null,
@@ -873,6 +1287,8 @@
     }
 
     el.innerHTML = secoes.map((secao) => renderSecao(secao, values)).join('');
+    hydrateCustomMultiselects(el);
+    hydrateLookupFields(el);
     animateRenderedSections(el);
     enhanceLongFields(el);
     if (global.ValoraRequired && typeof global.ValoraRequired.refresh === 'function') {
@@ -887,9 +1303,25 @@
     root.querySelectorAll('[data-custom-field]').forEach((el) => {
       const slug = String(el.getAttribute('data-custom-field') || '').trim();
       if (!slug) return;
+      if (el.disabled || el.dataset.customReadonly === 'true') return;
 
       if (el.type === 'checkbox') {
         out[slug] = el.checked ? 'true' : 'false';
+        return;
+      }
+
+      if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
+        const values = parseMultiValor(el.value);
+        if (values.length) out[slug] = JSON.stringify(values);
+        return;
+      }
+
+      if (el.matches('select[multiple], [data-custom-multiple="true"]')) {
+        const values = Array.from(el.selectedOptions || [])
+          .map((opt) => String(opt.value ?? '').trim())
+          .filter(Boolean);
+
+        if (values.length) out[slug] = JSON.stringify(values);
         return;
       }
 
@@ -905,25 +1337,38 @@
 
     for (const el of required) {
       const label = el.dataset.customLabel || el.dataset.customField || 'Campo obrigatório';
-      const invalid = el.type === 'checkbox' ? !el.checked : String(el.value ?? '').trim() === '';
+      let invalid = false;
+
+      if (el.type === 'checkbox') {
+        invalid = !el.checked;
+      } else if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
+        invalid = parseMultiValor(el.value).length === 0;
+      } else if (el.matches('select[multiple], [data-custom-multiple="true"]')) {
+        invalid = !Array.from(el.selectedOptions || []).some((opt) => String(opt.value || '').trim());
+      } else {
+        invalid = String(el.value ?? '').trim() === '';
+      }
 
       if (!invalid) continue;
 
       if (typeof switchToCustomTab === 'function') switchToCustomTab();
       if (typeof toast === 'function') toast(`Preencha o campo obrigatório: ${label}`, 'error');
-      try { el.focus(); } catch (_) {}
+
+      if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
+        const panel = root.querySelector(`[data-multiselect-ui="${cssEscape(el.dataset.customField || '')}"]`);
+        if (panel) {
+          panel.classList.add('is-invalid');
+          try { panel.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+          const firstOption = panel.querySelector('input[type="checkbox"]');
+          try { firstOption?.focus(); } catch (_) {}
+        }
+      } else {
+        try { el.focus(); } catch (_) {}
+      }
       return false;
     }
 
     return true;
-  }
-
-  function getSectionIconFromCard(card) {
-    return normalizarIconeSecao(
-      card?.dataset?.sectionIcon ||
-      card?.querySelector('.custom-section-icon i')?.className ||
-      ''
-    );
   }
 
   function getSectionTitleFromCard(card, index) {
@@ -1023,22 +1468,15 @@
       }
 
       tabs.innerHTML = cards
-        .map((card, index) => {
-          const title = getSectionTitleFromCard(card, index);
-          const icon = getSectionIconFromCard(card);
-
-          return `
-            <button
-              type="button"
-              class="${escapeHtml(buttonClass || sectionButtonClass)} ${index === 0 ? 'active' : ''}"
-              data-ficha-section="${index}"
-              title="${escapeHtml(title)}"
-            >
-              <span class="ficha-section-tab-icon"><i class="fa-solid ${escapeHtml(icon)}"></i></span>
-              <span class="ficha-section-tab-text">${escapeHtml(title)}</span>
-            </button>
-          `;
-        })
+        .map((card, index) => `
+          <button
+            type="button"
+            class="${escapeHtml(buttonClass || sectionButtonClass)} ${index === 0 ? 'active' : ''}"
+            data-ficha-section="${index}"
+          >
+            ${escapeHtml(getSectionTitleFromCard(card, index))}
+          </button>
+        `)
         .join('');
     }
 
@@ -1114,7 +1552,6 @@
     apiJson,
     parseCampoOpcoes,
     normalizarTipo,
-    normalizarIconeSecao,
     carregarFormularioModulo,
     clearFormularioCache,
     readFormularioCache,

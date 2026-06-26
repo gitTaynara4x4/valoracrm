@@ -358,6 +358,7 @@
 
   function buildCustomValuesFromPatrimonio(item = {}) {
     const custom = normalizeCustomFields(item.custom_fields);
+    custom.data_cadastro = item.data_cadastro || item.criado_em || item.created_at || custom.data_cadastro || '';
 
     if (item.nome) {
       if (!custom.nome) custom.nome = item.nome;

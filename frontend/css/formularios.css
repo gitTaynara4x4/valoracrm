@@ -1514,3 +1514,20 @@ html[data-theme="dark"] .secao-head {
 .campo-badge {
   font-weight: 500 !important;
 }
+
+/* =========================================================
+   TIPOS NOVOS: RELACIONAMENTO E MULTIVALOR
+   ========================================================= */
+#campo-opcoes:disabled,
+#campo-opcoes[hidden] {
+  opacity: .6;
+}
+
+#campo-opcoes + .field-hint {
+  line-height: 1.45;
+}
+
+#campo-tipo-campo optgroup {
+  color: var(--form-muted, #64748b);
+  font-weight: 500;
+}

@@ -12,11 +12,11 @@
 
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
-  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260626-section-icons-all-modules" />
+  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260626-relacao-multi-data" />
 
   <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/formularios.js?v=20260626-section-icons-all-modules" defer></script>
+  <script src="/frontend/js/pages/formularios.js?v=20260626-relacao-lookup-fix" defer></script>
 
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
@@ -459,18 +459,37 @@
                   <option value="numero">Número</option>
                   <option value="data">Data</option>
                   <option value="select">Lista de opções</option>
-                  <option value="checkbox">Checkbox</option>
+                  <option value="multiselect">Lista com múltipla seleção</option>
+                  <option value="checkbox">Checkbox / flag</option>
                   <option value="email">E-mail</option>
                   <option value="telefone">Telefone</option>
                   <option value="moeda">Moeda</option>
                   <option value="percentual">Percentual</option>
+                  <optgroup label="Puxar dados do sistema — escolha única">
+                    <option value="relacao_cliente">Puxar Cliente</option>
+                    <option value="relacao_fornecedor">Puxar Fornecedor</option>
+                    <option value="relacao_produto">Puxar Produto</option>
+                    <option value="relacao_patrimonio">Puxar Patrimônio</option>
+                    <option value="relacao_cotacao">Puxar Cotação</option>
+                    <option value="relacao_proposta">Puxar Proposta</option>
+                    <option value="relacao_contrato">Puxar Contrato</option>
+                  </optgroup>
+                  <optgroup label="Puxar dados do sistema — múltipla escolha">
+                    <option value="relacao_cliente_multi">Puxar vários Clientes</option>
+                    <option value="relacao_fornecedor_multi">Puxar vários Fornecedores</option>
+                    <option value="relacao_produto_multi">Puxar vários Produtos</option>
+                    <option value="relacao_patrimonio_multi">Puxar vários Patrimônios</option>
+                    <option value="relacao_cotacao_multi">Puxar várias Cotações</option>
+                    <option value="relacao_proposta_multi">Puxar várias Propostas</option>
+                    <option value="relacao_contrato_multi">Puxar vários Contratos</option>
+                  </optgroup>
                 </select>
               </div>
 
               <div class="form-group">
                 <label for="campo-opcoes">Opções</label>
                 <textarea id="campo-opcoes" rows="3" placeholder="Uma opção por linha&#10;Casa&#10;Apartamento&#10;Comercial"></textarea>
-                <small class="field-hint">Preencha só quando o tipo for lista.</small>
+                <small class="field-hint">Preencha só em Lista ou Lista com múltipla seleção. Campos que puxam cadastros usam os dados do sistema.</small>
               </div>
             </div>
           </div>

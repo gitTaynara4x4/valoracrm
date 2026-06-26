@@ -12,6 +12,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend import models
+
+try:
+    from backend import models_contratos
+except Exception:  # pragma: no cover
+    models_contratos = None
 from backend.database import SessionLocal
 
 router = APIRouter(prefix="/api/formularios", tags=["Formulários"])
@@ -88,12 +93,186 @@ TIPOS_CAMPOS_PERMITIDOS = {
     "numero",
     "data",
     "select",
+    "multiselect",
     "checkbox",
     "email",
     "telefone",
     "moeda",
     "percentual",
+    "relacao_cliente",
+    "relacao_fornecedor",
+    "relacao_produto",
+    "relacao_patrimonio",
+    "relacao_cotacao",
+    "relacao_proposta",
+    "relacao_contrato",
+    "relacao_cliente_multi",
+    "relacao_fornecedor_multi",
+    "relacao_produto_multi",
+    "relacao_patrimonio_multi",
+    "relacao_cotacao_multi",
+    "relacao_proposta_multi",
+    "relacao_contrato_multi",
 }
+
+# Aceita nomes amigáveis e variações que podem vir do front.
+# O banco continua gravando o tipo canônico abaixo.
+TIPOS_CAMPOS_ALIASES = {
+    "texto curto": "texto",
+    "campo texto": "texto",
+    "texto longo": "textarea",
+    "area de texto": "textarea",
+    "textarea": "textarea",
+    "numero": "numero",
+    "número": "numero",
+    "data": "data",
+    "lista": "select",
+    "select": "select",
+    "checkbox": "checkbox",
+    "flag": "checkbox",
+    "fleg": "checkbox",
+    "email": "email",
+    "e-mail": "email",
+    "telefone": "telefone",
+    "moeda": "moeda",
+    "percentual": "percentual",
+
+    "multiselect": "multiselect",
+    "multi_select": "multiselect",
+    "multi-select": "multiselect",
+    "lista multipla": "multiselect",
+    "lista múltipla": "multiselect",
+    "lista com multipla selecao": "multiselect",
+    "lista com múltipla seleção": "multiselect",
+    "multipla selecao": "multiselect",
+    "múltipla seleção": "multiselect",
+    "multivaloravel": "multiselect",
+    "multivalorável": "multiselect",
+    "multvaloravel": "multiselect",
+
+    "cliente": "relacao_cliente",
+    "clientes": "relacao_cliente",
+    "puxar cliente": "relacao_cliente",
+    "puxar clientes": "relacao_cliente",
+    "relacao_cliente": "relacao_cliente",
+    "relacao_clientes": "relacao_cliente",
+    "lookup_cliente": "relacao_cliente",
+    "lookup_clientes": "relacao_cliente",
+
+    "fornecedor": "relacao_fornecedor",
+    "fornecedores": "relacao_fornecedor",
+    "puxar fornecedor": "relacao_fornecedor",
+    "puxar fornecedores": "relacao_fornecedor",
+    "relacao_fornecedor": "relacao_fornecedor",
+    "relacao_fornecedores": "relacao_fornecedor",
+    "lookup_fornecedor": "relacao_fornecedor",
+    "lookup_fornecedores": "relacao_fornecedor",
+
+    "produto": "relacao_produto",
+    "produtos": "relacao_produto",
+    "puxar produto": "relacao_produto",
+    "puxar produtos": "relacao_produto",
+    "relacao_produto": "relacao_produto",
+    "relacao_produtos": "relacao_produto",
+    "lookup_produto": "relacao_produto",
+    "lookup_produtos": "relacao_produto",
+
+    "patrimonio": "relacao_patrimonio",
+    "patrimônio": "relacao_patrimonio",
+    "puxar patrimonio": "relacao_patrimonio",
+    "puxar patrimônio": "relacao_patrimonio",
+    "relacao_patrimonio": "relacao_patrimonio",
+    "lookup_patrimonio": "relacao_patrimonio",
+
+    "cotacao": "relacao_cotacao",
+    "cotação": "relacao_cotacao",
+    "cotacoes": "relacao_cotacao",
+    "cotações": "relacao_cotacao",
+    "puxar cotacao": "relacao_cotacao",
+    "puxar cotação": "relacao_cotacao",
+    "puxar cotacoes": "relacao_cotacao",
+    "puxar cotações": "relacao_cotacao",
+    "relacao_cotacao": "relacao_cotacao",
+    "relacao_cotacoes": "relacao_cotacao",
+    "lookup_cotacao": "relacao_cotacao",
+    "lookup_cotacoes": "relacao_cotacao",
+
+    "proposta": "relacao_proposta",
+    "propostas": "relacao_proposta",
+    "puxar proposta": "relacao_proposta",
+    "puxar propostas": "relacao_proposta",
+    "relacao_proposta": "relacao_proposta",
+    "relacao_propostas": "relacao_proposta",
+    "lookup_proposta": "relacao_proposta",
+    "lookup_propostas": "relacao_proposta",
+
+    "contrato": "relacao_contrato",
+    "contratos": "relacao_contrato",
+    "puxar contrato": "relacao_contrato",
+    "puxar contratos": "relacao_contrato",
+    "relacao_contrato": "relacao_contrato",
+    "relacao_contratos": "relacao_contrato",
+    "lookup_contrato": "relacao_contrato",
+    "lookup_contratos": "relacao_contrato",
+}
+
+
+# Relações com múltipla escolha. Ex.: um produto pode ter vários fornecedores.
+for _rel_nome, _rel_tipo in {
+    "cliente": "relacao_cliente_multi",
+    "clientes": "relacao_cliente_multi",
+    "fornecedor": "relacao_fornecedor_multi",
+    "fornecedores": "relacao_fornecedor_multi",
+    "produto": "relacao_produto_multi",
+    "produtos": "relacao_produto_multi",
+    "patrimonio": "relacao_patrimonio_multi",
+    "patrimônio": "relacao_patrimonio_multi",
+    "cotacao": "relacao_cotacao_multi",
+    "cotação": "relacao_cotacao_multi",
+    "cotacoes": "relacao_cotacao_multi",
+    "cotações": "relacao_cotacao_multi",
+    "proposta": "relacao_proposta_multi",
+    "propostas": "relacao_proposta_multi",
+    "contrato": "relacao_contrato_multi",
+    "contratos": "relacao_contrato_multi",
+}.items():
+    TIPOS_CAMPOS_ALIASES[f"puxar varios {_rel_nome}"] = _rel_tipo
+    TIPOS_CAMPOS_ALIASES[f"puxar vários {_rel_nome}"] = _rel_tipo
+    TIPOS_CAMPOS_ALIASES[f"puxar {_rel_nome} multiplo"] = _rel_tipo
+    TIPOS_CAMPOS_ALIASES[f"puxar {_rel_nome} múltiplo"] = _rel_tipo
+    TIPOS_CAMPOS_ALIASES[f"puxar {_rel_nome} multi"] = _rel_tipo
+    TIPOS_CAMPOS_ALIASES[f"{_rel_nome} multiplo"] = _rel_tipo
+    TIPOS_CAMPOS_ALIASES[f"{_rel_nome} múltiplo"] = _rel_tipo
+    TIPOS_CAMPOS_ALIASES[f"{_rel_nome} multi"] = _rel_tipo
+
+TIPOS_CAMPOS_ALIASES.update({
+    "relacao_cliente_multi": "relacao_cliente_multi",
+    "relacao_clientes_multi": "relacao_cliente_multi",
+    "lookup_cliente_multi": "relacao_cliente_multi",
+    "lookup_clientes_multi": "relacao_cliente_multi",
+    "relacao_fornecedor_multi": "relacao_fornecedor_multi",
+    "relacao_fornecedores_multi": "relacao_fornecedor_multi",
+    "lookup_fornecedor_multi": "relacao_fornecedor_multi",
+    "lookup_fornecedores_multi": "relacao_fornecedor_multi",
+    "relacao_produto_multi": "relacao_produto_multi",
+    "relacao_produtos_multi": "relacao_produto_multi",
+    "lookup_produto_multi": "relacao_produto_multi",
+    "lookup_produtos_multi": "relacao_produto_multi",
+    "relacao_patrimonio_multi": "relacao_patrimonio_multi",
+    "lookup_patrimonio_multi": "relacao_patrimonio_multi",
+    "relacao_cotacao_multi": "relacao_cotacao_multi",
+    "relacao_cotacoes_multi": "relacao_cotacao_multi",
+    "lookup_cotacao_multi": "relacao_cotacao_multi",
+    "lookup_cotacoes_multi": "relacao_cotacao_multi",
+    "relacao_proposta_multi": "relacao_proposta_multi",
+    "relacao_propostas_multi": "relacao_proposta_multi",
+    "lookup_proposta_multi": "relacao_proposta_multi",
+    "lookup_propostas_multi": "relacao_proposta_multi",
+    "relacao_contrato_multi": "relacao_contrato_multi",
+    "relacao_contratos_multi": "relacao_contrato_multi",
+    "lookup_contrato_multi": "relacao_contrato_multi",
+    "lookup_contratos_multi": "relacao_contrato_multi",
+})
 
 VISIBILIDADES_PERMITIDAS = {"todos", "pf", "pj", "interno", "publico"}
 
@@ -285,6 +464,21 @@ CAMPOS_SISTEMA_POR_MODULO: Dict[str, List[Dict[str, Any]]] = {
 }
 
 
+CAMPO_DATA_CADASTRO_SISTEMA = {
+    "campo": "data_cadastro",
+    "label": "Data de cadastro",
+    "tipo": "data",
+    "somente_leitura": True,
+    "largura": "50",
+    "ajuda": "Data em que o registro foi criado no sistema.",
+}
+
+for _modulo, _campos in CAMPOS_SISTEMA_POR_MODULO.items():
+    if not any(str(c.get("campo") or "") == "data_cadastro" for c in _campos):
+        _insert_at = 1 if _campos and str(_campos[0].get("campo") or "") in {"codigo", "numero_contrato"} else 0
+        _campos.insert(_insert_at, dict(CAMPO_DATA_CADASTRO_SISTEMA))
+
+
 # =========================================================
 # HELPERS
 # =========================================================
@@ -309,6 +503,24 @@ def normalizar_texto_busca(value: Any) -> str:
     text = unicodedata.normalize("NFD", text)
     text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
     return " ".join(text.replace("/", " ").replace("-", " ").split())
+
+
+def normalizar_tipo_campo(value: Any) -> str:
+    raw = norm_lower(value)
+    if not raw:
+        return "texto"
+
+    if raw in TIPOS_CAMPOS_PERMITIDOS:
+        return raw
+
+    chave_sem_acento = normalizar_texto_busca(raw)
+    chave_underscore = chave_sem_acento.replace(" ", "_")
+
+    for chave in (raw, chave_sem_acento, chave_underscore):
+        if chave in TIPOS_CAMPOS_ALIASES:
+            return TIPOS_CAMPOS_ALIASES[chave]
+
+    return raw
 
 
 def icone_fallback_por_titulo(titulo: Any) -> str:
@@ -609,7 +821,78 @@ def campo_dict(row) -> Dict[str, Any]:
     }
 
 
+
+def garantir_data_cadastro_no_modelo(db: Session, modelo) -> None:
+    """Garante o campo virtual Data de cadastro nos formulários antigos sem bagunçar a estrutura."""
+    existente = (
+        db.query(models.FormularioCampo)
+        .filter(models.FormularioCampo.formulario_id == modelo.id)
+        .filter(models.FormularioCampo.origem == "sistema")
+        .filter(models.FormularioCampo.campo_sistema == "data_cadastro")
+        .first()
+    )
+
+    if existente:
+        existente.label = existente.label or "Data de cadastro"
+        existente.tipo_campo = "data"
+        existente.somente_leitura = True
+        existente.ativo = True if existente.ativo is None else existente.ativo
+        return
+
+    secao = (
+        db.query(models.FormularioSecao)
+        .filter(models.FormularioSecao.formulario_id == modelo.id)
+        .order_by(models.FormularioSecao.ordem.asc(), models.FormularioSecao.id.asc())
+        .first()
+    )
+
+    if not secao:
+        secao = models.FormularioSecao(
+            formulario_id=modelo.id,
+            titulo="Dados principais",
+            descricao="Campos principais do cadastro.",
+            icone="fa-id-card",
+            ordem=1,
+            ativo=True,
+        )
+        db.add(secao)
+        db.flush()
+
+    ultimo = (
+        db.query(models.FormularioCampo)
+        .filter(models.FormularioCampo.formulario_id == modelo.id)
+        .order_by(models.FormularioCampo.ordem.desc(), models.FormularioCampo.id.desc())
+        .first()
+    )
+
+    campo = models.FormularioCampo(
+        formulario_id=modelo.id,
+        secao_id=secao.id,
+        origem="sistema",
+        campo_sistema="data_cadastro",
+        campo_personalizado_id=None,
+        tipo_visual=None,
+        tipo_campo="data",
+        label="Data de cadastro",
+        placeholder=None,
+        ajuda="Data em que o registro foi criado no sistema.",
+        opcoes_json=None,
+        obrigatorio=False,
+        somente_leitura=True,
+        ativo=True,
+        largura="50",
+        ordem=int(getattr(ultimo, "ordem", 0) or 0) + 1,
+        visibilidade="todos",
+        condicao_json=None,
+    )
+    db.add(campo)
+    db.flush()
+
 def formulario_completo(db: Session, modelo) -> Dict[str, Any]:
+    garantir_data_cadastro_no_modelo(db, modelo)
+    db.commit()
+    db.refresh(modelo)
+
     secoes = (
         db.query(models.FormularioSecao)
         .filter(models.FormularioSecao.formulario_id == modelo.id)
@@ -907,10 +1190,14 @@ def aplicar_campo(campo, dados: Dict[str, Any], db: Session, modelo, criando: bo
         dados["somente_leitura"] = True
 
     if tipo_campo:
-        tipo_campo = norm_lower(tipo_campo)
+        tipo_campo = normalizar_tipo_campo(tipo_campo)
 
         if tipo_campo not in TIPOS_CAMPOS_PERMITIDOS:
-            raise HTTPException(status_code=422, detail="Tipo de campo inválido.")
+            permitidos = ", ".join(sorted(TIPOS_CAMPOS_PERMITIDOS))
+            raise HTTPException(
+                status_code=422,
+                detail=f"Tipo de campo inválido: {tipo_campo}. Permitidos: {permitidos}",
+            )
 
     opcoes_raw = dados.get("opcoes_json", dados.get("opcoes", campo.opcoes_json if not criando else None))
     condicao_raw = dados.get("condicao_json", dados.get("condicao", campo.condicao_json if not criando else None))
@@ -937,6 +1224,138 @@ def aplicar_campo(campo, dados: Dict[str, Any], db: Session, modelo, criando: bo
 # =========================================================
 # ROTAS AUXILIARES
 # =========================================================
+
+
+# =========================================================
+# OPÇÕES PARA CAMPOS DE RELAÇÃO
+# =========================================================
+def _texto_primeiro(*values: Any) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def _normalizar_tipo_relacao(tipo: str) -> str:
+    raw = (tipo or "").strip().lower()
+    raw = raw.replace("relacao_", "").replace("lookup_", "")
+    raw = raw.replace("_multi", "").replace("_multiplo", "").replace("_multipla", "")
+    raw = raw.replace("clientes", "cliente")
+    raw = raw.replace("fornecedores", "fornecedor")
+    raw = raw.replace("produtos", "produto")
+    raw = raw.replace("patrimonios", "patrimonio")
+    raw = raw.replace("patrimônios", "patrimonio")
+    raw = raw.replace("cotacoes", "cotacao")
+    raw = raw.replace("cotações", "cotacao")
+    raw = raw.replace("propostas", "proposta")
+    raw = raw.replace("contratos", "contrato")
+    return raw
+
+
+def _relacao_to_out(item: Any, tipo: str) -> Dict[str, Any]:
+    value = str(getattr(item, "id", "") or "").strip()
+
+    if tipo == "cliente":
+        codigo = _texto_primeiro(getattr(item, "codigo", None))
+        nome = _texto_primeiro(getattr(item, "nome", None), getattr(item, "razao_social", None), getattr(item, "nome_fantasia", None))
+        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(nome, codigo, f"Cliente #{value}")
+    elif tipo == "fornecedor":
+        codigo = _texto_primeiro(getattr(item, "codigo", None))
+        nome = _texto_primeiro(getattr(item, "nome", None), getattr(item, "razao_social", None), getattr(item, "nome_fantasia", None))
+        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(nome, codigo, f"Fornecedor #{value}")
+    elif tipo == "produto":
+        codigo = _texto_primeiro(getattr(item, "codigo", None))
+        nome = _texto_primeiro(getattr(item, "nome", None), getattr(item, "descricao", None))
+        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(nome, codigo, f"Produto #{value}")
+    elif tipo == "patrimonio":
+        codigo = _texto_primeiro(getattr(item, "codigo", None))
+        nome = _texto_primeiro(getattr(item, "nome", None), getattr(item, "descricao", None), getattr(item, "numero_serie", None))
+        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(nome, codigo, f"Patrimônio #{value}")
+    elif tipo == "cotacao":
+        codigo = _texto_primeiro(getattr(item, "codigo", None))
+        nome = _texto_primeiro(getattr(item, "item_nome", None), getattr(item, "titulo", None), getattr(item, "descricao", None))
+        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(nome, codigo, f"Cotação #{value}")
+    elif tipo == "proposta":
+        codigo = _texto_primeiro(getattr(item, "codigo", None))
+        nome = _texto_primeiro(getattr(item, "titulo", None), getattr(item, "cliente_nome", None))
+        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(nome, codigo, f"Proposta #{value}")
+    elif tipo == "contrato":
+        codigo = _texto_primeiro(getattr(item, "numero_contrato", None), getattr(item, "codigo", None))
+        nome = _texto_primeiro(getattr(item, "cliente_nome", None), getattr(item, "tipo_contrato", None))
+        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(codigo, nome, f"Contrato #{value}")
+    else:
+        label = _texto_primeiro(getattr(item, "nome", None), getattr(item, "codigo", None), value)
+
+    return {
+        "id": value,
+        "value": value,
+        "label": label,
+        "codigo": _texto_primeiro(getattr(item, "codigo", None), getattr(item, "numero_contrato", None)),
+        "nome": _texto_primeiro(getattr(item, "nome", None), getattr(item, "titulo", None), getattr(item, "item_nome", None), getattr(item, "cliente_nome", None)),
+    }
+
+
+@router.get("/opcoes-relacao")
+def listar_opcoes_relacao(
+    tipo: str = Query(..., min_length=1),
+    q: Optional[str] = Query(None),
+    limit: int = Query(200, ge=1, le=500),
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
+    empresa_id = validar_usuario_empresa(request, db)
+    tipo_norm = _normalizar_tipo_relacao(tipo)
+
+    mapa = {
+        "cliente": models.Cliente,
+        "fornecedor": models.Fornecedor,
+        "produto": models.Produto,
+        "patrimonio": models.Patrimonio,
+        "cotacao": models.Cotacao,
+        "proposta": models.Proposta,
+    }
+
+    if tipo_norm == "contrato":
+        if models_contratos is None or not hasattr(models_contratos, "Contrato"):
+            return []
+        Model = models_contratos.Contrato
+    else:
+        Model = mapa.get(tipo_norm)
+
+    if Model is None:
+        raise HTTPException(status_code=422, detail="Tipo de relação inválido.")
+
+    query = db.query(Model).filter(Model.empresa_id == empresa_id)
+
+    if hasattr(Model, "ativo"):
+        try:
+            query = query.filter(Model.ativo == True)  # noqa: E712
+        except Exception:
+            pass
+
+    if q:
+        termo = f"%{q.strip()}%"
+        filtros = []
+        for attr in ("nome", "codigo", "nome_fantasia", "item_nome", "titulo", "numero_contrato"):
+            if hasattr(Model, attr):
+                filtros.append(getattr(Model, attr).ilike(termo))
+        if filtros:
+            from sqlalchemy import or_
+            query = query.filter(or_(*filtros))
+
+    ordem = None
+    for attr in ("nome", "titulo", "item_nome", "numero_contrato", "codigo", "id"):
+        if hasattr(Model, attr):
+            ordem = getattr(Model, attr)
+            break
+    if ordem is not None:
+        query = query.order_by(ordem.asc())
+
+    itens = query.limit(limit).all()
+    return [_relacao_to_out(item, tipo_norm) for item in itens]
+
+
 @router.get("/modulos")
 def listar_modulos(request: Request, db: Session = Depends(get_db)):
     validar_usuario_empresa(request, db)

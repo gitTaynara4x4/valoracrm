@@ -49,6 +49,21 @@ function normalizarTipo(tipo) {
     select: 'select',
     lista: 'select',
     checkbox: 'checkbox',
+    multiselect: 'multiselect',
+    relacao_cliente: 'relacao_cliente',
+    relacao_fornecedor: 'relacao_fornecedor',
+    relacao_produto: 'relacao_produto',
+    relacao_patrimonio: 'relacao_patrimonio',
+    relacao_cotacao: 'relacao_cotacao',
+    relacao_proposta: 'relacao_proposta',
+    relacao_contrato: 'relacao_contrato',
+    relacao_cliente_multi: 'relacao_cliente_multi',
+    relacao_fornecedor_multi: 'relacao_fornecedor_multi',
+    relacao_produto_multi: 'relacao_produto_multi',
+    relacao_patrimonio_multi: 'relacao_patrimonio_multi',
+    relacao_cotacao_multi: 'relacao_cotacao_multi',
+    relacao_proposta_multi: 'relacao_proposta_multi',
+    relacao_contrato_multi: 'relacao_contrato_multi',
     email: 'email',
     telefone: 'telefone',
     phone: 'telefone',
@@ -914,15 +929,34 @@ export async function renderCustomFieldsInputs(camposClientes, values = {}) {
 }
 
 export function normalizeCustomFieldsPayload() {
+  if (window.ValoraFichaPrincipal?.collectCustomFieldsValues) {
+    return window.ValoraFichaPrincipal.collectCustomFieldsValues(document);
+  }
+
   const payload = {};
 
   document.querySelectorAll('[data-custom-field]').forEach((el) => {
     const slug = String(el.dataset.customField || '').trim();
 
-    if (!slug) return;
+    if (!slug || el.disabled || el.dataset.customReadonly === 'true') return;
 
     if (el.type === 'checkbox') {
       payload[slug] = !!el.checked;
+      return;
+    }
+
+    if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
+      const value = String(el.value ?? '').trim();
+      if (value) payload[slug] = value;
+      return;
+    }
+
+    if (el.matches('select[multiple], [data-custom-multiple="true"]')) {
+      const values = Array.from(el.selectedOptions || [])
+        .map((opt) => String(opt.value ?? '').trim())
+        .filter(Boolean);
+
+      if (values.length) payload[slug] = JSON.stringify(values);
       return;
     }
 
@@ -937,6 +971,13 @@ export function normalizeCustomFieldsPayload() {
 }
 
 export function validateRequiredCustomFields(camposClientes, values = {}) {
+  if (window.ValoraFichaPrincipal?.validateRequiredRenderedFields) {
+    const ok = window.ValoraFichaPrincipal.validateRequiredRenderedFields({ root: document });
+    if (!ok) {
+      return { ok: false, message: 'Preencha os campos obrigatórios da ficha.' };
+    }
+  }
+
   const domRequired = Array.from(document.querySelectorAll('[data-custom-field][data-required="true"]'));
 
   for (const el of domRequired) {
@@ -944,6 +985,19 @@ export function validateRequiredCustomFields(camposClientes, values = {}) {
 
     if (el.type === 'checkbox') {
       if (!el.checked) {
+        return {
+          ok: false,
+          message: `Preencha o campo obrigatório: ${label}`,
+        };
+      }
+
+      continue;
+    }
+
+    if (el.matches('select[multiple], [data-custom-multiple="true"]')) {
+      const hasValue = Array.from(el.selectedOptions || []).some((opt) => String(opt.value || '').trim());
+
+      if (!hasValue) {
         return {
           ok: false,
           message: `Preencha o campo obrigatório: ${label}`,

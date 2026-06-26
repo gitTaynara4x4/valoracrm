@@ -432,6 +432,7 @@
 
   function buildCustomValuesFromProduto(produto = {}) {
     const custom = normalizeCustomFields(produto.custom_fields);
+    custom.data_cadastro = produto.data_cadastro || produto.criado_em || produto.created_at || custom.data_cadastro || '';
 
     if (produto.nome) {
       if (!custom.nome) custom.nome = produto.nome;

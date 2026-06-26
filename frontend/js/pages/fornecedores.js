@@ -668,7 +668,7 @@ async function renderCustomFieldsInputs(values = {}) {
     container,
     formulario: formularioFornecedores,
     camposAvulsos: camposFornecedores,
-    values,
+    values: { ...(values || {}), data_cadastro: values?.data_cadastro || values?.criado_em || values?.created_at || '' },
     usarFichaPrincipal: usarFichaPrincipalFornecedores,
     flatTitle: 'Campos personalizados',
     flatDescription: 'Campos extras do cadastro de fornecedores.',
@@ -679,17 +679,32 @@ async function renderCustomFieldsInputs(values = {}) {
 }
 
 function normalizeCustomFieldsPayload() {
+  if (window.ValoraFichaPrincipal?.collectCustomFieldsValues) {
+    return window.ValoraFichaPrincipal.collectCustomFieldsValues(document);
+  }
+
   const out = {};
 
   $$('[data-custom-field]').forEach((el) => {
     const slug = String(el.getAttribute('data-custom-field') || '').trim();
 
-    if (!slug) return;
+    if (!slug || el.disabled || el.dataset.customReadonly === 'true') return;
 
     let value = '';
 
     if (el.type === 'checkbox') {
       value = el.checked ? 'true' : 'false';
+    } else if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
+      value = String(el.value || '').trim();
+      if (value) out[slug] = value;
+      return;
+    } else if (el.matches('select[multiple], [data-custom-multiple="true"]')) {
+      const values = Array.from(el.selectedOptions || [])
+        .map((opt) => String(opt.value ?? '').trim())
+        .filter(Boolean);
+
+      if (values.length) out[slug] = JSON.stringify(values);
+      return;
     } else {
       value = String(el.value || '').trim();
     }
@@ -731,6 +746,19 @@ function validateRequiredCustomFields() {
         el.focus();
         return false;
       }
+      continue;
+    }
+
+    if (el.matches('select[multiple], [data-custom-multiple="true"]')) {
+      const hasValue = Array.from(el.selectedOptions || []).some((opt) => String(opt.value || '').trim());
+
+      if (!hasValue) {
+        toast(`Preencha o campo personalizado: ${campo.nome || slug}.`, 'error');
+        switchFornecedorTab('tab-fornecedor-campos');
+        el.focus();
+        return false;
+      }
+
       continue;
     }
 
@@ -873,7 +901,7 @@ async function salvarToggleFichaPrincipalFornecedor(event) {
   try {
     if (!formularioFornecedores?.modelo?.id) {
       await carregarFormularioFornecedores();
-      await renderCustomFieldsInputs(fornecedorAtualDetalhe?.custom_fields || {});
+      await renderCustomFieldsInputs({ ...(fornecedorAtualDetalhe?.custom_fields || {}), ...(fornecedorAtualDetalhe || {}), data_cadastro: fornecedorAtualDetalhe?.data_cadastro || fornecedorAtualDetalhe?.criado_em || fornecedorAtualDetalhe?.created_at || '' });
     }
 
     const modelo = formularioFornecedores?.modelo;
@@ -905,7 +933,7 @@ async function salvarToggleFichaPrincipalFornecedor(event) {
       },
     };
 
-    await renderCustomFieldsInputs(fornecedorAtualDetalhe?.custom_fields || {});
+    await renderCustomFieldsInputs({ ...(fornecedorAtualDetalhe?.custom_fields || {}), ...(fornecedorAtualDetalhe || {}), data_cadastro: fornecedorAtualDetalhe?.data_cadastro || fornecedorAtualDetalhe?.criado_em || fornecedorAtualDetalhe?.created_at || '' });
     aplicarModoFichaFornecedor();
 
     toast(
@@ -959,7 +987,7 @@ async function fillFornecedorForm(fornecedor = {}) {
   setValue('campo-plano-contas-fornecedor', data.plano_contas);
   setValue('campo-observacoes-fornecedor', data.observacoes);
 
-  await renderCustomFieldsInputs(data.custom_fields || {});
+  await renderCustomFieldsInputs({ ...(data.custom_fields || {}), ...data, data_cadastro: data.data_cadastro || data.criado_em || data.created_at || '' });
   syncFornecedorFichaCode(onlyDigits(data.codigo) || onlyDigits(getValue('campo-codigo-fornecedor')));
   aplicarModoFichaFornecedor();
   switchFornecedorTab(usarFichaPrincipalFornecedores ? 'tab-fornecedor-campos' : 'tab-fornecedor-cadastro');
