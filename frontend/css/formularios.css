@@ -22,6 +22,67 @@
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
 
+
+/* =========================================================
+   CORREÇÃO FONT AWESOME
+   O seletor global acima força Inter em tudo. Sem este bloco,
+   os <i class="fa-solid ..."> viram quadradinhos.
+   ========================================================= */
+.formularios-page .fa,
+.formularios-page .fas,
+.formularios-page .fa-solid,
+#modal-modelo .fa,
+#modal-modelo .fas,
+#modal-modelo .fa-solid,
+#modal-secao .fa,
+#modal-secao .fas,
+#modal-secao .fa-solid,
+#modal-campo .fa,
+#modal-campo .fas,
+#modal-campo .fa-solid,
+#modal-campo-sistema .fa,
+#modal-campo-sistema .fas,
+#modal-campo-sistema .fa-solid {
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 900 !important;
+  font-style: normal !important;
+  font-variant: normal !important;
+  line-height: 1 !important;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.formularios-page .far,
+.formularios-page .fa-regular,
+#modal-modelo .far,
+#modal-modelo .fa-regular,
+#modal-secao .far,
+#modal-secao .fa-regular,
+#modal-campo .far,
+#modal-campo .fa-regular,
+#modal-campo-sistema .far,
+#modal-campo-sistema .fa-regular {
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
+}
+
+.formularios-page .fab,
+.formularios-page .fa-brands,
+#modal-modelo .fab,
+#modal-modelo .fa-brands,
+#modal-secao .fab,
+#modal-secao .fa-brands,
+#modal-campo .fab,
+#modal-campo .fa-brands,
+#modal-campo-sistema .fab,
+#modal-campo-sistema .fa-brands {
+  font-family: "Font Awesome 6 Brands" !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
+}
+
 .formularios-page h1,
 .formularios-page h2,
 .formularios-page h3,
