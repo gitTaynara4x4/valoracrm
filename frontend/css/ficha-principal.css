@@ -467,3 +467,30 @@ html[data-theme="dark"] .valora-form.is-ficha-principal .custom-section-card-bit
     grid-template-columns: 1fr;
   }
 }
+
+
+/* =========================================================
+   Ícones reais das seções da ficha principal
+   ========================================================= */
+.custom-section-card[data-section-icon] .custom-section-icon i,
+.ficha-section-tab-icon i {
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 900 !important;
+}
+
+.ficha-section-tab-icon {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  line-height: 1;
+}
+
+.ficha-section-tab-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

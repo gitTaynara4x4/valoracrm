@@ -1118,3 +1118,22 @@ html[data-theme="dark"] .status-ativo {
   border-color: #ef4444 !important;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
 }
+
+
+/* Ícones dinâmicos das seções configuradas em Formulários */
+#modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn[data-ficha-section],
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] {
+  padding-left: 58px !important;
+}
+#modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn[data-ficha-section] .ficha-section-tab-icon,
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon {
+  position: absolute !important;
+  left: 30px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+#modal-patrimonio .patrimonio-sidebar-nav .patrimonio-tab-btn[data-ficha-section] .ficha-section-tab-icon i,
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon i {
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 900 !important;
+}

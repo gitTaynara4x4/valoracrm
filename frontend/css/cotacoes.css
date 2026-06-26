@@ -1455,3 +1455,22 @@ textarea.is-required-missing {
 .is-required-missing label {
   color: #b91c1c !important;
 }
+
+
+/* Ícones dinâmicos das seções configuradas em Formulários */
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn[data-ficha-section],
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] {
+  padding-left: 58px !important;
+}
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn[data-ficha-section] .ficha-section-tab-icon,
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon {
+  position: absolute !important;
+  left: 30px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn[data-ficha-section] .ficha-section-tab-icon i,
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon i {
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 900 !important;
+}

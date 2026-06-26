@@ -276,6 +276,28 @@
     return String(campo?.origem || '').toLowerCase() === 'visual' || !!campo?.tipo_visual;
   }
 
+  function normalizarIconeSecao(icone, fallback = 'fa-layer-group') {
+    let value = String(icone || '').trim();
+
+    if (!value) return fallback;
+
+    value = value
+      .replace(/\bfa-solid\b/g, '')
+      .replace(/\bfas\b/g, '')
+      .replace(/\bfa-regular\b/g, '')
+      .replace(/\bfar\b/g, '')
+      .replace(/\bfa-brands\b/g, '')
+      .replace(/\bfab\b/g, '')
+      .trim();
+
+    const found = value
+      .split(/\s+/)
+      .map((item) => item.trim())
+      .find((item) => /^fa-[a-z0-9-]+$/i.test(item));
+
+    return found || fallback;
+  }
+
   function ordenarPorOrdemId(items = []) {
     return [...items].sort((a, b) =>
       Number(a?.ordem || 0) - Number(b?.ordem || 0) ||
@@ -381,6 +403,7 @@
           id: secao.id,
           titulo: secao.titulo || 'Seção',
           descricao: secao.descricao || '',
+          icone: normalizarIconeSecao(secao.icone),
           ordem: Number(secao.ordem || 0),
           campos,
         });
@@ -404,6 +427,7 @@
         id: 'sem_secao',
         titulo: 'Outros campos',
         descricao: 'Campos sem seção definida no formulário.',
+        icone: 'fa-layer-group',
         ordem: 9998,
         campos: camposSemSecao,
       });
@@ -421,6 +445,7 @@
         id: 'extras',
         titulo: 'Outros campos',
         descricao: 'Campos personalizados que ainda não estão organizados em uma seção.',
+        icone: 'fa-layer-group',
         ordem: 9999,
         campos: extras,
       });
@@ -443,6 +468,7 @@
         id: 'flat',
         titulo,
         descricao,
+        icone: 'fa-layer-group',
         ordem: 1,
         campos,
       },
@@ -635,11 +661,13 @@
   }
 
   function renderSecao(secao, values = {}) {
+    const icone = normalizarIconeSecao(secao?.icone);
+
     return `
-      <article class="custom-section-card custom-section-card-bitrix">
+      <article class="custom-section-card custom-section-card-bitrix" data-section-icon="${escapeHtml(icone)}">
         <div class="custom-section-head">
           <div class="custom-section-title">
-            <span class="custom-section-icon"><i class="fa-solid fa-layer-group"></i></span>
+            <span class="custom-section-icon"><i class="fa-solid ${escapeHtml(icone)}"></i></span>
             <div>
               <h4>${escapeHtml(secao.titulo || 'Seção')}</h4>
               ${secao.descricao ? `<p>${escapeHtml(secao.descricao)}</p>` : ''}
@@ -890,6 +918,14 @@
     return true;
   }
 
+  function getSectionIconFromCard(card) {
+    return normalizarIconeSecao(
+      card?.dataset?.sectionIcon ||
+      card?.querySelector('.custom-section-icon i')?.className ||
+      ''
+    );
+  }
+
   function getSectionTitleFromCard(card, index) {
     const raw =
       card.querySelector('.custom-section-head h4')?.textContent ||
@@ -987,15 +1023,22 @@
       }
 
       tabs.innerHTML = cards
-        .map((card, index) => `
-          <button
-            type="button"
-            class="${escapeHtml(buttonClass || sectionButtonClass)} ${index === 0 ? 'active' : ''}"
-            data-ficha-section="${index}"
-          >
-            ${escapeHtml(getSectionTitleFromCard(card, index))}
-          </button>
-        `)
+        .map((card, index) => {
+          const title = getSectionTitleFromCard(card, index);
+          const icon = getSectionIconFromCard(card);
+
+          return `
+            <button
+              type="button"
+              class="${escapeHtml(buttonClass || sectionButtonClass)} ${index === 0 ? 'active' : ''}"
+              data-ficha-section="${index}"
+              title="${escapeHtml(title)}"
+            >
+              <span class="ficha-section-tab-icon"><i class="fa-solid ${escapeHtml(icon)}"></i></span>
+              <span class="ficha-section-tab-text">${escapeHtml(title)}</span>
+            </button>
+          `;
+        })
         .join('');
     }
 
@@ -1071,6 +1114,7 @@
     apiJson,
     parseCampoOpcoes,
     normalizarTipo,
+    normalizarIconeSecao,
     carregarFormularioModulo,
     clearFormularioCache,
     readFormularioCache,
