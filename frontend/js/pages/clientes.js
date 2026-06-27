@@ -224,6 +224,26 @@ function bindResumoSidebarCliente() {
   });
 }
 
+function getSectionIconFromCardLocal(card) {
+  const rawData = card?.dataset?.customSectionIcon || '';
+  const tokens = String(rawData)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/["']/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const fromData = tokens.find((item) => /^fa-[a-z0-9-]+$/i.test(item) && !/^(fa|fas|far|fal|fab|fa-solid|fa-regular|fa-brands)$/i.test(item));
+  if (fromData) return fromData;
+
+  const iconEl = card?.querySelector?.('.custom-section-icon i, .custom-section-head i');
+  if (iconEl?.classList?.length) {
+    const fromClass = Array.from(iconEl.classList).find((item) => /^fa-[a-z0-9-]+$/i.test(item) && !/^(fa|fas|far|fal|fab|fa-solid|fa-regular|fa-brands)$/i.test(item));
+    if (fromClass) return fromClass;
+  }
+
+  return 'fa-layer-group';
+}
+
 function getSectionTitleFromCard(card, index) {
   const raw =
     card.querySelector('.custom-section-head h4')?.textContent ||

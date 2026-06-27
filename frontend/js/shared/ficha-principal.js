@@ -61,7 +61,7 @@
 
 
 
-  const CACHE_PREFIX = 'valora:ficha-principal:v2';
+  const CACHE_PREFIX = 'valora:ficha-principal:v3-icons';
   const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
 
   function getCacheKey(modulo) {
@@ -730,7 +730,7 @@
           id: secao.id,
           titulo: secao.titulo || 'Seção',
           descricao: secao.descricao || '',
-          icone: secao.icone || 'fa-layer-group',
+          icone: getIconeSecao(secao, 'fa-layer-group'),
           ordem: Number(secao.ordem || 0),
           campos,
         });
@@ -1135,6 +1135,46 @@
     return icon || fallback;
   }
 
+
+  function normalizarTextoIconeSecao(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[\/_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function iconeFallbackPorTituloSecao(titulo) {
+    const t = normalizarTextoIconeSecao(titulo);
+
+    if (!t) return 'fa-layer-group';
+    if (/(basico|cadastro|identificacao|principal|dados gerais)/.test(t)) return 'fa-id-card';
+    if (/(imovel|endereco|residencia|casa|apartamento|localizacao|local)/.test(t)) return 'fa-house';
+    if (/(responsavel|representante|titular|contato)/.test(t)) return 'fa-user-shield';
+    if (/(pessoa juridica|juridica|cnpj|empresa|fornecedor)/.test(t)) return 'fa-building';
+    if (/(pessoa fisica|cpf|cliente)/.test(t)) return 'fa-user';
+    if (/(administrativo|administracao|gerencia|gerente)/.test(t)) return 'fa-user-gear';
+    if (/(financeiro|cobranca|pagamento|boleto|pix|cartao|credito|compras|limite)/.test(t)) return 'fa-wallet';
+    if (/(rede|social|instagram|facebook|linkedin|site)/.test(t)) return 'fa-share-nodes';
+    if (/(contrato|emissao|assinatura|documento)/.test(t)) return 'fa-file-signature';
+    if (/(telefone|whatsapp|email)/.test(t)) return 'fa-address-book';
+    if (/(ocorrencia|historico|registro|protocolo)/.test(t)) return 'fa-clipboard-list';
+    if (/(anexo|arquivo|foto|imagem)/.test(t)) return 'fa-paperclip';
+    if (/(classificacao|categoria|segmento|tipo|grupo)/.test(t)) return 'fa-tags';
+    if (/(comercial|venda|negociacao|proposta|cotacao)/.test(t)) return 'fa-briefcase';
+    if (/(produto|item|material|estoque)/.test(t)) return 'fa-box';
+    if (/(patrimonio|equipamento|ativo|maquina)/.test(t)) return 'fa-cubes';
+
+    return 'fa-layer-group';
+  }
+
+  function getIconeSecao(secao, fallback = 'fa-layer-group') {
+    const salvo = normalizarIconeFontAwesome(secao?.icone || '', '');
+    return salvo || iconeFallbackPorTituloSecao(secao?.titulo || secao?.nome || '') || fallback;
+  }
+
   function getSectionIconFromCard(card) {
     const fromData = normalizarIconeFontAwesome(card?.dataset?.customSectionIcon || '', '');
     if (fromData) return fromData;
@@ -1149,7 +1189,7 @@
   }
 
   function renderSecao(secao, values = {}) {
-    const icon = normalizarIconeFontAwesome(secao?.icone, 'fa-layer-group');
+    const icon = getIconeSecao(secao, 'fa-layer-group');
 
     return `
       <article class="custom-section-card custom-section-card-bitrix" data-custom-section-icon="${escapeHtml(icon)}">

@@ -278,3 +278,115 @@ html[data-theme="dark"] .ficha-principal-code-card .ficha-principal-system-field
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* =========================================================
+   Correção final: abas da ficha principal com ícones reais
+   ========================================================= */
+.valora-form.is-ficha-principal.cliente-modal-shell,
+.valora-form.is-ficha-principal.fornecedor-modal-shell,
+.valora-form.is-ficha-principal.produto-modal-shell,
+.valora-form.is-ficha-principal.patrimonio-modal-shell,
+.valora-form.is-ficha-principal.cotacao-modal-shell {
+  grid-template-columns: 280px minmax(0, 1fr) !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section],
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section],
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section],
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section],
+#modal-cotacao .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section],
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section],
+.cliente-sidebar-nav .cliente-tab-btn[data-ficha-section],
+.fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] {
+  width: calc(100% - 12px) !important;
+  min-height: 42px !important;
+  margin: 0 12px 2px 0 !important;
+  padding: 7px 10px 7px 28px !important;
+  border-radius: 0 12px 12px 0 !important;
+  display: grid !important;
+  grid-template-columns: 28px minmax(0, 1fr) !important;
+  align-items: center !important;
+  column-gap: 10px !important;
+  white-space: normal !important;
+  overflow: visible !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon,
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .ficha-section-tab-icon,
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon,
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon,
+#modal-cotacao .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon,
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon,
+.cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon,
+.fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .ficha-section-tab-icon {
+  position: static !important;
+  transform: none !important;
+  grid-column: 1 !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  border-radius: 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #4bc3c7 !important;
+  background: rgba(75, 195, 199, .13) !important;
+  opacity: 1 !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon i,
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .ficha-section-tab-icon i,
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon i,
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon i,
+#modal-cotacao .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon i,
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon i,
+.cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon i,
+.fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .ficha-section-tab-icon i {
+  color: inherit !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-label,
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .ficha-section-tab-label,
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-label,
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-label,
+#modal-cotacao .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-label,
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-label,
+.cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-label,
+.fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .ficha-section-tab-label {
+  grid-column: 2 !important;
+  min-width: 0 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  color: inherit !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  line-height: 1.22 !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+#modal-produto-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+#modal-patrimonio .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+#modal-cotacao .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+#modal-cotacao-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+.cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+.fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section].active .ficha-section-tab-icon {
+  color: #ffffff !important;
+  background: #4bc3c7 !important;
+}
+
+@media (max-width: 980px) {
+  .valora-form.is-ficha-principal.cliente-modal-shell,
+  .valora-form.is-ficha-principal.fornecedor-modal-shell,
+  .valora-form.is-ficha-principal.produto-modal-shell,
+  .valora-form.is-ficha-principal.patrimonio-modal-shell,
+  .valora-form.is-ficha-principal.cotacao-modal-shell {
+    grid-template-columns: 1fr !important;
+  }
+}
