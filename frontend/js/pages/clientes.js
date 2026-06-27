@@ -61,6 +61,8 @@ function defaultCliente() {
     ocorrencias: [],
     anexos: [],
     historico: {},
+    criado_em: '',
+    atualizado_em: '',
     custom_fields: {},
   };
 }
@@ -86,6 +88,32 @@ function setValue(id, value) {
 
 function getValue(id) {
   return $(id)?.value ?? '';
+}
+
+function formatarDataCadastroSistema(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const date = new Date(raw);
+  if (!Number.isNaN(date.getTime())) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  }
+
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+
+  return raw;
+}
+
+function syncFichaPrincipalCadastro(dataCadastro, usarHoje = false) {
+  const raw = dataCadastro || (usarHoje ? new Date().toISOString() : '');
+  setValue('campo-data-cadastro-ficha-principal', formatarDataCadastroSistema(raw));
 }
 
 function switchTab(targetId) {
@@ -249,7 +277,8 @@ function montarTabsDasSecoesDoFormulario() {
   if (!cards.length) {
     tabs.innerHTML = `
       <button type="button" class="cliente-tab-btn active" data-ficha-section="0">
-        Campos do formulário
+        <span class="ficha-section-tab-icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
+        <span class="ficha-section-tab-label">Campos do formulário</span>
       </button>
     `;
     return;
@@ -258,6 +287,7 @@ function montarTabsDasSecoesDoFormulario() {
   tabs.innerHTML = cards
     .map((card, index) => {
       const title = getSectionTitleFromCard(card, index);
+      const icon = getSectionIconFromCardLocal(card);
 
       return `
         <button
@@ -265,7 +295,8 @@ function montarTabsDasSecoesDoFormulario() {
           class="cliente-tab-btn ${index === 0 ? 'active' : ''}"
           data-ficha-section="${index}"
         >
-          ${escapeHtml(title)}
+          <span class="ficha-section-tab-icon" aria-hidden="true"><i class="fa-solid ${escapeHtml(icon)}"></i></span>
+          <span class="ficha-section-tab-label">${escapeHtml(title)}</span>
         </button>
       `;
     })
@@ -457,6 +488,7 @@ async function fillClientForm(cliente = {}) {
   currentDetail = data;
 
   syncFichaPrincipalCode(data.codigo || generateNextClientCode());
+  syncFichaPrincipalCadastro(data.criado_em || data.data_cadastro || data.created_at, !data.id);
 
   setValue('campo-tipo-pessoa', data.tipo_pessoa);
   setValue('campo-situacao', data.situacao);

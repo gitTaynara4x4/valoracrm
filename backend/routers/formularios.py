@@ -154,6 +154,8 @@ TIPOS_CAMPOS_ALIASES = {
     "clientes": "relacao_cliente",
     "puxar cliente": "relacao_cliente",
     "puxar clientes": "relacao_cliente",
+    "puxa cliente": "relacao_cliente",
+    "puxa clientes": "relacao_cliente",
     "relacao_cliente": "relacao_cliente",
     "relacao_clientes": "relacao_cliente",
     "lookup_cliente": "relacao_cliente",
@@ -163,6 +165,8 @@ TIPOS_CAMPOS_ALIASES = {
     "fornecedores": "relacao_fornecedor",
     "puxar fornecedor": "relacao_fornecedor",
     "puxar fornecedores": "relacao_fornecedor",
+    "puxa fornecedor": "relacao_fornecedor",
+    "puxa fornecedores": "relacao_fornecedor",
     "relacao_fornecedor": "relacao_fornecedor",
     "relacao_fornecedores": "relacao_fornecedor",
     "lookup_fornecedor": "relacao_fornecedor",
@@ -172,6 +176,8 @@ TIPOS_CAMPOS_ALIASES = {
     "produtos": "relacao_produto",
     "puxar produto": "relacao_produto",
     "puxar produtos": "relacao_produto",
+    "puxa produto": "relacao_produto",
+    "puxa produtos": "relacao_produto",
     "relacao_produto": "relacao_produto",
     "relacao_produtos": "relacao_produto",
     "lookup_produto": "relacao_produto",
@@ -181,6 +187,8 @@ TIPOS_CAMPOS_ALIASES = {
     "patrimônio": "relacao_patrimonio",
     "puxar patrimonio": "relacao_patrimonio",
     "puxar patrimônio": "relacao_patrimonio",
+    "puxa patrimonio": "relacao_patrimonio",
+    "puxa patrimônio": "relacao_patrimonio",
     "relacao_patrimonio": "relacao_patrimonio",
     "lookup_patrimonio": "relacao_patrimonio",
 
@@ -190,6 +198,8 @@ TIPOS_CAMPOS_ALIASES = {
     "cotações": "relacao_cotacao",
     "puxar cotacao": "relacao_cotacao",
     "puxar cotação": "relacao_cotacao",
+    "puxa cotacao": "relacao_cotacao",
+    "puxa cotação": "relacao_cotacao",
     "puxar cotacoes": "relacao_cotacao",
     "puxar cotações": "relacao_cotacao",
     "relacao_cotacao": "relacao_cotacao",
@@ -201,6 +211,8 @@ TIPOS_CAMPOS_ALIASES = {
     "propostas": "relacao_proposta",
     "puxar proposta": "relacao_proposta",
     "puxar propostas": "relacao_proposta",
+    "puxa proposta": "relacao_proposta",
+    "puxa propostas": "relacao_proposta",
     "relacao_proposta": "relacao_proposta",
     "relacao_propostas": "relacao_proposta",
     "lookup_proposta": "relacao_proposta",
@@ -210,6 +222,8 @@ TIPOS_CAMPOS_ALIASES = {
     "contratos": "relacao_contrato",
     "puxar contrato": "relacao_contrato",
     "puxar contratos": "relacao_contrato",
+    "puxa contrato": "relacao_contrato",
+    "puxa contratos": "relacao_contrato",
     "relacao_contrato": "relacao_contrato",
     "relacao_contratos": "relacao_contrato",
     "lookup_contrato": "relacao_contrato",
@@ -238,6 +252,8 @@ for _rel_nome, _rel_tipo in {
 }.items():
     TIPOS_CAMPOS_ALIASES[f"puxar varios {_rel_nome}"] = _rel_tipo
     TIPOS_CAMPOS_ALIASES[f"puxar vários {_rel_nome}"] = _rel_tipo
+    TIPOS_CAMPOS_ALIASES[f"puxa varios {_rel_nome}"] = _rel_tipo
+    TIPOS_CAMPOS_ALIASES[f"puxa vários {_rel_nome}"] = _rel_tipo
     TIPOS_CAMPOS_ALIASES[f"puxar {_rel_nome} multiplo"] = _rel_tipo
     TIPOS_CAMPOS_ALIASES[f"puxar {_rel_nome} múltiplo"] = _rel_tipo
     TIPOS_CAMPOS_ALIASES[f"puxar {_rel_nome} multi"] = _rel_tipo
@@ -1238,19 +1254,21 @@ def _texto_primeiro(*values: Any) -> str:
 
 
 def _normalizar_tipo_relacao(tipo: str) -> str:
-    raw = (tipo or "").strip().lower()
+    raw = normalizar_texto_busca(tipo or "")
+    raw = raw.replace("relacao ", "").replace("lookup ", "")
     raw = raw.replace("relacao_", "").replace("lookup_", "")
+    raw = raw.replace("puxar ", "").replace("puxa ", "")
+    raw = raw.replace("varios ", "").replace("varias ", "")
+    raw = raw.replace("multi ", "").replace("multiplo ", "").replace("multipla ", "")
     raw = raw.replace("_multi", "").replace("_multiplo", "").replace("_multipla", "")
     raw = raw.replace("clientes", "cliente")
     raw = raw.replace("fornecedores", "fornecedor")
     raw = raw.replace("produtos", "produto")
     raw = raw.replace("patrimonios", "patrimonio")
-    raw = raw.replace("patrimônios", "patrimonio")
     raw = raw.replace("cotacoes", "cotacao")
-    raw = raw.replace("cotações", "cotacao")
     raw = raw.replace("propostas", "proposta")
     raw = raw.replace("contratos", "contrato")
-    return raw
+    return raw.strip().replace(" ", "_")
 
 
 def _relacao_to_out(item: Any, tipo: str) -> Dict[str, Any]:

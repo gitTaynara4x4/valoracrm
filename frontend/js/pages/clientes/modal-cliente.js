@@ -61,6 +61,8 @@ function defaultCliente() {
     ocorrencias: [],
     anexos: [],
     historico: {},
+    criado_em: '',
+    atualizado_em: '',
     custom_fields: {},
   };
 }
@@ -86,6 +88,32 @@ function setValue(id, value) {
 
 function getValue(id) {
   return $(id)?.value ?? '';
+}
+
+function formatarDataCadastroSistema(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const date = new Date(raw);
+  if (!Number.isNaN(date.getTime())) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  }
+
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+
+  return raw;
+}
+
+function syncFichaPrincipalCadastro(dataCadastro, usarHoje = false) {
+  const raw = dataCadastro || (usarHoje ? new Date().toISOString() : '');
+  setValue('campo-data-cadastro-ficha-principal', formatarDataCadastroSistema(raw));
 }
 
 function switchTab(targetId) {
@@ -477,6 +505,7 @@ async function fillClientForm(cliente = {}) {
   currentDetail = data;
 
   syncFichaPrincipalCode(data.codigo);
+  syncFichaPrincipalCadastro(data.criado_em || data.data_cadastro || data.created_at, !data.id);
 
   setValue('campo-tipo-pessoa', data.tipo_pessoa);
   setValue('campo-situacao', data.situacao);

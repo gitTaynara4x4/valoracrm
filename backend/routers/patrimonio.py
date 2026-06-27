@@ -74,6 +74,15 @@ def iso_date(value: Any) -> Optional[str]:
     return str(value)
 
 
+def iso_datetime(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    text = str(value).strip()
+    return text or None
+
+
 def get_empresa_id_from_cookie(request: Request) -> int:
     empresa_id = request.cookies.get("empresa_id")
     if not empresa_id:
@@ -382,6 +391,8 @@ class PatrimonioUpdate(PatrimonioBase):
 class PatrimonioOut(PatrimonioBase, _Cfg):
     id: int
     empresa_id: int
+    criado_em: Optional[str] = None
+    atualizado_em: Optional[str] = None
 
 
 class CampoPatrimonioBase(BaseModel):
@@ -499,6 +510,8 @@ def patrimonio_to_out(db: Session, p: models.Patrimonio, *, include_custom_field
         data_aquisicao=iso_date(p.data_aquisicao),
         observacoes=p.observacoes,
         ativo=bool(p.ativo),
+        criado_em=iso_datetime(getattr(p, "criado_em", None)),
+        atualizado_em=iso_datetime(getattr(p, "atualizado_em", None)),
         custom_fields=(buscar_custom_fields(db, empresa_id, int(p.id)) if include_custom_fields else {}),
     )
 
@@ -520,6 +533,8 @@ def patrimonio_to_list_out(p: models.Patrimonio) -> Dict[str, object]:
         "valor_aquisicao": p.valor_aquisicao,
         "data_aquisicao": iso_date(p.data_aquisicao),
         "ativo": bool(p.ativo),
+        "criado_em": iso_datetime(getattr(p, "criado_em", None)),
+        "atualizado_em": iso_datetime(getattr(p, "atualizado_em", None)),
         "custom_fields": {},
     }
 

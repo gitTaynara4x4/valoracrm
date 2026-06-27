@@ -4,7 +4,7 @@ import { $, toast } from './utils.js';
 import { renderTabelaClientes } from './table.js';
 import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
-import { bindClientModal, openClientModalNew, openClientModalEdit } from './modal-cliente.js';
+import { bindClientModal, openClientModalNew, openClientModalEdit } from './modal-cliente.js?v=20260627-codigo-data';
 import { bindImportExport, exportarClientesJSON } from './import-export.js';
 
 function renderAll() {

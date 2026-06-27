@@ -1,0 +1,280 @@
+/* /frontend/css/ficha-principal-ajustes.css
+   Ajustes finais da ficha principal: card Código/Data + ícones das seções personalizadas.
+*/
+
+/* Card do código mais limpo e no padrão do modal */
+.ficha-principal-code-card,
+.cliente-ficha-code-card.ficha-principal-code-card,
+.fornecedor-ficha-code-card.ficha-principal-code-card,
+.produto-ficha-code-card.ficha-principal-code-card,
+.patrimonio-ficha-code-card.ficha-principal-code-card,
+.cotacao-ficha-code-card.ficha-principal-code-card,
+#modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card,
+#modal-fornecedor-backdrop .fornecedor-ficha-code-card.ficha-principal-code-card,
+#modal-produto-backdrop .produto-ficha-code-card.ficha-principal-code-card,
+#modal-patrimonio .patrimonio-ficha-code-card.ficha-principal-code-card,
+#modal-cotacao .cotacao-ficha-code-card.ficha-principal-code-card {
+  display: grid !important;
+  grid-template-columns: minmax(250px, .82fr) minmax(360px, 1fr) !important;
+  gap: 22px !important;
+  align-items: center !important;
+  margin: 0 0 16px !important;
+  padding: 18px 20px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.035) !important;
+  overflow: visible !important;
+}
+
+.ficha-principal-code-card[hidden],
+.cliente-ficha-code-card.ficha-principal-code-card[hidden],
+.fornecedor-ficha-code-card.ficha-principal-code-card[hidden],
+.produto-ficha-code-card.ficha-principal-code-card[hidden],
+.patrimonio-ficha-code-card.ficha-principal-code-card[hidden],
+.cotacao-ficha-code-card.ficha-principal-code-card[hidden] {
+  display: none !important;
+}
+
+.ficha-principal-code-card > div:first-child,
+.cliente-ficha-code-card.ficha-principal-code-card > div:first-child,
+.fornecedor-ficha-code-card.ficha-principal-code-card > div:first-child,
+.produto-ficha-code-card.ficha-principal-code-card > div:first-child,
+.patrimonio-ficha-code-card.ficha-principal-code-card > div:first-child,
+.cotacao-ficha-code-card.ficha-principal-code-card > div:first-child {
+  min-width: 0 !important;
+  display: grid !important;
+  grid-template-columns: 42px minmax(0, 1fr) !important;
+  grid-template-rows: auto auto auto !important;
+  column-gap: 13px !important;
+  align-items: center !important;
+}
+
+.ficha-principal-code-card > div:first-child::before,
+.cliente-ficha-code-card.ficha-principal-code-card > div:first-child::before,
+.fornecedor-ficha-code-card.ficha-principal-code-card > div:first-child::before,
+.produto-ficha-code-card.ficha-principal-code-card > div:first-child::before,
+.patrimonio-ficha-code-card.ficha-principal-code-card > div:first-child::before,
+.cotacao-ficha-code-card.ficha-principal-code-card > div:first-child::before {
+  content: "\f02a";
+  grid-column: 1;
+  grid-row: 1 / 4;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 15px;
+  color: #4bc3c7;
+  background: rgba(75, 195, 199, .12);
+}
+
+.ficha-principal-code-card .section-kicker,
+.cliente-ficha-code-card.ficha-principal-code-card .section-kicker,
+.fornecedor-ficha-code-card.ficha-principal-code-card .section-kicker,
+.produto-ficha-code-card.ficha-principal-code-card .section-kicker,
+.patrimonio-ficha-code-card.ficha-principal-code-card .section-kicker,
+.cotacao-ficha-code-card.ficha-principal-code-card .section-kicker {
+  grid-column: 2;
+  margin: 0 0 4px !important;
+  color: #65acde !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .08em !important;
+}
+
+.ficha-principal-code-card h4,
+.cliente-ficha-code-card.ficha-principal-code-card h4,
+.fornecedor-ficha-code-card.ficha-principal-code-card h4,
+.produto-ficha-code-card.ficha-principal-code-card h4,
+.patrimonio-ficha-code-card.ficha-principal-code-card h4,
+.cotacao-ficha-code-card.ficha-principal-code-card h4 {
+  grid-column: 2;
+  margin: 0 0 4px !important;
+  color: var(--text, #172033) !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -.02em !important;
+}
+
+.ficha-principal-code-card p,
+.cliente-ficha-code-card.ficha-principal-code-card p,
+.fornecedor-ficha-code-card.ficha-principal-code-card p,
+.produto-ficha-code-card.ficha-principal-code-card p,
+.patrimonio-ficha-code-card.ficha-principal-code-card p,
+.cotacao-ficha-code-card.ficha-principal-code-card p {
+  grid-column: 2;
+  max-width: 430px;
+  margin: 0 !important;
+  color: var(--muted, #64748b) !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+}
+
+.ficha-principal-code-card .ficha-principal-system-fields,
+.cliente-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields,
+.fornecedor-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields,
+.produto-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields,
+.patrimonio-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields,
+.cotacao-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields {
+  min-width: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(130px, 180px) minmax(190px, 1fr) !important;
+  gap: 12px !important;
+  align-items: end !important;
+}
+
+.ficha-principal-code-card .ficha-principal-system-fields .form-group,
+.cliente-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields .form-group,
+.fornecedor-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields .form-group,
+.produto-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields .form-group,
+.patrimonio-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields .form-group,
+.cotacao-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields .form-group {
+  margin: 0 !important;
+  min-width: 0 !important;
+}
+
+.ficha-principal-code-card .ficha-principal-system-fields label,
+.cliente-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields label,
+.fornecedor-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields label,
+.produto-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields label,
+.patrimonio-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields label,
+.cotacao-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields label {
+  display: block !important;
+  margin: 0 0 7px !important;
+  color: #475569 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+}
+
+.ficha-principal-code-card .ficha-principal-system-fields input,
+.cliente-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields input,
+.fornecedor-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields input,
+.produto-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields input,
+.patrimonio-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields input,
+.cotacao-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields input {
+  width: 100% !important;
+  min-height: 42px !important;
+  height: 42px !important;
+  padding: 0 12px !important;
+  border: 1px solid #dfe7f1 !important;
+  border-radius: 10px !important;
+  background: #f8fafc !important;
+  color: var(--text, #172033) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+.ficha-principal-code-card .ficha-principal-code-field input {
+  text-align: left !important;
+  font-weight: 600 !important;
+}
+
+/* Ícones personalizados também aparecem nas abas laterais quando a ficha principal está ligada. */
+.cliente-tab-btn[data-ficha-section],
+.fornecedor-tab-btn[data-ficha-section],
+.produto-tab-btn[data-ficha-section],
+.patrimonio-tab-btn[data-ficha-section],
+.cotacao-tab-btn[data-ficha-section],
+.ficha-section-tab-btn[data-ficha-section] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  text-align: left !important;
+}
+
+.ficha-section-tab-icon {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #4bc3c7;
+  background: rgba(75, 195, 199, .12);
+  line-height: 1;
+}
+
+.ficha-section-tab-icon i {
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.ficha-section-tab-label {
+  min-width: 0;
+  line-height: 1.22;
+}
+
+.cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+.fornecedor-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+.produto-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+.patrimonio-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+.cotacao-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+.ficha-section-tab-btn[data-ficha-section].active .ficha-section-tab-icon {
+  color: #ffffff;
+  background: #4bc3c7;
+}
+
+.custom-section-icon i,
+.ficha-section-tab-icon i {
+  display: inline-block;
+}
+
+html[data-theme="dark"] .ficha-principal-code-card,
+html[data-theme="dark"] .cliente-ficha-code-card.ficha-principal-code-card,
+html[data-theme="dark"] .fornecedor-ficha-code-card.ficha-principal-code-card,
+html[data-theme="dark"] .produto-ficha-code-card.ficha-principal-code-card,
+html[data-theme="dark"] .patrimonio-ficha-code-card.ficha-principal-code-card,
+html[data-theme="dark"] .cotacao-ficha-code-card.ficha-principal-code-card {
+  background: var(--card-bg, #111827) !important;
+  border-color: rgba(148, 163, 184, .20) !important;
+}
+
+html[data-theme="dark"] .ficha-principal-code-card .ficha-principal-system-fields input {
+  background: rgba(148, 163, 184, .08) !important;
+  border-color: rgba(148, 163, 184, .20) !important;
+  color: var(--text, #f8fafc) !important;
+}
+
+@media (max-width: 860px) {
+  .ficha-principal-code-card,
+  .cliente-ficha-code-card.ficha-principal-code-card,
+  .fornecedor-ficha-code-card.ficha-principal-code-card,
+  .produto-ficha-code-card.ficha-principal-code-card,
+  .patrimonio-ficha-code-card.ficha-principal-code-card,
+  .cotacao-ficha-code-card.ficha-principal-code-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  .ficha-principal-code-card .ficha-principal-system-fields,
+  .cliente-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields,
+  .fornecedor-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields,
+  .produto-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields,
+  .patrimonio-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields,
+  .cotacao-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .ficha-principal-code-card .ficha-principal-system-fields,
+  .cliente-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields,
+  .fornecedor-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields,
+  .produto-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields,
+  .patrimonio-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields,
+  .cotacao-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields {
+    grid-template-columns: 1fr !important;
+  }
+}

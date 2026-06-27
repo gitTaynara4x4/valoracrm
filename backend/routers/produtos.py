@@ -39,6 +39,15 @@ def norm_str(s: Optional[str]) -> Optional[str]:
     return v or None
 
 
+def iso_datetime(value) -> Optional[str]:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    text = str(value).strip()
+    return text or None
+
+
 def normalizar_codigo_sistema(codigo: Optional[str]) -> str:
     """Mantém códigos internos do sistema apenas numéricos.
 
@@ -228,6 +237,8 @@ class ProdutoUpdate(ProdutoBase):
 class ProdutoOut(ProdutoBase, _Cfg):
     id: int
     empresa_id: int
+    criado_em: Optional[str] = None
+    atualizado_em: Optional[str] = None
 
 
 class CampoProdutoBase(BaseModel):
@@ -541,6 +552,8 @@ def produto_to_out(db: Session, p: models.Produto, *, include_custom_fields: boo
         custo=p.custo,
         estoque_atual=p.estoque_atual,
         ativo=bool(p.ativo),
+        criado_em=iso_datetime(getattr(p, "criado_em", None)),
+        atualizado_em=iso_datetime(getattr(p, "atualizado_em", None)),
         custom_fields=(buscar_custom_fields_produto(db, empresa_id, int(p.id)) if include_custom_fields else {}),
     )
 
@@ -563,6 +576,8 @@ def produto_to_list_out(p: models.Produto) -> Dict[str, object]:
         "custo": getattr(p, "custo", None),
         "estoque_atual": getattr(p, "estoque_atual", None),
         "ativo": bool(getattr(p, "ativo", True)),
+        "criado_em": iso_datetime(getattr(p, "criado_em", None)),
+        "atualizado_em": iso_datetime(getattr(p, "atualizado_em", None)),
         "custom_fields": {},
     }
 

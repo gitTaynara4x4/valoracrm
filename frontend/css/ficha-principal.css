@@ -102,6 +102,20 @@
   background: var(--bg-soft, #f8fafc) !important;
 }
 
+
+.ficha-principal-system-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.ficha-principal-date-field input {
+  font-weight: 600;
+  background: var(--bg-soft, #f8fafc) !important;
+  color: var(--muted, #4f5f78);
+}
+
 .custom-form-sections {
   display: flex !important;
   flex-direction: column;

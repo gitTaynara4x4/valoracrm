@@ -285,6 +285,8 @@ function defaultFornecedor() {
     classificacao: '',
     plano_contas: '',
     observacoes: '',
+    criado_em: '',
+    atualizado_em: '',
     custom_fields: {},
   };
 }
@@ -335,6 +337,32 @@ function pick(obj, keys, fallback = '') {
   }
 
   return fallback;
+}
+
+function formatarDataCadastroSistema(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const date = new Date(raw);
+  if (!Number.isNaN(date.getTime())) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  }
+
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+
+  return raw;
+}
+
+function syncFornecedorDataCadastro(dataCadastro, usarHoje = false) {
+  const raw = dataCadastro || (usarHoje ? new Date().toISOString() : '');
+  setValue('campo-data-cadastro-ficha-principal-fornecedor', formatarDataCadastroSistema(raw));
 }
 
 function getTipoFornecedor(fornecedor) {
@@ -726,6 +754,10 @@ function validateRequiredCustomFields() {
     });
 
     if (!ok) return false;
+
+    // Se a tela está usando o construtor de Formulários, a validação global
+    // já verificou os campos renderizados, inclusive relações e relações múltiplas.
+    if (formularioFornecedores?.modelo) return true;
   }
 
   for (const campo of camposFornecedores || []) {
@@ -955,6 +987,7 @@ async function fillFornecedorForm(fornecedor = {}) {
   fornecedorAtualDetalhe = data;
 
   syncFornecedorFichaCode(onlyDigits(data.codigo));
+  syncFornecedorDataCadastro(data.criado_em || data.data_cadastro || data.created_at, !data.id);
   setValue('campo-tipo-fornecedor', pick(data, ['tipo_fornecedor', 'tipo'], ''));
   setValue('campo-situacao-fornecedor', normalizeSituacao(data.situacao));
 

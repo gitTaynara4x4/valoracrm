@@ -69,6 +69,15 @@ def norm_str(value: Any) -> Optional[str]:
     return text or None
 
 
+def iso_datetime(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    text = str(value).strip()
+    return text or None
+
+
 def normalizar_codigo_sistema(codigo: Any) -> str:
     """Mantém códigos internos do sistema apenas numéricos.
 
@@ -193,6 +202,8 @@ class FornecedorOut(ORMBaseModel):
     classificacao: Optional[str] = None
     plano_contas: Optional[str] = None
     observacoes: Optional[str] = None
+    criado_em: Optional[str] = None
+    atualizado_em: Optional[str] = None
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -377,6 +388,8 @@ def fornecedor_to_list_out(f: Fornecedor) -> Dict[str, Any]:
         "email": getattr(f, "email", None),
         "cidade": getattr(f, "cidade", None),
         "estado": getattr(f, "estado", None),
+        "criado_em": iso_datetime(getattr(f, "criado_em", None)),
+        "atualizado_em": iso_datetime(getattr(f, "atualizado_em", None)),
         "custom_fields": {},
     }
 
@@ -413,6 +426,8 @@ def fornecedor_to_out(db: Session, f: Fornecedor) -> FornecedorOut:
         classificacao=f.classificacao,
         plano_contas=f.plano_contas,
         observacoes=f.observacoes,
+        criado_em=iso_datetime(getattr(f, "criado_em", None)),
+        atualizado_em=iso_datetime(getattr(f, "atualizado_em", None)),
         custom_fields=buscar_custom_fields_fornecedor(db, empresa_id, int(f.id)),
     )
 

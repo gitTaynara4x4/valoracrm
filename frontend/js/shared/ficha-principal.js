@@ -489,7 +489,15 @@
   }
 
   function normalizarTipo(tipo) {
-    const t = String(tipo || 'texto').trim().toLowerCase();
+    const rawTipo = String(tipo || 'texto').trim().toLowerCase();
+    const t = rawTipo
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[-_/]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const rawUnderscore = rawTipo.replace(/[-\s]+/g, '_');
 
     const map = {
       text: 'texto',
@@ -515,6 +523,63 @@
       money: 'moeda',
       percentual: 'percentual',
       percent: 'percentual',
+      'puxar cliente': 'relacao_cliente',
+      'puxa cliente': 'relacao_cliente',
+      'puxar clientes': 'relacao_cliente',
+      'puxa clientes': 'relacao_cliente',
+      cliente: 'relacao_cliente',
+      clientes: 'relacao_cliente',
+      'puxar fornecedor': 'relacao_fornecedor',
+      'puxa fornecedor': 'relacao_fornecedor',
+      'puxar fornecedores': 'relacao_fornecedor',
+      'puxa fornecedores': 'relacao_fornecedor',
+      fornecedor: 'relacao_fornecedor',
+      fornecedores: 'relacao_fornecedor',
+      'puxar produto': 'relacao_produto',
+      'puxa produto': 'relacao_produto',
+      'puxar produtos': 'relacao_produto',
+      'puxa produtos': 'relacao_produto',
+      produto: 'relacao_produto',
+      produtos: 'relacao_produto',
+      'puxar patrimonio': 'relacao_patrimonio',
+      'puxa patrimonio': 'relacao_patrimonio',
+      'puxar patrimonios': 'relacao_patrimonio',
+      'puxa patrimonios': 'relacao_patrimonio',
+      patrimonio: 'relacao_patrimonio',
+      patrimonios: 'relacao_patrimonio',
+      'puxar cotacao': 'relacao_cotacao',
+      'puxa cotacao': 'relacao_cotacao',
+      'puxar cotacoes': 'relacao_cotacao',
+      'puxa cotacoes': 'relacao_cotacao',
+      cotacao: 'relacao_cotacao',
+      cotacoes: 'relacao_cotacao',
+      'puxar proposta': 'relacao_proposta',
+      'puxa proposta': 'relacao_proposta',
+      'puxar propostas': 'relacao_proposta',
+      'puxa propostas': 'relacao_proposta',
+      proposta: 'relacao_proposta',
+      propostas: 'relacao_proposta',
+      'puxar contrato': 'relacao_contrato',
+      'puxa contrato': 'relacao_contrato',
+      'puxar contratos': 'relacao_contrato',
+      'puxa contratos': 'relacao_contrato',
+      contrato: 'relacao_contrato',
+      contratos: 'relacao_contrato',
+      'puxar varios clientes': 'relacao_cliente_multi',
+      'puxa varios clientes': 'relacao_cliente_multi',
+      'puxar varios fornecedores': 'relacao_fornecedor_multi',
+      'puxa varios fornecedores': 'relacao_fornecedor_multi',
+      'puxar varios produtos': 'relacao_produto_multi',
+      'puxa varios produtos': 'relacao_produto_multi',
+      'puxar varios patrimonios': 'relacao_patrimonio_multi',
+      'puxa varios patrimonios': 'relacao_patrimonio_multi',
+      'puxar varias cotacoes': 'relacao_cotacao_multi',
+      'puxa varias cotacoes': 'relacao_cotacao_multi',
+      'puxar varios cotacoes': 'relacao_cotacao_multi',
+      'puxar varias propostas': 'relacao_proposta_multi',
+      'puxa varias propostas': 'relacao_proposta_multi',
+      'puxar varios contratos': 'relacao_contrato_multi',
+      'puxa varios contratos': 'relacao_contrato_multi',
       relacao_cliente: 'relacao_cliente',
       lookup_cliente: 'relacao_cliente',
       relacao_cliente_multi: 'relacao_cliente_multi',
@@ -545,7 +610,7 @@
       lookup_contrato_multi: 'relacao_contrato_multi',
     };
 
-    return map[t] || 'texto';
+    return map[rawTipo] || map[t] || map[rawUnderscore] || 'texto';
   }
 
   function isVisualCampo(campo) {
@@ -602,11 +667,17 @@
 
     if (!slug) return null;
 
+    const tipoFormulario = campoFormulario?.tipo_campo || campoFormulario?.tipo || '';
+    const tipoAvulso = campoAvulso?.tipo || '';
+
     return {
       id: campoAvulso?.id || campoFormulario?.campo_personalizado_id || campoFormulario?.id || null,
       nome,
       slug,
-      tipo: normalizarTipo(campoAvulso?.tipo || campoFormulario?.tipo_campo || campoFormulario?.tipo || 'texto'),
+      // O tipo salvo no formulário é a fonte principal.
+      // Antes o tipo antigo sincronizado em /api/campos-clientes vinha como "texto"
+      // e sobrescrevia "relacao_cliente", "relacao_fornecedor_multi" etc.
+      tipo: normalizarTipo(tipoFormulario || tipoAvulso || 'texto'),
       obrigatorio: campoAvulso?.obrigatorio ?? campoFormulario?.obrigatorio ?? false,
       ativo: campoAvulso?.ativo ?? campoFormulario?.ativo ?? true,
       somente_leitura: campoAvulso?.somente_leitura ?? campoFormulario?.somente_leitura ?? false,
@@ -1029,8 +1100,56 @@
     return html;
   }
 
+  const FA_STYLE_CLASSES = new Set([
+    'fa',
+    'fas',
+    'far',
+    'fal',
+    'fat',
+    'fad',
+    'fab',
+    'fa-solid',
+    'fa-regular',
+    'fa-light',
+    'fa-thin',
+    'fa-duotone',
+    'fa-brands',
+    'fa-fw',
+    'fa-sm',
+    'fa-lg',
+    'fa-xl',
+    'fa-2x',
+  ]);
+
+  function normalizarIconeFontAwesome(value, fallback = 'fa-layer-group') {
+    const text = String(value || '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/["']/g, ' ')
+      .trim();
+
+    if (!text) return fallback;
+
+    const tokens = text.split(/\s+/).map((item) => item.trim()).filter(Boolean);
+    const icon = tokens.find((item) => /^fa-[a-z0-9-]+$/i.test(item) && !FA_STYLE_CLASSES.has(item));
+
+    return icon || fallback;
+  }
+
+  function getSectionIconFromCard(card) {
+    const fromData = normalizarIconeFontAwesome(card?.dataset?.customSectionIcon || '', '');
+    if (fromData) return fromData;
+
+    const iconEl = card?.querySelector?.('.custom-section-icon i, .custom-section-head i');
+    if (iconEl?.classList?.length) {
+      const fromClass = Array.from(iconEl.classList).find((item) => /^fa-[a-z0-9-]+$/i.test(item) && !FA_STYLE_CLASSES.has(item));
+      if (fromClass) return fromClass;
+    }
+
+    return 'fa-layer-group';
+  }
+
   function renderSecao(secao, values = {}) {
-    const icon = String(secao?.icone || 'fa-layer-group').replace(/^(fa-solid|fas|far)\s+/, '').trim() || 'fa-layer-group';
+    const icon = normalizarIconeFontAwesome(secao?.icone, 'fa-layer-group');
 
     return `
       <article class="custom-section-card custom-section-card-bitrix" data-custom-section-icon="${escapeHtml(icon)}">
@@ -1461,22 +1580,29 @@
       if (!cards.length) {
         tabs.innerHTML = `
           <button type="button" class="${escapeHtml(buttonClass || sectionButtonClass)} active" data-ficha-section="0">
-            Campos do formulário
+            <span class="ficha-section-tab-icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
+            <span class="ficha-section-tab-label">Campos do formulário</span>
           </button>
         `;
         return;
       }
 
       tabs.innerHTML = cards
-        .map((card, index) => `
-          <button
-            type="button"
-            class="${escapeHtml(buttonClass || sectionButtonClass)} ${index === 0 ? 'active' : ''}"
-            data-ficha-section="${index}"
-          >
-            ${escapeHtml(getSectionTitleFromCard(card, index))}
-          </button>
-        `)
+        .map((card, index) => {
+          const icon = getSectionIconFromCard(card);
+          const title = getSectionTitleFromCard(card, index);
+
+          return `
+            <button
+              type="button"
+              class="${escapeHtml(buttonClass || sectionButtonClass)} ${index === 0 ? 'active' : ''}"
+              data-ficha-section="${index}"
+            >
+              <span class="ficha-section-tab-icon" aria-hidden="true"><i class="fa-solid ${escapeHtml(icon)}"></i></span>
+              <span class="ficha-section-tab-label">${escapeHtml(title)}</span>
+            </button>
+          `;
+        })
         .join('');
     }
 

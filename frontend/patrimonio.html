@@ -19,18 +19,19 @@
 
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260617-patrimonio" />
-  <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260626-relacao-lookup-fix" />
+  <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260627-codigo-data-icons" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
-  <link rel="stylesheet" href="/frontend/css/patrimonio.css?v=20260619-cliente-formulario-real" />
+  <link rel="stylesheet" href="/frontend/css/patrimonio.css?v=20260627-codigo-data" />
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
+  <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260627-code-icons-clean" />
 
   <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260617-patrimonio" defer></script>
-  <script src="/frontend/js/shared/ficha-principal.js?v=20260626-relacao-lookup-fix" defer></script>
+  <script src="/frontend/js/shared/ficha-principal.js?v=20260627-codigo-data-icons" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
-  <script src="/frontend/js/pages/patrimonio.js?v=20260619-cliente-formulario-real" defer></script>
+  <script src="/frontend/js/pages/patrimonio.js?v=20260627-codigo-data" defer></script>
 </head>
 
 <body>
@@ -264,16 +265,23 @@
                 </section>
 
                 <section class="cliente-tab patrimonio-tab" id="tab-patrimonio-ficha">
-                  <article class="patrimonio-ficha-code-card" id="patrimonio-ficha-principal-code" hidden>
+                  <article class="patrimonio-ficha-code-card ficha-principal-code-card" id="patrimonio-ficha-principal-code" hidden>
                     <div>
                       <span class="section-kicker">Código do sistema</span>
                       <h4>Código do patrimônio</h4>
                       <p>Este código é gerado pelo próprio sistema e pode ser usado na ficha do patrimônio.</p>
                     </div>
 
-                    <div class="form-group patrimonio-ficha-code-field">
-                      <label for="campo-codigo-ficha-principal-patrimonio">Código</label>
-                      <input type="text" id="campo-codigo-ficha-principal-patrimonio" inputmode="numeric" pattern="[0-9]*" readonly placeholder="Gerado ao salvar" />
+                    <div class="ficha-principal-system-fields">
+                      <div class="form-group patrimonio-ficha-code-field ficha-principal-code-field">
+                        <label for="campo-codigo-ficha-principal-patrimonio">Código</label>
+                        <input type="text" id="campo-codigo-ficha-principal-patrimonio" inputmode="numeric" pattern="[0-9]*" readonly placeholder="Gerado ao salvar" />
+                      </div>
+
+                      <div class="form-group ficha-principal-date-field">
+                        <label for="campo-data-cadastro-ficha-principal-patrimonio">Data de cadastro</label>
+                        <input type="text" id="campo-data-cadastro-ficha-principal-patrimonio" readonly placeholder="Gerada ao salvar" />
+                      </div>
                     </div>
                   </article>
 

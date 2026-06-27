@@ -93,6 +93,33 @@
     return new Date().toISOString().slice(0, 10);
   }
 
+
+  function formatarDataCadastroSistema(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+
+    const date = new Date(raw);
+    if (!Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(date);
+    }
+
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+
+    return raw;
+  }
+
+  function setProdutoDataCadastro(dataCadastro, usarHoje = false) {
+    const raw = dataCadastro || (usarHoje ? new Date().toISOString() : '');
+    setValue('campo-data-cadastro-ficha-principal-produto', formatarDataCadastroSistema(raw));
+  }
+
   function toast(message, options = {}) {
     const error = typeof options === 'boolean' ? options : !!options.error;
     const ms = typeof options === 'object' && options.ms ? Number(options.ms) : 2600;
@@ -495,6 +522,7 @@
 
   function fillProdutoNativeFields(produto = {}) {
     const codigo = setProdutoFichaCode(produto.codigo || '');
+    setProdutoDataCadastro(produto.criado_em || produto.data_cadastro || produto.created_at, !produto.id);
 
     setValue('campo-codigo-produto', codigo);
     setValue('campo-nome-produto', produto.nome || '');

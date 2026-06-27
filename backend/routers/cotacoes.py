@@ -217,6 +217,15 @@ def norm_str(value: Any) -> Optional[str]:
     return text_value or None
 
 
+def iso_datetime(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    text_value = str(value).strip()
+    return text_value or None
+
+
 def normalizar_codigo_sistema(codigo: Any) -> str:
     return re.sub(r"\D+", "", str(codigo or "")).strip()
 
@@ -261,14 +270,29 @@ def tipo_campo_cotacao_from_formulario(tipo: Any) -> str:
         "numero": "numero",
         "data": "data",
         "select": "select",
+        "multiselect": "multiselect",
         "checkbox": "checkbox",
-        "email": "texto",
-        "telefone": "texto",
-        "moeda": "numero",
-        "percentual": "numero",
+        "email": "email",
+        "telefone": "telefone",
+        "moeda": "moeda",
+        "percentual": "percentual",
+        "relacao_cliente": "relacao_cliente",
+        "relacao_fornecedor": "relacao_fornecedor",
+        "relacao_produto": "relacao_produto",
+        "relacao_patrimonio": "relacao_patrimonio",
+        "relacao_cotacao": "relacao_cotacao",
+        "relacao_proposta": "relacao_proposta",
+        "relacao_contrato": "relacao_contrato",
+        "relacao_cliente_multi": "relacao_cliente_multi",
+        "relacao_fornecedor_multi": "relacao_fornecedor_multi",
+        "relacao_produto_multi": "relacao_produto_multi",
+        "relacao_patrimonio_multi": "relacao_patrimonio_multi",
+        "relacao_cotacao_multi": "relacao_cotacao_multi",
+        "relacao_proposta_multi": "relacao_proposta_multi",
+        "relacao_contrato_multi": "relacao_contrato_multi",
     }
 
-    return mapa.get(tipo_norm, "texto")
+    return mapa.get(tipo_norm, tipo_norm if tipo_norm.startswith("relacao_") else "texto")
 
 
 def sincronizar_campos_cotacoes_do_formulario(
@@ -602,6 +626,8 @@ class CotacaoOut(CotacaoBase, ORMBaseModel):
     valor_aprovado: Optional[str] = None
     data_aprovacao: Optional[str] = None
     produto_id: Optional[int] = None
+    criado_em: Optional[str] = None
+    atualizado_em: Optional[str] = None
     fornecedores: List[CotacaoFornecedorOut] = Field(default_factory=list)
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
 
@@ -744,6 +770,8 @@ def cotacao_to_out(db: Session, cotacao: Cotacao, *, include_fornecedores: bool 
         valor_aprovado=cotacao.valor_aprovado,
         data_aprovacao=cotacao.data_aprovacao.isoformat() if cotacao.data_aprovacao else None,
         produto_id=int(cotacao.produto_id) if cotacao.produto_id else None,
+        criado_em=iso_datetime(getattr(cotacao, "criado_em", None)),
+        atualizado_em=iso_datetime(getattr(cotacao, "atualizado_em", None)),
         fornecedores=[cotacao_fornecedor_to_out(item) for item in fornecedores],
         custom_fields=buscar_custom_fields_cotacao(db, int(cotacao.empresa_id), int(cotacao.id)),
     )

@@ -20,18 +20,19 @@
 
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260617-modal-unificado-real" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
-  <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260626-relacao-lookup-fix" />
+  <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260627-codigo-data-icons" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
-  <link rel="stylesheet" href="/frontend/css/cotacoes.css?v=20260619-formularios-real" />
+  <link rel="stylesheet" href="/frontend/css/cotacoes.css?v=20260627-codigo-data" />
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
+  <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260627-code-icons-clean" />
 
   <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/shared/ficha-principal.js?v=20260626-relacao-lookup-fix" defer></script>
+  <script src="/frontend/js/shared/ficha-principal.js?v=20260627-codigo-data-icons" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
-  <script src="/frontend/js/pages/cotacoes.js?v=20260619-formularios-real" defer></script>
+  <script src="/frontend/js/pages/cotacoes.js?v=20260627-codigo-data" defer></script>
 </head>
 
 <body>
@@ -419,15 +420,27 @@
                       <p>Este código é gerado pelo próprio sistema e não pode ser removido da ficha.</p>
                     </div>
 
-                    <div class="form-group cliente-ficha-code-field cotacao-ficha-code-field ficha-principal-code-field">
-                      <label for="cotacao-codigo-ficha-principal">Código</label>
-                      <input
-                        type="text"
-                        id="cotacao-codigo-ficha-principal"
-                        inputmode="numeric"
-                        pattern="[0-9]*"
-                        readonly
-                      />
+                    <div class="ficha-principal-system-fields">
+                      <div class="form-group cliente-ficha-code-field cotacao-ficha-code-field ficha-principal-code-field">
+                        <label for="cotacao-codigo-ficha-principal">Código</label>
+                        <input
+                          type="text"
+                          id="cotacao-codigo-ficha-principal"
+                          inputmode="numeric"
+                          pattern="[0-9]*"
+                          readonly
+                        />
+                      </div>
+
+                      <div class="form-group ficha-principal-date-field">
+                        <label for="cotacao-data-cadastro-ficha-principal">Data de cadastro</label>
+                        <input
+                          type="text"
+                          id="cotacao-data-cadastro-ficha-principal"
+                          readonly
+                          placeholder="Gerada ao salvar"
+                        />
+                      </div>
                     </div>
                   </article>
 

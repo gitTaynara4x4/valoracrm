@@ -297,6 +297,87 @@
     return map[origem] || origem || '-';
   }
 
+  function normalizarTipoCampoFrontend(value) {
+    const raw = String(value || 'texto').trim();
+    const key = raw
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[-_/]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const map = {
+      texto: 'texto',
+      'texto longo': 'textarea',
+      textarea: 'textarea',
+      numero: 'numero',
+      data: 'data',
+      lista: 'select',
+      'lista de opcoes': 'select',
+      select: 'select',
+      'lista multipla': 'multiselect',
+      'lista com multipla selecao': 'multiselect',
+      multiselect: 'multiselect',
+      checkbox: 'checkbox',
+      flag: 'checkbox',
+      email: 'email',
+      'e mail': 'email',
+      telefone: 'telefone',
+      moeda: 'moeda',
+      percentual: 'percentual',
+      'puxar cliente': 'relacao_cliente',
+      'puxa cliente': 'relacao_cliente',
+      'puxar clientes': 'relacao_cliente',
+      cliente: 'relacao_cliente',
+      clientes: 'relacao_cliente',
+      'puxar fornecedor': 'relacao_fornecedor',
+      'puxa fornecedor': 'relacao_fornecedor',
+      'puxar fornecedores': 'relacao_fornecedor',
+      fornecedor: 'relacao_fornecedor',
+      fornecedores: 'relacao_fornecedor',
+      'puxar produto': 'relacao_produto',
+      'puxa produto': 'relacao_produto',
+      'puxar produtos': 'relacao_produto',
+      produto: 'relacao_produto',
+      produtos: 'relacao_produto',
+      'puxar patrimonio': 'relacao_patrimonio',
+      'puxa patrimonio': 'relacao_patrimonio',
+      'puxar patrimonios': 'relacao_patrimonio',
+      patrimonio: 'relacao_patrimonio',
+      patrimonios: 'relacao_patrimonio',
+      'puxar cotacao': 'relacao_cotacao',
+      'puxa cotacao': 'relacao_cotacao',
+      'puxar cotacoes': 'relacao_cotacao',
+      cotacao: 'relacao_cotacao',
+      cotacoes: 'relacao_cotacao',
+      'puxar proposta': 'relacao_proposta',
+      'puxa proposta': 'relacao_proposta',
+      'puxar propostas': 'relacao_proposta',
+      proposta: 'relacao_proposta',
+      propostas: 'relacao_proposta',
+      'puxar contrato': 'relacao_contrato',
+      'puxa contrato': 'relacao_contrato',
+      'puxar contratos': 'relacao_contrato',
+      contrato: 'relacao_contrato',
+      contratos: 'relacao_contrato',
+      'puxar varios clientes': 'relacao_cliente_multi',
+      'puxar varios fornecedores': 'relacao_fornecedor_multi',
+      'puxar varios produtos': 'relacao_produto_multi',
+      'puxar varios patrimonios': 'relacao_patrimonio_multi',
+      'puxar varias cotacoes': 'relacao_cotacao_multi',
+      'puxar varios cotacoes': 'relacao_cotacao_multi',
+      'puxar varias propostas': 'relacao_proposta_multi',
+      'puxar varios contratos': 'relacao_contrato_multi',
+    };
+
+    if (raw.startsWith('relacao_') || raw.startsWith('lookup_')) {
+      return raw.replace(/^lookup_/, 'relacao_');
+    }
+
+    return map[key] || raw;
+  }
+
   function tipoLabel(campo) {
     if (!campo) return '-';
     if (campo.origem === 'visual') return campo.tipo_visual || 'visual';
@@ -329,7 +410,7 @@
       relacao_contrato_multi: 'Puxa vários Contratos',
     };
 
-    const tipo = campo.tipo_campo || 'texto';
+    const tipo = normalizarTipoCampoFrontend(campo.tipo_campo || 'texto');
     return map[tipo] || tipo;
   }
 
@@ -1387,7 +1468,7 @@
     qs('campo-sistema').value = campo?.campo_sistema || '';
     qs('campo-personalizado').value = campo?.campo_personalizado_id || '';
     qs('campo-tipo-visual').value = campo?.tipo_visual || 'titulo';
-    qs('campo-tipo-campo').value = campo?.tipo_campo || 'texto';
+    qs('campo-tipo-campo').value = normalizarTipoCampoFrontend(campo?.tipo_campo || 'texto');
     qs('campo-label').value = campo?.label || '';
     qs('campo-placeholder').value = campo?.placeholder || '';
     qs('campo-ajuda').value = campo?.ajuda || '';
@@ -1454,7 +1535,7 @@
       campo_sistema: null,
       campo_personalizado_id: null,
       tipo_visual: null,
-      tipo_campo: qs('campo-tipo-campo').value || 'texto',
+      tipo_campo: normalizarTipoCampoFrontend(qs('campo-tipo-campo').value || 'texto'),
       label: qs('campo-label').value.trim(),
       placeholder: qs('campo-placeholder').value.trim() || null,
       ajuda: qs('campo-ajuda').value.trim() || null,
@@ -1476,7 +1557,7 @@
       const tipo = opt?.dataset?.tipo || payload.tipo_campo || 'texto';
 
       payload.label = payload.label || String(label).replace(/\s*\(.+\)\s*$/, '').trim();
-      payload.tipo_campo = tipo;
+      payload.tipo_campo = normalizarTipoCampoFrontend(tipo);
     }
 
     if (origem === 'visual') {

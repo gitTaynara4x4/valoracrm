@@ -865,6 +865,10 @@ class Patrimonio(Base):
     __tablename__ = "patrimonios"
     __allow_unmapped__ = True
 
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "codigo", name="uq_patrimonios_empresa_codigo"),
+    )
+
     id = Column(BigInteger, primary_key=True, index=True)
 
     empresa_id = Column(

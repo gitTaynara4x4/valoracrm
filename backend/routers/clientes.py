@@ -196,14 +196,29 @@ def tipo_campo_cliente_from_formulario(tipo: Any) -> str:
         "numero": "numero",
         "data": "data",
         "select": "select",
+        "multiselect": "multiselect",
         "checkbox": "checkbox",
-        "email": "texto",
-        "telefone": "texto",
-        "moeda": "numero",
-        "percentual": "numero",
+        "email": "email",
+        "telefone": "telefone",
+        "moeda": "moeda",
+        "percentual": "percentual",
+        "relacao_cliente": "relacao_cliente",
+        "relacao_fornecedor": "relacao_fornecedor",
+        "relacao_produto": "relacao_produto",
+        "relacao_patrimonio": "relacao_patrimonio",
+        "relacao_cotacao": "relacao_cotacao",
+        "relacao_proposta": "relacao_proposta",
+        "relacao_contrato": "relacao_contrato",
+        "relacao_cliente_multi": "relacao_cliente_multi",
+        "relacao_fornecedor_multi": "relacao_fornecedor_multi",
+        "relacao_produto_multi": "relacao_produto_multi",
+        "relacao_patrimonio_multi": "relacao_patrimonio_multi",
+        "relacao_cotacao_multi": "relacao_cotacao_multi",
+        "relacao_proposta_multi": "relacao_proposta_multi",
+        "relacao_contrato_multi": "relacao_contrato_multi",
     }
 
-    return mapa.get(tipo_norm, "texto")
+    return mapa.get(tipo_norm, tipo_norm if tipo_norm.startswith("relacao_") else "texto")
 
 
 def sincronizar_campos_clientes_do_formulario(
@@ -498,6 +513,8 @@ class ClienteListOut(ORMBaseModel):
     email: Optional[str] = None
     cidade: Optional[str] = None
     estado: Optional[str] = None
+    criado_em: Optional[str] = None
+    atualizado_em: Optional[str] = None
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -1001,6 +1018,8 @@ def cliente_to_list_out(db: Session, c: Cliente, *, include_custom_fields: bool 
         email=c.email,
         cidade=c.cidade,
         estado=c.estado,
+        criado_em=serialize_datetime(c.criado_em),
+        atualizado_em=serialize_datetime(c.atualizado_em),
         custom_fields=(
             buscar_custom_fields_cliente(db, int(c.empresa_id), int(c.id))
             if include_custom_fields

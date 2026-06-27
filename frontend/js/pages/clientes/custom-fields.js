@@ -976,6 +976,11 @@ export function validateRequiredCustomFields(camposClientes, values = {}) {
     if (!ok) {
       return { ok: false, message: 'Preencha os campos obrigatórios da ficha.' };
     }
+
+    // Quando a ficha principal renderiza os campos, ela já valida checkbox,
+    // select, lista múltipla e relações múltiplas. Continuar na validação antiga
+    // fazia input hidden de relação múltipla parecer vazio.
+    return { ok: true };
   }
 
   const domRequired = Array.from(document.querySelectorAll('[data-custom-field][data-required="true"]'));

@@ -337,6 +337,33 @@
     }
   }
 
+
+  function formatarDataCadastroSistema(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+
+    const date = new Date(raw);
+    if (!Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(date);
+    }
+
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+
+    return raw;
+  }
+
+  function setCotacaoDataCadastro(dataCadastro, usarHoje = false) {
+    const raw = dataCadastro || (usarHoje ? new Date().toISOString() : '');
+    setValue('cotacao-data-cadastro-ficha-principal', formatarDataCadastroSistema(raw));
+  }
+
   function ensureFichaCotacaoController() {
     if (state.fichaCotacaoController || !window.ValoraFichaPrincipal?.createTabFichaController) {
       return state.fichaCotacaoController;
@@ -1185,6 +1212,7 @@
 
     setValue('cotacao-codigo', onlyDigits(data.codigo || ''));
     setValue('cotacao-codigo-ficha-principal', onlyDigits(data.codigo || ''));
+    setCotacaoDataCadastro(data.criado_em || data.data_cadastro || data.created_at, !data.id);
     setValue('cotacao-status', normalizeStatus(data.status));
     setValue('cotacao-urgencia', normalizeUrgencia(data.urgencia));
     setValue('cotacao-item-nome', data.item_nome || '');
@@ -1215,6 +1243,7 @@
 
     setValue('cotacao-codigo', '');
     setValue('cotacao-codigo-ficha-principal', '');
+    setCotacaoDataCadastro('', true);
     setValue('cotacao-status', 'rascunho');
     setValue('cotacao-urgencia', '');
     setValue('cotacao-item-nome', '');
