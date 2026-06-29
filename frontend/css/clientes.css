@@ -1579,3 +1579,28 @@ textarea.campo-obrigatorio-pendente {
     grid-row: 2 !important;
   }
 }
+
+
+/* Integração Valora -> ZapChats */
+.btn-zapschat-cliente {
+  gap: 8px;
+  color: #128C7E;
+  border-color: rgba(18, 140, 126, 0.22);
+  background: rgba(18, 140, 126, 0.08);
+}
+
+.btn-zapschat-cliente:hover {
+  color: #075E54;
+  border-color: rgba(18, 140, 126, 0.34);
+  background: rgba(18, 140, 126, 0.14);
+}
+
+.btn-icon[data-action="zapschat"] {
+  color: #25D366;
+}
+
+.btn-icon[data-action="zapschat"]:hover {
+  background: rgba(37, 211, 102, 0.12);
+  border-color: rgba(37, 211, 102, 0.22);
+  color: #128C7E;
+}

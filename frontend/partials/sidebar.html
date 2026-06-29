@@ -224,6 +224,10 @@
       pointer-events: auto;
     }
 
+    .dropdown-financeiro {
+      width: 248px;
+    }
+
     .dropdown-item {
       width: 100%;
       min-height: 36px;
@@ -821,12 +825,15 @@
           Financeiro <i class="fa-solid fa-chevron-down"></i>
         </button>
 
-        <div class="dropdown">
-          <button class="dropdown-item" type="button" data-target="contratos-admin">Contratos</button>
-          <button class="dropdown-item" type="button" data-target="propostas">Propostas</button>
-          <button class="dropdown-item" type="button" data-target="cotacoes">Cotações</button>
-          <button class="dropdown-item" type="button" data-target="produtos">Produtos e Serviços</button>
-          <button class="dropdown-item" type="button" data-target="patrimonio">Patrimônio</button>
+        <div class="dropdown dropdown-financeiro">
+          <button class="dropdown-item" type="button" data-target="financeiro">Visão Geral</button>
+          <button class="dropdown-item" type="button" data-target="contas-receber">Contas a Receber</button>
+          <button class="dropdown-item" type="button" data-target="contas-pagar">Contas a Pagar</button>
+          <button class="dropdown-item" type="button" data-target="fluxo-caixa">Fluxo de Caixa</button>
+          <button class="dropdown-item" type="button" data-target="categorias-financeiras">Categorias</button>
+          <button class="dropdown-item" type="button" data-target="formas-pagamento">Formas de Pagamento</button>
+          <button class="dropdown-item" type="button" data-target="contas-bancos">Contas/Bancos</button>
+          <button class="dropdown-item" type="button" data-target="relatorios-financeiros">Relatórios Financeiros</button>
         </div>
       </div>
 
@@ -950,6 +957,18 @@
       <button class="mobile-link" type="button" data-target="patrimonio"><i class="fa-solid fa-tags"></i> Patrimônio</button>
       <button class="mobile-link" type="button" data-target="usuarios"><i class="fa-solid fa-id-badge"></i> Usuários</button>
       <button class="mobile-link" type="button" data-target="empresa"><i class="fa-solid fa-building"></i> Empresa</button>
+    </div>
+
+    <div class="mobile-section">
+      <div class="mobile-title">Financeiro</div>
+      <button class="mobile-link" type="button" data-target="financeiro"><i class="fa-solid fa-chart-pie"></i> Visão Geral</button>
+      <button class="mobile-link" type="button" data-target="contas-receber"><i class="fa-solid fa-hand-holding-dollar"></i> Contas a Receber</button>
+      <button class="mobile-link" type="button" data-target="contas-pagar"><i class="fa-solid fa-file-invoice-dollar"></i> Contas a Pagar</button>
+      <button class="mobile-link" type="button" data-target="fluxo-caixa"><i class="fa-solid fa-money-bill-transfer"></i> Fluxo de Caixa</button>
+      <button class="mobile-link" type="button" data-target="categorias-financeiras"><i class="fa-solid fa-folder-tree"></i> Categorias</button>
+      <button class="mobile-link" type="button" data-target="formas-pagamento"><i class="fa-solid fa-credit-card"></i> Formas de Pagamento</button>
+      <button class="mobile-link" type="button" data-target="contas-bancos"><i class="fa-solid fa-building-columns"></i> Contas/Bancos</button>
+      <button class="mobile-link" type="button" data-target="relatorios-financeiros"><i class="fa-solid fa-chart-column"></i> Relatórios Financeiros</button>
     </div>
 
     <div class="mobile-section">
@@ -1139,6 +1158,38 @@
           goTo('/empresa');
           break;
 
+        case 'financeiro':
+          goTo('/financeiro');
+          break;
+
+        case 'contas-receber':
+          goTo('/contas-receber');
+          break;
+
+        case 'contas-pagar':
+          goTo('/contas-pagar');
+          break;
+
+        case 'fluxo-caixa':
+          goTo('/fluxo-caixa');
+          break;
+
+        case 'categorias-financeiras':
+          goTo('/categorias-financeiras');
+          break;
+
+        case 'formas-pagamento':
+          goTo('/formas-pagamento');
+          break;
+
+        case 'contas-bancos':
+          goTo('/contas-bancos');
+          break;
+
+        case 'relatorios-financeiros':
+          goTo('/relatorios-financeiros');
+          break;
+
         default:
           console.warn('[Menu Valora] target desconhecido:', target);
       }
@@ -1218,6 +1269,15 @@
       if (path === '/area-cliente-admin' || path === '/frontend/area-cliente-admin.html') return 'area-cliente-admin';
       if (path === '/contratos-admin' || path === '/frontend/contratos-admin.html') return 'contratos-admin';
       if (path === '/usuarios' || path === '/frontend/usuarios.html') return 'usuarios';
+
+      if (path === '/financeiro' || path === '/frontend/financeiro.html') return 'financeiro';
+      if (path === '/contas-receber' || path === '/frontend/contas-receber.html') return 'contas-receber';
+      if (path === '/contas-pagar' || path === '/frontend/contas-pagar.html') return 'contas-pagar';
+      if (path === '/fluxo-caixa' || path === '/frontend/fluxo-caixa.html') return 'fluxo-caixa';
+      if (path === '/categorias-financeiras' || path === '/frontend/categorias-financeiras.html') return 'categorias-financeiras';
+      if (path === '/formas-pagamento' || path === '/frontend/formas-pagamento.html') return 'formas-pagamento';
+      if (path === '/contas-bancos' || path === '/frontend/contas-bancos.html') return 'contas-bancos';
+      if (path === '/relatorios-financeiros' || path === '/frontend/relatorios-financeiros.html') return 'relatorios-financeiros';
 
       if (
         path === '/configuracoes' ||

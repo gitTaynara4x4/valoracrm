@@ -75,6 +75,9 @@ export function renderTabelaClientes(clientes) {
           <td>${renderBadgeSituacao(c.situacao)}</td>
           <td style="text-align:right;">
             <div style="display:flex; gap:8px; justify-content:flex-end;">
+              <button class="btn-icon" data-action="zapschat" data-id="${c.id}" title="Abrir no ZapChats">
+                <i class="fa-brands fa-whatsapp"></i>
+              </button>
               <button class="btn-icon" data-action="editar" data-id="${c.id}" title="Editar">
                 <i class="fa-solid fa-pen"></i>
               </button>

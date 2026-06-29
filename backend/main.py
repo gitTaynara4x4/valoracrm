@@ -25,8 +25,10 @@ from backend.routers.dashboard import router as dashboard_router, compat_router 
 from backend.routers.usuarios import router as usuarios_router
 from backend.routers.permissoes import router as permissoes_router
 from backend.routers.formularios import router as formularios_router
+from backend.routers.financeiro import router as financeiro_router
 from backend.routers import empresa
 from backend.routers import campos_propostas
+from backend.routers.integracoes_zapschat import router as integracoes_zapschat_router
 
 
 # ============================================
@@ -242,6 +244,8 @@ app.include_router(usuarios_router)
 app.include_router(permissoes_router)
 app.include_router(campos_propostas.router)
 app.include_router(formularios_router)
+app.include_router(financeiro_router)
+app.include_router(integracoes_zapschat_router)
 
 # Área do Cliente / Contratos
 app.include_router(area_cliente_admin_router)

@@ -221,6 +221,70 @@ function agendarResumoSidebarCliente(cliente = null) {
   }, 220);
 }
 
+
+function syncZapsChatButton(cliente = null) {
+  const btn = $('btn-abrir-zapschat-cliente');
+  if (!btn) return;
+
+  const id = cliente?.id || state.clienteEditandoId || currentDetail?.id || null;
+  const phone = onlyDigits(cliente?.whatsapp || cliente?.telefone || currentDetail?.whatsapp || currentDetail?.telefone || '');
+
+  btn.hidden = !id;
+  btn.disabled = !id || !phone;
+  btn.title = !id
+    ? 'Salve o cliente antes de abrir no ZapChats'
+    : phone
+      ? 'Abrir conversa deste cliente no ZapChats'
+      : 'Este cliente não tem WhatsApp/telefone cadastrado';
+}
+
+export async function abrirClienteNoZapsChat(clienteId, options = {}) {
+  const id = Number(clienteId || state.clienteEditandoId || currentDetail?.id || 0);
+  if (!id) {
+    toast('Salve o cliente antes de abrir no ZapChats.', 'error');
+    return;
+  }
+
+  const btn = options.button || $('btn-abrir-zapschat-cliente');
+  const original = btn?.innerHTML || '';
+
+  // Abre a aba imediatamente para o navegador não bloquear o popup.
+  const popup = window.open('about:blank', '_blank');
+
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Abrindo...';
+    }
+
+    const data = await apiJson(`/api/integracoes/zapschat/abrir-cliente/${id}`);
+
+    if (!data?.url) {
+      throw new Error('O backend não retornou o link do ZapChats.');
+    }
+
+    if (popup && !popup.closed) {
+      try { popup.opener = null; } catch (_) {}
+      popup.location.href = data.url;
+    } else {
+      window.location.href = data.url;
+    }
+
+    toast('Abrindo conversa no ZapChats.', 'success');
+  } catch (err) {
+    if (popup && !popup.closed) {
+      try { popup.close(); } catch (_) {}
+    }
+
+    toast(err.message || 'Erro ao abrir ZapChats.', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      if (original) btn.innerHTML = original;
+    }
+  }
+}
+
 function bindResumoSidebarCliente() {
   [
     'campo-nome',
@@ -503,6 +567,7 @@ function buildBaseFromFichaPrincipal(customFields, fallback = {}) {
 async function fillClientForm(cliente = {}) {
   const data = { ...defaultCliente(), ...(cliente || {}) };
   currentDetail = data;
+  syncZapsChatButton(data);
 
   syncFichaPrincipalCode(data.codigo);
   syncFichaPrincipalCadastro(data.criado_em || data.data_cadastro || data.created_at, !data.id);
@@ -1292,6 +1357,7 @@ export function bindClientModal({ afterSave } = {}) {
   $('btn-fechar-modal-cliente')?.addEventListener('click', closeClientModal);
   $('btn-cancelar-cliente')?.addEventListener('click', closeClientModal);
   $('formCliente')?.addEventListener('submit', saveCliente);
+  $('btn-abrir-zapschat-cliente')?.addEventListener('click', (event) => abrirClienteNoZapsChat(state.clienteEditandoId || currentDetail?.id, { button: event.currentTarget }));
   $('toggle-ficha-principal-cliente')?.addEventListener('change', salvarToggleFichaPrincipalCliente);
   bindResumoSidebarCliente();
 
@@ -1401,6 +1467,7 @@ export function bindClientModal({ afterSave } = {}) {
 
 export async function openClientModalNew() {
   state.clienteEditandoId = null;
+  syncZapsChatButton(null);
 
   $('modal-cliente-titulo').textContent = 'Novo cliente';
   $('formCliente')?.reset();

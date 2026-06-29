@@ -4,7 +4,7 @@ import { $, toast } from './utils.js';
 import { renderTabelaClientes } from './table.js';
 import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
-import { bindClientModal, openClientModalNew, openClientModalEdit } from './modal-cliente.js?v=20260627-codigo-data';
+import { bindClientModal, openClientModalNew, openClientModalEdit, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260629-zapschat-v1';
 import { bindImportExport, exportarClientesJSON } from './import-export.js';
 
 function renderAll() {
@@ -60,6 +60,11 @@ function bindTabelaActions() {
 
     const id = Number(btn.dataset.id);
     if (!id) return;
+
+    if (btn.dataset.action === 'zapschat') {
+      await abrirClienteNoZapsChat(id, { button: btn });
+      return;
+    }
 
     if (btn.dataset.action === 'editar') {
       await openClientModalEdit(id);
