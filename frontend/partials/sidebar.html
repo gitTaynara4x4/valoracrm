@@ -1621,8 +1621,14 @@
       appendOverlayContent(menu, item.surface);
       overlay.appendChild(menu);
 
-      overlay.addEventListener('pointerdown', (event) => event.stopPropagation(), true);
-      overlay.addEventListener('click', (event) => event.stopPropagation(), true);
+      /*
+       * Não usar capture=true aqui.
+       * Com capture=true, o overlay interceptava o clique antes do botão interno
+       * receber o evento. Resultado: opções como "Tema claro/escuro" pareciam
+       * clicar, mas não executavam applyTheme().
+       */
+      overlay.addEventListener('pointerdown', (event) => event.stopPropagation());
+      overlay.addEventListener('click', (event) => event.stopPropagation());
 
       parentDoc.body.appendChild(overlay);
 
