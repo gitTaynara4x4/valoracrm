@@ -1,0 +1,1179 @@
+/* =========================================================
+   VALORA CRM | DARK PRO V8
+   Tema escuro único e limpo: base slate/ChatGPT, sem azul pesado,
+   sem cards brancos perdidos e com contraste profissional.
+   Carregar sempre por último, depois dos CSS de cada página.
+   ========================================================= */
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Base */
+  --dark-bg: #0f172a;
+  --dark-bg-soft: #111827;
+  --dark-shell: #0b1220;
+  --dark-panel: #182235;
+  --dark-panel-2: #1e293b;
+  --dark-panel-hover: #243247;
+  --dark-input: #0f1b2d;
+  --dark-input-disabled: #111827;
+  --dark-table-head: #101827;
+
+  /* Texto */
+  --dark-text: #e5e7eb;
+  --dark-text-soft: #cbd5e1;
+  --dark-muted: #94a3b8;
+  --dark-muted-soft: #64748b;
+
+  /* Bordas e sombras */
+  --dark-border: rgba(148, 163, 184, 0.18);
+  --dark-border-strong: rgba(148, 163, 184, 0.28);
+  --dark-focus: rgba(75, 195, 199, 0.26);
+  --dark-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --dark-shadow-md: 0 18px 42px rgba(2, 6, 23, 0.34);
+  --dark-shadow-lg: 0 30px 90px rgba(2, 6, 23, 0.58);
+
+  /* Mantém a marca Valora viva, mas discreta */
+  --brand: #4bc3c7;
+  --brand-hover: #6ed9dd;
+  --brand-dark: #6ed9dd;
+  --brand-soft: rgba(75, 195, 199, 0.14);
+  --blue: #65acde;
+  --blue-soft: rgba(101, 172, 222, 0.14);
+
+  /* Sobrescreve variáveis antigas do projeto */
+  --navy: var(--dark-shell);
+  --navy-dark: #070d18;
+  --navy-soft: #121c2d;
+  --bg: var(--dark-bg);
+  --bg-soft: var(--dark-bg-soft);
+  --panel: var(--dark-panel);
+  --panel-hover: var(--dark-panel-hover);
+  --card-bg: var(--dark-panel);
+  --input-bg: var(--dark-input);
+  --input-bg-disabled: var(--dark-input-disabled);
+  --border: var(--dark-border);
+  --border-hover: var(--dark-border-strong);
+  --text: var(--dark-text);
+  --text-soft: var(--dark-text-soft);
+  --muted: var(--dark-muted);
+  --muted-soft: var(--dark-muted-soft);
+
+  --danger-soft: rgba(239, 68, 68, 0.14);
+  --warning-soft: rgba(245, 158, 11, 0.14);
+  --success-soft: rgba(34, 197, 94, 0.14);
+
+  --shadow-sm: var(--dark-shadow-sm);
+  --shadow-md: var(--dark-shadow-md);
+  --shadow-lg: var(--dark-shadow-lg);
+
+  /* Financeiro usa variáveis próprias */
+  --fin-bg: var(--dark-bg);
+  --fin-card: var(--dark-panel);
+  --fin-text: var(--dark-text);
+  --fin-muted: var(--dark-muted);
+  --fin-border: var(--dark-border);
+  --fin-soft: var(--dark-bg-soft);
+  --fin-blue: #8ccbff;
+  --fin-shadow: var(--dark-shadow-md);
+}
+
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background: var(--dark-bg) !important;
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(75, 195, 199, 0.07), transparent 28rem),
+    radial-gradient(circle at 90% 8%, rgba(101, 172, 222, 0.06), transparent 26rem),
+    var(--dark-bg) !important;
+}
+
+html[data-theme="dark"] .layout,
+html[data-theme="dark"] .main,
+html[data-theme="dark"] main,
+html[data-theme="dark"] .page,
+html[data-theme="dark"] .content,
+html[data-theme="dark"] .app-page,
+html[data-theme="dark"] .financeiro-page,
+html[data-theme="dark"] .dashboard-page,
+html[data-theme="dark"] .config-page,
+html[data-theme="dark"] .clientes-page,
+html[data-theme="dark"] .fornecedores-page,
+html[data-theme="dark"] .produtos-page,
+html[data-theme="dark"] .patrimonio-page,
+html[data-theme="dark"] .cotacoes-page,
+html[data-theme="dark"] .propostas-page,
+html[data-theme="dark"] .usuarios-page,
+html[data-theme="dark"] .formularios-page {
+  background: transparent !important;
+  color: var(--dark-text) !important;
+}
+
+/* =========================================================
+   Texto
+   ========================================================= */
+
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] h5,
+html[data-theme="dark"] h6,
+html[data-theme="dark"] strong,
+html[data-theme="dark"] b,
+html[data-theme="dark"] .page-title,
+html[data-theme="dark"] .topbar-title h1,
+html[data-theme="dark"] .hero-title,
+html[data-theme="dark"] .modal-header h2,
+html[data-theme="dark"] .modal-header h3,
+html[data-theme="dark"] .cliente-modal-topbar h3,
+html[data-theme="dark"] .fornecedor-modal-topbar h3,
+html[data-theme="dark"] .produto-modal-topbar h3,
+html[data-theme="dark"] .patrimonio-modal-topbar h3,
+html[data-theme="dark"] .cotacao-modal-topbar h3,
+html[data-theme="dark"] .section-card h4,
+html[data-theme="dark"] .custom-section-head h4,
+html[data-theme="dark"] .custom-fields-head h4,
+html[data-theme="dark"] .valora-section-head h4,
+html[data-theme="dark"] .proposal-card-head h4,
+html[data-theme="dark"] .proposal-section-head h4 {
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] p,
+html[data-theme="dark"] small,
+html[data-theme="dark"] span,
+html[data-theme="dark"] label,
+html[data-theme="dark"] .subtle,
+html[data-theme="dark"] .muted,
+html[data-theme="dark"] .topbar-subtitle,
+html[data-theme="dark"] .page-subtitle,
+html[data-theme="dark"] .modal-header p,
+html[data-theme="dark"] .cliente-modal-topbar p,
+html[data-theme="dark"] .fornecedor-modal-topbar p,
+html[data-theme="dark"] .produto-modal-topbar p,
+html[data-theme="dark"] .patrimonio-modal-topbar p,
+html[data-theme="dark"] .cotacao-modal-topbar p,
+html[data-theme="dark"] .custom-fields-head p,
+html[data-theme="dark"] .custom-section-head p,
+html[data-theme="dark"] .valora-section-head p,
+html[data-theme="dark"] .field-hint,
+html[data-theme="dark"] .field-help,
+html[data-theme="dark"] .form-group label,
+html[data-theme="dark"] .custom-field-item label,
+html[data-theme="dark"] .financeiro-field label {
+  color: var(--dark-muted) !important;
+}
+
+html[data-theme="dark"] a:not(.btn-primary):not(.btn-secondary):not(.btn-icon) {
+  color: inherit;
+}
+
+html[data-theme="dark"] .eyebrow,
+html[data-theme="dark"] .section-kicker,
+html[data-theme="dark"] .modal-kicker,
+html[data-theme="dark"] .proposal-kicker,
+html[data-theme="dark"] .brand-color,
+html[data-theme="dark"] .text-brand {
+  color: #8ccbff !important;
+}
+
+/* =========================================================
+   Cards, painéis e áreas que antes ficavam brancas
+   ========================================================= */
+
+html[data-theme="dark"] .panel-card,
+html[data-theme="dark"] .hero-card,
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .config-card,
+html[data-theme="dark"] .section-card,
+html[data-theme="dark"] .dashboard-panel,
+html[data-theme="dark"] .dashboard-kpi-card,
+html[data-theme="dark"] .dashboard-graph-card,
+html[data-theme="dark"] .dashboard-summary-panel,
+html[data-theme="dark"] .panel-card-table,
+html[data-theme="dark"] .config-table-panel,
+html[data-theme="dark"] .quick-card,
+html[data-theme="dark"] .search-box,
+html[data-theme="dark"] .table-container,
+html[data-theme="dark"] .table-wrapper,
+html[data-theme="dark"] .empty-state,
+html[data-theme="dark"] .empty-soft,
+html[data-theme="dark"] .history-box,
+html[data-theme="dark"] .history-empty,
+html[data-theme="dark"] .history-item,
+html[data-theme="dark"] .mini-item,
+html[data-theme="dark"] .anexo-row,
+html[data-theme="dark"] .anexo-item,
+html[data-theme="dark"] .campo-card,
+html[data-theme="dark"] .custom-fields-info,
+html[data-theme="dark"] .intro-card-main,
+html[data-theme="dark"] .cliente-resumo,
+html[data-theme="dark"] .status-box,
+html[data-theme="dark"] .helper-box,
+html[data-theme="dark"] .record-meta,
+html[data-theme="dark"] .proposta-preview,
+html[data-theme="dark"] .anexo-upload-box,
+html[data-theme="dark"] .acessos-status,
+html[data-theme="dark"] .acesso-ativo-box,
+html[data-theme="dark"] .acesso-item,
+html[data-theme="dark"] .gerar-acesso-box,
+html[data-theme="dark"] .contratos-status,
+html[data-theme="dark"] .contrato-item,
+html[data-theme="dark"] .anexos-status,
+html[data-theme="dark"] .support-card,
+html[data-theme="dark"] .support-info,
+html[data-theme="dark"] .faq-item,
+html[data-theme="dark"] .faq-answer,
+html[data-theme="dark"] .user-badge,
+html[data-theme="dark"] .valora-toast,
+html[data-theme="dark"] .footer-version {
+  background: var(--dark-panel) !important;
+  color: var(--dark-text-soft) !important;
+  border-color: var(--dark-border) !important;
+  box-shadow: var(--dark-shadow-sm) !important;
+}
+
+html[data-theme="dark"] .panel-card:hover,
+html[data-theme="dark"] .stat-card:hover,
+html[data-theme="dark"] .quick-card:hover,
+html[data-theme="dark"] .campo-card:hover,
+html[data-theme="dark"] .mini-item:hover,
+html[data-theme="dark"] .anexo-row:hover,
+html[data-theme="dark"] .history-item:hover,
+html[data-theme="dark"] .acesso-item:hover,
+html[data-theme="dark"] .contrato-item:hover,
+html[data-theme="dark"] .btn-secondary:hover,
+html[data-theme="dark"] .btn-icon:hover {
+  background: var(--dark-panel-hover) !important;
+  border-color: var(--dark-border-strong) !important;
+}
+
+html[data-theme="dark"] .section-card > .form-row,
+html[data-theme="dark"] .section-card > .stack,
+html[data-theme="dark"] .section-card > .mini-list,
+html[data-theme="dark"] .custom-fields-container,
+html[data-theme="dark"] .custom-fields-grid,
+html[data-theme="dark"] .valora-section-body,
+html[data-theme="dark"] .proposal-card-body,
+html[data-theme="dark"] .proposal-section-body {
+  background: transparent !important;
+}
+
+html[data-theme="dark"] .cliente-section-head,
+html[data-theme="dark"] .fornecedor-section-head,
+html[data-theme="dark"] .produto-section-head,
+html[data-theme="dark"] .patrimonio-section-head,
+html[data-theme="dark"] .cotacao-section-head,
+html[data-theme="dark"] .custom-fields-head,
+html[data-theme="dark"] .custom-section-head,
+html[data-theme="dark"] .valora-section-head,
+html[data-theme="dark"] .proposal-card-head,
+html[data-theme="dark"] .proposal-section-head,
+html[data-theme="dark"] .section-card > h4 {
+  background: transparent !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
+}
+
+/* =========================================================
+   Inputs, selects e validação
+   ========================================================= */
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .form-group input,
+html[data-theme="dark"] .form-group select,
+html[data-theme="dark"] .form-group textarea,
+html[data-theme="dark"] .custom-field-item input,
+html[data-theme="dark"] .custom-field-item select,
+html[data-theme="dark"] .custom-field-item textarea,
+html[data-theme="dark"] .input-group input,
+html[data-theme="dark"] .input-group select,
+html[data-theme="dark"] .input-group textarea,
+html[data-theme="dark"] .financeiro-field input,
+html[data-theme="dark"] .financeiro-field select,
+html[data-theme="dark"] .financeiro-field textarea,
+html[data-theme="dark"] .financeiro-form input,
+html[data-theme="dark"] .financeiro-form select,
+html[data-theme="dark"] .financeiro-form textarea,
+html[data-theme="dark"] .mini-actions input,
+html[data-theme="dark"] .mini-item input,
+html[data-theme="dark"] .mini-item select,
+html[data-theme="dark"] .mini-item textarea {
+  background: var(--dark-input) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: var(--dark-muted-soft) !important;
+}
+
+html[data-theme="dark"] input:focus,
+html[data-theme="dark"] select:focus,
+html[data-theme="dark"] textarea:focus {
+  border-color: rgba(75, 195, 199, 0.72) !important;
+  box-shadow: 0 0 0 3px var(--dark-focus) !important;
+  outline: none !important;
+}
+
+html[data-theme="dark"] input:disabled,
+html[data-theme="dark"] select:disabled,
+html[data-theme="dark"] textarea:disabled,
+html[data-theme="dark"] input[readonly],
+html[data-theme="dark"] textarea[readonly],
+html[data-theme="dark"] .modal-readonly input,
+html[data-theme="dark"] .modal-readonly select,
+html[data-theme="dark"] .modal-readonly textarea,
+html[data-theme="dark"] .modal-readonly .is-readonly-field,
+html[data-theme="dark"] .is-readonly-field {
+  background: var(--dark-input-disabled) !important;
+  color: var(--dark-text-soft) !important;
+  border-color: rgba(148, 163, 184, 0.14) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--dark-text-soft) !important;
+}
+
+html[data-theme="dark"] select option {
+  background: var(--dark-input) !important;
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] input:-webkit-autofill,
+html[data-theme="dark"] input:-webkit-autofill:hover,
+html[data-theme="dark"] input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--dark-text) !important;
+  box-shadow: 0 0 0 1000px var(--dark-input) inset !important;
+  caret-color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] input[type="checkbox"],
+html[data-theme="dark"] input[type="radio"] {
+  accent-color: var(--brand) !important;
+}
+
+html[data-theme="dark"] .field-invalid,
+html[data-theme="dark"] .is-invalid,
+html[data-theme="dark"] input.is-invalid,
+html[data-theme="dark"] select.is-invalid,
+html[data-theme="dark"] textarea.is-invalid {
+  border-color: rgba(248, 113, 113, 0.75) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.14) !important;
+}
+
+/* =========================================================
+   Tabelas
+   ========================================================= */
+
+html[data-theme="dark"] table,
+html[data-theme="dark"] .table,
+html[data-theme="dark"] .valora-table,
+html[data-theme="dark"] .config-table,
+html[data-theme="dark"] .financeiro-table {
+  background: var(--dark-panel) !important;
+  color: var(--dark-text-soft) !important;
+  border-color: var(--dark-border) !important;
+}
+
+html[data-theme="dark"] thead,
+html[data-theme="dark"] table thead,
+html[data-theme="dark"] table th,
+html[data-theme="dark"] .valora-table th,
+html[data-theme="dark"] .config-table th,
+html[data-theme="dark"] .financeiro-table th {
+  background: var(--dark-table-head) !important;
+  color: var(--dark-muted) !important;
+  border-color: var(--dark-border) !important;
+}
+
+html[data-theme="dark"] table td,
+html[data-theme="dark"] .valora-table td,
+html[data-theme="dark"] .config-table td,
+html[data-theme="dark"] .financeiro-table td {
+  background: var(--dark-panel) !important;
+  color: var(--dark-text-soft) !important;
+  border-color: rgba(148, 163, 184, 0.12) !important;
+}
+
+html[data-theme="dark"] table tbody tr:hover td,
+html[data-theme="dark"] .valora-table tbody tr:hover td,
+html[data-theme="dark"] .config-table tbody tr:hover td,
+html[data-theme="dark"] .financeiro-table tbody tr:hover td {
+  background: var(--dark-panel-hover) !important;
+}
+
+html[data-theme="dark"] .table-name-link strong {
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] .table-name-link:hover strong,
+html[data-theme="dark"] .table-name-link:focus-visible strong {
+  color: var(--brand) !important;
+}
+
+/* =========================================================
+   Botões, badges e status
+   ========================================================= */
+
+html[data-theme="dark"] .btn-secondary,
+html[data-theme="dark"] .btn-icon,
+html[data-theme="dark"] .btn-close,
+html[data-theme="dark"] .modal-close,
+html[data-theme="dark"] .financeiro-tabs a,
+html[data-theme="dark"] .financeiro-tabs button,
+html[data-theme="dark"] .financeiro-filter-chip,
+html[data-theme="dark"] .financeiro-select-mini,
+html[data-theme="dark"] .filter-chip,
+html[data-theme="dark"] .action-chip {
+  background: var(--dark-input) !important;
+  color: var(--dark-text-soft) !important;
+  border-color: var(--dark-border) !important;
+}
+
+html[data-theme="dark"] .btn-primary,
+html[data-theme="dark"] button.btn-primary,
+html[data-theme="dark"] a.btn-primary {
+  background: linear-gradient(135deg, #4bc3c7 0%, #65acde 100%) !important;
+  color: #06111f !important;
+  border-color: transparent !important;
+  box-shadow: 0 14px 28px rgba(75, 195, 199, 0.18) !important;
+}
+
+html[data-theme="dark"] .btn-primary:hover,
+html[data-theme="dark"] button.btn-primary:hover,
+html[data-theme="dark"] a.btn-primary:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+html[data-theme="dark"] .badge-status,
+html[data-theme="dark"] .status-badge,
+html[data-theme="dark"] .badge-tag,
+html[data-theme="dark"] .badge-codigo,
+html[data-theme="dark"] .badge-tipo,
+html[data-theme="dark"] .cliente-status-pill,
+html[data-theme="dark"] .status-indicator {
+  background: rgba(148, 163, 184, 0.10) !important;
+  color: var(--dark-text-soft) !important;
+  border-color: var(--dark-border) !important;
+}
+
+html[data-theme="dark"] .status-ativo,
+html[data-theme="dark"] .badge-tag.brand,
+html[data-theme="dark"] .badge-tipo,
+html[data-theme="dark"] .status-success,
+html[data-theme="dark"] .status-pago,
+html[data-theme="dark"] .financeiro-status-pago {
+  background: rgba(34, 197, 94, 0.14) !important;
+  color: #86efac !important;
+  border-color: rgba(34, 197, 94, 0.28) !important;
+}
+
+html[data-theme="dark"] .status-pendente,
+html[data-theme="dark"] .financeiro-status-pendente,
+html[data-theme="dark"] .status-warning {
+  background: rgba(245, 158, 11, 0.14) !important;
+  color: #fcd34d !important;
+  border-color: rgba(245, 158, 11, 0.28) !important;
+}
+
+html[data-theme="dark"] .status-cancelado,
+html[data-theme="dark"] .status-vencido,
+html[data-theme="dark"] .financeiro-status-vencido,
+html[data-theme="dark"] .status-danger {
+  background: rgba(239, 68, 68, 0.14) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.28) !important;
+}
+
+html[data-theme="dark"] .badge-codigo {
+  background: rgba(101, 172, 222, 0.14) !important;
+  color: #bfdbfe !important;
+  border-color: rgba(101, 172, 222, 0.28) !important;
+}
+
+/* =========================================================
+   Modais gerais e ficha principal
+   ========================================================= */
+
+html[data-theme="dark"] .modal-overlay {
+  background: rgba(2, 6, 23, 0.74) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+html[data-theme="dark"] .modal-content,
+html[data-theme="dark"] .modal-content-large,
+html[data-theme="dark"] .proposal-modal-content,
+html[data-theme="dark"] .confirm-content,
+html[data-theme="dark"] .cotacao-modal,
+html[data-theme="dark"] .cliente-modal-content,
+html[data-theme="dark"] .fornecedor-modal-content,
+html[data-theme="dark"] .produto-modal-content,
+html[data-theme="dark"] .patrimonio-modal-content,
+html[data-theme="dark"] .cotacao-modal-content {
+  background: var(--dark-bg) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
+  box-shadow: var(--dark-shadow-lg) !important;
+}
+
+html[data-theme="dark"] .modal-header,
+html[data-theme="dark"] .proposal-modal-header,
+html[data-theme="dark"] .modal-footer,
+html[data-theme="dark"] .proposal-modal-footer,
+html[data-theme="dark"] .modal-client-footer,
+html[data-theme="dark"] .produto-modal-footer,
+html[data-theme="dark"] .patrimonio-modal-footer,
+html[data-theme="dark"] .cotacao-modal-footer {
+  background: var(--dark-panel) !important;
+  border-color: var(--dark-border) !important;
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] .modal-body,
+html[data-theme="dark"] .proposal-modal-body,
+html[data-theme="dark"] .cliente-modal-shell,
+html[data-theme="dark"] .fornecedor-modal-shell,
+html[data-theme="dark"] .produto-modal-shell,
+html[data-theme="dark"] .patrimonio-modal-shell,
+html[data-theme="dark"] .cotacao-modal-shell,
+html[data-theme="dark"] .cliente-modal-main,
+html[data-theme="dark"] .fornecedor-modal-main,
+html[data-theme="dark"] .produto-modal-main,
+html[data-theme="dark"] .patrimonio-modal-main,
+html[data-theme="dark"] .cotacao-modal-main,
+html[data-theme="dark"] .cliente-modal-scroll,
+html[data-theme="dark"] .fornecedor-modal-scroll,
+html[data-theme="dark"] .produto-modal-scroll,
+html[data-theme="dark"] .patrimonio-modal-scroll,
+html[data-theme="dark"] .cotacao-modal-scroll {
+  background: var(--dark-bg) !important;
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] .cliente-modal-sidebar,
+html[data-theme="dark"] .fornecedor-modal-sidebar,
+html[data-theme="dark"] .produto-modal-sidebar,
+html[data-theme="dark"] .patrimonio-modal-sidebar,
+html[data-theme="dark"] .cotacao-modal-sidebar,
+html[data-theme="dark"] #modal-produto-backdrop .cliente-modal-sidebar,
+html[data-theme="dark"] #modal-patrimonio .cliente-modal-sidebar,
+html[data-theme="dark"] #modal-cotacao-backdrop .cliente-modal-sidebar {
+  background: var(--dark-shell) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
+}
+
+html[data-theme="dark"] .cliente-modal-topbar,
+html[data-theme="dark"] .fornecedor-modal-topbar,
+html[data-theme="dark"] .produto-modal-topbar,
+html[data-theme="dark"] .patrimonio-modal-topbar,
+html[data-theme="dark"] .cotacao-modal-topbar {
+  background: var(--dark-panel) !important;
+  border-color: var(--dark-border) !important;
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] .cliente-main-card,
+html[data-theme="dark"] .fornecedor-main-card,
+html[data-theme="dark"] .produto-main-card,
+html[data-theme="dark"] .patrimonio-main-card,
+html[data-theme="dark"] .cotacao-section-card,
+html[data-theme="dark"] .produto-ficha-card,
+html[data-theme="dark"] .custom-fields-card,
+html[data-theme="dark"] .custom-section-card,
+html[data-theme="dark"] .custom-section-card-bitrix,
+html[data-theme="dark"] .fields-builder-card,
+html[data-theme="dark"] .valora-modal-section,
+html[data-theme="dark"] .proposal-card,
+html[data-theme="dark"] .proposal-section,
+html[data-theme="dark"] .proposal-items-card,
+html[data-theme="dark"] #modal-cliente-backdrop .section-card,
+html[data-theme="dark"] #modal-fornecedor-backdrop .section-card,
+html[data-theme="dark"] #modal-produto-backdrop .section-card,
+html[data-theme="dark"] #modal-patrimonio .section-card,
+html[data-theme="dark"] #modal-cotacao-backdrop .section-card {
+  background: var(--dark-panel) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
+  box-shadow: var(--dark-shadow-sm) !important;
+}
+
+html[data-theme="dark"] .ficha-principal-code-card,
+html[data-theme="dark"] .cliente-ficha-code-card,
+html[data-theme="dark"] .fornecedor-ficha-code-card,
+html[data-theme="dark"] .produto-ficha-code-card,
+html[data-theme="dark"] .patrimonio-ficha-code-card,
+html[data-theme="dark"] .cotacao-ficha-code-card,
+html[data-theme="dark"] #modal-cliente-backdrop .ficha-principal-code-card,
+html[data-theme="dark"] #modal-fornecedor-backdrop .ficha-principal-code-card,
+html[data-theme="dark"] #modal-produto-backdrop .ficha-principal-code-card,
+html[data-theme="dark"] #modal-patrimonio .ficha-principal-code-card,
+html[data-theme="dark"] #modal-cotacao-backdrop .ficha-principal-code-card {
+  background: linear-gradient(180deg, rgba(101, 172, 222, 0.08), rgba(75, 195, 199, 0.04)), var(--dark-panel) !important;
+  color: var(--dark-text) !important;
+  border-color: rgba(101, 172, 222, 0.24) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .ficha-principal-code-card .ficha-principal-system-fields input,
+html[data-theme="dark"] .cliente-ficha-code-card .ficha-principal-system-fields input,
+html[data-theme="dark"] .fornecedor-ficha-code-card .ficha-principal-system-fields input,
+html[data-theme="dark"] .produto-ficha-code-card .ficha-principal-system-fields input,
+html[data-theme="dark"] .patrimonio-ficha-code-card .ficha-principal-system-fields input,
+html[data-theme="dark"] .cotacao-ficha-code-card .ficha-principal-system-fields input {
+  background: var(--dark-input-disabled) !important;
+  color: var(--dark-text-soft) !important;
+  border-color: var(--dark-border) !important;
+  -webkit-text-fill-color: var(--dark-text-soft) !important;
+}
+
+/* Abas laterais */
+html[data-theme="dark"] .cliente-sidebar-avatar,
+html[data-theme="dark"] .fornecedor-sidebar-avatar,
+html[data-theme="dark"] .produto-sidebar-avatar,
+html[data-theme="dark"] .patrimonio-sidebar-avatar,
+html[data-theme="dark"] .cotacao-sidebar-avatar {
+  background: rgba(75, 195, 199, 0.12) !important;
+  color: var(--brand) !important;
+  border-color: rgba(75, 195, 199, 0.26) !important;
+}
+
+html[data-theme="dark"] .cliente-sidebar-user strong,
+html[data-theme="dark"] .fornecedor-sidebar-user strong,
+html[data-theme="dark"] .produto-sidebar-user strong,
+html[data-theme="dark"] .patrimonio-sidebar-user strong,
+html[data-theme="dark"] .cotacao-sidebar-user strong {
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] .cliente-sidebar-user span,
+html[data-theme="dark"] .fornecedor-sidebar-user span,
+html[data-theme="dark"] .produto-sidebar-user span,
+html[data-theme="dark"] .patrimonio-sidebar-user span,
+html[data-theme="dark"] .cotacao-sidebar-user span {
+  color: var(--dark-muted) !important;
+}
+
+html[data-theme="dark"] .cliente-tab-btn,
+html[data-theme="dark"] .fornecedor-tab-btn,
+html[data-theme="dark"] .produto-tab-btn,
+html[data-theme="dark"] .patrimonio-tab-btn,
+html[data-theme="dark"] .cotacao-tab-btn,
+html[data-theme="dark"] .form-tab-btn,
+html[data-theme="dark"] .modal-tab-btn,
+html[data-theme="dark"] .financeiro-ficha-tab {
+  background: transparent !important;
+  color: var(--dark-text-soft) !important;
+  border-color: transparent !important;
+}
+
+html[data-theme="dark"] .cliente-tab-btn:hover,
+html[data-theme="dark"] .fornecedor-tab-btn:hover,
+html[data-theme="dark"] .produto-tab-btn:hover,
+html[data-theme="dark"] .patrimonio-tab-btn:hover,
+html[data-theme="dark"] .cotacao-tab-btn:hover,
+html[data-theme="dark"] .form-tab-btn:hover,
+html[data-theme="dark"] .modal-tab-btn:hover,
+html[data-theme="dark"] .financeiro-ficha-tab:hover {
+  background: rgba(148, 163, 184, 0.10) !important;
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] .cliente-tab-btn.active,
+html[data-theme="dark"] .fornecedor-tab-btn.active,
+html[data-theme="dark"] .produto-tab-btn.active,
+html[data-theme="dark"] .patrimonio-tab-btn.active,
+html[data-theme="dark"] .cotacao-tab-btn.active,
+html[data-theme="dark"] .form-tab-btn.active,
+html[data-theme="dark"] .modal-tab-btn.active,
+html[data-theme="dark"] .financeiro-ficha-tab.active {
+  background: rgba(75, 195, 199, 0.14) !important;
+  color: var(--brand) !important;
+  border-color: rgba(75, 195, 199, 0.28) !important;
+}
+
+html[data-theme="dark"] .cliente-tab-icon,
+html[data-theme="dark"] .fornecedor-tab-icon,
+html[data-theme="dark"] .produto-tab-icon,
+html[data-theme="dark"] .patrimonio-tab-icon,
+html[data-theme="dark"] .cotacao-tab-icon,
+html[data-theme="dark"] .ficha-section-tab-icon,
+html[data-theme="dark"] .cliente-sidebar-nav .cliente-tab-btn > i,
+html[data-theme="dark"] .fornecedor-sidebar-nav .fornecedor-tab-btn > i,
+html[data-theme="dark"] .produto-sidebar-nav .produto-tab-btn > i,
+html[data-theme="dark"] .patrimonio-sidebar-nav .patrimonio-tab-btn > i,
+html[data-theme="dark"] .cotacao-sidebar-nav .cotacao-tab-btn > i {
+  background: rgba(75, 195, 199, 0.12) !important;
+  color: var(--brand) !important;
+}
+
+html[data-theme="dark"] .cliente-tab-btn.active .cliente-tab-icon,
+html[data-theme="dark"] .fornecedor-tab-btn.active .fornecedor-tab-icon,
+html[data-theme="dark"] .produto-tab-btn.active .produto-tab-icon,
+html[data-theme="dark"] .patrimonio-tab-btn.active .patrimonio-tab-icon,
+html[data-theme="dark"] .cotacao-tab-btn.active .cotacao-tab-icon,
+html[data-theme="dark"] .cliente-tab-btn.active .ficha-section-tab-icon,
+html[data-theme="dark"] .fornecedor-tab-btn.active .ficha-section-tab-icon,
+html[data-theme="dark"] .produto-tab-btn.active .ficha-section-tab-icon,
+html[data-theme="dark"] .patrimonio-tab-btn.active .ficha-section-tab-icon,
+html[data-theme="dark"] .cotacao-tab-btn.active .ficha-section-tab-icon {
+  background: linear-gradient(135deg, #4bc3c7, #65acde) !important;
+  color: #06111f !important;
+}
+
+html[data-theme="dark"] .cliente-sidebar-bottom,
+html[data-theme="dark"] .fornecedor-sidebar-bottom,
+html[data-theme="dark"] .produto-sidebar-bottom,
+html[data-theme="dark"] .patrimonio-sidebar-bottom,
+html[data-theme="dark"] .cotacao-sidebar-bottom {
+  background: linear-gradient(180deg, rgba(11, 18, 32, 0), var(--dark-shell) 24%) !important;
+}
+
+html[data-theme="dark"] .cliente-ficha-toggle,
+html[data-theme="dark"] .fornecedor-ficha-toggle,
+html[data-theme="dark"] .produto-ficha-toggle,
+html[data-theme="dark"] .patrimonio-ficha-toggle,
+html[data-theme="dark"] .cotacao-ficha-toggle,
+html[data-theme="dark"] .ficha-principal-toggle-bar,
+html[data-theme="dark"] .cliente-ficha-toggle-bar,
+html[data-theme="dark"] .produto-ficha-toggle-bar,
+html[data-theme="dark"] .check-card,
+html[data-theme="dark"] .custom-checkbox {
+  background: var(--dark-panel) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
+}
+
+/* =========================================================
+   Dropdowns, multiselect e menus internos
+   ========================================================= */
+
+html[data-theme="dark"] .custom-multiselect-panel,
+html[data-theme="dark"] .custom-multiselect-menu,
+html[data-theme="dark"] .custom-multiselect-option,
+html[data-theme="dark"] .dropdown-menu,
+html[data-theme="dark"] .menu-dropdown {
+  background: var(--dark-panel) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
+  box-shadow: var(--dark-shadow-md) !important;
+}
+
+html[data-theme="dark"] .custom-multiselect-option:hover,
+html[data-theme="dark"] .dropdown-item:hover,
+html[data-theme="dark"] .menu-dropdown a:hover {
+  background: var(--dark-panel-hover) !important;
+  color: var(--brand) !important;
+}
+
+/* =========================================================
+   Financeiro
+   ========================================================= */
+
+html[data-theme="dark"] .financeiro-card,
+html[data-theme="dark"] .financeiro-panel,
+html[data-theme="dark"] .financeiro-saas-metric,
+html[data-theme="dark"] .financeiro-saas-card,
+html[data-theme="dark"] .financeiro-toolbar--saas,
+html[data-theme="dark"] .financeiro-table-wrap,
+html[data-theme="dark"] .financeiro-section-card,
+html[data-theme="dark"] .financeiro-empty,
+html[data-theme="dark"] .financeiro-add-row,
+html[data-theme="dark"] .financeiro-chart-wrap,
+html[data-theme="dark"] .financeiro-summary-card,
+html[data-theme="dark"] .financeiro-dashboard-card,
+html[data-theme="dark"] .financeiro-kpi-card {
+  background: var(--dark-panel) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
+  box-shadow: var(--dark-shadow-sm) !important;
+}
+
+html[data-theme="dark"] .financeiro-ficha-sidebar {
+  background: var(--dark-shell) !important;
+  border-color: var(--dark-border) !important;
+}
+
+html[data-theme="dark"] .financeiro-ficha-main,
+html[data-theme="dark"] .financeiro-ficha-scroll {
+  background: var(--dark-bg) !important;
+}
+
+html[data-theme="dark"] .financeiro-tabs a.active,
+html[data-theme="dark"] .financeiro-tabs button.active,
+html[data-theme="dark"] .financeiro-filter-chip.active {
+  background: rgba(75, 195, 199, 0.14) !important;
+  color: var(--brand) !important;
+  border-color: rgba(75, 195, 199, 0.28) !important;
+}
+
+/* =========================================================
+   Login, início, ajuda e páginas avulsas
+   ========================================================= */
+
+html[data-theme="dark"] .login-page,
+html[data-theme="dark"] .login-shell,
+html[data-theme="dark"] .inicio-page,
+html[data-theme="dark"] .home-page,
+html[data-theme="dark"] .help-page {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(75, 195, 199, 0.10), transparent 28rem),
+    radial-gradient(circle at 90% 10%, rgba(101, 172, 222, 0.08), transparent 26rem),
+    var(--dark-bg) !important;
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] .login-card,
+html[data-theme="dark"] .register-form-container,
+html[data-theme="dark"] .register-visual,
+html[data-theme="dark"] .selected-plan,
+html[data-theme="dark"] .token-alert,
+html[data-theme="dark"] .inicio-card,
+html[data-theme="dark"] .home-card,
+html[data-theme="dark"] .help-card,
+html[data-theme="dark"] .valora-help-panel,
+html[data-theme="dark"] .valora-help-card,
+html[data-theme="dark"] .valora-help-close,
+html[data-theme="dark"] .valora-floating-help-btn {
+  background: var(--dark-panel) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
+  box-shadow: var(--dark-shadow-md) !important;
+}
+
+/* =========================================================
+   Topbar/menu global quando não está no iframe
+   ========================================================= */
+
+html[data-theme="dark"] .topbar,
+html[data-theme="dark"] .app-topbar,
+html[data-theme="dark"] .page-topbar {
+  background: var(--dark-shell) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
+  box-shadow: 0 1px 0 rgba(148, 163, 184, 0.14) !important;
+}
+
+
+/* Ícones, linhas e divisórias */
+html[data-theme="dark"] hr,
+html[data-theme="dark"] .divider,
+html[data-theme="dark"] .settings-divider,
+html[data-theme="dark"] .section-divider {
+  border-color: var(--dark-border) !important;
+}
+
+html[data-theme="dark"] svg,
+html[data-theme="dark"] i {
+  color: inherit;
+}
+
+/* Scrollbar */
+html[data-theme="dark"] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--dark-shell);
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.38);
+  border-radius: 999px;
+  border: 2px solid var(--dark-shell);
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.58);
+}
+
+
+/* =========================================================
+   DARK PRO V10 | Correção final
+   Resolve o branco gigante do iframe/menu aberto e deixa o dark
+   mais neutro, estilo ChatGPT, sem azul pesado no fundo.
+   ========================================================= */
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --dark-bg: #212121;
+  --dark-bg-soft: #171717;
+  --dark-shell: #0f1117;
+  --dark-panel: #2b2b2b;
+  --dark-panel-2: #303030;
+  --dark-panel-hover: #343434;
+  --dark-input: #171717;
+  --dark-input-disabled: #202020;
+  --dark-table-head: #181818;
+
+  --dark-text: #ececec;
+  --dark-text-soft: #d6d6d6;
+  --dark-muted: #b4b4b4;
+  --dark-muted-soft: #8a8a8a;
+
+  --dark-border: rgba(255, 255, 255, 0.10);
+  --dark-border-strong: rgba(255, 255, 255, 0.18);
+  --dark-focus: rgba(75, 195, 199, 0.22);
+  --dark-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --dark-shadow-md: 0 18px 42px rgba(0, 0, 0, 0.34);
+  --dark-shadow-lg: 0 30px 90px rgba(0, 0, 0, 0.54);
+
+  --bg: var(--dark-bg);
+  --bg-soft: var(--dark-bg-soft);
+  --panel: var(--dark-panel);
+  --panel-hover: var(--dark-panel-hover);
+  --card-bg: var(--dark-panel);
+  --input-bg: var(--dark-input);
+  --input-bg-disabled: var(--dark-input-disabled);
+  --border: var(--dark-border);
+  --border-hover: var(--dark-border-strong);
+  --text: var(--dark-text);
+  --text-soft: var(--dark-text-soft);
+  --muted: var(--dark-muted);
+  --muted-soft: var(--dark-muted-soft);
+  --navy: var(--dark-shell);
+  --navy-dark: #0a0c11;
+  --navy-soft: #151821;
+
+  --fin-bg: var(--dark-bg);
+  --fin-card: var(--dark-panel);
+  --fin-text: var(--dark-text);
+  --fin-muted: var(--dark-muted);
+  --fin-border: var(--dark-border);
+  --fin-soft: var(--dark-bg-soft);
+  --fin-shadow: var(--dark-shadow-md);
+}
+
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background: var(--dark-bg) !important;
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 16% -8%, rgba(75, 195, 199, 0.055), transparent 28rem),
+    radial-gradient(circle at 86% 0%, rgba(101, 172, 222, 0.045), transparent 25rem),
+    var(--dark-bg) !important;
+}
+
+html[data-theme="dark"] .main,
+html[data-theme="dark"] main,
+html[data-theme="dark"] .layout,
+html[data-theme="dark"] .page,
+html[data-theme="dark"] .content,
+html[data-theme="dark"] .app-page,
+html[data-theme="dark"] .dashboard-page,
+html[data-theme="dark"] .financeiro-page,
+html[data-theme="dark"] .clientes-page,
+html[data-theme="dark"] .fornecedores-page,
+html[data-theme="dark"] .produtos-page,
+html[data-theme="dark"] .patrimonio-page,
+html[data-theme="dark"] .cotacoes-page,
+html[data-theme="dark"] .propostas-page,
+html[data-theme="dark"] .usuarios-page,
+html[data-theme="dark"] .formularios-page {
+  background: transparent !important;
+  color: var(--dark-text) !important;
+}
+
+/* Header interno da página: não é o menu, então não deve virar barra pesada. */
+html[data-theme="dark"] .main > .topbar,
+html[data-theme="dark"] main.main > .topbar,
+html[data-theme="dark"] .page-header,
+html[data-theme="dark"] .header-page {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] .topbar-title h1,
+html[data-theme="dark"] .page-title,
+html[data-theme="dark"] .panel-head h3,
+html[data-theme="dark"] .financeiro-panel-head h2,
+html[data-theme="dark"] .financeiro-panel-head h3 {
+  color: var(--dark-text) !important;
+}
+
+html[data-theme="dark"] .topbar-title p,
+html[data-theme="dark"] .topbar-subtitle,
+html[data-theme="dark"] .panel-head p,
+html[data-theme="dark"] .page-subtitle,
+html[data-theme="dark"] .financeiro-panel-head p {
+  color: var(--dark-muted) !important;
+}
+
+html[data-theme="dark"] .panel-card,
+html[data-theme="dark"] .clientes-filter-card,
+html[data-theme="dark"] .fornecedores-filter-card,
+html[data-theme="dark"] .produtos-filter-card,
+html[data-theme="dark"] .patrimonio-filter-card,
+html[data-theme="dark"] .cotacoes-filter-card,
+html[data-theme="dark"] .propostas-filter-card,
+html[data-theme="dark"] .monitoramento-filter-card,
+html[data-theme="dark"] .hero-card,
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .config-card,
+html[data-theme="dark"] .section-card,
+html[data-theme="dark"] .dashboard-panel,
+html[data-theme="dark"] .dashboard-kpi-card,
+html[data-theme="dark"] .dashboard-graph-card,
+html[data-theme="dark"] .dashboard-summary-panel,
+html[data-theme="dark"] .financeiro-card,
+html[data-theme="dark"] .financeiro-panel,
+html[data-theme="dark"] .config-table-panel,
+html[data-theme="dark"] .table-container,
+html[data-theme="dark"] .table-wrapper,
+html[data-theme="dark"] .valora-table-wrapper,
+html[data-theme="dark"] .panel-card-table {
+  background: var(--dark-panel) !important;
+  color: var(--dark-text-soft) !important;
+  border-color: var(--dark-border) !important;
+  box-shadow: var(--dark-shadow-sm) !important;
+}
+
+html[data-theme="dark"] .panel-card:hover,
+html[data-theme="dark"] .stat-card:hover,
+html[data-theme="dark"] .quick-card:hover {
+  background: var(--dark-panel) !important;
+  border-color: var(--dark-border-strong) !important;
+}
+
+html[data-theme="dark"] .filters-grid,
+html[data-theme="dark"] .form-grid,
+html[data-theme="dark"] .cotacoes-filters-grid,
+html[data-theme="dark"] .financeiro-filters-grid,
+html[data-theme="dark"] .footer-actions,
+html[data-theme="dark"] .filter-actions,
+html[data-theme="dark"] .table-pagination,
+html[data-theme="dark"] .panel-head {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .search-box,
+html[data-theme="dark"] .input-group,
+html[data-theme="dark"] .select-wrap {
+  background: var(--dark-input) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
+}
+
+html[data-theme="dark"] label,
+html[data-theme="dark"] .form-group label,
+html[data-theme="dark"] .financeiro-field label,
+html[data-theme="dark"] .input-label,
+html[data-theme="dark"] .counter-text {
+  color: var(--dark-muted) !important;
+}
+
+html[data-theme="dark"] .valora-table,
+html[data-theme="dark"] table,
+html[data-theme="dark"] .config-table,
+html[data-theme="dark"] .financeiro-table {
+  background: var(--dark-panel) !important;
+  color: var(--dark-text-soft) !important;
+  border-color: var(--dark-border) !important;
+}
+
+html[data-theme="dark"] .valora-table thead,
+html[data-theme="dark"] table thead,
+html[data-theme="dark"] .valora-table th,
+html[data-theme="dark"] table th,
+html[data-theme="dark"] .config-table th,
+html[data-theme="dark"] .financeiro-table th {
+  background: var(--dark-table-head) !important;
+  color: var(--dark-muted) !important;
+  border-color: var(--dark-border) !important;
+}
+
+html[data-theme="dark"] .valora-table td,
+html[data-theme="dark"] table td,
+html[data-theme="dark"] .config-table td,
+html[data-theme="dark"] .financeiro-table td {
+  background: var(--dark-panel) !important;
+  color: var(--dark-text-soft) !important;
+  border-color: rgba(255, 255, 255, 0.075) !important;
+}
+
+html[data-theme="dark"] .valora-table tbody tr:hover td,
+html[data-theme="dark"] table tbody tr:hover td,
+html[data-theme="dark"] .financeiro-table tbody tr:hover td {
+  background: var(--dark-panel-hover) !important;
+}
+
+html[data-theme="dark"] .badge-status,
+html[data-theme="dark"] .badge,
+html[data-theme="dark"] .tag,
+html[data-theme="dark"] .pill,
+html[data-theme="dark"] .chip {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: var(--dark-text-soft) !important;
+  border-color: var(--dark-border) !important;
+}
+
+html[data-theme="dark"] .btn-secondary,
+html[data-theme="dark"] .btn-icon,
+html[data-theme="dark"] .btn-close,
+html[data-theme="dark"] .modal-close {
+  background: var(--dark-input) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .btn-secondary:hover,
+html[data-theme="dark"] .btn-icon:hover,
+html[data-theme="dark"] .modal-close:hover {
+  background: #242424 !important;
+  border-color: var(--dark-border-strong) !important;
+}
+
+html[data-theme="dark"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.62) !important;
+}
+
+html[data-theme="dark"] .modal-content,
+html[data-theme="dark"] .cliente-modal-content,
+html[data-theme="dark"] .fornecedor-modal-content,
+html[data-theme="dark"] .produto-modal-content,
+html[data-theme="dark"] .patrimonio-modal-content,
+html[data-theme="dark"] .cotacao-modal-content {
+  background: var(--dark-panel) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border-strong) !important;
+  box-shadow: var(--dark-shadow-lg) !important;
+}
+
+html[data-theme="dark"] .cliente-modal-shell,
+html[data-theme="dark"] .fornecedor-modal-shell,
+html[data-theme="dark"] .produto-modal-shell,
+html[data-theme="dark"] .patrimonio-modal-shell,
+html[data-theme="dark"] .cotacao-modal-shell {
+  background: var(--dark-panel) !important;
+}
+
+html[data-theme="dark"] .cliente-modal-sidebar,
+html[data-theme="dark"] .fornecedor-modal-sidebar,
+html[data-theme="dark"] .produto-modal-sidebar,
+html[data-theme="dark"] .patrimonio-modal-sidebar,
+html[data-theme="dark"] .cotacao-modal-sidebar,
+html[data-theme="dark"] .modal-sidebar {
+  background: var(--dark-bg-soft) !important;
+  border-color: var(--dark-border) !important;
+}
+

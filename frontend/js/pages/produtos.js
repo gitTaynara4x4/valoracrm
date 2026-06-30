@@ -57,6 +57,7 @@
   let usarFichaPrincipalProdutos = false;
   let fichaProdutoController = null;
   let produtoAtualDetalhe = null;
+  let produtoModalSomenteLeitura = false;
 
   function $(id) {
     return document.getElementById(id);
@@ -506,6 +507,94 @@
     return String($(id)?.value ?? '').trim();
   }
 
+
+  function restoreReadonlyElement(el) {
+    if (!el || el.dataset.readonlyTouched !== 'true') return;
+
+    el.disabled = el.dataset.readonlyWasDisabled === 'true';
+    el.readOnly = el.dataset.readonlyWasReadonly === 'true';
+    el.removeAttribute('aria-readonly');
+    el.classList.remove('is-readonly-field');
+
+    delete el.dataset.readonlyTouched;
+    delete el.dataset.readonlyWasDisabled;
+    delete el.dataset.readonlyWasReadonly;
+  }
+
+  function applyReadonlyElement(el) {
+    if (!el || el.dataset.readonlyTouched === 'true') return;
+
+    el.dataset.readonlyTouched = 'true';
+    el.dataset.readonlyWasDisabled = el.disabled ? 'true' : 'false';
+    el.dataset.readonlyWasReadonly = el.readOnly ? 'true' : 'false';
+
+    const tag = String(el.tagName || '').toLowerCase();
+    const type = String(el.type || '').toLowerCase();
+
+    if (tag === 'select' || type === 'checkbox' || type === 'radio' || type === 'file' || type === 'button') {
+      el.disabled = true;
+    } else {
+      el.readOnly = true;
+    }
+
+    el.setAttribute('aria-readonly', 'true');
+    el.classList.add('is-readonly-field');
+  }
+
+  function setHiddenByReadonly(id, enabled) {
+    const el = $(id);
+    if (!el) return;
+
+    if (enabled) {
+      if (el.dataset.readonlyTouchedHidden !== 'true') {
+        el.dataset.readonlyTouchedHidden = 'true';
+        el.dataset.readonlyWasHidden = el.hidden ? 'true' : 'false';
+      }
+      el.hidden = true;
+      el.style.display = 'none';
+      return;
+    }
+
+    if (el.dataset.readonlyTouchedHidden === 'true') {
+      el.hidden = el.dataset.readonlyWasHidden === 'true';
+      el.style.display = '';
+      delete el.dataset.readonlyTouchedHidden;
+      delete el.dataset.readonlyWasHidden;
+    }
+  }
+
+  function setProdutoModalReadonly(enabled) {
+    produtoModalSomenteLeitura = !!enabled;
+
+    const backdrop = $('modal-produto-backdrop');
+    const form = $('formProduto');
+    const cancelBtn = $('btn-cancelar-produto');
+
+    backdrop?.classList.toggle('modal-readonly', produtoModalSomenteLeitura);
+    form?.classList.toggle('modal-readonly-form', produtoModalSomenteLeitura);
+
+    if (form) {
+      form.querySelectorAll('input, select, textarea').forEach((el) => {
+        if (produtoModalSomenteLeitura) applyReadonlyElement(el);
+        else restoreReadonlyElement(el);
+      });
+    }
+
+    [
+      'btn-salvar-produto',
+      'btn-atualizar-formulario-produto',
+    ].forEach((id) => setHiddenByReadonly(id, produtoModalSomenteLeitura));
+
+    if (cancelBtn) {
+      if (produtoModalSomenteLeitura) {
+        cancelBtn.dataset.normalText = cancelBtn.dataset.normalText || cancelBtn.textContent || 'Cancelar';
+        cancelBtn.textContent = 'Fechar';
+      } else if (cancelBtn.dataset.normalText) {
+        cancelBtn.textContent = cancelBtn.dataset.normalText;
+      }
+    }
+  }
+
   function getProdutoNativeValues() {
     return {
       codigo: onlyDigits(getValue('campo-codigo-produto') || getValue('campo-codigo-ficha-principal-produto')),
@@ -945,10 +1034,16 @@
       <tr>
         <td><span class="badge-codigo">${escapeHtml(produto.codigo || '-')}</span></td>
         <td>
-          <div class="produto-main">
+          <button
+            type="button"
+            class="table-name-link produto-main"
+            data-action="visualizar"
+            data-id="${produto.id}"
+            title="Visualizar produto"
+          >
             <strong>${escapeHtml(produto.nome || '-')}</strong>
             ${produto.descricao ? `<span>${escapeHtml(produto.descricao)}</span>` : ''}
-          </div>
+          </button>
         </td>
         <td>${escapeHtml(produto.categoria || '-')}</td>
         <td>${escapeHtml(formatCurrency(produto.preco_venda || ''))}</td>
@@ -1002,12 +1097,14 @@
   }
 
   function fecharModalProduto() {
+    setProdutoModalReadonly(false);
     closeModal('modal-produto-backdrop');
     produtoEditandoId = null;
     produtoAtualDetalhe = null;
   }
 
   async function abrirModalProdutoNovo() {
+    setProdutoModalReadonly(false);
     desativarValidacaoGlobalProduto();
     const titulo = $('modal-produto-titulo');
     if (titulo) titulo.textContent = 'Novo produto';
@@ -1023,6 +1120,7 @@
     aplicarModoFichaProduto();
 
     abrirModalProduto();
+    setProdutoModalReadonly(false);
 
     setTimeout(() => {
       if (usarFichaPrincipalProdutos) {
@@ -1050,10 +1148,39 @@
     aplicarModoFichaProduto();
 
     abrirModalProduto();
+    setProdutoModalReadonly(false);
 
     setTimeout(() => {
       switchProdutoTab(usarFichaPrincipalProdutos ? 'tab-produto-ficha' : 'tab-produto-dados');
     }, 80);
+  }
+
+
+  async function abrirModalProdutoVisualizar(produto) {
+    try {
+      desativarValidacaoGlobalProduto();
+      const titulo = $('modal-produto-titulo');
+      if (titulo) titulo.textContent = 'Visualizar produto';
+
+      produtoEditandoId = produto.id;
+      produtoAtualDetalhe = produto;
+
+      fillProdutoNativeFields(produto);
+
+      const values = buildCustomValuesFromProduto(produto);
+      await renderCustomFieldsInputs(values);
+      aplicarModoFichaProduto();
+
+      abrirModalProduto();
+      setProdutoModalReadonly(true);
+
+      setTimeout(() => {
+        switchProdutoTab(usarFichaPrincipalProdutos ? 'tab-produto-ficha' : 'tab-produto-dados');
+      }, 80);
+    } catch (err) {
+      console.error('[Produtos] erro ao visualizar produto:', err);
+      toast(err.message || 'Não foi possível visualizar o produto.', { error: true, ms: 5000 });
+    }
   }
 
   function buildPayloadProduto() {
@@ -1086,6 +1213,11 @@
   }
 
   async function salvarProduto() {
+    if (produtoModalSomenteLeitura) {
+      toast('Este produto está aberto apenas para visualização.', { error: true, ms: 3000 });
+      return;
+    }
+
     desativarValidacaoGlobalProduto();
     limparDestaquesObrigatorios();
 
@@ -1520,12 +1652,23 @@
     });
 
     $('tbody-produtos')?.addEventListener('click', async (event) => {
-      const btn = event.target.closest('.btn-icon');
+      const btn = event.target.closest('[data-action][data-id]');
       if (!btn) return;
 
       const action = btn.dataset.action;
       const id = Number(btn.dataset.id);
       if (!id) return;
+
+      if (action === 'visualizar') {
+        try {
+          const full = await obterProdutoNoServidor(id);
+          await abrirModalProdutoVisualizar(full);
+        } catch (err) {
+          console.error('[Produtos] erro ao abrir produto:', err);
+          toast(err.message || 'Não foi possível abrir o produto.', { error: true, ms: 5000 });
+        }
+        return;
+      }
 
       if (action === 'editar') {
         try {

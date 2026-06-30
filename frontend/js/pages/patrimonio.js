@@ -76,6 +76,7 @@
     usarFichaPrincipal: false,
     fichaController: null,
     detalheAtual: null,
+    modalSomenteLeitura: false,
   };
 
   function qs(id) {
@@ -421,6 +422,96 @@
 
   function getValue(id) {
     return String(qs(id)?.value ?? '').trim();
+  }
+
+
+  function restoreReadonlyElement(el) {
+    if (!el || el.dataset.readonlyTouched !== 'true') return;
+
+    el.disabled = el.dataset.readonlyWasDisabled === 'true';
+    el.readOnly = el.dataset.readonlyWasReadonly === 'true';
+    el.removeAttribute('aria-readonly');
+    el.classList.remove('is-readonly-field');
+
+    delete el.dataset.readonlyTouched;
+    delete el.dataset.readonlyWasDisabled;
+    delete el.dataset.readonlyWasReadonly;
+  }
+
+  function applyReadonlyElement(el) {
+    if (!el || el.dataset.readonlyTouched === 'true') return;
+
+    el.dataset.readonlyTouched = 'true';
+    el.dataset.readonlyWasDisabled = el.disabled ? 'true' : 'false';
+    el.dataset.readonlyWasReadonly = el.readOnly ? 'true' : 'false';
+
+    const tag = String(el.tagName || '').toLowerCase();
+    const type = String(el.type || '').toLowerCase();
+
+    if (tag === 'select' || type === 'checkbox' || type === 'radio' || type === 'file' || type === 'button') {
+      el.disabled = true;
+    } else {
+      el.readOnly = true;
+    }
+
+    el.setAttribute('aria-readonly', 'true');
+    el.classList.add('is-readonly-field');
+  }
+
+  function setHiddenByReadonly(id, enabled) {
+    const el = qs(id);
+    if (!el) return;
+
+    if (enabled) {
+      if (el.dataset.readonlyTouchedHidden !== 'true') {
+        el.dataset.readonlyTouchedHidden = 'true';
+        el.dataset.readonlyWasHidden = el.hidden ? 'true' : 'false';
+        el.dataset.readonlyWasDisplay = el.style.display || '';
+      }
+      el.hidden = true;
+      el.style.display = 'none';
+      return;
+    }
+
+    if (el.dataset.readonlyTouchedHidden === 'true') {
+      el.hidden = el.dataset.readonlyWasHidden === 'true';
+      el.style.display = el.dataset.readonlyWasDisplay || '';
+      delete el.dataset.readonlyTouchedHidden;
+      delete el.dataset.readonlyWasHidden;
+      delete el.dataset.readonlyWasDisplay;
+    }
+  }
+
+  function setPatrimonioModalReadonly(enabled) {
+    state.modalSomenteLeitura = !!enabled;
+
+    const backdrop = qs('modal-patrimonio');
+    const form = qs('formPatrimonio');
+    const cancelBtn = qs('btn-cancelar-patrimonio');
+
+    backdrop?.classList.toggle('modal-readonly', state.modalSomenteLeitura);
+    form?.classList.toggle('modal-readonly-form', state.modalSomenteLeitura);
+
+    if (form) {
+      form.querySelectorAll('input, select, textarea').forEach((el) => {
+        if (state.modalSomenteLeitura) applyReadonlyElement(el);
+        else restoreReadonlyElement(el);
+      });
+    }
+
+    [
+      'btn-salvar-patrimonio',
+      'btn-excluir-patrimonio',
+    ].forEach((id) => setHiddenByReadonly(id, state.modalSomenteLeitura));
+
+    if (cancelBtn) {
+      if (state.modalSomenteLeitura) {
+        cancelBtn.dataset.normalText = cancelBtn.dataset.normalText || cancelBtn.textContent || 'Cancelar';
+        cancelBtn.textContent = 'Fechar';
+      } else if (cancelBtn.dataset.normalText) {
+        cancelBtn.textContent = cancelBtn.dataset.normalText;
+      }
+    }
   }
 
   function filtrarCustomFieldsSistema(customFields = {}) {
@@ -887,8 +978,16 @@
       <tr>
         <td><span class="badge-codigo">${escapeHtml(item.codigo || '-')}</span></td>
         <td>
-          <strong>${escapeHtml(item.nome || '-')}</strong>
-          ${item.marca || item.modelo ? `<small>${escapeHtml([item.marca, item.modelo].filter(Boolean).join(' • '))}</small>` : ''}
+          <button
+            type="button"
+            class="table-name-link"
+            data-action="visualizar"
+            data-id="${item.id}"
+            title="Visualizar patrimônio"
+          >
+            <strong>${escapeHtml(item.nome || '-')}</strong>
+            ${item.marca || item.modelo ? `<small>${escapeHtml([item.marca, item.modelo].filter(Boolean).join(' • '))}</small>` : ''}
+          </button>
         </td>
         <td>${escapeHtml(item.categoria || '-')}</td>
         <td>${escapeHtml(item.numero_serie || '-')}</td>
@@ -1024,6 +1123,7 @@
   }
 
   async function abrirNovo() {
+    setPatrimonioModalReadonly(false);
     await resetForm(null);
     openModal('modal-patrimonio');
 
@@ -1039,10 +1139,12 @@
   }
 
   async function editar(id) {
+    setPatrimonioModalReadonly(false);
     try {
       const item = await obterItem(id);
       await resetForm(item);
       openModal('modal-patrimonio');
+      setPatrimonioModalReadonly(false);
 
       setTimeout(() => {
         switchPatrimonioTab(state.usarFichaPrincipal ? 'tab-patrimonio-ficha' : 'tab-patrimonio-dados');
@@ -1053,7 +1155,33 @@
     }
   }
 
+
+  async function visualizar(id) {
+    try {
+      const item = await obterItem(id);
+      await resetForm(item);
+
+      const titulo = qs('modal-patrimonio-title');
+      if (titulo) titulo.textContent = 'Visualizar patrimônio';
+
+      openModal('modal-patrimonio');
+      setPatrimonioModalReadonly(true);
+
+      setTimeout(() => {
+        switchPatrimonioTab(state.usarFichaPrincipal ? 'tab-patrimonio-ficha' : 'tab-patrimonio-dados');
+      }, 80);
+    } catch (err) {
+      console.error(err);
+      toast(err.message || 'Erro ao visualizar patrimônio.', { error: true, ms: 4200 });
+    }
+  }
+
   async function salvar() {
+    if (state.modalSomenteLeitura) {
+      toast('Este patrimônio está aberto apenas para visualização.', { error: true, ms: 3000 });
+      return;
+    }
+
     desativarValidacaoGlobalPatrimonio();
     limparDestaquesObrigatorios();
 
@@ -1134,23 +1262,38 @@
     desativarValidacaoGlobalPatrimonio();
 
     document.querySelectorAll('[data-close-modal]').forEach((btn) => {
-      btn.addEventListener('click', () => closeModal(btn.dataset.closeModal));
+      btn.addEventListener('click', () => {
+        if (btn.dataset.closeModal === 'modal-patrimonio') setPatrimonioModalReadonly(false);
+        closeModal(btn.dataset.closeModal);
+      });
     });
 
     document.querySelectorAll('.modal-overlay').forEach((modal) => {
       modal.addEventListener('mousedown', (event) => {
-        if (event.target === modal) closeModal(modal.id);
+        if (event.target === modal) {
+          if (modal.id === 'modal-patrimonio') setPatrimonioModalReadonly(false);
+          closeModal(modal.id);
+        }
       });
     });
 
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeModal('modal-patrimonio');
+      if (event.key === 'Escape') {
+        setPatrimonioModalReadonly(false);
+        closeModal('modal-patrimonio');
+      }
     });
 
     document.addEventListener('click', (event) => {
       const btnTab = event.target.closest('.patrimonio-tab-btn[data-tab]');
       if (btnTab) {
         switchPatrimonioTab(btnTab.dataset.tab);
+        return;
+      }
+
+      const btnVisualizar = event.target.closest('[data-action="visualizar"][data-id]');
+      if (btnVisualizar?.dataset?.id) {
+        visualizar(btnVisualizar.dataset.id);
         return;
       }
 
@@ -1174,7 +1317,10 @@
     qs('btn-atualizar-patrimonio')?.addEventListener('click', () => carregar());
     qs('btn-salvar-patrimonio')?.addEventListener('click', salvar);
     qs('btn-excluir-patrimonio')?.addEventListener('click', () => excluir());
-    qs('btn-cancelar-patrimonio')?.addEventListener('click', () => closeModal('modal-patrimonio'));
+    qs('btn-cancelar-patrimonio')?.addEventListener('click', () => {
+      setPatrimonioModalReadonly(false);
+      closeModal('modal-patrimonio');
+    });
 
     qs('btn-gerenciar-formulario-patrimonio')?.addEventListener('click', () => {
       window.location.href = '/formularios?modulo=patrimonio';

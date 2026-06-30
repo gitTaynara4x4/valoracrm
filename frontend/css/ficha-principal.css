@@ -664,3 +664,331 @@ html[data-theme="dark"] .custom-fields-grid .custom-multiselect-option span::bef
 .custom-fields-grid .custom-relation-hidden {
   display: none !important;
 }
+
+
+/* =========================================================
+   DROPDOWN PARA LISTA MÚLTIPLA / RELAÇÃO MÚLTIPLA
+   O campo fica fechado, abre ao clicar e mostra só os selecionados.
+   ========================================================= */
+
+.custom-fields-grid .custom-multiselect-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.custom-fields-grid .custom-multiselect-trigger {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  background: var(--panel, #ffffff);
+  color: var(--text, #0f172a);
+  padding: 7px 10px;
+  font: inherit;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+
+.custom-fields-grid .custom-multiselect-trigger:hover {
+  border-color: rgba(75, 195, 199, .46);
+}
+
+.custom-fields-grid .custom-multiselect-dropdown.is-open .custom-multiselect-trigger,
+.custom-fields-grid .custom-multiselect-trigger:focus-visible {
+  border-color: rgba(75, 195, 199, .72);
+  box-shadow: 0 0 0 3px rgba(75, 195, 199, .13);
+}
+
+.custom-fields-grid .custom-multiselect-trigger > i {
+  margin-left: auto;
+  color: var(--muted, #64748b);
+  font-size: 12px;
+  transition: transform .15s ease;
+}
+
+.custom-fields-grid .custom-multiselect-dropdown.is-open .custom-multiselect-trigger > i {
+  transform: rotate(180deg);
+}
+
+.custom-fields-grid .custom-multiselect-placeholder {
+  color: var(--muted, #64748b);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.custom-fields-grid .custom-multiselect-placeholder.is-hidden {
+  display: none;
+}
+
+.custom-fields-grid .custom-multiselect-selected {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.custom-fields-grid .custom-multiselect-selected-chip,
+.custom-fields-grid .custom-multiselect-selected-more {
+  max-width: 210px;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid rgba(75, 195, 199, .28);
+  border-radius: 999px;
+  background: rgba(75, 195, 199, .10);
+  color: var(--text, #0f172a);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-fields-grid .custom-multiselect-selected-more {
+  color: #0f766e;
+  background: rgba(75, 195, 199, .16);
+}
+
+.custom-fields-grid .custom-multiselect-menu {
+  display: none;
+  position: absolute;
+  z-index: 3000;
+  left: 0;
+  right: 0;
+  top: calc(100% + 8px);
+  background: var(--panel, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 14px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, .16);
+  padding: 10px;
+}
+
+.custom-fields-grid .custom-multiselect-dropdown.is-open .custom-multiselect-menu {
+  display: block;
+}
+
+.custom-fields-grid .custom-multiselect-search-wrap {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.custom-fields-grid .custom-multiselect-search-wrap i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted, #64748b);
+  font-size: 12px;
+}
+
+.custom-fields-grid .custom-multiselect-search {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 11px;
+  background: var(--bg-soft, #f8fafc);
+  color: var(--text, #0f172a);
+  padding: 0 10px 0 32px;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.custom-fields-grid .custom-multiselect-search:focus {
+  border-color: rgba(75, 195, 199, .72);
+  box-shadow: 0 0 0 3px rgba(75, 195, 199, .12);
+}
+
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-panel {
+  min-height: 0;
+  max-height: 260px;
+  padding: 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  display: block;
+  overflow-y: auto;
+  box-shadow: none;
+}
+
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-option {
+  width: 100%;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-option + .custom-multiselect-option {
+  margin-top: 4px;
+}
+
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-option input {
+  position: static !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 0 0 8px !important;
+  accent-color: var(--brand, #4BC3C7);
+  flex: 0 0 auto;
+}
+
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-option span {
+  width: 100%;
+  min-height: 34px;
+  padding: 8px 10px 8px 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text, #0f172a);
+  font-size: 13px;
+  line-height: 1.25;
+  display: flex;
+  align-items: center;
+}
+
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-option:hover {
+  background: var(--bg-soft, #f8fafc);
+}
+
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-option input:checked + span {
+  background: transparent;
+  color: #0f766e;
+  box-shadow: none;
+  font-weight: 700;
+}
+
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-option span::before,
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-option input:checked + span::before {
+  display: none !important;
+  content: none !important;
+}
+
+.custom-fields-grid .custom-multiselect-dropdown[data-disabled="true"] .custom-multiselect-trigger {
+  background: var(--bg-soft, #f8fafc);
+  opacity: .75;
+  cursor: not-allowed;
+}
+
+html[data-theme="dark"] .custom-fields-grid .custom-multiselect-trigger,
+html[data-theme="dark"] .custom-fields-grid .custom-multiselect-menu {
+  background: var(--panel, #0f172a);
+  border-color: rgba(148, 163, 184, .22);
+}
+
+html[data-theme="dark"] .custom-fields-grid .custom-multiselect-search {
+  background: rgba(148, 163, 184, .08);
+  border-color: rgba(148, 163, 184, .22);
+}
+
+html[data-theme="dark"] .custom-fields-grid .custom-multiselect-menu .custom-multiselect-option:hover {
+  background: rgba(148, 163, 184, .08);
+}
+
+
+/* =========================================================
+   FIX DROPDOWN SOBRE CAMPOS ABAIXO
+   Impede campo seguinte/date/input de aparecer por cima da lista.
+   ========================================================= */
+
+.custom-fields-grid > .custom-field-item,
+.custom-fields-grid > .form-group {
+  position: relative;
+  z-index: 1;
+}
+
+.custom-fields-grid > .custom-field-item.is-dropdown-open,
+.custom-fields-grid > .form-group.is-dropdown-open,
+.custom-fields-grid > .custom-field-item:has(.custom-multiselect-dropdown.is-open),
+.custom-fields-grid > .form-group:has(.custom-multiselect-dropdown.is-open) {
+  z-index: 5000 !important;
+}
+
+.custom-fields-grid .custom-multiselect-dropdown {
+  position: relative;
+  z-index: 2;
+}
+
+.custom-fields-grid .custom-multiselect-dropdown.is-open {
+  z-index: 6000 !important;
+}
+
+.custom-fields-grid .custom-multiselect-dropdown.is-open .custom-multiselect-menu {
+  z-index: 7000 !important;
+  background: var(--panel, #ffffff) !important;
+  overflow: hidden;
+}
+
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-panel {
+  background: var(--panel, #ffffff) !important;
+}
+
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-option {
+  background: var(--panel, #ffffff);
+}
+
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-option:hover {
+  background: var(--bg-soft, #f8fafc);
+}
+
+/* Quando a lista estiver aberta, ela deve flutuar por cima do formulário,
+   sem empurrar ou misturar com os campos de baixo. */
+.custom-fields-grid .custom-multiselect-menu {
+  isolation: isolate;
+  pointer-events: auto;
+}
+
+/* Em modal com rodapé fixo, limita a altura da lista para não cair em cima dos botões. */
+.custom-fields-grid .custom-multiselect-menu .custom-multiselect-panel {
+  max-height: min(260px, 34vh) !important;
+}
+
+html[data-theme="dark"] .custom-fields-grid .custom-multiselect-dropdown.is-open .custom-multiselect-menu,
+html[data-theme="dark"] .custom-fields-grid .custom-multiselect-menu .custom-multiselect-panel,
+html[data-theme="dark"] .custom-fields-grid .custom-multiselect-menu .custom-multiselect-option {
+  background: var(--panel, #0f172a) !important;
+}
+
+
+/* =========================================================
+   FIX ESPAÇO PARA DROPDOWN ABERTO
+   Quando o campo fica perto do rodapé do modal, cria respiro
+   para a lista aparecer inteira e poder rolar.
+   ========================================================= */
+
+.custom-fields-grid > .custom-field-item.is-dropdown-open,
+.custom-fields-grid > .form-group.is-dropdown-open,
+.custom-fields-grid > .custom-field-item:has(.custom-multiselect-dropdown.is-open),
+.custom-fields-grid > .form-group:has(.custom-multiselect-dropdown.is-open) {
+  margin-bottom: 300px !important;
+}
+
+/* Dá espaço no final do corpo do modal quando existe dropdown aberto */
+.modal-body:has(.custom-multiselect-dropdown.is-open),
+.fornecedor-modal-body:has(.custom-multiselect-dropdown.is-open),
+.cliente-modal-body:has(.custom-multiselect-dropdown.is-open),
+.produto-modal-body:has(.custom-multiselect-dropdown.is-open),
+.custom-form-sections:has(.custom-multiselect-dropdown.is-open) {
+  padding-bottom: 340px !important;
+}
+
+/* Lista com altura útil e rolagem interna */
+.custom-fields-grid .custom-multiselect-dropdown.is-open .custom-multiselect-menu {
+  max-height: min(360px, 48vh) !important;
+}
+
+.custom-fields-grid .custom-multiselect-dropdown.is-open .custom-multiselect-menu .custom-multiselect-panel {
+  max-height: min(290px, 38vh) !important;
+  overflow-y: auto !important;
+}

@@ -49,7 +49,7 @@
   --radius-sm: 10px;
   --radius-xs: 8px;
 
-  --topbar-h: 56px;
+  --topbar-h: 54px;
 
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow-md: 0 10px 28px rgba(15, 23, 42, 0.07);
@@ -59,25 +59,37 @@
 }
 
 html[data-theme="dark"] {
-  --bg: #071827;
-  --bg-soft: #0A2235;
-  --panel: #0D2435;
-  --panel-hover: #123047;
+  /* Dark 2026: inspirado no ChatGPT, sem azul pesado/xumbado */
+  color-scheme: dark;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(255, 255, 255, 0.16);
+  --navy: #171717;
+  --navy-dark: #0F0F0F;
+  --navy-soft: #212121;
 
-  --text: #F8FAFC;
-  --text-soft: #E2E8F0;
-  --muted: #AAB8C4;
-  --muted-soft: #7F8EA0;
+  --bg: #212121;
+  --bg-soft: #171717;
+  --panel: #2F2F2F;
+  --panel-hover: #383838;
 
-  --brand-soft: rgba(75, 195, 199, 0.16);
-  --blue-soft: rgba(101, 172, 222, 0.16);
+  --border: rgba(255, 255, 255, 0.12);
+  --border-hover: rgba(255, 255, 255, 0.20);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.20);
-  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.26);
-  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.34);
+  --text: #ECECEC;
+  --text-soft: #D7D7D7;
+  --muted: #B4B4B4;
+  --muted-soft: #8E8E8E;
+
+  --brand-dark: #6ED9DD;
+  --brand-soft: rgba(75, 195, 199, 0.13);
+  --blue-soft: rgba(101, 172, 222, 0.13);
+
+  --danger-soft: rgba(239, 68, 68, 0.15);
+  --warning-soft: rgba(245, 158, 11, 0.15);
+  --success-soft: rgba(34, 197, 94, 0.15);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 14px 34px rgba(0, 0, 0, 0.34);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.46);
 }
 
 /* =========================================================
@@ -141,9 +153,9 @@ svg {
 }
 
 /* =========================================================
-   LAYOUT BASE COM SIDEBAR IFRAME
-   Mantido porque os HTML atuais ainda usam iframe.
-   Não usar menu-global.css por enquanto.
+   LAYOUT BASE DAS PÁGINAS
+   O sidebar/menu global fica autocontido em sidebar.html.
+   Não colocar CSS/JS do menu global neste arquivo.
    ========================================================= */
 
 .layout {
@@ -151,39 +163,6 @@ svg {
   display: block;
   width: 100%;
   overflow: visible !important;
-}
-
-.sidebar-frame {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-
-  width: 100vw !important;
-  height: var(--topbar-h) !important;
-  min-height: var(--topbar-h) !important;
-  max-height: var(--topbar-h) !important;
-
-  border: 0 !important;
-  z-index: 99999 !important;
-  overflow: visible !important;
-  pointer-events: auto !important;
-  background: transparent !important;
-  display: block !important;
-}
-
-body.sidebar-open .sidebar-frame,
-.sidebar-frame.is-open {
-  height: 340px !important;
-  min-height: 340px !important;
-  max-height: 340px !important;
-}
-
-body.sidebar-mobile-open .sidebar-frame,
-.sidebar-frame.is-mobile-open {
-  height: 100dvh !important;
-  min-height: 100dvh !important;
-  max-height: 100dvh !important;
 }
 
 .main {
@@ -2166,7 +2145,7 @@ body .modal-tab-btn.active {
 
 @media (max-width: 760px) {
   :root {
-    --topbar-h: 56px;
+    --topbar-h: 54px;
   }
 
   body {
@@ -2615,3 +2594,400 @@ html[data-theme="dark"] .valora-help-card-soft {
     display: none;
   }
 }
+
+/* Clique no nome para abrir visualização sem edição */
+.table-name-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 100%;
+}
+
+.table-name-link strong {
+  color: var(--brand-900, #0f172a);
+  transition: color .16s ease, text-decoration-color .16s ease;
+}
+
+.table-name-link:hover strong,
+.table-name-link:focus-visible strong {
+  color: var(--brand-600, #2563eb);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.table-name-link:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, .22);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.modal-readonly .is-readonly-field,
+.modal-readonly input[readonly],
+.modal-readonly textarea[readonly],
+.modal-readonly select:disabled {
+  cursor: default;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.modal-readonly .is-readonly-field:disabled,
+.modal-readonly select:disabled {
+  opacity: 1;
+}
+
+/* Correção v3: garante clique no nome mesmo com CSS antigo carregado */
+.table-name-link,
+.table-name-link * {
+  pointer-events: auto;
+}
+
+
+/* =========================================================
+   DARK THEME CHATGPT-LIKE | GLOBAL V6
+   Corrige telas antigas que ainda tinham fundo branco fixo.
+   ========================================================= */
+html[data-theme="dark"] body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="dark"] .main,
+html[data-theme="dark"] .financeiro-page,
+html[data-theme="dark"] .page,
+html[data-theme="dark"] .content,
+html[data-theme="dark"] .app-page {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="dark"] .panel-card,
+html[data-theme="dark"] .hero-card,
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .config-card,
+html[data-theme="dark"] .section-card,
+html[data-theme="dark"] .dashboard-panel,
+html[data-theme="dark"] .dashboard-kpi-card,
+html[data-theme="dark"] .dashboard-graph-card,
+html[data-theme="dark"] .dashboard-summary-panel,
+html[data-theme="dark"] .panel-card-table,
+html[data-theme="dark"] .config-table-panel,
+html[data-theme="dark"] .user-badge,
+html[data-theme="dark"] .quick-card,
+html[data-theme="dark"] .valora-toast,
+html[data-theme="dark"] .footer-version,
+html[data-theme="dark"] .search-box {
+  background: var(--panel) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+html[data-theme="dark"] .panel-card:hover,
+html[data-theme="dark"] .stat-card:hover,
+html[data-theme="dark"] .quick-card:hover,
+html[data-theme="dark"] .user-badge:hover,
+html[data-theme="dark"] .btn-secondary:hover,
+html[data-theme="dark"] .btn-icon:hover {
+  background: var(--panel-hover) !important;
+  border-color: var(--border-hover) !important;
+}
+
+html[data-theme="dark"] .valora-table,
+html[data-theme="dark"] .config-table,
+html[data-theme="dark"] .table,
+html[data-theme="dark"] table {
+  background: var(--panel) !important;
+  color: var(--text-soft) !important;
+}
+
+html[data-theme="dark"] .valora-table thead,
+html[data-theme="dark"] .config-table thead,
+html[data-theme="dark"] table thead {
+  background: #262626 !important;
+}
+
+html[data-theme="dark"] .valora-table th,
+html[data-theme="dark"] .config-table th,
+html[data-theme="dark"] table th {
+  color: var(--muted) !important;
+  border-color: var(--border) !important;
+  background: #262626 !important;
+}
+
+html[data-theme="dark"] .valora-table td,
+html[data-theme="dark"] .config-table td,
+html[data-theme="dark"] table td {
+  color: var(--text-soft) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .valora-table tbody tr:hover,
+html[data-theme="dark"] .config-table tbody tr:hover,
+html[data-theme="dark"] table tbody tr:hover {
+  background: #343434 !important;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .form-group input,
+html[data-theme="dark"] .form-group select,
+html[data-theme="dark"] .form-group textarea,
+html[data-theme="dark"] .input-group input,
+html[data-theme="dark"] .input-group select,
+html[data-theme="dark"] .input-group textarea,
+html[data-theme="dark"] .valora-form input,
+html[data-theme="dark"] .valora-form select,
+html[data-theme="dark"] .valora-form textarea,
+html[data-theme="dark"] .custom-field-item input,
+html[data-theme="dark"] .custom-field-item select,
+html[data-theme="dark"] .custom-field-item textarea,
+html[data-theme="dark"] .mini-actions input,
+html[data-theme="dark"] .mini-item input,
+html[data-theme="dark"] .mini-item select,
+html[data-theme="dark"] .mini-item textarea {
+  background: #303030 !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: var(--muted-soft) !important;
+}
+
+html[data-theme="dark"] input:disabled,
+html[data-theme="dark"] select:disabled,
+html[data-theme="dark"] textarea:disabled,
+html[data-theme="dark"] input[readonly],
+html[data-theme="dark"] textarea[readonly],
+html[data-theme="dark"] .modal-readonly .is-readonly-field,
+html[data-theme="dark"] .modal-readonly input[readonly],
+html[data-theme="dark"] .modal-readonly textarea[readonly],
+html[data-theme="dark"] .modal-readonly select:disabled {
+  background: #262626 !important;
+  border-color: var(--border) !important;
+  color: #CFCFCF !important;
+  opacity: 1 !important;
+}
+
+html[data-theme="dark"] select option {
+  background: #303030 !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="dark"] .btn-secondary,
+html[data-theme="dark"] .btn-icon,
+html[data-theme="dark"] .modal-close,
+html[data-theme="dark"] .btn-close {
+  background: #303030 !important;
+  border-color: var(--border) !important;
+  color: var(--text-soft) !important;
+}
+
+html[data-theme="dark"] .btn-primary {
+  box-shadow: 0 10px 24px rgba(75, 195, 199, 0.16) !important;
+}
+
+html[data-theme="dark"] .badge-status,
+html[data-theme="dark"] .status-badge,
+html[data-theme="dark"] .badge-tag {
+  background: #303030 !important;
+  color: var(--text-soft) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .badge-tipo,
+html[data-theme="dark"] .badge-tag.brand,
+html[data-theme="dark"] .status-indicator {
+  color: var(--brand) !important;
+  background: rgba(75, 195, 199, 0.12) !important;
+  border-color: rgba(75, 195, 199, 0.22) !important;
+}
+
+html[data-theme="dark"] .badge-codigo {
+  color: #8CCBFF !important;
+  background: rgba(101, 172, 222, 0.13) !important;
+  border-color: rgba(101, 172, 222, 0.24) !important;
+}
+
+html[data-theme="dark"] body .modal-overlay {
+  background: rgba(0, 0, 0, 0.68) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+html[data-theme="dark"] body .modal-content,
+html[data-theme="dark"] body .proposal-modal-content,
+html[data-theme="dark"] body .modal-content-large,
+html[data-theme="dark"] body .cotacao-modal,
+html[data-theme="dark"] body .confirm-content,
+html[data-theme="dark"] body .modal-header,
+html[data-theme="dark"] body .proposal-modal-header,
+html[data-theme="dark"] body .modal-footer,
+html[data-theme="dark"] body .proposal-modal-footer,
+html[data-theme="dark"] body .cotacao-modal-footer {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] body .modal-body,
+html[data-theme="dark"] body .proposal-modal-body {
+  background: var(--bg) !important;
+}
+
+html[data-theme="dark"] body .modal-body .section-card,
+html[data-theme="dark"] body .modal-body .custom-fields-card,
+html[data-theme="dark"] body .modal-body .custom-section-card,
+html[data-theme="dark"] body .modal-body .cotacao-section-card,
+html[data-theme="dark"] body .modal-body .produto-ficha-code-card,
+html[data-theme="dark"] body .modal-body .ficha-principal-code-card,
+html[data-theme="dark"] body .modal-body .cliente-ficha-code-card,
+html[data-theme="dark"] body .modal-body .valora-modal-section,
+html[data-theme="dark"] body .proposal-card,
+html[data-theme="dark"] body .proposal-section,
+html[data-theme="dark"] body .proposal-items-card,
+html[data-theme="dark"] body .fields-builder-card {
+  background: var(--panel) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] body .modal-body .section-card > h4,
+html[data-theme="dark"] body .modal-body .custom-fields-head,
+html[data-theme="dark"] body .modal-body .custom-section-head,
+html[data-theme="dark"] body .modal-body .valora-section-head,
+html[data-theme="dark"] body .proposal-section-head,
+html[data-theme="dark"] body .proposal-card-head,
+html[data-theme="dark"] .custom-section-head {
+  background: #2A2A2A !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .cliente-modal-sidebar,
+html[data-theme="dark"] .fornecedor-modal-sidebar,
+html[data-theme="dark"] .produto-modal-sidebar,
+html[data-theme="dark"] .patrimonio-modal-sidebar,
+html[data-theme="dark"] .cotacao-modal-sidebar,
+html[data-theme="dark"] #modal-produto-backdrop .cliente-modal-sidebar,
+html[data-theme="dark"] #modal-patrimonio .cliente-modal-sidebar,
+html[data-theme="dark"] #modal-cotacao-backdrop .cliente-modal-sidebar {
+  background: #171717 !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .cliente-modal-main,
+html[data-theme="dark"] .fornecedor-modal-main,
+html[data-theme="dark"] .produto-modal-main,
+html[data-theme="dark"] .patrimonio-modal-main,
+html[data-theme="dark"] .cotacao-modal-main {
+  background: var(--bg) !important;
+}
+
+html[data-theme="dark"] .cliente-modal-topbar,
+html[data-theme="dark"] .fornecedor-modal-topbar,
+html[data-theme="dark"] .produto-modal-topbar,
+html[data-theme="dark"] .patrimonio-modal-topbar,
+html[data-theme="dark"] .cotacao-modal-topbar,
+html[data-theme="dark"] .modal-client-footer,
+html[data-theme="dark"] .produto-modal-footer,
+html[data-theme="dark"] .patrimonio-modal-footer,
+html[data-theme="dark"] .cotacao-modal-footer {
+  background: var(--panel) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .cliente-sidebar-bottom .cliente-ficha-toggle,
+html[data-theme="dark"] .fornecedor-sidebar-bottom .fornecedor-ficha-toggle,
+html[data-theme="dark"] .produto-ficha-toggle,
+html[data-theme="dark"] .patrimonio-ficha-toggle,
+html[data-theme="dark"] .cotacao-ficha-toggle,
+html[data-theme="dark"] .ficha-principal-toggle-bar,
+html[data-theme="dark"] .cliente-ficha-toggle-bar,
+html[data-theme="dark"] .produto-ficha-toggle-bar {
+  background: #303030 !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .cliente-main-card,
+html[data-theme="dark"] .fornecedor-main-card,
+html[data-theme="dark"] .produto-main-card,
+html[data-theme="dark"] .patrimonio-main-card,
+html[data-theme="dark"] .cotacao-section-card,
+html[data-theme="dark"] .history-box,
+html[data-theme="dark"] .mini-item,
+html[data-theme="dark"] .empty-soft,
+html[data-theme="dark"] .anexo-row,
+html[data-theme="dark"] .campo-card,
+html[data-theme="dark"] .custom-fields-info {
+  background: var(--panel) !important;
+  border-color: var(--border) !important;
+  color: var(--text-soft) !important;
+}
+
+html[data-theme="dark"] .cliente-tab-btn,
+html[data-theme="dark"] .fornecedor-tab-btn,
+html[data-theme="dark"] .produto-tab-btn,
+html[data-theme="dark"] .patrimonio-tab-btn,
+html[data-theme="dark"] .cotacao-tab-btn,
+html[data-theme="dark"] .form-tab-btn,
+html[data-theme="dark"] .modal-tab-btn {
+  color: var(--muted) !important;
+}
+
+html[data-theme="dark"] .cliente-tab-btn:hover,
+html[data-theme="dark"] .cliente-tab-btn.active,
+html[data-theme="dark"] .fornecedor-tab-btn:hover,
+html[data-theme="dark"] .fornecedor-tab-btn.active,
+html[data-theme="dark"] .produto-tab-btn:hover,
+html[data-theme="dark"] .produto-tab-btn.active,
+html[data-theme="dark"] .patrimonio-tab-btn:hover,
+html[data-theme="dark"] .patrimonio-tab-btn.active,
+html[data-theme="dark"] .cotacao-tab-btn:hover,
+html[data-theme="dark"] .cotacao-tab-btn.active,
+html[data-theme="dark"] .form-tab-btn:hover,
+html[data-theme="dark"] .form-tab-btn.active,
+html[data-theme="dark"] .modal-tab-btn:hover,
+html[data-theme="dark"] .modal-tab-btn.active {
+  background: rgba(75, 195, 199, 0.13) !important;
+  color: var(--brand) !important;
+  border-color: rgba(75, 195, 199, 0.25) !important;
+}
+
+html[data-theme="dark"] .table-name-link strong {
+  color: #ECECEC !important;
+}
+
+html[data-theme="dark"] .table-name-link:hover strong,
+html[data-theme="dark"] .table-name-link:focus-visible strong {
+  color: var(--brand) !important;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #171717;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #4A4A4A;
+  border-radius: 999px;
+  border: 2px solid #171717;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #5A5A5A;
+}
+

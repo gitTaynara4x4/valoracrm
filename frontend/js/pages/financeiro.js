@@ -161,13 +161,18 @@
 
   function rowLancamento(item, modo = "dashboard") {
     if (modo === "dashboard") {
+      const tipoLabel = item.tipo === "pagar" ? "Pagar" : "Receber";
+      const tipoClass = item.tipo === "pagar" ? "danger" : "ok";
       return `<tr>
-        <td>${dateBR(item.data_vencimento)}</td>
-        <td>${item.tipo === "pagar" ? "Pagar" : "Receber"}</td>
-        <td>${escapeHtml(item.descricao)}</td>
-        <td>${escapeHtml(parceiroNome(item))}</td>
-        <td>${pill(item.status)}</td>
+        <td>
+          <div class="financeiro-lancamento-cell">
+            <span class="financeiro-lancamento-icon ${tipoClass}"><i class="fa-solid ${item.tipo === "pagar" ? "fa-arrow-up" : "fa-arrow-down"}"></i></span>
+            <div><strong>${escapeHtml(item.descricao || "Sem descrição")}</strong><small>${dateBR(item.data_vencimento)} • ${escapeHtml(parceiroNome(item))}</small></div>
+          </div>
+        </td>
+        <td>${pill(tipoLabel)}</td>
         <td class="financeiro-amount">${money(item.valor_total, item.moeda)}</td>
+        <td>${pill(item.status)}</td>
         <td>${acoesLancamento(item)}</td>
       </tr>`;
     }
@@ -186,6 +191,174 @@
   }
 
   const soma = (items, fn) => items.reduce((acc, item) => acc + Number(fn(item) || 0), 0);
+
+
+  function percent(part, total) {
+    const p = total ? (Number(part || 0) / Number(total || 0)) * 100 : 0;
+    return `${p.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+  }
+
+  function safeItems(data) {
+    return Array.isArray(data?.items) ? data.items : [];
+  }
+
+  function renderFluxoChart(items = []) {
+    const host = $("#financeiro-chart");
+    if (!host) return;
+
+    const valid = items
+      .filter(i => i && i.data)
+      .slice(-18);
+
+    if (!valid.length) {
+      host.innerHTML = `<div class="financeiro-empty-chart">Sem dados suficientes para montar o gráfico.</div>`;
+      return;
+    }
+
+    const valores = valid.map(i => Number(i.saldo_previsto_acumulado || 0));
+    const min = Math.min(0, ...valores);
+    const max = Math.max(1, ...valores);
+    const range = max - min || 1;
+    const width = 760;
+    const height = 260;
+    const padX = 42;
+    const padY = 30;
+    const chartW = width - padX * 2;
+    const chartH = height - padY * 2;
+
+    const points = valid.map((item, idx) => {
+      const x = padX + (idx * chartW) / Math.max(valid.length - 1, 1);
+      const y = padY + chartH - ((Number(item.saldo_previsto_acumulado || 0) - min) / range) * chartH;
+      return { x, y, item };
+    });
+
+    const polyline = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    const area = `${padX},${height - padY} ${polyline} ${width - padX},${height - padY}`;
+    const last = points[points.length - 1];
+    const grid = [0, 1, 2, 3].map(i => {
+      const y = padY + (chartH / 3) * i;
+      return `<line x1="${padX}" y1="${y}" x2="${width - padX}" y2="${y}" />`;
+    }).join("");
+
+    host.innerHTML = `
+      <svg class="financeiro-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Fluxo financeiro">
+        <defs>
+          <linearGradient id="finChartFill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#65ACDE" stop-opacity="0.24" />
+            <stop offset="100%" stop-color="#65ACDE" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+        <g class="grid">${grid}</g>
+        <polygon class="area" points="${area}" />
+        <polyline class="line" points="${polyline}" />
+        <circle class="point" cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="5" />
+        <g class="tooltip" transform="translate(${Math.min(last.x + 14, width - 210)}, ${Math.max(last.y - 44, 22)})">
+          <rect width="174" height="54" rx="10"></rect>
+          <text x="14" y="22">${money(last.item.saldo_previsto_acumulado)}</text>
+          <text x="14" y="40" class="muted">${dateBR(last.item.data)}</text>
+        </g>
+      </svg>`;
+  }
+
+  function renderTopClientes(items = []) {
+    const host = $("#financeiro-top-clientes");
+    if (!host) return;
+
+    const map = new Map();
+    items.forEach(item => {
+      const nome = item.cliente_nome || item.fornecedor_nome || "Sem cliente";
+      const total = Number(item.valor_total || 0);
+      map.set(nome, (map.get(nome) || 0) + total);
+    });
+
+    const lista = Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    if (!lista.length) {
+      host.innerHTML = `<div class="financeiro-empty-soft">Nenhum cliente encontrado no período.</div>`;
+      return;
+    }
+
+    const totalGeral = soma(lista, i => i[1]);
+    host.innerHTML = lista.map(([nome, total], idx) => {
+      const initials = String(nome).split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join("").toUpperCase() || "CL";
+      return `<div class="financeiro-top-item">
+        <span class="rank">${idx + 1}</span>
+        <span class="avatar">${escapeHtml(initials)}</span>
+        <strong>${escapeHtml(nome)}</strong>
+        <span>${money(total)}</span>
+        <em>${percent(total, totalGeral)}</em>
+      </div>`;
+    }).join("");
+  }
+
+  function renderCategoriasDashboard(items = []) {
+    const host = $("#financeiro-categorias-dashboard");
+    if (!host) return;
+
+    const lista = items
+      .map(item => ({ nome: item.categoria || "Sem categoria", tipo: item.tipo, total: Number(item.valor_total || 0) }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+
+    if (!lista.length) {
+      host.innerHTML = `<div class="financeiro-empty-soft">Nenhuma categoria com movimento.</div>`;
+      return;
+    }
+
+    const totalGeral = soma(lista, i => i.total);
+    host.innerHTML = lista.map(item => {
+      const pct = Math.min(100, totalGeral ? (item.total / totalGeral) * 100 : 0);
+      const cls = item.tipo === "pagar" ? "danger" : "ok";
+      return `<div class="financeiro-category-item">
+        <div>
+          <span class="dot ${cls}"></span>
+          <strong>${escapeHtml(item.nome)}</strong>
+        </div>
+        <div class="bar"><span style="width:${pct.toFixed(1)}%"></span></div>
+        <span>${money(item.total)}</span>
+        <em>${percent(item.total, totalGeral)}</em>
+      </div>`;
+    }).join("");
+  }
+
+  function renderStatusDashboard(items = []) {
+    const host = $("#financeiro-status-dashboard");
+    if (!host) return;
+
+    const ordem = ["aberto", "pago", "recebido", "vencido", "parcial", "cancelado"];
+    const labels = { aberto: "Aberto", pago: "Pago", recebido: "Recebido", vencido: "Vencido", parcial: "Parcial", cancelado: "Cancelado" };
+    const counts = new Map();
+    items.forEach(item => {
+      const s = String(item.status || "aberto").toLowerCase();
+      counts.set(s, (counts.get(s) || 0) + 1);
+    });
+
+    const total = items.length;
+    if (!total) {
+      host.innerHTML = `<div class="financeiro-empty-soft">Nenhum status para mostrar.</div>`;
+      return;
+    }
+
+    let cursor = 0;
+    const colors = { aberto: "#4BC3C7", pago: "#65ACDE", recebido: "#22C55E", vencido: "#FB7185", parcial: "#FACC15", cancelado: "#94A3B8" };
+    const slices = ordem.map(status => {
+      const qtd = counts.get(status) || 0;
+      if (!qtd) return "";
+      const start = cursor;
+      const end = cursor + (qtd / total) * 100;
+      cursor = end;
+      return `${colors[status]} ${start.toFixed(2)}% ${end.toFixed(2)}%`;
+    }).filter(Boolean).join(", ");
+
+    const rows = ordem
+      .filter(status => counts.get(status))
+      .map(status => `<div class="financeiro-status-row"><span><i style="background:${colors[status]}"></i>${labels[status] || status}</span><strong>${counts.get(status)}</strong><em>${percent(counts.get(status), total)}</em></div>`)
+      .join("");
+
+    host.innerHTML = `<div class="financeiro-donut" style="background: conic-gradient(${slices});"><span><strong>${total}</strong><small>Total</small></span></div><div class="financeiro-status-legend">${rows}</div>`;
+  }
 
   function filtros() {
     return {
@@ -240,15 +413,43 @@
   }
 
   async function carregarDashboard() {
-    const data = await request("/api/financeiro/dashboard");
+    const filtroAtual = filtros();
+    const [data, fluxo, relatorio, lancamentosData, receberData] = await Promise.all([
+      request("/api/financeiro/dashboard"),
+      request(`/api/financeiro/fluxo-caixa${qs(filtroAtual)}`).catch(() => ({ items: [] })),
+      request(`/api/financeiro/relatorios/resumo${qs(filtroAtual)}`).catch(() => ({ por_categoria: [] })),
+      request(`/api/financeiro/lancamentos${qs({ ...filtroAtual, limit: 50 })}`).catch(() => ({ items: [] })),
+      request(`/api/financeiro/contas-receber${qs({ ...filtroAtual, limit: 300 })}`).catch(() => ({ items: [] })),
+    ]);
+
     const r = data.resumo || {};
+    const totalFinanceiro = Number(r.total_receber || 0) + Number(r.total_pagar || 0) || 1;
+    const recebido = Number(r.recebido || 0);
+    const pago = Number(r.pago || 0);
+    const saldoPrevisto = Number(r.saldo_previsto || 0);
+
     setKPI("total-receber", money(r.total_receber));
     setKPI("total-pagar", money(r.total_pagar));
-    setKPI("total-vencido", money(Number(r.receber_vencido || 0) + Number(r.pagar_vencido || 0)));
-    setKPI("saldo-previsto", money(r.saldo_previsto));
-    state.items = data.proximos_vencimentos || [];
-    setTable("tbody-dashboard", 7, state.items.map(i => rowLancamento(i, "dashboard")).join(""), "Nenhum lançamento financeiro cadastrado ainda.");
-    setStatusText(`${state.items.length} próximo(s) vencimento(s).`);
+    setKPI("total-recebido", money(recebido));
+    setKPI("saldo-previsto", money(saldoPrevisto));
+    setKPI("trend-receber", `↑ ${percent(r.total_receber, totalFinanceiro)}`);
+    setKPI("trend-pagar", `↑ ${percent(r.total_pagar, totalFinanceiro)}`);
+    setKPI("trend-recebido", `↑ ${percent(recebido, totalFinanceiro)}`);
+    setKPI("trend-saldo", saldoPrevisto >= 0 ? `↑ ${money(saldoPrevisto)}` : `↓ ${money(Math.abs(saldoPrevisto))}`);
+
+    const lancamentos = safeItems(lancamentosData);
+    state.items = lancamentos.length ? lancamentos.slice(0, 5) : (data.proximos_vencimentos || []).slice(0, 5);
+    setTable("tbody-dashboard", 5, state.items.map(i => rowLancamento(i, "dashboard")).join(""), "Nenhum lançamento financeiro cadastrado ainda.");
+
+    renderFluxoChart(safeItems(fluxo));
+    renderTopClientes(safeItems(receberData));
+    renderCategoriasDashboard(relatorio.por_categoria || []);
+    renderStatusDashboard(lancamentos.length ? lancamentos : (data.proximos_vencimentos || []));
+
+    const subtitle = $("#financeiro-chart-subtitle");
+    if (subtitle) subtitle.textContent = `${safeItems(fluxo).length} ponto(s) de fluxo carregados.`;
+
+    setStatusText("Dados atualizados agora.");
   }
 
   async function carregarReceber() {
@@ -409,82 +610,6 @@
     }
   }
 
-  function formatTipoResumo(tipo) {
-    return tipo === "pagar" ? "Conta a pagar" : "Conta a receber";
-  }
-
-  function formatStatusResumo(status) {
-    const mapa = {
-      aberto: "Aberto",
-      vencido: "Vencido",
-      parcial: "Parcial",
-      recebido: "Recebido",
-      pago: "Pago",
-      cancelado: "Cancelado",
-    };
-    return mapa[String(status || "").toLowerCase()] || "Aberto";
-  }
-
-  function atualizarResumoSidebarLancamento(item = null) {
-    const tituloEl = $("#financeiro-sidebar-titulo");
-    const subtituloEl = $("#financeiro-sidebar-subtitulo");
-    const form = $("#form-lancamento");
-    if (!tituloEl || !subtituloEl || !form) return;
-
-    const descricao = form.querySelector('[name="descricao"]')?.value?.trim() || item?.descricao || "";
-    const documento = form.querySelector('[name="documento"]')?.value?.trim() || item?.documento || "";
-    const tipo = form.querySelector('[name="tipo"]')?.value || item?.tipo || "receber";
-    const status = form.querySelector('[name="status"]')?.value || item?.status || "aberto";
-    const vencimento = form.querySelector('[name="data_vencimento"]')?.value || item?.data_vencimento || "";
-    const identificador = item?.id ? `Lançamento #${item.id}` : "Cadastro em andamento";
-
-    tituloEl.textContent = descricao || (item?.id ? `Lançamento #${item.id}` : "Novo lançamento");
-
-    const partes = [formatTipoResumo(tipo), formatStatusResumo(status)];
-    if (documento) partes.push(`Doc. ${documento}`);
-    else if (vencimento) partes.push(`Vence em ${new Date(`${vencimento}T00:00:00`).toLocaleDateString("pt-BR")}`);
-    else partes.push(identificador);
-
-    subtituloEl.textContent = partes.filter(Boolean).join(" • ");
-  }
-
-  function atualizarFichaPrincipalFinanceiro(ativo = false) {
-    const form = $("#form-lancamento");
-    if (!form) return;
-
-    form.classList.toggle("is-ficha-principal", Boolean(ativo));
-
-    const secoesEssenciais = new Set(["fin-sec-lancamento"]);
-    $$(".financeiro-editor-card", form).forEach(secao => {
-      const mostrar = !ativo || secoesEssenciais.has(secao.id);
-      secao.classList.toggle("is-hidden-by-ficha", !mostrar);
-      secao.hidden = !mostrar;
-    });
-
-    $$(".financeiro-ficha-nav button", form).forEach(btn => {
-      const mostrar = !ativo || secoesEssenciais.has(btn.dataset.financeiroSection);
-      btn.classList.toggle("is-hidden-by-ficha", !mostrar);
-      btn.hidden = !mostrar;
-    });
-
-    if (ativo) {
-      ativarNavegacaoModalLancamento("fin-sec-lancamento");
-    }
-  }
-
-  function bindResumoSidebarLancamento() {
-    const form = $("#form-lancamento");
-    if (!form || form.dataset.sidebarResumoBound === "true") return;
-    form.dataset.sidebarResumoBound = "true";
-
-    ["descricao", "documento", "tipo", "status", "data_vencimento"].forEach(name => {
-      const campo = form.querySelector(`[name="${name}"]`);
-      if (!campo) return;
-      campo.addEventListener("input", () => atualizarResumoSidebarLancamento());
-      campo.addEventListener("change", () => atualizarResumoSidebarLancamento());
-    });
-  }
-
   function setForm(form, data = {}) {
     $$('input, select, textarea', form).forEach(el => {
       const name = el.name;
@@ -531,16 +656,11 @@
       base.valor_pago = formatMoneyForInput(item.valor_pago ?? "", base.moeda);
     }
     setForm(form, base);
-    const fichaPrincipal = form.querySelector('[data-financeiro-ficha-principal]');
-    if (fichaPrincipal) fichaPrincipal.checked = false;
-    atualizarFichaPrincipalFinanceiro(false);
-    bindResumoSidebarLancamento();
     $("#modal-lancamento-titulo").textContent = item ? `Editar lançamento #${item.id}` : "Novo lançamento";
     const chip = $("#modal-lancamento-chip");
-    if (chip) chip.textContent = item ? "Edição" : formatStatusResumo(base.status);
+    if (chip) chip.textContent = item ? "Edição" : (base.status ? base.status.charAt(0).toUpperCase() + base.status.slice(1) : "Aberto");
     const subtitulo = $("#modal-lancamento-subtitulo");
     if (subtitulo) subtitulo.textContent = item ? "Atualize os dados financeiros do lançamento selecionado." : "Preencha os dados financeiros do lançamento.";
-    atualizarResumoSidebarLancamento(item || base);
     abrirModal("#modal-lancamento");
     setTimeout(() => ativarNavegacaoModalLancamento("fin-sec-lancamento"), 30);
   }
@@ -710,9 +830,6 @@
 
     $$(".financeiro-ficha-nav button").forEach(btn => {
       btn.addEventListener("click", () => ativarNavegacaoModalLancamento(btn.dataset.financeiroSection));
-    });
-    $("[data-financeiro-ficha-principal]")?.addEventListener("change", (ev) => {
-      atualizarFichaPrincipalFinanceiro(ev.currentTarget.checked);
     });
     $$(".btn-novo-registro").forEach(btn => btn.addEventListener("click", () => {
       const type = btn.dataset.new;

@@ -771,6 +771,219 @@
         width: min(260px, calc(100vw - 12px));
       }
     }
+
+
+    /* MENU DARK PRO | V8 */
+    html[data-theme="dark"] {
+      --navy: #0b1220;
+      --navy-dark: #070d18;
+      --navy-soft: #111827;
+      --hover-top: rgba(75, 195, 199, 0.12);
+      --text: #e5e7eb;
+      --drop-bg: #182235;
+      --drop-text: #e5e7eb;
+      --drop-hover: #243247;
+      --drop-border: rgba(148, 163, 184, 0.18);
+      --drop-shadow: 0 18px 42px rgba(2, 6, 23, 0.42);
+    }
+
+    html[data-theme="dark"],
+    html[data-theme="dark"] body {
+      background: transparent;
+      color: #e5e7eb;
+    }
+
+    html[data-theme="dark"] .valora-auvo-topbar {
+      background: linear-gradient(90deg, #070d18 0%, #0b1220 54%, #111827 100%);
+      color: #e5e7eb;
+      box-shadow: 0 1px 0 rgba(148, 163, 184, 0.16);
+    }
+
+    html[data-theme="dark"] .brand-btn {
+      background: #070d18;
+      color: #e5e7eb;
+      box-shadow: inset -1px 0 0 rgba(148, 163, 184, 0.16);
+    }
+
+    html[data-theme="dark"] .brand-btn:hover,
+    html[data-theme="dark"] .nav-item:hover,
+    html[data-theme="dark"] .new-action:hover,
+    html[data-theme="dark"] .bell-btn:hover,
+    html[data-theme="dark"] .settings-trigger:hover,
+    html[data-theme="dark"] .user-trigger:hover,
+    html[data-theme="dark"] .mobile-menu-btn:hover {
+      background: rgba(75, 195, 199, 0.12);
+      color: #4bc3c7;
+    }
+
+    html[data-theme="dark"] .dropdown,
+    html[data-theme="dark"] .settings-menu,
+    html[data-theme="dark"] .user-menu,
+    html[data-theme="dark"] .mobile-panel {
+      background: #182235;
+      color: #e5e7eb;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-top: 0;
+      box-shadow: var(--drop-shadow);
+    }
+
+    html[data-theme="dark"] .dropdown-item,
+    html[data-theme="dark"] .theme-option,
+    html[data-theme="dark"] .settings-link,
+    html[data-theme="dark"] .user-menu button,
+    html[data-theme="dark"] .mobile-link {
+      color: #cbd5e1;
+    }
+
+    html[data-theme="dark"] .dropdown-item:hover,
+    html[data-theme="dark"] .dropdown-item.is-active,
+    html[data-theme="dark"] .theme-option:hover,
+    html[data-theme="dark"] .theme-option.is-active,
+    html[data-theme="dark"] .settings-link:hover,
+    html[data-theme="dark"] .user-menu button:hover,
+    html[data-theme="dark"] .mobile-link:hover,
+    html[data-theme="dark"] .mobile-link.is-active {
+      background: #243247;
+      color: #4bc3c7;
+    }
+
+    html[data-theme="dark"] .settings-title,
+    html[data-theme="dark"] .mobile-title,
+    html[data-theme="dark"] .user-card span,
+    html[data-theme="dark"] .dropdown-hint {
+      color: #94a3b8;
+    }
+
+    html[data-theme="dark"] .settings-divider,
+    html[data-theme="dark"] .user-card,
+    html[data-theme="dark"] .mobile-section {
+      border-color: rgba(148, 163, 184, 0.18);
+      background: transparent;
+    }
+
+    html[data-theme="dark"] .user-card strong,
+    html[data-theme="dark"] .user-name,
+    html[data-theme="dark"] .mobile-link strong {
+      color: #e5e7eb;
+    }
+
+    html[data-theme="dark"] .theme-radio {
+      border-color: rgba(148, 163, 184, 0.42);
+      background: #0f1b2d;
+    }
+
+    html[data-theme="dark"] .theme-option.is-active .theme-radio {
+      border-color: #4bc3c7;
+      box-shadow: 0 0 0 3px rgba(75, 195, 199, 0.14);
+    }
+
+    html[data-theme="dark"] .theme-option.is-active .theme-radio::after {
+      background: #4bc3c7;
+    }
+
+
+
+    /* MENU DARK PRO | V10 - fundo do iframe aberto */
+    html[data-theme="dark"] {
+      --navy: #0f1117;
+      --navy-dark: #090b10;
+      --navy-soft: #151821;
+      --hover-top: rgba(75, 195, 199, 0.12);
+      --text: #ececec;
+      --drop-bg: #2b2b2b;
+      --drop-text: #ececec;
+      --drop-hover: #343434;
+      --drop-border: rgba(255, 255, 255, 0.10);
+      --drop-shadow: 0 22px 56px rgba(0, 0, 0, 0.36);
+    }
+
+    html[data-theme="dark"],
+    html[data-theme="dark"] body {
+      background: transparent !important;
+      color: #ececec !important;
+    }
+
+    html[data-theme="dark"] body.menu-open::before {
+      content: "";
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: var(--topbar-h);
+      height: calc(var(--dropdown-open-h) - var(--topbar-h));
+      background:
+        radial-gradient(circle at 14% 0%, rgba(75, 195, 199, 0.055), transparent 24rem),
+        linear-gradient(180deg, rgba(33, 33, 33, 0.985) 0%, rgba(33, 33, 33, 0.965) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    html[data-theme="dark"] .valora-auvo-topbar {
+      background: linear-gradient(90deg, #090b10 0%, #0f1117 56%, #151821 100%) !important;
+      color: #ececec !important;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+    }
+
+    html[data-theme="dark"] .brand-btn {
+      background: #090b10 !important;
+      color: #ececec !important;
+      box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.10) !important;
+    }
+
+    html[data-theme="dark"] .dropdown,
+    html[data-theme="dark"] .settings-menu,
+    html[data-theme="dark"] .user-menu,
+    html[data-theme="dark"] .mobile-panel {
+      background: #2b2b2b !important;
+      color: #ececec !important;
+      border: 1px solid rgba(255, 255, 255, 0.10) !important;
+      border-top: 0 !important;
+      box-shadow: var(--drop-shadow) !important;
+      z-index: 9999 !important;
+    }
+
+    html[data-theme="dark"] .dropdown-item,
+    html[data-theme="dark"] .theme-option,
+    html[data-theme="dark"] .settings-link,
+    html[data-theme="dark"] .user-menu button,
+    html[data-theme="dark"] .mobile-link {
+      color: #d6d6d6 !important;
+    }
+
+    html[data-theme="dark"] .dropdown-item:hover,
+    html[data-theme="dark"] .dropdown-item.is-active,
+    html[data-theme="dark"] .theme-option:hover,
+    html[data-theme="dark"] .theme-option.is-active,
+    html[data-theme="dark"] .settings-link:hover,
+    html[data-theme="dark"] .user-menu button:hover,
+    html[data-theme="dark"] .mobile-link:hover,
+    html[data-theme="dark"] .mobile-link.is-active {
+      background: #343434 !important;
+      color: #4bc3c7 !important;
+    }
+
+
+    /* MENU DARK PRO | V11 - sem placa gigante no hover/abertura do menu */
+    html[data-theme="dark"] body.menu-open::before {
+      content: none !important;
+      display: none !important;
+    }
+
+    html[data-theme="dark"] .dropdown,
+    html[data-theme="dark"] .settings-menu,
+    html[data-theme="dark"] .user-menu,
+    html[data-theme="dark"] .mobile-panel {
+      background: #2b2b2b !important;
+      color: #ececec !important;
+      border: 1px solid rgba(255, 255, 255, 0.10) !important;
+      border-top: 0 !important;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34) !important;
+    }
+
+    html[data-theme="dark"],
+    html[data-theme="dark"] body {
+      background: transparent !important;
+    }
+
   </style>
 </head>
 
@@ -886,17 +1099,17 @@
 
           <div class="settings-divider"></div>
 
-          <button class="settings-link" type="button" onclick="irPara('config')">
+          <button class="settings-link" type="button" data-target="config" onclick="irPara('config')">
             <i class="fa-solid fa-sliders"></i>
             Configurações
           </button>
 
-          <button class="settings-link" type="button" onclick="irPara('empresa')">
+          <button class="settings-link" type="button" data-target="empresa" onclick="irPara('empresa')">
             <i class="fa-solid fa-building"></i>
             Minha Empresa
           </button>
 
-          <button class="settings-link" type="button" onclick="irPara('perfil')">
+          <button class="settings-link" type="button" data-target="perfil" onclick="irPara('perfil')">
             <i class="fa-regular fa-user"></i>
             Meu Perfil
           </button>
@@ -915,22 +1128,22 @@
             <span id="sidebarUserEmail">email@empresa.com</span>
           </div>
 
-          <button type="button" onclick="irPara('perfil')">
+          <button type="button" data-target="perfil" onclick="irPara('perfil')">
             <i class="fa-regular fa-user"></i>
             Meu Perfil
           </button>
 
-          <button type="button" onclick="irPara('empresa')">
+          <button type="button" data-target="empresa" onclick="irPara('empresa')">
             <i class="fa-solid fa-building"></i>
             Minha Empresa
           </button>
 
-          <button type="button" onclick="irPara('config')">
+          <button type="button" data-target="config" onclick="irPara('config')">
             <i class="fa-solid fa-gear"></i>
             Configurações
           </button>
 
-          <button type="button" class="danger" onclick="fazerLogout()">
+          <button type="button" class="danger" data-action="logout" onclick="fazerLogout()">
             <i class="fa-solid fa-arrow-right-from-bracket"></i>
             Sair do Sistema
           </button>
@@ -983,6 +1196,448 @@
     const CLOSED_HEIGHT = 54;
     const OPEN_HEIGHT_DESKTOP = 340;
     const OPEN_HEIGHT_MOBILE = window.innerHeight || 720;
+
+    /* =========================================================
+       FIX DEFINITIVO DO MENU EM IFRAME
+       Desktop: o iframe fica só com 54px de altura.
+       O dropdown/popover é criado no documento pai, por cima da página.
+       Assim NÃO aparece placa branca no tema claro nem no escuro.
+       ========================================================= */
+    const PARENT_OVERLAY_ID = 'valora-parent-menu-overlay';
+    const PARENT_OVERLAY_STYLE_ID = 'valora-parent-menu-overlay-style';
+    let parentOutsideListener = null;
+
+    function getFrameHeight(open, mobile) {
+      return mobile
+        ? Math.max(window.parent?.innerHeight || window.innerHeight || OPEN_HEIGHT_MOBILE, 620)
+        : CLOSED_HEIGHT;
+    }
+
+    function applyFrameBaseStyle(height = CLOSED_HEIGHT) {
+      try {
+        const frame = window.frameElement;
+        if (!frame) return;
+
+        frame.setAttribute('allowtransparency', 'true');
+        frame.setAttribute('scrolling', 'no');
+
+        frame.style.setProperty('position', 'fixed', 'important');
+        frame.style.setProperty('top', '0', 'important');
+        frame.style.setProperty('left', '0', 'important');
+        frame.style.setProperty('right', '0', 'important');
+        frame.style.setProperty('width', '100vw', 'important');
+        frame.style.setProperty('height', height + 'px', 'important');
+        frame.style.setProperty('min-height', height + 'px', 'important');
+        frame.style.setProperty('max-height', height + 'px', 'important');
+        frame.style.setProperty('border', '0', 'important');
+        frame.style.setProperty('outline', '0', 'important');
+        frame.style.setProperty('display', 'block', 'important');
+        frame.style.setProperty('overflow', 'hidden', 'important');
+        frame.style.setProperty('z-index', '99999', 'important');
+        frame.style.setProperty('pointer-events', 'auto', 'important');
+        frame.style.setProperty('background', 'transparent', 'important');
+        frame.style.setProperty('background-color', 'transparent', 'important');
+        frame.style.setProperty('box-shadow', 'none', 'important');
+        frame.style.removeProperty('clip-path');
+        frame.style.removeProperty('-webkit-clip-path');
+      } catch (e) {}
+    }
+
+    function forceTransparentFrame() {
+      try {
+        document.documentElement.style.setProperty('background', 'transparent', 'important');
+        document.documentElement.style.setProperty('background-color', 'transparent', 'important');
+        document.body.style.setProperty('background', 'transparent', 'important');
+        document.body.style.setProperty('background-color', 'transparent', 'important');
+        applyFrameBaseStyle(CLOSED_HEIGHT);
+      } catch (e) {}
+    }
+
+    function getParentDocument() {
+      try {
+        if (window.parent && window.parent !== window && window.parent.document) {
+          return window.parent.document;
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    function ensureParentOverlayStyles(parentDoc) {
+      if (!parentDoc || parentDoc.getElementById(PARENT_OVERLAY_STYLE_ID)) return;
+
+      const style = parentDoc.createElement('style');
+      style.id = PARENT_OVERLAY_STYLE_ID;
+      style.textContent = `
+        body.sidebar-open::before,
+        body.sidebar-open::after,
+        body.sidebar-mobile-open::before,
+        body.sidebar-mobile-open::after {
+          content: none !important;
+          display: none !important;
+        }
+
+        #${PARENT_OVERLAY_ID} {
+          position: fixed;
+          z-index: 2147483000;
+          box-sizing: border-box;
+          font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          -webkit-font-smoothing: antialiased;
+          text-rendering: geometricPrecision;
+        }
+
+        #${PARENT_OVERLAY_ID},
+        #${PARENT_OVERLAY_ID} * {
+          box-sizing: border-box;
+        }
+
+        #${PARENT_OVERLAY_ID} .vp-menu {
+          width: 220px;
+          padding: 6px 0;
+          border: 0;
+          border-radius: 0 0 6px 6px;
+          background: #ffffff;
+          color: #374151;
+          box-shadow: 0 14px 32px rgba(7, 24, 39, 0.16);
+          overflow: hidden;
+        }
+
+        #${PARENT_OVERLAY_ID} .vp-menu.vp-financeiro { width: 248px; }
+        #${PARENT_OVERLAY_ID} .vp-menu.vp-settings { width: 230px; border-radius: 0 0 10px 10px; }
+        #${PARENT_OVERLAY_ID} .vp-menu.vp-user { width: 250px; border-radius: 0 0 10px 10px; }
+
+        #${PARENT_OVERLAY_ID} .vp-item {
+          width: 100%;
+          min-height: 36px;
+          border: 0;
+          background: transparent;
+          color: inherit;
+          padding: 0 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          text-align: left;
+          cursor: pointer;
+          font: inherit;
+          font-size: 12.5px;
+          font-weight: 400;
+          line-height: 1;
+          transition: background 0.12s ease, color 0.12s ease;
+        }
+
+        #${PARENT_OVERLAY_ID} .vp-item:hover,
+        #${PARENT_OVERLAY_ID} .vp-item.is-active {
+          background: #eef9fc;
+          color: #65acde;
+        }
+
+        #${PARENT_OVERLAY_ID} .vp-title {
+          padding: 11px 14px 8px;
+          color: #64748b;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: .06em;
+        }
+
+        #${PARENT_OVERLAY_ID} .vp-divider {
+          height: 1px;
+          margin: 6px 0;
+          background: #edf2f7;
+        }
+
+        #${PARENT_OVERLAY_ID} .vp-user-card {
+          padding: 12px 14px;
+          border-bottom: 1px solid #edf2f7;
+        }
+
+        #${PARENT_OVERLAY_ID} .vp-user-card strong {
+          display: block;
+          color: #172033;
+          font-size: 13px;
+          font-weight: 600;
+          line-height: 1.25;
+        }
+
+        #${PARENT_OVERLAY_ID} .vp-user-card span {
+          display: block;
+          margin-top: 3px;
+          color: #64748b;
+          font-size: 11.5px;
+          line-height: 1.25;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        #${PARENT_OVERLAY_ID} .vp-radio {
+          width: 14px;
+          height: 14px;
+          border-radius: 999px;
+          border: 1px solid #cbd5e1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 auto;
+        }
+
+        #${PARENT_OVERLAY_ID} .vp-item.is-active .vp-radio::after {
+          content: "";
+          width: 6px;
+          height: 6px;
+          border-radius: 999px;
+          background: #4bc3c7;
+        }
+
+        #${PARENT_OVERLAY_ID} .vp-item.danger { color: #dc2626; }
+        #${PARENT_OVERLAY_ID} .vp-item.danger:hover { background: #fef2f2; color: #dc2626; }
+
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-menu {
+          background: #2b2b2b;
+          color: #ececec;
+          border: 1px solid rgba(255, 255, 255, 0.10);
+          border-top: 0;
+          box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
+        }
+
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-item {
+          color: #d6d6d6;
+        }
+
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-item:hover,
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-item.is-active {
+          background: #343434;
+          color: #4bc3c7;
+        }
+
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-title,
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-user-card span {
+          color: #a3a3a3;
+        }
+
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-divider,
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-user-card {
+          border-color: rgba(255, 255, 255, 0.10);
+        }
+
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-divider {
+          background: rgba(255, 255, 255, 0.10);
+        }
+
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-user-card strong {
+          color: #ececec;
+        }
+
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-radio {
+          border-color: rgba(255, 255, 255, 0.28);
+        }
+
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-item.danger { color: #f87171; }
+        html[data-theme="dark"] #${PARENT_OVERLAY_ID} .vp-item.danger:hover { background: rgba(239, 68, 68, 0.14); color: #fca5a5; }
+      `;
+
+      parentDoc.head.appendChild(style);
+    }
+
+    function removeParentOutsideListener(parentDoc) {
+      try {
+        if (parentDoc && parentOutsideListener) {
+          parentDoc.removeEventListener('pointerdown', parentOutsideListener, true);
+        }
+      } catch (e) {}
+      parentOutsideListener = null;
+    }
+
+    function closeParentFloatingOverlay() {
+      const parentDoc = getParentDocument();
+      if (!parentDoc) return;
+
+      removeParentOutsideListener(parentDoc);
+
+      const old = parentDoc.getElementById(PARENT_OVERLAY_ID);
+      if (old) old.remove();
+    }
+
+    function getSourceButtonTarget(btn) {
+      if (!btn) return '';
+      if (btn.dataset && btn.dataset.target) return btn.dataset.target;
+
+      const onclick = btn.getAttribute('onclick') || '';
+      const match = onclick.match(/irPara\(['"]([^'"]+)['"]\)/);
+      return match ? match[1] : '';
+    }
+
+    function appendOverlayButton(menu, sourceBtn) {
+      if (!menu || !sourceBtn) return;
+
+      const btn = menu.ownerDocument.createElement('button');
+      btn.type = 'button';
+      btn.className = 'vp-item';
+      btn.innerHTML = sourceBtn.innerHTML;
+
+      const target = getSourceButtonTarget(sourceBtn);
+      const theme = sourceBtn.dataset ? sourceBtn.dataset.themeOption : '';
+      const action = sourceBtn.dataset ? sourceBtn.dataset.action : '';
+
+      if (sourceBtn.classList.contains('danger') || action === 'logout') btn.classList.add('danger');
+      if (sourceBtn.classList.contains('is-active')) btn.classList.add('is-active');
+      if (theme && (localStorage.getItem('valora_theme') || 'light') === theme) btn.classList.add('is-active');
+
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (theme) {
+          applyTheme(theme);
+          closeAllMenus();
+          return;
+        }
+
+        if (action === 'logout' || sourceBtn.classList.contains('danger')) {
+          closeAllMenus();
+          fazerLogout();
+          return;
+        }
+
+        if (target) {
+          closeAllMenus();
+          irPara(target);
+        }
+      });
+
+      menu.appendChild(btn);
+    }
+
+    function appendOverlayContent(menu, sourceSurface) {
+      if (!menu || !sourceSurface) return;
+
+      Array.from(sourceSurface.children).forEach((child) => {
+        if (child.matches('button')) {
+          appendOverlayButton(menu, child);
+          return;
+        }
+
+        if (child.classList.contains('settings-title')) {
+          const title = menu.ownerDocument.createElement('div');
+          title.className = 'vp-title';
+          title.textContent = child.textContent || '';
+          menu.appendChild(title);
+          return;
+        }
+
+        if (child.classList.contains('settings-divider')) {
+          const divider = menu.ownerDocument.createElement('div');
+          divider.className = 'vp-divider';
+          menu.appendChild(divider);
+          return;
+        }
+
+        if (child.classList.contains('user-card')) {
+          const card = menu.ownerDocument.createElement('div');
+          card.className = 'vp-user-card';
+          card.innerHTML = child.innerHTML;
+          menu.appendChild(card);
+        }
+      });
+    }
+
+    function getOpenParentSurface() {
+      const group = document.querySelector('[data-menu-group].is-open');
+      if (group) {
+        const surface = group.querySelector('.dropdown');
+        const anchor = group.querySelector('.nav-trigger') || surface;
+        return {
+          surface,
+          anchor,
+          type: surface && surface.classList.contains('dropdown-financeiro') ? 'financeiro' : 'dropdown'
+        };
+      }
+
+      const settingsWrap = document.querySelector('#settingsWrap.is-open');
+      if (settingsWrap) {
+        return {
+          surface: document.getElementById('settingsMenu'),
+          anchor: document.getElementById('settingsBtn'),
+          type: 'settings'
+        };
+      }
+
+      const userWrap = document.querySelector('#userWrap.is-open');
+      if (userWrap) {
+        return {
+          surface: document.getElementById('userDropdown'),
+          anchor: document.getElementById('userProfileBtn'),
+          type: 'user'
+        };
+      }
+
+      return null;
+    }
+
+    function renderParentFloatingOverlay() {
+      const parentDoc = getParentDocument();
+      if (!parentDoc || window.innerWidth <= 920) {
+        closeParentFloatingOverlay();
+        return;
+      }
+
+      const item = getOpenParentSurface();
+      if (!item || !item.surface || !item.anchor) {
+        closeParentFloatingOverlay();
+        return;
+      }
+
+      ensureParentOverlayStyles(parentDoc);
+      closeParentFloatingOverlay();
+
+      const frameRect = window.frameElement
+        ? window.frameElement.getBoundingClientRect()
+        : { left: 0, top: 0 };
+
+      const surfaceRect = item.surface.getBoundingClientRect();
+      const anchorRect = item.anchor.getBoundingClientRect();
+      const parentWin = parentDoc.defaultView || window.parent;
+      const viewportW = parentWin.innerWidth || parentDoc.documentElement.clientWidth || 1200;
+
+      const width = Math.ceil(surfaceRect.width || (item.type === 'financeiro' ? 248 : item.type === 'user' ? 250 : item.type === 'settings' ? 230 : 220));
+      const top = Math.round(frameRect.top + CLOSED_HEIGHT);
+      let left = Math.round(frameRect.left + (surfaceRect.left || anchorRect.left));
+
+      if (item.type === 'settings' || item.type === 'user') {
+        left = Math.round(frameRect.left + anchorRect.right - width);
+      }
+
+      left = Math.max(0, Math.min(left, viewportW - width - 8));
+
+      const overlay = parentDoc.createElement('div');
+      overlay.id = PARENT_OVERLAY_ID;
+      overlay.style.left = `${left}px`;
+      overlay.style.top = `${top}px`;
+      overlay.style.width = `${width}px`;
+
+      const menu = parentDoc.createElement('div');
+      menu.className = `vp-menu vp-${item.type}`;
+      menu.style.width = `${width}px`;
+      appendOverlayContent(menu, item.surface);
+      overlay.appendChild(menu);
+
+      overlay.addEventListener('pointerdown', (event) => event.stopPropagation(), true);
+      overlay.addEventListener('click', (event) => event.stopPropagation(), true);
+
+      parentDoc.body.appendChild(overlay);
+
+      parentOutsideListener = (event) => {
+        const current = parentDoc.getElementById(PARENT_OVERLAY_ID);
+        if (current && current.contains(event.target)) return;
+        closeAllMenus();
+      };
+
+      setTimeout(() => {
+        try {
+          parentDoc.addEventListener('pointerdown', parentOutsideListener, true);
+        } catch (e) {}
+      }, 0);
+    }
 
     function getStoredUser() {
       const nome =
@@ -1039,6 +1694,7 @@
       } catch (e) {}
 
       syncThemeButtons();
+      forceTransparentFrame();
     }
 
     function syncThemeButtons() {
@@ -1051,27 +1707,23 @@
 
     function setParentSidebarOpen(open, mobile) {
       try {
-        if (window.frameElement) {
-          const height = mobile
-            ? Math.max(window.parent?.innerHeight || window.innerHeight || OPEN_HEIGHT_MOBILE, 620)
-            : open
-              ? OPEN_HEIGHT_DESKTOP
-              : CLOSED_HEIGHT;
+        const height = getFrameHeight(open, mobile);
 
+        if (window.frameElement) {
           window.frameElement.classList.toggle('is-open', !!open && !mobile);
           window.frameElement.classList.toggle('is-mobile-open', !!open && !!mobile);
-
-          window.frameElement.style.setProperty('height', height + 'px', 'important');
-          window.frameElement.style.setProperty('min-height', height + 'px', 'important');
-          window.frameElement.style.setProperty('max-height', height + 'px', 'important');
-          window.frameElement.style.setProperty('overflow', 'visible', 'important');
-          window.frameElement.style.setProperty('z-index', '99999', 'important');
-          window.frameElement.style.setProperty('pointer-events', 'auto', 'important');
+          applyFrameBaseStyle(height);
         }
 
         if (window.parent && window.parent.document) {
           window.parent.document.body.classList.toggle('sidebar-open', !!open && !mobile);
           window.parent.document.body.classList.toggle('sidebar-mobile-open', !!open && !!mobile);
+        }
+
+        if (open && !mobile) {
+          renderParentFloatingOverlay();
+        } else {
+          closeParentFloatingOverlay();
         }
       } catch (e) {}
     }
@@ -1297,6 +1949,8 @@
     }
 
     function closeAllMenus() {
+      closeParentFloatingOverlay();
+
       document.querySelectorAll('[data-menu-group]').forEach((group) => {
         group.classList.remove('is-open');
       });
@@ -1333,7 +1987,7 @@
       const mobile = window.innerWidth <= 920 && !!document.querySelector('#mobilePanel.is-open');
       const open = anyMenuOpen();
 
-      document.body.classList.toggle('menu-open', !!open && !mobile);
+      document.body.classList.remove('menu-open');
       document.body.classList.toggle('mobile-menu-open', !!open && !!mobile);
 
       setParentSidebarOpen(open, mobile);
@@ -1419,9 +2073,8 @@
 
         group.addEventListener('mouseleave', () => {
           if (window.innerWidth <= 920) return;
-
-          group.classList.remove('is-open');
-          refreshFrameHeight();
+          // No desktop o dropdown fica no documento pai.
+          // Fechar no mouseleave causava sumiço ao mover o cursor para o menu.
         });
       });
     }
@@ -1559,7 +2212,9 @@
     function init() {
       const savedTheme = localStorage.getItem('valora_theme') || 'light';
 
+      applyFrameBaseStyle(CLOSED_HEIGHT);
       applyTheme(savedTheme);
+      forceTransparentFrame();
       applyUser();
       closeAllMenus();
       syncActiveMenu();

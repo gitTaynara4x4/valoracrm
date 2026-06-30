@@ -1398,3 +1398,74 @@ footer {
     font-size: 0.8rem;
   }
 }
+/* =========================================================
+   INÍCIO DARK CHATGPT-LIKE | V6
+   ========================================================= */
+html[data-theme="dark"] {
+  --site-secondary: #ECECEC;
+  --site-text: #ECECEC;
+  --site-muted: #B4B4B4;
+  --site-light: #8E8E8E;
+  --site-bg: #212121;
+  --site-bg-soft: #171717;
+  --site-card: #2F2F2F;
+  --site-elevated: #303030;
+  --site-glass: rgba(33, 33, 33, 0.84);
+  --site-border: rgba(255, 255, 255, 0.12);
+  --site-border-strong: rgba(255, 255, 255, 0.20);
+  --site-logo: #ECECEC;
+  --site-hero-bg: linear-gradient(135deg, #212121 0%, #171717 100%);
+  --site-top-bar-bg: linear-gradient(90deg, #171717 0%, #212121 100%);
+  --site-cta-bg: linear-gradient(135deg, #171717 0%, #2F2F2F 100%);
+  --site-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --site-shadow-md: 0 10px 24px rgba(0, 0, 0, 0.30);
+  --site-shadow-lg: 0 18px 42px rgba(0, 0, 0, 0.34);
+  --site-shadow-xl: 0 26px 70px rgba(0, 0, 0, 0.42);
+}
+
+html[data-theme="dark"] body {
+  background: #212121 !important;
+  color: #ECECEC !important;
+}
+
+html[data-theme="dark"] header,
+html[data-theme="dark"] .top-bar,
+html[data-theme="dark"] .mobile-menu {
+  background: rgba(23, 23, 23, 0.88) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html[data-theme="dark"] .hero,
+html[data-theme="dark"] section,
+html[data-theme="dark"] .section-soft {
+  background-color: #212121 !important;
+}
+
+html[data-theme="dark"] .feature-card,
+html[data-theme="dark"] .pricing-card,
+html[data-theme="dark"] .testimonial-card,
+html[data-theme="dark"] .faq-item,
+html[data-theme="dark"] .hero-card,
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .card {
+  background: #2F2F2F !important;
+  color: #ECECEC !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: var(--site-shadow-sm) !important;
+}
+
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] p,
+html[data-theme="dark"] .nav-links a,
+html[data-theme="dark"] .mobile-menu a {
+  color: inherit;
+}
+
+html[data-theme="dark"] p,
+html[data-theme="dark"] .section-subtitle,
+html[data-theme="dark"] .muted {
+  color: #B4B4B4 !important;
+}

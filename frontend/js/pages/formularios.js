@@ -181,6 +181,7 @@
     campoEditando: null,
     secaoEditando: null,
     modeloEditando: null,
+    secoesAbertas: new Set(),
   };
 
   const qs = (id) => document.getElementById(id);
@@ -955,6 +956,52 @@
     }).join('');
   }
 
+  function getResumoFormulario() {
+    const atual = state.modeloAtual || {};
+    const secoes = getSecoes();
+    const semSecao = Array.isArray(atual.campos_sem_secao) ? atual.campos_sem_secao : [];
+    const campos = [
+      ...secoes.flatMap((secao) => Array.isArray(secao.campos) ? secao.campos : []),
+      ...semSecao,
+    ];
+
+    const personalizados = campos.filter((campo) => (campo.origem || 'personalizado') === 'personalizado').length;
+    const sistema = campos.filter((campo) => campo.origem === 'sistema').length;
+    const visual = campos.filter((campo) => campo.origem === 'visual').length;
+
+    return {
+      secoes: secoes.length,
+      campos: campos.length,
+      personalizados,
+      sistema,
+      visual,
+    };
+  }
+
+  function renderResumoFormulario() {
+    const resumo = getResumoFormulario();
+    const pairs = [
+      ['side-stat-secoes', resumo.secoes],
+      ['side-stat-campos', resumo.campos],
+      ['side-stat-custom', resumo.personalizados],
+      ['side-stat-system', resumo.sistema],
+      ['toolbar-stat-secoes', resumo.secoes],
+      ['toolbar-stat-campos', resumo.campos],
+    ];
+
+    pairs.forEach(([id, value]) => {
+      const el = qs(id);
+      if (el) el.textContent = String(value || 0);
+    });
+
+    const chip = qs('form-status-chip');
+    const modelo = state.modeloAtual?.modelo || null;
+    if (chip) {
+      chip.textContent = modelo?.ativo === false ? 'Inativo' : 'Ativo';
+      chip.classList.toggle('is-off', modelo?.ativo === false);
+    }
+  }
+
   function renderModeloAtual() {
     const modelo = state.modeloAtual?.modelo || null;
 
@@ -1009,11 +1056,13 @@
     if (!modelo) {
       if (empty) empty.style.display = '';
       if (wrap) wrap.innerHTML = '';
+      renderResumoFormulario();
       return;
     }
 
     if (empty) empty.style.display = 'none';
 
+    renderResumoFormulario();
     renderSecoes();
     renderSecaoSelect();
   }
@@ -1052,8 +1101,8 @@
 
     let html = '';
 
-    secoes.forEach((secao) => {
-      html += renderSecaoCard(secao);
+    secoes.forEach((secao, index) => {
+      html += renderSecaoCard(secao, index);
     });
 
     if (camposSemSecao.length) {
@@ -1071,13 +1120,21 @@
     wrap.innerHTML = html;
   }
 
-  function renderSecaoCard(secao) {
+  function renderSecaoCard(secao, index = 0) {
     const campos = camposOrdenados(secao.campos || []);
     const inactive = secao.ativo === false ? '<span class="badge off">Inativa</span>' : '';
     const icon = getIconeSecao(secao);
+    const sid = String(secao.id || 'sem-secao');
+    const isOpen = secao.semSecao || state.secoesAbertas.has(sid) || (!state.secoesAbertas.size && index === 0);
+    const originClass = secao.semSecao ? 'neutral' : `tone-${(index % 5) + 1}`;
 
     const actions = secao.semSecao ? '' : `
       <div class="secao-actions">
+        <button class="secao-count-pill" type="button" data-action="toggle-secao" data-id="${secao.id}" title="Abrir ou recolher seção">
+          ${campos.length} ${campos.length === 1 ? 'campo' : 'campos'}
+          <i class="fa-solid fa-chevron-down"></i>
+        </button>
+
         <button class="icon-btn" type="button" data-action="editar-secao" data-id="${secao.id}" title="Editar seção">
           <i class="fa-solid fa-pen"></i>
         </button>
@@ -1093,7 +1150,7 @@
       : `<div class="empty-section">Nenhum campo nesta seção ainda.</div>`;
 
     return `
-      <article class="secao-card">
+      <article class="secao-card secao-card-premium ${originClass} ${isOpen ? 'is-open' : 'is-collapsed'}" data-secao-id="${escapeHtml(sid)}">
         <div class="secao-head">
           <div class="secao-title-wrap">
             <h4 class="secao-title">
@@ -1118,37 +1175,33 @@
   function renderCampoCard(campo) {
     const origem = campo.origem || 'personalizado';
     const badgeClass = origem === 'sistema' ? 'system' : origem === 'visual' ? 'visual' : 'custom';
+    const icon = origem === 'visual' ? 'fa-heading' : origem === 'sistema' ? 'fa-database' : 'fa-pen-to-square';
 
     const inactive = campo.ativo === false ? '<span class="badge off">Inativo</span>' : '';
     const required = campo.obrigatorio ? '<span class="badge">Obrigatório</span>' : '';
     const readonly = campo.somente_leitura ? '<span class="badge">Somente leitura</span>' : '';
 
     const detalhes = [
-      `Origem: ${origemLabel(origem)}`,
-      `Tipo: ${tipoLabel(campo)}`,
-      `Largura: ${widthLabel(campo.largura)}`,
-      `Ordem: ${Number(campo.ordem || 0)}`,
-      campo.visibilidade && campo.visibilidade !== 'todos' ? `Visibilidade: ${campo.visibilidade}` : '',
-    ].filter(Boolean);
+      `<span class="badge ${badgeClass}"><i class="fa-solid ${icon}"></i>${escapeHtml(origemLabel(origem))}</span>`,
+      `<span class="badge">${escapeHtml(tipoLabel(campo))}</span>`,
+      required,
+      readonly,
+      inactive,
+      `<span class="badge">Ordem ${Number(campo.ordem || 0)}</span>`,
+      `<span class="badge">${escapeHtml(widthLabel(campo.largura))}</span>`,
+    ].filter(Boolean).join('');
 
     return `
-      <div class="campo-card">
+      <div class="campo-card campo-card-premium">
+        <span class="campo-drag" title="Arrastar campo"><i class="fa-solid fa-grip-vertical"></i></span>
+
         <div class="campo-main">
           <div class="campo-title">
-            <span class="badge ${badgeClass}">
-              <i class="fa-solid ${origem === 'visual' ? 'fa-heading' : origem === 'sistema' ? 'fa-database' : 'fa-pen-to-square'}"></i>
-              ${escapeHtml(origemLabel(origem))}
-            </span>
-
             <strong>${escapeHtml(campo.label || '-')}</strong>
-
-            ${required}
-            ${readonly}
-            ${inactive}
           </div>
 
-          <div class="campo-meta">
-            ${detalhes.map((d) => `<span>${escapeHtml(d)}</span>`).join('')}
+          <div class="campo-meta campo-meta-chips">
+            ${detalhes}
           </div>
 
           ${campo.ajuda ? `<div class="campo-ajuda">${escapeHtml(campo.ajuda)}</div>` : ''}
@@ -2056,6 +2109,16 @@
           resetSecaoForm(secao);
           openModal('modal-secao');
         }
+      }
+
+      if (action === 'toggle-secao') {
+        const sid = String(id || 'sem-secao');
+        if (state.secoesAbertas.has(sid)) {
+          state.secoesAbertas.delete(sid);
+        } else {
+          state.secoesAbertas.add(sid);
+        }
+        renderSecoes();
       }
 
       if (action === 'excluir-secao') {

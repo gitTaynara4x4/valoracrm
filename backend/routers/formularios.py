@@ -1318,7 +1318,7 @@ def _relacao_to_out(item: Any, tipo: str) -> Dict[str, Any]:
 def listar_opcoes_relacao(
     tipo: str = Query(..., min_length=1),
     q: Optional[str] = Query(None),
-    limit: int = Query(200, ge=1, le=500),
+    limit: int = Query(5000, ge=1, le=5000),
     request: Request = None,
     db: Session = Depends(get_db),
 ):

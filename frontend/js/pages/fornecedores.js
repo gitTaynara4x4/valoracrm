@@ -11,6 +11,7 @@ let formularioFornecedores = null;
 let usarFichaPrincipalFornecedores = false;
 let fichaFornecedorController = null;
 let fornecedorAtualDetalhe = null;
+let fornecedorModalSomenteLeitura = false;
 
 const API_FORNECEDORES = '/api/fornecedores';
 const API_CAMPOS_PRIMARY = '/api/fornecedores/campos';
@@ -243,6 +244,93 @@ function getValue(id) {
   return el.value ?? '';
 }
 
+
+function restoreReadonlyElement(el) {
+  if (!el || el.dataset.readonlyTouched !== 'true') return;
+
+  el.disabled = el.dataset.readonlyWasDisabled === 'true';
+  el.readOnly = el.dataset.readonlyWasReadonly === 'true';
+  el.removeAttribute('aria-readonly');
+  el.classList.remove('is-readonly-field');
+
+  delete el.dataset.readonlyTouched;
+  delete el.dataset.readonlyWasDisabled;
+  delete el.dataset.readonlyWasReadonly;
+}
+
+function applyReadonlyElement(el) {
+  if (!el || el.dataset.readonlyTouched === 'true') return;
+
+  el.dataset.readonlyTouched = 'true';
+  el.dataset.readonlyWasDisabled = el.disabled ? 'true' : 'false';
+  el.dataset.readonlyWasReadonly = el.readOnly ? 'true' : 'false';
+
+  const tag = String(el.tagName || '').toLowerCase();
+  const type = String(el.type || '').toLowerCase();
+
+  if (tag === 'select' || type === 'checkbox' || type === 'radio' || type === 'file' || type === 'button') {
+    el.disabled = true;
+  } else {
+    el.readOnly = true;
+  }
+
+  el.setAttribute('aria-readonly', 'true');
+  el.classList.add('is-readonly-field');
+}
+
+function setHiddenByReadonly(id, enabled) {
+  const el = $(id);
+  if (!el) return;
+
+  if (enabled) {
+    if (el.dataset.readonlyTouchedHidden !== 'true') {
+      el.dataset.readonlyTouchedHidden = 'true';
+      el.dataset.readonlyWasHidden = el.hidden ? 'true' : 'false';
+    }
+    el.hidden = true;
+    el.style.display = 'none';
+    return;
+  }
+
+  if (el.dataset.readonlyTouchedHidden === 'true') {
+    el.hidden = el.dataset.readonlyWasHidden === 'true';
+    el.style.display = '';
+    delete el.dataset.readonlyTouchedHidden;
+    delete el.dataset.readonlyWasHidden;
+  }
+}
+
+function setFornecedorModalReadonly(enabled) {
+  fornecedorModalSomenteLeitura = !!enabled;
+
+  const backdrop = $('modal-fornecedor-backdrop');
+  const form = $('formFornecedor');
+  const cancelBtn = $('btn-cancelar-fornecedor');
+
+  backdrop?.classList.toggle('modal-readonly', fornecedorModalSomenteLeitura);
+  form?.classList.toggle('modal-readonly-form', fornecedorModalSomenteLeitura);
+
+  if (form) {
+    form.querySelectorAll('input, select, textarea').forEach((el) => {
+      if (fornecedorModalSomenteLeitura) applyReadonlyElement(el);
+      else restoreReadonlyElement(el);
+    });
+  }
+
+  [
+    'btn-salvar-fornecedor',
+  ].forEach((id) => setHiddenByReadonly(id, fornecedorModalSomenteLeitura));
+
+  if (cancelBtn) {
+    if (fornecedorModalSomenteLeitura) {
+      cancelBtn.dataset.normalText = cancelBtn.dataset.normalText || cancelBtn.textContent || 'Cancelar';
+      cancelBtn.textContent = 'Fechar';
+    } else if (cancelBtn.dataset.normalText) {
+      cancelBtn.textContent = cancelBtn.dataset.normalText;
+    }
+  }
+}
+
 function normalizeSituacao(value) {
   const s = String(value || 'ativo').trim().toLowerCase();
 
@@ -421,16 +509,27 @@ function renderBadgeTipo(tipo) {
 function renderNomeFornecedor(fornecedor) {
   const nome = fornecedor?.nome || '-';
   const fantasia = fornecedor?.nome_fantasia || '';
+  const id = escapeHtml(fornecedor?.id || '');
 
-  if (!fantasia) {
-    return `<strong>${escapeHtml(nome)}</strong>`;
-  }
+  const nomeHtml = !fantasia
+    ? `<strong>${escapeHtml(nome)}</strong>`
+    : `
+      <span style="display:flex; flex-direction:column; gap:2px;">
+        <strong>${escapeHtml(nome)}</strong>
+        <span class="subtle">${escapeHtml(fantasia)}</span>
+      </span>
+    `;
 
   return `
-    <div style="display:flex; flex-direction:column; gap:2px;">
-      <strong>${escapeHtml(nome)}</strong>
-      <span class="subtle">${escapeHtml(fantasia)}</span>
-    </div>
+    <button
+      type="button"
+      class="table-name-link"
+      data-action="visualizar"
+      data-id="${id}"
+      title="Visualizar fornecedor"
+    >
+      ${nomeHtml}
+    </button>
   `;
 }
 
@@ -1084,6 +1183,7 @@ function buildFornecedorPayload() {
 }
 
 async function abrirModalFornecedorNovo() {
+  setFornecedorModalReadonly(false);
   fornecedorEditandoId = null;
 
   $('modal-fornecedor-titulo').textContent = 'Novo fornecedor';
@@ -1096,13 +1196,16 @@ async function abrirModalFornecedorNovo() {
   syncFornecedorFichaCode(proximoCodigo);
 
   openModal('modal-fornecedor-backdrop');
+  setFornecedorModalReadonly(false);
 }
 
 function fecharModalFornecedor() {
+  setFornecedorModalReadonly(false);
   closeModal('modal-fornecedor-backdrop');
 }
 
 async function abrirModalFornecedorEditar(id) {
+  setFornecedorModalReadonly(false);
   try {
     const full = await apiJson(`${API_FORNECEDORES}/${id}`);
 
@@ -1112,6 +1215,24 @@ async function abrirModalFornecedorEditar(id) {
 
     await fillFornecedorForm(full);
     openModal('modal-fornecedor-backdrop');
+    setFornecedorModalReadonly(false);
+  } catch (err) {
+    toast(err.message || 'Erro ao carregar fornecedor.', 'error');
+  }
+}
+
+
+
+async function abrirModalFornecedorVisualizar(id) {
+  try {
+    const full = await apiJson(`${API_FORNECEDORES}/${id}`);
+
+    fornecedorEditandoId = full.id;
+    $('modal-fornecedor-titulo').textContent = 'Visualizar fornecedor';
+
+    await fillFornecedorForm(full);
+    openModal('modal-fornecedor-backdrop');
+    setFornecedorModalReadonly(true);
   } catch (err) {
     toast(err.message || 'Erro ao carregar fornecedor.', 'error');
   }
@@ -1119,6 +1240,11 @@ async function abrirModalFornecedorEditar(id) {
 
 async function salvarFornecedor(event) {
   event?.preventDefault?.();
+
+  if (fornecedorModalSomenteLeitura) {
+    toast('Este fornecedor está aberto apenas para visualização.', 'error');
+    return;
+  }
 
   if (!validateRequiredCustomFields()) return;
 
@@ -1719,6 +1845,11 @@ function bindTabelaActions() {
     const id = Number(btn.dataset.id);
 
     if (!id) return;
+
+    if (btn.dataset.action === 'visualizar') {
+      await abrirModalFornecedorVisualizar(id);
+      return;
+    }
 
     if (btn.dataset.action === 'editar') {
       await abrirModalFornecedorEditar(id);

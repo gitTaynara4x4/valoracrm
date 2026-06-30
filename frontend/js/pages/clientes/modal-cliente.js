@@ -12,6 +12,7 @@ let _bound = false;
 let currentDetail = null;
 let originalClienteTabsHtml = '';
 let fichaClienteController = null;
+let clienteModalSomenteLeitura = false;
 
 function defaultCliente() {
   return {
@@ -88,6 +89,124 @@ function setValue(id, value) {
 
 function getValue(id) {
   return $(id)?.value ?? '';
+}
+
+
+function restoreReadonlyElement(el) {
+  if (!el || el.dataset.readonlyTouched !== 'true') return;
+
+  el.disabled = el.dataset.readonlyWasDisabled === 'true';
+  el.readOnly = el.dataset.readonlyWasReadonly === 'true';
+  el.removeAttribute('aria-readonly');
+  el.classList.remove('is-readonly-field');
+
+  delete el.dataset.readonlyTouched;
+  delete el.dataset.readonlyWasDisabled;
+  delete el.dataset.readonlyWasReadonly;
+}
+
+function applyReadonlyElement(el) {
+  if (!el || el.dataset.readonlyTouched === 'true') return;
+
+  el.dataset.readonlyTouched = 'true';
+  el.dataset.readonlyWasDisabled = el.disabled ? 'true' : 'false';
+  el.dataset.readonlyWasReadonly = el.readOnly ? 'true' : 'false';
+
+  const tag = String(el.tagName || '').toLowerCase();
+  const type = String(el.type || '').toLowerCase();
+
+  if (tag === 'select' || type === 'checkbox' || type === 'radio' || type === 'file' || type === 'button') {
+    el.disabled = true;
+  } else {
+    el.readOnly = true;
+  }
+
+  el.setAttribute('aria-readonly', 'true');
+  el.classList.add('is-readonly-field');
+}
+
+function setHiddenByReadonly(id, enabled) {
+  const el = $(id);
+  if (!el) return;
+
+  if (enabled) {
+    if (el.dataset.readonlyTouchedHidden !== 'true') {
+      el.dataset.readonlyTouchedHidden = 'true';
+      el.dataset.readonlyWasHidden = el.hidden ? 'true' : 'false';
+    }
+    el.hidden = true;
+    el.style.display = 'none';
+    return;
+  }
+
+  if (el.dataset.readonlyTouchedHidden === 'true') {
+    el.hidden = el.dataset.readonlyWasHidden === 'true';
+    el.style.display = '';
+    delete el.dataset.readonlyTouchedHidden;
+    delete el.dataset.readonlyWasHidden;
+  }
+}
+
+function setClienteModalReadonly(enabled) {
+  clienteModalSomenteLeitura = !!enabled;
+
+  const backdrop = $('modal-cliente-backdrop');
+  const form = $('formCliente');
+  const cancelBtn = $('btn-cancelar-cliente');
+  const title = $('modal-cliente-titulo');
+
+  backdrop?.classList.toggle('modal-readonly', clienteModalSomenteLeitura);
+  form?.classList.toggle('modal-readonly-form', clienteModalSomenteLeitura);
+
+  if (form) {
+    form.querySelectorAll('input, select, textarea').forEach((el) => {
+      if (clienteModalSomenteLeitura) applyReadonlyElement(el);
+      else restoreReadonlyElement(el);
+    });
+  }
+
+  [
+    'btn-salvar-cliente',
+    'btn-add-endereco',
+    'btn-add-ref-comercial',
+    'btn-add-ref-bancaria',
+    'btn-add-socio',
+    'btn-add-ocorrencia',
+    'btn-escolher-anexo',
+  ].forEach((id) => setHiddenByReadonly(id, clienteModalSomenteLeitura));
+
+  document
+    .querySelectorAll('#modal-cliente-backdrop [data-remove], #modal-cliente-backdrop [data-remove-anexo]')
+    .forEach((btn) => {
+      if (clienteModalSomenteLeitura) {
+        if (btn.dataset.readonlyTouchedHidden !== 'true') {
+          btn.dataset.readonlyTouchedHidden = 'true';
+          btn.dataset.readonlyWasHidden = btn.hidden ? 'true' : 'false';
+        }
+        btn.hidden = true;
+        btn.style.display = 'none';
+      } else if (btn.dataset.readonlyTouchedHidden === 'true') {
+        btn.hidden = btn.dataset.readonlyWasHidden === 'true';
+        btn.style.display = '';
+        delete btn.dataset.readonlyTouchedHidden;
+        delete btn.dataset.readonlyWasHidden;
+      }
+    });
+
+  if (cancelBtn) {
+    if (clienteModalSomenteLeitura) {
+      cancelBtn.dataset.normalText = cancelBtn.dataset.normalText || cancelBtn.textContent || 'Cancelar';
+      cancelBtn.textContent = 'Fechar';
+    } else if (cancelBtn.dataset.normalText) {
+      cancelBtn.textContent = cancelBtn.dataset.normalText;
+    }
+  }
+
+  if (title && !clienteModalSomenteLeitura) {
+    title.removeAttribute('data-readonly-title');
+  }
+
+  syncZapsChatButton(currentDetail);
 }
 
 function formatarDataCadastroSistema(value) {
@@ -1466,6 +1585,7 @@ export function bindClientModal({ afterSave } = {}) {
 }
 
 export async function openClientModalNew() {
+  setClienteModalReadonly(false);
   state.clienteEditandoId = null;
   syncZapsChatButton(null);
 
@@ -1476,12 +1596,14 @@ export async function openClientModalNew() {
   await fillClientForm({ codigo: proximoCodigo });
 
   openModal('modal-cliente-backdrop');
+  setClienteModalReadonly(false);
 
   bindResumoSidebarCliente();
   agendarResumoSidebarCliente(currentDetail);
 }
 
 export async function openClientModalEdit(id) {
+  setClienteModalReadonly(false);
   try {
     const cliente = await obterClienteNoServidor(id);
 
@@ -1491,6 +1613,28 @@ export async function openClientModalEdit(id) {
     await fillClientForm(cliente);
 
     openModal('modal-cliente-backdrop');
+    setClienteModalReadonly(false);
+
+    bindResumoSidebarCliente();
+    agendarResumoSidebarCliente(cliente);
+  } catch (err) {
+    toast(err.message || 'Erro ao carregar cliente.', 'error');
+  }
+}
+
+
+
+export async function openClientModalView(id) {
+  try {
+    const cliente = await obterClienteNoServidor(id);
+
+    state.clienteEditandoId = cliente.id;
+    $('modal-cliente-titulo').textContent = 'Visualizar cliente';
+
+    await fillClientForm(cliente);
+
+    openModal('modal-cliente-backdrop');
+    setClienteModalReadonly(true);
 
     bindResumoSidebarCliente();
     agendarResumoSidebarCliente(cliente);
@@ -1500,6 +1644,7 @@ export async function openClientModalEdit(id) {
 }
 
 export function closeClientModal() {
+  setClienteModalReadonly(false);
   closeModal('modal-cliente-backdrop');
 }
 
@@ -1657,6 +1802,11 @@ function encontrarCampoNomeObrigatorio() {
 export async function saveCliente(e) {
   if (e?.preventDefault) {
     e.preventDefault();
+  }
+
+  if (clienteModalSomenteLeitura) {
+    toast('Este cliente está aberto apenas para visualização.', 'error');
+    return;
   }
 
   limparCamposObrigatoriosPendentes();

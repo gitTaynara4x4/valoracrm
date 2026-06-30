@@ -44,6 +44,7 @@
     usarFichaPrincipalCotacoes: false,
     fichaCotacaoController: null,
     cotacaoAtualDetalhe: null,
+    modalSomenteLeitura: false,
   };
 
   const STATUS_LABELS = {
@@ -194,6 +195,122 @@
 
     btn.disabled = false;
     btn.innerHTML = textWhenNormal || btn.dataset.originalHtml || btn.innerHTML;
+  }
+
+  function restoreReadonlyElement(el) {
+    if (!el || el.dataset.readonlyTouched !== 'true') return;
+
+    el.disabled = el.dataset.readonlyWasDisabled === 'true';
+    el.readOnly = el.dataset.readonlyWasReadonly === 'true';
+    el.removeAttribute('aria-readonly');
+    el.classList.remove('is-readonly-field');
+
+    delete el.dataset.readonlyTouched;
+    delete el.dataset.readonlyWasDisabled;
+    delete el.dataset.readonlyWasReadonly;
+  }
+
+  function applyReadonlyElement(el) {
+    if (!el || el.dataset.readonlyTouched === 'true') return;
+
+    el.dataset.readonlyTouched = 'true';
+    el.dataset.readonlyWasDisabled = el.disabled ? 'true' : 'false';
+    el.dataset.readonlyWasReadonly = el.readOnly ? 'true' : 'false';
+
+    const tag = String(el.tagName || '').toLowerCase();
+    const type = String(el.type || '').toLowerCase();
+
+    if (tag === 'select' || type === 'checkbox' || type === 'radio' || type === 'file' || type === 'button') {
+      el.disabled = true;
+    } else {
+      el.readOnly = true;
+    }
+
+    el.setAttribute('aria-readonly', 'true');
+    el.classList.add('is-readonly-field');
+  }
+
+  function setHiddenByReadonly(id, enabled) {
+    const el = $(id);
+    if (!el) return;
+
+    if (enabled) {
+      if (el.dataset.readonlyTouchedHidden !== 'true') {
+        el.dataset.readonlyTouchedHidden = 'true';
+        el.dataset.readonlyWasHidden = el.hidden ? 'true' : 'false';
+        el.dataset.readonlyWasDisplay = el.style.display || '';
+      }
+      el.hidden = true;
+      el.style.display = 'none';
+      return;
+    }
+
+    if (el.dataset.readonlyTouchedHidden === 'true') {
+      el.hidden = el.dataset.readonlyWasHidden === 'true';
+      el.style.display = el.dataset.readonlyWasDisplay || '';
+      delete el.dataset.readonlyTouchedHidden;
+      delete el.dataset.readonlyWasHidden;
+      delete el.dataset.readonlyWasDisplay;
+    }
+  }
+
+  function setCotacaoModalReadonly(enabled) {
+    state.modalSomenteLeitura = !!enabled;
+
+    const backdrop = $('modal-cotacao-backdrop');
+    const form = $('formCotacao');
+    const cancelBtn = $('btn-cancelar-cotacao');
+    const title = $('modal-cotacao-titulo');
+
+    backdrop?.classList.toggle('modal-readonly', state.modalSomenteLeitura);
+    form?.classList.toggle('modal-readonly-form', state.modalSomenteLeitura);
+
+    if (form) {
+      form.querySelectorAll('input, select, textarea').forEach((el) => {
+        if (state.modalSomenteLeitura) applyReadonlyElement(el);
+        else restoreReadonlyElement(el);
+      });
+    }
+
+    [
+      'btn-salvar-cotacao',
+      'btn-adicionar-fornecedor-cotacao',
+      'btn-aprovar-cotacao',
+      'btn-converter-cotacao-produto',
+    ].forEach((id) => setHiddenByReadonly(id, state.modalSomenteLeitura));
+
+    document
+      .querySelectorAll('#modal-cotacao-backdrop [data-remove-row]')
+      .forEach((btn) => {
+        if (state.modalSomenteLeitura) {
+          if (btn.dataset.readonlyTouchedHidden !== 'true') {
+            btn.dataset.readonlyTouchedHidden = 'true';
+            btn.dataset.readonlyWasHidden = btn.hidden ? 'true' : 'false';
+            btn.dataset.readonlyWasDisplay = btn.style.display || '';
+          }
+          btn.hidden = true;
+          btn.style.display = 'none';
+        } else if (btn.dataset.readonlyTouchedHidden === 'true') {
+          btn.hidden = btn.dataset.readonlyWasHidden === 'true';
+          btn.style.display = btn.dataset.readonlyWasDisplay || '';
+          delete btn.dataset.readonlyTouchedHidden;
+          delete btn.dataset.readonlyWasHidden;
+          delete btn.dataset.readonlyWasDisplay;
+        }
+      });
+
+    if (cancelBtn) {
+      if (state.modalSomenteLeitura) {
+        cancelBtn.dataset.normalText = cancelBtn.dataset.normalText || cancelBtn.textContent || 'Cancelar';
+        cancelBtn.textContent = 'Fechar';
+      } else if (cancelBtn.dataset.normalText) {
+        cancelBtn.textContent = cancelBtn.dataset.normalText;
+      }
+    }
+
+    if (title && !state.modalSomenteLeitura) {
+      title.removeAttribute('data-readonly-title');
+    }
   }
 
   async function apiJson(url, options = {}) {
@@ -796,9 +913,17 @@
           <td><strong>${escapeHtml(c.codigo || '')}</strong></td>
 
           <td>
-            <strong>${escapeHtml(c.item_nome || '')}</strong>
-            <span class="muted-line">${escapeHtml(c.categoria || '')}</span>
-            ${urgencia ? `<div class="row-badges">${urgencia}</div>` : ''}
+            <button
+              class="table-name-link cotacao-main"
+              type="button"
+              data-action="view"
+              data-id="${c.id}"
+              title="Visualizar cotação"
+            >
+              <strong>${escapeHtml(c.item_nome || '')}</strong>
+              <span class="muted-line">${escapeHtml(c.categoria || '')}</span>
+              ${urgencia ? `<span class="row-badges">${urgencia}</span>` : ''}
+            </button>
           </td>
 
           <td>${escapeHtml(qtd)}</td>
@@ -1190,6 +1315,10 @@
     if (window.ValoraCamposLongos?.enhance) {
       window.ValoraCamposLongos.enhance(tbody);
     }
+
+    if (state.modalSomenteLeitura) {
+      setCotacaoModalReadonly(true);
+    }
   }
 
   async function fillCotacaoForm(cotacao = {}) {
@@ -1234,6 +1363,7 @@
   }
 
   async function limparForm() {
+    setCotacaoModalReadonly(false);
     state.editandoId = null;
     state.fornecedorRows = [];
     state.cotacaoAtualDetalhe = null;
@@ -1301,6 +1431,19 @@
       console.error(err);
       toast(err.message || 'Erro ao abrir cotação.', true);
       closeModal();
+    }
+  }
+
+  async function visualizarCotacao(id) {
+    await abrirCotacao(id);
+
+    if (!$('modal-cotacao-backdrop')?.hidden) {
+      setCotacaoModalReadonly(true);
+      if ($('modal-cotacao-titulo')) {
+        const codigo = getValue('cotacao-codigo') || getValue('cotacao-codigo-ficha-principal') || '';
+        $('modal-cotacao-titulo').textContent = `Visualizando cotação ${codigo}`.trim();
+        $('modal-cotacao-titulo').setAttribute('data-readonly-title', 'true');
+      }
     }
   }
 
@@ -1377,6 +1520,11 @@
   }
 
   async function salvarCotacao() {
+    if (state.modalSomenteLeitura) {
+      toast('Esta cotação está aberta apenas para visualização.', true);
+      return;
+    }
+
     limparCamposObrigatoriosPendentes();
 
     if (!validateRequiredCustomFields()) {
@@ -1499,6 +1647,11 @@
   }
 
   async function salvarCotacaoSemFechar() {
+    if (state.modalSomenteLeitura) {
+      toast('Esta cotação está aberta apenas para visualização.', true);
+      return null;
+    }
+
     limparCamposObrigatoriosPendentes();
 
     if (!validateRequiredCustomFields()) {
@@ -1628,6 +1781,7 @@
         const id = Number(actionBtn.dataset.id);
         const action = actionBtn.dataset.action;
 
+        if (action === 'view') visualizarCotacao(id);
         if (action === 'edit') abrirCotacao(id);
         if (action === 'delete') excluirCotacao(id);
         return;

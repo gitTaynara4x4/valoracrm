@@ -33,13 +33,26 @@ function formatDocumento(cliente) {
 function formatNome(cliente) {
   const nome = cliente?.nome || '-';
   const fantasia = cliente?.nome_fantasia || '';
-  if (!fantasia) return `<strong>${escapeHtml(nome)}</strong>`;
+  const id = escapeHtml(cliente?.id || '');
+  const nomeHtml = !fantasia
+    ? `<strong>${escapeHtml(nome)}</strong>`
+    : `
+      <span style="display:flex; flex-direction:column; gap:2px;">
+        <strong>${escapeHtml(nome)}</strong>
+        <span class="subtle">${escapeHtml(fantasia)}</span>
+      </span>
+    `;
 
   return `
-    <div style="display:flex; flex-direction:column; gap:2px;">
-      <strong>${escapeHtml(nome)}</strong>
-      <span class="subtle">${escapeHtml(fantasia)}</span>
-    </div>
+    <button
+      type="button"
+      class="table-name-link"
+      data-action="visualizar"
+      data-id="${id}"
+      title="Visualizar cliente"
+    >
+      ${nomeHtml}
+    </button>
   `;
 }
 

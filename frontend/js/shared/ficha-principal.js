@@ -282,28 +282,28 @@
 
   const LOOKUP_CONFIG = {
     relacao_cliente: {
-      endpoint: '/api/formularios/opcoes-relacao?tipo=cliente',
+      endpoint: '/api/formularios/opcoes-relacao?tipo=cliente&limit=5000',
       fallbackEndpoint: '/api/clientes',
       keys: ['items', 'clientes', 'data'],
       empty: 'Nenhum cliente encontrado',
       label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.codigo} • ${item.nome}` : '', item.nome, item.razao_social, item.nome_fantasia, item.pessoa_contato, `Cliente #${item.id}`),
     },
     relacao_fornecedor: {
-      endpoint: '/api/formularios/opcoes-relacao?tipo=fornecedor',
+      endpoint: '/api/formularios/opcoes-relacao?tipo=fornecedor&limit=5000',
       fallbackEndpoint: '/api/fornecedores',
       keys: ['items', 'fornecedores', 'data'],
       empty: 'Nenhum fornecedor encontrado',
       label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.codigo} • ${item.nome}` : '', item.nome, item.razao_social, item.nome_fantasia, item.email, `Fornecedor #${item.id}`),
     },
     relacao_produto: {
-      endpoint: '/api/formularios/opcoes-relacao?tipo=produto',
+      endpoint: '/api/formularios/opcoes-relacao?tipo=produto&limit=5000',
       fallbackEndpoint: '/api/produtos',
       keys: ['items', 'produtos', 'data'],
       empty: 'Nenhum produto encontrado',
       label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.codigo} • ${item.nome}` : '', item.nome, item.descricao, item.categoria, `Produto #${item.id}`),
     },
     relacao_patrimonio: {
-      endpoint: '/api/formularios/opcoes-relacao?tipo=patrimonio',
+      endpoint: '/api/formularios/opcoes-relacao?tipo=patrimonio&limit=5000',
       fallbackEndpoint: '/api/patrimonio',
       keys: ['items', 'patrimonios', 'patrimonio', 'data'],
       empty: 'Nenhum patrimônio encontrado',
@@ -465,7 +465,7 @@
         const checked = selecionados.has(String(value)) ? 'checked' : '';
         const optionId = `custom-lookup-${slug}-${index}`;
         return `
-          <label class="custom-multiselect-option" for="${escapeHtml(optionId)}">
+          <label class="custom-multiselect-option" for="${escapeHtml(optionId)}" data-option-text="${escapeHtml(label)}">
             <input
               type="checkbox"
               id="${escapeHtml(optionId)}"
@@ -479,6 +479,7 @@
         `;
       }).join('') || `<div class="custom-multiselect-empty">${escapeHtml(config.empty || 'Nenhum item encontrado')}</div>`;
 
+      hydrateCustomMultiselects(base);
       updateCustomMultiselectValue(base, slug);
       panel.addEventListener('change', (event) => {
         const input = event.target;
@@ -975,37 +976,66 @@
           value="${escapeHtml(initialValue)}"
         />
         <div
-          class="custom-multiselect-panel"
-          data-multiselect-ui="${escapeHtml(slug)}"
+          class="custom-multiselect-dropdown"
+          data-multiselect-dropdown="${escapeHtml(slug)}"
           data-disabled="${disabled ? 'true' : 'false'}"
-          role="group"
-          aria-label="${escapeHtml(label)}"
         >
-          ${opcoes.length
-            ? opcoes
-                .map((opcao, index) => {
-                  const checked = selecionados.has(String(opcao)) ? 'checked' : '';
-                  const optionId = `${id}-opcao-${index}`;
-                  return `
-                    <label class="custom-multiselect-option" for="${escapeHtml(optionId)}">
-                      <input
-                        type="checkbox"
-                        id="${escapeHtml(optionId)}"
-                        value="${escapeHtml(opcao)}"
-                        data-multiselect-option="${escapeHtml(slug)}"
-                        ${checked}
-                        ${disabledAttr}
-                      />
-                      <span>${escapeHtml(opcao)}</span>
-                    </label>
-                  `;
-                })
-                .join('')
-            : '<div class="custom-multiselect-empty">Nenhuma opção cadastrada.</div>'}
+          <button
+            type="button"
+            class="custom-multiselect-trigger"
+            data-multiselect-trigger="${escapeHtml(slug)}"
+            ${disabledAttr}
+          >
+            <span class="custom-multiselect-placeholder" data-multiselect-placeholder="${escapeHtml(slug)}">Clique para selecionar...</span>
+            <span class="custom-multiselect-selected" data-multiselect-selected="${escapeHtml(slug)}"></span>
+            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+          </button>
+
+          <div class="custom-multiselect-menu" data-multiselect-menu="${escapeHtml(slug)}">
+            <div class="custom-multiselect-search-wrap">
+              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+              <input
+                type="search"
+                class="custom-multiselect-search"
+                data-multiselect-search="${escapeHtml(slug)}"
+                placeholder="Buscar opção..."
+              />
+            </div>
+
+            <div
+              class="custom-multiselect-panel"
+              data-multiselect-ui="${escapeHtml(slug)}"
+              data-disabled="${disabled ? 'true' : 'false'}"
+              role="group"
+              aria-label="${escapeHtml(label)}"
+            >
+              ${opcoes.length
+                ? opcoes
+                    .map((opcao, index) => {
+                      const checked = selecionados.has(String(opcao)) ? 'checked' : '';
+                      const optionId = `${id}-opcao-${index}`;
+                      return `
+                        <label class="custom-multiselect-option" for="${escapeHtml(optionId)}" data-option-text="${escapeHtml(opcao)}">
+                          <input
+                            type="checkbox"
+                            id="${escapeHtml(optionId)}"
+                            value="${escapeHtml(opcao)}"
+                            data-multiselect-option="${escapeHtml(slug)}"
+                            ${checked}
+                            ${disabledAttr}
+                          />
+                          <span>${escapeHtml(opcao)}</span>
+                        </label>
+                      `;
+                    })
+                    .join('')
+                : '<div class="custom-multiselect-empty">Nenhuma opção cadastrada.</div>'}
+            </div>
+          </div>
         </div>
       `;
 
-      html += '<small class="field-hint field-help">Selecione uma ou mais opções.</small>';
+      html += '<small class="field-hint field-help">Clique no campo para abrir a lista e selecione uma ou mais opções.</small>';
     } else if (isTipoRelacao(tipo)) {
       if (isTipoRelacaoMultipla(tipo)) {
         const selecionados = parseMultiValor(valor);
@@ -1023,18 +1053,47 @@
             value="${escapeHtml(initialValue)}"
           />
           <div
-            class="custom-multiselect-panel custom-relation-multi-panel"
-            data-multiselect-ui="${escapeHtml(slug)}"
-            data-custom-lookup-multi="${escapeHtml(tipo)}"
-            data-current-value="${escapeHtml(initialValue)}"
+            class="custom-multiselect-dropdown custom-relation-dropdown"
+            data-multiselect-dropdown="${escapeHtml(slug)}"
             data-disabled="${disabled ? 'true' : 'false'}"
-            role="group"
-            aria-label="${escapeHtml(label)}"
           >
-            <div class="custom-multiselect-empty">Carregando registros...</div>
+            <button
+              type="button"
+              class="custom-multiselect-trigger"
+              data-multiselect-trigger="${escapeHtml(slug)}"
+              ${disabled ? 'disabled' : ''}
+            >
+              <span class="custom-multiselect-placeholder" data-multiselect-placeholder="${escapeHtml(slug)}">Clique para selecionar...</span>
+              <span class="custom-multiselect-selected" data-multiselect-selected="${escapeHtml(slug)}"></span>
+              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+            </button>
+
+            <div class="custom-multiselect-menu" data-multiselect-menu="${escapeHtml(slug)}">
+              <div class="custom-multiselect-search-wrap">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <input
+                  type="search"
+                  class="custom-multiselect-search"
+                  data-multiselect-search="${escapeHtml(slug)}"
+                  placeholder="Buscar registro..."
+                />
+              </div>
+
+              <div
+                class="custom-multiselect-panel custom-relation-multi-panel"
+                data-multiselect-ui="${escapeHtml(slug)}"
+                data-custom-lookup-multi="${escapeHtml(tipo)}"
+                data-current-value="${escapeHtml(initialValue)}"
+                data-disabled="${disabled ? 'true' : 'false'}"
+                role="group"
+                aria-label="${escapeHtml(label)}"
+              >
+                <div class="custom-multiselect-empty">Carregando registros...</div>
+              </div>
+            </div>
           </div>
         `;
-        html += '<small class="field-hint field-help">Selecione um ou mais registros do sistema.</small>';
+        html += '<small class="field-hint field-help">Clique no campo para abrir a lista e selecione um ou mais registros.</small>';
       } else {
         html += `
           <select
@@ -1365,13 +1424,56 @@
     return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
   }
 
+  function getMultiselectOptionLabel(input) {
+    const label = input?.closest?.('.custom-multiselect-option');
+    const spanText = label?.querySelector?.('span')?.textContent;
+    return String(spanText || input?.value || '').trim();
+  }
+
+  function renderMultiselectResumo(base, slug, checkedInputs) {
+    const safeSlug = cssEscape(slug);
+    const dropdown = base.querySelector(`[data-multiselect-dropdown="${safeSlug}"]`);
+    const selectedEl = base.querySelector(`[data-multiselect-selected="${safeSlug}"]`);
+    const placeholderEl = base.querySelector(`[data-multiselect-placeholder="${safeSlug}"]`);
+    if (!selectedEl || !placeholderEl) return;
+
+    const checked = checkedInputs || Array.from(base.querySelectorAll(`[data-multiselect-option="${safeSlug}"]:checked`));
+    const labels = checked.map(getMultiselectOptionLabel).filter(Boolean);
+
+    placeholderEl.classList.toggle('is-hidden', labels.length > 0);
+    selectedEl.innerHTML = '';
+
+    if (!labels.length) {
+      placeholderEl.textContent = 'Clique para selecionar...';
+      dropdown?.classList.remove('has-value');
+      return;
+    }
+
+    dropdown?.classList.add('has-value');
+
+    labels.slice(0, 3).forEach((texto) => {
+      const chip = document.createElement('span');
+      chip.className = 'custom-multiselect-selected-chip';
+      chip.textContent = texto;
+      selectedEl.appendChild(chip);
+    });
+
+    if (labels.length > 3) {
+      const more = document.createElement('span');
+      more.className = 'custom-multiselect-selected-more';
+      more.textContent = `+${labels.length - 3}`;
+      selectedEl.appendChild(more);
+    }
+  }
+
   function updateCustomMultiselectValue(root, slug) {
     const base = root || document;
     const safeSlug = cssEscape(slug);
     const hidden = base.querySelector(`input.custom-multiselect-hidden[data-custom-field="${safeSlug}"]`);
     if (!hidden) return;
 
-    const checked = Array.from(base.querySelectorAll(`[data-multiselect-option="${safeSlug}"]:checked`))
+    const checkedInputs = Array.from(base.querySelectorAll(`[data-multiselect-option="${safeSlug}"]:checked`));
+    const checked = checkedInputs
       .map((input) => String(input.value ?? '').trim())
       .filter(Boolean);
 
@@ -1382,10 +1484,92 @@
       panel.classList.toggle('has-value', checked.length > 0);
       if (checked.length > 0) panel.classList.remove('is-invalid');
     }
+
+    renderMultiselectResumo(base, slug, checkedInputs);
+  }
+
+  function fecharDropdownsMultiselect(exceto = null) {
+    document.querySelectorAll('.custom-multiselect-dropdown.is-open').forEach((dropdown) => {
+      if (exceto && dropdown === exceto) return;
+      dropdown.classList.remove('is-open');
+      dropdown.closest('.custom-field-item')?.classList.remove('is-dropdown-open');
+      dropdown.closest('.form-group')?.classList.remove('is-dropdown-open');
+    });
+  }
+
+  function filtrarOpcoesMultiselect(dropdown, termo) {
+    const q = String(termo || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+    dropdown.querySelectorAll('.custom-multiselect-option').forEach((option) => {
+      const text = String(option.getAttribute('data-option-text') || option.textContent || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+
+      option.hidden = q && !text.includes(q);
+    });
+  }
+
+  function bindDropdownMultiselect(dropdown, base) {
+    if (!dropdown || dropdown.dataset.dropdownBound === 'true') return;
+    dropdown.dataset.dropdownBound = 'true';
+
+    const slug = String(dropdown.getAttribute('data-multiselect-dropdown') || '').trim();
+    const trigger = dropdown.querySelector('[data-multiselect-trigger]');
+    const search = dropdown.querySelector('[data-multiselect-search]');
+
+    trigger?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (dropdown.getAttribute('data-disabled') === 'true' || trigger.disabled) return;
+
+      const willOpen = !dropdown.classList.contains('is-open');
+      fecharDropdownsMultiselect(dropdown);
+      dropdown.classList.toggle('is-open', willOpen);
+      dropdown.closest('.custom-field-item')?.classList.toggle('is-dropdown-open', willOpen);
+      dropdown.closest('.form-group')?.classList.toggle('is-dropdown-open', willOpen);
+
+      if (willOpen) {
+        search?.focus({ preventScroll: true });
+        if (slug) updateCustomMultiselectValue(base, slug);
+      }
+    });
+
+    search?.addEventListener('input', () => {
+      filtrarOpcoesMultiselect(dropdown, search.value);
+    });
+
+    dropdown.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+  }
+
+  function ensureMultiselectOutsideListener() {
+    if (global.__valoraFichaPrincipalMultiselectOutsideBound) return;
+    global.__valoraFichaPrincipalMultiselectOutsideBound = true;
+
+    document.addEventListener('click', (event) => {
+      if (event.target?.closest?.('.custom-multiselect-dropdown')) return;
+      fecharDropdownsMultiselect();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') fecharDropdownsMultiselect();
+    });
   }
 
   function hydrateCustomMultiselects(root = document) {
     const base = root || document;
+    ensureMultiselectOutsideListener();
+
+    base.querySelectorAll('.custom-multiselect-dropdown[data-multiselect-dropdown]').forEach((dropdown) => {
+      bindDropdownMultiselect(dropdown, base);
+    });
 
     base.querySelectorAll('.custom-multiselect-panel[data-multiselect-ui]:not(.custom-relation-multi-panel)').forEach((panel) => {
       const slug = String(panel.getAttribute('data-multiselect-ui') || '').trim();
@@ -1530,13 +1714,22 @@
     return true;
   }
 
+  function cleanSectionTitleForSidebar(value, index = 0) {
+    const text = String(value || '')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*[:;|]+\s*$/g, '')
+      .trim();
+
+    return text || `Seção ${index + 1}`;
+  }
+
   function getSectionTitleFromCard(card, index) {
     const raw =
       card.querySelector('.custom-section-head h4')?.textContent ||
       card.querySelector('h4')?.textContent ||
       `Seção ${index + 1}`;
 
-    return String(raw).replace(/\s+/g, ' ').trim();
+    return cleanSectionTitleForSidebar(raw, index);
   }
 
   function createTabFichaController({

@@ -1,10 +1,10 @@
 import { state } from './state.js';
 import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js';
 import { $, toast } from './utils.js';
-import { renderTabelaClientes } from './table.js';
+import { renderTabelaClientes } from './table.js?v=20260630-readonly-v5';
 import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
-import { bindClientModal, openClientModalNew, openClientModalEdit, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260629-zapschat-v1';
+import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260630-readonly-v5';
 import { bindImportExport, exportarClientesJSON } from './import-export.js';
 
 function renderAll() {
@@ -63,6 +63,11 @@ function bindTabelaActions() {
 
     if (btn.dataset.action === 'zapschat') {
       await abrirClienteNoZapsChat(id, { button: btn });
+      return;
+    }
+
+    if (btn.dataset.action === 'visualizar') {
+      await openClientModalView(id);
       return;
     }
 

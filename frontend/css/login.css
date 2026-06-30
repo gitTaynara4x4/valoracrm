@@ -601,3 +601,73 @@ html[data-theme="dark"] input:-webkit-autofill:focus {
     min-height: 285px;
   }
 }
+
+/* =========================================================
+   LOGIN DARK CHATGPT-LIKE | V6
+   ========================================================= */
+html[data-theme="dark"] body,
+html[data-theme="dark"] .login-layout {
+  background: #212121 !important;
+  color: #ECECEC !important;
+}
+
+html[data-theme="dark"] .login-panel {
+  background:
+    radial-gradient(circle at top right, rgba(75, 195, 199, 0.08), transparent 32%),
+    #2F2F2F !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow: -24px 0 64px rgba(0, 0, 0, 0.24) !important;
+}
+
+html[data-theme="dark"] .login-hero {
+  background: #171717 !important;
+}
+
+html[data-theme="dark"] .login-heading h2,
+html[data-theme="dark"] .token-message strong,
+html[data-theme="dark"] .login-footer a {
+  color: #ECECEC !important;
+}
+
+html[data-theme="dark"] .login-heading p,
+html[data-theme="dark"] .remember,
+html[data-theme="dark"] .login-footer p,
+html[data-theme="dark"] .form-field label {
+  color: #B4B4B4 !important;
+}
+
+html[data-theme="dark"] .input-box {
+  background: #303030 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #ECECEC !important;
+}
+
+html[data-theme="dark"] .input-box:focus-within {
+  border-color: rgba(75, 195, 199, 0.48) !important;
+  box-shadow: 0 0 0 3px rgba(75, 195, 199, 0.14) !important;
+}
+
+html[data-theme="dark"] .input-box input {
+  color: #ECECEC !important;
+}
+
+html[data-theme="dark"] .input-box input::placeholder {
+  color: #8E8E8E !important;
+}
+
+html[data-theme="dark"] .eye-btn:hover {
+  background: #383838 !important;
+  color: #ECECEC !important;
+}
+
+html[data-theme="dark"] .token-message {
+  background: rgba(75, 195, 199, 0.10) !important;
+  border-color: rgba(75, 195, 199, 0.18) !important;
+}
+
+html[data-theme="dark"] input:-webkit-autofill,
+html[data-theme="dark"] input:-webkit-autofill:hover,
+html[data-theme="dark"] input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ECECEC !important;
+  box-shadow: 0 0 0 1000px #303030 inset !important;
+}
