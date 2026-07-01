@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js';
 import { $, toast } from './utils.js';
-import { renderTabelaClientes } from './table.js?v=20260630-readonly-v5';
+import { renderTabelaClientes } from './table.js?v=20260701-localizar-formatavel-v1';
 import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
 import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260630-readonly-v5';
@@ -150,6 +150,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindPagination();
   bindTopActions();
   bindFormularioActions();
+
+  try {
+    await window.ValoraLocalizarPersonalizado?.setup?.({
+      modulo: 'clientes',
+      filtersContainerId: 'localizar-personalizado-clientes',
+    });
+  } catch (err) {
+    console.warn('[Clientes] localizar personalizado indisponível:', err);
+  }
+
   initFilters(async () => {
     try {
       await reloadClientes({ offset: 0, silent: true });

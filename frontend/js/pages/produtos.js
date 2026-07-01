@@ -10,57 +10,45 @@
 
   const SYSTEM_FIELD_SLUGS = new Set([
     'codigo',
-    'data_cadastro',
-  ]);
-
-  const PRODUTO_STATUS_VALUES = new Set([
-    'ativo',
-    'inativo',
-    'bloqueado',
-    'descontinuado',
-    'fora de linha',
-    'fora_de_linha',
-    'suspenso',
-    'true',
-    'false',
-    'sim',
-    'nao',
-    'não',
-    'yes',
-    'no',
-  ]);
-
-  const PRODUTO_IDENTIDADE_KEYS = [
-    'nome_produto',
+    'cod_ref_id',
+    'cod_ref',
+    'codigo_referencia',
+    'codigo_barras',
+    'nome',
     'produto',
+    'nome_produto',
     'nome_do_produto',
     'identificacao_do_produto',
     'identificacao_produto',
     'nome_generico',
-    'nome',
-    'descricao_curta',
-    'titulo',
-    'item',
-    'material',
-    'modelo',
+    'descricao',
     'descricao_do_produto',
     'descricao_produto',
-    'descricao',
-  ];
-
-  const PRODUTO_DETALHE_KEYS = [
-    'descricao_do_produto',
-    'descricao_produto',
-    'descricao',
     'descricao_curta',
-    'nome_generico',
-    'fabricante',
-    'marca',
-    'modelo',
-    'cod_ref_fabric',
-    'codigo_barras',
-    'origem',
-  ];
+    'observacoes',
+    'observacao',
+    'categoria',
+    'categorias',
+    'classe',
+    'grupo',
+    'familia',
+    'unidade',
+    'unidade_medida',
+    'preco_venda',
+    'valor_de_venda',
+    'custo',
+    'valor_de_custo',
+    'custo_efetivo',
+    'estoque_atual',
+    'quantidade_atual',
+    'qtd_atual',
+    'estoque',
+    'ativo',
+    'status',
+    'status_atual',
+    'situacao',
+    'data_cadastro',
+  ]);
 
   let produtos = [];
   let produtosPage = { offset: 0, limit: 50, total: 0, hasMore: false };
@@ -255,61 +243,12 @@
     return {};
   }
 
-  function getFormularioProdutoSlugs() {
-    const slugs = new Set();
-
-    const addCampo = (campo) => {
-      const slug = slugify(campo?.slug || campo?.nome || campo?.label || campo?.id || '');
-      if (slug) slugs.add(slug);
-    };
-
-    const walk = (node) => {
-      if (!node || typeof node !== 'object') return;
-
-      if (Array.isArray(node)) {
-        node.forEach(walk);
-        return;
-      }
-
-      if (node.slug || node.nome || node.label) {
-        addCampo(node);
-      }
-
-      ['campos', 'fields', 'itens', 'items', 'secoes', 'sections', 'grupos', 'groups'].forEach((key) => {
-        if (Array.isArray(node[key])) node[key].forEach(walk);
-      });
-    };
-
-    walk(formularioProdutos?.campos || []);
-    walk(formularioProdutos?.secoes || []);
-    walk(formularioProdutos?.sections || []);
-    walk(formularioProdutos?.grupos || []);
-    walk(formularioProdutos?.modelo?.campos || []);
-    walk(formularioProdutos?.modelo?.secoes || []);
-
-    document
-      .querySelectorAll('#formProduto [data-custom-field], #custom-fields-container [name]')
-      .forEach((el) => {
-        const slug = slugify(el.dataset?.customField || el.name || el.id || '');
-        if (slug) slugs.add(slug);
-      });
-
-    return slugs;
-  }
-
   function filtrarCustomFieldsSistema(customFields = {}) {
     const clean = {};
-    const formSlugs = getFormularioProdutoSlugs();
 
     Object.entries(customFields || {}).forEach(([key, value]) => {
-      const slug = slugify(key);
+      const slug = String(key || '').trim();
       if (!slug || SYSTEM_FIELD_SLUGS.has(slug)) return;
-
-      // Só envia como custom_field aquilo que realmente existe no formulário
-      // de Produtos. Assim o backend não recusa importações, mas campos como
-      // nome_produto, nome_generico, modelo e fabricante deixam de ser perdidos.
-      if (!formSlugs.has(slug)) return;
-
       clean[slug] = value;
     });
 
@@ -412,149 +351,45 @@
     return fallback;
   }
 
-  function normalizeProdutoDisplayText(value) {
-    return String(value ?? '')
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[._-]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  function isStatusProdutoText(value) {
-    const text = normalizeProdutoDisplayText(value);
-    return !!text && PRODUTO_STATUS_VALUES.has(text);
-  }
-
-  function isUsefulProdutoText(value, { allowStatus = false } = {}) {
-    const raw = String(value ?? '').trim();
-    if (!raw || raw === '-') return false;
-
-    const normalized = normalizeProdutoDisplayText(raw);
-    if (!normalized || normalized === '-') return false;
-    if (!allowStatus && PRODUTO_STATUS_VALUES.has(normalized)) return false;
-    if (/^(true|false|null|undefined)$/i.test(normalized)) return false;
-    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return false;
-    if (/^-?\d+([,.]\d+)?$/.test(raw)) return true;
-
-    return raw.length >= 2;
-  }
-
-  function pickUsefulValueFromCustom(custom, keys, options = {}) {
-    const data = normalizeCustomFields(custom);
-
-    for (const key of keys) {
-      const value = data?.[key];
-      if (isUsefulProdutoText(value, options)) return String(value).trim();
-    }
-
-    return '';
-  }
-
-  function pickFirstUsefulCustomValue(custom, ignored = []) {
+  function firstUsefulCustomValue(custom) {
     const data = normalizeCustomFields(custom);
     const blocked = new Set([
-      ...Array.from(SYSTEM_FIELD_SLUGS),
-      ...ignored,
-      'status',
-      'status_atual',
-      'situacao',
-      'ativo',
       'data_cadastro',
-      'criado_em',
-      'atualizado_em',
-      'preco_venda',
-      'valor_de_venda',
-      'custo',
-      'valor_de_custo',
-      'custo_efetivo',
-      'estoque_atual',
+      'status_atual',
+      'ativo',
+      'codigo',
+      'cod_ref_id',
+      'codigo_barras',
       'quantidade_atual',
-      'qtd_atual',
-      'estoque',
+      'estoque_atual',
+      'preco_venda',
+      'valor_de_custo',
+      'custo',
     ]);
 
     for (const [key, value] of Object.entries(data)) {
       if (blocked.has(String(key))) continue;
-      if (isUsefulProdutoText(value)) return String(value).trim();
+      const text = String(value ?? '').trim();
+      if (text && !/^true|false$/i.test(text) && text.length >= 2) return text;
     }
 
     return '';
-  }
-
-  function produtoDisplayInfo(produto = {}) {
-    const custom = normalizeCustomFields(produto.custom_fields);
-    const nativeName = String(produto.nome || produto.nome_produto || '').trim();
-    const customName = pickUsefulValueFromCustom(custom, PRODUTO_IDENTIDADE_KEYS) || pickFirstUsefulCustomValue(custom);
-    const nome = isUsefulProdutoText(nativeName) ? nativeName : (customName || `Produto ${produto.codigo || ''}`.trim() || nativeName || 'Produto sem nome');
-
-    const detalhe = [
-      produto.descricao,
-      pickUsefulValueFromCustom(custom, PRODUTO_DETALHE_KEYS),
-      customName,
-    ].find((value) => {
-      if (!isUsefulProdutoText(value)) return false;
-      return normalizeProdutoDisplayText(value) !== normalizeProdutoDisplayText(nome);
-    }) || '';
-
-    const categoria = isUsefulProdutoText(produto.categoria)
-      ? produto.categoria
-      : pickUsefulValueFromCustom(custom, ['categoria', 'categorias', 'classe', 'grupo', 'familia']);
-
-    const preco = isUsefulProdutoText(produto.preco_venda)
-      ? produto.preco_venda
-      : pickUsefulValueFromCustom(custom, ['preco_venda', 'preco_final_venda_tabela_01', 'preco_final', 'valor_venda', 'venda']);
-
-    const estoque = isUsefulProdutoText(produto.estoque_atual)
-      ? produto.estoque_atual
-      : pickUsefulValueFromCustom(custom, ['estoque_atual', 'quantidade_atual', 'qtd_atual', 'estoque']);
-
-    return {
-      nome,
-      detalhe,
-      categoria,
-      preco,
-      estoque,
-      nomeCorrigidoPorCustom: isStatusProdutoText(nativeName) && !!customName,
-    };
-  }
-
-  function atualizarResumoModalProduto(produto = null, modo = 'novo') {
-    const title = $('modal-produto-titulo');
-    const sidebarName = document.querySelector('#modal-produto-backdrop .produto-sidebar-user strong');
-    const sidebarDesc = document.querySelector('#modal-produto-backdrop .produto-sidebar-user span');
-
-    if (!produto) {
-      if (title) title.textContent = 'Novo produto';
-      if (sidebarName) sidebarName.textContent = 'Novo produto';
-      if (sidebarDesc) sidebarDesc.textContent = 'Ficha do catálogo';
-      return;
-    }
-
-    const info = produtoDisplayInfo(produto);
-    const prefix = modo === 'visualizar' ? 'Visualizar' : 'Editar';
-
-    if (title) title.textContent = `${prefix}: ${info.nome}`;
-    if (sidebarName) sidebarName.textContent = info.nome || 'Produto';
-    if (sidebarDesc) {
-      const partes = [produto.codigo ? `Cód. ${produto.codigo}` : '', info.categoria, info.detalhe]
-        .filter(Boolean)
-        .slice(0, 2);
-      sidebarDesc.textContent = partes.join(' • ') || 'Ficha do catálogo';
-    }
-  }
-
-  function firstUsefulCustomValue(custom) {
-    return pickFirstUsefulCustomValue(custom);
   }
 
   function buildProdutoBaseFromCustom(customFields, fallback = {}) {
     const custom = normalizeCustomFields(customFields);
 
-    const nome = pickUsefulValueFromCustom(custom, PRODUTO_IDENTIDADE_KEYS)
-      || (isUsefulProdutoText(fallback.nome) ? String(fallback.nome).trim() : '')
-      || firstUsefulCustomValue(custom);
+    const nome = getCustomValue(custom, [
+      'nome',
+      'produto',
+      'nome_produto',
+      'nome_do_produto',
+      'identificacao_do_produto',
+      'identificacao_produto',
+      'nome_generico',
+      'descricao_curta',
+      'titulo',
+    ], fallback.nome || '') || firstUsefulCustomValue(custom);
 
     const descricao = getCustomValue(custom, [
       'descricao',
@@ -627,7 +462,7 @@
     const custom = normalizeCustomFields(produto.custom_fields);
     custom.data_cadastro = produto.data_cadastro || produto.criado_em || produto.created_at || custom.data_cadastro || '';
 
-    if (isUsefulProdutoText(produto.nome)) {
+    if (produto.nome) {
       if (!custom.nome) custom.nome = produto.nome;
       if (!custom.nome_produto) custom.nome_produto = produto.nome;
       if (!custom.nome_generico) custom.nome_generico = produto.nome;
@@ -1086,12 +921,18 @@
   function montarUrlProdutos({ offset = produtosPage.offset || 0, limit = produtosPage.limit || 50 } = {}) {
     const params = new URLSearchParams();
     const busca = String($('busca-produtos')?.value || '').trim();
+    const categoria = String($('filtro-categoria-produtos')?.value || '').trim();
+    const ativo = String($('filtro-ativo-produtos')?.value || '').trim();
 
     params.set('paginated', 'true');
     params.set('limit', String(limit));
     params.set('offset', String(offset));
 
     if (busca) params.set('busca', busca);
+    if (categoria) params.set('categoria', categoria);
+    if (ativo) params.set('ativo', ativo);
+
+    window.ValoraLocalizarPersonalizado?.addParams?.(params, 'localizar-personalizado-produtos');
 
     return `${API_PRODUTOS}?${params.toString()}`;
   }
@@ -1102,7 +943,7 @@
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="empty-state" style="border:none; text-align:center;">
+        <td colspan="${6 + getCamposTabelaProdutos().length}" class="empty-state" style="border:none; text-align:center;">
           ${escapeHtml(message)}
         </td>
       </tr>
@@ -1177,16 +1018,122 @@
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
+  const DEFAULT_NATIVE_COLUMNS_PRODUTOS = [
+    { key: 'codigo', label: 'Código' },
+    { key: 'produto', label: 'Produto' },
+    { key: 'categoria', label: 'Categoria' },
+    { key: 'preco', label: 'Preço' },
+    { key: 'estoque', label: 'Estoque' },
+    { key: 'acoes', label: 'Ações', fixed: true },
+  ];
+
+  function getCamposTabelaProdutos() {
+    return window.ValoraLocalizarPersonalizado?.getTableFields?.('produtos') || [];
+  }
+
+  function getColunasNativasProdutos() {
+    const columns = window.ValoraLocalizarPersonalizado?.getNativeColumns?.('produtos');
+    return Array.isArray(columns) && columns.length ? columns : DEFAULT_NATIVE_COLUMNS_PRODUTOS;
+  }
+
+  function dividirColunasNativasProdutos(columns) {
+    const beforeDynamic = [];
+    const afterDynamic = [];
+
+    columns.forEach((col) => {
+      if (col.key === 'acoes') {
+        afterDynamic.push(col);
+      } else {
+        beforeDynamic.push(col);
+      }
+    });
+
+    return { beforeDynamic, afterDynamic };
+  }
+
+  function renderHeadersProdutos(nativeColumns, fields) {
+    const row = document.querySelector('.valora-table thead tr');
+    if (!row) return;
+
+    const { beforeDynamic, afterDynamic } = dividirColunasNativasProdutos(nativeColumns);
+
+    row.innerHTML = `
+      ${beforeDynamic.map((col) => `<th>${escapeHtml(col.label || col.key)}</th>`).join('')}
+      ${fields.map((field) => `<th>${escapeHtml(field.label || field.key)}</th>`).join('')}
+      ${afterDynamic.map((col) => `<th class="${col.key === 'acoes' ? 'text-right' : ''}">${escapeHtml(col.label || col.key)}</th>`).join('')}
+    `;
+  }
+
+  function renderCamposTabelaProdutos(produto, fields) {
+    return fields
+      .map((field) => `<td>${escapeHtml(window.ValoraLocalizarPersonalizado?.formatValue?.(produto, field) || '-')}</td>`)
+      .join('');
+  }
+
+  function renderAcoesProduto(produto) {
+    return `
+      <td class="text-right">
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+          <button class="btn-icon" data-action="editar" data-id="${escapeHtml(produto.id)}" title="Editar produto">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+
+          <button class="btn-icon danger" data-action="excluir" data-id="${escapeHtml(produto.id)}" title="Excluir produto">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      </td>
+    `;
+  }
+
+  function renderCelulaNativaProduto(produto, key) {
+    switch (key) {
+      case 'codigo':
+        return `<td><span class="badge-codigo">${escapeHtml(produto.codigo || '-')}</span></td>`;
+      case 'produto':
+        return `
+          <td>
+            <button
+              type="button"
+              class="table-name-link produto-main"
+              data-action="visualizar"
+              data-id="${escapeHtml(produto.id)}"
+              title="Visualizar produto"
+            >
+              <strong>${escapeHtml(produto.nome || '-')}</strong>
+              ${produto.descricao ? `<span>${escapeHtml(produto.descricao)}</span>` : ''}
+            </button>
+          </td>
+        `;
+      case 'categoria':
+        return `<td>${escapeHtml(produto.categoria || '-')}</td>`;
+      case 'preco':
+        return `<td>${escapeHtml(formatCurrency(produto.preco_venda || ''))}</td>`;
+      case 'estoque':
+        return `<td>${escapeHtml(produto.estoque_atual || '-')}</td>`;
+      case 'acoes':
+        return renderAcoesProduto(produto);
+      default:
+        return '';
+    }
+  }
+
   function renderTabelaProdutos() {
     const tbody = $('tbody-produtos');
     const spanCount = $('contagem-produtos');
 
     if (!tbody) return;
 
+    const dynamicFields = getCamposTabelaProdutos();
+    const nativeColumns = getColunasNativasProdutos();
+    const { beforeDynamic, afterDynamic } = dividirColunasNativasProdutos(nativeColumns);
+    renderHeadersProdutos(nativeColumns, dynamicFields);
+    const colspan = nativeColumns.length + dynamicFields.length;
+
     if (!produtos.length) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="6" class="empty-state">Nenhum produto encontrado.</td>
+          <td colspan="${colspan}" class="empty-state">Nenhum produto encontrado.</td>
         </tr>
       `;
 
@@ -1195,45 +1142,13 @@
       return;
     }
 
-    tbody.innerHTML = produtos.map((produto) => {
-      const info = produtoDisplayInfo(produto);
-      const avisoNome = info.nomeCorrigidoPorCustom
-        ? '<span class="produto-warning-chip">nome veio do formulário</span>'
-        : '';
-
-      return `
-        <tr>
-          <td><span class="badge-codigo">${escapeHtml(produto.codigo || '-')}</span></td>
-          <td>
-            <button
-              type="button"
-              class="table-name-link produto-main"
-              data-action="visualizar"
-              data-id="${produto.id}"
-              title="Visualizar produto"
-            >
-              <strong>${escapeHtml(info.nome || '-')}</strong>
-              ${info.detalhe ? `<span>${escapeHtml(info.detalhe)}</span>` : ''}
-              ${avisoNome}
-            </button>
-          </td>
-          <td>${escapeHtml(info.categoria || '-')}</td>
-          <td>${escapeHtml(formatCurrency(info.preco || ''))}</td>
-          <td>${escapeHtml(info.estoque || '-')}</td>
-          <td class="text-right">
-            <div style="display:flex; gap:8px; justify-content:flex-end;">
-              <button class="btn-icon" data-action="editar" data-id="${produto.id}" title="Editar produto">
-                <i class="fa-solid fa-pen"></i>
-              </button>
-
-              <button class="btn-icon danger" data-action="excluir" data-id="${produto.id}" title="Excluir produto">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
+    tbody.innerHTML = produtos.map((produto) => `
+      <tr>
+        ${beforeDynamic.map((col) => renderCelulaNativaProduto(produto, col.key)).join('')}
+        ${renderCamposTabelaProdutos(produto, dynamicFields)}
+        ${afterDynamic.map((col) => renderCelulaNativaProduto(produto, col.key)).join('')}
+      </tr>
+    `).join('');
 
     if (spanCount) {
       const total = Number(produtosPage.total || produtos.length || 0);
@@ -1279,7 +1194,8 @@
   async function abrirModalProdutoNovo() {
     setProdutoModalReadonly(false);
     desativarValidacaoGlobalProduto();
-    atualizarResumoModalProduto(null, 'novo');
+    const titulo = $('modal-produto-titulo');
+    if (titulo) titulo.textContent = 'Novo produto';
 
     produtoEditandoId = null;
     produtoAtualDetalhe = null;
@@ -1307,7 +1223,8 @@
 
   async function abrirModalProdutoEditar(produto) {
     desativarValidacaoGlobalProduto();
-    atualizarResumoModalProduto(produto, 'editar');
+    const titulo = $('modal-produto-titulo');
+    if (titulo) titulo.textContent = 'Editar produto';
 
     produtoEditandoId = produto.id;
     produtoAtualDetalhe = produto;
@@ -1330,7 +1247,8 @@
   async function abrirModalProdutoVisualizar(produto) {
     try {
       desativarValidacaoGlobalProduto();
-      atualizarResumoModalProduto(produto, 'visualizar');
+      const titulo = $('modal-produto-titulo');
+      if (titulo) titulo.textContent = 'Visualizar produto';
 
       produtoEditandoId = produto.id;
       produtoAtualDetalhe = produto;
@@ -1768,11 +1686,25 @@
 
     let produtosBuscaTimer = null;
 
-    $('busca-produtos')?.addEventListener('input', () => {
+    const recarregarProdutosFiltro = (delay = 350) => {
       clearTimeout(produtosBuscaTimer);
       produtosBuscaTimer = setTimeout(() => {
         carregarProdutos({ offset: 0, silent: true });
-      }, 350);
+      }, delay);
+    };
+
+    $('busca-produtos')?.addEventListener('input', () => recarregarProdutosFiltro(350));
+    $('filtro-categoria-produtos')?.addEventListener('input', () => recarregarProdutosFiltro(350));
+    $('filtro-ativo-produtos')?.addEventListener('change', () => recarregarProdutosFiltro(0));
+    window.ValoraLocalizarPersonalizado?.bindFilters?.('localizar-personalizado-produtos', () => recarregarProdutosFiltro(0));
+
+    $('btn-filtrar-produtos')?.addEventListener('click', () => carregarProdutos({ offset: 0 }));
+    $('btn-limpar-filtros-produtos')?.addEventListener('click', () => {
+      if ($('busca-produtos')) $('busca-produtos').value = '';
+      if ($('filtro-categoria-produtos')) $('filtro-categoria-produtos').value = '';
+      if ($('filtro-ativo-produtos')) $('filtro-ativo-produtos').value = '';
+      window.ValoraLocalizarPersonalizado?.clearFilters?.('localizar-personalizado-produtos');
+      carregarProdutos({ offset: 0 });
     });
 
     $('paginacao-produtos')?.addEventListener('click', (event) => {
@@ -1879,6 +1811,10 @@
 
     try {
       await carregarFormularioProdutos({ loadingContainer: '#custom-fields-container' });
+      await window.ValoraLocalizarPersonalizado?.setup?.({
+        modulo: 'produtos',
+        filtersContainerId: 'localizar-personalizado-produtos',
+      });
       await renderCustomFieldsInputs({});
       await carregarProdutos();
     } catch (err) {

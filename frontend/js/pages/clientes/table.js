@@ -1,6 +1,60 @@
 import { state } from './state.js';
 import { escapeHtml } from './utils.js';
 
+const DEFAULT_NATIVE_COLUMNS = [
+  { key: 'codigo', label: 'Código' },
+  { key: 'tipo', label: 'Tipo' },
+  { key: 'nome', label: 'Nome / Razão Social' },
+  { key: 'documento', label: 'Documento' },
+  { key: 'cidade', label: 'Cidade / UF' },
+  { key: 'contato', label: 'Contato' },
+  { key: 'situacao', label: 'Situação' },
+  { key: 'acoes', label: 'Ações', fixed: true },
+];
+
+function getDynamicFields() {
+  return window.ValoraLocalizarPersonalizado?.getTableFields?.('clientes') || [];
+}
+
+function getNativeColumns() {
+  const columns = window.ValoraLocalizarPersonalizado?.getNativeColumns?.('clientes');
+  return Array.isArray(columns) && columns.length ? columns : DEFAULT_NATIVE_COLUMNS;
+}
+
+function splitNativeColumns(columns) {
+  const beforeDynamic = [];
+  const afterDynamic = [];
+
+  columns.forEach((col) => {
+    if (col.key === 'situacao' || col.key === 'acoes') {
+      afterDynamic.push(col);
+    } else {
+      beforeDynamic.push(col);
+    }
+  });
+
+  return { beforeDynamic, afterDynamic };
+}
+
+function renderHeaders(nativeColumns, dynamicFields) {
+  const row = document.querySelector('.valora-table thead tr');
+  if (!row) return;
+
+  const { beforeDynamic, afterDynamic } = splitNativeColumns(nativeColumns);
+
+  row.innerHTML = `
+    ${beforeDynamic.map((col) => `<th>${escapeHtml(col.label || col.key)}</th>`).join('')}
+    ${dynamicFields.map((field) => `<th>${escapeHtml(field.label || field.key)}</th>`).join('')}
+    ${afterDynamic.map((col) => `<th class="${col.key === 'acoes' ? 'text-right' : ''}">${escapeHtml(col.label || col.key)}</th>`).join('')}
+  `;
+}
+
+function renderDynamicCells(cliente, fields) {
+  return fields
+    .map((field) => `<td>${escapeHtml(window.ValoraLocalizarPersonalizado?.formatValue?.(cliente, field) || '-')}</td>`)
+    .join('');
+}
+
 function renderBadgeTipo(tipo) {
   return `<span class="badge-tipo">${escapeHtml(tipo || 'PF')}</span>`;
 }
@@ -56,16 +110,64 @@ function formatNome(cliente) {
   `;
 }
 
+function renderAcoes(c) {
+  return `
+    <td style="text-align:right;">
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn-icon" data-action="zapschat" data-id="${escapeHtml(c.id)}" title="Abrir no ZapChats">
+          <i class="fa-brands fa-whatsapp"></i>
+        </button>
+        <button class="btn-icon" data-action="editar" data-id="${escapeHtml(c.id)}" title="Editar">
+          <i class="fa-solid fa-pen"></i>
+        </button>
+        <button class="btn-icon danger" data-action="excluir" data-id="${escapeHtml(c.id)}" title="Excluir">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>
+    </td>
+  `;
+}
+
+function renderNativeCell(cliente, key) {
+  switch (key) {
+    case 'codigo':
+      return `<td><span class="badge-codigo">${escapeHtml(cliente.codigo || '-')}</span></td>`;
+    case 'tipo':
+      return `<td>${renderBadgeTipo(cliente.tipo_pessoa)}</td>`;
+    case 'nome':
+      return `<td>${formatNome(cliente)}</td>`;
+    case 'documento':
+      return `<td>${escapeHtml(formatDocumento(cliente))}</td>`;
+    case 'cidade':
+      return `<td>${escapeHtml(formatCidadeUf(cliente))}</td>`;
+    case 'contato':
+      return `<td>${escapeHtml(formatContato(cliente))}</td>`;
+    case 'situacao':
+      return `<td>${renderBadgeSituacao(cliente.situacao)}</td>`;
+    case 'acoes':
+      return renderAcoes(cliente);
+    default:
+      return '';
+  }
+}
+
 export function renderTabelaClientes(clientes) {
   const tbody = document.getElementById('tbody-clientes');
   const spanCount = document.getElementById('contagem-clientes');
 
   if (!tbody) return;
 
+  const dynamicFields = getDynamicFields();
+  const nativeColumns = getNativeColumns();
+  const { beforeDynamic, afterDynamic } = splitNativeColumns(nativeColumns);
+
+  renderHeaders(nativeColumns, dynamicFields);
+  const colspan = nativeColumns.length + dynamicFields.length;
+
   if (!Array.isArray(clientes) || !clientes.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" class="empty-state" style="border:none; text-align:center;">
+        <td colspan="${colspan}" class="empty-state" style="border:none; text-align:center;">
           Nenhum cliente encontrado.
         </td>
       </tr>
@@ -79,26 +181,9 @@ export function renderTabelaClientes(clientes) {
     .map(
       (c) => `
         <tr>
-          <td><span class="badge-codigo">${escapeHtml(c.codigo || '-')}</span></td>
-          <td>${renderBadgeTipo(c.tipo_pessoa)}</td>
-          <td>${formatNome(c)}</td>
-          <td>${escapeHtml(formatDocumento(c))}</td>
-          <td>${escapeHtml(formatCidadeUf(c))}</td>
-          <td>${escapeHtml(formatContato(c))}</td>
-          <td>${renderBadgeSituacao(c.situacao)}</td>
-          <td style="text-align:right;">
-            <div style="display:flex; gap:8px; justify-content:flex-end;">
-              <button class="btn-icon" data-action="zapschat" data-id="${c.id}" title="Abrir no ZapChats">
-                <i class="fa-brands fa-whatsapp"></i>
-              </button>
-              <button class="btn-icon" data-action="editar" data-id="${c.id}" title="Editar">
-                <i class="fa-solid fa-pen"></i>
-              </button>
-              <button class="btn-icon danger" data-action="excluir" data-id="${c.id}" title="Excluir">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-            </div>
-          </td>
+          ${beforeDynamic.map((col) => renderNativeCell(c, col.key)).join('')}
+          ${renderDynamicCells(c, dynamicFields)}
+          ${afterDynamic.map((col) => renderNativeCell(c, col.key)).join('')}
         </tr>
       `
     )

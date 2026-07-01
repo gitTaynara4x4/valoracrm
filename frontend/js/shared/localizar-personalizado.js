@@ -1,10 +1,63 @@
 // /frontend/js/shared/localizar-personalizado.js
-// Monta filtros e colunas da listagem usando as opções do construtor de Formulários.
+// Monta filtros/colunas da listagem usando o construtor de Formulários
+// e respeita a configuração visual feita na prévia do Localizar.
 (() => {
   'use strict';
 
   const API_FORMULARIOS = '/api/formularios';
+  const LAYOUT_PREFIX = 'valora_localizar_layout_v2:';
   const cache = new Map();
+
+  const NATIVE_FILTERS = {
+    clientes: {
+      busca: 'filtro-busca',
+      tipo: 'filtro-tipo',
+      situacao: 'filtro-situacao',
+      cidade: 'filtro-cidade',
+    },
+    fornecedores: {
+      busca: 'filtro-busca',
+      tipo: 'filtro-tipo',
+      situacao: 'filtro-situacao',
+      cidade: 'filtro-cidade',
+    },
+    produtos: {
+      busca: 'busca-produtos',
+      categoria: 'filtro-categoria-produtos',
+      situacao: 'filtro-ativo-produtos',
+    },
+  };
+
+  const NATIVE_COLUMNS = {
+    clientes: [
+      { key: 'codigo', label: 'Código' },
+      { key: 'tipo', label: 'Tipo' },
+      { key: 'nome', label: 'Nome / Razão Social' },
+      { key: 'documento', label: 'Documento' },
+      { key: 'cidade', label: 'Cidade / UF' },
+      { key: 'contato', label: 'Contato' },
+      { key: 'situacao', label: 'Situação' },
+      { key: 'acoes', label: 'Ações', fixed: true },
+    ],
+    fornecedores: [
+      { key: 'codigo', label: 'Código' },
+      { key: 'tipo', label: 'Tipo' },
+      { key: 'fornecedor', label: 'Fornecedor' },
+      { key: 'documento', label: 'Documento' },
+      { key: 'cidade', label: 'Cidade / UF' },
+      { key: 'contato', label: 'Contato' },
+      { key: 'situacao', label: 'Situação' },
+      { key: 'acoes', label: 'Ações', fixed: true },
+    ],
+    produtos: [
+      { key: 'codigo', label: 'Código' },
+      { key: 'produto', label: 'Produto' },
+      { key: 'categoria', label: 'Categoria' },
+      { key: 'preco', label: 'Preço' },
+      { key: 'estoque', label: 'Estoque' },
+      { key: 'acoes', label: 'Ações', fixed: true },
+    ],
+  };
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -86,6 +139,40 @@
       campo?.campo ||
       slugify(campo?.label || campo?.nome || '')
     ).trim();
+  }
+
+  function layoutStorageKey(modulo) {
+    return `${LAYOUT_PREFIX}${modulo || 'clientes'}`;
+  }
+
+  function normalizarLayout(raw) {
+    const hiddenFilters = Array.isArray(raw?.hiddenFilters) ? raw.hiddenFilters : [];
+    const hiddenColumns = Array.isArray(raw?.hiddenColumns) ? raw.hiddenColumns : [];
+
+    return {
+      hiddenFilters: [...new Set(hiddenFilters.map((item) => String(item || '').trim()).filter(Boolean))],
+      hiddenColumns: [...new Set(hiddenColumns.map((item) => String(item || '').trim()).filter(Boolean))],
+    };
+  }
+
+  function getLayout(modulo) {
+    try {
+      return normalizarLayout(JSON.parse(localStorage.getItem(layoutStorageKey(modulo)) || '{}'));
+    } catch (_) {
+      return normalizarLayout({});
+    }
+  }
+
+  function itemLayoutKey(origin, key) {
+    return `${origin || 'nativo'}:${key || ''}`;
+  }
+
+  function isItemVisible(modulo, area, origin, key, fixed = false) {
+    if (fixed || key === 'acoes') return true;
+
+    const layout = getLayout(modulo);
+    const hiddenList = area === 'columns' ? layout.hiddenColumns : layout.hiddenFilters;
+    return !hiddenList.includes(itemLayoutKey(origin, key));
   }
 
   function normalizarCampo(campo) {
@@ -178,8 +265,8 @@
       modulo: key,
       modelo: completo?.modelo || modeloResumo,
       fields,
-      filterFields: fields.filter((field) => field.usarNoLocalizar),
-      tableFields: fields.filter((field) => field.mostrarNaTabela),
+      filterFields: fields.filter((field) => field.usarNoLocalizar && isItemVisible(key, 'filters', field.origem, field.key)),
+      tableFields: fields.filter((field) => field.mostrarNaTabela && isItemVisible(key, 'columns', field.origem, field.key)),
     };
 
     cache.set(key, value);
@@ -268,8 +355,29 @@
     container.classList.toggle('has-custom-filters', !!fields.length);
   }
 
+  function applyNativeFilterLayout(modulo) {
+    const map = NATIVE_FILTERS[modulo] || {};
+
+    Object.entries(map).forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const visible = isItemVisible(modulo, 'filters', 'nativo', key);
+      const group = el.closest('.form-group') || el;
+
+      group.hidden = !visible;
+      group.classList.toggle('localizar-native-hidden', !visible);
+      el.toggleAttribute('data-localizar-native-hidden', !visible);
+
+      if (!visible) {
+        el.value = '';
+      }
+    });
+  }
+
   async function setup({ modulo, filtersContainerId, force = false } = {}) {
     const config = await carregarModulo(modulo, { force });
+    applyNativeFilterLayout(modulo);
     if (filtersContainerId) renderFiltros(modulo, filtersContainerId);
     return config;
   }
@@ -322,6 +430,11 @@
   function getTableFields(modulo) {
     const config = cache.get(modulo) || { tableFields: [] };
     return Array.isArray(config.tableFields) ? config.tableFields : [];
+  }
+
+  function getNativeColumns(modulo) {
+    const columns = NATIVE_COLUMNS[modulo] || NATIVE_COLUMNS.clientes;
+    return columns.filter((col) => isItemVisible(modulo, 'columns', 'nativo', col.key, col.fixed));
   }
 
   function formatDate(raw) {
@@ -385,6 +498,9 @@
     clearFilters,
     bindFilters,
     getTableFields,
+    getNativeColumns,
+    getLayout,
+    isItemVisible,
     formatValue,
     escapeHtml,
     slugify,

@@ -492,6 +492,7 @@ function limparFiltros() {
   setValue('filtro-tipo', '');
   setValue('filtro-situacao', '');
   setValue('filtro-cidade', '');
+  window.ValoraLocalizarPersonalizado?.clearFilters?.('localizar-personalizado-fornecedores');
 }
 
 function renderBadgeSituacao(situacao) {
@@ -533,6 +534,99 @@ function renderNomeFornecedor(fornecedor) {
   `;
 }
 
+const DEFAULT_NATIVE_COLUMNS_FORNECEDORES = [
+  { key: 'codigo', label: 'Código' },
+  { key: 'tipo', label: 'Tipo' },
+  { key: 'fornecedor', label: 'Fornecedor' },
+  { key: 'documento', label: 'Documento' },
+  { key: 'cidade', label: 'Cidade / UF' },
+  { key: 'contato', label: 'Contato' },
+  { key: 'situacao', label: 'Situação' },
+  { key: 'acoes', label: 'Ações', fixed: true },
+];
+
+function getCamposTabelaFornecedores() {
+  return window.ValoraLocalizarPersonalizado?.getTableFields?.('fornecedores') || [];
+}
+
+function getColunasNativasFornecedores() {
+  const columns = window.ValoraLocalizarPersonalizado?.getNativeColumns?.('fornecedores');
+  return Array.isArray(columns) && columns.length ? columns : DEFAULT_NATIVE_COLUMNS_FORNECEDORES;
+}
+
+function dividirColunasNativasFornecedores(columns) {
+  const beforeDynamic = [];
+  const afterDynamic = [];
+
+  columns.forEach((col) => {
+    if (col.key === 'situacao' || col.key === 'acoes') {
+      afterDynamic.push(col);
+    } else {
+      beforeDynamic.push(col);
+    }
+  });
+
+  return { beforeDynamic, afterDynamic };
+}
+
+function renderHeadersFornecedores(nativeColumns, fields) {
+  const row = document.querySelector('.valora-table thead tr');
+  if (!row) return;
+
+  const { beforeDynamic, afterDynamic } = dividirColunasNativasFornecedores(nativeColumns);
+
+  row.innerHTML = `
+    ${beforeDynamic.map((col) => `<th>${escapeHtml(col.label || col.key)}</th>`).join('')}
+    ${fields.map((field) => `<th>${escapeHtml(field.label || field.key)}</th>`).join('')}
+    ${afterDynamic.map((col) => `<th class="${col.key === 'acoes' ? 'text-right' : ''}">${escapeHtml(col.label || col.key)}</th>`).join('')}
+  `;
+}
+
+function renderCamposTabelaFornecedores(fornecedor, fields) {
+  return fields
+    .map((field) => `<td>${escapeHtml(window.ValoraLocalizarPersonalizado?.formatValue?.(fornecedor, field) || '-')}</td>`)
+    .join('');
+}
+
+function renderAcoesFornecedor(f) {
+  return `
+    <td class="text-right">
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn-icon" data-action="editar" data-id="${escapeHtml(f.id)}" title="Editar">
+          <i class="fa-solid fa-pen"></i>
+        </button>
+
+        <button class="btn-icon danger" data-action="excluir" data-id="${escapeHtml(f.id)}" title="Excluir">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>
+    </td>
+  `;
+}
+
+function renderCelulaNativaFornecedor(f, key) {
+  switch (key) {
+    case 'codigo':
+      return `<td><span class="badge-codigo">${escapeHtml(f.codigo || '-')}</span></td>`;
+    case 'tipo':
+      return `<td>${renderBadgeTipo(getTipoFornecedor(f))}</td>`;
+    case 'fornecedor':
+      return `<td>${renderNomeFornecedor(f)}</td>`;
+    case 'documento':
+      return `<td>${escapeHtml(getDocumentoFornecedor(f) || '-')}</td>`;
+    case 'cidade':
+      return `<td>${escapeHtml(getCidadeUfFornecedor(f))}</td>`;
+    case 'contato':
+      return `<td>${escapeHtml(getContatoFornecedor(f))}</td>`;
+    case 'situacao':
+      return `<td>${renderBadgeSituacao(f.situacao)}</td>`;
+    case 'acoes':
+      return renderAcoesFornecedor(f);
+    default:
+      return '';
+  }
+}
+
 function renderTabelaFornecedores() {
   const tbody = $('tbody-fornecedores');
   const spanCount = $('contagem-fornecedores');
@@ -540,11 +634,16 @@ function renderTabelaFornecedores() {
   if (!tbody) return;
 
   const filtrados = filtrarFornecedores();
+  const dynamicFields = getCamposTabelaFornecedores();
+  const nativeColumns = getColunasNativasFornecedores();
+  const { beforeDynamic, afterDynamic } = dividirColunasNativasFornecedores(nativeColumns);
+  renderHeadersFornecedores(nativeColumns, dynamicFields);
+  const colspan = nativeColumns.length + dynamicFields.length;
 
   if (!filtrados.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" class="empty-state">
+        <td colspan="${colspan}" class="empty-state">
           Nenhum fornecedor encontrado.
         </td>
       </tr>
@@ -559,24 +658,9 @@ function renderTabelaFornecedores() {
 
   tbody.innerHTML = filtrados.map((f) => `
     <tr>
-      <td><span class="badge-codigo">${escapeHtml(f.codigo || '-')}</span></td>
-      <td>${renderBadgeTipo(getTipoFornecedor(f))}</td>
-      <td>${renderNomeFornecedor(f)}</td>
-      <td>${escapeHtml(getDocumentoFornecedor(f) || '-')}</td>
-      <td>${escapeHtml(getCidadeUfFornecedor(f))}</td>
-      <td>${escapeHtml(getContatoFornecedor(f))}</td>
-      <td>${renderBadgeSituacao(f.situacao)}</td>
-      <td class="text-right">
-        <div style="display:flex; gap:8px; justify-content:flex-end;">
-          <button class="btn-icon" data-action="editar" data-id="${f.id}" title="Editar">
-            <i class="fa-solid fa-pen"></i>
-          </button>
-
-          <button class="btn-icon danger" data-action="excluir" data-id="${f.id}" title="Excluir">
-            <i class="fa-solid fa-trash"></i>
-          </button>
-        </div>
-      </td>
+      ${beforeDynamic.map((col) => renderCelulaNativaFornecedor(f, col.key)).join('')}
+      ${renderCamposTabelaFornecedores(f, dynamicFields)}
+      ${afterDynamic.map((col) => renderCelulaNativaFornecedor(f, col.key)).join('')}
     </tr>
   `).join('');
 
@@ -623,6 +707,8 @@ function montarUrlFornecedores({ offset = fornecedoresPage.offset || 0, limit = 
   if (filtro.situacao) params.set('situacao', filtro.situacao);
   if (filtro.cidade) params.set('cidade', filtro.cidade);
 
+  window.ValoraLocalizarPersonalizado?.addParams?.(params, 'localizar-personalizado-fornecedores');
+
   return `${API_FORNECEDORES}?${params.toString()}`;
 }
 
@@ -631,7 +717,7 @@ function setFornecedoresLoading(message = 'Buscando fornecedores no banco...') {
   if (!tbody) return;
   tbody.innerHTML = `
     <tr>
-      <td colspan="8" class="empty-state" style="border:none; text-align:center;">
+      <td colspan="${8 + getCamposTabelaFornecedores().length}" class="empty-state" style="border:none; text-align:center;">
         ${escapeHtml(message)}
       </td>
     </tr>
@@ -1814,6 +1900,7 @@ function bindFiltros() {
   $('filtro-tipo')?.addEventListener('input', () => recarregar(350));
   $('filtro-situacao')?.addEventListener('change', () => recarregar(0));
   $('filtro-cidade')?.addEventListener('input', () => recarregar(350));
+  window.ValoraLocalizarPersonalizado?.bindFilters?.('localizar-personalizado-fornecedores', () => recarregar(0));
 
   $('btn-filtrar-fornecedores')?.addEventListener('click', () => carregarFornecedores({ offset: 0 }));
 
@@ -1918,6 +2005,16 @@ function bindTopActions() {
 document.addEventListener('DOMContentLoaded', async () => {
   bindTabs();
   bindModalCloseOnBackdrop();
+
+  try {
+    await window.ValoraLocalizarPersonalizado?.setup?.({
+      modulo: 'fornecedores',
+      filtersContainerId: 'localizar-personalizado-fornecedores',
+    });
+  } catch (err) {
+    console.warn('[Fornecedores] localizar personalizado indisponível:', err);
+  }
+
   bindFiltros();
   bindTabelaActions();
   bindCamposActions();

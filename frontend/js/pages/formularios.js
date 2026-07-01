@@ -48,6 +48,112 @@
   };
 
 
+  const LOCALIZAR_LAYOUT_PREFIX = 'valora_localizar_layout_v2:';
+
+  const PREVIEW_LOCALIZAR_NATIVO = {
+    clientes: [
+      { key: 'busca', label: 'Busca', kind: 'input', placeholder: 'Nome, código, CPF/CNPJ, telefone, e-mail...' },
+      { key: 'tipo', label: 'Tipo', kind: 'select', placeholder: 'Todos' },
+      { key: 'situacao', label: 'Situação', kind: 'select', placeholder: 'Todas' },
+      { key: 'cidade', label: 'Cidade', kind: 'input', placeholder: 'Cidade' },
+    ],
+    fornecedores: [
+      { key: 'busca', label: 'Busca', kind: 'input', placeholder: 'Nome, código, CNPJ/CPF, telefone, e-mail...' },
+      { key: 'tipo', label: 'Tipo', kind: 'input', placeholder: 'Distribuidor, fábrica...' },
+      { key: 'situacao', label: 'Situação', kind: 'select', placeholder: 'Todas' },
+      { key: 'cidade', label: 'Cidade', kind: 'input', placeholder: 'Cidade' },
+    ],
+    produtos: [
+      { key: 'busca', label: 'Busca', kind: 'input', placeholder: 'Nome, código, categoria, descrição...' },
+      { key: 'categoria', label: 'Categoria', kind: 'input', placeholder: 'Categoria' },
+      { key: 'situacao', label: 'Situação', kind: 'select', placeholder: 'Todas' },
+    ],
+    patrimonio: [
+      { key: 'busca', label: 'Busca', kind: 'input', placeholder: 'Nome, código, série, local...' },
+      { key: 'categoria', label: 'Categoria', kind: 'input', placeholder: 'Categoria' },
+      { key: 'status', label: 'Status', kind: 'select', placeholder: 'Todos' },
+      { key: 'localizacao', label: 'Localização', kind: 'input', placeholder: 'Localização' },
+    ],
+    cotacoes: [
+      { key: 'busca', label: 'Busca', kind: 'input', placeholder: 'Item, código, categoria...' },
+      { key: 'status', label: 'Status', kind: 'select', placeholder: 'Todos' },
+      { key: 'urgencia', label: 'Urgência', kind: 'select', placeholder: 'Todas' },
+    ],
+    propostas: [
+      { key: 'busca', label: 'Busca', kind: 'input', placeholder: 'Título, cliente, código...' },
+      { key: 'status', label: 'Status', kind: 'select', placeholder: 'Todos' },
+      { key: 'cliente', label: 'Cliente', kind: 'input', placeholder: 'Cliente' },
+    ],
+    contratos: [
+      { key: 'busca', label: 'Busca', kind: 'input', placeholder: 'Contrato, cliente, documento...' },
+      { key: 'status', label: 'Status', kind: 'select', placeholder: 'Todos' },
+      { key: 'tipo', label: 'Tipo', kind: 'select', placeholder: 'Todos' },
+    ],
+  };
+
+  const PREVIEW_TABELA_NATIVA = {
+    clientes: [
+      { key: 'codigo', label: 'Código' },
+      { key: 'tipo', label: 'Tipo' },
+      { key: 'nome', label: 'Nome / Razão Social' },
+      { key: 'documento', label: 'Documento' },
+      { key: 'cidade', label: 'Cidade / UF' },
+      { key: 'contato', label: 'Contato' },
+      { key: 'situacao', label: 'Situação' },
+      { key: 'acoes', label: 'Ações', fixed: true },
+    ],
+    fornecedores: [
+      { key: 'codigo', label: 'Código' },
+      { key: 'tipo', label: 'Tipo' },
+      { key: 'fornecedor', label: 'Fornecedor' },
+      { key: 'documento', label: 'Documento' },
+      { key: 'cidade', label: 'Cidade / UF' },
+      { key: 'contato', label: 'Contato' },
+      { key: 'situacao', label: 'Situação' },
+      { key: 'acoes', label: 'Ações', fixed: true },
+    ],
+    produtos: [
+      { key: 'codigo', label: 'Código' },
+      { key: 'produto', label: 'Produto' },
+      { key: 'categoria', label: 'Categoria' },
+      { key: 'preco', label: 'Preço' },
+      { key: 'estoque', label: 'Estoque' },
+      { key: 'acoes', label: 'Ações', fixed: true },
+    ],
+    patrimonio: [
+      { key: 'codigo', label: 'Código' },
+      { key: 'patrimonio', label: 'Patrimônio' },
+      { key: 'categoria', label: 'Categoria' },
+      { key: 'localizacao', label: 'Localização' },
+      { key: 'status', label: 'Status' },
+      { key: 'acoes', label: 'Ações', fixed: true },
+    ],
+    cotacoes: [
+      { key: 'codigo', label: 'Código' },
+      { key: 'item', label: 'Item' },
+      { key: 'categoria', label: 'Categoria' },
+      { key: 'quantidade', label: 'Quantidade' },
+      { key: 'status', label: 'Status' },
+      { key: 'acoes', label: 'Ações', fixed: true },
+    ],
+    propostas: [
+      { key: 'codigo', label: 'Código' },
+      { key: 'titulo', label: 'Título' },
+      { key: 'cliente', label: 'Cliente' },
+      { key: 'status', label: 'Status' },
+      { key: 'valor', label: 'Valor' },
+      { key: 'acoes', label: 'Ações', fixed: true },
+    ],
+    contratos: [
+      { key: 'contrato', label: 'Contrato' },
+      { key: 'cliente', label: 'Cliente' },
+      { key: 'tipo', label: 'Tipo' },
+      { key: 'status', label: 'Status' },
+      { key: 'valor_mensal', label: 'Valor mensal' },
+      { key: 'acoes', label: 'Ações', fixed: true },
+    ],
+  };
+
   const CAMPOS_SISTEMA_FALLBACK = {
     clientes: [
       { campo: 'codigo', label: 'Código', tipo: 'numero' },
@@ -548,6 +654,30 @@
     return '';
   }
 
+
+  function parseMaybeJson(value, fallback = null) {
+    if (value == null || value === '') return fallback;
+    if (typeof value === 'object') return value;
+    try {
+      return JSON.parse(String(value));
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function getCampoCondicao(campo) {
+    return parseMaybeJson(campo?.condicao, null) || parseMaybeJson(campo?.condicao_json, null) || {};
+  }
+
+  function getCampoExibicao(campo) {
+    const condicao = getCampoCondicao(campo);
+    return condicao.exibicao || condicao.listagem || {};
+  }
+
+  function isFlagOn(value) {
+    return value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true' || String(value).toLowerCase() === 'sim';
+  }
+
   function normalizarTextoIcone(value) {
     return String(value || '')
       .toLowerCase()
@@ -904,6 +1034,271 @@
     return [...map.values()];
   }
 
+  function campoMarcadoLocalizar(campo) {
+    const exibicao = getCampoExibicao(campo);
+    return isFlagOn(exibicao.usar_no_localizar ?? exibicao.localizar ?? exibicao.filtro);
+  }
+
+  function campoMarcadoTabela(campo) {
+    const exibicao = getCampoExibicao(campo);
+    return isFlagOn(exibicao.mostrar_na_tabela ?? exibicao.tabela ?? exibicao.coluna);
+  }
+
+  function getCamposPreview(predicate) {
+    return getAllCampos()
+      .filter((campo) => campo && campo.ativo !== false && campo.origem !== 'visual' && predicate(campo))
+      .sort((a, b) => {
+        return Number(a.ordem || 0) - Number(b.ordem || 0) ||
+          String(a.label || '').localeCompare(String(b.label || ''));
+      });
+  }
+
+  function localizarStorageKey(modulo = state.modulo) {
+    return `${LOCALIZAR_LAYOUT_PREFIX}${modulo || 'clientes'}`;
+  }
+
+  function normalizarLayoutLocalizar(raw) {
+    const hiddenFilters = Array.isArray(raw?.hiddenFilters) ? raw.hiddenFilters : [];
+    const hiddenColumns = Array.isArray(raw?.hiddenColumns) ? raw.hiddenColumns : [];
+
+    return {
+      hiddenFilters: [...new Set(hiddenFilters.map((item) => String(item || '').trim()).filter(Boolean))],
+      hiddenColumns: [...new Set(hiddenColumns.map((item) => String(item || '').trim()).filter(Boolean))],
+    };
+  }
+
+  function getLayoutLocalizar(modulo = state.modulo) {
+    try {
+      return normalizarLayoutLocalizar(JSON.parse(localStorage.getItem(localizarStorageKey(modulo)) || '{}'));
+    } catch (_) {
+      return normalizarLayoutLocalizar({});
+    }
+  }
+
+  function setLayoutLocalizar(layout, modulo = state.modulo) {
+    localStorage.setItem(localizarStorageKey(modulo), JSON.stringify(normalizarLayoutLocalizar(layout)));
+  }
+
+  function itemLayoutKey(origin, key) {
+    return `${origin || 'nativo'}:${key || ''}`;
+  }
+
+  function slugLocalizar(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 120);
+  }
+
+  function origemCampoPreview(campo) {
+    return String(campo?.origem || '').toLowerCase() === 'sistema' ? 'sistema' : 'custom';
+  }
+
+  function chaveCampoPreview(campo) {
+    if (origemCampoPreview(campo) === 'sistema') {
+      return String(campo?.campo_sistema || '').trim() || `campo_${campo?.id || slugLocalizar(campo?.label || campo?.nome || 'sistema')}`;
+    }
+
+    return String(
+      campo?.slug ||
+      campo?.campo_personalizado_slug ||
+      campo?.campo ||
+      slugLocalizar(campo?.label || campo?.nome || campo?.id || 'campo')
+    ).trim();
+  }
+
+  function isItemPreviewVisivel(area, origin, key, fixed = false) {
+    if (fixed || key === 'acoes') return true;
+
+    const layout = getLayoutLocalizar();
+    const hiddenList = area === 'columns' ? layout.hiddenColumns : layout.hiddenFilters;
+    return !hiddenList.includes(itemLayoutKey(origin, key));
+  }
+
+  function toggleItemPreview(area, origin, key, fixed = false) {
+    if (fixed || key === 'acoes') {
+      toast('A coluna Ações fica fixa para não perder editar/excluir.', true);
+      return;
+    }
+
+    const layout = getLayoutLocalizar();
+    const prop = area === 'columns' ? 'hiddenColumns' : 'hiddenFilters';
+    const current = new Set(layout[prop]);
+    const fullKey = itemLayoutKey(origin, key);
+
+    if (current.has(fullKey)) {
+      current.delete(fullKey);
+    } else {
+      current.add(fullKey);
+    }
+
+    layout[prop] = [...current];
+    setLayoutLocalizar(layout);
+    renderPreviewLocalizar();
+  }
+
+  function formatarLocalizarPadrao() {
+    localStorage.removeItem(localizarStorageKey());
+    renderPreviewLocalizar();
+    toast('Prévia formatada para o padrão do módulo.');
+  }
+
+  function labelOrigemPreview(origin) {
+    if (origin === 'nativo') return 'Nativo';
+    if (origin === 'sistema') return 'Sistema';
+    return 'Adicionado';
+  }
+
+  function renderTogglePreview({ area, origin, key, visible, fixed = false }) {
+    if (fixed || key === 'acoes') {
+      return '';
+    }
+
+    return `
+      <button
+        type="button"
+        class="localizar-preview-toggle"
+        data-localizar-preview-toggle="true"
+        data-area="${escapeHtml(area)}"
+        data-origin="${escapeHtml(origin)}"
+        data-key="${escapeHtml(key)}"
+        title="${visible ? 'Ocultar este campo' : 'Mostrar este campo'}"
+        aria-pressed="${visible ? 'true' : 'false'}"
+      >
+        <i class="fa-solid ${visible ? 'fa-eye' : 'fa-eye-slash'}"></i>
+      </button>
+    `;
+  }
+
+  function renderPreviewField(field, extraClass = '') {
+    const label = field?.label || 'Campo';
+    const key = field?.key || slugLocalizar(label);
+    const placeholder = field?.placeholder || (field?.kind === 'select' ? 'Todos' : `Filtrar por ${label}`);
+    const icon = field?.kind === 'select' ? 'fa-chevron-down' : 'fa-magnifying-glass';
+    const origin = field?.origin || 'nativo';
+    const originLabel = labelOrigemPreview(origin);
+    const fixed = !!field?.fixed;
+    const visible = isItemPreviewVisivel('filters', origin, key, fixed);
+    const hiddenClass = visible ? '' : 'is-hidden-preview';
+
+    return `
+      <div class="localizar-preview-filter ${escapeHtml(extraClass)} ${hiddenClass}" data-origin="${escapeHtml(origin)}" data-key="${escapeHtml(key)}">
+        <div class="localizar-preview-filter-top">
+          <span>${escapeHtml(label)}</span>
+          <em class="localizar-preview-origin">${escapeHtml(visible ? originLabel : 'Oculto')}</em>
+          ${renderTogglePreview({ area: 'filters', origin, key, visible, fixed })}
+        </div>
+        <div class="localizar-preview-input">
+          <i class="fa-solid ${escapeHtml(icon)}"></i>
+          <span>${escapeHtml(placeholder)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderPreviewColumn(column, origin = 'nativo') {
+    const col = typeof column === 'string' ? { key: slugLocalizar(column), label: column } : column;
+    const label = col?.label || 'Campo';
+    const key = col?.key || slugLocalizar(label);
+    const fixed = !!col?.fixed || key === 'acoes';
+    const originLabel = labelOrigemPreview(origin);
+    const visible = isItemPreviewVisivel('columns', origin, key, fixed);
+    const hiddenClass = visible ? '' : 'is-hidden-preview';
+
+    return `
+      <span class="localizar-preview-col ${hiddenClass}" data-origin="${escapeHtml(origin)}" data-key="${escapeHtml(key)}">
+        <span>${escapeHtml(label)}</span>
+        <em>${escapeHtml(fixed ? 'Fixo' : (visible ? originLabel : 'Oculto'))}</em>
+        ${renderTogglePreview({ area: 'columns', origin, key, visible, fixed })}
+      </span>
+    `;
+  }
+
+  function renderPreviewLocalizar() {
+    const card = qs('localizar-preview-card');
+    const filtersWrap = qs('preview-localizar-fields');
+    const tableWrap = qs('preview-tabela-fields');
+    const summary = qs('localizar-preview-summary');
+    if (!card || !filtersWrap || !tableWrap) return;
+
+    const modelo = state.modeloAtual?.modelo || null;
+    const nativeFilters = PREVIEW_LOCALIZAR_NATIVO[state.modulo] || PREVIEW_LOCALIZAR_NATIVO.clientes;
+    const nativeColumns = PREVIEW_TABELA_NATIVA[state.modulo] || PREVIEW_TABELA_NATIVA.clientes;
+
+    if (!modelo) {
+      filtersWrap.innerHTML = `
+        <div class="localizar-preview-empty">
+          Escolha um formulário para ver a prévia do localizar.
+        </div>
+      `;
+      tableWrap.innerHTML = '<div class="localizar-preview-empty">A tabela aparece aqui depois que o formulário carregar.</div>';
+      if (summary) summary.textContent = 'Sem formulário selecionado';
+      return;
+    }
+
+    const camposLocalizar = getCamposPreview(campoMarcadoLocalizar);
+    const camposTabela = getCamposPreview(campoMarcadoTabela);
+
+    const filtrosHtml = [
+      ...nativeFilters.map((field) => renderPreviewField({ ...field, origin: 'nativo' })),
+      ...camposLocalizar.map((campo) => {
+        const tipo = normalizarTipoCampoFrontend(campo.tipo_campo || 'texto');
+        const origin = origemCampoPreview(campo);
+
+        return renderPreviewField({
+          key: chaveCampoPreview(campo),
+          label: campo.label || campo.nome || 'Campo',
+          kind: tipo === 'select' || tipo === 'multiselect' || tipo === 'checkbox' ? 'select' : 'input',
+          placeholder: campo.placeholder || `Filtrar por ${campo.label || campo.nome || 'campo'}`,
+          origin,
+        }, 'is-custom');
+      }),
+    ].join('');
+
+    filtersWrap.innerHTML = filtrosHtml + (camposLocalizar.length ? '' : `
+      <div class="localizar-preview-note">
+        Marque <strong>Usar no localizar</strong> em algum campo para ele aparecer depois dos filtros nativos.
+      </div>
+    `);
+
+    const customColumnsHtml = camposTabela.map((campo) => renderPreviewColumn({
+      key: chaveCampoPreview(campo),
+      label: campo.label || campo.nome || 'Campo',
+    }, origemCampoPreview(campo))).join('');
+
+    const insertBeforeIndex = nativeColumns.findIndex((col) => {
+      const key = typeof col === 'string' ? slugLocalizar(col) : col.key;
+      return key === 'situacao' || key === 'acoes';
+    });
+    const beforeColumns = insertBeforeIndex >= 0 ? nativeColumns.slice(0, insertBeforeIndex) : nativeColumns;
+    const afterColumns = insertBeforeIndex >= 0 ? nativeColumns.slice(insertBeforeIndex) : [];
+
+    tableWrap.innerHTML = `
+      <div class="localizar-preview-table-row">
+        ${beforeColumns.map((col) => renderPreviewColumn(col, 'nativo')).join('')}
+        ${customColumnsHtml}
+        ${afterColumns.map((col) => renderPreviewColumn(col, 'nativo')).join('')}
+      </div>
+      ${camposTabela.length ? '' : `
+        <div class="localizar-preview-note tabela-note">
+          Marque <strong>Mostrar na tabela</strong> para adicionar colunas extras depois das colunas nativas.
+        </div>
+      `}
+    `;
+
+    if (summary) {
+      const layout = getLayoutLocalizar();
+      const adicionados = camposLocalizar.length + camposTabela.length;
+      const ocultos = layout.hiddenFilters.length + layout.hiddenColumns.length;
+      const partes = [`${adicionados} ${adicionados === 1 ? 'campo adicionado' : 'campos adicionados'}`];
+      if (ocultos) partes.push(`${ocultos} ${ocultos === 1 ? 'oculto' : 'ocultos'}`);
+      summary.textContent = partes.join(' • ');
+    }
+  }
+
   async function carregarModelos() {
     const data = await apiJson(`${API_BASE}/modelos?modulo=${encodeURIComponent(state.modulo)}`);
     state.modelos = Array.isArray(data) ? data : [];
@@ -1147,6 +1542,7 @@
       if (empty) empty.style.display = '';
       if (wrap) wrap.innerHTML = '';
       renderResumoFormulario();
+      renderPreviewLocalizar();
       return;
     }
 
@@ -1155,6 +1551,7 @@
     renderResumoFormulario();
     renderSecoes();
     renderSecaoSelect();
+    renderPreviewLocalizar();
   }
 
   function camposOrdenados(campos = []) {
@@ -1269,11 +1666,18 @@
     const tipoNormalizado = normalizarTipoCampoFrontend(campo.tipo_campo || 'texto');
     const icon = tipoIcone(campo);
 
+    const exibicao = getCampoExibicao(campo);
     const required = campo.obrigatorio ? '<span class="badge badge-required">Obrigatório</span>' : '';
     const readonly = campo.somente_leitura ? '<span class="badge badge-muted">Somente leitura</span>' : '';
     const inactive = campo.ativo === false ? '<span class="badge badge-off">Inativo</span>' : '';
+    const localizar = isFlagOn(exibicao.usar_no_localizar ?? exibicao.localizar ?? exibicao.filtro)
+      ? '<span class="badge badge-muted">Filtro</span>'
+      : '';
+    const tabela = isFlagOn(exibicao.mostrar_na_tabela ?? exibicao.tabela ?? exibicao.coluna)
+      ? '<span class="badge badge-muted">Tabela</span>'
+      : '';
 
-    const chipsDireita = [required, readonly, inactive].filter(Boolean).join('');
+    const chipsDireita = [required, readonly, localizar, tabela, inactive].filter(Boolean).join('');
     const origemAttr = escapeHtml(origem);
 
     return `
@@ -1617,6 +2021,19 @@
     qs('campo-opcoes').value = opcoesToInput(campo?.opcoes || campo?.opcoes_json || '');
     qs('campo-obrigatorio').checked = campo ? !!campo.obrigatorio : false;
     qs('campo-somente-leitura').checked = campo ? !!campo.somente_leitura : false;
+
+    const exibicaoCampo = getCampoExibicao(campo);
+    if (qs('campo-usar-localizar')) {
+      qs('campo-usar-localizar').checked = campo
+        ? isFlagOn(exibicaoCampo.usar_no_localizar ?? exibicaoCampo.localizar ?? exibicaoCampo.filtro)
+        : false;
+    }
+    if (qs('campo-mostrar-tabela')) {
+      qs('campo-mostrar-tabela').checked = campo
+        ? isFlagOn(exibicaoCampo.mostrar_na_tabela ?? exibicaoCampo.tabela ?? exibicaoCampo.coluna)
+        : false;
+    }
+
     qs('campo-ativo').checked = campo ? campo.ativo !== false : true;
     qs('btn-excluir-campo').style.display = campo ? '' : 'none';
 
@@ -1708,7 +2125,14 @@
       largura: qs('campo-largura').value || '100',
       ordem: Number(qs('campo-ordem').value || 0),
       visibilidade: qs('campo-visibilidade').value || 'todos',
-      condicao: null,
+      condicao: {
+        ...getCampoCondicao(state.campoEditando),
+        exibicao: {
+          ...(getCampoCondicao(state.campoEditando).exibicao || {}),
+          usar_no_localizar: !!qs('campo-usar-localizar')?.checked,
+          mostrar_na_tabela: !!qs('campo-mostrar-tabela')?.checked,
+        },
+      },
     };
 
     if (origem === 'sistema') {
@@ -2136,6 +2560,16 @@
     qs('btn-ajuda-formularios')?.addEventListener('click', () => {
       toast('Escolha o módulo, selecione o formulário e organize as seções com os campos necessários.');
     });
+
+    qs('btn-formatar-localizar')?.addEventListener('click', formatarLocalizarPadrao);
+
+    qs('localizar-preview-card')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-localizar-preview-toggle="true"]');
+      if (!btn) return;
+
+      toggleItemPreview(btn.dataset.area, btn.dataset.origin, btn.dataset.key);
+    });
+
     qs('btn-criar-padrao')?.addEventListener('click', criarPadrao);
 
     qs('btn-novo-modelo')?.addEventListener('click', () => {

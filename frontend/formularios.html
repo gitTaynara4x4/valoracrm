@@ -14,14 +14,14 @@
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/formularios.js?v=20260701-secoes-fechadas-v1" defer></script>
+  <script src="/frontend/js/pages/formularios.js?v=20260701-localizar-formatavel-v1" defer></script>
 
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260630-clean-modais-premium-v2" />
+  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260701-localizar-formatavel-v1" />
 </head>
 
 <body>
@@ -135,6 +135,47 @@
 
             <button class="sr-only-action" type="button" id="btn-criar-padrao" hidden>Criar padrão</button>
             <button class="sr-only-action" type="button" id="btn-editar-modelo" hidden disabled>Editar formulário</button>
+          </article>
+
+          <article class="panel-card localizar-preview-card" id="localizar-preview-card" aria-live="polite">
+            <div class="localizar-preview-head">
+              <div>
+                <span class="eyebrow">Prévia do localizar</span>
+                <h3>Como a pesquisa e a tabela vão ficar</h3>
+                <p>Você pode mostrar ou ocultar filtros e colunas, sendo campo nativo ou campo adicionado pelo formulário.</p>
+              </div>
+
+              <div class="localizar-preview-head-actions">
+                <button class="btn btn-secondary btn-formatar-localizar" type="button" id="btn-formatar-localizar">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>
+                  Formatar
+                </button>
+
+                <div class="localizar-preview-summary" id="localizar-preview-summary">
+                  0 campos adicionados
+                </div>
+              </div>
+            </div>
+
+            <div class="localizar-preview-grid">
+              <section class="localizar-preview-box">
+                <div class="localizar-preview-box-title">
+                  <span><i class="fa-solid fa-magnifying-glass"></i></span>
+                  <strong>Card Localizar</strong>
+                </div>
+
+                <div class="localizar-preview-fields" id="preview-localizar-fields"></div>
+              </section>
+
+              <section class="localizar-preview-box">
+                <div class="localizar-preview-box-title">
+                  <span><i class="fa-solid fa-table-columns"></i></span>
+                  <strong>Tabela abaixo</strong>
+                </div>
+
+                <div class="localizar-preview-table" id="preview-tabela-fields"></div>
+              </section>
+            </div>
           </article>
 
           <div id="builder-empty" class="builder-empty panel-card">
