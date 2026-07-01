@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260627-sidebar-icons-v2" />
   <link rel="stylesheet" href="/frontend/css/produtos.css?v=20260627-sidebar-icons-v2" />
+  <link rel="stylesheet" href="/frontend/css/localizar-personalizado.css?v=20260701-localizar-personalizado-v1" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
@@ -32,6 +33,7 @@
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
   <script src="/frontend/js/shared/ficha-principal.js?v=20260630-ficha-sidebar-v5" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
+  <script src="/frontend/js/shared/localizar-personalizado.js?v=20260701-localizar-personalizado-v1" defer></script>
   <script src="/frontend/js/pages/produtos.js?v=20260630-readonly-v5" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 </head>
@@ -83,13 +85,39 @@
           <p>Filtro rápido por nome, código, categoria, descrição e campos da ficha.</p>
         </div>
 
-        <div class="search-row">
-          <div class="search-box">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input id="busca-produtos" type="text" placeholder="Buscar por nome, código, categoria..." autocomplete="off" />
+        <div class="filters-grid produtos-localizar-grid">
+          <div class="form-group">
+            <label for="busca-produtos">Busca</label>
+            <input id="busca-produtos" type="text" placeholder="Nome, código, categoria, descrição..." autocomplete="off" />
           </div>
 
+          <div class="form-group">
+            <label for="filtro-categoria-produtos">Categoria</label>
+            <input id="filtro-categoria-produtos" type="text" placeholder="Categoria" autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label for="filtro-ativo-produtos">Situação</label>
+            <select id="filtro-ativo-produtos">
+              <option value="">Todas</option>
+              <option value="true">Ativos</option>
+              <option value="false">Inativos</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="localizar-personalizado-produtos" class="filters-grid dynamic-filters-grid" hidden></div>
+
+        <div class="footer-actions filter-actions">
           <span id="contagem-produtos" class="counter-text">0 produtos</span>
+
+          <button class="btn btn-secondary" type="button" id="btn-limpar-filtros-produtos">
+            Limpar filtros
+          </button>
+
+          <button class="btn btn-primary" type="button" id="btn-filtrar-produtos">
+            Filtrar
+          </button>
         </div>
       </article>
 

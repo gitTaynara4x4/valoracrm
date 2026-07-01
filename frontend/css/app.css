@@ -2991,3 +2991,13 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: #5A5A5A;
 }
 
+
+
+/* =========================================================
+   CORREÇÃO FINAL — AJUDA ACIMA DO MENU GLOBAL
+   Mantém o painel de ajuda acima do iframe/topbar.
+   ========================================================= */
+.valora-help-layer {
+  z-index: 2147483600 !important;
+  isolation: isolate;
+}

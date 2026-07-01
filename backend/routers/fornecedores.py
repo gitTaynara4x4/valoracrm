@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy import String as SqlString, cast, exists
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
@@ -257,7 +258,115 @@ def gerar_codigo_fornecedor(db: Session, empresa_id: int) -> str:
     return f"{proximo:04d}"
 
 
+
+
+def slugify_campo_formulario(value: Any) -> str:
+    text = str(value or '').strip().lower()
+    repl = {
+        'á': 'a', 'à': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a',
+        'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+        'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
+        'ó': 'o', 'ò': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o',
+        'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
+        'ç': 'c',
+    }
+    for a, b in repl.items():
+        text = text.replace(a, b)
+    text = re.sub(r'[^a-z0-9]+', '_', text)
+    text = re.sub(r'^_+|_+$', '', text)
+    return text[:120]
+
+
+def normalizar_tipo_formulario_fornecedor(tipo: Any) -> str:
+    t = str(tipo or 'texto').strip().lower()
+    mapa = {
+        'text': 'texto', 'texto': 'texto', 'textarea': 'textarea',
+        'numero': 'numero', 'number': 'numero', 'data': 'data', 'date': 'data',
+        'select': 'select', 'lista': 'select', 'multiselect': 'multiselect',
+        'checkbox': 'checkbox', 'email': 'email', 'telefone': 'telefone', 'tel': 'telefone',
+        'moeda': 'moeda', 'money': 'moeda', 'percentual': 'percentual', 'percent': 'percentual',
+        'relacao_cliente': 'relacao_cliente', 'relacao_fornecedor': 'relacao_fornecedor',
+        'relacao_produto': 'relacao_produto', 'relacao_patrimonio': 'relacao_patrimonio',
+        'relacao_cotacao': 'relacao_cotacao', 'relacao_proposta': 'relacao_proposta',
+        'relacao_contrato': 'relacao_contrato',
+        'relacao_cliente_multi': 'relacao_cliente_multi', 'relacao_fornecedor_multi': 'relacao_fornecedor_multi',
+        'relacao_produto_multi': 'relacao_produto_multi', 'relacao_patrimonio_multi': 'relacao_patrimonio_multi',
+        'relacao_cotacao_multi': 'relacao_cotacao_multi', 'relacao_proposta_multi': 'relacao_proposta_multi',
+        'relacao_contrato_multi': 'relacao_contrato_multi',
+    }
+    return mapa.get(t, 'texto')
+
+
+def sincronizar_campos_fornecedores_do_formulario(db: Session, empresa_id: int) -> None:
+    modelo = (
+        db.query(models.FormularioModelo)
+        .filter(models.FormularioModelo.empresa_id == empresa_id)
+        .filter(models.FormularioModelo.modulo == 'fornecedores')
+        .filter(models.FormularioModelo.ativo == True)  # noqa: E712
+        .order_by(
+            models.FormularioModelo.usar_como_ficha_principal.desc(),
+            models.FormularioModelo.padrao.desc(),
+            models.FormularioModelo.id.desc(),
+        )
+        .first()
+    )
+    if not modelo:
+        return
+
+    campos_formulario = (
+        db.query(models.FormularioCampo)
+        .filter(models.FormularioCampo.formulario_id == modelo.id)
+        .filter(models.FormularioCampo.origem == 'personalizado')
+        .filter(models.FormularioCampo.ativo == True)  # noqa: E712
+        .order_by(models.FormularioCampo.ordem.asc(), models.FormularioCampo.id.asc())
+        .all()
+    )
+    if not campos_formulario:
+        return
+
+    existentes = db.query(CampoFornecedor).filter(CampoFornecedor.empresa_id == empresa_id).all()
+    por_slug = {str(c.slug): c for c in existentes}
+
+    for campo_form in campos_formulario:
+        label = norm_str(getattr(campo_form, 'label', None))
+        if not label:
+            continue
+        slug = slugify_campo_formulario(label)
+        if not slug:
+            continue
+
+        tipo = normalizar_tipo_formulario_fornecedor(getattr(campo_form, 'tipo_campo', None))
+        opcoes_json = getattr(campo_form, 'opcoes_json', None)
+        obrigatorio = bool(getattr(campo_form, 'obrigatorio', False))
+        ativo = bool(getattr(campo_form, 'ativo', True))
+        ordem = int(getattr(campo_form, 'ordem', 0) or 0)
+
+        campo = por_slug.get(slug)
+        if campo:
+            campo.nome = label
+            campo.tipo = tipo
+            campo.obrigatorio = obrigatorio
+            campo.ativo = ativo
+            campo.opcoes_json = opcoes_json
+            campo.ordem = ordem
+        else:
+            novo = CampoFornecedor(
+                empresa_id=empresa_id,
+                nome=label,
+                slug=slug,
+                tipo=tipo,
+                obrigatorio=obrigatorio,
+                ativo=ativo,
+                opcoes_json=opcoes_json,
+                ordem=ordem,
+            )
+            db.add(novo)
+            db.flush()
+            por_slug[slug] = novo
+
+
 def buscar_campos_empresa_map(db: Session, empresa_id: int) -> Dict[str, CampoFornecedor]:
+    sincronizar_campos_fornecedores_do_formulario(db, empresa_id)
     campos = db.query(CampoFornecedor).filter(CampoFornecedor.empresa_id == empresa_id).all()
     return {str(c.slug): c for c in campos}
 
@@ -373,7 +482,7 @@ def apply_fornecedor_payload(f: Fornecedor, payload: FornecedorBaseSchema) -> No
 
 
 
-def fornecedor_to_list_out(f: Fornecedor) -> Dict[str, Any]:
+def fornecedor_to_list_out(f: Fornecedor, db: Optional[Session] = None, include_custom_fields: bool = False) -> Dict[str, Any]:
     return {
         "id": int(f.id),
         "empresa_id": int(f.empresa_id),
@@ -390,7 +499,11 @@ def fornecedor_to_list_out(f: Fornecedor) -> Dict[str, Any]:
         "estado": getattr(f, "estado", None),
         "criado_em": iso_datetime(getattr(f, "criado_em", None)),
         "atualizado_em": iso_datetime(getattr(f, "atualizado_em", None)),
-        "custom_fields": {},
+        "custom_fields": (
+            buscar_custom_fields_fornecedor(db, int(f.empresa_id), int(f.id))
+            if include_custom_fields and db is not None
+            else {}
+        ),
     }
 
 def fornecedor_to_out(db: Session, f: Fornecedor) -> FornecedorOut:
@@ -442,6 +555,8 @@ def listar_campos(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
+    sincronizar_campos_fornecedores_do_formulario(db, empresa_id)
+    db.commit()
     return (
         db.query(CampoFornecedor)
         .filter(CampoFornecedor.empresa_id == empresa_id)
@@ -532,12 +647,63 @@ def excluir_campo(
     return None
 
 
+
+
+def _request_dynamic_filters(request: Request, prefix: str) -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    for key, value in request.query_params.multi_items():
+        if not key.startswith(prefix):
+            continue
+        field = key[len(prefix):].strip()
+        text = str(value or '').strip()
+        if field and text:
+            out[field] = text
+    return out
+
+
+def _apply_dynamic_system_filters_fornecedor(query, request: Request):
+    for campo, value in _request_dynamic_filters(request, 'filtro_sistema_').items():
+        if not hasattr(Fornecedor, campo):
+            if campo == 'data_cadastro' and hasattr(Fornecedor, 'criado_em'):
+                coluna = getattr(Fornecedor, 'criado_em')
+            else:
+                continue
+        else:
+            coluna = getattr(Fornecedor, campo)
+        query = query.filter(cast(coluna, SqlString).ilike(f"%{value}%"))
+    return query
+
+
+def _apply_dynamic_custom_filters_fornecedor(query, request: Request, empresa_id: int):
+    for slug, value in _request_dynamic_filters(request, 'filtro_custom_').items():
+        query = query.filter(
+            exists()
+            .where(FornecedorCampoValor.fornecedor_id == Fornecedor.id)
+            .where(FornecedorCampoValor.campo_id == CampoFornecedor.id)
+            .where(CampoFornecedor.empresa_id == empresa_id)
+            .where(CampoFornecedor.slug == slug)
+            .where(FornecedorCampoValor.valor.ilike(f"%{value}%"))
+        )
+    return query
+
+
+def _custom_search_exists_fornecedor(empresa_id: int, value: str):
+    return (
+        exists()
+        .where(FornecedorCampoValor.fornecedor_id == Fornecedor.id)
+        .where(FornecedorCampoValor.campo_id == CampoFornecedor.id)
+        .where(CampoFornecedor.empresa_id == empresa_id)
+        .where(FornecedorCampoValor.valor.ilike(f"%{value}%"))
+    )
+
+
 # =========================================================
 # FORNECEDORES
 # =========================================================
 
 @router.get("/api/fornecedores")
 def listar_fornecedores(
+    request: Request,
     busca: Optional[str] = Query(default=None),
     situacao: Optional[str] = Query(default=None),
     tipo_fornecedor: Optional[str] = Query(default=None),
@@ -551,10 +717,12 @@ def listar_fornecedores(
     """
     Lista leve e paginada para a tela de Fornecedores.
 
-    Não carrega custom_fields na tabela. Os valores personalizados continuam
-    sendo carregados apenas quando abre um fornecedor específico.
+    Envia custom_fields quando houver campos marcados como coluna/filtro no construtor.
+    O fornecedor completo continua vindo em /api/fornecedores/{id}.
     """
     try:
+        sincronizar_campos_fornecedores_do_formulario(db, empresa_id)
+
         query = db.query(Fornecedor).filter(Fornecedor.empresa_id == empresa_id)
 
         if norm_str(situacao) and hasattr(Fornecedor, "situacao"):
@@ -575,16 +743,20 @@ def listar_fornecedores(
                 if col is not None:
                     filtros.append(col.ilike(q))
             cond = filtros[0]
+            cond = cond | _custom_search_exists_fornecedor(empresa_id, texto)
             for item in filtros[1:]:
                 cond = cond | item
             query = query.filter(cond)
+
+        query = _apply_dynamic_system_filters_fornecedor(query, request)
+        query = _apply_dynamic_custom_filters_fornecedor(query, request, empresa_id)
 
         query = query.order_by(Fornecedor.nome.asc(), Fornecedor.id.asc())
 
         if paginated:
             total = query.count()
             rows = query.offset(offset).limit(limit).all()
-            items = [fornecedor_to_list_out(f) for f in rows]
+            items = [fornecedor_to_list_out(f, db=db, include_custom_fields=True) for f in rows]
             return {
                 "items": items,
                 "total": total,
@@ -594,7 +766,7 @@ def listar_fornecedores(
             }
 
         rows = query.all()
-        return [fornecedor_to_list_out(f) for f in rows]
+        return [fornecedor_to_list_out(f, db=db, include_custom_fields=True) for f in rows]
     except OperationalError as exc:
         raise HTTPException(
             status_code=500,

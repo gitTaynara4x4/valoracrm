@@ -8,8 +8,9 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Request, UploadFile, status
 from pydantic import BaseModel, Field
+from sqlalchemy import String as SqlString, cast, exists
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
@@ -649,6 +650,58 @@ def buscar_custom_fields_cliente(db: Session, empresa_id: int, cliente_id: int) 
     return out
 
 
+
+
+def _request_dynamic_filters(request: Request, prefix: str) -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    for key, value in request.query_params.multi_items():
+        if not key.startswith(prefix):
+            continue
+        field = key[len(prefix):].strip()
+        text = str(value or '').strip()
+        if field and text:
+            out[field] = text
+    return out
+
+
+def _apply_dynamic_system_filters_cliente(query, request: Request):
+    for campo, value in _request_dynamic_filters(request, 'filtro_sistema_').items():
+        if not hasattr(Cliente, campo):
+            if campo == 'data_cadastro' and hasattr(Cliente, 'criado_em'):
+                coluna = getattr(Cliente, 'criado_em')
+            else:
+                continue
+        else:
+            coluna = getattr(Cliente, campo)
+
+        query = query.filter(cast(coluna, SqlString).ilike(f"%{value}%"))
+
+    return query
+
+
+def _apply_dynamic_custom_filters_cliente(query, request: Request, empresa_id: int):
+    for slug, value in _request_dynamic_filters(request, 'filtro_custom_').items():
+        query = query.filter(
+            exists()
+            .where(core_models.ClienteCampoValor.cliente_id == Cliente.id)
+            .where(core_models.ClienteCampoValor.campo_id == core_models.CampoCliente.id)
+            .where(core_models.CampoCliente.empresa_id == empresa_id)
+            .where(core_models.CampoCliente.slug == slug)
+            .where(core_models.ClienteCampoValor.valor.ilike(f"%{value}%"))
+        )
+
+    return query
+
+
+def _custom_search_exists_cliente(empresa_id: int, value: str):
+    return (
+        exists()
+        .where(core_models.ClienteCampoValor.cliente_id == Cliente.id)
+        .where(core_models.ClienteCampoValor.campo_id == core_models.CampoCliente.id)
+        .where(core_models.CampoCliente.empresa_id == empresa_id)
+        .where(core_models.ClienteCampoValor.valor.ilike(f"%{value}%"))
+    )
+
 def salvar_custom_fields_cliente(
     db: Session,
     empresa_id: int,
@@ -1234,6 +1287,7 @@ def excluir_campo(
 
 @router.get("/api/clientes")
 def listar_clientes(
+    request: Request,
     busca: Optional[str] = Query(default=None),
     situacao: Optional[str] = Query(default=None),
     tipo_pessoa: Optional[str] = Query(default=None),
@@ -1252,6 +1306,8 @@ def listar_clientes(
     - O cliente completo + valores personalizados continua vindo em /api/clientes/{id}.
     """
     try:
+        sincronizar_campos_clientes_do_formulario(db, empresa_id, commit=False)
+
         query = db.query(Cliente).filter(Cliente.empresa_id == empresa_id)
 
         if norm_str(situacao):
@@ -1276,14 +1332,18 @@ def listar_clientes(
                 | (Cliente.whatsapp.ilike(q))
                 | (Cliente.email.ilike(q))
                 | (Cliente.cidade.ilike(q))
+                | _custom_search_exists_cliente(empresa_id, texto)
             )
+
+        query = _apply_dynamic_system_filters_cliente(query, request)
+        query = _apply_dynamic_custom_filters_cliente(query, request, empresa_id)
 
         query = query.order_by(Cliente.nome.asc(), Cliente.id.asc())
 
         if paginated:
             total = query.count()
             rows = query.offset(offset).limit(limit).all()
-            items = [pydantic_dump(cliente_to_list_out(db, c, include_custom_fields=False)) for c in rows]
+            items = [pydantic_dump(cliente_to_list_out(db, c, include_custom_fields=True)) for c in rows]
             return {
                 "items": items,
                 "total": total,
@@ -1293,7 +1353,7 @@ def listar_clientes(
             }
 
         rows = query.all()
-        return [cliente_to_list_out(db, c, include_custom_fields=False) for c in rows]
+        return [cliente_to_list_out(db, c, include_custom_fields=True) for c in rows]
     except OperationalError as exc:
         raise HTTPException(
             status_code=500,

@@ -29,6 +29,7 @@
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260627-sidebar-icons-v2" />
   <link rel="stylesheet" href="/frontend/css/fornecedores.css?v=20260627-sidebar-icons-v2" />
+  <link rel="stylesheet" href="/frontend/css/localizar-personalizado.css?v=20260701-localizar-personalizado-v1" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
@@ -40,6 +41,7 @@
   <script src="/frontend/js/shared/ficha-principal.js?v=20260630-ficha-sidebar-v5" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="/frontend/js/shared/localizar-personalizado.js?v=20260701-localizar-personalizado-v1" defer></script>
   <script src="/frontend/js/pages/fornecedores.js?v=20260630-readonly-v5" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 </head>
@@ -123,6 +125,8 @@
             <input id="filtro-cidade" type="text" placeholder="Cidade" />
           </div>
         </div>
+
+        <div id="localizar-personalizado-fornecedores" class="filters-grid dynamic-filters-grid" hidden></div>
 
         <div class="footer-actions filter-actions">
           <span id="contagem-fornecedores" class="counter-text">0 fornecedores</span>

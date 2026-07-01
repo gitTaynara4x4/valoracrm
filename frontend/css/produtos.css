@@ -1280,3 +1280,49 @@ textarea.campo-obrigatorio-pendente {
   border-color: #ef4444 !important;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
 }
+
+/* Correção visual: identifica o produto mesmo quando o nome nativo veio errado como ATIVO/INATIVO */
+#tbody-produtos .produto-main strong {
+  max-width: min(520px, 62vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#tbody-produtos .produto-main span {
+  max-width: min(620px, 68vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#tbody-produtos .produto-warning-chip {
+  width: fit-content;
+  max-width: none;
+  margin-top: 2px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(101, 172, 222, 0.28);
+  background: rgba(101, 172, 222, 0.10);
+  color: var(--brand, #65ACDE);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+#modal-produto-backdrop .produto-sidebar-user strong,
+#modal-produto-backdrop #modal-produto-titulo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#modal-produto-backdrop #modal-produto-titulo {
+  max-width: min(620px, 58vw);
+  white-space: nowrap;
+}
+
+html[data-theme="dark"] #tbody-produtos .produto-warning-chip {
+  border-color: rgba(101, 172, 222, 0.36);
+  background: rgba(101, 172, 222, 0.14);
+}

@@ -12,17 +12,16 @@
 
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260630-dark-chatgpt-v6" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
-  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260626-relacao-multi-data" />
-
   <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/formularios.js?v=20260626-relacao-render-fix" defer></script>
+  <script src="/frontend/js/pages/formularios.js?v=20260701-secoes-fechadas-v1" defer></script>
 
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
+  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260630-clean-modais-premium-v2" />
 </head>
 
 <body>
@@ -45,34 +44,16 @@
             Atualizar
           </button>
 
-          <button class="btn btn-primary" type="button" id="btn-novo-modelo">
-            <i class="fa-solid fa-plus"></i>
+          <button class="btn btn-secondary btn-help" type="button" id="btn-ajuda-formularios">
+            <i class="fa-solid fa-circle-question"></i>
+            Ajuda
+          </button>
+
+          <button class="sr-only-action" type="button" id="btn-novo-modelo" hidden>
             Novo formulário
           </button>
         </div>
       </header>
-
-      <section class="form-builder-hero">
-        <div>
-          <span class="hero-pill">
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
-            Construtor de fichas
-          </span>
-
-          <h2>Construtor de formulários claro e organizado.</h2>
-
-          <p>
-            Organize cada cadastro em <strong>seções</strong>, reutilize <strong>campos do sistema</strong> e crie <strong>campos personalizados</strong> somente quando precisar.
-          </p>
-        </div>
-
-        <div class="hero-mini-grid">
-          <span><i class="fa-solid fa-layer-group"></i> 1. Crie seções</span>
-          <span><i class="fa-solid fa-database"></i> 2. Adicione campos existentes</span>
-          <span><i class="fa-solid fa-pen-to-square"></i> 3. Crie campos extras</span>
-          <span><i class="fa-solid fa-check"></i> 4. Use no cadastro</span>
-        </div>
-      </section>
 
       <section class="modules-grid" id="modulos-grid" aria-label="Escolha o módulo">
         <button class="module-card is-active" type="button" data-modulo="clientes">
@@ -118,62 +99,26 @@
         </button>
       </section>
 
-      <section class="builder-layout">
-        <aside class="builder-sidebar panel-card">
-          <div class="side-head">
-            <div>
-              <span class="side-label">Módulo selecionado</span>
-              <h3 id="modulo-titulo">Clientes</h3>
+      <section class="builder-layout builder-layout-clean">
+        <section class="builder-main">
+          <article class="panel-card builder-toolbar builder-toolbar-clean">
+            <div class="form-selector-clean">
+              <label for="select-modelo">Formulário</label>
+              <select id="select-modelo">
+                <option value="">Carregando...</option>
+              </select>
             </div>
 
-            <span class="status-dot"></span>
-          </div>
-
-          <div class="form-group">
-            <label for="select-modelo">Formulário</label>
-            <select id="select-modelo">
-              <option value="">Carregando...</option>
-            </select>
-          </div>
-
-          <div class="side-actions">
-            <button class="btn btn-primary" type="button" id="btn-criar-padrao">
-              <i class="fa-solid fa-bolt"></i>
-              Criar padrão
-            </button>
-
-            <button class="btn btn-secondary" type="button" id="btn-editar-modelo" disabled>
-              <i class="fa-solid fa-pen"></i>
-              Editar formulário
-            </button>
-          </div>
-
-          <div class="builder-help">
-            <strong>Ordem correta</strong>
-            <p>
-              Primeiro selecione ou crie um formulário. Depois crie seções.
-              Só então adicione os campos dentro de cada seção.
-            </p>
-          </div>
-
-          <div class="legend-list">
-            <div><span class="legend-dot system"></span> Campo do sistema</div>
-            <div><span class="legend-dot custom"></span> Campo personalizado</div>
-            <div><span class="legend-dot visual"></span> Item visual</div>
-          </div>
-        </aside>
-
-        <section class="builder-main">
-          <article class="panel-card builder-toolbar">
-            <div>
+            <div class="modelo-copy-clean">
               <span class="eyebrow">Estrutura do formulário</span>
               <h3 id="modelo-nome">Nenhum formulário selecionado</h3>
-              <p id="modelo-descricao">Crie um formulário padrão para começar.</p>
+              <p id="modelo-descricao">Modelo padrão gerado automaticamente pelo ValoraCRM.</p>
+              <span id="modulo-titulo" class="visually-hidden">Clientes</span>
             </div>
 
             <div class="toolbar-actions">
               <button class="btn btn-secondary" type="button" id="btn-nova-secao" disabled>
-                <i class="fa-solid fa-folder-plus"></i>
+                <i class="fa-solid fa-square-plus"></i>
                 Nova seção
               </button>
 
@@ -183,21 +128,27 @@
               </button>
 
               <button class="btn btn-primary" type="button" id="btn-novo-campo" disabled>
-                <i class="fa-solid fa-square-plus"></i>
+                <i class="fa-solid fa-plus"></i>
                 Novo campo
               </button>
             </div>
+
+            <button class="sr-only-action" type="button" id="btn-criar-padrao" hidden>Criar padrão</button>
+            <button class="sr-only-action" type="button" id="btn-editar-modelo" hidden disabled>Editar formulário</button>
           </article>
 
           <div id="builder-empty" class="builder-empty panel-card">
             <i class="fa-solid fa-wand-magic-sparkles"></i>
             <strong>Escolha ou crie um formulário.</strong>
-            <span>
-              Depois crie seções como “01 - Dados básicos”, “02 - Dados do imóvel” e coloque os campos dentro delas.
-            </span>
+            <span>Depois crie seções e coloque os campos dentro de cada seção.</span>
           </div>
 
           <div id="secoes-container" class="secoes-container"></div>
+
+          <p class="autosave-note">
+            <i class="fa-solid fa-circle-info"></i>
+            As alterações são salvas automaticamente.
+          </p>
         </section>
       </section>
 
@@ -287,99 +238,133 @@
 
   <!-- MODAL SEÇÃO -->
   <div class="modal-overlay" id="modal-secao" hidden>
-    <div class="modal-content modal-md">
-      <div class="modal-header">
-        <div>
-          <h3 id="modal-secao-title">Nova seção</h3>
-          <p>Seções são os blocos da ficha, como “Dados básicos” ou “Dados do imóvel”.</p>
+    <div class="modal-content modal-lg modal-premium modal-section-editor">
+      <div class="modal-header modal-premium-header">
+        <div class="modal-title-wrap">
+          <span class="modal-title-icon">
+            <i class="fa-solid fa-table-list"></i>
+          </span>
+          <div>
+            <h3 id="modal-secao-title">Nova seção</h3>
+            <p>Edite as informações e configurações desta seção.</p>
+          </div>
         </div>
 
-        <button class="modal-close" type="button" data-close-modal="modal-secao">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
+        <div class="modal-window-actions">
+          <button class="modal-size-toggle" type="button" data-toggle-modal-size="modal-secao" title="Aumentar modal" aria-label="Aumentar modal">
+            <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
+          </button>
+
+          <button class="modal-close" type="button" data-close-modal="modal-secao" aria-label="Fechar">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
       </div>
 
-      <div class="modal-body">
-        <form class="valora-form" onsubmit="return false;">
+      <div class="modal-body premium-modal-body">
+        <form class="valora-form premium-form-grid" onsubmit="return false;">
           <input type="hidden" id="secao-id" />
 
-          <div class="form-group">
-            <label for="secao-titulo">Título da seção *</label>
-            <input id="secao-titulo" type="text" placeholder="Ex.: 01 - Dados básicos" />
-          </div>
+          <section class="premium-modal-section">
+            <div class="premium-section-title">
+              <span><i class="fa-solid fa-clipboard-list"></i></span>
+              <h4>Informações</h4>
+            </div>
 
-          <div class="form-row two-cols">
-            <div class="form-group">
-              <label for="secao-icone">Ícone da seção</label>
-              <select id="secao-icone" class="secao-icone-native" aria-hidden="true" tabindex="-1">
-                <option value="fa-layer-group">fa-layer-group</option>
-              </select>
-              <small class="field-hint">
-                A pessoa clica para abrir os ícones. Não fica a lista aberta direto.
-              </small>
+            <div class="form-group premium-control is-wide">
+              <label for="secao-titulo">Título da seção <b>*</b></label>
+              <input id="secao-titulo" type="text" maxlength="60" placeholder="Ex.: Dados Básicos" />
+              <small class="char-hint" data-count-for="secao-titulo">0/60</small>
+            </div>
 
-              <div class="secao-icone-selector" id="secao-icone-selector">
-                <button
-                  class="secao-icone-trigger"
-                  type="button"
-                  id="btn-abrir-icones-secao"
-                  aria-expanded="false"
-                  aria-controls="secao-icones-popover"
-                >
-                  <span class="secao-icone-trigger-box">
+            <div class="form-group premium-control is-wide">
+              <label for="secao-descricao">Descrição</label>
+              <textarea id="secao-descricao" rows="4" maxlength="200" placeholder="Texto curto opcional para explicar esta seção."></textarea>
+              <small class="char-hint" data-count-for="secao-descricao">0/200</small>
+            </div>
+          </section>
+
+          <section class="premium-modal-section premium-section-icon">
+            <div class="premium-section-title">
+              <span><i class="fa-solid fa-shield-halved"></i></span>
+              <h4>Ícone</h4>
+            </div>
+
+            <div class="premium-icon-layout">
+              <div class="form-group premium-control">
+                <label for="secao-icone">Ícone da seção</label>
+                <small class="field-hint">Escolha um ícone para representar esta seção.</small>
+
+                <select id="secao-icone" class="secao-icone-native" aria-hidden="true" tabindex="-1">
+                  <option value="fa-layer-group">fa-layer-group</option>
+                </select>
+
+                <div class="secao-icone-selector" id="secao-icone-selector">
+                  <button
+                    class="secao-icone-trigger"
+                    type="button"
+                    id="btn-abrir-icones-secao"
+                    aria-expanded="false"
+                    aria-controls="secao-icones-popover"
+                  >
+                    <span class="secao-icone-trigger-box">
+                      <i class="fa-solid fa-layer-group"></i>
+                    </span>
+                    <span class="secao-icone-trigger-text" id="secao-icone-trigger-text">Selecionar ícone</span>
+                    <i class="fa-solid fa-chevron-down secao-icone-trigger-caret"></i>
+                  </button>
+
+                  <div class="secao-icones-popover" id="secao-icones-popover" hidden>
+                    <div class="secao-icones-picker" id="secao-icones-picker" aria-label="Escolher ícone da seção"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group premium-control premium-preview-card">
+                <label>Pré-visualização</label>
+                <div class="secao-icone-preview" id="secao-icone-preview">
+                  <span class="secao-icone-preview-box">
                     <i class="fa-solid fa-layer-group"></i>
                   </span>
-                  <span class="secao-icone-trigger-text" id="secao-icone-trigger-text">Escolher ícone</span>
-                  <i class="fa-solid fa-chevron-down secao-icone-trigger-caret"></i>
-                </button>
 
-                <div class="secao-icones-popover" id="secao-icones-popover" hidden>
-                  <div class="secao-icones-picker" id="secao-icones-picker" aria-label="Escolher ícone da seção"></div>
+                  <div>
+                    <strong id="secao-icone-preview-text">Dados Básicos</strong>
+                    <small>Será exibido no cabeçalho da seção.</small>
+                  </div>
                 </div>
               </div>
             </div>
+          </section>
 
-            <div class="form-group">
-              <label>Ícone selecionado</label>
-              <div class="secao-icone-preview" id="secao-icone-preview">
-                <span class="secao-icone-preview-box">
-                  <i class="fa-solid fa-layer-group"></i>
+          <section class="premium-modal-section premium-section-config">
+            <div class="premium-section-title">
+              <span><i class="fa-solid fa-gear"></i></span>
+              <h4>Configurações</h4>
+            </div>
+
+            <div class="premium-config-row">
+              <div class="form-group premium-control">
+                <label for="secao-ordem">Ordem</label>
+                <input id="secao-ordem" type="number" min="0" value="0" />
+              </div>
+
+              <label class="premium-toggle-card">
+                <input id="secao-ativo" type="checkbox" checked />
+                <span class="toggle-switch" aria-hidden="true"></span>
+                <span>
+                  <strong>Ativa</strong>
+                  <small>Seção visível no formulário.</small>
                 </span>
-
-                <div>
-                  <strong id="secao-icone-preview-text">Ícone selecionado</strong>
-                  <small>Clique em “Escolher ícone” para trocar.</small>
-                </div>
-              </div>
+              </label>
             </div>
-          </div>
-
-          <div class="form-group">
-            <label for="secao-descricao">Descrição</label>
-            <textarea id="secao-descricao" rows="3" placeholder="Texto curto opcional para explicar esta seção."></textarea>
-          </div>
-
-          <div class="form-row two-cols">
-            <div class="form-group">
-              <label for="secao-ordem">Ordem</label>
-              <input id="secao-ordem" type="number" min="0" value="0" />
-            </div>
-
-            <label class="check-card single">
-              <input id="secao-ativo" type="checkbox" checked />
-              <span>
-                <strong>Ativa</strong>
-                <small>Mostrar esta seção.</small>
-              </span>
-            </label>
-          </div>
+          </section>
         </form>
       </div>
 
-      <div class="modal-footer">
-        <button class="btn btn-secondary btn-danger-soft" type="button" id="btn-excluir-secao" style="display:none;">
+      <div class="modal-footer premium-modal-footer">
+        <button class="btn btn-secondary btn-danger-soft premium-danger-link" type="button" id="btn-excluir-secao" style="display:none;">
           <i class="fa-solid fa-trash"></i>
-          Excluir
+          Excluir seção
         </button>
 
         <div class="footer-spacer"></div>
@@ -396,64 +381,66 @@
 
   <!-- MODAL CAMPO -->
   <div class="modal-overlay" id="modal-campo" hidden>
-    <div class="modal-content modal-md campo-modal-simples">
-      <div class="modal-header">
-        <div>
-          <h3 id="modal-campo-title">Novo campo</h3>
-          <p id="modal-campo-subtitle">Crie uma nova informação personalizada para este formulário.</p>
+    <div class="modal-content modal-xl modal-premium modal-field-editor campo-modal-simples">
+      <div class="modal-header modal-premium-header">
+        <div class="modal-title-wrap">
+          <span class="modal-title-icon">
+            <i class="fa-solid fa-plus"></i>
+          </span>
+          <div>
+            <h3 id="modal-campo-title">Novo campo</h3>
+            <p id="modal-campo-subtitle">Crie uma nova informação personalizada.</p>
+          </div>
         </div>
 
-        <button class="modal-close" type="button" data-close-modal="modal-campo">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
+        <div class="modal-window-actions">
+          <button class="modal-size-toggle" type="button" data-toggle-modal-size="modal-campo" title="Aumentar modal" aria-label="Aumentar modal">
+            <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
+          </button>
+
+          <button class="modal-close" type="button" data-close-modal="modal-campo" aria-label="Fechar">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
       </div>
 
-      <div class="modal-body">
-        <form class="valora-form" onsubmit="return false;">
+      <div class="modal-body premium-modal-body">
+        <form class="valora-form premium-form-grid" onsubmit="return false;">
           <input type="hidden" id="campo-id" />
           <input type="hidden" id="campo-modo" value="novo" />
           <input type="hidden" id="campo-origem" value="personalizado" />
 
-          <div class="campo-simple-guide" id="campo-simple-guide">
-            <strong>Novo campo</strong>
-            <ol>
-              <li>Escolha em qual seção o campo vai aparecer.</li>
-              <li>Digite o nome do campo.</li>
-              <li>Escolha o tipo e marque se é obrigatório.</li>
-              <li>Salve.</li>
-            </ol>
-          </div>
-
-          <div class="form-group campo-simple-step">
-            <label for="campo-secao">1. Seção do formulário *</label>
-            <select id="campo-secao">
-              <option value="">Selecione uma seção</option>
-            </select>
-            <small class="field-hint">
-              Antes de criar campos, crie uma seção como “01 - Dados básicos”.
-            </small>
-          </div>
-
-          <div class="form-group campo-simple-step origem-row" id="row-campo-sistema" style="display:none;">
-            <label for="campo-sistema">2. Campo do sistema *</label>
-            <select id="campo-sistema">
-              <option value="">Carregando...</option>
-            </select>
-            <small class="field-hint">
-              Use dados que já existem no cadastro, como nome, telefone, CPF/CNPJ e endereço.
-            </small>
-          </div>
-
-          <div class="campo-novo-wrap" id="row-campo-novo">
-            <div class="form-group campo-simple-step">
-              <label for="campo-label">2. Nome do novo campo *</label>
-              <input id="campo-label" type="text" placeholder="Ex.: Tipo de imóvel" />
-              <small class="field-hint">Esse campo será uma informação nova do formulário.</small>
+          <section class="premium-modal-section field-main-section">
+            <div class="premium-section-title">
+              <span><i class="fa-solid fa-pen-to-square"></i></span>
+              <h4>Dados principais</h4>
             </div>
 
-            <div class="form-row two-cols campo-simple-step">
-              <div class="form-group">
-                <label for="campo-tipo-campo">3. Tipo do campo</label>
+            <div class="form-group premium-control is-wide">
+              <label for="campo-secao">Seção do formulário <b>*</b></label>
+              <select id="campo-secao">
+                <option value="">Selecione uma seção</option>
+              </select>
+              <small class="field-hint">Escolha em qual seção este campo será exibido.</small>
+            </div>
+
+            <div class="form-group premium-control origem-row is-wide" id="row-campo-sistema" style="display:none;">
+              <label for="campo-sistema">Campo do sistema <b>*</b></label>
+              <select id="campo-sistema">
+                <option value="">Carregando...</option>
+              </select>
+              <small class="field-hint">Use dados que já existem no cadastro, como nome, telefone, CPF/CNPJ e endereço.</small>
+            </div>
+
+            <div class="campo-novo-wrap premium-two-columns" id="row-campo-novo">
+              <div class="form-group premium-control">
+                <label for="campo-label">Nome do campo <b>*</b></label>
+                <input id="campo-label" type="text" maxlength="80" placeholder="Ex.: Telefone Contato (Whatsapp)" />
+                <small class="char-hint" data-count-for="campo-label">0/80</small>
+              </div>
+
+              <div class="form-group premium-control">
+                <label for="campo-tipo-campo">Tipo do campo <b>*</b></label>
                 <select id="campo-tipo-campo">
                   <option value="texto">Texto</option>
                   <option value="textarea">Texto longo</option>
@@ -487,126 +474,140 @@
                 </select>
               </div>
 
-              <div class="form-group">
+              <div class="form-group premium-control is-wide campo-options-control">
                 <label for="campo-opcoes">Opções</label>
                 <textarea id="campo-opcoes" rows="3" placeholder="Uma opção por linha&#10;Casa&#10;Apartamento&#10;Comercial"></textarea>
-                <small class="field-hint">Preencha só em Lista ou Lista com múltipla seleção. Campos que puxam cadastros usam os dados do sistema.</small>
+                <small class="field-hint">Preencha só em Lista ou Lista com múltipla seleção.</small>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div class="campo-preview" id="campo-preview">
-            <span class="campo-preview-icon"><i class="fa-solid fa-pen-to-square"></i></span>
-
-            <div>
-              <strong id="campo-preview-label">Novo campo personalizado</strong>
-              <small id="campo-preview-hint">Digite o nome do campo para ver como ele ficará no formulário.</small>
+          <section class="premium-modal-section field-config-section" id="campo-avancado">
+            <div class="premium-section-title premium-section-title-between">
+              <span><i class="fa-solid fa-sliders"></i></span>
+              <h4>Configurações do campo</h4>
+              <i class="fa-solid fa-chevron-up"></i>
             </div>
-          </div>
 
-          <div class="checks-row campo-checks-simples">
-            <label class="check-card">
-              <input id="campo-obrigatorio" type="checkbox" />
-              <span>
-                <strong>Obrigatório</strong>
-                <small>Exige preenchimento.</small>
-              </span>
-            </label>
+            <div class="premium-two-columns field-config-grid">
+              <label class="premium-toggle-card">
+                <input id="campo-obrigatorio" type="checkbox" />
+                <span class="toggle-switch" aria-hidden="true"></span>
+                <span>
+                  <strong>Obrigatório</strong>
+                  <small>Campo obrigatório no cadastro.</small>
+                </span>
+              </label>
 
-            <label class="check-card">
-              <input id="campo-somente-leitura" type="checkbox" />
-              <span>
-                <strong>Somente leitura</strong>
-                <small>Aparece sem edição.</small>
-              </span>
-            </label>
+              <label class="premium-toggle-card">
+                <input id="campo-ativo" type="checkbox" checked />
+                <span class="toggle-switch" aria-hidden="true"></span>
+                <span>
+                  <strong>Ativo</strong>
+                  <small>Mostrar no formulário.</small>
+                </span>
+              </label>
 
-            <label class="check-card">
-              <input id="campo-ativo" type="checkbox" checked />
-              <span>
-                <strong>Ativo</strong>
-                <small>Mostrar no formulário.</small>
-              </span>
-            </label>
-          </div>
+              <label class="premium-toggle-card">
+                <input id="campo-somente-leitura" type="checkbox" />
+                <span class="toggle-switch" aria-hidden="true"></span>
+                <span>
+                  <strong>Somente leitura</strong>
+                  <small>Aparece sem edição.</small>
+                </span>
+              </label>
 
-          <details class="campo-avancado" id="campo-avancado">
-            <summary>
-              <span><i class="fa-solid fa-sliders"></i> Mostrar opções avançadas</span>
-              <small>Use só se precisar alterar largura, ordem, placeholder ou visibilidade.</small>
-            </summary>
+              <label class="premium-toggle-card">
+                <input id="campo-usar-localizar" type="checkbox" />
+                <span class="toggle-switch" aria-hidden="true"></span>
+                <span>
+                  <strong>Usar no localizar</strong>
+                  <small>Vira filtro no card de pesquisa deste módulo.</small>
+                </span>
+              </label>
 
-            <div class="campo-avancado-body">
-              <div class="form-row two-cols">
-                <div class="form-group">
-                  <label for="campo-ordem">Ordem</label>
-                  <input id="campo-ordem" type="number" min="0" value="0" />
-                </div>
+              <label class="premium-toggle-card">
+                <input id="campo-mostrar-tabela" type="checkbox" />
+                <span class="toggle-switch" aria-hidden="true"></span>
+                <span>
+                  <strong>Mostrar na tabela</strong>
+                  <small>Vira coluna na listagem abaixo da pesquisa.</small>
+                </span>
+              </label>
 
-                <div class="form-group">
-                  <label for="campo-largura">Largura</label>
-                  <select id="campo-largura">
-                    <option value="100">Linha inteira</option>
-                    <option value="50">Metade da linha</option>
-                    <option value="75">75%</option>
-                    <option value="66">66%</option>
-                    <option value="33">33%</option>
-                    <option value="25">25%</option>
-                  </select>
-                </div>
+              <div class="form-group premium-control">
+                <label for="campo-largura">Largura</label>
+                <select id="campo-largura">
+                  <option value="100">100% (linha inteira)</option>
+                  <option value="75">75%</option>
+                  <option value="66">66%</option>
+                  <option value="50">50% (metade da linha)</option>
+                  <option value="33">33%</option>
+                  <option value="25">25%</option>
+                </select>
               </div>
 
-              <div class="form-row two-cols">
-                <div class="form-group">
-                  <label for="campo-placeholder">Placeholder</label>
-                  <input id="campo-placeholder" type="text" placeholder="Ex.: Digite aqui" />
-                </div>
-
-                <div class="form-group">
-                  <label for="campo-visibilidade">Visibilidade</label>
-                  <select id="campo-visibilidade">
-                    <option value="todos">Todos</option>
-                    <option value="pf">Somente PF</option>
-                    <option value="pj">Somente PJ</option>
-                    <option value="interno">Somente interno</option>
-                    <option value="publico">Somente público</option>
-                  </select>
-                </div>
+              <div class="form-group premium-control">
+                <label for="campo-ordem">Ordem</label>
+                <input id="campo-ordem" type="number" min="0" value="0" />
               </div>
 
-              <div class="form-group">
-                <label for="campo-ajuda">Ajuda / descrição</label>
-                <textarea id="campo-ajuda" rows="2" placeholder="Texto curto para orientar quem preenche."></textarea>
+              <div class="form-group premium-control">
+                <label for="campo-placeholder">Placeholder</label>
+                <input id="campo-placeholder" type="text" placeholder="Ex.: (31) 99999-9999" />
               </div>
 
-              <div class="form-group" id="row-campo-personalizado" style="display:none;">
+              <div class="form-group premium-control is-wide">
+                <label for="campo-ajuda">Ajuda (opcional)</label>
+                <textarea id="campo-ajuda" rows="2" maxlength="200" placeholder="Ex.: Informe um número com DDD"></textarea>
+                <small class="char-hint" data-count-for="campo-ajuda">0/200</small>
+              </div>
+
+              <div class="form-group premium-control" id="row-campo-personalizado" style="display:none;">
                 <label for="campo-personalizado">Campo personalizado antigo</label>
                 <select id="campo-personalizado">
                   <option value="">Carregando...</option>
                 </select>
               </div>
 
-              <div class="form-row two-cols" id="row-campo-visual" style="display:none;">
-                <div class="form-group">
-                  <label for="campo-tipo-visual">Tipo visual</label>
-                  <select id="campo-tipo-visual">
-                    <option value="titulo">Título</option>
-                    <option value="subtitulo">Subtítulo</option>
-                    <option value="separador">Separador</option>
-                    <option value="texto">Texto explicativo</option>
-                    <option value="aviso">Aviso</option>
-                  </select>
-                </div>
+              <div class="form-group premium-control">
+                <label for="campo-visibilidade">Visibilidade</label>
+                <select id="campo-visibilidade">
+                  <option value="todos">Todos</option>
+                  <option value="pf">Somente PF</option>
+                  <option value="pj">Somente PJ</option>
+                  <option value="interno">Somente interno</option>
+                  <option value="publico">Somente público</option>
+                </select>
+              </div>
+
+              <div class="form-group premium-control" id="row-campo-visual" style="display:none;">
+                <label for="campo-tipo-visual">Tipo visual</label>
+                <select id="campo-tipo-visual">
+                  <option value="titulo">Título</option>
+                  <option value="subtitulo">Subtítulo</option>
+                  <option value="separador">Separador</option>
+                  <option value="texto">Texto explicativo</option>
+                  <option value="aviso">Aviso</option>
+                </select>
               </div>
             </div>
-          </details>
+          </section>
+
+          <div class="campo-preview premium-field-preview" id="campo-preview" aria-live="polite">
+            <span class="campo-preview-icon"><i class="fa-solid fa-pen-to-square"></i></span>
+            <div>
+              <strong id="campo-preview-label">Novo campo personalizado</strong>
+              <small id="campo-preview-hint">Digite o nome do campo para ver como ele ficará no formulário.</small>
+            </div>
+          </div>
         </form>
       </div>
 
-      <div class="modal-footer">
-        <button class="btn btn-secondary btn-danger-soft" type="button" id="btn-excluir-campo" style="display:none;">
+      <div class="modal-footer premium-modal-footer">
+        <button class="btn btn-secondary btn-danger-soft premium-danger-link" type="button" id="btn-excluir-campo" style="display:none;">
           <i class="fa-solid fa-trash"></i>
-          Excluir
+          Excluir campo
         </button>
 
         <div class="footer-spacer"></div>
@@ -614,8 +615,8 @@
         <button class="btn btn-secondary" type="button" data-close-modal="modal-campo">Cancelar</button>
 
         <button class="btn btn-primary" type="button" id="btn-salvar-campo">
-          <i class="fa-solid fa-floppy-disk"></i>
-          Salvar campo
+          <i class="fa-solid fa-check"></i>
+          Criar campo
         </button>
       </div>
     </div>

@@ -247,22 +247,79 @@
     }
   }
 
-  function openModal(id) {
-    if (window.ValoraModal) return window.ValoraModal.open(id);
 
+  function atualizarContadoresCaracteres(root = document) {
+    root.querySelectorAll('[data-count-for]').forEach((counter) => {
+      const input = qs(counter.dataset.countFor);
+      if (!input) return;
+
+      const max = input.getAttribute('maxlength') || counter.textContent.split('/')[1] || '';
+      const len = String(input.value || '').length;
+      counter.textContent = max ? `${len}/${max}` : String(len);
+    });
+  }
+
+  function toggleModalSize(id) {
     const modal = document.getElementById(id);
+    const content = modal?.querySelector('.modal-content');
+    const button = modal?.querySelector('[data-toggle-modal-size]');
+    const icon = button?.querySelector('i');
+    if (!modal || !content) return;
+
+    const expanded = content.classList.toggle('is-expanded');
+    modal.classList.toggle('is-expanded', expanded);
+
+    if (button) {
+      const label = expanded ? 'Reduzir modal' : 'Aumentar modal';
+      button.setAttribute('title', label);
+      button.setAttribute('aria-label', label);
+    }
+
+    if (icon) {
+      icon.className = expanded
+        ? 'fa-solid fa-down-left-and-up-right-to-center'
+        : 'fa-solid fa-up-right-and-down-left-from-center';
+    }
+  }
+
+  function openModal(id) {
+    const modal = document.getElementById(id);
+
+    if (window.ValoraModal) {
+      window.ValoraModal.open(id);
+      if (modal) atualizarContadoresCaracteres(modal);
+      return;
+    }
+
     if (!modal) return;
 
     modal.hidden = false;
     modal.style.display = 'flex';
+    atualizarContadoresCaracteres(modal);
 
     requestAnimationFrame(() => modal.classList.add('show'));
   }
 
   function closeModal(id) {
+    const modal = document.getElementById(id);
+
+    if (modal) {
+      modal.classList.remove('is-expanded');
+      modal.querySelector('.modal-content')?.classList.remove('is-expanded');
+
+      const sizeBtn = modal.querySelector('[data-toggle-modal-size]');
+      const sizeBtnIcon = sizeBtn?.querySelector('i');
+
+      if (sizeBtn) {
+        sizeBtn.setAttribute('title', 'Aumentar modal');
+        sizeBtn.setAttribute('aria-label', 'Aumentar modal');
+      }
+
+      if (sizeBtnIcon) sizeBtnIcon.className = 'fa-solid fa-up-right-and-down-left-from-center';
+    }
+
     if (window.ValoraModal) return window.ValoraModal.close(id);
 
-    const modal = document.getElementById(id);
     if (!modal) return;
 
     modal.classList.remove('show');
@@ -270,12 +327,21 @@
     setTimeout(() => {
       modal.hidden = true;
       modal.style.display = 'none';
+      modal.classList.remove('is-expanded');
+      modal.querySelector('.modal-content')?.classList.remove('is-expanded');
+      const sizeBtn = modal.querySelector('[data-toggle-modal-size]');
+      const sizeBtnIcon = sizeBtn?.querySelector('i');
+      if (sizeBtn) {
+        sizeBtn.setAttribute('title', 'Aumentar modal');
+        sizeBtn.setAttribute('aria-label', 'Aumentar modal');
+      }
+      if (sizeBtnIcon) sizeBtnIcon.className = 'fa-solid fa-up-right-and-down-left-from-center';
     }, 160);
   }
 
   function closeAllModals() {
     document.querySelectorAll('.modal-overlay.show').forEach((modal) => {
-      modal.classList.remove('show');
+      closeModal(modal.id);
     });
   }
 
@@ -413,6 +479,42 @@
 
     const tipo = normalizarTipoCampoFrontend(campo.tipo_campo || 'texto');
     return map[tipo] || tipo;
+  }
+
+  function tipoIcone(campo) {
+    if (!campo) return 'fa-font';
+    if (campo.origem === 'visual') return 'fa-heading';
+
+    const tipo = normalizarTipoCampoFrontend(campo.tipo_campo || 'texto');
+    const map = {
+      texto: 'fa-font',
+      textarea: 'fa-align-left',
+      numero: 'fa-hashtag',
+      data: 'fa-calendar-days',
+      select: 'fa-list-ul',
+      multiselect: 'fa-list-check',
+      checkbox: 'fa-square-check',
+      email: 'fa-envelope',
+      telefone: 'fa-phone',
+      moeda: 'fa-dollar-sign',
+      percentual: 'fa-percent',
+      relacao_cliente: 'fa-user-group',
+      relacao_fornecedor: 'fa-truck',
+      relacao_produto: 'fa-box-open',
+      relacao_patrimonio: 'fa-tags',
+      relacao_cotacao: 'fa-scale-balanced',
+      relacao_proposta: 'fa-file-signature',
+      relacao_contrato: 'fa-file-contract',
+      relacao_cliente_multi: 'fa-users',
+      relacao_fornecedor_multi: 'fa-truck',
+      relacao_produto_multi: 'fa-boxes-stacked',
+      relacao_patrimonio_multi: 'fa-tags',
+      relacao_cotacao_multi: 'fa-scale-balanced',
+      relacao_proposta_multi: 'fa-file-signature',
+      relacao_contrato_multi: 'fa-file-contract',
+    };
+
+    return map[tipo] || 'fa-font';
   }
 
   function widthLabel(width) {
@@ -772,7 +874,7 @@
     }
 
     if (previewText) {
-      previewText.textContent = 'Ícone selecionado';
+      previewText.textContent = titulo.trim() || 'Dados Básicos';
     }
 
     marcarIconeSecaoAtivo(icon);
@@ -878,7 +980,7 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        titulo: 'Dados principais',
+        titulo: 'Dados Básicos',
         descricao: 'Campos principais do cadastro.',
         icone: 'fa-id-card',
         ordem: 1,
@@ -940,19 +1042,7 @@
     }
 
     select.innerHTML = state.modelos.map((modelo) => {
-      const badges = [];
-
-      if (modelo.padrao) {
-        badges.push('padrão');
-      }
-
-      if (modelo.usar_como_ficha_principal) {
-        badges.push('ficha principal');
-      }
-
-      const badgeText = badges.length ? ` • ${badges.join(' • ')}` : '';
-
-      return `<option value="${modelo.id}">${escapeHtml(modelo.nome)}${escapeHtml(badgeText)}</option>`;
+      return `<option value="${modelo.id}">${escapeHtml(modelo.nome)}</option>`;
     }).join('');
   }
 
@@ -1029,9 +1119,9 @@
           flags.push('ficha principal do cadastro');
         }
 
-        const fallback = flags.length
-          ? `${moduloLabel()} • ${flags.join(' • ')}`
-          : `${moduloLabel()} • formulário personalizado`;
+        const fallback = modelo.padrao
+          ? 'Modelo padrão gerado automaticamente pelo ValoraCRM.'
+          : (flags.length ? `${moduloLabel()} • ${flags.join(' • ')}` : `${moduloLabel()} • formulário personalizado`);
 
         modeloDescricao.textContent = modelo.descricao || fallback;
       }
@@ -1125,22 +1215,23 @@
     const inactive = secao.ativo === false ? '<span class="badge off">Inativa</span>' : '';
     const icon = getIconeSecao(secao);
     const sid = String(secao.id || 'sem-secao');
-    const isOpen = secao.semSecao || state.secoesAbertas.has(sid) || (!state.secoesAbertas.size && index === 0);
+    const isOpen = secao.semSecao || state.secoesAbertas.has(sid);
     const originClass = secao.semSecao ? 'neutral' : `tone-${(index % 5) + 1}`;
 
     const actions = secao.semSecao ? '' : `
-      <div class="secao-actions">
-        <button class="secao-count-pill" type="button" data-action="toggle-secao" data-id="${secao.id}" title="Abrir ou recolher seção">
-          ${campos.length} ${campos.length === 1 ? 'campo' : 'campos'}
-          <i class="fa-solid fa-chevron-down"></i>
+      <div class="secao-actions" aria-label="Ações da seção">
+        <button class="secao-count-pill" type="button" data-action="toggle-secao" data-id="${secao.id}" title="Abrir ou recolher seção" aria-label="Abrir ou recolher seção">
+          <i class="fa-solid fa-list-check"></i>
+          <span>${campos.length} ${campos.length === 1 ? 'campo' : 'campos'}</span>
+          <i class="fa-solid fa-chevron-down secao-toggle-icon"></i>
         </button>
 
-        <button class="icon-btn" type="button" data-action="editar-secao" data-id="${secao.id}" title="Editar seção">
-          <i class="fa-solid fa-pen"></i>
+        <button class="icon-btn" type="button" data-action="editar-secao" data-id="${secao.id}" title="Editar seção" aria-label="Editar seção">
+          <i class="fa-solid fa-pen-to-square"></i>
         </button>
 
-        <button class="icon-btn danger" type="button" data-action="excluir-secao" data-id="${secao.id}" title="Excluir seção">
-          <i class="fa-solid fa-trash"></i>
+        <button class="icon-btn danger" type="button" data-action="excluir-secao" data-id="${secao.id}" title="Excluir seção" aria-label="Excluir seção">
+          <i class="fa-solid fa-trash-can"></i>
         </button>
       </div>
     `;
@@ -1174,40 +1265,35 @@
 
   function renderCampoCard(campo) {
     const origem = campo.origem || 'personalizado';
-    const badgeClass = origem === 'sistema' ? 'system' : origem === 'visual' ? 'visual' : 'custom';
-    const icon = origem === 'visual' ? 'fa-heading' : origem === 'sistema' ? 'fa-database' : 'fa-pen-to-square';
+    const tipo = tipoLabel(campo);
+    const tipoNormalizado = normalizarTipoCampoFrontend(campo.tipo_campo || 'texto');
+    const icon = tipoIcone(campo);
 
-    const inactive = campo.ativo === false ? '<span class="badge off">Inativo</span>' : '';
-    const required = campo.obrigatorio ? '<span class="badge">Obrigatório</span>' : '';
-    const readonly = campo.somente_leitura ? '<span class="badge">Somente leitura</span>' : '';
+    const required = campo.obrigatorio ? '<span class="badge badge-required">Obrigatório</span>' : '';
+    const readonly = campo.somente_leitura ? '<span class="badge badge-muted">Somente leitura</span>' : '';
+    const inactive = campo.ativo === false ? '<span class="badge badge-off">Inativo</span>' : '';
 
-    const detalhes = [
-      `<span class="badge ${badgeClass}"><i class="fa-solid ${icon}"></i>${escapeHtml(origemLabel(origem))}</span>`,
-      `<span class="badge">${escapeHtml(tipoLabel(campo))}</span>`,
-      required,
-      readonly,
-      inactive,
-      `<span class="badge">Ordem ${Number(campo.ordem || 0)}</span>`,
-      `<span class="badge">${escapeHtml(widthLabel(campo.largura))}</span>`,
-    ].filter(Boolean).join('');
+    const chipsDireita = [required, readonly, inactive].filter(Boolean).join('');
+    const origemAttr = escapeHtml(origem);
 
     return `
-      <div class="campo-card campo-card-premium">
+      <div class="campo-card campo-card-premium campo-row-clean" data-origem="${origemAttr}">
         <span class="campo-drag" title="Arrastar campo"><i class="fa-solid fa-grip-vertical"></i></span>
+
+        <span class="campo-type-icon" aria-hidden="true"><i class="fa-solid ${escapeHtml(icon)}"></i></span>
 
         <div class="campo-main">
           <div class="campo-title">
             <strong>${escapeHtml(campo.label || '-')}</strong>
-          </div>
-
-          <div class="campo-meta campo-meta-chips">
-            ${detalhes}
+            <span class="campo-type-chip tipo-${escapeHtml(tipoNormalizado)}">${escapeHtml(tipo)}</span>
           </div>
 
           ${campo.ajuda ? `<div class="campo-ajuda">${escapeHtml(campo.ajuda)}</div>` : ''}
         </div>
 
         <div class="campo-actions">
+          <span class="campo-right-chips">${chipsDireita}</span>
+
           <button class="icon-btn" type="button" data-action="editar-campo" data-id="${campo.id}" title="Editar campo">
             <i class="fa-solid fa-pen"></i>
           </button>
@@ -1393,7 +1479,7 @@
     if (isSistema) {
       if (title) title.textContent = 'Adicionar campo do sistema';
       if (subtitle) subtitle.textContent = 'Escolha uma informação que já existe no cadastro e coloque dentro da seção.';
-      if (btnSalvar) btnSalvar.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Adicionar campo';
+      if (btnSalvar) btnSalvar.innerHTML = '<i class="fa-solid fa-check"></i> Adicionar campo';
 
       if (guide) {
         guide.innerHTML = `
@@ -1415,7 +1501,7 @@
           : 'Crie uma nova informação personalizada para este formulário.';
       }
 
-      if (btnSalvar) btnSalvar.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Criar campo';
+      if (btnSalvar) btnSalvar.innerHTML = '<i class="fa-solid fa-check"></i> Criar campo';
 
       if (guide) {
         guide.innerHTML = `
@@ -1538,6 +1624,29 @@
     if (avancado) avancado.open = false;
 
     aplicarModoCampo(origemInicial);
+
+    const editando = !!campo?.id;
+    const title = qs('modal-campo-title');
+    const subtitle = qs('modal-campo-subtitle');
+    const btnSalvar = qs('btn-salvar-campo');
+    const titleIcon = document.querySelector('#modal-campo .modal-title-icon i');
+
+    if (editando) {
+      if (origemInicial === 'sistema') {
+        if (title) title.textContent = 'Editar campo do sistema';
+      } else if (origemInicial === 'visual') {
+        if (title) title.textContent = 'Editar item visual';
+      } else {
+        if (title) title.textContent = 'Editar campo';
+      }
+
+      if (subtitle) subtitle.textContent = 'Altere as informações deste campo.';
+      if (btnSalvar) btnSalvar.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar alterações';
+      if (titleIcon) titleIcon.className = 'fa-solid fa-pen-to-square';
+    } else {
+      if (titleIcon) titleIcon.className = 'fa-solid fa-plus';
+    }
+
     syncCampoOpcoesVisibility();
     atualizarCampoPreview();
   }
@@ -1779,7 +1888,7 @@
       toast(err.message || 'Erro ao salvar campo.', true);
     } finally {
       btn.disabled = false;
-      btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar campo';
+      btn.innerHTML = id ? '<i class="fa-solid fa-floppy-disk"></i> Salvar alterações' : '<i class="fa-solid fa-check"></i> Criar campo';
     }
   }
 
@@ -1994,6 +2103,15 @@
       btn.addEventListener('click', () => closeModal(btn.dataset.closeModal));
     });
 
+    document.querySelectorAll('[data-toggle-modal-size]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        toggleModalSize(btn.dataset.toggleModalSize);
+      });
+    });
+
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeAllModals();
     });
@@ -2001,7 +2119,7 @@
     document.querySelectorAll('.modal-overlay').forEach((modal) => {
       modal.addEventListener('mousedown', (e) => {
         if (e.target === modal) {
-          modal.classList.remove('show');
+          closeModal(modal.id);
         }
       });
     });
@@ -2015,6 +2133,9 @@
     });
 
     qs('btn-atualizar')?.addEventListener('click', () => trocarModulo(state.modulo));
+    qs('btn-ajuda-formularios')?.addEventListener('click', () => {
+      toast('Escolha o módulo, selecione o formulário e organize as seções com os campos necessários.');
+    });
     qs('btn-criar-padrao')?.addEventListener('click', criarPadrao);
 
     qs('btn-novo-modelo')?.addEventListener('click', () => {

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import String as SqlString, cast, exists, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -558,10 +558,15 @@ def produto_to_out(db: Session, p: models.Produto, *, include_custom_fields: boo
     )
 
 
-def produto_to_list_out(p: models.Produto) -> Dict[str, object]:
+def produto_to_list_out(
+    p: models.Produto,
+    db: Optional[Session] = None,
+    include_custom_fields: bool = False,
+) -> Dict[str, object]:
+    empresa_id = int(p.empresa_id)
     return {
         "id": int(p.id),
-        "empresa_id": int(p.empresa_id),
+        "empresa_id": empresa_id,
         "codigo": getattr(p, "codigo", None) or "",
         "cod_ref_id": getattr(p, "codigo", None) or "",
         "codigo_barras": getattr(p, "codigo_barras", None),
@@ -578,8 +583,77 @@ def produto_to_list_out(p: models.Produto) -> Dict[str, object]:
         "ativo": bool(getattr(p, "ativo", True)),
         "criado_em": iso_datetime(getattr(p, "criado_em", None)),
         "atualizado_em": iso_datetime(getattr(p, "atualizado_em", None)),
-        "custom_fields": {},
+        "custom_fields": (
+            buscar_custom_fields_produto(db, empresa_id, int(p.id))
+            if include_custom_fields and db is not None
+            else {}
+        ),
     }
+
+
+def _request_dynamic_filters(request: Request, prefix: str) -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    for key, value in request.query_params.multi_items():
+        if not key.startswith(prefix):
+            continue
+        field = key[len(prefix):].strip()
+        text_value = str(value or '').strip()
+        if field and text_value:
+            out[field] = text_value
+    return out
+
+
+def _bool_from_text(value: str) -> Optional[bool]:
+    text_value = str(value or '').strip().lower()
+    if text_value in {'true', '1', 'sim', 's', 'yes'}:
+        return True
+    if text_value in {'false', '0', 'nao', 'não', 'n', 'no'}:
+        return False
+    return None
+
+
+def _apply_dynamic_system_filters_produto(query, request: Request):
+    aliases = {
+        'data_cadastro': 'criado_em',
+        'status': 'ativo',
+    }
+
+    for campo, value in _request_dynamic_filters(request, 'filtro_sistema_').items():
+        attr = aliases.get(campo, campo)
+        if not hasattr(models.Produto, attr):
+            continue
+
+        coluna = getattr(models.Produto, attr)
+        bool_value = _bool_from_text(value)
+        if attr == 'ativo' and bool_value is not None:
+            query = query.filter(coluna == bool_value)
+        else:
+            query = query.filter(cast(coluna, SqlString).ilike(f"%{value}%"))
+    return query
+
+
+def _apply_dynamic_custom_filters_produto(query, request: Request, empresa_id: int):
+    for slug, value in _request_dynamic_filters(request, 'filtro_custom_').items():
+        query = query.filter(
+            exists()
+            .where(models.ProdutoCampoValor.produto_id == models.Produto.id)
+            .where(models.ProdutoCampoValor.campo_id == models.CampoProduto.id)
+            .where(models.CampoProduto.empresa_id == empresa_id)
+            .where(models.CampoProduto.slug == slug)
+            .where(models.ProdutoCampoValor.valor.ilike(f"%{value}%"))
+        )
+    return query
+
+
+def _custom_search_exists_produto(empresa_id: int, value: str):
+    return (
+        exists()
+        .where(models.ProdutoCampoValor.produto_id == models.Produto.id)
+        .where(models.ProdutoCampoValor.campo_id == models.CampoProduto.id)
+        .where(models.CampoProduto.empresa_id == empresa_id)
+        .where(models.ProdutoCampoValor.valor.ilike(f"%{value}%"))
+    )
+
 
 @router.get("")
 def listar_produtos(
@@ -593,12 +667,13 @@ def listar_produtos(
     db: Session = Depends(get_db),
 ):
     """
-    Lista leve e paginada para Produtos.
+    Lista paginada para Produtos.
 
-    A tabela não precisa trazer valores de campos personalizados de todos os
-    produtos. O produto completo continua vindo em /api/produtos/{id}.
+    Quando o construtor de Formulários marca campos como "Mostrar na tabela"
+    ou "Usar no localizar", a listagem também envia e filtra esses valores.
     """
     empresa_id = validar_usuario_empresa(request, db)
+    sincronizar_campos_produtos_com_formulario(db, empresa_id)
 
     query = db.query(models.Produto).filter(models.Produto.empresa_id == empresa_id)
 
@@ -616,17 +691,20 @@ def listar_produtos(
             filtros.append(models.Produto.descricao.ilike(q))
         if hasattr(models.Produto, "categoria"):
             filtros.append(models.Produto.categoria.ilike(q))
-        cond = filtros[0]
+        cond = filtros[0] | _custom_search_exists_produto(empresa_id, texto)
         for item in filtros[1:]:
             cond = cond | item
         query = query.filter(cond)
+
+    query = _apply_dynamic_system_filters_produto(query, request)
+    query = _apply_dynamic_custom_filters_produto(query, request, empresa_id)
 
     query = query.order_by(models.Produto.nome.asc(), models.Produto.id.asc())
 
     if paginated:
         total = query.count()
         rows = query.offset(offset).limit(limit).all()
-        items = [produto_to_list_out(p) for p in rows]
+        items = [produto_to_list_out(p, db=db, include_custom_fields=True) for p in rows]
         return {
             "items": items,
             "total": total,
@@ -636,7 +714,7 @@ def listar_produtos(
         }
 
     rows = query.all()
-    return [produto_to_list_out(p) for p in rows]
+    return [produto_to_list_out(p, db=db, include_custom_fields=True) for p in rows]
 
 
 @router.get("/proximo-codigo")
