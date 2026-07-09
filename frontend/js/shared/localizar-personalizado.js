@@ -244,6 +244,22 @@
     }
   }
 
+  function campoDeveEntrarNoLocalizar(field, modulo) {
+    if (!field) return false;
+
+    const filtroVisivel = isItemVisible(modulo, 'filters', field.origem, field.key);
+    if (!filtroVisivel) return false;
+
+    // Regra nova: o Localizar precisa conversar com a tabela.
+    // Se o campo aparece como coluna, ele também vira filtro automaticamente.
+    // Ainda dá para criar campo só para filtro marcando "Usar no localizar".
+    if (field.mostrarNaTabela && isItemVisible(modulo, 'columns', field.origem, field.key)) {
+      return true;
+    }
+
+    return !!field.usarNoLocalizar;
+  }
+
   async function carregarModulo(modulo, { force = false } = {}) {
     const key = String(modulo || '').trim();
     if (!key) return { fields: [], filterFields: [], tableFields: [] };
@@ -265,7 +281,7 @@
       modulo: key,
       modelo: completo?.modelo || modeloResumo,
       fields,
-      filterFields: fields.filter((field) => field.usarNoLocalizar && isItemVisible(key, 'filters', field.origem, field.key)),
+      filterFields: fields.filter((field) => campoDeveEntrarNoLocalizar(field, key)),
       tableFields: fields.filter((field) => field.mostrarNaTabela && isItemVisible(key, 'columns', field.origem, field.key)),
     };
 

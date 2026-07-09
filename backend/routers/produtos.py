@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
-from sqlalchemy import String as SqlString, cast, exists, text
+from sqlalchemy import String, cast, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -37,6 +37,61 @@ except Exception:
 def norm_str(s: Optional[str]) -> Optional[str]:
     v = (s or "").strip()
     return v or None
+
+
+
+def _dynamic_query_filters(request: Request, prefix: str) -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    needle = f"{prefix}_"
+
+    for key, value in request.query_params.multi_items():
+        if not key.startswith(needle):
+            continue
+
+        field = key[len(needle):].strip()
+        text_value = str(value or "").strip()
+
+        if not field or not text_value:
+            continue
+
+        if not re.fullmatch(r"[A-Za-z0-9_]{1,120}", field):
+            continue
+
+        out[field] = text_value
+
+    return out
+
+
+def aplicar_filtros_dinamicos_produtos(query, request: Request, db: Session, empresa_id: int):
+    aliases = {
+        "produto": "nome",
+        "nome_produto": "nome",
+        "preco": "preco_venda",
+        "estoque": "estoque_atual",
+        "situacao": "ativo",
+        "status": "ativo",
+    }
+
+    for field, value in _dynamic_query_filters(request, "filtro_sistema").items():
+        attr = aliases.get(field, field)
+        col = getattr(models.Produto, attr, None)
+        if col is None:
+            continue
+        query = query.filter(cast(col, String).ilike(f"%{value}%"))
+
+    for slug, value in _dynamic_query_filters(request, "filtro_custom").items():
+        exists_filter = (
+            db.query(models.ProdutoCampoValor.id)
+            .join(models.CampoProduto, models.CampoProduto.id == models.ProdutoCampoValor.campo_id)
+            .filter(models.ProdutoCampoValor.produto_id == models.Produto.id)
+            .filter(models.CampoProduto.empresa_id == empresa_id)
+            .filter(models.CampoProduto.slug == slug)
+            .filter(models.ProdutoCampoValor.valor.ilike(f"%{value}%"))
+            .exists()
+        )
+        query = query.filter(exists_filter)
+
+    return query
 
 
 def iso_datetime(value) -> Optional[str]:
@@ -558,15 +613,13 @@ def produto_to_out(db: Session, p: models.Produto, *, include_custom_fields: boo
     )
 
 
-def produto_to_list_out(
-    p: models.Produto,
-    db: Optional[Session] = None,
-    include_custom_fields: bool = False,
-) -> Dict[str, object]:
-    empresa_id = int(p.empresa_id)
+def produto_to_list_out(db: Session, p: models.Produto, *, include_custom_fields: bool = True) -> Dict[str, object]:
+    empresa_id = int(getattr(p, "empresa_id", 0) or 0)
+    produto_id = int(getattr(p, "id", 0) or 0)
+
     return {
         "id": int(p.id),
-        "empresa_id": empresa_id,
+        "empresa_id": int(p.empresa_id),
         "codigo": getattr(p, "codigo", None) or "",
         "cod_ref_id": getattr(p, "codigo", None) or "",
         "codigo_barras": getattr(p, "codigo_barras", None),
@@ -584,76 +637,11 @@ def produto_to_list_out(
         "criado_em": iso_datetime(getattr(p, "criado_em", None)),
         "atualizado_em": iso_datetime(getattr(p, "atualizado_em", None)),
         "custom_fields": (
-            buscar_custom_fields_produto(db, empresa_id, int(p.id))
-            if include_custom_fields and db is not None
+            buscar_custom_fields_produto(db, empresa_id, produto_id)
+            if include_custom_fields and empresa_id and produto_id
             else {}
         ),
     }
-
-
-def _request_dynamic_filters(request: Request, prefix: str) -> Dict[str, str]:
-    out: Dict[str, str] = {}
-    for key, value in request.query_params.multi_items():
-        if not key.startswith(prefix):
-            continue
-        field = key[len(prefix):].strip()
-        text_value = str(value or '').strip()
-        if field and text_value:
-            out[field] = text_value
-    return out
-
-
-def _bool_from_text(value: str) -> Optional[bool]:
-    text_value = str(value or '').strip().lower()
-    if text_value in {'true', '1', 'sim', 's', 'yes'}:
-        return True
-    if text_value in {'false', '0', 'nao', 'não', 'n', 'no'}:
-        return False
-    return None
-
-
-def _apply_dynamic_system_filters_produto(query, request: Request):
-    aliases = {
-        'data_cadastro': 'criado_em',
-        'status': 'ativo',
-    }
-
-    for campo, value in _request_dynamic_filters(request, 'filtro_sistema_').items():
-        attr = aliases.get(campo, campo)
-        if not hasattr(models.Produto, attr):
-            continue
-
-        coluna = getattr(models.Produto, attr)
-        bool_value = _bool_from_text(value)
-        if attr == 'ativo' and bool_value is not None:
-            query = query.filter(coluna == bool_value)
-        else:
-            query = query.filter(cast(coluna, SqlString).ilike(f"%{value}%"))
-    return query
-
-
-def _apply_dynamic_custom_filters_produto(query, request: Request, empresa_id: int):
-    for slug, value in _request_dynamic_filters(request, 'filtro_custom_').items():
-        query = query.filter(
-            exists()
-            .where(models.ProdutoCampoValor.produto_id == models.Produto.id)
-            .where(models.ProdutoCampoValor.campo_id == models.CampoProduto.id)
-            .where(models.CampoProduto.empresa_id == empresa_id)
-            .where(models.CampoProduto.slug == slug)
-            .where(models.ProdutoCampoValor.valor.ilike(f"%{value}%"))
-        )
-    return query
-
-
-def _custom_search_exists_produto(empresa_id: int, value: str):
-    return (
-        exists()
-        .where(models.ProdutoCampoValor.produto_id == models.Produto.id)
-        .where(models.ProdutoCampoValor.campo_id == models.CampoProduto.id)
-        .where(models.CampoProduto.empresa_id == empresa_id)
-        .where(models.ProdutoCampoValor.valor.ilike(f"%{value}%"))
-    )
-
 
 @router.get("")
 def listar_produtos(
@@ -667,13 +655,12 @@ def listar_produtos(
     db: Session = Depends(get_db),
 ):
     """
-    Lista paginada para Produtos.
+    Lista leve e paginada para Produtos.
 
-    Quando o construtor de Formulários marca campos como "Mostrar na tabela"
-    ou "Usar no localizar", a listagem também envia e filtra esses valores.
+    A tabela não precisa trazer valores de campos personalizados de todos os
+    produtos. O produto completo continua vindo em /api/produtos/{id}.
     """
     empresa_id = validar_usuario_empresa(request, db)
-    sincronizar_campos_produtos_com_formulario(db, empresa_id)
 
     query = db.query(models.Produto).filter(models.Produto.empresa_id == empresa_id)
 
@@ -691,20 +678,19 @@ def listar_produtos(
             filtros.append(models.Produto.descricao.ilike(q))
         if hasattr(models.Produto, "categoria"):
             filtros.append(models.Produto.categoria.ilike(q))
-        cond = filtros[0] | _custom_search_exists_produto(empresa_id, texto)
+        cond = filtros[0]
         for item in filtros[1:]:
             cond = cond | item
         query = query.filter(cond)
 
-    query = _apply_dynamic_system_filters_produto(query, request)
-    query = _apply_dynamic_custom_filters_produto(query, request, empresa_id)
+    query = aplicar_filtros_dinamicos_produtos(query, request, db, empresa_id)
 
     query = query.order_by(models.Produto.nome.asc(), models.Produto.id.asc())
 
     if paginated:
         total = query.count()
         rows = query.offset(offset).limit(limit).all()
-        items = [produto_to_list_out(p, db=db, include_custom_fields=True) for p in rows]
+        items = [produto_to_list_out(db, p, include_custom_fields=True) for p in rows]
         return {
             "items": items,
             "total": total,
@@ -714,7 +700,7 @@ def listar_produtos(
         }
 
     rows = query.all()
-    return [produto_to_list_out(p, db=db, include_custom_fields=True) for p in rows]
+    return [produto_to_list_out(db, p, include_custom_fields=True) for p in rows]
 
 
 @router.get("/proximo-codigo")

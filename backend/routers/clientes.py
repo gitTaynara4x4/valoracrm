@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Request, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy import String as SqlString, cast, exists
+from sqlalchemy import String, cast
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
@@ -99,6 +99,60 @@ def pydantic_dump(obj: BaseModel) -> Dict[str, Any]:
 def norm_str(value: Any) -> Optional[str]:
     text = str(value or "").strip()
     return text or None
+
+
+
+def _dynamic_query_filters(request: Request, prefix: str) -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    needle = f"{prefix}_"
+
+    for key, value in request.query_params.multi_items():
+      if not key.startswith(needle):
+          continue
+
+      field = key[len(needle):].strip()
+      text = str(value or "").strip()
+
+      if not field or not text:
+          continue
+
+      if not re.fullmatch(r"[A-Za-z0-9_]{1,120}", field):
+          continue
+
+      out[field] = text
+
+    return out
+
+
+def aplicar_filtros_dinamicos_clientes(query, request: Request, db: Session, empresa_id: int):
+    aliases = {
+        "tipo": "tipo_pessoa",
+        "documento": "cpf_cnpj",
+        "contato": "telefone",
+        "cidade_uf": "cidade",
+        "status": "situacao",
+    }
+
+    for field, value in _dynamic_query_filters(request, "filtro_sistema").items():
+        attr = aliases.get(field, field)
+        col = getattr(Cliente, attr, None)
+        if col is None:
+            continue
+        query = query.filter(cast(col, String).ilike(f"%{value}%"))
+
+    for slug, value in _dynamic_query_filters(request, "filtro_custom").items():
+        exists_filter = (
+            db.query(core_models.ClienteCampoValor.id)
+            .join(core_models.CampoCliente, core_models.CampoCliente.id == core_models.ClienteCampoValor.campo_id)
+            .filter(core_models.ClienteCampoValor.cliente_id == Cliente.id)
+            .filter(core_models.CampoCliente.empresa_id == empresa_id)
+            .filter(core_models.CampoCliente.slug == slug)
+            .filter(core_models.ClienteCampoValor.valor.ilike(f"%{value}%"))
+            .exists()
+        )
+        query = query.filter(exists_filter)
+
+    return query
 
 
 def norm_upper(value: Any, allowed: set[str], default: str) -> str:
@@ -649,58 +703,6 @@ def buscar_custom_fields_cliente(db: Session, empresa_id: int, cliente_id: int) 
         out[str(campo_row.slug)] = valor_row.valor
     return out
 
-
-
-
-def _request_dynamic_filters(request: Request, prefix: str) -> Dict[str, str]:
-    out: Dict[str, str] = {}
-    for key, value in request.query_params.multi_items():
-        if not key.startswith(prefix):
-            continue
-        field = key[len(prefix):].strip()
-        text = str(value or '').strip()
-        if field and text:
-            out[field] = text
-    return out
-
-
-def _apply_dynamic_system_filters_cliente(query, request: Request):
-    for campo, value in _request_dynamic_filters(request, 'filtro_sistema_').items():
-        if not hasattr(Cliente, campo):
-            if campo == 'data_cadastro' and hasattr(Cliente, 'criado_em'):
-                coluna = getattr(Cliente, 'criado_em')
-            else:
-                continue
-        else:
-            coluna = getattr(Cliente, campo)
-
-        query = query.filter(cast(coluna, SqlString).ilike(f"%{value}%"))
-
-    return query
-
-
-def _apply_dynamic_custom_filters_cliente(query, request: Request, empresa_id: int):
-    for slug, value in _request_dynamic_filters(request, 'filtro_custom_').items():
-        query = query.filter(
-            exists()
-            .where(core_models.ClienteCampoValor.cliente_id == Cliente.id)
-            .where(core_models.ClienteCampoValor.campo_id == core_models.CampoCliente.id)
-            .where(core_models.CampoCliente.empresa_id == empresa_id)
-            .where(core_models.CampoCliente.slug == slug)
-            .where(core_models.ClienteCampoValor.valor.ilike(f"%{value}%"))
-        )
-
-    return query
-
-
-def _custom_search_exists_cliente(empresa_id: int, value: str):
-    return (
-        exists()
-        .where(core_models.ClienteCampoValor.cliente_id == Cliente.id)
-        .where(core_models.ClienteCampoValor.campo_id == core_models.CampoCliente.id)
-        .where(core_models.CampoCliente.empresa_id == empresa_id)
-        .where(core_models.ClienteCampoValor.valor.ilike(f"%{value}%"))
-    )
 
 def salvar_custom_fields_cliente(
     db: Session,
@@ -1306,8 +1308,6 @@ def listar_clientes(
     - O cliente completo + valores personalizados continua vindo em /api/clientes/{id}.
     """
     try:
-        sincronizar_campos_clientes_do_formulario(db, empresa_id, commit=False)
-
         query = db.query(Cliente).filter(Cliente.empresa_id == empresa_id)
 
         if norm_str(situacao):
@@ -1332,11 +1332,9 @@ def listar_clientes(
                 | (Cliente.whatsapp.ilike(q))
                 | (Cliente.email.ilike(q))
                 | (Cliente.cidade.ilike(q))
-                | _custom_search_exists_cliente(empresa_id, texto)
             )
 
-        query = _apply_dynamic_system_filters_cliente(query, request)
-        query = _apply_dynamic_custom_filters_cliente(query, request, empresa_id)
+        query = aplicar_filtros_dinamicos_clientes(query, request, db, empresa_id)
 
         query = query.order_by(Cliente.nome.asc(), Cliente.id.asc())
 

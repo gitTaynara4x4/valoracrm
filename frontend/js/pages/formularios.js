@@ -1044,6 +1044,12 @@
     return isFlagOn(exibicao.mostrar_na_tabela ?? exibicao.tabela ?? exibicao.coluna);
   }
 
+  function campoDeveAparecerNoLocalizarPreview(campo) {
+    // O preview precisa bater com a tela real: campo mostrado na tabela
+    // também aparece no card Localizar, salvo se o usuário ocultar pelo olho.
+    return campoMarcadoLocalizar(campo) || campoMarcadoTabela(campo);
+  }
+
   function getCamposPreview(predicate) {
     return getAllCampos()
       .filter((campo) => campo && campo.ativo !== false && campo.origem !== 'visual' && predicate(campo))
@@ -1143,7 +1149,7 @@
   function formatarLocalizarPadrao() {
     localStorage.removeItem(localizarStorageKey());
     renderPreviewLocalizar();
-    toast('Prévia formatada para o padrão do módulo.');
+    toast('Prévia formatada: filtros e tabela voltaram ao padrão do módulo.');
   }
 
   function labelOrigemPreview(origin) {
@@ -1239,7 +1245,7 @@
       return;
     }
 
-    const camposLocalizar = getCamposPreview(campoMarcadoLocalizar);
+    const camposLocalizar = getCamposPreview(campoDeveAparecerNoLocalizarPreview);
     const camposTabela = getCamposPreview(campoMarcadoTabela);
 
     const filtrosHtml = [
@@ -1260,7 +1266,7 @@
 
     filtersWrap.innerHTML = filtrosHtml + (camposLocalizar.length ? '' : `
       <div class="localizar-preview-note">
-        Marque <strong>Usar no localizar</strong> em algum campo para ele aparecer depois dos filtros nativos.
+        Marque <strong>Mostrar na tabela</strong> ou <strong>Usar no localizar</strong> para o campo aparecer aqui.
       </div>
     `);
 
@@ -1284,14 +1290,18 @@
       </div>
       ${camposTabela.length ? '' : `
         <div class="localizar-preview-note tabela-note">
-          Marque <strong>Mostrar na tabela</strong> para adicionar colunas extras depois das colunas nativas.
+          Marque <strong>Mostrar na tabela</strong> para adicionar colunas extras depois das colunas nativas. O mesmo campo também entra no Localizar.
         </div>
       `}
     `;
 
     if (summary) {
       const layout = getLayoutLocalizar();
-      const adicionados = camposLocalizar.length + camposTabela.length;
+      const camposUnicos = new Set([
+        ...camposLocalizar.map((campo) => `${origemCampoPreview(campo)}:${chaveCampoPreview(campo)}`),
+        ...camposTabela.map((campo) => `${origemCampoPreview(campo)}:${chaveCampoPreview(campo)}`),
+      ]);
+      const adicionados = camposUnicos.size;
       const ocultos = layout.hiddenFilters.length + layout.hiddenColumns.length;
       const partes = [`${adicionados} ${adicionados === 1 ? 'campo adicionado' : 'campos adicionados'}`];
       if (ocultos) partes.push(`${ocultos} ${ocultos === 1 ? 'oculto' : 'ocultos'}`);
