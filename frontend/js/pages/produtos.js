@@ -243,12 +243,22 @@
     return {};
   }
 
-  function filtrarCustomFieldsSistema(customFields = {}) {
+  function filtrarCustomFieldsSistema(customFields = {}, options = {}) {
     const clean = {};
+    const preservarCamposFormulario = !!options.preservarCamposFormulario;
 
     Object.entries(customFields || {}).forEach(([key, value]) => {
       const slug = String(key || '').trim();
-      if (!slug || SYSTEM_FIELD_SLUGS.has(slug)) return;
+      if (!slug) return;
+
+      // Quando o valor veio do formulário/ficha principal, ele precisa ser salvo
+      // exatamente no slug do campo, mesmo que o slug tenha nome parecido com
+      // campo nativo do sistema, como classe, categoria, grupo, marca, unidade,
+      // situação, preço, custo etc.
+      // O filtro antigo removia esses slugs e fazia o campo voltar para
+      // "Selecione" ao reabrir o cadastro.
+      if (!preservarCamposFormulario && SYSTEM_FIELD_SLUGS.has(slug)) return;
+
       clean[slug] = value;
     });
 
@@ -458,23 +468,87 @@
     };
   }
 
+  function preencherAliasesCustomProduto(custom, aliases = [], value = '') {
+    const text = String(value ?? '').trim();
+    if (!text) return;
+
+    aliases.forEach((slug) => {
+      if (!slug) return;
+      if (custom[slug] === undefined || custom[slug] === null || String(custom[slug]).trim() === '') {
+        custom[slug] = text;
+      }
+    });
+  }
+
   function buildCustomValuesFromProduto(produto = {}) {
     const custom = normalizeCustomFields(produto.custom_fields);
     custom.data_cadastro = produto.data_cadastro || produto.criado_em || produto.created_at || custom.data_cadastro || '';
 
-    if (produto.nome) {
-      if (!custom.nome) custom.nome = produto.nome;
-      if (!custom.nome_produto) custom.nome_produto = produto.nome;
-      if (!custom.nome_generico) custom.nome_generico = produto.nome;
-      if (!custom.identificacao_do_produto) custom.identificacao_do_produto = produto.nome;
-    }
+    preencherAliasesCustomProduto(custom, [
+      'nome',
+      'produto',
+      'nome_produto',
+      'nome_do_produto',
+      'identificacao_do_produto',
+      'identificacao_produto',
+      'nome_generico',
+      'descricao_curta',
+      'titulo',
+    ], produto.nome);
 
-    if (produto.descricao && !custom.descricao_do_produto) custom.descricao_do_produto = produto.descricao;
-    if (produto.categoria && !custom.categoria) custom.categoria = produto.categoria;
-    if (produto.unidade && !custom.unidade) custom.unidade = produto.unidade;
-    if (produto.preco_venda && !custom.preco_venda) custom.preco_venda = produto.preco_venda;
-    if (produto.custo && !custom.custo) custom.custo = produto.custo;
-    if (produto.estoque_atual && !custom.estoque_atual) custom.estoque_atual = produto.estoque_atual;
+    preencherAliasesCustomProduto(custom, [
+      'descricao',
+      'descricao_do_produto',
+      'descricao_produto',
+      'observacoes',
+      'observacao',
+      'detalhes',
+    ], produto.descricao);
+
+    preencherAliasesCustomProduto(custom, [
+      'categoria',
+      'categorias',
+      'classe',
+      'grupo',
+      'familia',
+    ], produto.categoria);
+
+    preencherAliasesCustomProduto(custom, [
+      'unidade',
+      'tipo_medida',
+      'medida',
+      'unidade_medida',
+    ], produto.unidade);
+
+    preencherAliasesCustomProduto(custom, [
+      'preco_venda',
+      'preco_final_venda_tabela_01',
+      'preco_final',
+      'valor_venda',
+      'valor_de_venda',
+      'venda',
+    ], produto.preco_venda);
+
+    preencherAliasesCustomProduto(custom, [
+      'custo',
+      'valor_de_custo',
+      'custo_efetivo',
+      'preco_custo',
+    ], produto.custo);
+
+    preencherAliasesCustomProduto(custom, [
+      'estoque_atual',
+      'quantidade_atual',
+      'qtd_atual',
+      'estoque',
+    ], produto.estoque_atual);
+
+    const statusFallback = produto.ativo === false ? 'inativo' : produto.ativo === true ? 'ativo' : '';
+    preencherAliasesCustomProduto(custom, [
+      'status',
+      'status_atual',
+      'situacao',
+    ], statusFallback);
 
     return custom;
   }
@@ -991,7 +1065,7 @@
 
     const cleanPayload = {
       ...(payload || {}),
-      custom_fields: filtrarCustomFieldsSistema(payload?.custom_fields || {}),
+      custom_fields: normalizeCustomFields(payload?.custom_fields || {}),
     };
 
     // Código é do sistema: aparece na tela, mas não é editável nem confiável no payload.
@@ -1296,7 +1370,7 @@
     return {
       ...base,
       codigo: onlyDigits(base.codigo),
-      custom_fields: filtrarCustomFieldsSistema(customFields),
+      custom_fields: filtrarCustomFieldsSistema(customFields, { preservarCamposFormulario: true }),
     };
   }
 

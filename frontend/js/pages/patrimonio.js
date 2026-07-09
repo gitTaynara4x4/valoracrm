@@ -384,28 +384,95 @@
     };
   }
 
+  function preencherAliasesCustomPatrimonio(custom, aliases = [], value = '') {
+    const text = String(value ?? '').trim();
+    if (!text) return;
+
+    aliases.forEach((slug) => {
+      if (!slug) return;
+      if (custom[slug] === undefined || custom[slug] === null || String(custom[slug]).trim() === '') {
+        custom[slug] = text;
+      }
+    });
+  }
+
   function buildCustomValuesFromPatrimonio(item = {}) {
     const custom = normalizeCustomFields(item.custom_fields);
     custom.data_cadastro = item.data_cadastro || item.criado_em || item.created_at || custom.data_cadastro || '';
 
-    if (item.nome) {
-      if (!custom.nome) custom.nome = item.nome;
-      if (!custom.nome_patrimonio) custom.nome_patrimonio = item.nome;
-      if (!custom.nome_do_patrimonio) custom.nome_do_patrimonio = item.nome;
-      if (!custom.identificacao_do_patrimonio) custom.identificacao_do_patrimonio = item.nome;
-    }
+    preencherAliasesCustomPatrimonio(custom, [
+      'nome',
+      'nome_patrimonio',
+      'nome_do_patrimonio',
+      'patrimonio',
+      'identificacao_do_patrimonio',
+      'identificacao_patrimonio',
+      'bem',
+      'equipamento',
+      'titulo',
+    ], item.nome);
 
-    if (item.descricao && !custom.descricao) custom.descricao = item.descricao;
-    if (item.categoria && !custom.categoria) custom.categoria = item.categoria;
-    if (item.marca && !custom.marca) custom.marca = item.marca;
-    if (item.modelo && !custom.modelo) custom.modelo = item.modelo;
-    if (item.numero_serie && !custom.numero_serie) custom.numero_serie = item.numero_serie;
-    if (item.localizacao && !custom.localizacao) custom.localizacao = item.localizacao;
-    if (item.responsavel && !custom.responsavel) custom.responsavel = item.responsavel;
-    if (item.status && !custom.status) custom.status = item.status;
-    if (item.valor_aquisicao && !custom.valor_aquisicao) custom.valor_aquisicao = item.valor_aquisicao;
-    if (item.data_aquisicao && !custom.data_aquisicao) custom.data_aquisicao = item.data_aquisicao;
-    if (item.observacoes && !custom.observacoes) custom.observacoes = item.observacoes;
+    preencherAliasesCustomPatrimonio(custom, [
+      'descricao',
+      'descricao_do_patrimonio',
+      'descricao_patrimonio',
+      'detalhes',
+      'observacoes',
+      'observacao',
+      'obs',
+    ], item.descricao || item.observacoes);
+
+    preencherAliasesCustomPatrimonio(custom, [
+      'categoria',
+      'tipo',
+      'tipo_patrimonio',
+      'grupo',
+      'classe',
+    ], item.categoria);
+
+    preencherAliasesCustomPatrimonio(custom, ['marca', 'fabricante'], item.marca);
+    preencherAliasesCustomPatrimonio(custom, ['modelo', 'modelo_equipamento'], item.modelo);
+    preencherAliasesCustomPatrimonio(custom, [
+      'numero_serie',
+      'numero_de_serie',
+      'serie',
+      'serial',
+      'numero_serial',
+    ], item.numero_serie);
+
+    preencherAliasesCustomPatrimonio(custom, [
+      'localizacao',
+      'local',
+      'setor',
+      'sala',
+      'departamento',
+    ], item.localizacao);
+
+    preencherAliasesCustomPatrimonio(custom, [
+      'responsavel',
+      'usuario_responsavel',
+      'colaborador',
+      'responsavel_pelo_bem',
+    ], item.responsavel);
+
+    preencherAliasesCustomPatrimonio(custom, [
+      'status',
+      'status_atual',
+      'situacao',
+    ], item.status);
+
+    preencherAliasesCustomPatrimonio(custom, [
+      'valor_aquisicao',
+      'valor_de_aquisicao',
+      'valor_compra',
+      'custo',
+    ], item.valor_aquisicao);
+
+    preencherAliasesCustomPatrimonio(custom, [
+      'data_aquisicao',
+      'data_de_aquisicao',
+      'data_compra',
+    ], item.data_aquisicao);
 
     return custom;
   }
@@ -514,12 +581,20 @@
     }
   }
 
-  function filtrarCustomFieldsSistema(customFields = {}) {
+  function filtrarCustomFieldsSistema(customFields = {}, options = {}) {
     const clean = {};
+    const preservarCamposFormulario = !!options.preservarCamposFormulario;
 
     Object.entries(customFields || {}).forEach(([key, value]) => {
       const slug = String(key || '').trim();
-      if (!slug || SYSTEM_FIELD_SLUGS.has(slug)) return;
+      if (!slug) return;
+
+      // Na ficha principal, campos como classe, categoria, tipo, marca,
+      // fabricante, modelo, setor, responsável e status podem ter o mesmo slug
+      // de campos nativos. Eles não podem ser descartados, senão o valor some
+      // ao salvar e reabrir.
+      if (!preservarCamposFormulario && SYSTEM_FIELD_SLUGS.has(slug)) return;
+
       clean[slug] = value;
     });
 
@@ -1118,7 +1193,7 @@
     return {
       ...base,
       codigo: state.editandoId ? onlyDigits(base.codigo) : '',
-      custom_fields: filtrarCustomFieldsSistema(customFields),
+      custom_fields: filtrarCustomFieldsSistema(customFields, { preservarCamposFormulario: true }),
     };
   }
 

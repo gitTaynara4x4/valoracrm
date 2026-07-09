@@ -573,13 +573,18 @@
     };
   }
 
-  function cleanCustomFieldsForSave(customFields) {
+  function cleanCustomFieldsForSave(customFields, options = {}) {
     const out = {};
+    const preservarCamposFormulario = !!options.preservarCamposFormulario;
 
     Object.entries(customFields || {}).forEach(([key, value]) => {
       const slug = slugify(key);
 
-      if (!slug || SYSTEM_FIELD_SLUGS.has(slug)) return;
+      // Campos vindos da ficha principal precisam ser salvos no próprio slug,
+      // mesmo quando o nome parece nativo do sistema: status, situação,
+      // urgência, item, produto, quantidade, unidade, categoria etc.
+      // O filtro antigo removia esses campos antes do PUT/POST.
+      if (!slug || (!preservarCamposFormulario && SYSTEM_FIELD_SLUGS.has(slug))) return;
 
       if (value !== undefined && value !== null && String(value).trim() !== '') {
         out[slug] = value;
@@ -1460,7 +1465,7 @@
       categoria: normalizeText($('cotacao-categoria')?.value),
       descricao: normalizeText($('cotacao-descricao')?.value),
       observacoes: normalizeText($('cotacao-observacoes')?.value),
-      custom_fields: cleanCustomFieldsForSave(customRaw),
+      custom_fields: cleanCustomFieldsForSave(customRaw, { preservarCamposFormulario: true }),
     };
 
     if (state.usarFichaPrincipalCotacoes) {
