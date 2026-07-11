@@ -1,11 +1,11 @@
-import { state } from './state.js';
-import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js';
+import { state } from './state.js?v=20260710-integridade-clientes-v1';
+import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js?v=20260710-integridade-clientes-v1';
 import { $, toast } from './utils.js';
-import { renderTabelaClientes } from './table.js?v=20260701-localizar-formatavel-v1';
-import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js';
+import { renderTabelaClientes } from './table.js?v=20260710-integridade-clientes-v1';
+import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js?v=20260710-integridade-clientes-v1';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
-import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260630-readonly-v5';
-import { bindImportExport, exportarClientesJSON } from './import-export.js';
+import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260710-integridade-clientes-v1';
+import { bindImportExport, exportarClientesJSON } from './import-export.js?v=20260710-integridade-clientes-v1';
 
 function renderAll() {
   renderTabelaClientes(filtrarClientes(state.clientes));
@@ -23,15 +23,54 @@ function setTabelaLoading(message = 'Carregando clientes...') {
   `;
 }
 
-async function reloadClientes({ offset = 0, silent = false } = {}) {
+function scrollToHighlightedClient() {
+  requestAnimationFrame(() => {
+    const row = document.querySelector('tr.cliente-row-saved');
+    if (!row) return;
+    try {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (_) {}
+  });
+}
+
+async function reloadClientes({ offset = 0, silent = false, highlightId = null, focusId = null } = {}) {
   if (!silent) setTabelaLoading('Buscando clientes no banco...');
-  await carregarClientes({ offset });
+
+  const loaded = await carregarClientes({ offset, focusId });
+  if (loaded === null) return false;
+
+  state.lastSavedClienteId = highlightId ? Number(highlightId) : null;
   renderAll();
+
+  if (state.lastSavedClienteId) scrollToHighlightedClient();
+  return true;
 }
 
 async function reloadTudo() {
-  await Promise.all([carregarCamposClientes(), carregarClientes({ offset: 0 })]);
-  renderAll();
+  const [, clientes] = await Promise.all([
+    carregarCamposClientes(),
+    carregarClientes({ offset: 0 }),
+  ]);
+
+  if (clientes !== null) {
+    state.lastSavedClienteId = null;
+    renderAll();
+  }
+}
+
+async function mostrarClienteQueAcabouDeSerSalvo(cliente) {
+  limparFiltrosClientes();
+
+  const busca = $('filtro-busca');
+  if (busca) {
+    busca.value = String(cliente?.codigo || cliente?.cpf_cnpj || cliente?.nome || '').trim();
+  }
+
+  await reloadClientes({
+    offset: 0,
+    highlightId: cliente?.id || null,
+    focusId: cliente?.id || null,
+  });
 }
 
 async function handleExcluirCliente(id) {
@@ -92,7 +131,7 @@ function bindPagination() {
     let offset = Number(page.offset || 0);
 
     if (btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
-    if (btn.dataset.pageAction === 'next') offset = offset + limit;
+    if (btn.dataset.pageAction === 'next') offset += limit;
 
     try {
       await reloadClientes({ offset });
@@ -135,13 +174,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindConfirmDialog();
 
   bindClientModal({
-    afterSave: async () => {
-      await reloadClientes({ offset: state.clientesPage?.offset || 0 });
-    },
+    afterSave: mostrarClienteQueAcabouDeSerSalvo,
   });
 
   bindImportExport({
     afterImport: async () => {
+      limparFiltrosClientes();
       await reloadClientes({ offset: 0 });
     },
   });
@@ -155,7 +193,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     await window.ValoraLocalizarPersonalizado?.setup?.({
       modulo: 'clientes',
       filtersContainerId: 'localizar-personalizado-clientes',
+      force: true,
     });
+
+    window.ValoraLocalizarPersonalizado?.bindFilters?.(
+      'localizar-personalizado-clientes',
+      async () => {
+        try {
+          await reloadClientes({ offset: 0, silent: true });
+        } catch (err) {
+          toast(err.message || 'Erro ao filtrar clientes.', 'error');
+        }
+      }
+    );
   } catch (err) {
     console.warn('[Clientes] localizar personalizado indisponível:', err);
   }

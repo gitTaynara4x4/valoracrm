@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 import shutil
-import unicodedata
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -10,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Request, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy import String, cast
+from sqlalchemy import String, cast, func, or_, text as sql_text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
@@ -101,6 +100,33 @@ def norm_str(value: Any) -> Optional[str]:
     return text or None
 
 
+def normalizar_digitos(value: Any) -> str:
+    return re.sub(r"\D+", "", str(value or ""))
+
+
+def normalizar_email(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
+def somente_digitos_sql(column):
+    """Expressão PostgreSQL para comparar documentos/telefones sem máscara."""
+    return func.regexp_replace(func.coalesce(cast(column, String), ""), r"\D", "", "g")
+
+
+def bloquear_transacao_clientes(db: Session, empresa_id: int) -> None:
+    """Serializa gravações de clientes da mesma empresa durante a transação.
+
+    Isso evita corrida entre duas abas/usuários gerando o mesmo código ou criando
+    cadastros duplicados ao mesmo tempo. Em outros bancos, o bloqueio é ignorado.
+    """
+    bind = getattr(db, "bind", None)
+    dialect = getattr(getattr(bind, "dialect", None), "name", "")
+    if dialect != "postgresql":
+        return
+
+    lock_key = 710_000_000_000_000_000 + int(empresa_id)
+    db.execute(sql_text("SELECT pg_advisory_xact_lock(:lock_key)"), {"lock_key": lock_key})
+
 
 def _dynamic_query_filters(request: Request, prefix: str) -> Dict[str, str]:
     out: Dict[str, str] = {}
@@ -131,6 +157,22 @@ def aplicar_filtros_dinamicos_clientes(query, request: Request, db: Session, emp
         "contato": "telefone",
         "cidade_uf": "cidade",
         "status": "situacao",
+        "data_cadastro": "criado_em",
+        "ativo": "situacao",
+    }
+
+    campos_numericos_formatados = {
+        "cpf_cnpj",
+        "rg_ie",
+        "inscricao_municipal",
+        "suframa",
+        "telefone",
+        "whatsapp",
+        "fax",
+        "cep",
+        "codigo_ibge_cidade",
+        "codigo_ibge_uf",
+        "codigo",
     }
 
     for field, value in _dynamic_query_filters(request, "filtro_sistema").items():
@@ -138,16 +180,28 @@ def aplicar_filtros_dinamicos_clientes(query, request: Request, db: Session, emp
         col = getattr(Cliente, attr, None)
         if col is None:
             continue
-        query = query.filter(cast(col, String).ilike(f"%{value}%"))
+
+        value_digits = normalizar_digitos(value)
+        if attr in campos_numericos_formatados and value_digits:
+            query = query.filter(somente_digitos_sql(col).like(f"%{value_digits}%"))
+        else:
+            query = query.filter(cast(col, String).ilike(f"%{value}%"))
 
     for slug, value in _dynamic_query_filters(request, "filtro_custom").items():
+        value_digits = normalizar_digitos(value)
+        custom_conditions = [core_models.ClienteCampoValor.valor.ilike(f"%{value}%")]
+        if value_digits:
+            custom_conditions.append(
+                somente_digitos_sql(core_models.ClienteCampoValor.valor).like(f"%{value_digits}%")
+            )
+
         exists_filter = (
             db.query(core_models.ClienteCampoValor.id)
             .join(core_models.CampoCliente, core_models.CampoCliente.id == core_models.ClienteCampoValor.campo_id)
             .filter(core_models.ClienteCampoValor.cliente_id == Cliente.id)
             .filter(core_models.CampoCliente.empresa_id == empresa_id)
             .filter(core_models.CampoCliente.slug == slug)
-            .filter(core_models.ClienteCampoValor.valor.ilike(f"%{value}%"))
+            .filter(or_(*custom_conditions))
             .exists()
         )
         query = query.filter(exists_filter)
@@ -280,15 +334,14 @@ def sincronizar_campos_clientes_do_formulario(
     db: Session,
     empresa_id: int,
     *,
+    modelo_id: Optional[int] = None,
     commit: bool = False,
 ) -> None:
-    """
-    Mantém /api/campos-clientes compatível com o construtor de Formulários.
+    """Sincroniza campos do construtor de formulários com ``campos_clientes``.
 
-    O front atual de Clientes ainda lê campos extras pela tabela campos_clientes.
-    Já a tela Formulários salva os campos na tabela formularios_campos.
-    Esta função cria/atualiza automaticamente CampoCliente a partir do
-    formulário padrão ativo do módulo clientes.
+    A ligação passa a ser feita pelo ``campo_personalizado_id``. Assim, alterar
+    o nome exibido de um campo não muda sua chave/slug e não faz os valores já
+    salvos parecerem desaparecer.
     """
     FormularioModelo = getattr(core_models, "FormularioModelo", None)
     FormularioCampo = getattr(core_models, "FormularioCampo", None)
@@ -296,12 +349,23 @@ def sincronizar_campos_clientes_do_formulario(
     if FormularioModelo is None or FormularioCampo is None:
         return
 
-    modelo = (
+    modelo_query = (
         db.query(FormularioModelo)
         .filter(FormularioModelo.empresa_id == empresa_id)
         .filter(FormularioModelo.modulo == "clientes")
         .filter(FormularioModelo.ativo == True)  # noqa: E712
-        .order_by(FormularioModelo.padrao.desc(), FormularioModelo.id.desc())
+    )
+
+    if modelo_id is not None:
+        modelo_query = modelo_query.filter(FormularioModelo.id == int(modelo_id))
+
+    modelo = (
+        modelo_query
+        .order_by(
+            getattr(FormularioModelo, "usar_como_ficha_principal", FormularioModelo.padrao).desc(),
+            FormularioModelo.padrao.desc(),
+            FormularioModelo.id.desc(),
+        )
         .first()
     )
 
@@ -322,19 +386,27 @@ def sincronizar_campos_clientes_do_formulario(
     existentes = (
         db.query(core_models.CampoCliente)
         .filter(core_models.CampoCliente.empresa_id == empresa_id)
+        .order_by(core_models.CampoCliente.id.asc())
         .all()
     )
+    por_id = {int(c.id): c for c in existentes}
     por_slug = {str(c.slug): c for c in existentes}
-
+    ids_reivindicados: set[int] = set()
     changed = False
+
+    def slug_livre(base: str) -> str:
+        base = (base or "campo")[:120]
+        slug = base
+        sufixo = 2
+        while slug in por_slug:
+            sufixo_txt = f"_{sufixo}"
+            slug = f"{base[: max(1, 120 - len(sufixo_txt))]}{sufixo_txt}"
+            sufixo += 1
+        return slug
 
     for campo_form in campos_formulario:
         label = norm_str(getattr(campo_form, "label", None))
         if not label:
-            continue
-
-        slug = slugify_campo_formulario(label)
-        if not slug:
             continue
 
         tipo = tipo_campo_cliente_from_formulario(getattr(campo_form, "tipo_campo", None))
@@ -343,28 +415,39 @@ def sincronizar_campos_clientes_do_formulario(
         ativo = bool(getattr(campo_form, "ativo", True))
         ordem = int(getattr(campo_form, "ordem", 0) or 0)
 
-        campo_cliente = por_slug.get(slug)
+        campo_cliente = None
+        linked_id = getattr(campo_form, "campo_personalizado_id", None)
+        try:
+            linked_id = int(linked_id) if linked_id is not None else None
+        except (TypeError, ValueError):
+            linked_id = None
 
-        if campo_cliente:
-            if campo_cliente.nome != label:
-                campo_cliente.nome = label
-                changed = True
-            if campo_cliente.tipo != tipo:
-                campo_cliente.tipo = tipo
-                changed = True
-            if bool(campo_cliente.obrigatorio) != obrigatorio:
-                campo_cliente.obrigatorio = obrigatorio
-                changed = True
-            if bool(campo_cliente.ativo) != ativo:
-                campo_cliente.ativo = ativo
-                changed = True
-            if (campo_cliente.opcoes_json or None) != (opcoes_json or None):
-                campo_cliente.opcoes_json = opcoes_json
-                changed = True
-            if int(campo_cliente.ordem or 0) != ordem:
-                campo_cliente.ordem = ordem
-                changed = True
-        else:
+        if linked_id is not None:
+            campo_cliente = por_id.get(linked_id)
+
+        base_slug = slugify_campo_formulario(label)
+
+        if campo_cliente is None and base_slug:
+            candidato = por_slug.get(base_slug)
+            if candidato is not None and int(candidato.id) not in ids_reivindicados:
+                campo_cliente = candidato
+
+        # Recuperação segura para formulários antigos: quando o rótulo já foi
+        # renomeado e ainda não existia vínculo estável, tenta associar pelo par
+        # ordem + tipo apenas quando há um único candidato possível.
+        if campo_cliente is None:
+            candidatos = [
+                item
+                for item in existentes
+                if int(item.id) not in ids_reivindicados
+                and int(item.ordem or 0) == ordem
+                and str(item.tipo or "") == tipo
+            ]
+            if len(candidatos) == 1:
+                campo_cliente = candidatos[0]
+
+        if campo_cliente is None:
+            slug = slug_livre(base_slug or f"campo_{int(campo_form.id)}")
             campo_cliente = core_models.CampoCliente(
                 empresa_id=empresa_id,
                 nome=label,
@@ -376,7 +459,35 @@ def sincronizar_campos_clientes_do_formulario(
                 ordem=ordem,
             )
             db.add(campo_cliente)
-            por_slug[slug] = campo_cliente
+            db.flush()
+            existentes.append(campo_cliente)
+            por_id[int(campo_cliente.id)] = campo_cliente
+            por_slug[str(campo_cliente.slug)] = campo_cliente
+            changed = True
+
+        ids_reivindicados.add(int(campo_cliente.id))
+
+        if getattr(campo_form, "campo_personalizado_id", None) != int(campo_cliente.id):
+            campo_form.campo_personalizado_id = int(campo_cliente.id)
+            changed = True
+
+        if campo_cliente.nome != label:
+            campo_cliente.nome = label
+            changed = True
+        if campo_cliente.tipo != tipo:
+            campo_cliente.tipo = tipo
+            changed = True
+        if bool(campo_cliente.obrigatorio) != obrigatorio:
+            campo_cliente.obrigatorio = obrigatorio
+            changed = True
+        if bool(campo_cliente.ativo) != ativo:
+            campo_cliente.ativo = ativo
+            changed = True
+        if (campo_cliente.opcoes_json or None) != (opcoes_json or None):
+            campo_cliente.opcoes_json = opcoes_json
+            changed = True
+        if int(campo_cliente.ordem or 0) != ordem:
+            campo_cliente.ordem = ordem
             changed = True
 
     if changed:
@@ -545,6 +656,10 @@ class ClienteBaseSchema(BaseModel):
 
     custom_fields: Optional[Dict[str, Any]] = None
 
+    # Usado somente após confirmação explícita no front quando telefone/e-mail
+    # já pertencem a outro cadastro. CPF/CNPJ duplicado continua bloqueado.
+    permitir_duplicado: bool = False
+
 
 class ClienteCreate(ClienteBaseSchema):
     pass
@@ -552,6 +667,17 @@ class ClienteCreate(ClienteBaseSchema):
 
 class ClienteUpdate(ClienteBaseSchema):
     pass
+
+
+
+
+class ClienteDuplicidadeCheck(BaseModel):
+    codigo: Optional[str] = None
+    cpf_cnpj: Optional[str] = None
+    telefone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    email: Optional[str] = None
+    excluir_cliente_id: Optional[int] = None
 
 
 class ClienteListOut(ORMBaseModel):
@@ -724,9 +850,19 @@ def salvar_custom_fields_cliente(
         .join(core_models.CampoCliente, core_models.CampoCliente.id == core_models.ClienteCampoValor.campo_id)
         .filter(core_models.ClienteCampoValor.cliente_id == cliente_id)
         .filter(core_models.CampoCliente.empresa_id == empresa_id)
+        .order_by(core_models.ClienteCampoValor.id.desc())
         .all()
     )
-    existentes_por_campo_id = {int(v.campo_id): v for v in valores_existentes}
+
+    # Bases antigas podem conter mais de uma linha para o mesmo cliente/campo.
+    # Mantém a mais recente e remove as demais dentro da mesma transação.
+    existentes_por_campo_id: Dict[int, core_models.ClienteCampoValor] = {}
+    for valor in valores_existentes:
+        campo_id = int(valor.campo_id)
+        if campo_id in existentes_por_campo_id:
+            db.delete(valor)
+            continue
+        existentes_por_campo_id[campo_id] = valor
 
     for slug, raw_value in payload.items():
         campo = campos_map[slug]
@@ -1138,6 +1274,334 @@ def buscar_cliente_empresa(db: Session, cliente_id: int, empresa_id: int) -> Opt
     )
 
 
+def _resumo_cliente_duplicado(cliente: Cliente) -> Dict[str, Any]:
+    return {
+        "id": int(cliente.id),
+        "codigo": normalizar_codigo_cliente(cliente.codigo) or str(cliente.codigo or ""),
+        "nome": cliente.nome or "",
+        "nome_fantasia": cliente.nome_fantasia,
+        "cpf_cnpj": cliente.cpf_cnpj,
+        "telefone": cliente.telefone,
+        "whatsapp": cliente.whatsapp,
+        "email": cliente.email,
+    }
+
+
+def detectar_cliente_duplicado(
+    db: Session,
+    empresa_id: int,
+    dados: Any,
+    *,
+    excluir_cliente_id: Optional[int] = None,
+    incluir_codigo: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """Localiza um cadastro existente usando identificadores normalizados."""
+    query_base = db.query(Cliente).filter(Cliente.empresa_id == empresa_id)
+    if excluir_cliente_id is not None:
+        query_base = query_base.filter(Cliente.id != int(excluir_cliente_id))
+
+    def valor(nome: str) -> Any:
+        if isinstance(dados, dict):
+            return dados.get(nome)
+        return getattr(dados, nome, None)
+
+    verificacoes: List[tuple[str, str, str, bool, Any]] = []
+
+    if incluir_codigo:
+        codigo = normalizar_codigo_cliente(valor("codigo"))
+        if codigo:
+            verificacoes.append((
+                "codigo",
+                "código",
+                codigo,
+                True,
+                somente_digitos_sql(Cliente.codigo) == codigo,
+            ))
+
+    documento = normalizar_digitos(valor("cpf_cnpj"))
+    if len(documento) >= 8:
+        verificacoes.append((
+            "cpf_cnpj",
+            "CPF/CNPJ",
+            documento,
+            True,
+            somente_digitos_sql(Cliente.cpf_cnpj) == documento,
+        ))
+
+    email = normalizar_email(valor("email"))
+    if email and "@" in email:
+        verificacoes.append((
+            "email",
+            "e-mail",
+            email,
+            False,
+            func.lower(func.trim(func.coalesce(Cliente.email, ""))) == email,
+        ))
+
+    whatsapp = normalizar_digitos(valor("whatsapp"))
+    if len(whatsapp) >= 8:
+        verificacoes.append((
+            "whatsapp",
+            "WhatsApp",
+            whatsapp,
+            False,
+            or_(
+                somente_digitos_sql(Cliente.whatsapp) == whatsapp,
+                somente_digitos_sql(Cliente.telefone) == whatsapp,
+            ),
+        ))
+
+    telefone = normalizar_digitos(valor("telefone"))
+    if len(telefone) >= 8 and telefone != whatsapp:
+        verificacoes.append((
+            "telefone",
+            "telefone",
+            telefone,
+            False,
+            or_(
+                somente_digitos_sql(Cliente.telefone) == telefone,
+                somente_digitos_sql(Cliente.whatsapp) == telefone,
+            ),
+        ))
+
+    for campo, rotulo, normalized, blocking, condition in verificacoes:
+        existente = query_base.filter(condition).order_by(Cliente.id.asc()).first()
+        if existente:
+            return {
+                "code": "cliente_duplicado",
+                "field": campo,
+                "field_label": rotulo,
+                "normalized_value": normalized,
+                "blocking": bool(blocking),
+                "cliente": _resumo_cliente_duplicado(existente),
+            }
+
+    return None
+
+
+def validar_duplicidade_cliente(
+    db: Session,
+    empresa_id: int,
+    payload: ClienteBaseSchema,
+    *,
+    cliente_atual: Optional[Cliente] = None,
+) -> None:
+    excluir_id = int(cliente_atual.id) if cliente_atual is not None else None
+
+    # Na edição, só verifica identificadores que realmente mudaram. Isso evita
+    # bloquear um cadastro antigo que já compartilha telefone/e-mail.
+    dados_verificacao: Dict[str, Any] = {
+        "cpf_cnpj": payload.cpf_cnpj,
+        "email": payload.email,
+        "whatsapp": payload.whatsapp,
+        "telefone": payload.telefone,
+    }
+
+    if cliente_atual is not None:
+        normalizers = {
+            "cpf_cnpj": normalizar_digitos,
+            "email": normalizar_email,
+            "whatsapp": normalizar_digitos,
+            "telefone": normalizar_digitos,
+        }
+        for field, normalize in normalizers.items():
+            atual = normalize(getattr(cliente_atual, field, None))
+            novo = normalize(getattr(payload, field, None))
+            if atual == novo:
+                dados_verificacao[field] = None
+
+    conflito = detectar_cliente_duplicado(
+        db,
+        empresa_id,
+        dados_verificacao,
+        excluir_cliente_id=excluir_id,
+        incluir_codigo=False,
+    )
+    if not conflito:
+        return
+
+    existente = conflito["cliente"]
+    rotulo = conflito["field_label"]
+    mensagem = (
+        f"Já existe o cliente {existente.get('codigo') or '-'} - "
+        f"{existente.get('nome') or 'sem nome'} com o mesmo {rotulo}."
+    )
+    conflito["message"] = mensagem
+
+    if conflito["blocking"] or not bool(getattr(payload, "permitir_duplicado", False)):
+        raise HTTPException(status_code=409, detail=conflito)
+
+
+def _exists_texto_relacionado(db: Session, model, columns: List[Any], q: str):
+    return (
+        db.query(model.id)
+        .filter(model.cliente_id == Cliente.id)
+        .filter(or_(*[cast(col, String).ilike(q) for col in columns]))
+        .exists()
+    )
+
+
+def condicao_busca_geral_clientes(db: Session, empresa_id: int, texto: str):
+    q = f"%{texto}%"
+    columns = [
+        Cliente.codigo,
+        Cliente.nome,
+        Cliente.nome_fantasia,
+        Cliente.cpf_cnpj,
+        Cliente.rg_ie,
+        Cliente.inscricao_municipal,
+        Cliente.suframa,
+        Cliente.codigo_referencia,
+        Cliente.telefone,
+        Cliente.whatsapp,
+        Cliente.fax,
+        Cliente.email,
+        Cliente.email_nfe,
+        Cliente.email_cobranca,
+        Cliente.email_fiscal,
+        Cliente.site,
+        Cliente.contato,
+        Cliente.parceiro_comercial,
+        Cliente.regiao,
+        Cliente.segmento,
+        Cliente.modalidade_pagamento,
+        Cliente.classificacao,
+        Cliente.cep,
+        Cliente.endereco,
+        Cliente.numero,
+        Cliente.complemento,
+        Cliente.bairro,
+        Cliente.cidade,
+        Cliente.estado,
+        Cliente.pais,
+        Cliente.codigo_ibge_cidade,
+        Cliente.codigo_ibge_uf,
+        Cliente.observacoes,
+    ]
+    conditions: List[Any] = [cast(col, String).ilike(q) for col in columns]
+
+    digits = normalizar_digitos(texto)
+    if len(digits) >= 3:
+        for col in [
+            Cliente.codigo,
+            Cliente.cpf_cnpj,
+            Cliente.rg_ie,
+            Cliente.inscricao_municipal,
+            Cliente.suframa,
+            Cliente.telefone,
+            Cliente.whatsapp,
+            Cliente.fax,
+            Cliente.cep,
+            Cliente.codigo_ibge_cidade,
+            Cliente.codigo_ibge_uf,
+        ]:
+            conditions.append(somente_digitos_sql(col).like(f"%{digits}%"))
+
+    conditions.extend([
+        _exists_texto_relacionado(db, ClienteEndereco, [
+            ClienteEndereco.tipo_endereco,
+            ClienteEndereco.descricao,
+            ClienteEndereco.cep,
+            ClienteEndereco.logradouro,
+            ClienteEndereco.numero,
+            ClienteEndereco.complemento,
+            ClienteEndereco.bairro,
+            ClienteEndereco.cidade,
+            ClienteEndereco.estado,
+            ClienteEndereco.pais,
+            ClienteEndereco.codigo_ibge_cidade,
+            ClienteEndereco.codigo_ibge_uf,
+            ClienteEndereco.email_destino,
+        ], q),
+        _exists_texto_relacionado(db, ClienteReferenciaComercial, [
+            ClienteReferenciaComercial.empresa_nome,
+            ClienteReferenciaComercial.telefone,
+            ClienteReferenciaComercial.observacoes,
+        ], q),
+        _exists_texto_relacionado(db, ClienteReferenciaBancaria, [
+            ClienteReferenciaBancaria.banco,
+            ClienteReferenciaBancaria.agencia,
+            ClienteReferenciaBancaria.conta_corrente,
+            ClienteReferenciaBancaria.gerente,
+            ClienteReferenciaBancaria.telefone_agencia,
+            ClienteReferenciaBancaria.status,
+            ClienteReferenciaBancaria.observacoes,
+        ], q),
+        _exists_texto_relacionado(db, ClienteSocio, [
+            ClienteSocio.nome,
+            ClienteSocio.cpf,
+            ClienteSocio.rg,
+            ClienteSocio.telefone,
+            ClienteSocio.cargo,
+        ], q),
+        _exists_texto_relacionado(db, ClienteOcorrencia, [
+            ClienteOcorrencia.tipo,
+            ClienteOcorrencia.status,
+            ClienteOcorrencia.usuario_nome,
+            ClienteOcorrencia.descricao,
+        ], q),
+        _exists_texto_relacionado(db, ClienteAnexo, [
+            ClienteAnexo.descricao,
+            ClienteAnexo.tipo_documento,
+            ClienteAnexo.arquivo_nome,
+        ], q),
+    ])
+
+    custom_conditions: List[Any] = [core_models.ClienteCampoValor.valor.ilike(q)]
+    if len(digits) >= 3:
+        custom_conditions.append(
+            somente_digitos_sql(core_models.ClienteCampoValor.valor).like(f"%{digits}%")
+        )
+
+    custom_query = (
+        db.query(core_models.ClienteCampoValor.id)
+        .join(core_models.CampoCliente, core_models.CampoCliente.id == core_models.ClienteCampoValor.campo_id)
+        .filter(core_models.ClienteCampoValor.cliente_id == Cliente.id)
+        .filter(core_models.CampoCliente.empresa_id == empresa_id)
+        .filter(or_(*custom_conditions))
+    )
+    conditions.append(custom_query.exists())
+
+    if len(digits) >= 3:
+        conditions.extend([
+            (
+                db.query(ClienteEndereco.id)
+                .filter(ClienteEndereco.cliente_id == Cliente.id)
+                .filter(or_(
+                    somente_digitos_sql(ClienteEndereco.cep).like(f"%{digits}%"),
+                    somente_digitos_sql(ClienteEndereco.numero).like(f"%{digits}%"),
+                    somente_digitos_sql(ClienteEndereco.codigo_ibge_cidade).like(f"%{digits}%"),
+                    somente_digitos_sql(ClienteEndereco.codigo_ibge_uf).like(f"%{digits}%"),
+                ))
+                .exists()
+            ),
+            (
+                db.query(ClienteReferenciaComercial.id)
+                .filter(ClienteReferenciaComercial.cliente_id == Cliente.id)
+                .filter(somente_digitos_sql(ClienteReferenciaComercial.telefone).like(f"%{digits}%"))
+                .exists()
+            ),
+            (
+                db.query(ClienteReferenciaBancaria.id)
+                .filter(ClienteReferenciaBancaria.cliente_id == Cliente.id)
+                .filter(somente_digitos_sql(ClienteReferenciaBancaria.telefone_agencia).like(f"%{digits}%"))
+                .exists()
+            ),
+            (
+                db.query(ClienteSocio.id)
+                .filter(ClienteSocio.cliente_id == Cliente.id)
+                .filter(or_(
+                    somente_digitos_sql(ClienteSocio.cpf).like(f"%{digits}%"),
+                    somente_digitos_sql(ClienteSocio.rg).like(f"%{digits}%"),
+                    somente_digitos_sql(ClienteSocio.telefone).like(f"%{digits}%"),
+                ))
+                .exists()
+            ),
+        ])
+
+    return or_(*conditions)
+
+
 def apply_cliente_payload(cliente: Cliente, payload: ClienteBaseSchema) -> None:
     tipo_pessoa = norm_upper(payload.tipo_pessoa, {"PF", "PJ"}, "PF")
     # Código não é atualizado pelo payload. Ele é fixo do sistema e sempre numérico.
@@ -1294,6 +1758,7 @@ def listar_clientes(
     situacao: Optional[str] = Query(default=None),
     tipo_pessoa: Optional[str] = Query(default=None),
     cidade: Optional[str] = Query(default=None),
+    cliente_id: Optional[int] = Query(default=None, ge=1),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     paginated: bool = Query(default=False),
@@ -1310,31 +1775,26 @@ def listar_clientes(
     try:
         query = db.query(Cliente).filter(Cliente.empresa_id == empresa_id)
 
-        if norm_str(situacao):
-            query = query.filter(Cliente.situacao == str(situacao).strip().lower())
+        if cliente_id is not None:
+            # Consulta de confirmação pós-salvamento: o ID exato prevalece sobre
+            # qualquer filtro residual da tela para o registro nunca parecer sumido.
+            query = query.filter(Cliente.id == int(cliente_id))
+        else:
+            if norm_str(situacao):
+                query = query.filter(Cliente.situacao == str(situacao).strip().lower())
 
-        tipo_norm = norm_str(tipo_pessoa)
-        if tipo_norm:
-            query = query.filter(Cliente.tipo_pessoa == tipo_norm.upper())
+            tipo_norm = norm_str(tipo_pessoa)
+            if tipo_norm:
+                query = query.filter(Cliente.tipo_pessoa == tipo_norm.upper())
 
-        if norm_str(cidade):
-            query = query.filter(Cliente.cidade.ilike(f"%{str(cidade).strip()}%"))
+            if norm_str(cidade):
+                query = query.filter(Cliente.cidade.ilike(f"%{str(cidade).strip()}%"))
 
-        texto = norm_str(busca)
-        if texto:
-            q = f"%{texto}%"
-            query = query.filter(
-                (Cliente.codigo.ilike(q))
-                | (Cliente.nome.ilike(q))
-                | (Cliente.nome_fantasia.ilike(q))
-                | (Cliente.cpf_cnpj.ilike(q))
-                | (Cliente.telefone.ilike(q))
-                | (Cliente.whatsapp.ilike(q))
-                | (Cliente.email.ilike(q))
-                | (Cliente.cidade.ilike(q))
-            )
+            texto = norm_str(busca)
+            if texto:
+                query = query.filter(condicao_busca_geral_clientes(db, empresa_id, texto))
 
-        query = aplicar_filtros_dinamicos_clientes(query, request, db, empresa_id)
+            query = aplicar_filtros_dinamicos_clientes(query, request, db, empresa_id)
 
         query = query.order_by(Cliente.nome.asc(), Cliente.id.asc())
 
@@ -1371,6 +1831,31 @@ def obter_proximo_codigo_cliente(
             status_code=500,
             detail="Rode a query SQL do módulo Clientes antes de buscar o próximo código.",
         ) from exc
+
+
+@router.post("/api/clientes/verificar-duplicidade")
+def verificar_duplicidade_cliente(
+    payload: ClienteDuplicidadeCheck,
+    db: Session = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id),
+):
+    conflito = detectar_cliente_duplicado(
+        db,
+        empresa_id,
+        payload,
+        excluir_cliente_id=payload.excluir_cliente_id,
+        incluir_codigo=True,
+    )
+    if not conflito:
+        return {"duplicado": False, "cliente": None, "field": None, "blocking": False}
+
+    return {
+        "duplicado": True,
+        "cliente": conflito["cliente"],
+        "field": conflito["field"],
+        "field_label": conflito["field_label"],
+        "blocking": conflito["blocking"],
+    }
 
 
 @router.get("/api/clientes/{cliente_id}", response_model=ClienteOut)
@@ -1414,6 +1899,9 @@ def criar_cliente(
 
     for _tentativa in range(10):
         try:
+            bloquear_transacao_clientes(db, empresa_id)
+            validar_duplicidade_cliente(db, empresa_id, payload)
+
             codigo = gerar_codigo_cliente(db, empresa_id)
             cliente = Cliente(empresa_id=empresa_id, codigo=codigo, nome=payload.nome.strip())
             apply_cliente_payload(cliente, payload)
@@ -1442,6 +1930,9 @@ def criar_cliente(
         except HTTPException:
             db.rollback()
             raise
+        except Exception:
+            db.rollback()
+            raise
 
     raise HTTPException(
         status_code=409,
@@ -1462,6 +1953,9 @@ def atualizar_cliente(
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
     try:
+        bloquear_transacao_clientes(db, empresa_id)
+        validar_duplicidade_cliente(db, empresa_id, payload, cliente_atual=cliente)
+
         # Código nunca é atualizado pelo payload.
         # Mantém o código fixo que já está no banco; se um registro antigo estiver sem código,
         # gera uma única vez pelo backend.
@@ -1489,6 +1983,9 @@ def atualizar_cliente(
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Já existe cliente com este código para a empresa.")
+    except Exception:
+        db.rollback()
+        raise
 
 
 @router.delete("/api/clientes/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)

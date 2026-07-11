@@ -1,5 +1,10 @@
-import { state } from './state.js';
-import { salvarClienteNoServidor, carregarClientes } from './api.js';
+import { state } from './state.js?v=20260710-integridade-clientes-v1';
+import {
+  salvarClienteNoServidor,
+  carregarClientes,
+  verificarDuplicidadeCliente,
+  obterClienteNoServidor,
+} from './api.js?v=20260710-integridade-clientes-v1';
 import {
   $,
   toast,
@@ -79,6 +84,8 @@ function mapImportToPayload(obj) {
   const base = {
     codigo: String(obj.codigo || '').trim(),
     nome: String(obj.nome || '').trim(),
+    cpf_cnpj: String(obj.cpf_cnpj || obj.documento || '').trim(),
+    telefone: String(obj.telefone || '').trim(),
     whatsapp: String(obj.whatsapp || '').trim(),
     email: String(obj.email || '').trim(),
   };
@@ -89,7 +96,7 @@ function mapImportToPayload(obj) {
     if (!slug) continue;
 
     const value = obj[slug];
-    if (value !== undefined && value !== null && String(value).trim() !== '') {
+    if (value !== undefined && value !== null) {
       custom_fields[slug] = value;
     }
   }
@@ -101,27 +108,33 @@ function mapImportToPayload(obj) {
   return base;
 }
 
-function findExistingClienteIdByCodigoOrWhats(payload) {
-  const codigo = String(payload?.codigo || '').trim().toLowerCase();
-  const whatsapp = String(payload?.whatsapp || '').replace(/\D+/g, '');
+function mergeClienteExistenteComImportacao(existente, payload) {
+  return {
+    ...existente,
+    ...payload,
+    codigo: existente?.codigo || payload.codigo || '',
+    nome: payload.nome || existente?.nome || '',
+    enderecos: Array.isArray(existente?.enderecos) ? existente.enderecos : [],
+    referencias_comerciais: Array.isArray(existente?.referencias_comerciais)
+      ? existente.referencias_comerciais
+      : [],
+    referencias_bancarias: Array.isArray(existente?.referencias_bancarias)
+      ? existente.referencias_bancarias
+      : [],
+    socios: Array.isArray(existente?.socios) ? existente.socios : [],
+    ocorrencias: Array.isArray(existente?.ocorrencias) ? existente.ocorrencias : [],
+    custom_fields: {
+      ...(existente?.custom_fields || {}),
+      ...(payload.custom_fields || {}),
+    },
+  };
+}
 
-  let found = null;
-
-  if (codigo) {
-    found = (state.clientes || []).find(
-      (c) => String(c.codigo || '').trim().toLowerCase() === codigo
-    );
-    if (found?.id) return found.id;
-  }
-
-  if (whatsapp) {
-    found = (state.clientes || []).find(
-      (c) => String(c.whatsapp || '').replace(/\D+/g, '') === whatsapp
-    );
-    if (found?.id) return found.id;
-  }
-
-  return null;
+async function localizarClienteExistenteNoServidor(payload) {
+  const result = await verificarDuplicidadeCliente(payload);
+  return result?.duplicado && result?.cliente?.id
+    ? Number(result.cliente.id)
+    : null;
 }
 
 async function importarClientesFromItems(items) {
@@ -132,7 +145,9 @@ async function importarClientesFromItems(items) {
 
   const ok = await confirmDialog({
     title: 'Importar clientes',
-    message: `Importar ${items.length} cliente(s)? O sistema criará ou atualizará por código/WhatsApp.`,
+    message:
+      `Importar ${items.length} cliente(s)? ` +
+      'O sistema localizará existentes no banco inteiro por código, documento, e-mail ou telefone antes de criar.',
     confirmText: 'Importar',
     cancelText: 'Cancelar',
   });
@@ -141,11 +156,9 @@ async function importarClientesFromItems(items) {
   toast('Importando clientes...', 'success');
 
   let okCount = 0;
+  let updatedCount = 0;
+  let createdCount = 0;
   let failCount = 0;
-
-  try {
-    await carregarClientes();
-  } catch {}
 
   for (const raw of items) {
     try {
@@ -155,23 +168,37 @@ async function importarClientesFromItems(items) {
         continue;
       }
 
-      const existingId = findExistingClienteIdByCodigoOrWhats(payload);
-      await salvarClienteNoServidor(payload, existingId);
+      const existingId = await localizarClienteExistenteNoServidor(payload);
+
+      if (existingId) {
+        const existente = await obterClienteNoServidor(existingId);
+        const merged = mergeClienteExistenteComImportacao(existente, payload);
+        await salvarClienteNoServidor(merged, existingId);
+        updatedCount += 1;
+      } else {
+        await salvarClienteNoServidor(payload, null);
+        createdCount += 1;
+      }
+
       okCount += 1;
-    } catch {
+    } catch (err) {
+      console.error('[Clientes] falha na importação:', err);
       failCount += 1;
     }
   }
 
   try {
-    await carregarClientes();
+    await carregarClientes({ offset: 0 });
     await _afterImport();
-  } catch {}
+  } catch (err) {
+    console.warn('[Clientes] falha ao atualizar lista após importação:', err);
+  }
 
+  const resumo = `${createdCount} criado(s) • ${updatedCount} atualizado(s)`;
   if (failCount === 0) {
-    toast(`Importação concluída: ${okCount} clientes adicionados.`, 'success');
+    toast(`Importação concluída: ${resumo}.`, 'success');
   } else {
-    toast(`Importado: ${okCount} sucesso • ${failCount} falhas`, 'error');
+    toast(`Importação: ${resumo} • ${failCount} falha(s).`, 'error');
   }
 }
 

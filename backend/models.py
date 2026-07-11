@@ -297,6 +297,10 @@ class CampoCliente(Base):
     __tablename__ = "campos_clientes"
     __allow_unmapped__ = True
 
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "slug", name="uq_campos_clientes_empresa_slug"),
+    )
+
     id = Column(BigInteger, primary_key=True, index=True)
 
     empresa_id = Column(
@@ -336,6 +340,10 @@ class CampoCliente(Base):
 class ClienteCampoValor(Base):
     __tablename__ = "clientes_campos_valores"
     __allow_unmapped__ = True
+
+    __table_args__ = (
+        UniqueConstraint("cliente_id", "campo_id", name="uq_clientes_campos_valores_cliente_campo"),
+    )
 
     id = Column(BigInteger, primary_key=True, index=True)
 

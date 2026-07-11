@@ -867,6 +867,7 @@
     const disabled = campo.somente_leitura ? 'disabled' : '';
     const fieldClass = getCampoClass(campo);
     const readonlyAttr = campo.somente_leitura ? 'data-custom-readonly="true"' : '';
+    const fieldOrigin = String(campo.origem || 'personalizado').toLowerCase();
 
     if (tipo === 'checkbox') {
       const checked =
@@ -877,7 +878,7 @@
           : '';
 
       return `
-        <div class="form-group custom-field-item ${fieldClass}">
+        <div class="form-group custom-field-item ${fieldClass}" data-field-origin="${escapeHtml(fieldOrigin)}">
           <label class="custom-checkbox check-card">
             <input
               type="checkbox"
@@ -897,7 +898,7 @@
       `;
     }
 
-    let html = `<div class="form-group custom-field-item ${fieldClass}">`;
+    let html = `<div class="form-group custom-field-item ${fieldClass}" data-field-origin="${escapeHtml(fieldOrigin)}">`;
     html += `<label for="${id}">${escapeHtml(label)}${required}</label>`;
 
     if (tipo === 'textarea') {
@@ -1640,13 +1641,21 @@
     return secoes;
   }
 
-  function collectCustomFieldsValues(root = document) {
+  function collectCustomFieldsValues(root = document, { includeSystem = false } = {}) {
     const out = {};
 
     root.querySelectorAll('[data-custom-field]').forEach((el) => {
       const slug = String(el.getAttribute('data-custom-field') || '').trim();
       if (!slug) return;
       if (el.disabled || el.dataset.customReadonly === 'true') return;
+
+      const origin = String(
+        el.dataset.fieldOrigin ||
+        el.closest('[data-field-origin]')?.dataset?.fieldOrigin ||
+        'personalizado'
+      ).toLowerCase();
+
+      if (!includeSystem && origin === 'sistema') return;
 
       if (el.type === 'checkbox') {
         out[slug] = el.checked ? 'true' : 'false';
@@ -1655,7 +1664,7 @@
 
       if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
         const values = parseMultiValor(el.value);
-        if (values.length) out[slug] = JSON.stringify(values);
+        out[slug] = values.length ? JSON.stringify(values) : '';
         return;
       }
 
@@ -1664,12 +1673,12 @@
           .map((opt) => String(opt.value ?? '').trim())
           .filter(Boolean);
 
-        if (values.length) out[slug] = JSON.stringify(values);
+        out[slug] = values.length ? JSON.stringify(values) : '';
         return;
       }
 
       const value = String(el.value ?? '').trim();
-      if (value !== '') out[slug] = value;
+      out[slug] = value;
     });
 
     return out;

@@ -1,5 +1,5 @@
-import { state } from './state.js';
-import { carregarFormularioClientes } from './api.js';
+import { state } from './state.js?v=20260710-integridade-clientes-v1';
+import { carregarFormularioClientes } from './api.js?v=20260710-integridade-clientes-v1';
 import { escapeHtml, slugify } from './utils.js';
 
 function parseCampoOpcoes(campo) {
@@ -353,6 +353,7 @@ function montarCampoFinal(campoCliente, campoFormulario = null) {
 
   const slug =
     campoCliente?.slug ||
+    campoFormulario?.campo_personalizado_slug ||
     campoFormulario?.campo_sistema ||
     slugify(nome);
 
@@ -362,10 +363,12 @@ function montarCampoFinal(campoCliente, campoFormulario = null) {
     id: campoCliente?.id || campoFormulario?.id || null,
     nome,
     slug,
-    tipo: normalizarTipo(campoCliente?.tipo || campoFormulario?.tipo_campo || 'texto'),
+    tipo: normalizarTipo(campoFormulario?.tipo_campo || campoCliente?.tipo || 'texto'),
     obrigatorio: campoCliente?.obrigatorio ?? campoFormulario?.obrigatorio ?? false,
     ativo: campoCliente?.ativo ?? campoFormulario?.ativo ?? true,
     somente_leitura: campoCliente?.somente_leitura ?? campoFormulario?.somente_leitura ?? false,
+    origem: campoFormulario?.origem || campoCliente?.origem || 'personalizado',
+    campo_sistema: campoFormulario?.campo_sistema || campoCliente?.campo_sistema || '',
     opcoes_json: campoCliente?.opcoes_json || campoFormulario?.opcoes_json || campoFormulario?.opcoes || null,
     ordem: Number(campoCliente?.ordem ?? campoFormulario?.ordem ?? 0),
     largura: campoFormulario?.largura || campoCliente?.largura || '50',
@@ -375,6 +378,7 @@ function montarCampoFinal(campoCliente, campoFormulario = null) {
 }
 
 function indexarCamposClientes(camposClientes = []) {
+  const byId = new Map();
   const bySlug = new Map();
   const byNome = new Map();
 
@@ -382,11 +386,12 @@ function indexarCamposClientes(camposClientes = []) {
     const slug = getCampoSlug(campo);
     const nome = slugify(campo?.nome || '');
 
+    if (campo?.id != null) byId.set(Number(campo.id), campo);
     if (slug) bySlug.set(slug, campo);
     if (nome) byNome.set(nome, campo);
   });
 
-  return { bySlug, byNome };
+  return { byId, bySlug, byNome };
 }
 
 async function carregarFormularioPadraoClientes({ loadingContainer = null } = {}) {
@@ -402,7 +407,7 @@ async function carregarFormularioPadraoClientes({ loadingContainer = null } = {}
 }
 
 function montarSecoesPeloFormulario(formulario, camposClientes = []) {
-  const { bySlug, byNome } = indexarCamposClientes(camposClientes);
+  const { byId, bySlug, byNome } = indexarCamposClientes(camposClientes);
   const usados = new Set();
   const secoes = [];
 
@@ -429,9 +434,16 @@ function montarSecoesPeloFormulario(formulario, camposClientes = []) {
           campoFormulario?.campo_sistema ||
           '';
 
-        const slug = campoFormulario?.campo_sistema || slugify(label);
+        const slug =
+          campoFormulario?.campo_personalizado_slug ||
+          campoFormulario?.campo_sistema ||
+          slugify(label);
+        const personalizadoId = campoFormulario?.campo_personalizado_id
+          ? Number(campoFormulario.campo_personalizado_id)
+          : null;
 
         const campoCliente =
+          (personalizadoId ? byId.get(personalizadoId) : null) ||
           bySlug.get(slug) ||
           byNome.get(slug) ||
           null;
@@ -519,8 +531,9 @@ function renderInputCampo(campo, values = {}) {
   const placeholder = campo.placeholder || '';
   const disabled = campo.somente_leitura ? 'disabled' : '';
   const fieldClass = getCampoClass(campo);
+  const fieldOrigin = String(campo.origem || 'personalizado').toLowerCase();
 
-  let html = `<div class="form-group custom-field-item ${fieldClass}">`;
+  let html = `<div class="form-group custom-field-item ${fieldClass}" data-field-origin="${escapeHtml(fieldOrigin)}">`;
 
   if (tipo === 'checkbox') {
     const checked =
@@ -928,17 +941,24 @@ export async function renderCustomFieldsInputs(camposClientes, values = {}) {
   }
 }
 
-export function normalizeCustomFieldsPayload() {
+function collectRenderedFieldsPayload({ includeSystem = false } = {}) {
   if (window.ValoraFichaPrincipal?.collectCustomFieldsValues) {
-    return window.ValoraFichaPrincipal.collectCustomFieldsValues(document);
+    return window.ValoraFichaPrincipal.collectCustomFieldsValues(document, { includeSystem });
   }
 
   const payload = {};
 
   document.querySelectorAll('[data-custom-field]').forEach((el) => {
     const slug = String(el.dataset.customField || '').trim();
-
     if (!slug || el.disabled || el.dataset.customReadonly === 'true') return;
+
+    const origin = String(
+      el.dataset.fieldOrigin ||
+      el.closest('[data-field-origin]')?.dataset?.fieldOrigin ||
+      'personalizado'
+    ).toLowerCase();
+
+    if (!includeSystem && origin === 'sistema') return;
 
     if (el.type === 'checkbox') {
       payload[slug] = !!el.checked;
@@ -946,8 +966,7 @@ export function normalizeCustomFieldsPayload() {
     }
 
     if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
-      const value = String(el.value ?? '').trim();
-      if (value) payload[slug] = value;
+      payload[slug] = String(el.value ?? '').trim();
       return;
     }
 
@@ -956,19 +975,24 @@ export function normalizeCustomFieldsPayload() {
         .map((opt) => String(opt.value ?? '').trim())
         .filter(Boolean);
 
-      if (values.length) payload[slug] = JSON.stringify(values);
+      payload[slug] = values.length ? JSON.stringify(values) : '';
       return;
     }
 
-    const value = String(el.value ?? '').trim();
-
-    if (value !== '') {
-      payload[slug] = value;
-    }
+    payload[slug] = String(el.value ?? '').trim();
   });
 
   return payload;
 }
+
+export function normalizeCustomFieldsPayload() {
+  return collectRenderedFieldsPayload({ includeSystem: false });
+}
+
+export function normalizeAllRenderedFieldsPayload() {
+  return collectRenderedFieldsPayload({ includeSystem: true });
+}
+
 
 export function validateRequiredCustomFields(camposClientes, values = {}) {
   if (window.ValoraFichaPrincipal?.validateRequiredRenderedFields) {

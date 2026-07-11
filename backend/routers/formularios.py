@@ -906,6 +906,20 @@ def garantir_data_cadastro_no_modelo(db: Session, modelo) -> None:
 
 def formulario_completo(db: Session, modelo) -> Dict[str, Any]:
     garantir_data_cadastro_no_modelo(db, modelo)
+
+    # Clientes precisam de uma chave estável para campos personalizados. Sem
+    # isso, renomear o rótulo mudava o slug usado pelo front e os valores já
+    # existentes pareciam desaparecer.
+    if str(getattr(modelo, "modulo", "")) == "clientes":
+        from backend.routers.clientes import sincronizar_campos_clientes_do_formulario
+
+        sincronizar_campos_clientes_do_formulario(
+            db,
+            int(modelo.empresa_id),
+            modelo_id=int(modelo.id),
+            commit=False,
+        )
+
     db.commit()
     db.refresh(modelo)
 
@@ -923,11 +937,36 @@ def formulario_completo(db: Session, modelo) -> Dict[str, Any]:
         .all()
     )
 
+    campos_personalizados_slugs: Dict[int, str] = {}
+    if str(getattr(modelo, "modulo", "")) == "clientes":
+        ids = {
+            int(c.campo_personalizado_id)
+            for c in campos
+            if getattr(c, "campo_personalizado_id", None) is not None
+        }
+        if ids:
+            rows = (
+                db.query(models.CampoCliente)
+                .filter(models.CampoCliente.empresa_id == int(modelo.empresa_id))
+                .filter(models.CampoCliente.id.in_(ids))
+                .all()
+            )
+            campos_personalizados_slugs = {int(row.id): str(row.slug) for row in rows}
+
+    def campo_dict_com_slug(campo) -> Dict[str, Any]:
+        out = campo_dict(campo)
+        campo_personalizado_id = getattr(campo, "campo_personalizado_id", None)
+        if campo_personalizado_id is not None:
+            out["campo_personalizado_slug"] = campos_personalizados_slugs.get(int(campo_personalizado_id))
+        else:
+            out["campo_personalizado_slug"] = None
+        return out
+
     campos_por_secao: Dict[Optional[int], List[Dict[str, Any]]] = {}
 
     for campo in campos:
         key = int(campo.secao_id) if campo.secao_id else None
-        campos_por_secao.setdefault(key, []).append(campo_dict(campo))
+        campos_por_secao.setdefault(key, []).append(campo_dict_com_slug(campo))
 
     secoes_out = []
 
@@ -940,7 +979,7 @@ def formulario_completo(db: Session, modelo) -> Dict[str, Any]:
         "modelo": modelo_dict(modelo),
         "secoes": secoes_out,
         "campos_sem_secao": campos_por_secao.get(None, []),
-        "campos": [campo_dict(c) for c in campos],
+        "campos": [campo_dict_com_slug(c) for c in campos],
     }
 
 

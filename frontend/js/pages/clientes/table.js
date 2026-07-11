@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state } from './state.js?v=20260710-integridade-clientes-v1';
 import { escapeHtml } from './utils.js';
 
 const DEFAULT_NATIVE_COLUMNS = [
@@ -180,7 +180,7 @@ export function renderTabelaClientes(clientes) {
   tbody.innerHTML = clientes
     .map(
       (c) => `
-        <tr>
+        <tr class="${Number(c?.id) === Number(state.lastSavedClienteId) ? 'cliente-row-saved' : ''}" data-cliente-row-id="${escapeHtml(c?.id || '')}">
           ${beforeDynamic.map((col) => renderNativeCell(c, col.key)).join('')}
           ${renderDynamicCells(c, dynamicFields)}
           ${afterDynamic.map((col) => renderNativeCell(c, col.key)).join('')}

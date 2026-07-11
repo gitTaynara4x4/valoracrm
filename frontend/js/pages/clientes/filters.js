@@ -9,7 +9,7 @@ export function getFiltroClientes() {
   };
 }
 
-// Agora o filtro principal é feito no servidor, para não carregar tudo no navegador.
+// O filtro principal é feito no servidor, para não carregar toda a base.
 export function filtrarClientes(clientes) {
   return clientes || [];
 }
@@ -19,6 +19,10 @@ export function limparFiltrosClientes() {
   if ($('filtro-tipo')) $('filtro-tipo').value = '';
   if ($('filtro-situacao')) $('filtro-situacao').value = '';
   if ($('filtro-cidade')) $('filtro-cidade').value = '';
+
+  window.ValoraLocalizarPersonalizado?.clearFilters?.(
+    'localizar-personalizado-clientes'
+  );
 }
 
 export function initFilters(onChange) {
@@ -34,7 +38,14 @@ export function initFilters(onChange) {
   ['filtro-busca', 'filtro-cidade'].forEach((id) => {
     const el = $(id);
     if (!el) return;
+
     el.addEventListener('input', () => fire(350));
+    el.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        fire(0);
+      }
+    });
   });
 
   ['filtro-tipo', 'filtro-situacao'].forEach((id) => {
