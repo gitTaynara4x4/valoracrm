@@ -1,7 +1,7 @@
 import { state } from './state.js?v=20260710-integridade-clientes-v1';
 import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js?v=20260710-integridade-clientes-v1';
 import { $, toast } from './utils.js';
-import { renderTabelaClientes } from './table.js?v=20260710-integridade-clientes-v1';
+import { renderTabelaClientes } from './table.js?v=20260710-localizar-ordenavel-v3';
 import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js?v=20260710-integridade-clientes-v1';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
 import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260710-integridade-clientes-v1';

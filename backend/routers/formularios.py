@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -1109,6 +1110,13 @@ class FormularioModeloUpdate(BaseModel):
     usar_como_ficha_principal: Optional[bool] = None
 
 
+class FormularioLayoutLocalizarUpdate(BaseModel):
+    hiddenFilters: List[str] = Field(default_factory=list)
+    hiddenColumns: List[str] = Field(default_factory=list)
+    filterOrder: List[str] = Field(default_factory=list)
+    columnOrder: List[str] = Field(default_factory=list)
+
+
 class FormularioSecaoCreate(BaseModel):
     titulo: str = Field(..., min_length=1, max_length=180)
     descricao: Optional[str] = None
@@ -1429,6 +1437,117 @@ def listar_modulos(request: Request, db: Session = Depends(get_db)):
         "larguras": sorted(LARGURAS_PERMITIDAS),
         "icones_secoes": sorted(ICONES_SECOES_PERMITIDOS),
     }
+
+
+def _normalizar_lista_layout(value: Any, limite: int = 300) -> List[str]:
+    if not isinstance(value, list):
+        return []
+
+    resultado: List[str] = []
+    vistos = set()
+    for item in value:
+        text_value = str(item or "").strip()[:180]
+        if not text_value or text_value in vistos:
+            continue
+        vistos.add(text_value)
+        resultado.append(text_value)
+        if len(resultado) >= limite:
+            break
+    return resultado
+
+
+def _normalizar_layout_localizar(value: Any) -> Dict[str, List[str]]:
+    raw = value if isinstance(value, dict) else {}
+    return {
+        "hiddenFilters": _normalizar_lista_layout(raw.get("hiddenFilters")),
+        "hiddenColumns": _normalizar_lista_layout(raw.get("hiddenColumns")),
+        "filterOrder": _normalizar_lista_layout(raw.get("filterOrder")),
+        "columnOrder": _normalizar_lista_layout(raw.get("columnOrder")),
+    }
+
+
+def _garantir_tabela_layout_localizar(db: Session) -> None:
+    # A tabela é pequena e independente. CREATE TABLE IF NOT EXISTS permite que
+    # a atualização funcione também em instalações que ainda não rodaram o SQL.
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS formularios_layouts_localizar (
+            id BIGSERIAL PRIMARY KEY,
+            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+            modulo VARCHAR(60) NOT NULL,
+            layout_json TEXT NOT NULL DEFAULT '{}',
+            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT uq_formularios_layouts_localizar_empresa_modulo UNIQUE (empresa_id, modulo)
+        )
+    """))
+    db.commit()
+
+
+@router.get("/layout-localizar/{modulo}")
+def obter_layout_localizar(
+    modulo: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    empresa_id = validar_usuario_empresa(request, db)
+    modulo = validar_modulo(modulo)
+
+    try:
+        _garantir_tabela_layout_localizar(db)
+        row = db.execute(
+            text("""
+                SELECT layout_json
+                FROM formularios_layouts_localizar
+                WHERE empresa_id = :empresa_id AND modulo = :modulo
+                LIMIT 1
+            """),
+            {"empresa_id": empresa_id, "modulo": modulo},
+        ).mappings().first()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Não foi possível carregar o layout.") from exc
+
+    layout_raw: Any = {}
+    if row and row.get("layout_json"):
+        try:
+            layout_raw = json.loads(str(row["layout_json"]))
+        except (TypeError, ValueError):
+            layout_raw = {}
+
+    return {"modulo": modulo, "layout": _normalizar_layout_localizar(layout_raw)}
+
+
+@router.put("/layout-localizar/{modulo}")
+def salvar_layout_localizar(
+    modulo: str,
+    payload: FormularioLayoutLocalizarUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    empresa_id = validar_usuario_empresa(request, db)
+    modulo = validar_modulo(modulo)
+    layout = _normalizar_layout_localizar(dump_model(payload))
+
+    try:
+        _garantir_tabela_layout_localizar(db)
+        db.execute(
+            text("""
+                INSERT INTO formularios_layouts_localizar (empresa_id, modulo, layout_json, atualizado_em)
+                VALUES (:empresa_id, :modulo, :layout_json, NOW())
+                ON CONFLICT (empresa_id, modulo)
+                DO UPDATE SET layout_json = EXCLUDED.layout_json, atualizado_em = NOW()
+            """),
+            {
+                "empresa_id": empresa_id,
+                "modulo": modulo,
+                "layout_json": json.dumps(layout, ensure_ascii=False),
+            },
+        )
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Não foi possível salvar o layout.") from exc
+
+    return {"ok": True, "modulo": modulo, "layout": layout}
 
 
 @router.get("/campos-sistema")

@@ -3,7 +3,16 @@
   display: none !important;
 }
 
-.dynamic-filters-grid {
+/* Quando os personalizados ficam dentro da mesma grade dos nativos,
+   display: contents permite misturar todos pela ordem definida no construtor. */
+.dynamic-filters-grid.is-layout-contents {
+  display: contents !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+.dynamic-filters-grid:not(.is-layout-contents) {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid rgba(100, 116, 139, 0.14);
@@ -27,7 +36,7 @@
   background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.98));
 }
 
-html[data-theme="dark"] .dynamic-filters-grid {
+html[data-theme="dark"] .dynamic-filters-grid:not(.is-layout-contents) {
   border-top-color: rgba(148, 163, 184, 0.16);
 }
 
