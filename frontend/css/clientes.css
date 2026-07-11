@@ -1604,3 +1604,31 @@ textarea.campo-obrigatorio-pendente {
   border-color: rgba(37, 211, 102, 0.22);
   color: #128C7E;
 }
+
+
+/* Cliente confirmado logo após salvar */
+.valora-table tbody tr.cliente-row-saved {
+  position: relative;
+  outline: 2px solid rgba(75, 195, 199, 0.55);
+  outline-offset: -2px;
+  animation: clienteSavedPulse 1.6s ease-out 2;
+}
+
+.valora-table tbody tr.cliente-row-saved > td:first-child::before {
+  content: "Salvo";
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--primary, #2578b8);
+  background: rgba(75, 195, 199, 0.14);
+}
+
+@keyframes clienteSavedPulse {
+  0% { box-shadow: inset 0 0 0 999px rgba(75, 195, 199, 0.14); }
+  100% { box-shadow: inset 0 0 0 999px rgba(75, 195, 199, 0); }
+}
