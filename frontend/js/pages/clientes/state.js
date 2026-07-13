@@ -7,7 +7,6 @@ export const state = {
   usarFichaPrincipalClientes: false,
   clienteEditandoId: null,
   campoEditandoId: null,
-  lastSavedClienteId: null,
 };
 
 export const API_CLIENTES = '/api/clientes';

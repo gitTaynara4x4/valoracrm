@@ -954,36 +954,66 @@
   }
 
   function renderPagination() {
-    const el = $('paginacao-cotacoes');
+    const wraps = document.querySelectorAll('[data-pagination="cotacoes"]');
 
-    if (!el) return;
+    if (!wraps.length) return;
 
     const start = state.page.total ? state.page.offset + 1 : 0;
     const end = Math.min(state.page.offset + state.cotacoes.length, state.page.total);
+    const atual = state.page.total ? Math.floor(state.page.offset / state.page.limit) + 1 : 1;
+    const paginas = Math.max(1, Math.ceil(state.page.total / state.page.limit));
+    const lastOffset = Math.max(0, (paginas - 1) * state.page.limit);
 
-    el.innerHTML = `
+    const html = `
       <span class="counter-text">${start}-${end} de ${state.page.total}</span>
 
       <div class="pagination-actions">
-        <button class="btn btn-secondary" type="button" id="btn-cotacoes-anterior" ${state.page.offset <= 0 ? 'disabled' : ''}>
+        <button class="btn btn-secondary" type="button" data-page-action="first" ${state.page.offset <= 0 ? 'disabled' : ''}>
+          Primeira
+        </button>
+
+        <button class="btn btn-secondary" type="button" data-page-action="prev" ${state.page.offset <= 0 ? 'disabled' : ''}>
           Anterior
         </button>
 
-        <button class="btn btn-secondary" type="button" id="btn-cotacoes-proxima" ${!state.page.hasMore ? 'disabled' : ''}>
+        <span class="pagination-info">Página ${atual} de ${paginas}</span>
+
+        <button class="btn btn-secondary" type="button" data-page-action="next" ${!state.page.hasMore ? 'disabled' : ''}>
           Próxima
+        </button>
+
+        <button class="btn btn-secondary" type="button" data-page-action="last" ${state.page.offset >= lastOffset ? 'disabled' : ''}>
+          Última
         </button>
       </div>
     `;
 
-    $('btn-cotacoes-anterior')?.addEventListener('click', () => {
-      state.page.offset = Math.max(0, state.page.offset - state.page.limit);
-      carregarCotacoes();
-    });
+    wraps.forEach((wrap) => {
+      wrap.innerHTML = html;
 
-    $('btn-cotacoes-proxima')?.addEventListener('click', () => {
-      if (!state.page.hasMore) return;
-      state.page.offset += state.page.limit;
-      carregarCotacoes();
+      wrap.onclick = (event) => {
+        const btn = event.target.closest('[data-page-action]');
+        if (!btn || btn.disabled) return;
+
+        if (btn.dataset.pageAction === 'first') {
+          state.page.offset = 0;
+        }
+
+        if (btn.dataset.pageAction === 'prev') {
+          state.page.offset = Math.max(0, state.page.offset - state.page.limit);
+        }
+
+        if (btn.dataset.pageAction === 'next') {
+          if (!state.page.hasMore) return;
+          state.page.offset = Math.min(lastOffset, state.page.offset + state.page.limit);
+        }
+
+        if (btn.dataset.pageAction === 'last') {
+          state.page.offset = lastOffset;
+        }
+
+        carregarCotacoes();
+      };
     });
   }
 

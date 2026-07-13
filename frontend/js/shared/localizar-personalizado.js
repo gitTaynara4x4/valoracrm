@@ -5,7 +5,7 @@
   'use strict';
 
   const API_FORMULARIOS = '/api/formularios';
-  const LAYOUT_PREFIX = 'valora_localizar_layout_v3:';
+  const LAYOUT_PREFIX = 'valora_localizar_layout_v2:';
   const cache = new Map();
 
   const NATIVE_FILTERS = {
@@ -145,11 +145,6 @@
     return `${LAYOUT_PREFIX}${modulo || 'clientes'}`;
   }
 
-  function normalizarOrdem(value) {
-    const list = Array.isArray(value) ? value : [];
-    return [...new Set(list.map((item) => String(item || '').trim()).filter(Boolean))];
-  }
-
   function normalizarLayout(raw) {
     const hiddenFilters = Array.isArray(raw?.hiddenFilters) ? raw.hiddenFilters : [];
     const hiddenColumns = Array.isArray(raw?.hiddenColumns) ? raw.hiddenColumns : [];
@@ -157,8 +152,6 @@
     return {
       hiddenFilters: [...new Set(hiddenFilters.map((item) => String(item || '').trim()).filter(Boolean))],
       hiddenColumns: [...new Set(hiddenColumns.map((item) => String(item || '').trim()).filter(Boolean))],
-      filterOrder: normalizarOrdem(raw?.filterOrder),
-      columnOrder: normalizarOrdem(raw?.columnOrder),
     };
   }
 
@@ -170,46 +163,8 @@
     }
   }
 
-
-  async function carregarLayoutServidor(modulo) {
-    try {
-      const data = await apiJson(`${API_FORMULARIOS}/layout-localizar/${encodeURIComponent(modulo)}`);
-      const layout = normalizarLayout(data?.layout || {});
-      localStorage.setItem(layoutStorageKey(modulo), JSON.stringify(layout));
-      return layout;
-    } catch (err) {
-      console.warn('[Localizar] layout compartilhado indisponível; usando configuração deste navegador.', err);
-      return getLayout(modulo);
-    }
-  }
-
   function itemLayoutKey(origin, key) {
     return `${origin || 'nativo'}:${key || ''}`;
-  }
-
-
-  function orderProp(area) {
-    return area === 'columns' ? 'columnOrder' : 'filterOrder';
-  }
-
-  function sortLayoutItems(modulo, area, items) {
-    const layout = getLayout(modulo);
-    const saved = layout[orderProp(area)] || [];
-    const indexMap = new Map(saved.map((key, index) => [key, index]));
-
-    return [...items].sort((a, b) => {
-      const aFixed = !!a?.fixed || a?.key === 'acoes';
-      const bFixed = !!b?.fixed || b?.key === 'acoes';
-      if (aFixed !== bFixed) return aFixed ? 1 : -1;
-
-      const aKey = itemLayoutKey(a?.origin || a?.origem, a?.key);
-      const bKey = itemLayoutKey(b?.origin || b?.origem, b?.key);
-      const aIndex = indexMap.has(aKey) ? indexMap.get(aKey) : Number.MAX_SAFE_INTEGER;
-      const bIndex = indexMap.has(bKey) ? indexMap.get(bKey) : Number.MAX_SAFE_INTEGER;
-      if (aIndex !== bIndex) return aIndex - bIndex;
-
-      return Number(a?.defaultOrder || a?.ordem || 0) - Number(b?.defaultOrder || b?.ordem || 0);
-    });
   }
 
   function isItemVisible(modulo, area, origin, key, fixed = false) {
@@ -291,11 +246,18 @@
 
   function campoDeveEntrarNoLocalizar(field, modulo) {
     if (!field) return false;
-    if (!isItemVisible(modulo, 'filters', field.origem, field.key)) return false;
 
-    // Localizar e tabela possuem remoções independentes. Um campo marcado para
-    // a tabela pode continuar como filtro mesmo se a coluna for removida.
-    return !!field.usarNoLocalizar || !!field.mostrarNaTabela;
+    const filtroVisivel = isItemVisible(modulo, 'filters', field.origem, field.key);
+    if (!filtroVisivel) return false;
+
+    // Regra nova: o Localizar precisa conversar com a tabela.
+    // Se o campo aparece como coluna, ele também vira filtro automaticamente.
+    // Ainda dá para criar campo só para filtro marcando "Usar no localizar".
+    if (field.mostrarNaTabela && isItemVisible(modulo, 'columns', field.origem, field.key)) {
+      return true;
+    }
+
+    return !!field.usarNoLocalizar;
   }
 
   async function carregarModulo(modulo, { force = false } = {}) {
@@ -315,22 +277,12 @@
 
     const completo = await apiJson(`${API_FORMULARIOS}/modelos/${modeloResumo.id}`);
     const fields = getCamposFromModelo(completo);
-    const filterFields = sortLayoutItems(
-      key,
-      'filters',
-      fields.filter((field) => campoDeveEntrarNoLocalizar(field, key))
-    );
-    const tableFields = sortLayoutItems(
-      key,
-      'columns',
-      fields.filter((field) => field.mostrarNaTabela && isItemVisible(key, 'columns', field.origem, field.key))
-    );
     const value = {
       modulo: key,
       modelo: completo?.modelo || modeloResumo,
       fields,
-      filterFields,
-      tableFields,
+      filterFields: fields.filter((field) => campoDeveEntrarNoLocalizar(field, key)),
+      tableFields: fields.filter((field) => field.mostrarNaTabela && isItemVisible(key, 'columns', field.origem, field.key)),
     };
 
     cache.set(key, value);
@@ -360,26 +312,19 @@
       .map((item) => ({ value: item, label: item }));
   }
 
-  function renderCampoFiltro(field, modulo, containerId) {
+  function renderCampoFiltro(field, modulo) {
     const inputId = `lp-${slugify(modulo)}-${field.origem}-${slugify(field.key)}`;
     const label = escapeHtml(field.label || field.key);
     const dataAttrs = `
       data-localizar-personalizado="true"
-      data-localizar-container-id="${escapeHtml(containerId || '')}"
       data-origem="${escapeHtml(field.origem)}"
       data-field="${escapeHtml(field.key)}"
       data-param="${escapeHtml(field.origem === 'sistema' ? `filtro_sistema_${field.key}` : `filtro_custom_${field.key}`)}"
     `;
-    const wrapperAttrs = `
-      data-localizar-filter-item="true"
-      data-origin="${escapeHtml(field.origem)}"
-      data-key="${escapeHtml(field.key)}"
-      data-layout-key="${escapeHtml(itemLayoutKey(field.origem, field.key))}"
-    `;
 
     if (field.tipo === 'checkbox') {
       return `
-        <div class="form-group localizar-personalizado-field" ${wrapperAttrs}>
+        <div class="form-group localizar-personalizado-field">
           <label for="${escapeHtml(inputId)}">${label}</label>
           <select id="${escapeHtml(inputId)}" ${dataAttrs}>
             <option value="">Todos</option>
@@ -393,7 +338,7 @@
     const opcoes = (field.tipo === 'select' || field.tipo === 'multiselect') ? normalizarOpcoes(field.opcoes) : [];
     if (opcoes.length) {
       return `
-        <div class="form-group localizar-personalizado-field" ${wrapperAttrs}>
+        <div class="form-group localizar-personalizado-field">
           <label for="${escapeHtml(inputId)}">${label}</label>
           <select id="${escapeHtml(inputId)}" ${dataAttrs}>
             <option value="">Todos</option>
@@ -407,7 +352,7 @@
     const placeholder = field.tipo === 'data' ? '' : `Filtrar por ${field.label || field.key}`;
 
     return `
-      <div class="form-group localizar-personalizado-field" ${wrapperAttrs}>
+      <div class="form-group localizar-personalizado-field">
         <label for="${escapeHtml(inputId)}">${label}</label>
         <input id="${escapeHtml(inputId)}" type="${type}" placeholder="${escapeHtml(placeholder)}" ${dataAttrs} />
       </div>
@@ -421,27 +366,13 @@
     const config = cache.get(modulo) || { filterFields: [] };
     const fields = Array.isArray(config.filterFields) ? config.filterFields : [];
 
-    container.innerHTML = fields.map((field) => renderCampoFiltro(field, modulo, containerId)).join('');
+    container.innerHTML = fields.map((field) => renderCampoFiltro(field, modulo)).join('');
     container.hidden = !fields.length;
     container.classList.toggle('has-custom-filters', !!fields.length);
-    container.classList.toggle('is-layout-contents', !!fields.length);
   }
 
-  function applyNativeFilterLayout(modulo, filtersContainerId) {
+  function applyNativeFilterLayout(modulo) {
     const map = NATIVE_FILTERS[modulo] || {};
-    const config = cache.get(modulo) || { filterFields: [] };
-    const nativeItems = Object.keys(map).map((key, index) => ({
-      origin: 'nativo',
-      key,
-      defaultOrder: index,
-    }));
-    const dynamicItems = (config.filterFields || []).map((field, index) => ({
-      ...field,
-      origin: field.origem,
-      defaultOrder: nativeItems.length + index,
-    }));
-    const ordered = sortLayoutItems(modulo, 'filters', [...nativeItems, ...dynamicItems]);
-    const orderMap = new Map(ordered.map((item, index) => [itemLayoutKey(item.origin || item.origem, item.key), index]));
 
     Object.entries(map).forEach(([key, id]) => {
       const el = document.getElementById(id);
@@ -452,25 +383,18 @@
 
       group.hidden = !visible;
       group.classList.toggle('localizar-native-hidden', !visible);
-      group.style.order = String(orderMap.get(itemLayoutKey('nativo', key)) ?? 9999);
       el.toggleAttribute('data-localizar-native-hidden', !visible);
 
-      if (!visible) el.value = '';
-    });
-
-    const container = filtersContainerId ? document.getElementById(filtersContainerId) : null;
-    container?.querySelectorAll('[data-localizar-filter-item="true"]').forEach((group) => {
-      const fullKey = String(group.dataset.layoutKey || '');
-      group.style.order = String(orderMap.get(fullKey) ?? 9999);
+      if (!visible) {
+        el.value = '';
+      }
     });
   }
 
   async function setup({ modulo, filtersContainerId, force = false } = {}) {
-    await carregarLayoutServidor(modulo);
-    if (force) cache.delete(String(modulo || '').trim());
     const config = await carregarModulo(modulo, { force });
+    applyNativeFilterLayout(modulo);
     if (filtersContainerId) renderFiltros(modulo, filtersContainerId);
-    applyNativeFilterLayout(modulo, filtersContainerId);
     return config;
   }
 
@@ -526,34 +450,7 @@
 
   function getNativeColumns(modulo) {
     const columns = NATIVE_COLUMNS[modulo] || NATIVE_COLUMNS.clientes;
-    const visible = columns
-      .filter((col) => isItemVisible(modulo, 'columns', 'nativo', col.key, col.fixed))
-      .map((col, index) => ({ ...col, origin: 'nativo', defaultOrder: index }));
-    return sortLayoutItems(modulo, 'columns', visible);
-  }
-
-  function getOrderedTableColumns(modulo) {
-    const nativeBefore = [];
-    const nativeAfter = [];
-
-    (NATIVE_COLUMNS[modulo] || NATIVE_COLUMNS.clientes)
-      .filter((col) => isItemVisible(modulo, 'columns', 'nativo', col.key, col.fixed))
-      .forEach((col) => {
-        const normalized = { ...col, kind: 'native', origin: 'nativo' };
-        if (col.key === 'situacao' || col.key === 'acoes') nativeAfter.push(normalized);
-        else nativeBefore.push(normalized);
-      });
-
-    const dynamic = getTableFields(modulo).map((field) => ({
-      ...field,
-      kind: 'dynamic',
-      origin: field.origem,
-    }));
-
-    const defaults = [...nativeBefore, ...dynamic, ...nativeAfter]
-      .map((item, index) => ({ ...item, defaultOrder: index }));
-
-    return sortLayoutItems(modulo, 'columns', defaults);
+    return columns.filter((col) => isItemVisible(modulo, 'columns', 'nativo', col.key, col.fixed));
   }
 
   function formatDate(raw) {
@@ -618,7 +515,6 @@
     bindFilters,
     getTableFields,
     getNativeColumns,
-    getOrderedTableColumns,
     getLayout,
     isItemVisible,
     formatValue,

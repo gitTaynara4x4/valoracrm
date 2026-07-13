@@ -1,13 +1,11 @@
-import { state } from './state.js?v=20260710-integridade-clientes-v1';
-import { obterClienteNoServidor, salvarClienteNoServidor, apiJson } from './api.js?v=20260710-integridade-clientes-v1';
+import { state } from './state.js';
+import { obterClienteNoServidor, salvarClienteNoServidor, apiJson } from './api.js';
 import { $, $$, escapeHtml, toast, openModal, closeModal } from './utils.js';
-import { confirmDialog } from './confirm.js';
 import {
   renderCustomFieldsInputs,
   normalizeCustomFieldsPayload,
-  normalizeAllRenderedFieldsPayload,
   validateRequiredCustomFields,
-} from './custom-fields.js?v=20260710-integridade-clientes-v1';
+} from './custom-fields.js';
 
 let _afterSave = async () => {};
 let _bound = false;
@@ -768,7 +766,6 @@ function getRowsData(containerId) {
 
 function buildPayload() {
   const customFields = normalizeCustomFieldsPayload();
-  const renderedFields = normalizeAllRenderedFieldsPayload();
 
   const payload = {
     codigo: onlyDigits(getValue('campo-codigo') || getValue('campo-codigo-ficha-principal')),
@@ -819,7 +816,7 @@ function buildPayload() {
   };
 
   if (state.usarFichaPrincipalClientes) {
-    Object.assign(payload, buildBaseFromFichaPrincipal(renderedFields, payload));
+    Object.assign(payload, buildBaseFromFichaPrincipal(customFields, payload));
   }
 
   payload.codigo = onlyDigits(payload.codigo);
@@ -1858,47 +1855,12 @@ export async function saveCliente(e) {
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
     }
 
-    const wasNew = !state.clienteEditandoId;
-    let clienteSalvo = null;
-
-    try {
-      clienteSalvo = await salvarClienteNoServidor(payload, state.clienteEditandoId);
-    } catch (err) {
-      const detail = err?.data?.detail;
-      const isSoftDuplicate =
-        err?.status === 409 &&
-        detail?.code === 'cliente_duplicado' &&
-        detail?.blocking === false;
-
-      if (!isSoftDuplicate) throw err;
-
-      const existente = detail?.cliente || {};
-      const ok = await confirmDialog({
-        title: 'Possível cliente duplicado',
-        message:
-          `${detail.message || 'Já existe outro cadastro com os mesmos dados.'} ` +
-          `Código existente: ${existente.codigo || '-'}. ` +
-          'Só continue se realmente forem clientes diferentes.',
-        confirmText: 'Salvar mesmo assim',
-        cancelText: 'Voltar e revisar',
-      });
-
-      if (!ok) return;
-
-      payload.permitir_duplicado = true;
-      clienteSalvo = await salvarClienteNoServidor(payload, state.clienteEditandoId);
-    }
-
-    await _afterSave(clienteSalvo, { wasNew });
+    await salvarClienteNoServidor(payload, state.clienteEditandoId);
+    await _afterSave();
 
     closeClientModal();
 
-    toast(
-      clienteSalvo?.codigo
-        ? `Cliente ${clienteSalvo.codigo} salvo e confirmado na lista.`
-        : 'Cliente salvo com sucesso.',
-      'success'
-    );
+    toast('Cliente salvo com sucesso.', 'success');
   } catch (err) {
     toast(err.message || 'Erro ao salvar cliente.', 'error');
   } finally {

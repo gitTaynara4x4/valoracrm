@@ -19,6 +19,7 @@ MODULOS_VALIDOS = (
     "patrimonio",
     "cotacoes",
     "propostas",
+    "orcamentos",
     "contratos",
     "usuarios",
     "empresa",
@@ -138,6 +139,12 @@ def build_effective_permissions(
             "pode_editar": bool(row.pode_editar),
             "pode_excluir": bool(row.pode_excluir),
         }
+
+    # Compatibilidade: antes da criação do módulo próprio, Orçamentos usava
+    # a permissão de Propostas. O fallback vale somente quando ainda não há
+    # uma linha específica para Orçamentos.
+    if "orcamentos" not in rows_map and "propostas" in rows_map:
+        base["orcamentos"] = dict(base["propostas"])
 
     return base
 

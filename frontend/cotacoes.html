@@ -18,9 +18,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-  <link rel="stylesheet" href="/frontend/css/app.css?v=20260630-dark-chatgpt-v6" />
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260713-visible-table-scroll-v2" />
+  <link rel="stylesheet" href="/frontend/css/exportacoes.css?v=20260713-exportacoes-completas-v1" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
-  <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260627-sidebar-icons-v2" />
+  <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260713-preservar-opcoes-antigas-v1" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <link rel="stylesheet" href="/frontend/css/cotacoes.css?v=20260627-sidebar-icons-v2" />
@@ -28,11 +29,12 @@
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260630-ficha-sidebar-v5" />
 
-  <script src="/frontend/js/pages/app.js?v=20260617-modal-unificado-real" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260713-visible-table-scroll-v2" defer></script>
+  <script src="/frontend/js/shared/exportacoes.js?v=20260713-exportacoes-completas-v1" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/shared/ficha-principal.js?v=20260630-ficha-sidebar-v5" defer></script>
+  <script src="/frontend/js/shared/ficha-principal.js?v=20260713-preservar-opcoes-antigas-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
-  <script src="/frontend/js/pages/cotacoes.js?v=20260630-readonly-v5" defer></script>
+  <script src="/frontend/js/pages/cotacoes.js?v=20260713-pagination-top-v2" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 </head>
 
@@ -53,6 +55,11 @@
         </div>
 
         <div class="topbar-actions">
+          <button class="btn btn-secondary" type="button" data-export-open="cotacoes">
+            <i class="fa-solid fa-file-export"></i>
+            Exportar
+          </button>
+
           <button class="btn btn-secondary" type="button" id="btn-atualizar-cotacoes">
             <i class="fa-solid fa-rotate-right"></i>
             Atualizar
@@ -109,6 +116,8 @@
       </article>
 
       <article class="panel-card panel-card-table">
+        <div class="table-pagination table-pagination-top" data-pagination="cotacoes" aria-label="Paginação superior"></div>
+
         <div class="valora-table-wrapper">
           <table class="valora-table cotacoes-table">
             <thead>
@@ -131,7 +140,7 @@
           </table>
         </div>
 
-        <div class="table-pagination" id="paginacao-cotacoes"></div>
+        <div class="table-pagination" id="paginacao-cotacoes" data-pagination="cotacoes" aria-label="Paginação inferior"></div>
       </article>
 
       <div class="modal-overlay" id="modal-cotacao-backdrop" hidden>

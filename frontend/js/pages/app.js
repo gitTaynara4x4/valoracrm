@@ -266,6 +266,177 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 // ==========================================
+// ROLAGEM HORIZONTAL DUPLICADA NO TOPO
+// Mantém a barra original no fim da tabela e cria outra sincronizada no topo.
+// Assim, tabelas com muitas colunas podem ser arrastadas sem descer a página.
+// ==========================================
+(() => {
+  'use strict';
+
+  const WRAPPER_SELECTOR = [
+    '.valora-table-wrapper',
+    '.table-wrapper',
+    '.financeiro-table-wrap',
+    '.proposal-table-wrap',
+    '.contatos-table-wrapper',
+    '.fornecedores-cotados-wrapper',
+    '.budget-items-table-wrap'
+  ].join(', ');
+
+  const controllers = new WeakMap();
+  let scanScheduled = false;
+
+  function getScrollableContent(wrapper) {
+    return wrapper.querySelector('table') || wrapper.firstElementChild;
+  }
+
+  function createTopScrollbar(wrapper) {
+    if (!(wrapper instanceof HTMLElement)) return;
+    if (controllers.has(wrapper)) return;
+    if (wrapper.closest('.table-scroll-sync')) return;
+
+    const content = getScrollableContent(wrapper);
+    if (!(content instanceof HTMLElement)) return;
+
+    const topScrollbar = document.createElement('div');
+    topScrollbar.className = 'table-scroll-sync';
+    topScrollbar.setAttribute('aria-label', 'Rolagem horizontal da tabela');
+    topScrollbar.setAttribute('role', 'region');
+    topScrollbar.tabIndex = 0;
+
+    const topScrollbarInner = document.createElement('div');
+    topScrollbarInner.className = 'table-scroll-sync__inner';
+    topScrollbar.appendChild(topScrollbarInner);
+
+    wrapper.parentNode?.insertBefore(topScrollbar, wrapper);
+
+    let syncing = false;
+    let updateFrame = 0;
+
+    function syncScroll(source, target) {
+      if (syncing) return;
+      if (Math.abs(target.scrollLeft - source.scrollLeft) < 1) return;
+
+      syncing = true;
+      target.scrollLeft = source.scrollLeft;
+      requestAnimationFrame(() => {
+        syncing = false;
+      });
+    }
+
+    function update() {
+      updateFrame = 0;
+
+      if (!wrapper.isConnected || !topScrollbar.isConnected) return;
+
+      const visibleWidth = Math.max(0, wrapper.clientWidth);
+      const contentWidth = Math.max(
+        wrapper.scrollWidth,
+        content.scrollWidth,
+        content.getBoundingClientRect().width
+      );
+      const hasHorizontalOverflow = visibleWidth > 0 && contentWidth > visibleWidth + 2;
+
+      topScrollbarInner.style.width = `${Math.ceil(contentWidth)}px`;
+      topScrollbar.classList.toggle('is-active', hasHorizontalOverflow);
+      topScrollbar.setAttribute('aria-hidden', hasHorizontalOverflow ? 'false' : 'true');
+
+      if (hasHorizontalOverflow) {
+        topScrollbar.scrollLeft = wrapper.scrollLeft;
+      } else {
+        topScrollbar.scrollLeft = 0;
+      }
+    }
+
+    function scheduleUpdate() {
+      if (updateFrame) cancelAnimationFrame(updateFrame);
+      updateFrame = requestAnimationFrame(update);
+    }
+
+    topScrollbar.addEventListener('scroll', () => syncScroll(topScrollbar, wrapper), { passive: true });
+    wrapper.addEventListener('scroll', () => syncScroll(wrapper, topScrollbar), { passive: true });
+
+    const resizeObserver = typeof ResizeObserver === 'function'
+      ? new ResizeObserver(scheduleUpdate)
+      : null;
+
+    resizeObserver?.observe(wrapper);
+    resizeObserver?.observe(content);
+
+    const contentObserver = new MutationObserver(scheduleUpdate);
+    contentObserver.observe(content, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true
+    });
+
+    const controller = {
+      update: scheduleUpdate,
+      destroy() {
+        resizeObserver?.disconnect();
+        contentObserver.disconnect();
+        topScrollbar.remove();
+        controllers.delete(wrapper);
+      }
+    };
+
+    controllers.set(wrapper, controller);
+    scheduleUpdate();
+  }
+
+  function scan(root = document) {
+    if (!root?.querySelectorAll) return;
+
+    if (root instanceof HTMLElement && root.matches(WRAPPER_SELECTOR)) {
+      createTopScrollbar(root);
+    }
+
+    root.querySelectorAll(WRAPPER_SELECTOR).forEach(createTopScrollbar);
+  }
+
+  function scheduleScan(root = document) {
+    if (scanScheduled) return;
+    scanScheduled = true;
+
+    requestAnimationFrame(() => {
+      scanScheduled = false;
+      scan(root);
+    });
+  }
+
+  function init() {
+    scan(document);
+
+    const pageObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type !== 'childList' || !mutation.addedNodes.length) continue;
+        scheduleScan(document);
+        break;
+      }
+    });
+
+    pageObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    window.addEventListener('resize', () => {
+      document.querySelectorAll(WRAPPER_SELECTOR).forEach((wrapper) => {
+        controllers.get(wrapper)?.update();
+      });
+    }, { passive: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
+})();
+
+
+// ==========================================
 // RESPONSIVO REAL PARA TABELAS
 // Em telas pequenas, transforma tabelas em cards usando os títulos do <thead>.
 // Isso evita coluna cortada e texto saindo da tela no mobile.
@@ -433,9 +604,25 @@ document.addEventListener('DOMContentLoaded', () => {
         'Se usar fornecedores cadastrados, a comparação fica mais organizada.'
       ]
     },
+    orcamentos: {
+      title: 'Ajuda de Orçamentos',
+      subtitle: 'Produtos, serviços, valores, envio e aprovação comercial.',
+      icon: 'fa-file-invoice-dollar',
+      steps: [
+        'Clique em Novo orçamento, selecione o cliente, o tipo e o consultor responsável.',
+        'Use um modelo pronto ou adicione produtos e serviços manualmente.',
+        'Configure desconto, frete, acréscimo e uma ou mais formas de pagamento.',
+        'Preencha prazo, condições gerais, observações e a capa comercial opcional.',
+        'Revise o documento, salve, imprima em PDF ou envie o resumo pelo WhatsApp.'
+      ],
+      tips: [
+        'Owner e administrador podem criar categorias, modelos e regras globais do módulo.',
+        'Custos e margem ficam restritos a usuários gerenciais e não aparecem no PDF do cliente.'
+      ]
+    },
     propostas: {
       title: 'Ajuda de Propostas',
-      subtitle: 'Orçamentos comerciais, itens, valores e aprovação.',
+      subtitle: 'Registros comerciais antigos, itens, valores e aprovação.',
       icon: 'fa-file-signature',
       steps: [
         'Crie propostas vinculadas a um cliente.',
@@ -444,8 +631,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'Quando aprovada, a proposta pode alimentar o contrato.'
       ],
       tips: [
-        'Mantenha título, cliente e status bem preenchidos para achar a proposta depois.',
-        'Não transforme proposta em contrato manualmente se a tela de Contratos importar proposta aprovada.'
+        'Propostas é o módulo legado; novos documentos comerciais devem ser criados em Orçamentos.',
+        'Registros antigos são importados automaticamente quando a nova estrutura é inicializada.'
       ]
     },
     'contratos-admin': {

@@ -1017,7 +1017,7 @@
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="${getColunasOrdenadasProdutos().length}" class="empty-state" style="border:none; text-align:center;">
+        <td colspan="${6 + getCamposTabelaProdutos().length}" class="empty-state" style="border:none; text-align:center;">
           ${escapeHtml(message)}
         </td>
       </tr>
@@ -1101,27 +1101,47 @@
     { key: 'acoes', label: 'Ações', fixed: true },
   ];
 
-  function getColunasOrdenadasProdutos() {
-    const columns = window.ValoraLocalizarPersonalizado?.getOrderedTableColumns?.('produtos');
-    if (Array.isArray(columns) && columns.length) return columns;
-
-    return DEFAULT_NATIVE_COLUMNS_PRODUTOS.map((column, index) => ({
-      ...column,
-      kind: 'native',
-      origin: 'nativo',
-      defaultOrder: index,
-    }));
+  function getCamposTabelaProdutos() {
+    return window.ValoraLocalizarPersonalizado?.getTableFields?.('produtos') || [];
   }
 
-  function renderHeadersProdutos(columns) {
+  function getColunasNativasProdutos() {
+    const columns = window.ValoraLocalizarPersonalizado?.getNativeColumns?.('produtos');
+    return Array.isArray(columns) && columns.length ? columns : DEFAULT_NATIVE_COLUMNS_PRODUTOS;
+  }
+
+  function dividirColunasNativasProdutos(columns) {
+    const beforeDynamic = [];
+    const afterDynamic = [];
+
+    columns.forEach((col) => {
+      if (col.key === 'acoes') {
+        afterDynamic.push(col);
+      } else {
+        beforeDynamic.push(col);
+      }
+    });
+
+    return { beforeDynamic, afterDynamic };
+  }
+
+  function renderHeadersProdutos(nativeColumns, fields) {
     const row = document.querySelector('.valora-table thead tr');
     if (!row) return;
 
-    row.innerHTML = columns.map((column) => `
-      <th class="${column.key === 'acoes' ? 'text-right' : ''}">
-        ${escapeHtml(column.label || column.key)}
-      </th>
-    `).join('');
+    const { beforeDynamic, afterDynamic } = dividirColunasNativasProdutos(nativeColumns);
+
+    row.innerHTML = `
+      ${beforeDynamic.map((col) => `<th>${escapeHtml(col.label || col.key)}</th>`).join('')}
+      ${fields.map((field) => `<th>${escapeHtml(field.label || field.key)}</th>`).join('')}
+      ${afterDynamic.map((col) => `<th class="${col.key === 'acoes' ? 'text-right' : ''}">${escapeHtml(col.label || col.key)}</th>`).join('')}
+    `;
+  }
+
+  function renderCamposTabelaProdutos(produto, fields) {
+    return fields
+      .map((field) => `<td>${escapeHtml(window.ValoraLocalizarPersonalizado?.formatValue?.(produto, field) || '-')}</td>`)
+      .join('');
   }
 
   function renderAcoesProduto(produto) {
@@ -1172,24 +1192,17 @@
     }
   }
 
-  function renderColunaProduto(produto, column) {
-    if (column?.kind === 'dynamic') {
-      const value = window.ValoraLocalizarPersonalizado?.formatValue?.(produto, column) || '-';
-      return `<td>${escapeHtml(value)}</td>`;
-    }
-
-    return renderCelulaNativaProduto(produto, column?.key);
-  }
-
   function renderTabelaProdutos() {
     const tbody = $('tbody-produtos');
     const spanCount = $('contagem-produtos');
 
     if (!tbody) return;
 
-    const columns = getColunasOrdenadasProdutos();
-    renderHeadersProdutos(columns);
-    const colspan = columns.length;
+    const dynamicFields = getCamposTabelaProdutos();
+    const nativeColumns = getColunasNativasProdutos();
+    const { beforeDynamic, afterDynamic } = dividirColunasNativasProdutos(nativeColumns);
+    renderHeadersProdutos(nativeColumns, dynamicFields);
+    const colspan = nativeColumns.length + dynamicFields.length;
 
     if (!produtos.length) {
       tbody.innerHTML = `
@@ -1205,7 +1218,9 @@
 
     tbody.innerHTML = produtos.map((produto) => `
       <tr>
-        ${columns.map((column) => renderColunaProduto(produto, column)).join('')}
+        ${beforeDynamic.map((col) => renderCelulaNativaProduto(produto, col.key)).join('')}
+        ${renderCamposTabelaProdutos(produto, dynamicFields)}
+        ${afterDynamic.map((col) => renderCelulaNativaProduto(produto, col.key)).join('')}
       </tr>
     `).join('');
 
@@ -1223,8 +1238,8 @@
   }
 
   function renderPaginacaoProdutos() {
-    const wrap = $('paginacao-produtos');
-    if (!wrap) return;
+    const wraps = document.querySelectorAll('[data-pagination="produtos"]');
+    if (!wraps.length) return;
 
     const offset = Number(produtosPage.offset || 0);
     const limit = Number(produtosPage.limit || 50);
@@ -1232,11 +1247,19 @@
     const atual = total ? Math.floor(offset / limit) + 1 : 1;
     const paginas = Math.max(1, Math.ceil(total / limit));
 
-    wrap.innerHTML = `
+    const lastOffset = Math.max(0, (paginas - 1) * limit);
+
+    const html = `
+      <button class="btn btn-secondary btn-sm" type="button" data-page-action="first" ${offset <= 0 ? 'disabled' : ''}>Primeira</button>
       <button class="btn btn-secondary btn-sm" type="button" data-page-action="prev" ${offset <= 0 ? 'disabled' : ''}>Anterior</button>
       <span class="pagination-info">Página ${atual} de ${paginas}</span>
       <button class="btn btn-secondary btn-sm" type="button" data-page-action="next" ${!produtosPage.hasMore ? 'disabled' : ''}>Próxima</button>
+      <button class="btn btn-secondary btn-sm" type="button" data-page-action="last" data-last-offset="${lastOffset}" ${offset >= lastOffset ? 'disabled' : ''}>Última</button>
     `;
+
+    wraps.forEach((wrap) => {
+      wrap.innerHTML = html;
+    });
   }
 
   function abrirModalProduto() {
@@ -1766,17 +1789,24 @@
       carregarProdutos({ offset: 0 });
     });
 
-    $('paginacao-produtos')?.addEventListener('click', (event) => {
-      const btn = event.target.closest('[data-page-action]');
-      if (!btn || btn.disabled) return;
+    document.querySelectorAll('[data-pagination="produtos"]').forEach((wrap) => {
+      wrap.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-page-action]');
+        if (!btn || btn.disabled) return;
 
-      const limit = Number(produtosPage.limit || 50);
-      let offset = Number(produtosPage.offset || 0);
+        const limit = Number(produtosPage.limit || 50);
+        const total = Number(produtosPage.total || 0);
+        const paginas = Math.max(1, Math.ceil(total / limit));
+        const lastOffset = Math.max(0, (paginas - 1) * limit);
+        let offset = Number(produtosPage.offset || 0);
 
-      if (btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
-      if (btn.dataset.pageAction === 'next') offset += limit;
+        if (btn.dataset.pageAction === 'first') offset = 0;
+        if (btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
+        if (btn.dataset.pageAction === 'next') offset = Math.min(lastOffset, offset + limit);
+        if (btn.dataset.pageAction === 'last') offset = lastOffset;
 
-      carregarProdutos({ offset });
+        carregarProdutos({ offset });
+      });
     });
 
     $('btn-novo-produto')?.addEventListener('click', abrirModalProdutoNovo);

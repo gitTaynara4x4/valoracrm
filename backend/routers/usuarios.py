@@ -39,6 +39,7 @@ MODULOS_VALIDOS = {
     "patrimonio",
     "cotacoes",
     "propostas",
+    "orcamentos",
     "contratos",
     "usuarios",
     "empresa",
@@ -234,16 +235,21 @@ def build_permissoes_dict(db: Session, usuario_id: int) -> dict:
         for modulo in MODULOS_VALIDOS
     }
 
+    modulos_encontrados = set()
     for row in rows:
         modulo = str(row.modulo or "").strip().lower()
         if modulo not in mapa:
             continue
+        modulos_encontrados.add(modulo)
         mapa[modulo] = {
             "pode_ver": bool(row.pode_ver),
             "pode_criar": bool(row.pode_criar),
             "pode_editar": bool(row.pode_editar),
             "pode_excluir": bool(row.pode_excluir),
         }
+
+    if "orcamentos" not in modulos_encontrados and "propostas" in modulos_encontrados:
+        mapa["orcamentos"] = dict(mapa["propostas"])
 
     return mapa
 

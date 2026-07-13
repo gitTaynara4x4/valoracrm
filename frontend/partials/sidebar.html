@@ -1011,7 +1011,7 @@
 
         <div class="dropdown">
           <button class="dropdown-item" type="button" data-target="home">Dashboard</button>
-          <button class="dropdown-item" type="button" data-target="propostas">Propostas</button>
+          <button class="dropdown-item" type="button" data-target="orcamentos">Orçamentos</button>
           <button class="dropdown-item" type="button" data-target="contratos-admin">Contratos</button>
           <button class="dropdown-item" type="button" data-target="area-cliente-admin">Dados para Contrato</button>
         </div>
@@ -1070,9 +1070,9 @@
         Primeiros passos
       </button>
 
-      <button class="new-action" type="button" onclick="irPara('propostas')">
+      <button class="new-action" type="button" onclick="irPara('orcamentos')">
         <span class="plus">+</span>
-        <span class="label">Nova Proposta</span>
+        <span class="label">Novo Orçamento</span>
       </button>
 
       <button class="bell-btn" type="button" onclick="irPara('home')" aria-label="Notificações">
@@ -1156,7 +1156,7 @@
     <div class="mobile-section">
       <div class="mobile-title">Operação</div>
       <button class="mobile-link" type="button" data-target="home"><i class="fa-solid fa-chart-line"></i> Dashboard</button>
-      <button class="mobile-link" type="button" data-target="propostas"><i class="fa-solid fa-file-signature"></i> Propostas</button>
+      <button class="mobile-link" type="button" data-target="orcamentos"><i class="fa-solid fa-file-invoice-dollar"></i> Orçamentos</button>
       <button class="mobile-link" type="button" data-target="contratos-admin"><i class="fa-solid fa-file-contract"></i> Contratos</button>
       <button class="mobile-link" type="button" data-target="area-cliente-admin"><i class="fa-solid fa-address-card"></i> Dados para Contrato</button>
     </div>
@@ -1780,6 +1780,10 @@
           goTo('/patrimonio');
           break;
 
+        case 'orcamentos':
+          goTo('/orcamentos');
+          break;
+
         case 'propostas':
           goTo('/propostas');
           break;
@@ -1923,6 +1927,7 @@
       if (path === '/cotacoes' || path === '/frontend/cotacoes.html') return 'cotacoes';
       if (path === '/produtos' || path === '/frontend/produtos.html') return 'produtos';
       if (path === '/patrimonio' || path === '/frontend/patrimonio.html') return 'patrimonio';
+      if (path === '/orcamentos' || path === '/frontend/orcamentos.html') return 'orcamentos';
       if (path === '/propostas' || path === '/frontend/propostas.html') return 'propostas';
       if (path === '/area-cliente-admin' || path === '/frontend/area-cliente-admin.html') return 'area-cliente-admin';
       if (path === '/contratos-admin' || path === '/frontend/contratos-admin.html') return 'contratos-admin';

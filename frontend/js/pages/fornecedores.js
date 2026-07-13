@@ -545,27 +545,47 @@ const DEFAULT_NATIVE_COLUMNS_FORNECEDORES = [
   { key: 'acoes', label: 'Ações', fixed: true },
 ];
 
-function getColunasOrdenadasFornecedores() {
-  const columns = window.ValoraLocalizarPersonalizado?.getOrderedTableColumns?.('fornecedores');
-  if (Array.isArray(columns) && columns.length) return columns;
-
-  return DEFAULT_NATIVE_COLUMNS_FORNECEDORES.map((column, index) => ({
-    ...column,
-    kind: 'native',
-    origin: 'nativo',
-    defaultOrder: index,
-  }));
+function getCamposTabelaFornecedores() {
+  return window.ValoraLocalizarPersonalizado?.getTableFields?.('fornecedores') || [];
 }
 
-function renderHeadersFornecedores(columns) {
+function getColunasNativasFornecedores() {
+  const columns = window.ValoraLocalizarPersonalizado?.getNativeColumns?.('fornecedores');
+  return Array.isArray(columns) && columns.length ? columns : DEFAULT_NATIVE_COLUMNS_FORNECEDORES;
+}
+
+function dividirColunasNativasFornecedores(columns) {
+  const beforeDynamic = [];
+  const afterDynamic = [];
+
+  columns.forEach((col) => {
+    if (col.key === 'situacao' || col.key === 'acoes') {
+      afterDynamic.push(col);
+    } else {
+      beforeDynamic.push(col);
+    }
+  });
+
+  return { beforeDynamic, afterDynamic };
+}
+
+function renderHeadersFornecedores(nativeColumns, fields) {
   const row = document.querySelector('.valora-table thead tr');
   if (!row) return;
 
-  row.innerHTML = columns.map((column) => `
-    <th class="${column.key === 'acoes' ? 'text-right' : ''}">
-      ${escapeHtml(column.label || column.key)}
-    </th>
-  `).join('');
+  const { beforeDynamic, afterDynamic } = dividirColunasNativasFornecedores(nativeColumns);
+
+  row.innerHTML = `
+    ${beforeDynamic.map((col) => `<th>${escapeHtml(col.label || col.key)}</th>`).join('')}
+    ${fields.map((field) => `<th>${escapeHtml(field.label || field.key)}</th>`).join('')}
+    ${afterDynamic.map((col) => `<th class="${col.key === 'acoes' ? 'text-right' : ''}">${escapeHtml(col.label || col.key)}</th>`).join('')}
+  `;
+}
+
+function renderCamposTabelaFornecedores(fornecedor, fields) {
+  return fields
+    .map((field) => `<td>${escapeHtml(window.ValoraLocalizarPersonalizado?.formatValue?.(fornecedor, field) || '-')}</td>`)
+    .join('');
 }
 
 function renderAcoesFornecedor(f) {
@@ -607,15 +627,6 @@ function renderCelulaNativaFornecedor(f, key) {
   }
 }
 
-function renderColunaFornecedor(fornecedor, column) {
-  if (column?.kind === 'dynamic') {
-    const value = window.ValoraLocalizarPersonalizado?.formatValue?.(fornecedor, column) || '-';
-    return `<td>${escapeHtml(value)}</td>`;
-  }
-
-  return renderCelulaNativaFornecedor(fornecedor, column?.key);
-}
-
 function renderTabelaFornecedores() {
   const tbody = $('tbody-fornecedores');
   const spanCount = $('contagem-fornecedores');
@@ -623,9 +634,11 @@ function renderTabelaFornecedores() {
   if (!tbody) return;
 
   const filtrados = filtrarFornecedores();
-  const columns = getColunasOrdenadasFornecedores();
-  renderHeadersFornecedores(columns);
-  const colspan = columns.length;
+  const dynamicFields = getCamposTabelaFornecedores();
+  const nativeColumns = getColunasNativasFornecedores();
+  const { beforeDynamic, afterDynamic } = dividirColunasNativasFornecedores(nativeColumns);
+  renderHeadersFornecedores(nativeColumns, dynamicFields);
+  const colspan = nativeColumns.length + dynamicFields.length;
 
   if (!filtrados.length) {
     tbody.innerHTML = `
@@ -645,7 +658,9 @@ function renderTabelaFornecedores() {
 
   tbody.innerHTML = filtrados.map((f) => `
     <tr>
-      ${columns.map((column) => renderColunaFornecedor(f, column)).join('')}
+      ${beforeDynamic.map((col) => renderCelulaNativaFornecedor(f, col.key)).join('')}
+      ${renderCamposTabelaFornecedores(f, dynamicFields)}
+      ${afterDynamic.map((col) => renderCelulaNativaFornecedor(f, col.key)).join('')}
     </tr>
   `).join('');
 
@@ -663,8 +678,8 @@ function renderTabelaFornecedores() {
 }
 
 function renderPaginacaoFornecedores() {
-  const wrap = $('paginacao-fornecedores');
-  if (!wrap) return;
+  const wraps = document.querySelectorAll('[data-pagination="fornecedores"]');
+  if (!wraps.length) return;
 
   const offset = Number(fornecedoresPage.offset || 0);
   const limit = Number(fornecedoresPage.limit || 50);
@@ -672,11 +687,19 @@ function renderPaginacaoFornecedores() {
   const atual = total ? Math.floor(offset / limit) + 1 : 1;
   const paginas = Math.max(1, Math.ceil(total / limit));
 
-  wrap.innerHTML = `
+  const lastOffset = Math.max(0, (paginas - 1) * limit);
+
+  const html = `
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="first" ${offset <= 0 ? 'disabled' : ''}>Primeira</button>
     <button class="btn btn-secondary btn-sm" type="button" data-page-action="prev" ${offset <= 0 ? 'disabled' : ''}>Anterior</button>
     <span class="pagination-info">Página ${atual} de ${paginas}</span>
     <button class="btn btn-secondary btn-sm" type="button" data-page-action="next" ${!fornecedoresPage.hasMore ? 'disabled' : ''}>Próxima</button>
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="last" data-last-offset="${lastOffset}" ${offset >= lastOffset ? 'disabled' : ''}>Última</button>
   `;
+
+  wraps.forEach((wrap) => {
+    wrap.innerHTML = html;
+  });
 }
 
 function montarUrlFornecedores({ offset = fornecedoresPage.offset || 0, limit = fornecedoresPage.limit || 50 } = {}) {
@@ -702,7 +725,7 @@ function setFornecedoresLoading(message = 'Buscando fornecedores no banco...') {
   if (!tbody) return;
   tbody.innerHTML = `
     <tr>
-      <td colspan="${getColunasOrdenadasFornecedores().length}" class="empty-state" style="border:none; text-align:center;">
+      <td colspan="${8 + getCamposTabelaFornecedores().length}" class="empty-state" style="border:none; text-align:center;">
         ${escapeHtml(message)}
       </td>
     </tr>
@@ -1894,17 +1917,24 @@ function bindFiltros() {
     carregarFornecedores({ offset: 0 });
   });
 
-  $('paginacao-fornecedores')?.addEventListener('click', (event) => {
-    const btn = event.target.closest('[data-page-action]');
-    if (!btn || btn.disabled) return;
+  document.querySelectorAll('[data-pagination="fornecedores"]').forEach((wrap) => {
+    wrap.addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-page-action]');
+      if (!btn || btn.disabled) return;
 
-    const limit = Number(fornecedoresPage.limit || 50);
-    let offset = Number(fornecedoresPage.offset || 0);
+      const limit = Number(fornecedoresPage.limit || 50);
+      const total = Number(fornecedoresPage.total || 0);
+      const paginas = Math.max(1, Math.ceil(total / limit));
+      const lastOffset = Math.max(0, (paginas - 1) * limit);
+      let offset = Number(fornecedoresPage.offset || 0);
 
-    if (btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
-    if (btn.dataset.pageAction === 'next') offset += limit;
+      if (btn.dataset.pageAction === 'first') offset = 0;
+      if (btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
+      if (btn.dataset.pageAction === 'next') offset = Math.min(lastOffset, offset + limit);
+      if (btn.dataset.pageAction === 'last') offset = lastOffset;
 
-    carregarFornecedores({ offset });
+      carregarFornecedores({ offset });
+    });
   });
 }
 

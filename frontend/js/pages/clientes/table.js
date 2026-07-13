@@ -1,4 +1,4 @@
-import { state } from './state.js?v=20260710-integridade-clientes-v1';
+import { state } from './state.js';
 import { escapeHtml } from './utils.js';
 
 const DEFAULT_NATIVE_COLUMNS = [
@@ -12,28 +12,46 @@ const DEFAULT_NATIVE_COLUMNS = [
   { key: 'acoes', label: 'Ações', fixed: true },
 ];
 
-function getOrderedColumns() {
-  const columns = window.ValoraLocalizarPersonalizado?.getOrderedTableColumns?.('clientes');
-  if (Array.isArray(columns) && columns.length) return columns;
-
-  return DEFAULT_NATIVE_COLUMNS.map((column, index) => ({
-    ...column,
-    kind: 'native',
-    origin: 'nativo',
-    defaultOrder: index,
-  }));
+function getDynamicFields() {
+  return window.ValoraLocalizarPersonalizado?.getTableFields?.('clientes') || [];
 }
 
-function renderHeaders(columns) {
+function getNativeColumns() {
+  const columns = window.ValoraLocalizarPersonalizado?.getNativeColumns?.('clientes');
+  return Array.isArray(columns) && columns.length ? columns : DEFAULT_NATIVE_COLUMNS;
+}
+
+function splitNativeColumns(columns) {
+  const beforeDynamic = [];
+  const afterDynamic = [];
+
+  columns.forEach((col) => {
+    if (col.key === 'situacao' || col.key === 'acoes') {
+      afterDynamic.push(col);
+    } else {
+      beforeDynamic.push(col);
+    }
+  });
+
+  return { beforeDynamic, afterDynamic };
+}
+
+function renderHeaders(nativeColumns, dynamicFields) {
   const row = document.querySelector('.valora-table thead tr');
   if (!row) return;
 
-  row.innerHTML = columns
-    .map((column) => `
-      <th class="${column.key === 'acoes' ? 'text-right' : ''}">
-        ${escapeHtml(column.label || column.key)}
-      </th>
-    `)
+  const { beforeDynamic, afterDynamic } = splitNativeColumns(nativeColumns);
+
+  row.innerHTML = `
+    ${beforeDynamic.map((col) => `<th>${escapeHtml(col.label || col.key)}</th>`).join('')}
+    ${dynamicFields.map((field) => `<th>${escapeHtml(field.label || field.key)}</th>`).join('')}
+    ${afterDynamic.map((col) => `<th class="${col.key === 'acoes' ? 'text-right' : ''}">${escapeHtml(col.label || col.key)}</th>`).join('')}
+  `;
+}
+
+function renderDynamicCells(cliente, fields) {
+  return fields
+    .map((field) => `<td>${escapeHtml(window.ValoraLocalizarPersonalizado?.formatValue?.(cliente, field) || '-')}</td>`)
     .join('');
 }
 
@@ -133,25 +151,18 @@ function renderNativeCell(cliente, key) {
   }
 }
 
-function renderColumnCell(cliente, column) {
-  if (column?.kind === 'dynamic') {
-    const value = window.ValoraLocalizarPersonalizado?.formatValue?.(cliente, column) || '-';
-    return `<td>${escapeHtml(value)}</td>`;
-  }
-
-  return renderNativeCell(cliente, column?.key);
-}
-
 export function renderTabelaClientes(clientes) {
   const tbody = document.getElementById('tbody-clientes');
   const spanCount = document.getElementById('contagem-clientes');
 
   if (!tbody) return;
 
-  const columns = getOrderedColumns();
+  const dynamicFields = getDynamicFields();
+  const nativeColumns = getNativeColumns();
+  const { beforeDynamic, afterDynamic } = splitNativeColumns(nativeColumns);
 
-  renderHeaders(columns);
-  const colspan = columns.length;
+  renderHeaders(nativeColumns, dynamicFields);
+  const colspan = nativeColumns.length + dynamicFields.length;
 
   if (!Array.isArray(clientes) || !clientes.length) {
     tbody.innerHTML = `
@@ -169,8 +180,10 @@ export function renderTabelaClientes(clientes) {
   tbody.innerHTML = clientes
     .map(
       (c) => `
-        <tr class="${Number(c?.id) === Number(state.lastSavedClienteId) ? 'cliente-row-saved' : ''}" data-cliente-row-id="${escapeHtml(c?.id || '')}">
-          ${columns.map((column) => renderColumnCell(c, column)).join('')}
+        <tr>
+          ${beforeDynamic.map((col) => renderNativeCell(c, col.key)).join('')}
+          ${renderDynamicCells(c, dynamicFields)}
+          ${afterDynamic.map((col) => renderNativeCell(c, col.key)).join('')}
         </tr>
       `
     )
@@ -190,8 +203,8 @@ export function renderTabelaClientes(clientes) {
 }
 
 export function renderPaginacaoClientes() {
-  const wrap = document.getElementById('paginacao-clientes');
-  if (!wrap) return;
+  const wraps = document.querySelectorAll('[data-pagination="clientes"]');
+  if (!wraps.length) return;
 
   const page = state.clientesPage || {};
   const offset = Number(page.offset || 0);
@@ -200,9 +213,16 @@ export function renderPaginacaoClientes() {
   const atual = total ? Math.floor(offset / limit) + 1 : 1;
   const paginas = Math.max(1, Math.ceil(total / limit));
 
-  wrap.innerHTML = `
+  const lastOffset = Math.max(0, (paginas - 1) * limit);
+  const html = `
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="first" ${offset <= 0 ? 'disabled' : ''}>Primeira</button>
     <button class="btn btn-secondary btn-sm" type="button" data-page-action="prev" ${offset <= 0 ? 'disabled' : ''}>Anterior</button>
     <span class="pagination-info">Página ${atual} de ${paginas}</span>
     <button class="btn btn-secondary btn-sm" type="button" data-page-action="next" ${!page.hasMore ? 'disabled' : ''}>Próxima</button>
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="last" data-last-offset="${lastOffset}" ${offset >= lastOffset ? 'disabled' : ''}>Última</button>
   `;
+
+  wraps.forEach((wrap) => {
+    wrap.innerHTML = html;
+  });
 }

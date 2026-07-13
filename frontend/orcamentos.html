@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orçamentos | Valora CRM</title>
+
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem('valora_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260713-orcamentos-v6">
+  <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle">
+  <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
+  <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260713-orcamentos-v9">
+  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
+
+  <script src="/frontend/js/pages/app.js?v=20260713-orcamentos-v6" defer></script>
+  <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260713-orcamentos-v9" defer></script>
+</head>
+<body data-page="orcamentos">
+  <div class="layout">
+    <iframe src="/frontend/partials/sidebar.html?v=20260713-orcamentos-v6" class="sidebar-frame" title="Menu principal" loading="eager"></iframe>
+
+    <main class="main budget-page">
+      <header class="topbar budget-topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Comercial</span>
+          <h1>Orçamentos</h1>
+          <p class="topbar-subtitle">Crie propostas completas, reutilize modelos e acompanhe custos, margem e aprovação.</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-secondary is-hidden" id="btn-configurar-orcamentos" type="button">
+            <i class="fa-solid fa-sliders"></i> Configurar
+          </button>
+          <button class="btn btn-secondary" id="btn-atualizar-orcamentos" type="button">
+            <i class="fa-solid fa-rotate"></i> Atualizar
+          </button>
+          <button class="btn btn-primary" id="btn-novo-orcamento" type="button">
+            <i class="fa-solid fa-plus"></i> Novo orçamento
+          </button>
+        </div>
+      </header>
+
+      <section class="budget-kpis" aria-label="Resumo dos orçamentos">
+        <article class="budget-kpi"><span class="budget-kpi-icon"><i class="fa-regular fa-file-lines"></i></span><div><small>Total</small><strong id="kpi-total-orcamentos">0</strong></div></article>
+        <article class="budget-kpi"><span class="budget-kpi-icon"><i class="fa-regular fa-clock"></i></span><div><small>Em elaboração</small><strong id="kpi-rascunhos">0</strong></div></article>
+        <article class="budget-kpi"><span class="budget-kpi-icon"><i class="fa-regular fa-paper-plane"></i></span><div><small>Em negociação</small><strong id="kpi-negociacao">0</strong></div></article>
+        <article class="budget-kpi budget-kpi-highlight"><span class="budget-kpi-icon"><i class="fa-solid fa-circle-check"></i></span><div><small>Valor aprovado</small><strong id="kpi-aprovado">R$ 0,00</strong></div></article>
+      </section>
+
+      <section class="panel-card budget-toolbar">
+        <div class="budget-search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input id="busca-orcamentos" type="search" placeholder="Buscar por número, título ou cliente..." autocomplete="off" />
+        </div>
+        <div class="budget-filter-field">
+          <label for="filtro-status-orcamentos">Status</label>
+          <select id="filtro-status-orcamentos">
+            <option value="">Todos</option>
+            <option value="rascunho">Em elaboração</option>
+            <option value="enviado">Enviado</option>
+            <option value="em_negociacao">Em negociação</option>
+            <option value="aprovado">Aprovado</option>
+            <option value="recusado">Recusado</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
+        <button class="btn btn-secondary" id="btn-limpar-filtros" type="button"><i class="fa-solid fa-filter-circle-xmark"></i> Limpar</button>
+        <span id="contagem-orcamentos" class="counter-text">0 orçamentos</span>
+      </section>
+
+      <article class="panel-card budget-table-card">
+        <div class="valora-table-wrapper">
+          <table class="valora-table budget-table">
+            <thead>
+              <tr>
+                <th>Número</th><th>Emissão</th><th>Cliente</th><th>Descrição</th><th>Status</th><th class="text-right">Total</th><th class="text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-orcamentos"><tr><td colspan="7" class="empty-state">Carregando orçamentos...</td></tr></tbody>
+          </table>
+        </div>
+      </article>
+    </main>
+  </div>
+
+  <!-- MODAL DO ORÇAMENTO -->
+  <div class="modal-overlay" id="budget-modal" hidden>
+    <div class="modal-content modal-xl budget-modal-content" data-close-target="false">
+      <form class="valora-form budget-modal-shell" id="form-orcamento" onsubmit="return false;">
+        <aside class="budget-modal-sidebar">
+          <div class="budget-sidebar-top">
+            <div class="budget-sidebar-avatar">
+              <i class="fa-solid fa-file-invoice-dollar"></i>
+            </div>
+            <div class="budget-sidebar-user">
+              <strong id="budget-sidebar-title">Novo orçamento</strong>
+              <span id="budget-sidebar-code">Código não gerado</span>
+            </div>
+          </div>
+
+          <nav class="budget-tabs budget-sidebar-nav" id="budget-tabs" aria-label="Seções do orçamento">
+            <button class="budget-tab active" type="button" data-tab="dados">
+              <i class="fa-regular fa-clipboard"></i><span>Dados gerais</span>
+            </button>
+            <button class="budget-tab" type="button" data-tab="itens">
+              <i class="fa-solid fa-boxes-stacked"></i><span>Itens</span>
+            </button>
+            <button class="budget-tab" type="button" data-tab="pagamento">
+              <i class="fa-regular fa-credit-card"></i><span>Pagamento</span>
+            </button>
+            <button class="budget-tab" type="button" data-tab="condicoes">
+              <i class="fa-solid fa-file-signature"></i><span>Condições</span>
+            </button>
+            <button class="budget-tab cost-only" type="button" data-tab="analise">
+              <i class="fa-solid fa-chart-line"></i><span>Análise financeira</span>
+            </button>
+            <button class="budget-tab" type="button" data-tab="documento">
+              <i class="fa-regular fa-file-pdf"></i><span>Documento</span>
+            </button>
+            <button class="budget-tab edit-only is-hidden" type="button" data-tab="historico">
+              <i class="fa-solid fa-clock-rotate-left"></i><span>Histórico</span>
+            </button>
+          </nav>
+
+          <div class="budget-sidebar-bottom">
+            <div class="budget-sidebar-total-card">
+              <span>Total atual</span>
+              <strong id="budget-sidebar-total">R$ 0,00</strong>
+              <small>Atualizado conforme os itens e descontos.</small>
+            </div>
+          </div>
+        </aside>
+
+        <section class="budget-modal-main">
+          <header class="budget-modal-topbar">
+            <div>
+              <h3 id="budget-modal-title">Novo orçamento</h3>
+              <p id="budget-modal-subtitle">Preencha os dados comerciais e os itens.</p>
+            </div>
+
+            <div class="budget-modal-top-actions">
+              <span id="budget-status-preview" class="budget-status status-rascunho">Em elaboração</span>
+              <button class="btn btn-secondary is-hidden budget-head-action" id="btn-aprovar-margem" type="button" title="Aprovar margem">
+                <i class="fa-solid fa-user-check"></i><span>Aprovar margem</span>
+              </button>
+              <button class="btn btn-secondary is-hidden budget-head-action" id="btn-imprimir-orcamento" type="button" title="Imprimir ou salvar em PDF">
+                <i class="fa-solid fa-print"></i><span>PDF</span>
+              </button>
+              <button class="btn btn-secondary is-hidden budget-head-action" id="btn-whatsapp-orcamento" type="button" title="Enviar pelo WhatsApp">
+                <i class="fa-brands fa-whatsapp"></i><span>WhatsApp</span>
+              </button>
+              <button class="btn-close" id="btn-fechar-budget-modal" type="button" title="Fechar">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </header>
+
+          <div class="budget-modal-scroll">
+          <section class="budget-panel active" data-panel="dados">
+            <div class="budget-section-card">
+              <div class="budget-section-heading"><div><h4>Identificação</h4><p>Dados principais e classificação do orçamento.</p></div></div>
+              <div class="budget-form-grid grid-4">
+                <div class="form-group"><label>Número</label><input id="orcamento-codigo" type="text" readonly placeholder="Gerado automaticamente" /></div>
+                <div class="form-group span-2"><label for="orcamento-titulo">Título *</label><input id="orcamento-titulo" type="text" placeholder="Ex.: Implantação de rede e câmeras" /></div>
+                <div class="form-group"><label for="orcamento-status">Status</label><select id="orcamento-status"><option value="rascunho">Em elaboração</option><option value="enviado">Enviado</option><option value="em_negociacao">Em negociação</option><option value="aprovado">Aprovado</option><option value="recusado">Recusado</option><option value="cancelado">Cancelado</option></select></div>
+                <div class="form-group span-2 autocomplete-field"><label for="orcamento-cliente-busca">Cliente *</label><div class="input-with-icon"><i class="fa-regular fa-user"></i><input id="orcamento-cliente-busca" type="text" placeholder="Nome, documento ou telefone" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="orcamento-cliente-resultados" aria-expanded="false" /></div><input id="orcamento-cliente-id" type="hidden" /><div id="orcamento-cliente-resultados" class="budget-autocomplete" hidden></div></div>
+                <div class="form-group"><label for="orcamento-categoria">Categoria/tipo</label><select id="orcamento-categoria"><option value="">Sem categoria</option></select></div>
+                <div class="form-group"><label for="orcamento-modelo">Modelo</label><select id="orcamento-modelo"><option value="">Começar do zero</option></select></div>
+                <div class="form-group"><label for="orcamento-data-solicitacao">Data da solicitação</label><input id="orcamento-data-solicitacao" type="date" /></div>
+                <div class="form-group"><label for="orcamento-data-emissao">Data de emissão</label><input id="orcamento-data-emissao" type="date" /></div>
+                <div class="form-group"><label for="orcamento-data-validade">Válido até</label><input id="orcamento-data-validade" type="date" /></div>
+                <div class="form-group"><label for="orcamento-consultor">Consultor/responsável</label><select id="orcamento-consultor"><option value="">Selecionar</option></select></div>
+              </div>
+            </div>
+
+            <div class="budget-section-card">
+              <div class="budget-section-heading"><div><h4>Local e contato</h4><p>O endereço pode ser diferente do cadastro principal do cliente.</p></div><button class="btn btn-secondary btn-small" id="btn-usar-endereco-cliente" type="button"><i class="fa-solid fa-location-dot"></i> Usar endereço do cliente</button></div>
+              <div class="budget-form-grid grid-4">
+                <div class="form-group span-2"><label for="orcamento-responsavel-cliente">Responsável no cliente/local</label><input id="orcamento-responsavel-cliente" type="text" /></div>
+                <div class="form-group span-2"><label for="orcamento-contato-cliente">Telefone/contato</label><input id="orcamento-contato-cliente" type="text" /></div>
+                <div class="form-group"><label for="orcamento-cep">CEP</label><input id="orcamento-cep" type="text" /></div>
+                <div class="form-group span-2"><label for="orcamento-logradouro">Endereço</label><input id="orcamento-logradouro" type="text" /></div>
+                <div class="form-group"><label for="orcamento-numero">Número</label><input id="orcamento-numero" type="text" /></div>
+                <div class="form-group"><label for="orcamento-complemento">Complemento</label><input id="orcamento-complemento" type="text" /></div>
+                <div class="form-group"><label for="orcamento-bairro">Bairro</label><input id="orcamento-bairro" type="text" /></div>
+                <div class="form-group"><label for="orcamento-cidade">Cidade</label><input id="orcamento-cidade" type="text" /></div>
+                <div class="form-group"><label for="orcamento-estado">UF</label><input id="orcamento-estado" type="text" maxlength="2" /></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="budget-panel" data-panel="itens">
+            <div class="budget-section-card">
+              <div class="budget-section-heading">
+                <div><h4>Produtos e serviços</h4><p>Adicione itens cadastrados ou linhas manuais.</p></div>
+                <div class="budget-inline-actions"><button class="btn btn-secondary btn-small" id="btn-buscar-produto" type="button"><i class="fa-solid fa-box"></i> Buscar produto</button><button class="btn btn-primary btn-small" id="btn-adicionar-item" type="button"><i class="fa-solid fa-plus"></i> Item manual</button></div>
+              </div>
+              <div id="produto-search-box" class="product-search-box" hidden>
+                <div class="input-with-icon"><i class="fa-solid fa-magnifying-glass"></i><input id="produto-search-input" type="search" placeholder="Digite código, nome ou descrição" autocomplete="off" /></div>
+                <div id="produto-search-results" class="product-results"></div>
+              </div>
+              <div class="budget-items-table-wrap">
+                <table class="budget-items-table">
+                  <thead><tr><th class="item-order">#</th><th>Produto/serviço</th><th>Código</th><th>Un.</th><th>Qtd.</th><th>Valor unit.</th><th>Desconto</th><th>Total</th><th class="cost-only">Custo</th><th></th></tr></thead>
+                  <tbody id="budget-items-body"></tbody>
+                </table>
+              </div>
+              <div id="budget-items-empty" class="budget-empty-items"><i class="fa-solid fa-box-open"></i><strong>Nenhum item adicionado</strong><span>Busque um produto ou crie um item manual.</span></div>
+            </div>
+          </section>
+
+          <section class="budget-panel" data-panel="pagamento">
+            <div class="budget-payment-layout">
+              <div class="budget-section-card">
+                <div class="budget-section-heading"><div><h4>Condições de pagamento</h4><p>Cadastre uma ou mais alternativas para o cliente.</p></div><button class="btn btn-primary btn-small" id="btn-adicionar-pagamento" type="button"><i class="fa-solid fa-plus"></i> Adicionar opção</button></div>
+                <div id="payment-options" class="payment-options"></div>
+              </div>
+              <aside class="budget-summary-card">
+                <h4>Resumo financeiro</h4>
+                <div class="summary-line"><span>Subtotal</span><strong id="summary-subtotal">R$ 0,00</strong></div>
+                <div class="summary-edit-line"><label for="orcamento-desconto-tipo">Desconto</label><div><select id="orcamento-desconto-tipo"><option value="valor">R$</option><option value="percentual">%</option></select><input id="orcamento-desconto-valor" type="text" value="0,00" /></div></div>
+                <div class="summary-edit-line"><label for="orcamento-frete">Frete</label><input id="orcamento-frete" type="text" value="0,00" /></div>
+                <div class="summary-edit-line"><label for="orcamento-acrescimo">Acréscimo</label><input id="orcamento-acrescimo" type="text" value="0,00" /></div>
+                <div class="summary-line summary-discount"><span>Desconto aplicado</span><strong id="summary-desconto">R$ 0,00</strong></div>
+                <div class="summary-total"><span>Total do orçamento</span><strong id="summary-total">R$ 0,00</strong></div>
+              </aside>
+            </div>
+          </section>
+
+          <section class="budget-panel" data-panel="condicoes">
+            <div class="budget-section-card">
+              <div class="budget-form-grid grid-2">
+                <div class="form-group"><label for="orcamento-prazo-execucao">Prazo de entrega ou execução</label><input id="orcamento-prazo-execucao" type="text" placeholder="Ex.: Até 5 dias úteis após aprovação" /></div>
+                <div class="form-group"><label for="orcamento-nome-documento">Nome do documento</label><input id="orcamento-nome-documento" type="text" placeholder="Orçamento, proposta comercial, cotação..." /></div>
+                <div class="form-group span-2"><label for="orcamento-condicoes">Condições gerais</label><textarea id="orcamento-condicoes" rows="9" placeholder="Garantia, prazo, itens não inclusos, impostos..."></textarea></div>
+                <div class="form-group span-2"><label for="orcamento-observacoes">Observações específicas</label><textarea id="orcamento-observacoes" rows="5"></textarea></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="budget-panel cost-only" data-panel="analise">
+            <div class="analysis-kpis">
+              <article><span>Valor de venda</span><strong id="analysis-sale">R$ 0,00</strong></article>
+              <article><span>Custo estimado</span><strong id="analysis-cost">R$ 0,00</strong></article>
+              <article><span>Lucro bruto</span><strong id="analysis-profit">R$ 0,00</strong></article>
+              <article><span>Margem</span><strong id="analysis-margin">0,00%</strong></article>
+            </div>
+            <div id="margin-alert" class="margin-alert is-hidden"><i class="fa-solid fa-triangle-exclamation"></i><div><strong>Margem abaixo do limite configurado</strong><p>Este orçamento precisará de aprovação gerencial.</p></div></div>
+            <div class="budget-section-card"><div class="budget-section-heading"><div><h4>Espelho de custo</h4><p>Informação interna. Estes valores nunca aparecem no documento do cliente.</p></div></div><div class="valora-table-wrapper"><table class="valora-table"><thead><tr><th>Item</th><th class="text-right">Venda</th><th class="text-right">Custo</th><th class="text-right">Lucro</th><th class="text-right">Margem</th></tr></thead><tbody id="analysis-items-body"></tbody></table></div></div>
+          </section>
+
+          <section class="budget-panel" data-panel="documento">
+            <div class="document-options budget-section-card">
+              <label class="switch-row"><input id="orcamento-usar-capa" type="checkbox" /><span>Adicionar capa comercial ao PDF</span></label>
+              <div class="budget-form-grid grid-2 cover-fields">
+                <div class="form-group"><label for="orcamento-titulo-capa">Título da capa</label><input id="orcamento-titulo-capa" type="text" /></div>
+                <div class="form-group"><label for="orcamento-subtitulo-capa">Subtítulo da capa</label><input id="orcamento-subtitulo-capa" type="text" /></div>
+              </div>
+            </div>
+            <div class="document-preview-shell"><div id="document-preview" class="document-preview"></div></div>
+          </section>
+
+          <section class="budget-panel" data-panel="historico">
+            <div class="budget-section-card"><div class="budget-section-heading"><div><h4>Histórico do orçamento</h4><p>Registro das alterações e mudanças de status.</p></div></div><div id="budget-history" class="budget-history"></div></div>
+          </section>
+
+          </div>
+
+          <footer class="budget-modal-footer">
+            <div class="budget-footer-total">
+              <span>Total do orçamento</span>
+              <strong id="footer-total">R$ 0,00</strong>
+            </div>
+            <div class="budget-footer-actions">
+              <button class="btn btn-secondary" id="btn-cancelar-orcamento" type="button">Cancelar</button>
+              <button class="btn btn-primary" id="btn-salvar-orcamento" type="button">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar orçamento
+              </button>
+            </div>
+          </footer>
+        </section>
+      </form>
+    </div>
+  </div>
+
+  <!-- CONFIGURAÇÕES -->
+  <div class="modal-overlay" id="settings-modal" hidden>
+    <div class="modal-content settings-modal-content" data-close-target="false">
+      <header class="modal-header"><div><h3>Configurações de orçamentos</h3><p class="modal-subtitle">Personalize o módulo para sua empresa.</p></div><button class="btn-close" id="btn-fechar-settings" type="button"><i class="fa-solid fa-xmark"></i></button></header>
+      <nav class="settings-tabs"><button class="active" type="button" data-settings-tab="geral">Geral</button><button type="button" data-settings-tab="categorias">Categorias</button><button type="button" data-settings-tab="modelos">Modelos</button></nav>
+      <div class="modal-body settings-body">
+        <section class="settings-panel active" data-settings-panel="geral">
+          <div class="budget-form-grid grid-3">
+            <div class="form-group"><label for="config-nome-documento">Nome padrão</label><input id="config-nome-documento" type="text" /></div>
+            <div class="form-group"><label for="config-prefixo">Prefixo da numeração</label><input id="config-prefixo" type="text" maxlength="20" /></div>
+            <div class="form-group"><label for="config-validade">Validade padrão (dias)</label><input id="config-validade" type="number" min="0" /></div>
+            <div class="form-group span-3"><label for="config-prazo">Prazo padrão</label><input id="config-prazo" type="text" /></div>
+            <div class="form-group span-3"><label for="config-condicoes">Condições gerais padrão</label><textarea id="config-condicoes" rows="8"></textarea></div>
+            <div class="form-group span-3"><label for="config-observacoes">Observações padrão</label><textarea id="config-observacoes" rows="4"></textarea></div>
+            <div class="form-group span-3"><label for="config-rodape">Rodapé do documento</label><input id="config-rodape" type="text" /></div>
+            <div class="form-group"><label for="config-cor">Cor principal do PDF</label><input id="config-cor" type="color" /></div>
+            <div class="form-group"><label for="config-margem-minima">Margem mínima (%)</label><input id="config-margem-minima" type="text" /></div>
+            <div class="form-group switch-group"><label><input id="config-exigir-aprovacao" type="checkbox" /> Exigir aprovação abaixo da margem</label></div>
+            <div class="form-group switch-group"><label><input id="config-controlar-custos" type="checkbox" /> Controlar custos e margem</label></div>
+            <div class="form-group switch-group"><label><input id="config-usar-capa" type="checkbox" /> Usar capa por padrão</label></div>
+            <div class="form-group switch-group"><label><input id="config-mostrar-codigo" type="checkbox" /> Mostrar código dos itens</label></div>
+            <div class="form-group span-2"><label for="config-titulo-capa">Título padrão da capa</label><input id="config-titulo-capa" type="text" /></div>
+            <div class="form-group"><label for="config-subtitulo-capa">Subtítulo da capa</label><input id="config-subtitulo-capa" type="text" /></div>
+
+            <div class="settings-document-heading span-3">
+              <h4>Modelo do documento</h4>
+              <p>Escolha o formato do PDF e os dados que aparecem no cabeçalho.</p>
+            </div>
+            <div class="form-group"><label for="config-modelo-documento">Formato do documento</label><select id="config-modelo-documento"><option value="padrao">Orçamento moderno</option><option value="dav">DAV - Documento Auxiliar de Venda</option></select></div>
+            <div class="form-group span-2"><label for="config-dav-titulo">Título do DAV</label><input id="config-dav-titulo" type="text" /></div>
+            <div class="form-group span-2"><label for="config-cabecalho-razao">Razão social no documento</label><input id="config-cabecalho-razao" type="text" /></div>
+            <div class="form-group"><label for="config-cabecalho-fantasia">Nome fantasia</label><input id="config-cabecalho-fantasia" type="text" /></div>
+            <div class="form-group"><label for="config-cabecalho-cnpj">CNPJ</label><input id="config-cabecalho-cnpj" type="text" /></div>
+            <div class="form-group"><label for="config-cabecalho-email">E-mail</label><input id="config-cabecalho-email" type="email" /></div>
+            <div class="form-group"><label for="config-cabecalho-site">Site</label><input id="config-cabecalho-site" type="text" /></div>
+            <div class="form-group"><label for="config-cabecalho-telefone">Telefone</label><input id="config-cabecalho-telefone" type="text" /></div>
+            <div class="form-group span-2"><label for="config-cabecalho-endereco">Endereço do cabeçalho</label><input id="config-cabecalho-endereco" type="text" /></div>
+            <div class="form-group span-3"><label for="config-cabecalho-rodape">Rodapé do DAV</label><input id="config-cabecalho-rodape" type="text" /></div>
+          </div>
+        </section>
+
+        <section class="settings-panel" data-settings-panel="categorias">
+          <div class="settings-split">
+            <div class="settings-list-card"><div class="settings-list-header"><div><h4>Categorias</h4><p>Tipos de orçamento da sua empresa.</p></div><button class="btn btn-primary btn-small" id="btn-nova-categoria" type="button"><i class="fa-solid fa-plus"></i> Nova</button></div><div id="categories-list" class="settings-list"></div></div>
+            <form id="category-form" class="settings-editor" onsubmit="return false;"><input id="category-id" type="hidden" /><h4 id="category-editor-title">Nova categoria</h4><div class="form-group"><label for="category-name">Nome *</label><input id="category-name" type="text" /></div><div class="form-group"><label for="category-description">Descrição</label><textarea id="category-description" rows="5"></textarea></div><div class="form-group"><label for="category-order">Ordem</label><input id="category-order" type="number" value="0" /></div><label class="switch-row"><input id="category-active" type="checkbox" checked /><span>Categoria ativa</span></label><button class="btn btn-primary" id="btn-salvar-categoria" type="button">Salvar categoria</button></form>
+          </div>
+        </section>
+
+        <section class="settings-panel" data-settings-panel="modelos">
+          <div id="templates-list-view" class="settings-list-card"><div class="settings-list-header"><div><h4>Modelos de orçamento</h4><p>Crie kits e estruturas reutilizáveis.</p></div><button class="btn btn-primary btn-small" id="btn-novo-modelo" type="button"><i class="fa-solid fa-plus"></i> Novo modelo</button></div><div id="templates-list" class="template-grid"></div></div>
+          <div id="template-editor" class="template-editor is-hidden">
+            <div class="template-editor-header"><button class="btn btn-secondary btn-small" id="btn-voltar-modelos" type="button"><i class="fa-solid fa-arrow-left"></i> Voltar</button><div><h4 id="template-editor-title">Novo modelo</h4><p>Defina os dados e itens que serão inseridos automaticamente.</p></div></div>
+            <input id="template-id" type="hidden" />
+            <div class="budget-form-grid grid-3">
+              <div class="form-group span-2"><label for="template-name">Nome do modelo *</label><input id="template-name" type="text" /></div>
+              <div class="form-group"><label for="template-category">Categoria</label><select id="template-category"><option value="">Sem categoria</option></select></div>
+              <div class="form-group span-2"><label for="template-title">Título do orçamento</label><input id="template-title" type="text" /></div>
+              <div class="form-group"><label for="template-validity">Validade (dias)</label><input id="template-validity" type="number" min="0" /></div>
+              <div class="form-group span-3"><label for="template-deadline">Prazo de execução</label><input id="template-deadline" type="text" /></div>
+              <div class="form-group span-3"><label for="template-conditions">Condições</label><textarea id="template-conditions" rows="5"></textarea></div>
+              <div class="form-group span-3"><label for="template-notes">Observações</label><textarea id="template-notes" rows="3"></textarea></div>
+            </div>
+            <div class="template-items-header"><h5>Itens do modelo</h5><div><button class="btn btn-secondary btn-small" id="btn-template-product" type="button">Buscar produto</button><button class="btn btn-primary btn-small" id="btn-template-manual" type="button">Item manual</button></div></div>
+            <div id="template-product-search" class="product-search-box" hidden><div class="input-with-icon"><i class="fa-solid fa-magnifying-glass"></i><input id="template-product-input" type="search" placeholder="Buscar produto" /></div><div id="template-product-results" class="product-results"></div></div>
+            <div class="budget-items-table-wrap"><table class="budget-items-table"><thead><tr><th>Descrição</th><th>Código</th><th>Un.</th><th>Qtd.</th><th>Venda</th><th class="cost-only">Custo</th><th></th></tr></thead><tbody id="template-items-body"></tbody></table></div>
+            <label class="switch-row"><input id="template-active" type="checkbox" checked /><span>Modelo ativo</span></label>
+            <div class="template-editor-actions"><button class="btn btn-secondary" id="btn-cancelar-modelo" type="button">Cancelar</button><button class="btn btn-primary" id="btn-salvar-modelo" type="button">Salvar modelo</button></div>
+          </div>
+        </section>
+      </div>
+      <footer class="modal-footer" id="settings-footer"><button class="btn btn-secondary" id="btn-cancelar-settings" type="button">Fechar</button><button class="btn btn-primary" id="btn-salvar-settings" type="button"><i class="fa-solid fa-floppy-disk"></i> Salvar configurações</button></footer>
+    </div>
+  </div>
+</body>
+</html>

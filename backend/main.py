@@ -21,6 +21,7 @@ from backend.routers.produtos import router as produtos_router
 from backend.routers.patrimonio import router as patrimonio_router
 from backend.routers.cotacoes import router as cotacoes_router
 from backend.routers.propostas import router as propostas_router
+from backend.routers.orcamentos import router as orcamentos_router
 from backend.routers.dashboard import router as dashboard_router, compat_router as dashboard_compat_router
 from backend.routers.usuarios import router as usuarios_router
 from backend.routers.permissoes import router as permissoes_router
@@ -29,6 +30,7 @@ from backend.routers.financeiro import router as financeiro_router
 from backend.routers import empresa
 from backend.routers import campos_propostas
 from backend.routers.integracoes_zapschat import router as integracoes_zapschat_router
+from backend.routers.exportacoes import router as exportacoes_router
 
 
 # ============================================
@@ -238,6 +240,7 @@ app.include_router(patrimonio_router)
 app.include_router(cotacoes_router)
 app.include_router(empresa.router)
 app.include_router(propostas_router)
+app.include_router(orcamentos_router)
 app.include_router(dashboard_router)
 app.include_router(dashboard_compat_router)
 app.include_router(usuarios_router)
@@ -246,6 +249,7 @@ app.include_router(campos_propostas.router)
 app.include_router(formularios_router)
 app.include_router(financeiro_router)
 app.include_router(integracoes_zapschat_router)
+app.include_router(exportacoes_router)
 
 # Área do Cliente / Contratos
 app.include_router(area_cliente_admin_router)

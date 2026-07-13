@@ -451,14 +451,30 @@
 
       panel.innerHTML = '<div class="custom-multiselect-empty">Carregando registros...</div>';
       const items = await fetchLookupOptions(tipoBase);
+      const valoresDisponiveis = new Set(
+        items.map((item) => getLookupValue(item)).filter(Boolean).map((value) => String(value))
+      );
+      const valoresIndisponiveis = Array.from(selecionados).filter((value) => !valoresDisponiveis.has(String(value)));
 
-      if (!items.length) {
-        panel.innerHTML = `<div class="custom-multiselect-empty">${escapeHtml(config.empty || 'Nenhum item encontrado')}</div>`;
-        updateCustomMultiselectValue(base, slug);
-        return;
-      }
+      const registrosIndisponiveisHtml = valoresIndisponiveis.map((value, index) => {
+        const optionId = `custom-lookup-${slug}-indisponivel-${index}`;
+        const legacyLabel = `Registro salvo #${value}`;
+        return `
+          <label class="custom-multiselect-option is-legacy-option" for="${escapeHtml(optionId)}" data-option-text="${escapeHtml(legacyLabel)}" data-legacy-option="true">
+            <input
+              type="checkbox"
+              id="${escapeHtml(optionId)}"
+              value="${escapeHtml(value)}"
+              data-multiselect-option="${escapeHtml(slug)}"
+              checked
+              ${disabled ? 'disabled' : ''}
+            />
+            <span><span class="custom-multiselect-option-label">${escapeHtml(legacyLabel)}</span><small class="custom-multiselect-option-badge">Registro indisponível</small></span>
+          </label>
+        `;
+      }).join('');
 
-      panel.innerHTML = items.map((item, index) => {
+      const registrosAtuaisHtml = items.map((item, index) => {
         const value = getLookupValue(item);
         if (!value) return '';
         const label = config.label(item) || value;
@@ -477,9 +493,17 @@
             <span>${escapeHtml(label)}</span>
           </label>
         `;
-      }).join('') || `<div class="custom-multiselect-empty">${escapeHtml(config.empty || 'Nenhum item encontrado')}</div>`;
+      }).join('');
+
+      panel.innerHTML = `${registrosIndisponiveisHtml}${registrosAtuaisHtml}`
+        || `<div class="custom-multiselect-empty">${escapeHtml(config.empty || 'Nenhum item encontrado')}</div>`;
 
       hydrateCustomMultiselects(base);
+      const dropdown = panel.closest('.custom-multiselect-dropdown');
+      invalidateMultiselectSearchIndex(dropdown);
+      getMultiselectSearchIndex(dropdown);
+      const search = dropdown?.querySelector('[data-multiselect-search]');
+      if (search?.value) filtrarOpcoesMultiselect(dropdown, search.value, { immediate: true });
       updateCustomMultiselectValue(base, slug);
       panel.addEventListener('change', (event) => {
         const input = event.target;
@@ -867,7 +891,6 @@
     const disabled = campo.somente_leitura ? 'disabled' : '';
     const fieldClass = getCampoClass(campo);
     const readonlyAttr = campo.somente_leitura ? 'data-custom-readonly="true"' : '';
-    const fieldOrigin = String(campo.origem || 'personalizado').toLowerCase();
 
     if (tipo === 'checkbox') {
       const checked =
@@ -878,7 +901,7 @@
           : '';
 
       return `
-        <div class="form-group custom-field-item ${fieldClass}" data-field-origin="${escapeHtml(fieldOrigin)}">
+        <div class="form-group custom-field-item ${fieldClass}">
           <label class="custom-checkbox check-card">
             <input
               type="checkbox"
@@ -898,7 +921,7 @@
       `;
     }
 
-    let html = `<div class="form-group custom-field-item ${fieldClass}" data-field-origin="${escapeHtml(fieldOrigin)}">`;
+    let html = `<div class="form-group custom-field-item ${fieldClass}">`;
     html += `<label for="${id}">${escapeHtml(label)}${required}</label>`;
 
     if (tipo === 'textarea') {
@@ -941,6 +964,9 @@
       `;
     } else if (tipo === 'select') {
       const opcoes = parseCampoOpcoes(campo);
+      const valorAtual = String(valor ?? '').trim();
+      const opcoesAtuais = new Set(opcoes.map((opcao) => String(opcao ?? '').trim()));
+      const valorRemovido = valorAtual && !opcoesAtuais.has(valorAtual) ? valorAtual : '';
 
       html += `
         <select
@@ -948,22 +974,72 @@
           data-custom-field="${escapeHtml(slug)}"
           data-custom-label="${escapeHtml(label)}"
           data-required="${campo.obrigatorio ? 'true' : 'false'}"
+          ${valorRemovido ? 'data-has-legacy-value="true"' : ''}
           ${disabled}
         >
           <option value="">Selecione</option>
+          ${valorRemovido
+            ? `<option value="${escapeHtml(valorRemovido)}" selected data-legacy-option="true">${escapeHtml(valorRemovido)} — opção removida</option>`
+            : ''}
           ${opcoes
             .map((opcao) => {
-              const selected = String(opcao) === String(valor) ? 'selected' : '';
+              const selected = String(opcao).trim() === valorAtual ? 'selected' : '';
               return `<option value="${escapeHtml(opcao)}" ${selected}>${escapeHtml(opcao)}</option>`;
             })
             .join('')}
         </select>
+        ${valorRemovido
+          ? `<small class="field-hint custom-field-legacy-warning"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>Este cadastro ainda usa uma opção que foi removida da lista. O valor foi preservado; escolha uma opção atual para substituí-lo.</span></small>`
+          : ''}
       `;
     } else if (tipo === 'multiselect') {
       const opcoes = parseCampoOpcoes(campo);
-      const selecionados = new Set(parseMultiValor(valor));
+      const valoresSelecionados = parseMultiValor(valor)
+        .map((item) => String(item ?? '').trim())
+        .filter(Boolean);
+      const selecionados = new Set(valoresSelecionados);
+      const opcoesAtuais = new Set(opcoes.map((opcao) => String(opcao ?? '').trim()));
+      const valoresRemovidos = valoresSelecionados.filter((item) => !opcoesAtuais.has(item));
       const initialValue = JSON.stringify(Array.from(selecionados));
       const disabledAttr = disabled ? 'disabled' : '';
+
+      const opcoesRemovidasHtml = valoresRemovidos.map((opcao, index) => {
+        const optionId = `${id}-opcao-removida-${index}`;
+        return `
+          <label class="custom-multiselect-option is-legacy-option" for="${escapeHtml(optionId)}" data-option-text="${escapeHtml(opcao)}" data-legacy-option="true">
+            <input
+              type="checkbox"
+              id="${escapeHtml(optionId)}"
+              value="${escapeHtml(opcao)}"
+              data-multiselect-option="${escapeHtml(slug)}"
+              checked
+              ${disabledAttr}
+            />
+            <span><span class="custom-multiselect-option-label">${escapeHtml(opcao)}</span><small class="custom-multiselect-option-badge">Opção removida</small></span>
+          </label>
+        `;
+      }).join('');
+
+      const opcoesAtuaisHtml = opcoes.map((opcao, index) => {
+        const checked = selecionados.has(String(opcao).trim()) ? 'checked' : '';
+        const optionId = `${id}-opcao-${index}`;
+        return `
+          <label class="custom-multiselect-option" for="${escapeHtml(optionId)}" data-option-text="${escapeHtml(opcao)}">
+            <input
+              type="checkbox"
+              id="${escapeHtml(optionId)}"
+              value="${escapeHtml(opcao)}"
+              data-multiselect-option="${escapeHtml(slug)}"
+              ${checked}
+              ${disabledAttr}
+            />
+            <span>${escapeHtml(opcao)}</span>
+          </label>
+        `;
+      }).join('');
+
+      const opcoesMultiselectHtml = `${opcoesRemovidasHtml}${opcoesAtuaisHtml}`
+        || '<div class="custom-multiselect-empty">Nenhuma opção cadastrada.</div>';
 
       html += `
         <input
@@ -987,7 +1063,7 @@
             data-multiselect-trigger="${escapeHtml(slug)}"
             ${disabledAttr}
           >
-            <span class="custom-multiselect-placeholder" data-multiselect-placeholder="${escapeHtml(slug)}">Clique para selecionar...</span>
+            <span class="custom-multiselect-placeholder" data-multiselect-placeholder="${escapeHtml(slug)}">Selecione uma ou mais opções</span>
             <span class="custom-multiselect-selected" data-multiselect-selected="${escapeHtml(slug)}"></span>
             <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
           </button>
@@ -999,8 +1075,21 @@
                 type="search"
                 class="custom-multiselect-search"
                 data-multiselect-search="${escapeHtml(slug)}"
+                data-no-long-field="true"
+                data-campo-longo-ignore="true"
+                autocomplete="off"
+                spellcheck="false"
                 placeholder="Buscar opção..."
               />
+              <button
+                type="button"
+                class="custom-multiselect-expand"
+                data-multiselect-action="expand"
+                aria-label="Expandir lista"
+                title="Expandir lista"
+              >
+                <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+              </button>
             </div>
 
             <div
@@ -1010,33 +1099,22 @@
               role="group"
               aria-label="${escapeHtml(label)}"
             >
-              ${opcoes.length
-                ? opcoes
-                    .map((opcao, index) => {
-                      const checked = selecionados.has(String(opcao)) ? 'checked' : '';
-                      const optionId = `${id}-opcao-${index}`;
-                      return `
-                        <label class="custom-multiselect-option" for="${escapeHtml(optionId)}" data-option-text="${escapeHtml(opcao)}">
-                          <input
-                            type="checkbox"
-                            id="${escapeHtml(optionId)}"
-                            value="${escapeHtml(opcao)}"
-                            data-multiselect-option="${escapeHtml(slug)}"
-                            ${checked}
-                            ${disabledAttr}
-                          />
-                          <span>${escapeHtml(opcao)}</span>
-                        </label>
-                      `;
-                    })
-                    .join('')
-                : '<div class="custom-multiselect-empty">Nenhuma opção cadastrada.</div>'}
+              ${opcoesMultiselectHtml}
+            </div>
+
+            <div class="custom-multiselect-footer">
+              <span class="custom-multiselect-count" data-multiselect-count="${escapeHtml(slug)}">Nenhum selecionado</span>
+              <div class="custom-multiselect-footer-actions">
+                <button type="button" class="custom-multiselect-action" data-multiselect-action="clear">Limpar</button>
+                <button type="button" class="custom-multiselect-done" data-multiselect-action="done">Concluir</button>
+              </div>
             </div>
           </div>
         </div>
+        ${valoresRemovidos.length
+          ? `<small class="field-hint custom-field-legacy-warning"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>${valoresRemovidos.length === 1 ? 'Uma opção selecionada foi removida da lista' : `${valoresRemovidos.length} opções selecionadas foram removidas da lista`}. Os valores foram preservados até você escolher novas opções ou clicar em Limpar.</span></small>`
+          : ''}
       `;
-
-      html += '<small class="field-hint field-help">Clique no campo para abrir a lista e selecione uma ou mais opções.</small>';
     } else if (isTipoRelacao(tipo)) {
       if (isTipoRelacaoMultipla(tipo)) {
         const selecionados = parseMultiValor(valor);
@@ -1064,7 +1142,7 @@
               data-multiselect-trigger="${escapeHtml(slug)}"
               ${disabled ? 'disabled' : ''}
             >
-              <span class="custom-multiselect-placeholder" data-multiselect-placeholder="${escapeHtml(slug)}">Clique para selecionar...</span>
+              <span class="custom-multiselect-placeholder" data-multiselect-placeholder="${escapeHtml(slug)}">Selecione um ou mais registros</span>
               <span class="custom-multiselect-selected" data-multiselect-selected="${escapeHtml(slug)}"></span>
               <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
             </button>
@@ -1076,8 +1154,21 @@
                   type="search"
                   class="custom-multiselect-search"
                   data-multiselect-search="${escapeHtml(slug)}"
+                  data-no-long-field="true"
+                  data-campo-longo-ignore="true"
+                  autocomplete="off"
+                  spellcheck="false"
                   placeholder="Buscar registro..."
                 />
+                <button
+                  type="button"
+                  class="custom-multiselect-expand"
+                  data-multiselect-action="expand"
+                  aria-label="Expandir lista"
+                  title="Expandir lista"
+                >
+                  <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+                </button>
               </div>
 
               <div
@@ -1091,10 +1182,17 @@
               >
                 <div class="custom-multiselect-empty">Carregando registros...</div>
               </div>
+
+              <div class="custom-multiselect-footer">
+                <span class="custom-multiselect-count" data-multiselect-count="${escapeHtml(slug)}">Nenhum selecionado</span>
+                <div class="custom-multiselect-footer-actions">
+                  <button type="button" class="custom-multiselect-action" data-multiselect-action="clear">Limpar</button>
+                  <button type="button" class="custom-multiselect-done" data-multiselect-action="done">Concluir</button>
+                </div>
+              </div>
             </div>
           </div>
         `;
-        html += '<small class="field-hint field-help">Clique no campo para abrir a lista e selecione um ou mais registros.</small>';
       } else {
         html += `
           <select
@@ -1427,8 +1525,9 @@
 
   function getMultiselectOptionLabel(input) {
     const label = input?.closest?.('.custom-multiselect-option');
+    const dataText = label?.getAttribute?.('data-option-text');
     const spanText = label?.querySelector?.('span')?.textContent;
-    return String(spanText || input?.value || '').trim();
+    return String(dataText || spanText || input?.value || '').trim();
   }
 
   function renderMultiselectResumo(base, slug, checkedInputs) {
@@ -1439,23 +1538,30 @@
     if (!selectedEl || !placeholderEl) return;
 
     const checked = checkedInputs || Array.from(base.querySelectorAll(`[data-multiselect-option="${safeSlug}"]:checked`));
-    const labels = checked.map(getMultiselectOptionLabel).filter(Boolean);
+    const selectedItems = checked
+      .map((input) => ({
+        text: getMultiselectOptionLabel(input),
+        legacy: Boolean(input?.closest?.('.custom-multiselect-option')?.matches?.('[data-legacy-option="true"]')),
+      }))
+      .filter((item) => Boolean(item.text));
+    const labels = selectedItems.map((item) => item.text);
 
     placeholderEl.classList.toggle('is-hidden', labels.length > 0);
     selectedEl.innerHTML = '';
 
     if (!labels.length) {
-      placeholderEl.textContent = 'Clique para selecionar...';
+      placeholderEl.textContent = dropdown?.classList.contains('custom-relation-dropdown') ? 'Selecione um ou mais registros' : 'Selecione uma ou mais opções';
       dropdown?.classList.remove('has-value');
       return;
     }
 
     dropdown?.classList.add('has-value');
 
-    labels.slice(0, 3).forEach((texto) => {
+    selectedItems.slice(0, 3).forEach((item) => {
       const chip = document.createElement('span');
-      chip.className = 'custom-multiselect-selected-chip';
-      chip.textContent = texto;
+      chip.className = `custom-multiselect-selected-chip${item.legacy ? ' is-legacy-value' : ''}`;
+      chip.textContent = item.text;
+      if (item.legacy) chip.title = 'Esta opção foi removida da configuração do campo.';
       selectedEl.appendChild(chip);
     });
 
@@ -1465,6 +1571,33 @@
       more.textContent = `+${labels.length - 3}`;
       selectedEl.appendChild(more);
     }
+  }
+
+  function updateMultiselectToolbar(dropdown) {
+    if (!dropdown) return;
+
+    const countEl = dropdown.querySelector('[data-multiselect-count]');
+    const actionClear = dropdown.querySelector('[data-multiselect-action="clear"]');
+    const index = getMultiselectSearchIndex(dropdown);
+    const total = index.length;
+    const checked = index.filter((item) => item.input?.checked);
+    const checkedEnabled = checked.filter((item) => !item.input.disabled);
+    const visibleCount = Number.isFinite(dropdown._valoraVisibleCount)
+      ? dropdown._valoraVisibleCount
+      : index.filter((item) => item.visible !== false).length;
+
+    if (countEl) {
+      if (!total) {
+        countEl.textContent = 'Nenhuma opção disponível';
+      } else {
+        const selectedText = checked.length === 1 ? '1 selecionado' : `${checked.length} selecionados`;
+        countEl.textContent = visibleCount !== total
+          ? `${selectedText} • ${visibleCount} encontrados`
+          : selectedText;
+      }
+    }
+
+    if (actionClear) actionClear.disabled = !checkedEnabled.length;
   }
 
   function updateCustomMultiselectValue(root, slug) {
@@ -1487,31 +1620,217 @@
     }
 
     renderMultiselectResumo(base, slug, checkedInputs);
+
+    const dropdown = base.querySelector(`[data-multiselect-dropdown="${safeSlug}"]`);
+    if (dropdown) updateMultiselectToolbar(dropdown);
+  }
+
+  function setMultiselectExpanded(dropdown, expanded) {
+    if (!dropdown) return;
+
+    const isExpanded = Boolean(expanded);
+    const button = dropdown.querySelector('[data-multiselect-action="expand"]');
+    const icon = button?.querySelector('i');
+
+    dropdown.classList.toggle('is-expanded', isExpanded);
+
+    if (button) {
+      button.classList.toggle('is-active', isExpanded);
+      button.setAttribute('aria-label', isExpanded ? 'Recolher lista' : 'Expandir lista');
+      button.setAttribute('title', isExpanded ? 'Recolher lista' : 'Expandir lista');
+    }
+
+    if (icon) {
+      icon.className = isExpanded
+        ? 'fa-solid fa-down-left-and-up-right-to-center'
+        : 'fa-solid fa-up-right-and-down-left-from-center';
+    }
+
+    if (!isExpanded) {
+      dropdown.style.removeProperty('--multiselect-expanded-width');
+      dropdown.style.removeProperty('--multiselect-expanded-left');
+    }
   }
 
   function fecharDropdownsMultiselect(exceto = null) {
     document.querySelectorAll('.custom-multiselect-dropdown.is-open').forEach((dropdown) => {
       if (exceto && dropdown === exceto) return;
-      dropdown.classList.remove('is-open');
+      cancelMultiselectSearch(dropdown);
+      dropdown.classList.remove('is-open', 'opens-up');
+      setMultiselectExpanded(dropdown, false);
       dropdown.closest('.custom-field-item')?.classList.remove('is-dropdown-open');
       dropdown.closest('.form-group')?.classList.remove('is-dropdown-open');
     });
   }
 
-  function filtrarOpcoesMultiselect(dropdown, termo) {
-    const q = String(termo || '')
+  const MULTISELECT_SEARCH_DEBOUNCE_MS = 90;
+
+  function normalizarBuscaMultiselect(value) {
+    return String(value || '')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
+      .replace(/\s+/g, ' ')
       .trim();
+  }
 
-    dropdown.querySelectorAll('.custom-multiselect-option').forEach((option) => {
-      const text = String(option.getAttribute('data-option-text') || option.textContent || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase();
+  function getMultiselectSearchIndex(dropdown) {
+    if (!dropdown) return [];
 
-      option.hidden = q && !text.includes(q);
+    const options = Array.from(dropdown.querySelectorAll('.custom-multiselect-option'));
+    const cached = dropdown._valoraSearchIndex;
+    const cacheValid = Array.isArray(cached)
+      && cached.length === options.length
+      && cached.every((item, index) => item.option === options[index] && item.option.isConnected);
+
+    if (cacheValid) return cached;
+
+    const index = options.map((option) => {
+      const input = option.querySelector('[data-multiselect-option]');
+      const normalizedText = normalizarBuscaMultiselect(
+        option.getAttribute('data-option-text') || option.textContent || ''
+      );
+
+      option.dataset.searchNormalized = normalizedText;
+
+      return {
+        option,
+        input,
+        normalizedText,
+        visible: !option.hidden && !option.classList.contains('is-filtered-out')
+      };
+    });
+
+    dropdown._valoraSearchIndex = index;
+    dropdown._valoraVisibleCount = index.filter((item) => item.visible).length;
+    return index;
+  }
+
+  function invalidateMultiselectSearchIndex(dropdown) {
+    if (!dropdown) return;
+    dropdown._valoraSearchIndex = null;
+    dropdown._valoraLastSearch = null;
+    dropdown._valoraVisibleCount = undefined;
+  }
+
+  function cancelMultiselectSearch(dropdown) {
+    if (!dropdown) return;
+
+    if (dropdown._valoraSearchTimer) {
+      clearTimeout(dropdown._valoraSearchTimer);
+      dropdown._valoraSearchTimer = null;
+    }
+
+    if (dropdown._valoraSearchFrame) {
+      cancelAnimationFrame(dropdown._valoraSearchFrame);
+      dropdown._valoraSearchFrame = null;
+    }
+  }
+
+  function applyMultiselectFilter(dropdown, normalizedQuery) {
+    if (!dropdown) return;
+
+    const q = String(normalizedQuery || '');
+    if (dropdown._valoraLastSearch === q) return;
+
+    const index = getMultiselectSearchIndex(dropdown);
+    let visibleCount = 0;
+
+    index.forEach((item) => {
+      const matches = !q || item.normalizedText.includes(q);
+
+      if (item.visible !== matches) {
+        item.visible = matches;
+        item.option.hidden = !matches;
+        item.option.classList.toggle('is-filtered-out', !matches);
+        item.option.setAttribute('aria-hidden', matches ? 'false' : 'true');
+      }
+
+      if (matches) visibleCount += 1;
+    });
+
+    dropdown._valoraLastSearch = q;
+    dropdown._valoraVisibleCount = visibleCount;
+
+    let empty = dropdown.querySelector('[data-multiselect-search-empty]');
+    const panel = dropdown.querySelector('.custom-multiselect-panel');
+
+    if (!empty && panel) {
+      empty = document.createElement('div');
+      empty.className = 'custom-multiselect-search-empty';
+      empty.setAttribute('data-multiselect-search-empty', 'true');
+      empty.textContent = 'Nenhuma opção encontrada.';
+      empty.hidden = true;
+      panel.appendChild(empty);
+    }
+
+    if (empty) empty.hidden = visibleCount > 0 || !q;
+    updateMultiselectToolbar(dropdown);
+  }
+
+  function filtrarOpcoesMultiselect(dropdown, termo, { immediate = false } = {}) {
+    if (!dropdown) return;
+
+    const q = normalizarBuscaMultiselect(termo);
+    cancelMultiselectSearch(dropdown);
+
+    const execute = () => {
+      dropdown._valoraSearchFrame = requestAnimationFrame(() => {
+        dropdown._valoraSearchFrame = null;
+        applyMultiselectFilter(dropdown, q);
+      });
+    };
+
+    if (immediate) {
+      execute();
+      return;
+    }
+
+    dropdown._valoraSearchTimer = setTimeout(() => {
+      dropdown._valoraSearchTimer = null;
+      execute();
+    }, MULTISELECT_SEARCH_DEBOUNCE_MS);
+  }
+
+  function posicionarDropdownMultiselect(dropdown) {
+    if (!dropdown) return;
+
+    dropdown.classList.remove('opens-up');
+
+    requestAnimationFrame(() => {
+      const trigger = dropdown.querySelector('[data-multiselect-trigger]');
+      const menu = dropdown.querySelector('[data-multiselect-menu]');
+      if (!trigger || !menu || !dropdown.classList.contains('is-open')) return;
+
+      const expanded = dropdown.classList.contains('is-expanded');
+      let triggerRect = trigger.getBoundingClientRect();
+      let spaceBelow = window.innerHeight - triggerRect.bottom - 22;
+      const minimumSpace = expanded ? 360 : 230;
+
+      if (spaceBelow < minimumSpace) {
+        try {
+          trigger.scrollIntoView({ block: expanded ? 'start' : 'center', inline: 'nearest', behavior: 'auto' });
+        } catch (_) {}
+        triggerRect = trigger.getBoundingClientRect();
+        spaceBelow = window.innerHeight - triggerRect.bottom - 22;
+      }
+
+      const panelCap = expanded ? 440 : 230;
+      const panelFloor = expanded ? 220 : 130;
+      const panelHeight = Math.max(panelFloor, Math.min(panelCap, spaceBelow - 104));
+      dropdown.style.setProperty('--multiselect-panel-height', `${panelHeight}px`);
+
+      if (expanded) {
+        const width = Math.max(320, Math.min(720, window.innerWidth - 48));
+        const preferredLeft = Math.min(
+          Math.max(24, triggerRect.left),
+          Math.max(24, window.innerWidth - width - 24)
+        );
+        const shift = preferredLeft - triggerRect.left;
+
+        dropdown.style.setProperty('--multiselect-expanded-width', `${width}px`);
+        dropdown.style.setProperty('--multiselect-expanded-left', `${shift}px`);
+      }
     });
   }
 
@@ -1522,6 +1841,8 @@
     const slug = String(dropdown.getAttribute('data-multiselect-dropdown') || '').trim();
     const trigger = dropdown.querySelector('[data-multiselect-trigger]');
     const search = dropdown.querySelector('[data-multiselect-search]');
+
+    const refreshDropdownState = () => updateMultiselectToolbar(dropdown);
 
     trigger?.addEventListener('click', (event) => {
       event.preventDefault();
@@ -1535,19 +1856,63 @@
       dropdown.closest('.custom-field-item')?.classList.toggle('is-dropdown-open', willOpen);
       dropdown.closest('.form-group')?.classList.toggle('is-dropdown-open', willOpen);
 
+      if (!willOpen) setMultiselectExpanded(dropdown, false);
+
       if (willOpen) {
+        getMultiselectSearchIndex(dropdown);
         search?.focus({ preventScroll: true });
         if (slug) updateCustomMultiselectValue(base, slug);
+        if (search?.value) filtrarOpcoesMultiselect(dropdown, search.value, { immediate: true });
+        refreshDropdownState();
+        posicionarDropdownMultiselect(dropdown);
       }
     });
 
     search?.addEventListener('input', () => {
       filtrarOpcoesMultiselect(dropdown, search.value);
-    });
+    }, { passive: true });
 
     dropdown.addEventListener('click', (event) => {
+      const actionBtn = event.target.closest('[data-multiselect-action]');
+      if (actionBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (actionBtn.dataset.multiselectAction === 'expand') {
+          const expanded = !dropdown.classList.contains('is-expanded');
+          setMultiselectExpanded(dropdown, expanded);
+          posicionarDropdownMultiselect(dropdown);
+          return;
+        }
+
+        if (actionBtn.dataset.multiselectAction === 'clear') {
+          dropdown.querySelectorAll('[data-multiselect-option]').forEach((input) => {
+            if (!input.disabled) input.checked = false;
+          });
+          if (slug) updateCustomMultiselectValue(base, slug);
+          refreshDropdownState();
+          return;
+        }
+
+        if (actionBtn.dataset.multiselectAction === 'done') {
+          cancelMultiselectSearch(dropdown);
+          dropdown.classList.remove('is-open', 'opens-up');
+          setMultiselectExpanded(dropdown, false);
+          dropdown.closest('.custom-field-item')?.classList.remove('is-dropdown-open');
+          dropdown.closest('.form-group')?.classList.remove('is-dropdown-open');
+          try { trigger?.focus({ preventScroll: true }); } catch (_) { trigger?.focus(); }
+          return;
+        }
+      }
+
       event.stopPropagation();
     });
+
+    window.addEventListener('resize', () => {
+      if (dropdown.classList.contains('is-open')) posicionarDropdownMultiselect(dropdown);
+    }, { passive: true });
+
+    refreshDropdownState();
   }
 
   function ensureMultiselectOutsideListener() {
@@ -1641,21 +2006,13 @@
     return secoes;
   }
 
-  function collectCustomFieldsValues(root = document, { includeSystem = false } = {}) {
+  function collectCustomFieldsValues(root = document) {
     const out = {};
 
     root.querySelectorAll('[data-custom-field]').forEach((el) => {
       const slug = String(el.getAttribute('data-custom-field') || '').trim();
       if (!slug) return;
       if (el.disabled || el.dataset.customReadonly === 'true') return;
-
-      const origin = String(
-        el.dataset.fieldOrigin ||
-        el.closest('[data-field-origin]')?.dataset?.fieldOrigin ||
-        'personalizado'
-      ).toLowerCase();
-
-      if (!includeSystem && origin === 'sistema') return;
 
       if (el.type === 'checkbox') {
         out[slug] = el.checked ? 'true' : 'false';
@@ -1664,7 +2021,7 @@
 
       if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
         const values = parseMultiValor(el.value);
-        out[slug] = values.length ? JSON.stringify(values) : '';
+        if (values.length) out[slug] = JSON.stringify(values);
         return;
       }
 
@@ -1673,12 +2030,12 @@
           .map((opt) => String(opt.value ?? '').trim())
           .filter(Boolean);
 
-        out[slug] = values.length ? JSON.stringify(values) : '';
+        if (values.length) out[slug] = JSON.stringify(values);
         return;
       }
 
       const value = String(el.value ?? '').trim();
-      out[slug] = value;
+      if (value !== '') out[slug] = value;
     });
 
     return out;

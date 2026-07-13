@@ -698,10 +698,14 @@ function renderPaginacaoProdutos() {
   const atual = total ? Math.floor(offset / limit) + 1 : 1;
   const paginas = Math.max(1, Math.ceil(total / limit));
 
+  const lastOffset = Math.max(0, (paginas - 1) * limit);
+
   wrap.innerHTML = `
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="first" ${offset <= 0 ? 'disabled' : ''}>Primeira</button>
     <button class="btn btn-secondary btn-sm" type="button" data-page-action="prev" ${offset <= 0 ? 'disabled' : ''}>Anterior</button>
     <span class="pagination-info">Página ${atual} de ${paginas}</span>
     <button class="btn btn-secondary btn-sm" type="button" data-page-action="next" ${!page.hasMore ? 'disabled' : ''}>Próxima</button>
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="last" data-last-offset="${lastOffset}" ${offset >= lastOffset ? 'disabled' : ''}>Última</button>
   `;
 }
 

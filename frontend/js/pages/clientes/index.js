@@ -1,11 +1,11 @@
-import { state } from './state.js?v=20260710-integridade-clientes-v1';
-import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js?v=20260710-integridade-clientes-v1';
+import { state } from './state.js';
+import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js';
 import { $, toast } from './utils.js';
-import { renderTabelaClientes } from './table.js?v=20260710-localizar-ordenavel-v3';
-import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js?v=20260710-integridade-clientes-v1';
+import { renderTabelaClientes } from './table.js?v=20260713-pagination-top-v1';
+import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
-import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260710-integridade-clientes-v1';
-import { bindImportExport, exportarClientesJSON } from './import-export.js?v=20260710-integridade-clientes-v1';
+import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260630-readonly-v5';
+import { bindImportExport, exportarClientesJSON } from './import-export.js';
 
 function renderAll() {
   renderTabelaClientes(filtrarClientes(state.clientes));
@@ -23,54 +23,15 @@ function setTabelaLoading(message = 'Carregando clientes...') {
   `;
 }
 
-function scrollToHighlightedClient() {
-  requestAnimationFrame(() => {
-    const row = document.querySelector('tr.cliente-row-saved');
-    if (!row) return;
-    try {
-      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } catch (_) {}
-  });
-}
-
-async function reloadClientes({ offset = 0, silent = false, highlightId = null, focusId = null } = {}) {
+async function reloadClientes({ offset = 0, silent = false } = {}) {
   if (!silent) setTabelaLoading('Buscando clientes no banco...');
-
-  const loaded = await carregarClientes({ offset, focusId });
-  if (loaded === null) return false;
-
-  state.lastSavedClienteId = highlightId ? Number(highlightId) : null;
+  await carregarClientes({ offset });
   renderAll();
-
-  if (state.lastSavedClienteId) scrollToHighlightedClient();
-  return true;
 }
 
 async function reloadTudo() {
-  const [, clientes] = await Promise.all([
-    carregarCamposClientes(),
-    carregarClientes({ offset: 0 }),
-  ]);
-
-  if (clientes !== null) {
-    state.lastSavedClienteId = null;
-    renderAll();
-  }
-}
-
-async function mostrarClienteQueAcabouDeSerSalvo(cliente) {
-  limparFiltrosClientes();
-
-  const busca = $('filtro-busca');
-  if (busca) {
-    busca.value = String(cliente?.codigo || cliente?.cpf_cnpj || cliente?.nome || '').trim();
-  }
-
-  await reloadClientes({
-    offset: 0,
-    highlightId: cliente?.id || null,
-    focusId: cliente?.id || null,
-  });
+  await Promise.all([carregarCamposClientes(), carregarClientes({ offset: 0 })]);
+  renderAll();
 }
 
 async function handleExcluirCliente(id) {
@@ -122,22 +83,29 @@ function bindTabelaActions() {
 }
 
 function bindPagination() {
-  $('paginacao-clientes')?.addEventListener('click', async (e) => {
-    const btn = e.target.closest('[data-page-action]');
-    if (!btn || btn.disabled) return;
+  document.querySelectorAll('[data-pagination="clientes"]').forEach((wrap) => {
+    wrap.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-page-action]');
+      if (!btn || btn.disabled) return;
 
-    const page = state.clientesPage || { offset: 0, limit: 50 };
-    const limit = Number(page.limit || 50);
-    let offset = Number(page.offset || 0);
+      const page = state.clientesPage || { offset: 0, limit: 50, total: 0 };
+      const limit = Number(page.limit || 50);
+      const total = Number(page.total || 0);
+      const paginas = Math.max(1, Math.ceil(total / limit));
+      const lastOffset = Math.max(0, (paginas - 1) * limit);
+      let offset = Number(page.offset || 0);
 
-    if (btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
-    if (btn.dataset.pageAction === 'next') offset += limit;
+      if (btn.dataset.pageAction === 'first') offset = 0;
+      if (btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
+      if (btn.dataset.pageAction === 'next') offset = Math.min(lastOffset, offset + limit);
+      if (btn.dataset.pageAction === 'last') offset = lastOffset;
 
-    try {
-      await reloadClientes({ offset });
-    } catch (err) {
-      toast(err.message || 'Erro ao carregar página.', 'error');
-    }
+      try {
+        await reloadClientes({ offset });
+      } catch (err) {
+        toast(err.message || 'Erro ao carregar página.', 'error');
+      }
+    });
   });
 }
 
@@ -174,12 +142,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindConfirmDialog();
 
   bindClientModal({
-    afterSave: mostrarClienteQueAcabouDeSerSalvo,
+    afterSave: async () => {
+      await reloadClientes({ offset: state.clientesPage?.offset || 0 });
+    },
   });
 
   bindImportExport({
     afterImport: async () => {
-      limparFiltrosClientes();
       await reloadClientes({ offset: 0 });
     },
   });
@@ -193,19 +162,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await window.ValoraLocalizarPersonalizado?.setup?.({
       modulo: 'clientes',
       filtersContainerId: 'localizar-personalizado-clientes',
-      force: true,
     });
-
-    window.ValoraLocalizarPersonalizado?.bindFilters?.(
-      'localizar-personalizado-clientes',
-      async () => {
-        try {
-          await reloadClientes({ offset: 0, silent: true });
-        } catch (err) {
-          toast(err.message || 'Erro ao filtrar clientes.', 'error');
-        }
-      }
-    );
   } catch (err) {
     console.warn('[Clientes] localizar personalizado indisponível:', err);
   }

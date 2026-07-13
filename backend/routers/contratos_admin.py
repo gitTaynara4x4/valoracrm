@@ -4,7 +4,7 @@ import os
 import re
 import shutil
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import func, or_, text
+from sqlalchemy import and_, case, func, or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
@@ -56,6 +56,9 @@ STATUS_CONTRATO: Dict[str, str] = {
     "cancelado": "Cancelado",
 }
 
+STATUS_CONTRATO_ATIVO = {"emitido", "enviado_assinatura", "assinado"}
+VIGENCIAS_FILTRO = {"vigente", "vencendo", "vencido", "sem_data"}
+
 STATUS_PROPOSTA_APROVADA = {
     "aprovada",
     "aprovado",
@@ -78,6 +81,7 @@ TIPOS_DOCUMENTO_ANEXO: Dict[str, str] = {
 UPLOADS_CONTRATOS_DIR = Path("uploads") / "contratos"
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+_UNSET = object()
 
 EXTENSOES_PERMITIDAS = {
     ".pdf",
@@ -210,6 +214,31 @@ def serialize_decimal(value: Any) -> Optional[str]:
         return f"{Decimal(value):.2f}"
     except Exception:
         return str(value)
+
+
+def validar_periodo(data_inicio: Optional[date], data_fim: Optional[date]) -> None:
+    if data_inicio and data_fim and data_fim < data_inicio:
+        raise HTTPException(
+            status_code=422,
+            detail="A data final não pode ser anterior à data de início do contrato.",
+        )
+
+
+def situacao_vigencia_contrato(row: Contrato, hoje: Optional[date] = None) -> tuple[str, str, Optional[int]]:
+    hoje = hoje or date.today()
+
+    if (row.status or "").lower() == "cancelado":
+        return "cancelado", "Cancelado", None
+
+    if not row.data_fim:
+        return "sem_vencimento", "Sem vencimento", None
+
+    dias = (row.data_fim - hoje).days
+    if dias < 0:
+        return "vencido", "Vencido", dias
+    if dias <= 30:
+        return "vencendo", "Vencendo", dias
+    return "vigente", "Vigente", dias
 
 
 def fields_set(payload: BaseModel) -> set[str]:
@@ -408,6 +437,9 @@ class ContratoOut(ORMBaseModel):
     tipo_contrato_label: str
     status: str
     status_label: str
+    situacao_vigencia: str = "sem_vencimento"
+    situacao_vigencia_label: str = "Sem vencimento"
+    dias_para_vencer: Optional[int] = None
 
     valor_mensal: Optional[str] = None
     data_pagamento: Optional[str] = None
@@ -463,8 +495,42 @@ class OpcaoOut(BaseModel):
     label: str
 
 
+class ClienteOpcaoOut(BaseModel):
+    id: int
+    nome: str
+    nome_fantasia: Optional[str] = None
+    codigo: Optional[str] = None
+    cpf_cnpj: Optional[str] = None
+
+
+class ClienteOpcoesOut(BaseModel):
+    items: List[ClienteOpcaoOut]
+    total: int
+    limit: int
+    has_more: bool
+
+
 class SugestaoNumeroOut(BaseModel):
     numero_contrato: str
+
+
+class ContratoResumoOut(BaseModel):
+    total: int = 0
+    ativos: int = 0
+    vencendo_30_dias: int = 0
+    vencidos: int = 0
+    rascunhos: int = 0
+    cancelados: int = 0
+    receita_mensal: str = "0.00"
+    atualizado_em: str
+
+
+class ContratoListagemOut(BaseModel):
+    items: List[ContratoOut]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
 
 
 class PropostaAprovadaOut(BaseModel):
@@ -795,42 +861,56 @@ def criar_historico_diferencas(
 def contrato_to_out(
     db: Session,
     row: Contrato,
+    *,
+    cliente_nome: Any = _UNSET,
+    proposta_status: Any = _UNSET,
 ) -> ContratoOut:
-    cliente = (
-        db.query(core_models.Cliente)
-        .filter(core_models.Cliente.id == row.cliente_id)
-        .first()
-    )
-
-    proposta = None
-    if row.proposta_id:
-        proposta = (
-            db.query(core_models.Proposta)
-            .filter(core_models.Proposta.id == row.proposta_id)
+    # Nas listagens, cliente e proposta já chegam do JOIN. O fallback abaixo
+    # permanece para criação/edição e chamadas isoladas, sem quebrar compatibilidade.
+    if cliente_nome is _UNSET:
+        cliente = (
+            db.query(core_models.Cliente.nome)
+            .filter(core_models.Cliente.id == row.cliente_id)
             .first()
         )
+        cliente_nome = cliente[0] if cliente else None
+
+    if proposta_status is _UNSET:
+        proposta_status = None
+        if row.proposta_id:
+            proposta = (
+                db.query(core_models.Proposta.status)
+                .filter(core_models.Proposta.id == row.proposta_id)
+                .first()
+            )
+            proposta_status = proposta[0] if proposta else None
 
     tipo = row.tipo_contrato or "outro"
     status_atual = row.status or "rascunho"
+    situacao_vigencia, situacao_vigencia_label, dias_para_vencer = situacao_vigencia_contrato(row)
+    proposta_status_norm = str(proposta_status or "").strip().lower()
 
     return ContratoOut(
         id=int(row.id),
         empresa_id=int(row.empresa_id),
         cliente_id=int(row.cliente_id),
-        cliente_nome=getattr(cliente, "nome", None) if cliente else None,
+        cliente_nome=cliente_nome,
 
         proposta_id=int(row.proposta_id) if row.proposta_id else None,
         proposta_codigo=row.proposta_codigo,
         proposta_titulo=row.proposta_titulo,
         proposta_data=serialize_date(row.proposta_data),
-        proposta_status=getattr(proposta, "status", None) if proposta else None,
-        proposta_aprovada=proposta_aprovada(proposta),
+        proposta_status=proposta_status,
+        proposta_aprovada=proposta_status_norm in STATUS_PROPOSTA_APROVADA,
 
         numero_contrato=row.numero_contrato,
         tipo_contrato=tipo,
         tipo_contrato_label=TIPOS_CONTRATO.get(tipo, "Outro"),
         status=status_atual,
         status_label=STATUS_CONTRATO.get(status_atual, status_atual),
+        situacao_vigencia=situacao_vigencia,
+        situacao_vigencia_label=situacao_vigencia_label,
+        dias_para_vencer=dias_para_vencer,
 
         valor_mensal=serialize_decimal(row.valor_mensal),
         data_pagamento=serialize_date(row.data_pagamento),
@@ -1048,6 +1128,112 @@ def listar_tipos_documento_anexo():
     return [OpcaoOut(value=value, label=label) for value, label in TIPOS_DOCUMENTO_ANEXO.items()]
 
 
+@router.get("/api/contratos-admin/clientes-opcoes", response_model=ClienteOpcoesOut)
+def listar_clientes_opcoes(
+    q: Optional[str] = Query(default=None),
+    selected_id: Optional[int] = Query(default=None),
+    limit: int = Query(default=2000, ge=1, le=5000),
+    db: Session = Depends(get_db),
+    usuario: core_models.Usuario = Depends(get_current_user),
+):
+    """Lista leve para filtros e formulários de contrato.
+
+    Não carrega ficha completa, endereços, campos personalizados ou anexos do
+    cliente. Isso evita que a tela de contratos espere toda a base de clientes.
+    """
+    empresa_id = int(usuario.empresa_id)
+    query = db.query(core_models.Cliente).filter(core_models.Cliente.empresa_id == empresa_id)
+
+    busca = norm_str(q)
+    if busca:
+        like = f"%{busca}%"
+        conditions = [
+            core_models.Cliente.nome.ilike(like),
+            core_models.Cliente.nome_fantasia.ilike(like),
+            core_models.Cliente.codigo.ilike(like),
+            core_models.Cliente.cpf_cnpj.ilike(like),
+        ]
+        busca_digitos = re.sub(r"\D", "", busca)
+        if busca_digitos:
+            documento_sem_mascara = func.replace(
+                func.replace(
+                    func.replace(
+                        func.replace(core_models.Cliente.cpf_cnpj, ".", ""),
+                        "-",
+                        "",
+                    ),
+                    "/",
+                    "",
+                ),
+                " ",
+                "",
+            )
+            conditions.append(documento_sem_mascara.ilike(f"%{busca_digitos}%"))
+        query = query.filter(or_(*conditions))
+
+    total = int(query.with_entities(func.count(core_models.Cliente.id)).scalar() or 0)
+    rows = (
+        query
+        .with_entities(
+            core_models.Cliente.id,
+            core_models.Cliente.nome,
+            core_models.Cliente.nome_fantasia,
+            core_models.Cliente.codigo,
+            core_models.Cliente.cpf_cnpj,
+        )
+        .order_by(core_models.Cliente.nome.asc(), core_models.Cliente.id.asc())
+        .limit(limit)
+        .all()
+    )
+
+    items = [
+        ClienteOpcaoOut(
+            id=int(row.id),
+            nome=row.nome,
+            nome_fantasia=row.nome_fantasia,
+            codigo=row.codigo,
+            cpf_cnpj=row.cpf_cnpj,
+        )
+        for row in rows
+    ]
+
+    # Garante que o cliente do contrato em edição esteja disponível mesmo se a
+    # empresa tiver mais clientes do que o limite da lista.
+    if selected_id and not any(item.id == int(selected_id) for item in items):
+        selected = (
+            db.query(
+                core_models.Cliente.id,
+                core_models.Cliente.nome,
+                core_models.Cliente.nome_fantasia,
+                core_models.Cliente.codigo,
+                core_models.Cliente.cpf_cnpj,
+            )
+            .filter(
+                core_models.Cliente.empresa_id == empresa_id,
+                core_models.Cliente.id == int(selected_id),
+            )
+            .first()
+        )
+        if selected:
+            items.insert(
+                0,
+                ClienteOpcaoOut(
+                    id=int(selected.id),
+                    nome=selected.nome,
+                    nome_fantasia=selected.nome_fantasia,
+                    codigo=selected.codigo,
+                    cpf_cnpj=selected.cpf_cnpj,
+                ),
+            )
+
+    return ClienteOpcoesOut(
+        items=items,
+        total=total,
+        limit=limit,
+        has_more=total > limit,
+    )
+
+
 @router.get("/api/contratos-admin/sugestao-numero", response_model=SugestaoNumeroOut)
 def sugerir_numero_contrato(
     cliente_id: int = Query(...),
@@ -1065,7 +1251,7 @@ def sugerir_numero_contrato(
     except OperationalError as exc:
         raise HTTPException(
             status_code=500,
-            detail="A estrutura de Contratos ainda não existe no banco. Rode a query SQL da Parte 2A.",
+            detail="Não foi possível acessar os contratos. Verifique a instalação do módulo no banco de dados.",
         ) from exc
 
 
@@ -1120,6 +1306,219 @@ def obter_resumo_proposta(
     return proposta_to_out(db, proposta)
 
 
+@router.get("/api/contratos-admin/resumo", response_model=ContratoResumoOut)
+def obter_resumo_contratos(
+    db: Session = Depends(get_db),
+    usuario: core_models.Usuario = Depends(get_current_user),
+):
+    empresa_id = int(usuario.empresa_id)
+    hoje = date.today()
+    limite_vencimento = hoje + timedelta(days=30)
+
+    try:
+        ativos_cond = and_(
+            Contrato.status.in_(STATUS_CONTRATO_ATIVO),
+            or_(Contrato.data_fim.is_(None), Contrato.data_fim >= hoje),
+        )
+        nao_cancelado = Contrato.status != "cancelado"
+
+        row = (
+            db.query(
+                func.count(Contrato.id).label("total"),
+                func.sum(case((ativos_cond, 1), else_=0)).label("ativos"),
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                nao_cancelado,
+                                Contrato.data_fim.isnot(None),
+                                Contrato.data_fim >= hoje,
+                                Contrato.data_fim <= limite_vencimento,
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("vencendo"),
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                nao_cancelado,
+                                Contrato.data_fim.isnot(None),
+                                Contrato.data_fim < hoje,
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("vencidos"),
+                func.sum(case((Contrato.status == "rascunho", 1), else_=0)).label("rascunhos"),
+                func.sum(case((Contrato.status == "cancelado", 1), else_=0)).label("cancelados"),
+                func.coalesce(
+                    func.sum(case((ativos_cond, Contrato.valor_mensal), else_=0)),
+                    0,
+                ).label("receita_mensal"),
+            )
+            .filter(Contrato.empresa_id == empresa_id)
+            .one()
+        )
+
+        return ContratoResumoOut(
+            total=int(row.total or 0),
+            ativos=int(row.ativos or 0),
+            vencendo_30_dias=int(row.vencendo or 0),
+            vencidos=int(row.vencidos or 0),
+            rascunhos=int(row.rascunhos or 0),
+            cancelados=int(row.cancelados or 0),
+            receita_mensal=serialize_decimal(row.receita_mensal) or "0.00",
+            atualizado_em=datetime.now().isoformat(),
+        )
+    except OperationalError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Não foi possível acessar os contratos. Verifique a instalação do módulo no banco de dados.",
+        ) from exc
+
+
+@router.get("/api/contratos-admin/listagem", response_model=ContratoListagemOut)
+def listar_contratos_paginados(
+    cliente_id: Optional[int] = Query(default=None),
+    status_contrato: Optional[str] = Query(default=None),
+    tipo_contrato: Optional[str] = Query(default=None),
+    vigencia: Optional[str] = Query(default=None),
+    somente_ativos: bool = Query(default=False),
+    q: Optional[str] = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    usuario: core_models.Usuario = Depends(get_current_user),
+):
+    empresa_id = int(usuario.empresa_id)
+    hoje = date.today()
+    limite_vencimento = hoje + timedelta(days=30)
+
+    try:
+        query = (
+            db.query(
+                Contrato,
+                core_models.Cliente.nome.label("cliente_nome_join"),
+                core_models.Proposta.status.label("proposta_status_join"),
+            )
+            .outerjoin(core_models.Cliente, core_models.Cliente.id == Contrato.cliente_id)
+            .outerjoin(core_models.Proposta, core_models.Proposta.id == Contrato.proposta_id)
+            .filter(Contrato.empresa_id == empresa_id)
+        )
+
+        if cliente_id:
+            query = query.filter(Contrato.cliente_id == cliente_id)
+
+        if status_contrato:
+            status_norm = norm_lower(status_contrato, set(STATUS_CONTRATO.keys()), "")
+            if status_norm:
+                query = query.filter(Contrato.status == status_norm)
+
+        if tipo_contrato:
+            tipo_norm = norm_lower(tipo_contrato, set(TIPOS_CONTRATO.keys()), "")
+            if tipo_norm:
+                query = query.filter(Contrato.tipo_contrato == tipo_norm)
+
+        if somente_ativos:
+            query = query.filter(
+                Contrato.status.in_(STATUS_CONTRATO_ATIVO),
+                or_(Contrato.data_fim.is_(None), Contrato.data_fim >= hoje),
+            )
+
+        vigencia_norm = str(vigencia or "").strip().lower()
+        if vigencia_norm in VIGENCIAS_FILTRO:
+            if vigencia_norm == "vencendo":
+                query = query.filter(
+                    Contrato.status != "cancelado",
+                    Contrato.data_fim.isnot(None),
+                    Contrato.data_fim >= hoje,
+                    Contrato.data_fim <= limite_vencimento,
+                )
+            elif vigencia_norm == "vencido":
+                query = query.filter(
+                    Contrato.status != "cancelado",
+                    Contrato.data_fim.isnot(None),
+                    Contrato.data_fim < hoje,
+                )
+            elif vigencia_norm == "vigente":
+                query = query.filter(
+                    Contrato.status != "cancelado",
+                    or_(Contrato.data_fim.is_(None), Contrato.data_fim > limite_vencimento),
+                )
+            elif vigencia_norm == "sem_data":
+                query = query.filter(Contrato.data_fim.is_(None))
+
+        busca = norm_str(q)
+        if busca:
+            like = f"%{busca}%"
+            search_conditions = [
+                Contrato.numero_contrato.ilike(like),
+                Contrato.tipo_contrato.ilike(like),
+                Contrato.status.ilike(like),
+                Contrato.proposta_codigo.ilike(like),
+                Contrato.proposta_titulo.ilike(like),
+                Contrato.vendedor_nome.ilike(like),
+                Contrato.indicacao.ilike(like),
+                core_models.Cliente.nome.ilike(like),
+                core_models.Cliente.cpf_cnpj.ilike(like),
+            ]
+
+            busca_digitos = re.sub(r"\D", "", busca)
+            if busca_digitos:
+                documento_sem_mascara = func.replace(
+                    func.replace(
+                        func.replace(
+                            func.replace(core_models.Cliente.cpf_cnpj, ".", ""),
+                            "-",
+                            "",
+                        ),
+                        "/",
+                        "",
+                    ),
+                    " ",
+                    "",
+                )
+                search_conditions.append(documento_sem_mascara.ilike(f"%{busca_digitos}%"))
+
+            query = query.filter(or_(*search_conditions))
+
+        total = int(query.with_entities(func.count(Contrato.id)).scalar() or 0)
+        rows = (
+            query
+            .order_by(Contrato.atualizado_em.desc(), Contrato.id.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+        items = [
+            contrato_to_out(
+                db,
+                contrato,
+                cliente_nome=cliente_nome,
+                proposta_status=proposta_status,
+            )
+            for contrato, cliente_nome, proposta_status in rows
+        ]
+
+        return ContratoListagemOut(
+            items=items,
+            total=total,
+            limit=limit,
+            offset=offset,
+            has_more=(offset + len(items)) < total,
+        )
+    except OperationalError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Não foi possível acessar os contratos. Verifique a instalação do módulo no banco de dados.",
+        ) from exc
+
+
 @router.get("/api/contratos-admin", response_model=List[ContratoOut])
 def listar_contratos(
     cliente_id: Optional[int] = Query(default=None),
@@ -1133,8 +1532,13 @@ def listar_contratos(
 
     try:
         query = (
-            db.query(Contrato)
+            db.query(
+                Contrato,
+                core_models.Cliente.nome.label("cliente_nome_join"),
+                core_models.Proposta.status.label("proposta_status_join"),
+            )
             .outerjoin(core_models.Cliente, core_models.Cliente.id == Contrato.cliente_id)
+            .outerjoin(core_models.Proposta, core_models.Proposta.id == Contrato.proposta_id)
             .filter(Contrato.empresa_id == empresa_id)
         )
 
@@ -1167,12 +1571,20 @@ def listar_contratos(
             .all()
         )
 
-        return [contrato_to_out(db, row) for row in rows]
+        return [
+            contrato_to_out(
+                db,
+                contrato,
+                cliente_nome=cliente_nome,
+                proposta_status=proposta_status,
+            )
+            for contrato, cliente_nome, proposta_status in rows
+        ]
 
     except OperationalError as exc:
         raise HTTPException(
             status_code=500,
-            detail="A estrutura de Contratos ainda não existe no banco. Rode a query SQL da Parte 2A.",
+            detail="Não foi possível acessar os contratos. Verifique a instalação do módulo no banco de dados.",
         ) from exc
 
 
@@ -1185,12 +1597,34 @@ def obter_contrato(
     empresa_id = int(usuario.empresa_id)
 
     try:
-        contrato = buscar_contrato_empresa(db, contrato_id, empresa_id)
-        return contrato_to_out(db, contrato)
+        row = (
+            db.query(
+                Contrato,
+                core_models.Cliente.nome.label("cliente_nome_join"),
+                core_models.Proposta.status.label("proposta_status_join"),
+            )
+            .outerjoin(core_models.Cliente, core_models.Cliente.id == Contrato.cliente_id)
+            .outerjoin(core_models.Proposta, core_models.Proposta.id == Contrato.proposta_id)
+            .filter(
+                Contrato.id == contrato_id,
+                Contrato.empresa_id == empresa_id,
+            )
+            .first()
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="Contrato não encontrado.")
+
+        contrato, cliente_nome, proposta_status = row
+        return contrato_to_out(
+            db,
+            contrato,
+            cliente_nome=cliente_nome,
+            proposta_status=proposta_status,
+        )
     except OperationalError as exc:
         raise HTTPException(
             status_code=500,
-            detail="A estrutura de Contratos ainda não existe no banco. Rode a query SQL da Parte 2A.",
+            detail="Não foi possível acessar os contratos. Verifique a instalação do módulo no banco de dados.",
         ) from exc
 
 
@@ -1231,6 +1665,10 @@ def criar_contrato(
         data_aprovacao_importada = proposta_data_aprovacao(proposta) if proposta else None
         indicacao_importada = proposta_indicacao(proposta) if proposta else None
 
+        data_inicio = parse_date(payload.data_inicio)
+        data_fim = parse_date(payload.data_fim)
+        validar_periodo(data_inicio, data_fim)
+
         contrato = Contrato(
             empresa_id=empresa_id,
             cliente_id=int(cliente.id),
@@ -1240,8 +1678,8 @@ def criar_contrato(
             status=status_atual,
             valor_mensal=parse_decimal(payload.valor_mensal),
             data_pagamento=parse_date(payload.data_pagamento),
-            data_inicio=parse_date(payload.data_inicio),
-            data_fim=parse_date(payload.data_fim),
+            data_inicio=data_inicio,
+            data_fim=data_fim,
             data_assinatura=parse_date(payload.data_assinatura),
             vendedor_nome=norm_str(payload.vendedor_nome) or vendedor_importado,
             data_aprovacao=parse_date(payload.data_aprovacao) or data_aprovacao_importada,
@@ -1279,7 +1717,7 @@ def criar_contrato(
         db.rollback()
         raise HTTPException(
             status_code=500,
-            detail="A estrutura de Contratos ainda não existe no banco. Rode a query SQL da Parte 2A.",
+            detail="Não foi possível acessar os contratos. Verifique a instalação do módulo no banco de dados.",
         ) from exc
     except Exception as exc:
         db.rollback()
@@ -1353,6 +1791,7 @@ def atualizar_contrato(
         if "observacoes" in changed_fields:
             contrato.observacoes = norm_str(payload.observacoes)
 
+        validar_periodo(contrato.data_inicio, contrato.data_fim)
         db.flush()
 
         after = contrato_snapshot(contrato)
@@ -1384,7 +1823,7 @@ def atualizar_contrato(
         db.rollback()
         raise HTTPException(
             status_code=500,
-            detail="A estrutura de Contratos ainda não existe no banco. Rode a query SQL da Parte 2A.",
+            detail="Não foi possível acessar os contratos. Verifique a instalação do módulo no banco de dados.",
         ) from exc
     except Exception as exc:
         db.rollback()
@@ -1416,7 +1855,7 @@ def listar_historico_contrato(
     except OperationalError as exc:
         raise HTTPException(
             status_code=500,
-            detail="A estrutura de Contratos ainda não existe no banco. Rode a query SQL da Parte 2A.",
+            detail="Não foi possível acessar os contratos. Verifique a instalação do módulo no banco de dados.",
         ) from exc
 
 
@@ -1444,7 +1883,7 @@ def listar_anexos_contrato(
     except OperationalError as exc:
         raise HTTPException(
             status_code=500,
-            detail="A estrutura de Contratos ainda não existe no banco. Rode a query SQL da Parte 2A.",
+            detail="Não foi possível acessar os contratos. Verifique a instalação do módulo no banco de dados.",
         ) from exc
 
 
@@ -1517,7 +1956,7 @@ def upload_anexo_contrato(
         db.rollback()
         raise HTTPException(
             status_code=500,
-            detail="A estrutura de anexos de contratos ainda não existe no banco. Rode a query SQL da Parte 2A.",
+            detail="Não foi possível acessar os anexos. Verifique a instalação do módulo no banco de dados.",
         ) from exc
     except Exception as exc:
         db.rollback()

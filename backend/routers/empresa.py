@@ -24,23 +24,31 @@ def get_db():
     finally:
         db.close()
 
-def get_empresa_id(db: Session = Depends(get_db)) -> int:
-    """Valida se o usuário está logado e retorna o ID da empresa dele"""
-    
-    # ========================================================
-    # 🚧 BYPASS TEMPORÁRIO PARA TESTES DO FRONTEND 🚧
-    # Força o sistema a devolver a Empresa de ID 1 para evitar
-    # o erro 401 enquanto a tela de Login não está pronta.
-    # ========================================================
-    return 1
+def get_empresa_id(
+    user_id: Optional[str] = Cookie(default=None),
+    db: Session = Depends(get_db),
+) -> int:
+    """Retorna a empresa vinculada ao usuário autenticado."""
+    if not user_id or not str(user_id).strip():
+        raise HTTPException(status_code=401, detail="Não autenticado.")
 
-    # --- CÓDIGO REAL (Para usar quando o Login estiver pronto) ---
-    # if not user_id:
-    #     raise HTTPException(status_code=401, detail="Não autenticado.")
-    # usuario = db.query(models.Usuario).filter(models.Usuario.id == int(user_id)).first()
-    # if not usuario:
-    #     raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-    # return int(usuario.empresa_id)
+    try:
+        user_id_int = int(str(user_id).strip())
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Sessão inválida.")
+
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == user_id_int).first()
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
+
+    if getattr(usuario, "empresa_id", None) is None:
+        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
+
+    if hasattr(usuario, "ativo") and usuario.ativo is False:
+        raise HTTPException(status_code=403, detail="Usuário inativo.")
+
+    return int(usuario.empresa_id)
+
 
 # =========================================================
 # COMPATIBILIDADE PYDANTIC V1 / V2
