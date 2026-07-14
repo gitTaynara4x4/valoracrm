@@ -156,7 +156,7 @@
         <div class="valora-menu-right">
           <button class="valora-menu-plain" type="button" data-target="ajuda">Primeiros passos</button>
           <button class="valora-menu-new" type="button" data-target="propostas"><span class="plus">+</span><span class="label">Nova Proposta</span></button>
-          <button class="valora-menu-icon valora-menu-bell" type="button" data-target="home" aria-label="Notificações"><i class="fa-solid fa-bell"></i></button>
+          <button class="valora-menu-icon valora-menu-bell" type="button" data-agenda-global-open aria-label="Notificações"><i class="fa-solid fa-bell"></i></button>
 
           <div class="valora-menu-pop" data-menu-pop="settings">
             <button class="valora-menu-icon" type="button" data-pop-trigger aria-label="Configurações"><i class="fa-solid fa-gear"></i></button>
@@ -327,6 +327,16 @@
         event.preventDefault();
         event.stopPropagation();
         logout();
+        return;
+      }
+
+      const agendaBtn = event.target.closest('[data-agenda-global-open]');
+      if (agendaBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMenus(root);
+        if (window.ValoraAgenda) window.ValoraAgenda.openPanel();
+        else window.ValoraAgendaReady?.then((agenda) => agenda?.openPanel?.());
         return;
       }
 

@@ -31,6 +31,7 @@ from backend.routers import empresa
 from backend.routers import campos_propostas
 from backend.routers.integracoes_zapschat import router as integracoes_zapschat_router
 from backend.routers.exportacoes import router as exportacoes_router
+from backend.routers.agenda import router as agenda_router
 
 
 # ============================================
@@ -250,6 +251,7 @@ app.include_router(formularios_router)
 app.include_router(financeiro_router)
 app.include_router(integracoes_zapschat_router)
 app.include_router(exportacoes_router)
+app.include_router(agenda_router)
 
 # Área do Cliente / Contratos
 app.include_router(area_cliente_admin_router)

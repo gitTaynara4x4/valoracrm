@@ -37,21 +37,21 @@
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260630-ficha-sidebar-v5" />
 
-  <script src="/frontend/js/pages/app.js?v=20260713-visible-table-scroll-v2" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260714-agenda-historico-v1" defer></script>
   <script src="/frontend/js/shared/exportacoes.js?v=20260713-exportacoes-completas-v1" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/shared/ficha-principal.js?v=20260713-preservar-opcoes-antigas-v1" defer></script>
+  <script src="/frontend/js/shared/ficha-principal.js?v=20260714-agenda-historico-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="/frontend/js/shared/localizar-personalizado.js?v=20260701-localizar-tabela-espelhada-v2" defer></script>
-  <script src="/frontend/js/pages/fornecedores.js?v=20260713-pagination-top-v2" defer></script>
+  <script src="/frontend/js/pages/fornecedores.js?v=20260714-agenda-historico-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 </head>
 
 <body>
   <div class="layout">
     <iframe
-      src="/frontend/partials/sidebar.html?v=20260630-dark-menu-clean-v11"
+      src="/frontend/partials/sidebar.html?v=20260714-agenda-historico-v1"
       class="sidebar-frame"
       title="Menu lateral"
       loading="eager">
@@ -209,6 +209,11 @@
                 <button type="button" class="fornecedor-tab-btn" data-tab="tab-fornecedor-campos">
                   <i class="fa-solid fa-sliders"></i>
                   <span>Personalizados</span>
+                </button>
+
+                <button type="button" class="fornecedor-tab-btn" data-tab="tab-fornecedor-agenda" data-ficha-keep="true">
+                  <i class="fa-solid fa-calendar-check"></i>
+                  <span>Agenda e histórico</span>
                 </button>
               </nav>
 
@@ -514,6 +519,10 @@
 
                     <div id="custom-fields-container" class="form-row custom-fields-grid"></div>
                   </article>
+                </section>
+
+                <section class="fornecedor-tab" id="tab-fornecedor-agenda" data-ficha-keep="true">
+                  <div id="agenda-fornecedor" class="agenda-entity-slot"></div>
                 </section>
               </div>
 

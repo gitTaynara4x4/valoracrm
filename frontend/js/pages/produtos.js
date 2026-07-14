@@ -59,6 +59,21 @@
   let produtoAtualDetalhe = null;
   let produtoModalSomenteLeitura = false;
 
+  async function syncAgendaProduto(produto = null, readonly = false) {
+    try {
+      const agenda = await window.ValoraAgendaReady;
+      await agenda?.setEntityContext?.({
+        containerId: 'agenda-produto',
+        entidadeTipo: 'produto',
+        entidadeId: Number(produto?.id || 0) || null,
+        entidadeNome: String(produto?.nome || produto?.descricao || 'Produto'),
+        readonly: !!readonly,
+      });
+    } catch (error) {
+      console.warn('[Produtos] agenda indisponível:', error);
+    }
+  }
+
   function $(id) {
     return document.getElementById(id);
   }
@@ -719,7 +734,9 @@
   function switchProdutoTab(targetId) {
     if (!targetId) return;
 
-    if (usarFichaPrincipalProdutos) {
+    const targetPanel = document.getElementById(targetId);
+    const keepTab = targetPanel?.dataset.fichaKeep === 'true';
+    if (usarFichaPrincipalProdutos && !keepTab) {
       targetId = 'tab-produto-ficha';
     }
 
@@ -1291,6 +1308,7 @@
 
     abrirModalProduto();
     setProdutoModalReadonly(false);
+    await syncAgendaProduto(null, false);
 
     setTimeout(() => {
       if (usarFichaPrincipalProdutos) {
@@ -1319,6 +1337,7 @@
 
     abrirModalProduto();
     setProdutoModalReadonly(false);
+    await syncAgendaProduto(produto, false);
 
     setTimeout(() => {
       switchProdutoTab(usarFichaPrincipalProdutos ? 'tab-produto-ficha' : 'tab-produto-dados');
@@ -1343,6 +1362,7 @@
 
       abrirModalProduto();
       setProdutoModalReadonly(true);
+      await syncAgendaProduto(produto, true);
 
       setTimeout(() => {
         switchProdutoTab(usarFichaPrincipalProdutos ? 'tab-produto-ficha' : 'tab-produto-dados');
@@ -1910,6 +1930,19 @@
       console.error('[Produtos] erro ao iniciar:', err);
       await carregarProdutos();
       toast(err.message || 'Erro ao carregar ficha de produtos.', { error: true, ms: 5000 });
+      return;
+    }
+
+    try {
+      const agenda = await window.ValoraAgendaReady;
+      const pending = agenda?.consumePendingNavigation?.();
+      if (pending?.type === 'produto' && Number(pending.entityId)) {
+        const full = await obterProdutoNoServidor(Number(pending.entityId));
+        await abrirModalProdutoEditar(full);
+        document.querySelector('[data-tab="tab-produto-agenda"]')?.click();
+      }
+    } catch (err) {
+      console.warn('[Produtos] não foi possível abrir o cadastro pelo lembrete:', err);
     }
   });
 })();

@@ -331,17 +331,28 @@
       background: var(--hover-top);
     }
 
-    .bell-btn::after {
-      content: "";
-      width: 6px;
-      height: 6px;
-      border-radius: 999px;
-      background: var(--orange);
+    .bell-btn::after { display: none; }
+
+    .agenda-badge {
       position: absolute;
-      right: 8px;
-      top: 8px;
+      right: 1px;
+      top: 1px;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 999px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: #ef4444;
+      color: #ffffff;
       box-shadow: 0 0 0 2px var(--navy);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1;
     }
+
+    .agenda-badge.is-visible { display: inline-flex; }
 
     .settings-wrap {
       height: 100%;
@@ -1075,8 +1086,9 @@
         <span class="label">Novo Orçamento</span>
       </button>
 
-      <button class="bell-btn" type="button" onclick="irPara('home')" aria-label="Notificações">
+      <button class="bell-btn" type="button" onclick="abrirNotificacoes()" aria-label="Notificações">
         <i class="fa-solid fa-bell"></i>
+        <span class="agenda-badge" id="agendaBadge">0</span>
       </button>
 
       <div class="settings-wrap" id="settingsWrap">
@@ -1753,6 +1765,28 @@
 
       window.location.assign(finalUrl);
     }
+
+    function abrirNotificacoes() {
+      closeAllMenus();
+      try {
+        if (window.parent && window.parent !== window && window.parent.ValoraAgenda) {
+          window.parent.ValoraAgenda.openPanel();
+          return;
+        }
+        window.parent?.postMessage({ type: 'valora-agenda-open' }, window.location.origin);
+      } catch (e) {
+        try { window.top?.postMessage({ type: 'valora-agenda-open' }, window.location.origin); } catch (_) {}
+      }
+    }
+
+    window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'valora-agenda-count') return;
+      const badge = document.getElementById('agendaBadge');
+      if (!badge) return;
+      const count = Math.max(0, Number(event.data.count || 0));
+      badge.textContent = count > 99 ? '99+' : String(count);
+      badge.classList.toggle('is-visible', count > 0);
+    });
 
     function irPara(target) {
       switch (target) {

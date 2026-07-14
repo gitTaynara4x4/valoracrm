@@ -14,6 +14,21 @@ let originalClienteTabsHtml = '';
 let fichaClienteController = null;
 let clienteModalSomenteLeitura = false;
 
+async function syncAgendaCliente(cliente = null, readonly = false) {
+  try {
+    const agenda = await window.ValoraAgendaReady;
+    await agenda?.setEntityContext?.({
+      containerId: 'agenda-cliente',
+      entidadeTipo: 'cliente',
+      entidadeId: Number(cliente?.id || 0) || null,
+      entidadeNome: String(cliente?.nome || cliente?.nome_fantasia || 'Cliente'),
+      readonly: !!readonly,
+    });
+  } catch (error) {
+    console.warn('[Clientes] agenda indisponível:', error);
+  }
+}
+
 function defaultCliente() {
   return {
     codigo: '',
@@ -236,7 +251,9 @@ function syncFichaPrincipalCadastro(dataCadastro, usarHoje = false) {
 }
 
 function switchTab(targetId) {
-  if (state.usarFichaPrincipalClientes) {
+  const targetPanel = targetId ? document.getElementById(targetId) : null;
+  const keepTab = targetPanel?.dataset.fichaKeep === 'true';
+  if (state.usarFichaPrincipalClientes && !keepTab) {
     targetId = 'tab-campos-personalizados';
   }
 
@@ -1597,6 +1614,7 @@ export async function openClientModalNew() {
 
   openModal('modal-cliente-backdrop');
   setClienteModalReadonly(false);
+  await syncAgendaCliente(null, false);
 
   bindResumoSidebarCliente();
   agendarResumoSidebarCliente(currentDetail);
@@ -1614,6 +1632,7 @@ export async function openClientModalEdit(id) {
 
     openModal('modal-cliente-backdrop');
     setClienteModalReadonly(false);
+    await syncAgendaCliente(cliente, false);
 
     bindResumoSidebarCliente();
     agendarResumoSidebarCliente(cliente);
@@ -1635,6 +1654,7 @@ export async function openClientModalView(id) {
 
     openModal('modal-cliente-backdrop');
     setClienteModalReadonly(true);
+    await syncAgendaCliente(cliente, true);
 
     bindResumoSidebarCliente();
     agendarResumoSidebarCliente(cliente);

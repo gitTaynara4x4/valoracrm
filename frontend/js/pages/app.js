@@ -1,3 +1,33 @@
+
+// ==========================================
+// AGENDA E LEMBRETES GLOBAIS
+// Carrega o sino, avisos e componentes de histórico em todas as páginas.
+// ==========================================
+(() => {
+  if (!document.querySelector('link[data-valora-agenda-css]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/frontend/css/agenda.css?v=20260714-agenda-historico-v1';
+    link.dataset.valoraAgendaCss = 'true';
+    document.head.appendChild(link);
+  }
+
+  if (!window.ValoraAgendaReady) {
+    window.ValoraAgendaReady = new Promise((resolve, reject) => {
+      if (window.ValoraAgenda) {
+        resolve(window.ValoraAgenda);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = '/frontend/js/shared/agenda.js?v=20260714-agenda-historico-v1';
+      script.defer = true;
+      script.onload = () => resolve(window.ValoraAgenda);
+      script.onerror = () => reject(new Error('Não foi possível carregar a agenda do Valora.'));
+      document.head.appendChild(script);
+    });
+  }
+})();
+
 // 1. CARREGA O TEMA SALVO ASSIM QUE A PÁGINA ABRIR
 (() => {
   const savedTheme = localStorage.getItem('valora_theme') || 'dark';

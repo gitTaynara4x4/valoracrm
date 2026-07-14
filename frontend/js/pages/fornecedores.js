@@ -17,6 +17,21 @@ const API_FORNECEDORES = '/api/fornecedores';
 const API_CAMPOS_PRIMARY = '/api/fornecedores/campos';
 const API_CAMPOS_FALLBACK = '/api/campos-fornecedores';
 
+async function syncAgendaFornecedor(fornecedor = null, readonly = false) {
+  try {
+    const agenda = await window.ValoraAgendaReady;
+    await agenda?.setEntityContext?.({
+      containerId: 'agenda-fornecedor',
+      entidadeTipo: 'fornecedor',
+      entidadeId: Number(fornecedor?.id || 0) || null,
+      entidadeNome: String(fornecedor?.nome || fornecedor?.nome_fantasia || 'Fornecedor'),
+      readonly: !!readonly,
+    });
+  } catch (error) {
+    console.warn('[Fornecedores] agenda indisponível:', error);
+  }
+}
+
 function $(id) {
   return document.getElementById(id);
 }
@@ -999,7 +1014,9 @@ function validateRequiredCustomFields() {
 }
 
 function switchFornecedorTab(targetId) {
-  if (usarFichaPrincipalFornecedores) {
+  const targetPanel = targetId ? document.getElementById(targetId) : null;
+  const keepTab = targetPanel?.dataset.fichaKeep === 'true';
+  if (usarFichaPrincipalFornecedores && !keepTab) {
     targetId = 'tab-fornecedor-campos';
   }
 
@@ -1291,6 +1308,7 @@ async function abrirModalFornecedorNovo() {
 
   openModal('modal-fornecedor-backdrop');
   setFornecedorModalReadonly(false);
+  await syncAgendaFornecedor(null, false);
 }
 
 function fecharModalFornecedor() {
@@ -1310,6 +1328,7 @@ async function abrirModalFornecedorEditar(id) {
     await fillFornecedorForm(full);
     openModal('modal-fornecedor-backdrop');
     setFornecedorModalReadonly(false);
+    await syncAgendaFornecedor(full, false);
   } catch (err) {
     toast(err.message || 'Erro ao carregar fornecedor.', 'error');
   }
@@ -1327,6 +1346,7 @@ async function abrirModalFornecedorVisualizar(id) {
     await fillFornecedorForm(full);
     openModal('modal-fornecedor-backdrop');
     setFornecedorModalReadonly(true);
+    await syncAgendaFornecedor(full, true);
   } catch (err) {
     toast(err.message || 'Erro ao carregar fornecedor.', 'error');
   }
@@ -2039,4 +2059,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   await carregarFormularioFornecedores();
   aplicarModoFichaFornecedor();
   await carregarFornecedores();
+
+  try {
+    const agenda = await window.ValoraAgendaReady;
+    const pending = agenda?.consumePendingNavigation?.();
+    if (pending?.type === 'fornecedor' && Number(pending.entityId)) {
+      await abrirModalFornecedorEditar(Number(pending.entityId));
+      document.querySelector('[data-tab="tab-fornecedor-agenda"]')?.click();
+    }
+  } catch (error) {
+    console.warn('[Fornecedores] não foi possível abrir o lembrete:', error);
+  }
 });

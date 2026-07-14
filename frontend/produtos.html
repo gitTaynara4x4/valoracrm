@@ -30,19 +30,19 @@
   <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260630-ficha-sidebar-v5" />
 
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="/frontend/js/pages/app.js?v=20260713-visible-table-scroll-v2" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260714-agenda-historico-v1" defer></script>
   <script src="/frontend/js/shared/exportacoes.js?v=20260713-exportacoes-completas-v1" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/shared/ficha-principal.js?v=20260713-preservar-opcoes-antigas-v1" defer></script>
+  <script src="/frontend/js/shared/ficha-principal.js?v=20260714-agenda-historico-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script src="/frontend/js/shared/localizar-personalizado.js?v=20260701-localizar-tabela-espelhada-v2" defer></script>
-  <script src="/frontend/js/pages/produtos.js?v=20260713-pagination-top-v2" defer></script>
+  <script src="/frontend/js/pages/produtos.js?v=20260714-agenda-historico-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 </head>
 
 <body>
   <div class="layout">
-    <iframe src="/frontend/partials/sidebar.html?v=20260630-dark-menu-clean-v11" class="sidebar-frame" title="Menu lateral" loading="eager"></iframe>
+    <iframe src="/frontend/partials/sidebar.html?v=20260714-agenda-historico-v1" class="sidebar-frame" title="Menu lateral" loading="eager"></iframe>
 
     <main class="main">
       <header class="topbar">
@@ -170,6 +170,11 @@
                 <button type="button" class="cliente-tab-btn produto-tab-btn" data-tab="tab-produto-ficha">
                   <i class="fa-solid fa-layer-group"></i>
                   <span>Campos personalizados</span>
+                </button>
+
+                <button type="button" class="cliente-tab-btn produto-tab-btn" data-tab="tab-produto-agenda" data-ficha-keep="true">
+                  <i class="fa-solid fa-calendar-check"></i>
+                  <span>Agenda e histórico</span>
                 </button>
               </nav>
 
@@ -326,6 +331,10 @@
                       <div class="empty-state">Carregando ficha do produto...</div>
                     </div>
                   </article>
+                </section>
+
+                <section class="cliente-tab produto-tab" id="tab-produto-agenda" data-ficha-keep="true">
+                  <div id="agenda-produto" class="agenda-entity-slot"></div>
                 </section>
               </div>
 

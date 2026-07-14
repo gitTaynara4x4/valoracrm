@@ -2114,6 +2114,7 @@
     onSectionChange = null,
   } = {}) {
     let originalTabsHtml = '';
+    let keepTabsHtml = '';
 
     const q = (selector) => selector ? document.querySelector(selector) : null;
     const qa = (selector) => selector ? Array.from(document.querySelectorAll(selector)) : [];
@@ -2121,8 +2122,9 @@
     function showOnlyCustomTab() {
       qa(tabPanelSelector).forEach((tab) => {
         const isCustom = tab.id === customTabId;
+        const keepVisible = tab.dataset.fichaKeep === 'true';
         tab.classList.toggle('active', isCustom);
-        tab.style.display = isCustom ? 'block' : 'none';
+        tab.style.display = (isCustom || keepVisible) ? '' : 'none';
       });
     }
 
@@ -2182,7 +2184,7 @@
             <span class="ficha-section-tab-icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
             <span class="ficha-section-tab-label">Campos do formulário</span>
           </button>
-        `;
+        ` + keepTabsHtml;
         return;
       }
 
@@ -2202,7 +2204,7 @@
             </button>
           `;
         })
-        .join('');
+        .join('') + keepTabsHtml;
     }
 
     function switchTab(targetId) {
@@ -2237,6 +2239,9 @@
 
       if (!originalTabsHtml) {
         originalTabsHtml = tabs.innerHTML;
+        keepTabsHtml = Array.from(tabs.querySelectorAll('[data-ficha-keep="true"]'))
+          .map((button) => button.outerHTML)
+          .join('');
       }
 
       if (enabled) {
@@ -2257,6 +2262,7 @@
       document.addEventListener('click', (event) => {
         const btn = event.target.closest(`${tabsSelector} [data-ficha-section]`);
         if (!btn) return;
+        switchTab(customTabId);
         activateSection(btn.dataset.fichaSection);
       });
     }

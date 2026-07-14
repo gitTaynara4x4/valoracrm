@@ -4,7 +4,7 @@ import { $, toast } from './utils.js';
 import { renderTabelaClientes } from './table.js?v=20260713-pagination-top-v1';
 import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
-import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260630-readonly-v5';
+import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260714-agenda-historico-v1';
 import { bindImportExport, exportarClientesJSON } from './import-export.js';
 
 function renderAll() {
@@ -179,5 +179,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     await reloadTudo();
   } catch (err) {
     toast(err.message || 'Erro ao carregar dados do servidor.', 'error');
+    return;
+  }
+
+  try {
+    const agenda = await window.ValoraAgendaReady;
+    const pending = agenda?.consumePendingNavigation?.();
+    if (pending?.type === 'cliente' && Number(pending.entityId)) {
+      await openClientModalEdit(Number(pending.entityId));
+      document.querySelector('[data-tab="tab-historico"]')?.click();
+    }
+  } catch (err) {
+    console.warn('[Clientes] não foi possível abrir o cadastro pelo lembrete:', err);
   }
 });
