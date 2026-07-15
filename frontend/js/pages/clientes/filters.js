@@ -19,6 +19,10 @@ export function limparFiltrosClientes() {
   if ($('filtro-tipo')) $('filtro-tipo').value = '';
   if ($('filtro-situacao')) $('filtro-situacao').value = '';
   if ($('filtro-cidade')) $('filtro-cidade').value = '';
+
+  window.ValoraLocalizarPersonalizado?.clearFilters?.(
+    'localizar-personalizado-clientes'
+  );
 }
 
 export function initFilters(onChange) {

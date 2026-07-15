@@ -319,6 +319,7 @@
       data-localizar-personalizado="true"
       data-origem="${escapeHtml(field.origem)}"
       data-field="${escapeHtml(field.key)}"
+      data-filter-type="${escapeHtml(field.tipo || 'texto')}"
       data-param="${escapeHtml(field.origem === 'sistema' ? `filtro_sistema_${field.key}` : `filtro_custom_${field.key}`)}"
     `;
 
@@ -402,12 +403,19 @@
     const container = document.getElementById(containerId);
     if (!container || !params) return params;
 
+    let activeCount = 0;
     container.querySelectorAll('[data-localizar-personalizado="true"]').forEach((el) => {
+      if (el.disabled) return;
       const value = String(el.value ?? '').trim();
       const param = String(el.dataset.param || '').trim();
-      if (param && value) params.set(param, value);
+      if (!param || !value) return;
+      params.set(param, value);
+      activeCount += 1;
     });
 
+    // Ajuda a detectar regressões no navegador: qualquer filtro preenchido
+    // precisa resultar em um parâmetro enviado para a API.
+    container.dataset.activeFilterCount = String(activeCount);
     return params;
   }
 

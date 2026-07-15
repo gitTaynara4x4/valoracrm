@@ -1,8 +1,8 @@
 import { state } from './state.js';
-import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js';
+import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js?v=20260715-filtros-exatos-v2';
 import { $, toast } from './utils.js';
 import { renderTabelaClientes } from './table.js?v=20260713-pagination-top-v1';
-import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js';
+import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js?v=20260715-filtros-exatos-v2';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
 import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260714-agenda-historico-v1';
 import { bindImportExport, exportarClientesJSON } from './import-export.js';
@@ -25,8 +25,22 @@ function setTabelaLoading(message = 'Carregando clientes...') {
 
 async function reloadClientes({ offset = 0, silent = false } = {}) {
   if (!silent) setTabelaLoading('Buscando clientes no banco...');
-  await carregarClientes({ offset });
-  renderAll();
+  try {
+    await carregarClientes({ offset });
+    renderAll();
+  } catch (err) {
+    // Nunca mantenha uma listagem antiga na tela com um filtro novo selecionado.
+    // Em caso de incompatibilidade do filtro, a tabela fica vazia e o erro é exibido.
+    state.clientes = [];
+    state.clientesPage = {
+      offset: 0,
+      limit: Number(state.clientesPage?.limit || 50),
+      total: 0,
+      hasMore: false,
+    };
+    renderAll();
+    throw err;
+  }
 }
 
 async function reloadTudo() {
@@ -163,6 +177,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       modulo: 'clientes',
       filtersContainerId: 'localizar-personalizado-clientes',
     });
+
+    window.ValoraLocalizarPersonalizado?.bindFilters?.(
+      'localizar-personalizado-clientes',
+      async () => {
+        try {
+          await reloadClientes({ offset: 0, silent: true });
+        } catch (err) {
+          toast(err.message || 'Erro ao filtrar clientes.', 'error');
+        }
+      }
+    );
   } catch (err) {
     console.warn('[Clientes] localizar personalizado indisponível:', err);
   }

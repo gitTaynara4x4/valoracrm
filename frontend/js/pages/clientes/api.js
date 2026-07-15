@@ -13,7 +13,12 @@ export async function apiJson(url, options = {}) {
 
   if (!resp.ok) {
     const txt = await resp.text();
-    throw new Error(txt || 'Erro na requisição.');
+    let message = txt || 'Erro na requisição.';
+    try {
+      const payload = JSON.parse(txt);
+      message = payload?.detail || payload?.message || message;
+    } catch (_) {}
+    throw new Error(message);
   }
 
   if (resp.status === 204) return null;
@@ -31,6 +36,14 @@ function montarUrlClientes({ offset = 0, limit = state.clientesPage?.limit || 50
   if (filtro.tipo) params.set('tipo_pessoa', filtro.tipo);
   if (filtro.situacao) params.set('situacao', filtro.situacao);
   if (filtro.cidade) params.set('cidade', filtro.cidade);
+
+  // Inclui os filtros montados pela ficha principal (campos do sistema e
+  // personalizados). Sem isso, o valor aparecia na tela, mas nunca era
+  // enviado ao backend e a listagem continuava trazendo todos os clientes.
+  window.ValoraLocalizarPersonalizado?.addParams?.(
+    params,
+    'localizar-personalizado-clientes'
+  );
 
   return `${API_CLIENTES}?${params.toString()}`;
 }

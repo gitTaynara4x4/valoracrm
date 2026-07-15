@@ -5,11 +5,12 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
-from sqlalchemy import String, cast, text
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
+from backend.dynamic_filters import apply_dynamic_filters
 from backend import models
 
 router = APIRouter(prefix="/api/produtos", tags=["Produtos"])
@@ -40,58 +41,28 @@ def norm_str(s: Optional[str]) -> Optional[str]:
 
 
 
-def _dynamic_query_filters(request: Request, prefix: str) -> Dict[str, str]:
-    out: Dict[str, str] = {}
-    needle = f"{prefix}_"
-
-    for key, value in request.query_params.multi_items():
-        if not key.startswith(needle):
-            continue
-
-        field = key[len(needle):].strip()
-        text_value = str(value or "").strip()
-
-        if not field or not text_value:
-            continue
-
-        if not re.fullmatch(r"[A-Za-z0-9_]{1,120}", field):
-            continue
-
-        out[field] = text_value
-
-    return out
-
-
 def aplicar_filtros_dinamicos_produtos(query, request: Request, db: Session, empresa_id: int):
-    aliases = {
-        "produto": "nome",
-        "nome_produto": "nome",
-        "preco": "preco_venda",
-        "estoque": "estoque_atual",
-        "situacao": "ativo",
-        "status": "ativo",
-    }
-
-    for field, value in _dynamic_query_filters(request, "filtro_sistema").items():
-        attr = aliases.get(field, field)
-        col = getattr(models.Produto, attr, None)
-        if col is None:
-            continue
-        query = query.filter(cast(col, String).ilike(f"%{value}%"))
-
-    for slug, value in _dynamic_query_filters(request, "filtro_custom").items():
-        exists_filter = (
-            db.query(models.ProdutoCampoValor.id)
-            .join(models.CampoProduto, models.CampoProduto.id == models.ProdutoCampoValor.campo_id)
-            .filter(models.ProdutoCampoValor.produto_id == models.Produto.id)
-            .filter(models.CampoProduto.empresa_id == empresa_id)
-            .filter(models.CampoProduto.slug == slug)
-            .filter(models.ProdutoCampoValor.valor.ilike(f"%{value}%"))
-            .exists()
-        )
-        query = query.filter(exists_filter)
-
-    return query
+    return apply_dynamic_filters(
+        query,
+        request=request,
+        db=db,
+        empresa_id=empresa_id,
+        parent_model=models.Produto,
+        custom_field_model=models.CampoProduto,
+        custom_value_model=models.ProdutoCampoValor,
+        custom_parent_fk="produto_id",
+        system_aliases={
+            "produto": "nome",
+            "nome_produto": "nome",
+            "preco": "preco_venda",
+            "estoque": "estoque_atual",
+            "situacao": "ativo",
+            "status": "ativo",
+            "data_cadastro": "criado_em",
+        },
+        exact_system_fields={"unidade"},
+        digit_system_fields={"codigo", "codigo_barras"},
+    )
 
 
 def iso_datetime(value) -> Optional[str]:

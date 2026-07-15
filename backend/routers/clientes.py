@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from backend import models as core_models
 from backend.database import SessionLocal
+from backend.dynamic_filters import apply_dynamic_filters
 
 router = APIRouter(tags=["Clientes e Campos"])
 
@@ -129,85 +130,32 @@ def bloquear_transacao_clientes(db: Session, empresa_id: int) -> None:
     db.execute(sql_text("SELECT pg_advisory_xact_lock(:lock_key)"), {"lock_key": lock_key})
 
 
-def _dynamic_query_filters(request: Request, prefix: str) -> Dict[str, str]:
-    out: Dict[str, str] = {}
-    needle = f"{prefix}_"
-
-    for key, value in request.query_params.multi_items():
-      if not key.startswith(needle):
-          continue
-
-      field = key[len(needle):].strip()
-      text = str(value or "").strip()
-
-      if not field or not text:
-          continue
-
-      if not re.fullmatch(r"[A-Za-z0-9_]{1,120}", field):
-          continue
-
-      out[field] = text
-
-    return out
-
-
 def aplicar_filtros_dinamicos_clientes(query, request: Request, db: Session, empresa_id: int):
-    aliases = {
-        "tipo": "tipo_pessoa",
-        "documento": "cpf_cnpj",
-        "contato": "telefone",
-        "cidade_uf": "cidade",
-        "status": "situacao",
-        "data_cadastro": "criado_em",
-        "ativo": "situacao",
-    }
-
-    campos_numericos_formatados = {
-        "cpf_cnpj",
-        "rg_ie",
-        "inscricao_municipal",
-        "suframa",
-        "telefone",
-        "whatsapp",
-        "fax",
-        "cep",
-        "codigo_ibge_cidade",
-        "codigo_ibge_uf",
-        "codigo",
-    }
-
-    for field, value in _dynamic_query_filters(request, "filtro_sistema").items():
-        attr = aliases.get(field, field)
-        col = getattr(Cliente, attr, None)
-        if col is None:
-            continue
-
-        value_digits = normalizar_digitos(value)
-        if attr in campos_numericos_formatados and value_digits:
-            query = query.filter(somente_digitos_sql(col).like(f"%{value_digits}%"))
-        else:
-            query = query.filter(cast(col, String).ilike(f"%{value}%"))
-
-    for slug, value in _dynamic_query_filters(request, "filtro_custom").items():
-        value_digits = normalizar_digitos(value)
-        custom_conditions = [core_models.ClienteCampoValor.valor.ilike(f"%{value}%")]
-        if value_digits:
-            custom_conditions.append(
-                somente_digitos_sql(core_models.ClienteCampoValor.valor).like(f"%{value_digits}%")
-            )
-
-        exists_filter = (
-            db.query(core_models.ClienteCampoValor.id)
-            .join(core_models.CampoCliente, core_models.CampoCliente.id == core_models.ClienteCampoValor.campo_id)
-            .filter(core_models.ClienteCampoValor.cliente_id == Cliente.id)
-            .filter(core_models.CampoCliente.empresa_id == empresa_id)
-            .filter(core_models.CampoCliente.slug == slug)
-            .filter(or_(*custom_conditions))
-            .exists()
-        )
-        query = query.filter(exists_filter)
-
-    return query
+    return apply_dynamic_filters(
+        query,
+        request=request,
+        db=db,
+        empresa_id=empresa_id,
+        parent_model=Cliente,
+        custom_field_model=core_models.CampoCliente,
+        custom_value_model=core_models.ClienteCampoValor,
+        custom_parent_fk="cliente_id",
+        system_aliases={
+            "tipo": "tipo_pessoa",
+            "documento": "cpf_cnpj",
+            "contato": "telefone",
+            "cidade_uf": "cidade",
+            "status": "situacao",
+            "data_cadastro": "criado_em",
+            "ativo": "situacao",
+        },
+        exact_system_fields={"tipo_pessoa", "situacao", "estado"},
+        digit_system_fields={
+            "cpf_cnpj", "rg_ie", "inscricao_municipal", "suframa",
+            "telefone", "whatsapp", "fax", "cep", "codigo_ibge_cidade",
+            "codigo_ibge_uf", "codigo",
+        },
+    )
 
 
 def norm_upper(value: Any, allowed: set[str], default: str) -> str:

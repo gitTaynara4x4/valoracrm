@@ -270,12 +270,19 @@
     });
 
     if (config.dynamic) {
-      document.getElementById(config.dynamic)?.querySelectorAll('[data-localizar-personalizado="true"]')
-        .forEach((element) => {
-          const param = String(element.dataset.param || '').trim();
-          const value = String(element.value ?? '').trim();
-          if (param && value) params.set(param, value);
-        });
+      // Usa exatamente a mesma coleta da listagem. Assim, um filtro não pode
+      // funcionar na tela e ser ignorado na exportação (ou vice-versa).
+      if (window.ValoraLocalizarPersonalizado?.addParams) {
+        window.ValoraLocalizarPersonalizado.addParams(params, config.dynamic);
+      } else {
+        document.getElementById(config.dynamic)?.querySelectorAll('[data-localizar-personalizado="true"]')
+          .forEach((element) => {
+            if (element.disabled) return;
+            const param = String(element.dataset.param || '').trim();
+            const value = String(element.value ?? '').trim();
+            if (param && value) params.set(param, value);
+          });
+      }
     }
 
     if (scope === 'page') {

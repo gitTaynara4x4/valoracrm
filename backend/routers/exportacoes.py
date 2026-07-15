@@ -13,11 +13,12 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
-from sqlalchemy import String, cast, inspect as sa_inspect
+from sqlalchemy import String, cast, func, inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from backend import models
 from backend.database import SessionLocal
+from backend.dynamic_filters import apply_dynamic_filters, parse_bool
 
 router = APIRouter(prefix="/api/exportacoes", tags=["Exportações"])
 
@@ -187,7 +188,9 @@ MODULES: Dict[str, Dict[str, Any]] = {
         ],
         "search_fields": ["codigo", "nome", "nome_fantasia", "cpf_cnpj", "telefone", "whatsapp", "email", "cidade"],
         "filter_fields": {"situacao": "situacao", "tipo_pessoa": "tipo_pessoa", "cidade": "cidade"},
-        "system_aliases": {"tipo": "tipo_pessoa", "documento": "cpf_cnpj", "contato": "telefone", "cidade_uf": "cidade", "status": "situacao"},
+        "system_aliases": {"tipo": "tipo_pessoa", "documento": "cpf_cnpj", "contato": "telefone", "cidade_uf": "cidade", "status": "situacao", "data_cadastro": "criado_em", "ativo": "situacao"},
+        "exact_system_fields": {"tipo_pessoa", "situacao", "estado"},
+        "digit_system_fields": {"codigo", "cpf_cnpj", "rg_ie", "inscricao_municipal", "suframa", "telefone", "whatsapp", "fax", "cep", "codigo_ibge_cidade", "codigo_ibge_uf"},
         "title_fields": ("codigo", "nome"),
         "nested": [
             ("Endereços adicionais", models.ClienteEndereco, "cliente_id"),
@@ -215,7 +218,9 @@ MODULES: Dict[str, Dict[str, Any]] = {
         ],
         "search_fields": ["codigo", "nome", "nome_fantasia", "cpf_cnpj", "telefone", "whatsapp", "email", "cidade"],
         "filter_fields": {"situacao": "situacao", "tipo": "tipo_fornecedor", "cidade": "cidade"},
-        "system_aliases": {"tipo": "tipo_fornecedor", "fornecedor": "nome", "documento": "cpf_cnpj", "contato": "telefone", "cidade_uf": "cidade", "status": "situacao"},
+        "system_aliases": {"tipo": "tipo_fornecedor", "fornecedor": "nome", "documento": "cpf_cnpj", "contato": "telefone", "cidade_uf": "cidade", "status": "situacao", "data_cadastro": "criado_em"},
+        "exact_system_fields": {"tipo_fornecedor", "situacao", "estado"},
+        "digit_system_fields": {"codigo", "cpf_cnpj", "inscricao_estadual", "inscricao_municipal", "telefone", "whatsapp", "fax", "cep", "codigo_ibge_cidade", "codigo_ibge_uf"},
         "title_fields": ("codigo", "nome"),
         "nested": [],
     },
@@ -232,7 +237,9 @@ MODULES: Dict[str, Dict[str, Any]] = {
         ],
         "search_fields": ["codigo", "nome", "descricao", "categoria"],
         "filter_fields": {"categoria": "categoria", "ativo": "ativo"},
-        "system_aliases": {"produto": "nome", "nome_produto": "nome", "preco": "preco_venda", "estoque": "estoque_atual", "situacao": "ativo", "status": "ativo"},
+        "system_aliases": {"produto": "nome", "nome_produto": "nome", "preco": "preco_venda", "estoque": "estoque_atual", "situacao": "ativo", "status": "ativo", "data_cadastro": "criado_em"},
+        "exact_system_fields": {"unidade"},
+        "digit_system_fields": {"codigo", "codigo_barras"},
         "title_fields": ("codigo", "nome"),
         "nested": [],
     },
@@ -250,7 +257,9 @@ MODULES: Dict[str, Dict[str, Any]] = {
         ],
         "search_fields": ["codigo", "nome", "numero_serie", "localizacao", "responsavel", "categoria"],
         "filter_fields": {"status": "status", "categoria": "categoria", "ativo": "ativo"},
-        "system_aliases": {"patrimonio": "nome", "situacao": "status"},
+        "system_aliases": {"patrimonio": "nome", "situacao": "status", "data_cadastro": "criado_em"},
+        "exact_system_fields": {"status"},
+        "digit_system_fields": {"codigo", "numero_serie"},
         "title_fields": ("codigo", "nome"),
         "nested": [],
     },
@@ -268,7 +277,9 @@ MODULES: Dict[str, Dict[str, Any]] = {
         ],
         "search_fields": ["codigo", "item_nome", "descricao", "categoria"],
         "filter_fields": {"status": "status", "categoria": "categoria"},
-        "system_aliases": {"item": "item_nome", "produto": "item_nome", "situacao": "status"},
+        "system_aliases": {"item": "item_nome", "produto": "item_nome", "situacao": "status", "data_cadastro": "criado_em"},
+        "exact_system_fields": {"status", "urgencia"},
+        "digit_system_fields": {"codigo"},
         "title_fields": ("codigo", "item_nome"),
         "nested": [("Fornecedores cotados", models.CotacaoFornecedor, "cotacao_id")],
     },
@@ -390,29 +401,6 @@ def _serialize_model_row(row: Any, *, preferred: Sequence[str], exclude: Iterabl
     return out
 
 
-def _parse_bool(value: Any) -> Optional[bool]:
-    text = str(value or "").strip().lower()
-    if not text:
-        return None
-    if text in {"true", "1", "sim", "yes", "ativo"}:
-        return True
-    if text in {"false", "0", "nao", "não", "no", "inativo"}:
-        return False
-    return None
-
-
-def _dynamic_filters(request: Request, prefix: str) -> Dict[str, str]:
-    result: Dict[str, str] = {}
-    needle = f"{prefix}_"
-    for key, value in request.query_params.multi_items():
-        if not key.startswith(needle):
-            continue
-        field = key[len(needle):].strip()
-        text = str(value or "").strip()
-        if field and text and re.fullmatch(r"[A-Za-z0-9_]{1,120}", field):
-            result[field] = text
-    return result
-
 
 def _apply_filters(query: Any, config: Mapping[str, Any], request: Request, db: Session, empresa_id: int):
     model = config["model"]
@@ -450,43 +438,31 @@ def _apply_filters(query: Any, config: Mapping[str, Any], request: Request, db: 
         if column is None:
             continue
         if field == "ativo":
-            parsed = _parse_bool(raw)
+            parsed = parse_bool(raw)
             if parsed is not None:
                 query = query.filter(column == parsed)
-        elif param in {"cidade", "categoria", "tipo"}:
+        elif field in set(config.get("exact_system_fields", ())):
+            query = query.filter(
+                func.lower(func.trim(cast(column, String))) == raw.lower()
+            )
+        elif param in {"cidade", "categoria"}:
             query = query.filter(cast(column, String).ilike(f"%{raw}%"))
         else:
             query = query.filter(cast(column, String) == raw)
 
-    aliases = dict(config.get("system_aliases", {}))
-    for field, raw in _dynamic_filters(request, "filtro_sistema").items():
-        attr = aliases.get(field, field)
-        column = getattr(model, attr, None)
-        if column is None:
-            continue
-        if attr == "ativo":
-            parsed = _parse_bool(raw)
-            if parsed is not None:
-                query = query.filter(column == parsed)
-        else:
-            query = query.filter(cast(column, String).ilike(f"%{raw}%"))
-
-    custom_field_model = config["custom_field_model"]
-    custom_value_model = config["custom_value_model"]
-    parent_fk = config["custom_parent_fk"]
-    parent_column = getattr(custom_value_model, parent_fk)
-
-    for slug, raw in _dynamic_filters(request, "filtro_custom").items():
-        exists_filter = (
-            db.query(custom_value_model.id)
-            .join(custom_field_model, custom_field_model.id == custom_value_model.campo_id)
-            .filter(parent_column == model.id)
-            .filter(custom_field_model.empresa_id == empresa_id)
-            .filter(custom_field_model.slug == slug)
-            .filter(custom_value_model.valor.ilike(f"%{raw}%"))
-            .exists()
-        )
-        query = query.filter(exists_filter)
+    query = apply_dynamic_filters(
+        query,
+        request=request,
+        db=db,
+        empresa_id=empresa_id,
+        parent_model=model,
+        custom_field_model=config["custom_field_model"],
+        custom_value_model=config["custom_value_model"],
+        custom_parent_fk=config["custom_parent_fk"],
+        system_aliases=config.get("system_aliases", {}),
+        exact_system_fields=config.get("exact_system_fields", ()),
+        digit_system_fields=config.get("digit_system_fields", ()),
+    )
 
     return query
 

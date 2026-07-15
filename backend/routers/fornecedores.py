@@ -6,12 +6,12 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import String, cast
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from backend import models
 from backend.database import SessionLocal
+from backend.dynamic_filters import apply_dynamic_filters
 
 router = APIRouter(tags=["Fornecedores"])
 
@@ -71,58 +71,32 @@ def norm_str(value: Any) -> Optional[str]:
 
 
 
-def _dynamic_query_filters(request: Request, prefix: str) -> Dict[str, str]:
-    out: Dict[str, str] = {}
-    needle = f"{prefix}_"
-
-    for key, value in request.query_params.multi_items():
-        if not key.startswith(needle):
-            continue
-
-        field = key[len(needle):].strip()
-        text = str(value or "").strip()
-
-        if not field or not text:
-            continue
-
-        if not re.fullmatch(r"[A-Za-z0-9_]{1,120}", field):
-            continue
-
-        out[field] = text
-
-    return out
-
-
 def aplicar_filtros_dinamicos_fornecedores(query, request: Request, db: Session, empresa_id: int):
-    aliases = {
-        "tipo": "tipo_fornecedor",
-        "fornecedor": "nome",
-        "documento": "cpf_cnpj",
-        "contato": "telefone",
-        "cidade_uf": "cidade",
-        "status": "situacao",
-    }
-
-    for field, value in _dynamic_query_filters(request, "filtro_sistema").items():
-        attr = aliases.get(field, field)
-        col = getattr(Fornecedor, attr, None)
-        if col is None:
-            continue
-        query = query.filter(cast(col, String).ilike(f"%{value}%"))
-
-    for slug, value in _dynamic_query_filters(request, "filtro_custom").items():
-        exists_filter = (
-            db.query(FornecedorCampoValor.id)
-            .join(CampoFornecedor, CampoFornecedor.id == FornecedorCampoValor.campo_id)
-            .filter(FornecedorCampoValor.fornecedor_id == Fornecedor.id)
-            .filter(CampoFornecedor.empresa_id == empresa_id)
-            .filter(CampoFornecedor.slug == slug)
-            .filter(FornecedorCampoValor.valor.ilike(f"%{value}%"))
-            .exists()
-        )
-        query = query.filter(exists_filter)
-
-    return query
+    return apply_dynamic_filters(
+        query,
+        request=request,
+        db=db,
+        empresa_id=empresa_id,
+        parent_model=Fornecedor,
+        custom_field_model=CampoFornecedor,
+        custom_value_model=FornecedorCampoValor,
+        custom_parent_fk="fornecedor_id",
+        system_aliases={
+            "tipo": "tipo_fornecedor",
+            "fornecedor": "nome",
+            "documento": "cpf_cnpj",
+            "contato": "telefone",
+            "cidade_uf": "cidade",
+            "status": "situacao",
+            "data_cadastro": "criado_em",
+        },
+        exact_system_fields={"tipo_fornecedor", "situacao", "estado"},
+        digit_system_fields={
+            "cpf_cnpj", "inscricao_estadual", "inscricao_municipal",
+            "telefone", "whatsapp", "fax", "cep", "codigo_ibge_cidade",
+            "codigo_ibge_uf", "codigo",
+        },
+    )
 
 
 def iso_datetime(value: Any) -> Optional[str]:
@@ -625,7 +599,7 @@ def listar_fornecedores(
             query = query.filter(Fornecedor.situacao == str(situacao).strip().lower())
 
         if norm_str(tipo_fornecedor) and hasattr(Fornecedor, "tipo_fornecedor"):
-            query = query.filter(Fornecedor.tipo_fornecedor.ilike(f"%{str(tipo_fornecedor).strip()}%"))
+            query = query.filter(Fornecedor.tipo_fornecedor.ilike(str(tipo_fornecedor).strip()))
 
         if norm_str(cidade) and hasattr(Fornecedor, "cidade"):
             query = query.filter(Fornecedor.cidade.ilike(f"%{str(cidade).strip()}%"))
