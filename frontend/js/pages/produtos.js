@@ -1034,7 +1034,7 @@
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="${6 + getCamposTabelaProdutos().length}" class="empty-state" style="border:none; text-align:center;">
+        <td colspan="${Math.max(1, getColunasOrdenadasProdutos().length)}" class="empty-state" style="border:none; text-align:center;">
           ${escapeHtml(message)}
         </td>
       </tr>

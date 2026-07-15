@@ -725,7 +725,7 @@ function setFornecedoresLoading(message = 'Buscando fornecedores no banco...') {
   if (!tbody) return;
   tbody.innerHTML = `
     <tr>
-      <td colspan="${8 + getCamposTabelaFornecedores().length}" class="empty-state" style="border:none; text-align:center;">
+      <td colspan="${Math.max(1, getColunasOrdenadasFornecedores().length)}" class="empty-state" style="border:none; text-align:center;">
         ${escapeHtml(message)}
       </td>
     </tr>
