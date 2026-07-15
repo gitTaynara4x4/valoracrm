@@ -48,7 +48,8 @@
   };
 
 
-  const LOCALIZAR_LAYOUT_PREFIX = 'valora_localizar_layout_v2:';
+  const LOCALIZAR_LAYOUT_PREFIX = 'valora_localizar_layout_v3:';
+  const localizarLayoutSyncTimers = new Map();
 
   const PREVIEW_LOCALIZAR_NATIVO = {
     clientes: [
@@ -1063,6 +1064,11 @@
     return `${LOCALIZAR_LAYOUT_PREFIX}${modulo || 'clientes'}`;
   }
 
+  function normalizarOrdemLayout(value) {
+    const list = Array.isArray(value) ? value : [];
+    return [...new Set(list.map((item) => String(item || '').trim()).filter(Boolean))];
+  }
+
   function normalizarLayoutLocalizar(raw) {
     const hiddenFilters = Array.isArray(raw?.hiddenFilters) ? raw.hiddenFilters : [];
     const hiddenColumns = Array.isArray(raw?.hiddenColumns) ? raw.hiddenColumns : [];
@@ -1070,6 +1076,8 @@
     return {
       hiddenFilters: [...new Set(hiddenFilters.map((item) => String(item || '').trim()).filter(Boolean))],
       hiddenColumns: [...new Set(hiddenColumns.map((item) => String(item || '').trim()).filter(Boolean))],
+      filterOrder: normalizarOrdemLayout(raw?.filterOrder),
+      columnOrder: normalizarOrdemLayout(raw?.columnOrder),
     };
   }
 
@@ -1081,8 +1089,43 @@
     }
   }
 
+  async function carregarLayoutLocalizarServidor(modulo = state.modulo) {
+    try {
+      const data = await apiJson(`${API_BASE}/layout-localizar/${encodeURIComponent(modulo)}`);
+      const layout = normalizarLayoutLocalizar(data?.layout || {});
+      localStorage.setItem(localizarStorageKey(modulo), JSON.stringify(layout));
+      return layout;
+    } catch (err) {
+      console.warn('[Formulários] layout compartilhado indisponível; usando cache local.', err);
+      return getLayoutLocalizar(modulo);
+    }
+  }
+
+  function agendarSalvarLayoutLocalizar(layout, modulo = state.modulo) {
+    const key = String(modulo || 'clientes');
+    clearTimeout(localizarLayoutSyncTimers.get(key));
+
+    const timer = setTimeout(async () => {
+      try {
+        await apiJson(`${API_BASE}/layout-localizar/${encodeURIComponent(key)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(normalizarLayoutLocalizar(layout)),
+        });
+      } catch (err) {
+        console.warn('[Formulários] não foi possível sincronizar o layout; ele continua salvo neste navegador.', err);
+      } finally {
+        localizarLayoutSyncTimers.delete(key);
+      }
+    }, 180);
+
+    localizarLayoutSyncTimers.set(key, timer);
+  }
+
   function setLayoutLocalizar(layout, modulo = state.modulo) {
-    localStorage.setItem(localizarStorageKey(modulo), JSON.stringify(normalizarLayoutLocalizar(layout)));
+    const normalized = normalizarLayoutLocalizar(layout);
+    localStorage.setItem(localizarStorageKey(modulo), JSON.stringify(normalized));
+    agendarSalvarLayoutLocalizar(normalized, modulo);
   }
 
   function itemLayoutKey(origin, key) {
@@ -1116,6 +1159,30 @@
     ).trim();
   }
 
+  function layoutOrderProp(area) {
+    return area === 'columns' ? 'columnOrder' : 'filterOrder';
+  }
+
+  function ordenarItensLayout(area, items) {
+    const layout = getLayoutLocalizar();
+    const ordemSalva = layout[layoutOrderProp(area)] || [];
+    const indexMap = new Map(ordemSalva.map((key, index) => [key, index]));
+
+    return [...items].sort((a, b) => {
+      const aFixed = !!a?.fixed || a?.key === 'acoes';
+      const bFixed = !!b?.fixed || b?.key === 'acoes';
+      if (aFixed !== bFixed) return aFixed ? 1 : -1;
+
+      const aKey = itemLayoutKey(a?.origin, a?.key);
+      const bKey = itemLayoutKey(b?.origin, b?.key);
+      const aIndex = indexMap.has(aKey) ? indexMap.get(aKey) : Number.MAX_SAFE_INTEGER;
+      const bIndex = indexMap.has(bKey) ? indexMap.get(bKey) : Number.MAX_SAFE_INTEGER;
+
+      if (aIndex !== bIndex) return aIndex - bIndex;
+      return Number(a?.defaultOrder || 0) - Number(b?.defaultOrder || 0);
+    });
+  }
+
   function isItemPreviewVisivel(area, origin, key, fixed = false) {
     if (fixed || key === 'acoes') return true;
 
@@ -1124,9 +1191,9 @@
     return !hiddenList.includes(itemLayoutKey(origin, key));
   }
 
-  function toggleItemPreview(area, origin, key, fixed = false) {
+  function setItemPreviewVisivel(area, origin, key, visible, fixed = false) {
     if (fixed || key === 'acoes') {
-      toast('A coluna Ações fica fixa para não perder editar/excluir.', true);
+      toast('A coluna Ações fica fixa para não perder editar e excluir.', true);
       return;
     }
 
@@ -1135,46 +1202,96 @@
     const current = new Set(layout[prop]);
     const fullKey = itemLayoutKey(origin, key);
 
-    if (current.has(fullKey)) {
-      current.delete(fullKey);
-    } else {
-      current.add(fullKey);
-    }
+    if (visible) current.delete(fullKey);
+    else current.add(fullKey);
 
     layout[prop] = [...current];
     setLayoutLocalizar(layout);
     renderPreviewLocalizar();
   }
 
+  function toggleItemPreview(area, origin, key, fixed = false) {
+    const visible = isItemPreviewVisivel(area, origin, key, fixed);
+    setItemPreviewVisivel(area, origin, key, !visible, fixed);
+  }
+
+  function removerItemPersonalizadoPreview(area, origin, key, fixed = false) {
+    if (origin === 'nativo') {
+      toggleItemPreview(area, origin, key, fixed);
+      return;
+    }
+
+    const visible = isItemPreviewVisivel(area, origin, key, fixed);
+    setItemPreviewVisivel(area, origin, key, !visible, fixed);
+
+    if (visible) {
+      toast(
+        area === 'columns'
+          ? 'Campo removido somente da tabela. O campo e os dados cadastrados continuam intactos.'
+          : 'Campo removido somente do Localizar. O campo e os dados cadastrados continuam intactos.'
+      );
+    } else {
+      toast(area === 'columns' ? 'Campo adicionado novamente à tabela.' : 'Campo adicionado novamente ao Localizar.');
+    }
+  }
+
   function formatarLocalizarPadrao() {
-    localStorage.removeItem(localizarStorageKey());
+    setLayoutLocalizar(normalizarLayoutLocalizar({}));
     renderPreviewLocalizar();
-    toast('Prévia formatada: filtros e tabela voltaram ao padrão do módulo.');
+    toast('Prévia formatada: visibilidade e posições voltaram ao padrão do módulo.');
   }
 
   function labelOrigemPreview(origin) {
     if (origin === 'nativo') return 'Nativo';
     if (origin === 'sistema') return 'Sistema';
-    return 'Adicionado';
+    return 'Personalizado';
   }
 
-  function renderTogglePreview({ area, origin, key, visible, fixed = false }) {
-    if (fixed || key === 'acoes') {
-      return '';
+  function renderDragHandlePreview({ fixed = false }) {
+    if (fixed) return '';
+
+    return `
+      <span class="localizar-preview-drag" title="Arraste para mudar a posição" aria-hidden="true">
+        <i class="fa-solid fa-grip-vertical"></i>
+      </span>
+    `;
+  }
+
+  function renderActionPreview({ area, origin, key, visible, fixed = false }) {
+    if (fixed || key === 'acoes') return '';
+
+    if (origin === 'nativo') {
+      return `
+        <button
+          type="button"
+          class="localizar-preview-toggle"
+          data-localizar-preview-toggle="true"
+          data-area="${escapeHtml(area)}"
+          data-origin="${escapeHtml(origin)}"
+          data-key="${escapeHtml(key)}"
+          title="${visible ? 'Ocultar este campo nativo' : 'Mostrar este campo nativo'}"
+          aria-pressed="${visible ? 'true' : 'false'}"
+        >
+          <i class="fa-solid ${visible ? 'fa-eye' : 'fa-eye-slash'}"></i>
+        </button>
+      `;
     }
 
+    const actionTitle = area === 'columns'
+      ? (visible ? 'Remover somente da tabela' : 'Adicionar novamente à tabela')
+      : (visible ? 'Remover somente do Localizar' : 'Adicionar novamente ao Localizar');
     return `
       <button
         type="button"
-        class="localizar-preview-toggle"
-        data-localizar-preview-toggle="true"
+        class="localizar-preview-remove ${visible ? '' : 'is-restore'}"
+        data-localizar-preview-remove="true"
         data-area="${escapeHtml(area)}"
         data-origin="${escapeHtml(origin)}"
         data-key="${escapeHtml(key)}"
-        title="${visible ? 'Ocultar este campo' : 'Mostrar este campo'}"
-        aria-pressed="${visible ? 'true' : 'false'}"
+        title="${escapeHtml(actionTitle)}"
+        aria-pressed="${visible ? 'false' : 'true'}"
       >
-        <i class="fa-solid ${visible ? 'fa-eye' : 'fa-eye-slash'}"></i>
+        <i class="fa-solid ${visible ? 'fa-trash-can' : 'fa-arrow-rotate-left'}"></i>
       </button>
     `;
   }
@@ -1189,13 +1306,23 @@
     const fixed = !!field?.fixed;
     const visible = isItemPreviewVisivel('filters', origin, key, fixed);
     const hiddenClass = visible ? '' : 'is-hidden-preview';
+    const statusLabel = visible ? originLabel : (origin === 'nativo' ? 'Oculto' : 'Removido');
 
     return `
-      <div class="localizar-preview-filter ${escapeHtml(extraClass)} ${hiddenClass}" data-origin="${escapeHtml(origin)}" data-key="${escapeHtml(key)}">
+      <div
+        class="localizar-preview-filter ${escapeHtml(extraClass)} ${hiddenClass}"
+        data-origin="${escapeHtml(origin)}"
+        data-key="${escapeHtml(key)}"
+        data-area="filters"
+        data-layout-key="${escapeHtml(itemLayoutKey(origin, key))}"
+        data-localizar-preview-item="true"
+        draggable="${fixed ? 'false' : 'true'}"
+      >
         <div class="localizar-preview-filter-top">
-          <span>${escapeHtml(label)}</span>
-          <em class="localizar-preview-origin">${escapeHtml(visible ? originLabel : 'Oculto')}</em>
-          ${renderTogglePreview({ area: 'filters', origin, key, visible, fixed })}
+          ${renderDragHandlePreview({ fixed })}
+          <span class="localizar-preview-item-label">${escapeHtml(label)}</span>
+          <em class="localizar-preview-origin">${escapeHtml(statusLabel)}</em>
+          ${renderActionPreview({ area: 'filters', origin, key, visible, fixed })}
         </div>
         <div class="localizar-preview-input">
           <i class="fa-solid ${escapeHtml(icon)}"></i>
@@ -1213,14 +1340,71 @@
     const originLabel = labelOrigemPreview(origin);
     const visible = isItemPreviewVisivel('columns', origin, key, fixed);
     const hiddenClass = visible ? '' : 'is-hidden-preview';
+    const statusLabel = fixed ? 'Fixo' : (visible ? originLabel : (origin === 'nativo' ? 'Oculto' : 'Removido'));
 
     return `
-      <span class="localizar-preview-col ${hiddenClass}" data-origin="${escapeHtml(origin)}" data-key="${escapeHtml(key)}">
-        <span>${escapeHtml(label)}</span>
-        <em>${escapeHtml(fixed ? 'Fixo' : (visible ? originLabel : 'Oculto'))}</em>
-        ${renderTogglePreview({ area: 'columns', origin, key, visible, fixed })}
+      <span
+        class="localizar-preview-col ${hiddenClass}"
+        data-origin="${escapeHtml(origin)}"
+        data-key="${escapeHtml(key)}"
+        data-area="columns"
+        data-layout-key="${escapeHtml(itemLayoutKey(origin, key))}"
+        data-localizar-preview-item="true"
+        draggable="${fixed ? 'false' : 'true'}"
+      >
+        ${renderDragHandlePreview({ fixed })}
+        <span class="localizar-preview-item-label">${escapeHtml(label)}</span>
+        <em>${escapeHtml(statusLabel)}</em>
+        ${renderActionPreview({ area: 'columns', origin, key, visible, fixed })}
       </span>
     `;
+  }
+
+  function itensPreviewFiltros(nativeFilters, camposLocalizar) {
+    const nativeItems = nativeFilters.map((field, index) => ({
+      ...field,
+      origin: 'nativo',
+      defaultOrder: index,
+    }));
+
+    const customItems = camposLocalizar.map((campo, index) => {
+      const tipo = normalizarTipoCampoFrontend(campo.tipo_campo || 'texto');
+      return {
+        key: chaveCampoPreview(campo),
+        label: campo.label || campo.nome || 'Campo',
+        kind: tipo === 'select' || tipo === 'multiselect' || tipo === 'checkbox' ? 'select' : 'input',
+        placeholder: campo.placeholder || `Filtrar por ${campo.label || campo.nome || 'campo'}`,
+        origin: origemCampoPreview(campo),
+        defaultOrder: nativeItems.length + index,
+      };
+    });
+
+    return ordenarItensLayout('filters', [...nativeItems, ...customItems]);
+  }
+
+  function itensPreviewTabela(nativeColumns, camposTabela) {
+    const nativeBefore = [];
+    const nativeAfter = [];
+
+    nativeColumns.forEach((column) => {
+      const col = typeof column === 'string' ? { key: slugLocalizar(column), label: column } : { ...column };
+      if (col.key === 'situacao' || col.key === 'acoes') nativeAfter.push(col);
+      else nativeBefore.push(col);
+    });
+
+    const customItems = camposTabela.map((campo) => ({
+      key: chaveCampoPreview(campo),
+      label: campo.label || campo.nome || 'Campo',
+      origin: origemCampoPreview(campo),
+    }));
+
+    const defaultItems = [
+      ...nativeBefore.map((col) => ({ ...col, origin: 'nativo' })),
+      ...customItems,
+      ...nativeAfter.map((col) => ({ ...col, origin: 'nativo' })),
+    ].map((item, index) => ({ ...item, defaultOrder: index }));
+
+    return ordenarItensLayout('columns', defaultItems);
   }
 
   function renderPreviewLocalizar() {
@@ -1247,50 +1431,25 @@
 
     const camposLocalizar = getCamposPreview(campoDeveAparecerNoLocalizarPreview);
     const camposTabela = getCamposPreview(campoMarcadoTabela);
+    const filtros = itensPreviewFiltros(nativeFilters, camposLocalizar);
+    const colunas = itensPreviewTabela(nativeColumns, camposTabela);
 
-    const filtrosHtml = [
-      ...nativeFilters.map((field) => renderPreviewField({ ...field, origin: 'nativo' })),
-      ...camposLocalizar.map((campo) => {
-        const tipo = normalizarTipoCampoFrontend(campo.tipo_campo || 'texto');
-        const origin = origemCampoPreview(campo);
-
-        return renderPreviewField({
-          key: chaveCampoPreview(campo),
-          label: campo.label || campo.nome || 'Campo',
-          kind: tipo === 'select' || tipo === 'multiselect' || tipo === 'checkbox' ? 'select' : 'input',
-          placeholder: campo.placeholder || `Filtrar por ${campo.label || campo.nome || 'campo'}`,
-          origin,
-        }, 'is-custom');
-      }),
-    ].join('');
-
-    filtersWrap.innerHTML = filtrosHtml + (camposLocalizar.length ? '' : `
+    filtersWrap.innerHTML = filtros.map((field) => renderPreviewField(
+      field,
+      field.origin === 'nativo' ? '' : 'is-custom'
+    )).join('') + (camposLocalizar.length ? '' : `
       <div class="localizar-preview-note">
         Marque <strong>Mostrar na tabela</strong> ou <strong>Usar no localizar</strong> para o campo aparecer aqui.
       </div>
     `);
 
-    const customColumnsHtml = camposTabela.map((campo) => renderPreviewColumn({
-      key: chaveCampoPreview(campo),
-      label: campo.label || campo.nome || 'Campo',
-    }, origemCampoPreview(campo))).join('');
-
-    const insertBeforeIndex = nativeColumns.findIndex((col) => {
-      const key = typeof col === 'string' ? slugLocalizar(col) : col.key;
-      return key === 'situacao' || key === 'acoes';
-    });
-    const beforeColumns = insertBeforeIndex >= 0 ? nativeColumns.slice(0, insertBeforeIndex) : nativeColumns;
-    const afterColumns = insertBeforeIndex >= 0 ? nativeColumns.slice(insertBeforeIndex) : [];
-
     tableWrap.innerHTML = `
       <div class="localizar-preview-table-row">
-        ${beforeColumns.map((col) => renderPreviewColumn(col, 'nativo')).join('')}
-        ${customColumnsHtml}
-        ${afterColumns.map((col) => renderPreviewColumn(col, 'nativo')).join('')}
+        ${colunas.map((col) => renderPreviewColumn(col, col.origin || 'nativo')).join('')}
       </div>
       ${camposTabela.length ? '' : `
         <div class="localizar-preview-note tabela-note">
-          Marque <strong>Mostrar na tabela</strong> para adicionar colunas extras depois das colunas nativas. O mesmo campo também entra no Localizar.
+          Marque <strong>Mostrar na tabela</strong> para adicionar colunas extras. Depois, arraste para escolher a posição.
         </div>
       `}
     `;
@@ -1302,11 +1461,109 @@
         ...camposTabela.map((campo) => `${origemCampoPreview(campo)}:${chaveCampoPreview(campo)}`),
       ]);
       const adicionados = camposUnicos.size;
-      const ocultos = layout.hiddenFilters.length + layout.hiddenColumns.length;
+      const chavesNativasFiltros = new Set(nativeFilters.map((field) => itemLayoutKey('nativo', field.key)));
+      const chavesNativasColunas = new Set(nativeColumns.map((col) => itemLayoutKey('nativo', typeof col === 'string' ? slugLocalizar(col) : col.key)));
+      const ocultosNativos = [
+        ...layout.hiddenFilters.filter((key) => chavesNativasFiltros.has(key)),
+        ...layout.hiddenColumns.filter((key) => chavesNativasColunas.has(key)),
+      ].length;
+      const removidosAdicionados = [
+        ...layout.hiddenFilters.filter((key) => !key.startsWith('nativo:')),
+        ...layout.hiddenColumns.filter((key) => !key.startsWith('nativo:')),
+      ].length;
+
       const partes = [`${adicionados} ${adicionados === 1 ? 'campo adicionado' : 'campos adicionados'}`];
-      if (ocultos) partes.push(`${ocultos} ${ocultos === 1 ? 'oculto' : 'ocultos'}`);
+      if (ocultosNativos) partes.push(`${ocultosNativos} ${ocultosNativos === 1 ? 'nativo oculto' : 'nativos ocultos'}`);
+      if (removidosAdicionados) partes.push(`${removidosAdicionados} ${removidosAdicionados === 1 ? 'removido' : 'removidos'}`);
       summary.textContent = partes.join(' • ');
     }
+  }
+
+  let previewDragState = null;
+
+  function getPreviewItemsArea(area) {
+    const root = area === 'columns'
+      ? qs('preview-tabela-fields')?.querySelector('.localizar-preview-table-row')
+      : qs('preview-localizar-fields');
+
+    if (!root) return [];
+    return [...root.querySelectorAll(`[data-localizar-preview-item="true"][data-area="${area}"]`)];
+  }
+
+  function salvarOrdemPreview(area) {
+    const layout = getLayoutLocalizar();
+    layout[layoutOrderProp(area)] = getPreviewItemsArea(area)
+      .map((item) => String(item.dataset.layoutKey || '').trim())
+      .filter(Boolean);
+    setLayoutLocalizar(layout);
+  }
+
+  function limparEstadoDragPreview() {
+    document.querySelectorAll('.localizar-preview-card .is-dragging, .localizar-preview-card .is-drag-target')
+      .forEach((el) => el.classList.remove('is-dragging', 'is-drag-target'));
+    previewDragState = null;
+  }
+
+  function bindPreviewDrag(card) {
+    card.addEventListener('dragstart', (event) => {
+      const item = event.target.closest?.('[data-localizar-preview-item="true"]');
+      if (!item || item.getAttribute('draggable') !== 'true') return;
+
+      previewDragState = {
+        item,
+        area: item.dataset.area,
+        moved: false,
+      };
+      item.classList.add('is-dragging');
+
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', item.dataset.layoutKey || '');
+      }
+    });
+
+    card.addEventListener('dragover', (event) => {
+      if (!previewDragState?.item) return;
+
+      const target = event.target.closest?.('[data-localizar-preview-item="true"]');
+      if (!target || target === previewDragState.item || target.dataset.area !== previewDragState.area) return;
+
+      event.preventDefault();
+      const parent = target.parentElement;
+      if (!parent) return;
+
+      document.querySelectorAll('.localizar-preview-card .is-drag-target')
+        .forEach((el) => el.classList.remove('is-drag-target'));
+      target.classList.add('is-drag-target');
+
+      const rect = target.getBoundingClientRect();
+      const pointerInsideSameRow = event.clientY >= rect.top && event.clientY <= rect.bottom;
+      const before = pointerInsideSameRow
+        ? event.clientX < rect.left + rect.width / 2
+        : event.clientY < rect.top + rect.height / 2;
+
+      parent.insertBefore(previewDragState.item, before ? target : target.nextSibling);
+      previewDragState.moved = true;
+    });
+
+    card.addEventListener('drop', (event) => {
+      if (!previewDragState?.item) return;
+      event.preventDefault();
+
+      const area = previewDragState.area;
+      salvarOrdemPreview(area);
+      limparEstadoDragPreview();
+      renderPreviewLocalizar();
+      toast(area === 'columns' ? 'Ordem das colunas atualizada.' : 'Ordem dos filtros atualizada.');
+    });
+
+    card.addEventListener('dragend', () => {
+      const moved = previewDragState?.moved;
+      const area = previewDragState?.area;
+      if (moved && area) salvarOrdemPreview(area);
+      limparEstadoDragPreview();
+      renderPreviewLocalizar();
+    });
   }
 
   async function carregarModelos() {
@@ -2450,6 +2707,7 @@
     await Promise.all([
       carregarCamposSistema(),
       carregarCamposPersonalizados(),
+      carregarLayoutLocalizarServidor(modulo),
     ]);
 
     await carregarModelos();
@@ -2492,6 +2750,7 @@
       await Promise.all([
         carregarCamposSistema(),
         carregarCamposPersonalizados(),
+        carregarLayoutLocalizarServidor(state.modulo),
       ]);
 
       resetCampoForm(campo, 'sistema');
@@ -2573,12 +2832,24 @@
 
     qs('btn-formatar-localizar')?.addEventListener('click', formatarLocalizarPadrao);
 
-    qs('localizar-preview-card')?.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-localizar-preview-toggle="true"]');
-      if (!btn) return;
+    const localizarPreviewCard = qs('localizar-preview-card');
+    localizarPreviewCard?.addEventListener('click', (e) => {
+      const toggleBtn = e.target.closest('[data-localizar-preview-toggle="true"]');
+      if (toggleBtn) {
+        toggleItemPreview(toggleBtn.dataset.area, toggleBtn.dataset.origin, toggleBtn.dataset.key);
+        return;
+      }
 
-      toggleItemPreview(btn.dataset.area, btn.dataset.origin, btn.dataset.key);
+      const removeBtn = e.target.closest('[data-localizar-preview-remove="true"]');
+      if (removeBtn) {
+        removerItemPersonalizadoPreview(
+          removeBtn.dataset.area,
+          removeBtn.dataset.origin,
+          removeBtn.dataset.key
+        );
+      }
     });
+    if (localizarPreviewCard) bindPreviewDrag(localizarPreviewCard);
 
     qs('btn-criar-padrao')?.addEventListener('click', criarPadrao);
 

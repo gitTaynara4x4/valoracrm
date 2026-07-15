@@ -4090,3 +4090,138 @@ html[data-theme="dark"] .localizar-preview-col.is-hidden-preview {
     justify-content: flex-start;
   }
 }
+
+/* =========================================================
+   LOCALIZAR V3 — OLHO NOS NATIVOS, REMOVER NOS PERSONALIZADOS
+   E ORDEM POR ARRASTAR
+   ========================================================= */
+.localizar-preview-filter,
+.localizar-preview-col {
+  transition: opacity .15s ease, transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+.localizar-preview-filter[draggable="true"],
+.localizar-preview-col[draggable="true"] {
+  cursor: grab;
+}
+
+.localizar-preview-filter[draggable="true"]:active,
+.localizar-preview-col[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.localizar-preview-filter-top {
+  justify-content: flex-start;
+}
+
+.localizar-preview-drag {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 22px;
+  border-radius: 7px;
+  color: #9aa8bc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  font-size: 10px;
+}
+
+.localizar-preview-drag:hover {
+  background: rgba(20, 121, 232, .07);
+  color: var(--clean-blue);
+}
+
+.localizar-preview-item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.localizar-preview-filter-top .localizar-preview-item-label {
+  flex: 1 1 auto;
+}
+
+.localizar-preview-col .localizar-preview-item-label {
+  max-width: 190px;
+}
+
+.localizar-preview-remove {
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(239, 68, 68, .22);
+  border-radius: 9px;
+  background: rgba(239, 68, 68, .06);
+  color: #dc2626;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+}
+
+.localizar-preview-remove:hover {
+  transform: translateY(-1px);
+  border-color: rgba(220, 38, 38, .42);
+  background: rgba(239, 68, 68, .11);
+}
+
+.localizar-preview-remove.is-restore {
+  border-color: rgba(20, 121, 232, .25);
+  background: rgba(20, 121, 232, .07);
+  color: var(--clean-blue);
+}
+
+.localizar-preview-col .localizar-preview-remove {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 10px;
+}
+
+.localizar-preview-filter[data-origin="sistema"] .localizar-preview-input,
+.localizar-preview-col[data-origin="sistema"] {
+  border-color: rgba(20, 121, 232, .28);
+  background: rgba(20, 121, 232, .06);
+}
+
+.localizar-preview-filter[data-origin="sistema"] .localizar-preview-filter-top em,
+.localizar-preview-col[data-origin="sistema"] em {
+  color: var(--clean-blue);
+}
+
+.localizar-preview-filter.is-hidden-preview .localizar-preview-item-label,
+.localizar-preview-col.is-hidden-preview .localizar-preview-item-label {
+  text-decoration: line-through;
+}
+
+.localizar-preview-filter.is-dragging,
+.localizar-preview-col.is-dragging {
+  opacity: .38 !important;
+  transform: scale(.98);
+}
+
+.localizar-preview-filter.is-drag-target .localizar-preview-input,
+.localizar-preview-col.is-drag-target {
+  border-color: var(--clean-blue) !important;
+  box-shadow: 0 0 0 3px rgba(20, 121, 232, .10);
+}
+
+html[data-theme="dark"] .localizar-preview-remove,
+html[data-theme="dark"] .localizar-preview-drag {
+  color: #d1d5db;
+}
+
+html[data-theme="dark"] .localizar-preview-remove {
+  background: rgba(239, 68, 68, .10);
+  border-color: rgba(248, 113, 113, .24);
+  color: #fca5a5;
+}
+
+html[data-theme="dark"] .localizar-preview-remove.is-restore {
+  background: rgba(59, 130, 246, .12);
+  border-color: rgba(96, 165, 250, .26);
+  color: #93c5fd;
+}

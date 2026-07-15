@@ -12,46 +12,28 @@ const DEFAULT_NATIVE_COLUMNS = [
   { key: 'acoes', label: 'Ações', fixed: true },
 ];
 
-function getDynamicFields() {
-  return window.ValoraLocalizarPersonalizado?.getTableFields?.('clientes') || [];
+function getOrderedColumns() {
+  const columns = window.ValoraLocalizarPersonalizado?.getOrderedTableColumns?.('clientes');
+  if (Array.isArray(columns) && columns.length) return columns;
+
+  return DEFAULT_NATIVE_COLUMNS.map((column, index) => ({
+    ...column,
+    kind: 'native',
+    origin: 'nativo',
+    defaultOrder: index,
+  }));
 }
 
-function getNativeColumns() {
-  const columns = window.ValoraLocalizarPersonalizado?.getNativeColumns?.('clientes');
-  return Array.isArray(columns) && columns.length ? columns : DEFAULT_NATIVE_COLUMNS;
-}
-
-function splitNativeColumns(columns) {
-  const beforeDynamic = [];
-  const afterDynamic = [];
-
-  columns.forEach((col) => {
-    if (col.key === 'situacao' || col.key === 'acoes') {
-      afterDynamic.push(col);
-    } else {
-      beforeDynamic.push(col);
-    }
-  });
-
-  return { beforeDynamic, afterDynamic };
-}
-
-function renderHeaders(nativeColumns, dynamicFields) {
+function renderHeaders(columns) {
   const row = document.querySelector('.valora-table thead tr');
   if (!row) return;
 
-  const { beforeDynamic, afterDynamic } = splitNativeColumns(nativeColumns);
-
-  row.innerHTML = `
-    ${beforeDynamic.map((col) => `<th>${escapeHtml(col.label || col.key)}</th>`).join('')}
-    ${dynamicFields.map((field) => `<th>${escapeHtml(field.label || field.key)}</th>`).join('')}
-    ${afterDynamic.map((col) => `<th class="${col.key === 'acoes' ? 'text-right' : ''}">${escapeHtml(col.label || col.key)}</th>`).join('')}
-  `;
-}
-
-function renderDynamicCells(cliente, fields) {
-  return fields
-    .map((field) => `<td>${escapeHtml(window.ValoraLocalizarPersonalizado?.formatValue?.(cliente, field) || '-')}</td>`)
+  row.innerHTML = columns
+    .map((column) => `
+      <th class="${column.key === 'acoes' ? 'text-right' : ''}">
+        ${escapeHtml(column.label || column.key)}
+      </th>
+    `)
     .join('');
 }
 
@@ -151,18 +133,25 @@ function renderNativeCell(cliente, key) {
   }
 }
 
+function renderColumnCell(cliente, column) {
+  if (column?.kind === 'dynamic') {
+    const value = window.ValoraLocalizarPersonalizado?.formatValue?.(cliente, column) || '-';
+    return `<td>${escapeHtml(value)}</td>`;
+  }
+
+  return renderNativeCell(cliente, column?.key);
+}
+
 export function renderTabelaClientes(clientes) {
   const tbody = document.getElementById('tbody-clientes');
   const spanCount = document.getElementById('contagem-clientes');
 
   if (!tbody) return;
 
-  const dynamicFields = getDynamicFields();
-  const nativeColumns = getNativeColumns();
-  const { beforeDynamic, afterDynamic } = splitNativeColumns(nativeColumns);
+  const columns = getOrderedColumns();
 
-  renderHeaders(nativeColumns, dynamicFields);
-  const colspan = nativeColumns.length + dynamicFields.length;
+  renderHeaders(columns);
+  const colspan = columns.length;
 
   if (!Array.isArray(clientes) || !clientes.length) {
     tbody.innerHTML = `
@@ -181,9 +170,7 @@ export function renderTabelaClientes(clientes) {
     .map(
       (c) => `
         <tr>
-          ${beforeDynamic.map((col) => renderNativeCell(c, col.key)).join('')}
-          ${renderDynamicCells(c, dynamicFields)}
-          ${afterDynamic.map((col) => renderNativeCell(c, col.key)).join('')}
+          ${columns.map((column) => renderColumnCell(c, column)).join('')}
         </tr>
       `
     )

@@ -1118,47 +1118,27 @@
     { key: 'acoes', label: 'Ações', fixed: true },
   ];
 
-  function getCamposTabelaProdutos() {
-    return window.ValoraLocalizarPersonalizado?.getTableFields?.('produtos') || [];
+  function getColunasOrdenadasProdutos() {
+    const columns = window.ValoraLocalizarPersonalizado?.getOrderedTableColumns?.('produtos');
+    if (Array.isArray(columns) && columns.length) return columns;
+
+    return DEFAULT_NATIVE_COLUMNS_PRODUTOS.map((column, index) => ({
+      ...column,
+      kind: 'native',
+      origin: 'nativo',
+      defaultOrder: index,
+    }));
   }
 
-  function getColunasNativasProdutos() {
-    const columns = window.ValoraLocalizarPersonalizado?.getNativeColumns?.('produtos');
-    return Array.isArray(columns) && columns.length ? columns : DEFAULT_NATIVE_COLUMNS_PRODUTOS;
-  }
-
-  function dividirColunasNativasProdutos(columns) {
-    const beforeDynamic = [];
-    const afterDynamic = [];
-
-    columns.forEach((col) => {
-      if (col.key === 'acoes') {
-        afterDynamic.push(col);
-      } else {
-        beforeDynamic.push(col);
-      }
-    });
-
-    return { beforeDynamic, afterDynamic };
-  }
-
-  function renderHeadersProdutos(nativeColumns, fields) {
+  function renderHeadersProdutos(columns) {
     const row = document.querySelector('.valora-table thead tr');
     if (!row) return;
 
-    const { beforeDynamic, afterDynamic } = dividirColunasNativasProdutos(nativeColumns);
-
-    row.innerHTML = `
-      ${beforeDynamic.map((col) => `<th>${escapeHtml(col.label || col.key)}</th>`).join('')}
-      ${fields.map((field) => `<th>${escapeHtml(field.label || field.key)}</th>`).join('')}
-      ${afterDynamic.map((col) => `<th class="${col.key === 'acoes' ? 'text-right' : ''}">${escapeHtml(col.label || col.key)}</th>`).join('')}
-    `;
-  }
-
-  function renderCamposTabelaProdutos(produto, fields) {
-    return fields
-      .map((field) => `<td>${escapeHtml(window.ValoraLocalizarPersonalizado?.formatValue?.(produto, field) || '-')}</td>`)
-      .join('');
+    row.innerHTML = columns.map((column) => `
+      <th class="${column.key === 'acoes' ? 'text-right' : ''}">
+        ${escapeHtml(column.label || column.key)}
+      </th>
+    `).join('');
   }
 
   function renderAcoesProduto(produto) {
@@ -1209,17 +1189,24 @@
     }
   }
 
+  function renderColunaProduto(produto, column) {
+    if (column?.kind === 'dynamic') {
+      const value = window.ValoraLocalizarPersonalizado?.formatValue?.(produto, column) || '-';
+      return `<td>${escapeHtml(value)}</td>`;
+    }
+
+    return renderCelulaNativaProduto(produto, column?.key);
+  }
+
   function renderTabelaProdutos() {
     const tbody = $('tbody-produtos');
     const spanCount = $('contagem-produtos');
 
     if (!tbody) return;
 
-    const dynamicFields = getCamposTabelaProdutos();
-    const nativeColumns = getColunasNativasProdutos();
-    const { beforeDynamic, afterDynamic } = dividirColunasNativasProdutos(nativeColumns);
-    renderHeadersProdutos(nativeColumns, dynamicFields);
-    const colspan = nativeColumns.length + dynamicFields.length;
+    const columns = getColunasOrdenadasProdutos();
+    renderHeadersProdutos(columns);
+    const colspan = columns.length;
 
     if (!produtos.length) {
       tbody.innerHTML = `
@@ -1235,9 +1222,7 @@
 
     tbody.innerHTML = produtos.map((produto) => `
       <tr>
-        ${beforeDynamic.map((col) => renderCelulaNativaProduto(produto, col.key)).join('')}
-        ${renderCamposTabelaProdutos(produto, dynamicFields)}
-        ${afterDynamic.map((col) => renderCelulaNativaProduto(produto, col.key)).join('')}
+        ${columns.map((column) => renderColunaProduto(produto, column)).join('')}
       </tr>
     `).join('');
 

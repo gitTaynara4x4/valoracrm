@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js?v=20260715-filtros-exatos-v2';
 import { $, toast } from './utils.js';
-import { renderTabelaClientes } from './table.js?v=20260713-pagination-top-v1';
+import { renderTabelaClientes } from './table.js?v=20260715-localizar-arrastar-restaurado-v4';
 import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js?v=20260715-filtros-exatos-v2';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
 import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260714-agenda-historico-v1';

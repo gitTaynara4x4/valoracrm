@@ -560,47 +560,27 @@ const DEFAULT_NATIVE_COLUMNS_FORNECEDORES = [
   { key: 'acoes', label: 'Ações', fixed: true },
 ];
 
-function getCamposTabelaFornecedores() {
-  return window.ValoraLocalizarPersonalizado?.getTableFields?.('fornecedores') || [];
+function getColunasOrdenadasFornecedores() {
+  const columns = window.ValoraLocalizarPersonalizado?.getOrderedTableColumns?.('fornecedores');
+  if (Array.isArray(columns) && columns.length) return columns;
+
+  return DEFAULT_NATIVE_COLUMNS_FORNECEDORES.map((column, index) => ({
+    ...column,
+    kind: 'native',
+    origin: 'nativo',
+    defaultOrder: index,
+  }));
 }
 
-function getColunasNativasFornecedores() {
-  const columns = window.ValoraLocalizarPersonalizado?.getNativeColumns?.('fornecedores');
-  return Array.isArray(columns) && columns.length ? columns : DEFAULT_NATIVE_COLUMNS_FORNECEDORES;
-}
-
-function dividirColunasNativasFornecedores(columns) {
-  const beforeDynamic = [];
-  const afterDynamic = [];
-
-  columns.forEach((col) => {
-    if (col.key === 'situacao' || col.key === 'acoes') {
-      afterDynamic.push(col);
-    } else {
-      beforeDynamic.push(col);
-    }
-  });
-
-  return { beforeDynamic, afterDynamic };
-}
-
-function renderHeadersFornecedores(nativeColumns, fields) {
+function renderHeadersFornecedores(columns) {
   const row = document.querySelector('.valora-table thead tr');
   if (!row) return;
 
-  const { beforeDynamic, afterDynamic } = dividirColunasNativasFornecedores(nativeColumns);
-
-  row.innerHTML = `
-    ${beforeDynamic.map((col) => `<th>${escapeHtml(col.label || col.key)}</th>`).join('')}
-    ${fields.map((field) => `<th>${escapeHtml(field.label || field.key)}</th>`).join('')}
-    ${afterDynamic.map((col) => `<th class="${col.key === 'acoes' ? 'text-right' : ''}">${escapeHtml(col.label || col.key)}</th>`).join('')}
-  `;
-}
-
-function renderCamposTabelaFornecedores(fornecedor, fields) {
-  return fields
-    .map((field) => `<td>${escapeHtml(window.ValoraLocalizarPersonalizado?.formatValue?.(fornecedor, field) || '-')}</td>`)
-    .join('');
+  row.innerHTML = columns.map((column) => `
+    <th class="${column.key === 'acoes' ? 'text-right' : ''}">
+      ${escapeHtml(column.label || column.key)}
+    </th>
+  `).join('');
 }
 
 function renderAcoesFornecedor(f) {
@@ -642,6 +622,15 @@ function renderCelulaNativaFornecedor(f, key) {
   }
 }
 
+function renderColunaFornecedor(fornecedor, column) {
+  if (column?.kind === 'dynamic') {
+    const value = window.ValoraLocalizarPersonalizado?.formatValue?.(fornecedor, column) || '-';
+    return `<td>${escapeHtml(value)}</td>`;
+  }
+
+  return renderCelulaNativaFornecedor(fornecedor, column?.key);
+}
+
 function renderTabelaFornecedores() {
   const tbody = $('tbody-fornecedores');
   const spanCount = $('contagem-fornecedores');
@@ -649,11 +638,9 @@ function renderTabelaFornecedores() {
   if (!tbody) return;
 
   const filtrados = filtrarFornecedores();
-  const dynamicFields = getCamposTabelaFornecedores();
-  const nativeColumns = getColunasNativasFornecedores();
-  const { beforeDynamic, afterDynamic } = dividirColunasNativasFornecedores(nativeColumns);
-  renderHeadersFornecedores(nativeColumns, dynamicFields);
-  const colspan = nativeColumns.length + dynamicFields.length;
+  const columns = getColunasOrdenadasFornecedores();
+  renderHeadersFornecedores(columns);
+  const colspan = columns.length;
 
   if (!filtrados.length) {
     tbody.innerHTML = `
@@ -673,9 +660,7 @@ function renderTabelaFornecedores() {
 
   tbody.innerHTML = filtrados.map((f) => `
     <tr>
-      ${beforeDynamic.map((col) => renderCelulaNativaFornecedor(f, col.key)).join('')}
-      ${renderCamposTabelaFornecedores(f, dynamicFields)}
-      ${afterDynamic.map((col) => renderCelulaNativaFornecedor(f, col.key)).join('')}
+      ${columns.map((column) => renderColunaFornecedor(f, column)).join('')}
     </tr>
   `).join('');
 
