@@ -2050,7 +2050,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const pending = agenda?.consumePendingNavigation?.();
     if (pending?.type === 'fornecedor' && Number(pending.entityId)) {
       await abrirModalFornecedorEditar(Number(pending.entityId));
-      document.querySelector('[data-tab="tab-fornecedor-agenda"]')?.click();
+      document.querySelector('[data-agenda-fixed-open="tab-fornecedor-agenda"]')?.click();
     }
   } catch (error) {
     console.warn('[Fornecedores] não foi possível abrir o lembrete:', error);

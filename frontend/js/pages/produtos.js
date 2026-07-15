@@ -1924,7 +1924,7 @@
       if (pending?.type === 'produto' && Number(pending.entityId)) {
         const full = await obterProdutoNoServidor(Number(pending.entityId));
         await abrirModalProdutoEditar(full);
-        document.querySelector('[data-tab="tab-produto-agenda"]')?.click();
+        document.querySelector('[data-agenda-fixed-open="tab-produto-agenda"]')?.click();
       }
     } catch (err) {
       console.warn('[Produtos] não foi possível abrir o cadastro pelo lembrete:', err);

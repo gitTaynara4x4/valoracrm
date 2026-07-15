@@ -7,7 +7,7 @@
   if (!document.querySelector('link[data-valora-agenda-css]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/frontend/css/agenda.css?v=20260715-agenda-fixa-topo-v2';
+    link.href = '/frontend/css/agenda.css?v=20260715-agenda-fixa-leve-v8';
     link.dataset.valoraAgendaCss = 'true';
     document.head.appendChild(link);
   }
@@ -19,7 +19,7 @@
         return;
       }
       const script = document.createElement('script');
-      script.src = '/frontend/js/shared/agenda.js?v=20260715-agenda-fixa-topo-v2';
+      script.src = '/frontend/js/shared/agenda.js?v=20260715-agenda-fixa-leve-v8';
       script.defer = true;
       script.onload = () => resolve(window.ValoraAgenda);
       script.onerror = () => reject(new Error('Não foi possível carregar a agenda do Valora.'));

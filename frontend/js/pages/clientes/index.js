@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const pending = agenda?.consumePendingNavigation?.();
     if (pending?.type === 'cliente' && Number(pending.entityId)) {
       await openClientModalEdit(Number(pending.entityId));
-      document.querySelector('[data-tab="tab-historico"]')?.click();
+      document.querySelector('[data-agenda-fixed-open="tab-historico"]')?.click();
     }
   } catch (err) {
     console.warn('[Clientes] não foi possível abrir o cadastro pelo lembrete:', err);

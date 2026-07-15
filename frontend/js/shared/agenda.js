@@ -9,6 +9,8 @@
     notifications: { vencidos: [], proximos: [], novos_alertas: [], total_pendentes: 0, total_vencidos: 0 },
     shownAlerts: new Set(),
     polling: null,
+    notificationRequest: null,
+    lastNotificationAt: 0,
     initialized: false,
   };
 
@@ -299,7 +301,7 @@
         }
         if (dateField) dateField.hidden = true;
         showMessage(tipo === 'lembrete' ? 'Lembrete agendado com sucesso.' : 'Contato salvo no histórico.');
-        await Promise.all([refreshEntity(context.containerId), refreshNotifications({ showAlerts: false })]);
+        await Promise.all([refreshEntity(context.containerId, { force: true }), refreshNotifications({ showAlerts: false, force: true })]);
       } catch (error) {
         showMessage(error.message, 'error');
       } finally {
@@ -310,7 +312,7 @@
     container.addEventListener('click', async (event) => {
       const refresh = event.target.closest('[data-agenda-refresh]');
       if (refresh) {
-        await refreshEntity(context.containerId);
+        await refreshEntity(context.containerId, { force: true });
         return;
       }
 
@@ -320,37 +322,85 @@
     }, listenerOptions);
   }
 
-  async function refreshEntity(containerId) {
+  async function refreshEntity(containerId, { force = false } = {}) {
     const context = state.contexts.get(containerId);
     const container = document.getElementById(containerId);
     const list = container?.querySelector('[data-agenda-list]');
-    if (!context || !list || !context.entidadeId) return;
+    if (!context || !list || !context.entidadeId) return [];
+
+    if (!force && context.loaded) return context.items || [];
+    if (context.loadingPromise) return context.loadingPromise;
+
+    const requestVersion = Number(context.requestVersion || 0) + 1;
+    context.requestVersion = requestVersion;
+    context.abortController?.abort?.();
+    const controller = new AbortController();
+    context.abortController = controller;
 
     list.innerHTML = '<div class="agenda-loading">Carregando histórico...</div>';
-    try {
-      const items = await apiJson(`${API}/entidade/${encodeURIComponent(context.entidadeTipo)}/${Number(context.entidadeId)}?limit=150`);
-      context.items = Array.isArray(items) ? items : [];
-      list.innerHTML = context.items.length
-        ? context.items.map((item) => entityItemHtml(item, { readonly: context.readonly })).join('')
-        : '<div class="agenda-empty">Nenhum contato ou lembrete registrado neste cadastro.</div>';
-    } catch (error) {
-      list.innerHTML = `<div class="agenda-empty">${escapeHtml(error.message)}</div>`;
-    }
+
+    const request = (async () => {
+      try {
+        const items = await apiJson(
+          `${API}/entidade/${encodeURIComponent(context.entidadeTipo)}/${Number(context.entidadeId)}?limit=150`,
+          { signal: controller.signal }
+        );
+
+        if (controller.signal.aborted || state.contexts.get(containerId) !== context || context.requestVersion !== requestVersion) {
+          return context.items || [];
+        }
+
+        context.items = Array.isArray(items) ? items : [];
+        context.loaded = true;
+        list.innerHTML = context.items.length
+          ? context.items.map((item) => entityItemHtml(item, { readonly: context.readonly })).join('')
+          : '<div class="agenda-empty">Nenhum contato ou lembrete registrado neste cadastro.</div>';
+        return context.items;
+      } catch (error) {
+        if (error?.name === 'AbortError' || controller.signal.aborted) return context.items || [];
+        context.loaded = false;
+        list.innerHTML = `<div class="agenda-empty">${escapeHtml(error.message)}</div>`;
+        return [];
+      } finally {
+        if (context.loadingPromise === request) context.loadingPromise = null;
+        if (context.abortController === controller) context.abortController = null;
+      }
+    })();
+
+    context.loadingPromise = request;
+    return request;
   }
 
   async function setEntityContext(options = {}) {
+    const containerId = String(options.containerId || '');
+    const entidadeTipo = String(options.entidadeTipo || '');
+    if (!containerId || !['cliente', 'fornecedor', 'produto'].includes(entidadeTipo)) return;
+
+    const previous = state.contexts.get(containerId);
+    previous?.abortController?.abort?.();
+
     const context = {
-      containerId: String(options.containerId || ''),
-      entidadeTipo: String(options.entidadeTipo || ''),
+      containerId,
+      entidadeTipo,
       entidadeId: Number(options.entidadeId || 0) || null,
       entidadeNome: String(options.entidadeNome || ''),
       readonly: Boolean(options.readonly),
       items: [],
+      loaded: false,
+      loadingPromise: null,
+      abortController: null,
+      requestVersion: 0,
     };
-    if (!context.containerId || !['cliente', 'fornecedor', 'produto'].includes(context.entidadeTipo)) return;
+
     state.contexts.set(context.containerId, context);
     renderEntityShell(context);
-    if (context.entidadeId) await refreshEntity(context.containerId);
+
+    // A agenda é carregada somente quando o usuário abre o corpo fixo.
+    // Isso evita bloquear a abertura do cadastro com uma consulta que talvez nem seja usada.
+    const agendaPanel = document.getElementById(context.containerId)?.closest('[data-ficha-fixed="true"]');
+    if (options.eager === true || agendaPanel?.classList.contains('active')) {
+      await refreshEntity(context.containerId);
+    }
   }
 
   async function handleItemAction(button, containerId = null) {
@@ -381,8 +431,8 @@
         return;
       }
 
-      if (containerId) await refreshEntity(containerId);
-      await refreshNotifications({ showAlerts: false });
+      if (containerId) await refreshEntity(containerId, { force: true });
+      await refreshNotifications({ showAlerts: false, force: true });
     } catch (error) {
       showMessage(error.message, 'error');
     } finally {
@@ -437,7 +487,7 @@
     overlay.classList.add('is-open');
     overlay.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
-    refreshNotifications({ showAlerts: false });
+    refreshNotifications({ showAlerts: false, force: true });
   }
 
   function closePanel() {
@@ -552,22 +602,38 @@
     markNotified(id);
   }
 
-  async function refreshNotifications({ showAlerts = true } = {}) {
-    try {
-      const data = await apiJson(`${API}/notificacoes?limit=200`);
-      state.notifications = data || state.notifications;
-      updateSidebarBadge(state.notifications.total_vencidos || 0);
-      renderGlobalPanel();
-      if (showAlerts) {
-        (state.notifications.novos_alertas || []).slice(0, 5).forEach(showReminderAlert);
-      }
-      return state.notifications;
-    } catch (error) {
-      if (error.message && !/não autenticado|sessão/i.test(error.message)) {
-        console.warn('[Agenda] Falha ao carregar notificações:', error.message);
-      }
+  async function refreshNotifications({ showAlerts = true, force = false } = {}) {
+    if (!force && document.hidden) return state.notifications;
+    if (state.notificationRequest) return state.notificationRequest;
+
+    const now = Date.now();
+    if (!force && state.lastNotificationAt && now - state.lastNotificationAt < 10000) {
       return state.notifications;
     }
+
+    const request = (async () => {
+      try {
+        const data = await apiJson(`${API}/notificacoes?limit=200`);
+        state.notifications = data || state.notifications;
+        state.lastNotificationAt = Date.now();
+        updateSidebarBadge(state.notifications.total_vencidos || 0);
+        renderGlobalPanel();
+        if (showAlerts) {
+          (state.notifications.novos_alertas || []).slice(0, 5).forEach(showReminderAlert);
+        }
+        return state.notifications;
+      } catch (error) {
+        if (error.message && !/não autenticado|sessão/i.test(error.message)) {
+          console.warn('[Agenda] Falha ao carregar notificações:', error.message);
+        }
+        return state.notifications;
+      } finally {
+        if (state.notificationRequest === request) state.notificationRequest = null;
+      }
+    })();
+
+    state.notificationRequest = request;
+    return request;
   }
 
   function consumePendingNavigation() {
@@ -597,13 +663,9 @@
     return button?.closest('form, .modal-content, .modal-overlay') || document;
   }
 
-  function syncFixedAgendaButton(button) {
+  function setFixedAgendaButtonState(button, active) {
     if (!button) return;
-    const scope = getFixedAgendaScope(button);
-    const targetId = String(button.dataset.agendaFixedOpen || '').trim();
-    const target = targetId ? scope.querySelector(`#${CSS.escape(targetId)}`) : null;
-    const active = !!target?.classList.contains('active');
-    button.classList.toggle('is-active', active);
+    button.classList.toggle('is-active', !!active);
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
   }
 
@@ -631,42 +693,29 @@
     }
 
     target.style.display = '';
-    button.classList.add('is-active');
-    button.setAttribute('aria-pressed', 'true');
+    scope.querySelectorAll('[data-agenda-fixed-open]').forEach((fixedButton) => {
+      setFixedAgendaButtonState(fixedButton, fixedButton === button);
+    });
 
     const slot = target.querySelector('.agenda-entity-slot[id]');
-    if (slot?.id) refreshEntity(slot.id);
+    if (slot?.id) void refreshEntity(slot.id);
   }
 
   function bindFixedEntityAgendaButtons() {
     document.querySelectorAll('[data-agenda-fixed-open]').forEach((button) => {
       if (button.dataset.agendaFixedBound === 'true') return;
       button.dataset.agendaFixedBound = 'true';
-
-      const scope = getFixedAgendaScope(button);
-      const targetId = String(button.dataset.agendaFixedOpen || '').trim();
-      const target = targetId ? scope.querySelector(`#${CSS.escape(targetId)}`) : null;
-
       button.addEventListener('click', () => openFixedEntityAgenda(button));
-
-      if (target) {
-        const observer = new MutationObserver(() => syncFixedAgendaButton(button));
-        observer.observe(target, { attributes: true, attributeFilter: ['class'] });
-        button._valoraAgendaObserver = observer;
-      }
-
-      syncFixedAgendaButton(button);
+      setFixedAgendaButtonState(button, false);
     });
 
     document.addEventListener('click', (event) => {
       const regularTab = event.target.closest('[data-tab], [data-ficha-section]');
       if (!regularTab || regularTab.closest('[data-agenda-fixed-open]')) return;
 
-      document.querySelectorAll('[data-agenda-fixed-open].is-active').forEach((button) => {
-        const scope = getFixedAgendaScope(button);
-        if (!scope.contains(regularTab)) return;
-        button.classList.remove('is-active');
-        button.setAttribute('aria-pressed', 'false');
+      const scope = regularTab.closest('form, .modal-content, .modal-overlay') || document;
+      scope.querySelectorAll('[data-agenda-fixed-open].is-active').forEach((button) => {
+        setFixedAgendaButtonState(button, false);
       });
     });
   }
@@ -686,10 +735,21 @@
       frame.addEventListener('load', () => updateSidebarBadge(state.notifications.total_vencidos || 0));
     });
 
-    refreshNotifications({ showAlerts: true });
-    state.polling = window.setInterval(() => refreshNotifications({ showAlerts: true }), 30000);
-    document.addEventListener('visibilitychange', () => {
+    const firstRefresh = () => refreshNotifications({ showAlerts: true, force: true });
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(firstRefresh, { timeout: 1800 });
+    } else {
+      window.setTimeout(firstRefresh, 700);
+    }
+
+    state.polling = window.setInterval(() => {
       if (!document.hidden) refreshNotifications({ showAlerts: true });
+    }, 30000);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && Date.now() - state.lastNotificationAt > 15000) {
+        refreshNotifications({ showAlerts: true });
+      }
     });
   }
 

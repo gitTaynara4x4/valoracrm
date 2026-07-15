@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from threading import Lock
 from typing import Any, Dict, List, Literal, Optional, Tuple
 from zoneinfo import ZoneInfo
 
@@ -19,6 +20,10 @@ SAO_PAULO = ZoneInfo("America/Sao_Paulo")
 
 EntityType = Literal["cliente", "fornecedor", "produto"]
 ItemType = Literal["registro", "lembrete"]
+
+
+_AGENDA_SCHEMA_READY = False
+_AGENDA_SCHEMA_LOCK = Lock()
 
 ENTITY_CONFIG: Dict[str, Tuple[str, Any]] = {
     "cliente": ("clientes", models.Cliente),
@@ -47,55 +52,67 @@ class AgendaStatusUpdate(BaseModel):
 
 
 def ensure_agenda_table(db: Session) -> None:
-    db.execute(
-        text(
-            """
-            CREATE TABLE IF NOT EXISTS agenda_itens (
-                id BIGSERIAL PRIMARY KEY,
-                empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-                entidade_tipo VARCHAR(30) NOT NULL,
-                entidade_id BIGINT NOT NULL,
-                entidade_nome VARCHAR(180) NOT NULL,
-                tipo VARCHAR(20) NOT NULL,
-                assunto VARCHAR(180) NOT NULL,
-                descricao TEXT NULL,
-                agendado_para TIMESTAMPTZ NULL,
-                status VARCHAR(20) NOT NULL DEFAULT 'registrado',
-                responsavel_usuario_id BIGINT NULL REFERENCES usuarios(id) ON DELETE SET NULL,
-                criado_por_usuario_id BIGINT NULL REFERENCES usuarios(id) ON DELETE SET NULL,
-                criado_por_nome VARCHAR(120) NULL,
-                notificado_em TIMESTAMPTZ NULL,
-                concluido_em TIMESTAMPTZ NULL,
-                criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                CONSTRAINT ck_agenda_entidade_tipo
-                    CHECK (entidade_tipo IN ('cliente', 'fornecedor', 'produto')),
-                CONSTRAINT ck_agenda_tipo
-                    CHECK (tipo IN ('registro', 'lembrete')),
-                CONSTRAINT ck_agenda_status
-                    CHECK (status IN ('registrado', 'pendente', 'concluido', 'cancelado'))
+    global _AGENDA_SCHEMA_READY
+    if _AGENDA_SCHEMA_READY:
+        return
+
+    with _AGENDA_SCHEMA_LOCK:
+        if _AGENDA_SCHEMA_READY:
+            return
+        try:
+            db.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS agenda_itens (
+                        id BIGSERIAL PRIMARY KEY,
+                        empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+                        entidade_tipo VARCHAR(30) NOT NULL,
+                        entidade_id BIGINT NOT NULL,
+                        entidade_nome VARCHAR(180) NOT NULL,
+                        tipo VARCHAR(20) NOT NULL,
+                        assunto VARCHAR(180) NOT NULL,
+                        descricao TEXT NULL,
+                        agendado_para TIMESTAMPTZ NULL,
+                        status VARCHAR(20) NOT NULL DEFAULT 'registrado',
+                        responsavel_usuario_id BIGINT NULL REFERENCES usuarios(id) ON DELETE SET NULL,
+                        criado_por_usuario_id BIGINT NULL REFERENCES usuarios(id) ON DELETE SET NULL,
+                        criado_por_nome VARCHAR(120) NULL,
+                        notificado_em TIMESTAMPTZ NULL,
+                        concluido_em TIMESTAMPTZ NULL,
+                        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        CONSTRAINT ck_agenda_entidade_tipo
+                            CHECK (entidade_tipo IN ('cliente', 'fornecedor', 'produto')),
+                        CONSTRAINT ck_agenda_tipo
+                            CHECK (tipo IN ('registro', 'lembrete')),
+                        CONSTRAINT ck_agenda_status
+                            CHECK (status IN ('registrado', 'pendente', 'concluido', 'cancelado'))
+                    )
+                    """
+                )
             )
-            """
-        )
-    )
-    db.execute(
-        text(
-            """
-            CREATE INDEX IF NOT EXISTS ix_agenda_itens_entidade
-            ON agenda_itens (empresa_id, entidade_tipo, entidade_id, criado_em DESC)
-            """
-        )
-    )
-    db.execute(
-        text(
-            """
-            CREATE INDEX IF NOT EXISTS ix_agenda_itens_responsavel_pendentes
-            ON agenda_itens (empresa_id, responsavel_usuario_id, status, agendado_para)
-            WHERE tipo = 'lembrete'
-            """
-        )
-    )
-    db.commit()
+            db.execute(
+                text(
+                    """
+                    CREATE INDEX IF NOT EXISTS ix_agenda_itens_entidade
+                    ON agenda_itens (empresa_id, entidade_tipo, entidade_id, criado_em DESC)
+                    """
+                )
+            )
+            db.execute(
+                text(
+                    """
+                    CREATE INDEX IF NOT EXISTS ix_agenda_itens_responsavel_pendentes
+                    ON agenda_itens (empresa_id, responsavel_usuario_id, status, agendado_para)
+                    WHERE tipo = 'lembrete'
+                    """
+                )
+            )
+            db.commit()
+            _AGENDA_SCHEMA_READY = True
+        except Exception:
+            db.rollback()
+            raise
 
 
 def normalize_datetime(value: Optional[datetime]) -> Optional[datetime]:
