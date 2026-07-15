@@ -1,6 +1,7 @@
 import { state } from './state.js';
-import { obterClienteNoServidor, salvarClienteNoServidor, apiJson } from './api.js';
+import { obterClienteNoServidor, salvarClienteNoServidor, apiJson } from './api.js?v=20260715-cliente-erro-estruturado-v10';
 import { $, $$, escapeHtml, toast, openModal, closeModal } from './utils.js';
+import { confirmDialog } from './confirm.js';
 import {
   renderCustomFieldsInputs,
   normalizeCustomFieldsPayload,
@@ -1819,6 +1820,54 @@ function encontrarCampoNomeObrigatorio() {
   );
 }
 
+function getDuplicateConflict(error) {
+  const detail = error?.detail;
+  if (Number(error?.status) !== 409 || !detail || typeof detail !== 'object') return null;
+  if (detail.code !== 'cliente_duplicado') return null;
+  return detail;
+}
+
+async function salvarClienteComConfirmacaoDeDuplicidade(payload) {
+  try {
+    return await salvarClienteNoServidor(payload, state.clienteEditandoId);
+  } catch (error) {
+    const conflict = getDuplicateConflict(error);
+    if (!conflict) throw error;
+
+    const message = String(
+      conflict.message ||
+      error.message ||
+      'Já existe outro cliente com os mesmos dados.'
+    );
+
+    // CPF/CNPJ e demais identificadores bloqueantes nunca podem ser duplicados.
+    if (conflict.blocking) {
+      const blockedError = new Error(message);
+      blockedError.status = error.status;
+      blockedError.detail = conflict;
+      throw blockedError;
+    }
+
+    const confirmed = await confirmDialog({
+      title: 'Possível cliente duplicado',
+      message: `${message} Deseja salvar este cadastro mesmo assim?`,
+      confirmText: 'Salvar mesmo assim',
+      cancelText: 'Revisar dados',
+    });
+
+    if (!confirmed) {
+      const cancelledError = new Error('Salvamento cancelado para revisão dos dados.');
+      cancelledError.code = 'duplicate_cancelled';
+      throw cancelledError;
+    }
+
+    return salvarClienteNoServidor(
+      { ...payload, permitir_duplicado: true },
+      state.clienteEditandoId
+    );
+  }
+}
+
 export async function saveCliente(e) {
   if (e?.preventDefault) {
     e.preventDefault();
@@ -1875,14 +1924,16 @@ export async function saveCliente(e) {
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
     }
 
-    await salvarClienteNoServidor(payload, state.clienteEditandoId);
+    await salvarClienteComConfirmacaoDeDuplicidade(payload);
     await _afterSave();
 
     closeClientModal();
 
     toast('Cliente salvo com sucesso.', 'success');
   } catch (err) {
-    toast(err.message || 'Erro ao salvar cliente.', 'error');
+    if (err?.code !== 'duplicate_cancelled') {
+      toast(err.message || 'Erro ao salvar cliente.', 'error');
+    }
   } finally {
     if (btn) {
       btn.disabled = false;

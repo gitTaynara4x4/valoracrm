@@ -1,6 +1,43 @@
 import { state, API_CLIENTES, API_CAMPOS, API_FORMULARIOS } from './state.js';
 import { getFiltroClientes } from './filters.js';
 
+function formatValidationLocation(location = []) {
+  const parts = Array.isArray(location) ? location : [];
+  const visible = parts.filter((part) => !['body', 'query', 'path'].includes(String(part)));
+  return visible.length ? visible.join(' > ') : '';
+}
+
+function formatApiDetail(detail, fallback = 'Erro na requisição.') {
+  if (typeof detail === 'string' && detail.trim()) return detail.trim();
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (typeof item === 'string') return item.trim();
+        if (!item || typeof item !== 'object') return String(item || '').trim();
+        const location = formatValidationLocation(item.loc);
+        const message = String(item.msg || item.message || '').trim();
+        if (location && message) return `${location}: ${message}`;
+        return message || location;
+      })
+      .filter(Boolean);
+    if (messages.length) return messages.join(' • ');
+  }
+
+  if (detail && typeof detail === 'object') {
+    const nestedMessage = detail.message || detail.msg || detail.error;
+    if (typeof nestedMessage === 'string' && nestedMessage.trim()) {
+      return nestedMessage.trim();
+    }
+    try {
+      const serialized = JSON.stringify(detail);
+      if (serialized && serialized !== '{}') return serialized;
+    } catch (_) {}
+  }
+
+  return String(fallback || 'Erro na requisição.');
+}
+
 export async function apiJson(url, options = {}) {
   const resp = await fetch(url, {
     credentials: 'include',
@@ -13,12 +50,17 @@ export async function apiJson(url, options = {}) {
 
   if (!resp.ok) {
     const txt = await resp.text();
-    let message = txt || 'Erro na requisição.';
+    let payload = null;
     try {
-      const payload = JSON.parse(txt);
-      message = payload?.detail || payload?.message || message;
+      payload = txt ? JSON.parse(txt) : null;
     } catch (_) {}
-    throw new Error(message);
+
+    const detail = payload?.detail ?? payload?.message ?? txt;
+    const error = new Error(formatApiDetail(detail, txt || 'Erro na requisição.'));
+    error.status = resp.status;
+    error.payload = payload;
+    error.detail = payload?.detail ?? null;
+    throw error;
   }
 
   if (resp.status === 204) return null;

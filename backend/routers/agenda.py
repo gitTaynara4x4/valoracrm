@@ -19,8 +19,28 @@ router = APIRouter(prefix="/api/agenda", tags=["Agenda e histórico"])
 SAO_PAULO = ZoneInfo("America/Sao_Paulo")
 
 EntityType = Literal["cliente", "fornecedor", "produto"]
-ItemType = Literal["registro", "lembrete"]
+ItemType = Literal[
+    "registro",
+    "lembrete",
+    "enviar_proposta",
+    "abrir_ordem_servico",
+    "transferir_departamento",
+]
+AgendaStatus = Literal[
+    "em_aberto",
+    "em_andamento",
+    "em_analise",
+    "parado",
+    "finalizado",
+]
 
+SCHEDULED_TYPES = {
+    "lembrete",
+    "enviar_proposta",
+    "abrir_ordem_servico",
+    "transferir_departamento",
+}
+ACTIVE_STATUSES = {"em_aberto", "em_andamento", "em_analise", "parado"}
 
 _AGENDA_SCHEMA_READY = False
 _AGENDA_SCHEMA_LOCK = Lock()
@@ -39,19 +59,35 @@ class AgendaItemCreate(BaseModel):
     assunto: str = Field(min_length=1, max_length=180)
     descricao: Optional[str] = Field(default=None, max_length=8000)
     agendado_para: Optional[datetime] = None
+    status: Optional[AgendaStatus] = None
+    motivo_status: Optional[str] = Field(default=None, max_length=180)
+    informacoes_livres: Optional[str] = Field(default=None, max_length=12000)
+    departamento_destino: Optional[str] = Field(default=None, max_length=180)
 
 
 class AgendaItemUpdate(BaseModel):
     assunto: Optional[str] = Field(default=None, min_length=1, max_length=180)
     descricao: Optional[str] = Field(default=None, max_length=8000)
     agendado_para: Optional[datetime] = None
+    status: Optional[AgendaStatus] = None
+    motivo_status: Optional[str] = Field(default=None, max_length=180)
+    informacoes_livres: Optional[str] = Field(default=None, max_length=12000)
+    departamento_destino: Optional[str] = Field(default=None, max_length=180)
 
 
 class AgendaStatusUpdate(BaseModel):
-    status: Literal["pendente", "concluido", "cancelado"]
+    status: AgendaStatus
+    motivo_status: Optional[str] = Field(default=None, max_length=180)
+    informacoes_livres: Optional[str] = Field(default=None, max_length=12000)
 
 
 def ensure_agenda_table(db: Session) -> None:
+    """Cria/atualiza a estrutura uma única vez por processo.
+
+    O módulo ainda não possui migrations Alembic próprias. Esta rotina é idempotente e
+    mantém bancos já existentes compatíveis com os novos tipos e estados da agenda.
+    """
+
     global _AGENDA_SCHEMA_READY
     if _AGENDA_SCHEMA_READY:
         return
@@ -60,6 +96,8 @@ def ensure_agenda_table(db: Session) -> None:
         if _AGENDA_SCHEMA_READY:
             return
         try:
+            # Evita corrida entre múltiplos workers tentando atualizar a mesma tabela.
+            db.execute(text("SELECT pg_advisory_xact_lock(hashtext('valora_agenda_schema_v9'))"))
             db.execute(
                 text(
                     """
@@ -69,11 +107,14 @@ def ensure_agenda_table(db: Session) -> None:
                         entidade_tipo VARCHAR(30) NOT NULL,
                         entidade_id BIGINT NOT NULL,
                         entidade_nome VARCHAR(180) NOT NULL,
-                        tipo VARCHAR(20) NOT NULL,
+                        tipo VARCHAR(40) NOT NULL,
                         assunto VARCHAR(180) NOT NULL,
                         descricao TEXT NULL,
                         agendado_para TIMESTAMPTZ NULL,
-                        status VARCHAR(20) NOT NULL DEFAULT 'registrado',
+                        status VARCHAR(30) NOT NULL DEFAULT 'registrado',
+                        motivo_status VARCHAR(180) NULL,
+                        informacoes_livres TEXT NULL,
+                        departamento_destino VARCHAR(180) NULL,
                         responsavel_usuario_id BIGINT NULL REFERENCES usuarios(id) ON DELETE SET NULL,
                         criado_por_usuario_id BIGINT NULL REFERENCES usuarios(id) ON DELETE SET NULL,
                         criado_por_nome VARCHAR(120) NULL,
@@ -84,13 +125,57 @@ def ensure_agenda_table(db: Session) -> None:
                         CONSTRAINT ck_agenda_entidade_tipo
                             CHECK (entidade_tipo IN ('cliente', 'fornecedor', 'produto')),
                         CONSTRAINT ck_agenda_tipo
-                            CHECK (tipo IN ('registro', 'lembrete')),
+                            CHECK (tipo IN (
+                                'registro', 'lembrete', 'enviar_proposta',
+                                'abrir_ordem_servico', 'transferir_departamento'
+                            )),
                         CONSTRAINT ck_agenda_status
-                            CHECK (status IN ('registrado', 'pendente', 'concluido', 'cancelado'))
+                            CHECK (status IN (
+                                'registrado', 'em_aberto', 'em_andamento',
+                                'em_analise', 'parado', 'finalizado', 'cancelado'
+                            ))
                     )
                     """
                 )
             )
+
+            db.execute(text("ALTER TABLE agenda_itens ADD COLUMN IF NOT EXISTS motivo_status VARCHAR(180) NULL"))
+            db.execute(text("ALTER TABLE agenda_itens ADD COLUMN IF NOT EXISTS informacoes_livres TEXT NULL"))
+            db.execute(text("ALTER TABLE agenda_itens ADD COLUMN IF NOT EXISTS departamento_destino VARCHAR(180) NULL"))
+            db.execute(text("ALTER TABLE agenda_itens ALTER COLUMN tipo TYPE VARCHAR(40)"))
+            db.execute(text("ALTER TABLE agenda_itens ALTER COLUMN status TYPE VARCHAR(30)"))
+
+            # Remove as validações antigas antes de converter os valores legados.
+            db.execute(text("ALTER TABLE agenda_itens DROP CONSTRAINT IF EXISTS ck_agenda_tipo"))
+            db.execute(text("ALTER TABLE agenda_itens DROP CONSTRAINT IF EXISTS ck_agenda_status"))
+            db.execute(text("UPDATE agenda_itens SET status = 'em_aberto' WHERE status = 'pendente'"))
+            db.execute(text("UPDATE agenda_itens SET status = 'finalizado' WHERE status = 'concluido'"))
+
+            db.execute(
+                text(
+                    """
+                    ALTER TABLE agenda_itens
+                    ADD CONSTRAINT ck_agenda_tipo
+                    CHECK (tipo IN (
+                        'registro', 'lembrete', 'enviar_proposta',
+                        'abrir_ordem_servico', 'transferir_departamento'
+                    ))
+                    """
+                )
+            )
+            db.execute(
+                text(
+                    """
+                    ALTER TABLE agenda_itens
+                    ADD CONSTRAINT ck_agenda_status
+                    CHECK (status IN (
+                        'registrado', 'em_aberto', 'em_andamento',
+                        'em_analise', 'parado', 'finalizado', 'cancelado'
+                    ))
+                    """
+                )
+            )
+
             db.execute(
                 text(
                     """
@@ -99,12 +184,14 @@ def ensure_agenda_table(db: Session) -> None:
                     """
                 )
             )
+            db.execute(text("DROP INDEX IF EXISTS ix_agenda_itens_responsavel_pendentes"))
             db.execute(
                 text(
                     """
-                    CREATE INDEX IF NOT EXISTS ix_agenda_itens_responsavel_pendentes
+                    CREATE INDEX ix_agenda_itens_responsavel_pendentes
                     ON agenda_itens (empresa_id, responsavel_usuario_id, status, agendado_para)
-                    WHERE tipo = 'lembrete'
+                    WHERE tipo <> 'registro'
+                      AND status IN ('em_aberto', 'em_andamento', 'em_analise', 'parado')
                     """
                 )
             )
@@ -121,6 +208,16 @@ def normalize_datetime(value: Optional[datetime]) -> Optional[datetime]:
     if value.tzinfo is None:
         value = value.replace(tzinfo=SAO_PAULO)
     return value.astimezone(timezone.utc)
+
+
+def normalize_optional_text(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    return value.strip() or None
+
+
+def is_scheduled_type(item_type: str) -> bool:
+    return item_type in SCHEDULED_TYPES
 
 
 def iso(value: Any) -> Optional[str]:
@@ -193,6 +290,15 @@ def get_item(db: Session, user: models.Usuario, item_id: int) -> Dict[str, Any]:
     return dict(row)
 
 
+def validate_scheduled_item(item_type: str, agendado_para: Optional[datetime], departamento: Optional[str]) -> None:
+    if not is_scheduled_type(item_type):
+        return
+    if agendado_para is None:
+        raise HTTPException(status_code=400, detail="Informe a data e o horário do agendamento.")
+    if item_type == "transferir_departamento" and not departamento:
+        raise HTTPException(status_code=400, detail="Informe o departamento de destino.")
+
+
 @router.get("/entidade/{entidade_tipo}/{entidade_id}")
 def list_entity_items(
     entidade_tipo: EntityType,
@@ -215,7 +321,11 @@ def list_entity_items(
                   AND entidade_tipo = :entidade_tipo
                   AND entidade_id = :entidade_id
                 ORDER BY
-                  CASE WHEN tipo = 'lembrete' AND status = 'pendente' THEN 0 ELSE 1 END,
+                  CASE
+                    WHEN tipo <> 'registro'
+                     AND status IN ('em_aberto', 'em_andamento', 'em_analise', 'parado')
+                    THEN 0 ELSE 1
+                  END,
                   COALESCE(agendado_para, criado_em) DESC,
                   id DESC
                 LIMIT :limit
@@ -245,14 +355,22 @@ def create_item(
     ensure_agenda_table(db)
 
     assunto = payload.assunto.strip()
-    descricao = (payload.descricao or "").strip() or None
+    descricao = normalize_optional_text(payload.descricao)
+    motivo_status = normalize_optional_text(payload.motivo_status)
+    informacoes_livres = normalize_optional_text(payload.informacoes_livres)
+    departamento_destino = normalize_optional_text(payload.departamento_destino)
     agendado_para = normalize_datetime(payload.agendado_para)
 
-    if payload.tipo == "lembrete" and agendado_para is None:
-        raise HTTPException(status_code=400, detail="Informe a data e o horário do lembrete.")
+    validate_scheduled_item(payload.tipo, agendado_para, departamento_destino)
 
-    status_value = "pendente" if payload.tipo == "lembrete" else "registrado"
-    entidade_nome = str(getattr(entity, "nome", None) or getattr(entity, "descricao", None) or f"Cadastro #{entity.id}")
+    scheduled = is_scheduled_type(payload.tipo)
+    status_value = payload.status or "em_aberto" if scheduled else "registrado"
+    entidade_nome = str(
+        getattr(entity, "nome", None)
+        or getattr(entity, "razao_social", None)
+        or getattr(entity, "descricao", None)
+        or f"Cadastro #{entity.id}"
+    )
 
     row = (
         db.execute(
@@ -268,6 +386,10 @@ def create_item(
                     descricao,
                     agendado_para,
                     status,
+                    motivo_status,
+                    informacoes_livres,
+                    departamento_destino,
+                    concluido_em,
                     responsavel_usuario_id,
                     criado_por_usuario_id,
                     criado_por_nome
@@ -281,6 +403,10 @@ def create_item(
                     :descricao,
                     :agendado_para,
                     :status,
+                    :motivo_status,
+                    :informacoes_livres,
+                    :departamento_destino,
+                    :concluido_em,
                     :responsavel_usuario_id,
                     :criado_por_usuario_id,
                     :criado_por_nome
@@ -298,7 +424,11 @@ def create_item(
                 "descricao": descricao,
                 "agendado_para": agendado_para,
                 "status": status_value,
-                "responsavel_usuario_id": int(current_user.id) if payload.tipo == "lembrete" else None,
+                "motivo_status": motivo_status if scheduled else None,
+                "informacoes_livres": informacoes_livres if scheduled else None,
+                "departamento_destino": departamento_destino if scheduled else None,
+                "concluido_em": datetime.now(timezone.utc) if status_value == "finalizado" else None,
+                "responsavel_usuario_id": int(current_user.id) if scheduled else None,
                 "criado_por_usuario_id": int(current_user.id),
                 "criado_por_nome": str(current_user.nome or "Usuário")[:120],
             },
@@ -324,30 +454,64 @@ def update_item(
     if not updates:
         return serialize_row(item)
 
-    assunto = updates.get("assunto")
-    if assunto is not None:
-        assunto = assunto.strip()
+    item_type = str(item.get("tipo") or "registro")
+    scheduled = is_scheduled_type(item_type)
+
+    assunto = item.get("assunto")
+    if "assunto" in updates:
+        assunto = str(updates.get("assunto") or "").strip()
         if not assunto:
             raise HTTPException(status_code=400, detail="O assunto é obrigatório.")
 
-    descricao = updates.get("descricao")
-    if descricao is not None:
-        descricao = descricao.strip() or None
+    descricao = item.get("descricao")
+    if "descricao" in updates:
+        descricao = normalize_optional_text(updates.get("descricao"))
 
     agendado_para = item.get("agendado_para")
     if "agendado_para" in updates:
         agendado_para = normalize_datetime(updates.get("agendado_para"))
-        if item.get("tipo") == "lembrete" and agendado_para is None:
-            raise HTTPException(status_code=400, detail="Informe a data e o horário do lembrete.")
+
+    status_value = str(item.get("status") or ("em_aberto" if scheduled else "registrado"))
+    if "status" in updates and updates.get("status") is not None:
+        if not scheduled:
+            raise HTTPException(status_code=400, detail="Registros de contato não possuem status de agendamento.")
+        status_value = str(updates["status"])
+
+    motivo_status = item.get("motivo_status")
+    if "motivo_status" in updates:
+        motivo_status = normalize_optional_text(updates.get("motivo_status"))
+
+    informacoes_livres = item.get("informacoes_livres")
+    if "informacoes_livres" in updates:
+        informacoes_livres = normalize_optional_text(updates.get("informacoes_livres"))
+
+    departamento_destino = item.get("departamento_destino")
+    if "departamento_destino" in updates:
+        departamento_destino = normalize_optional_text(updates.get("departamento_destino"))
+
+    validate_scheduled_item(item_type, agendado_para, departamento_destino)
+
+    reset_notificado = bool(
+        "agendado_para" in updates
+        or ("status" in updates and status_value in ACTIVE_STATUSES)
+    )
 
     row = (
         db.execute(
             text(
                 """
                 UPDATE agenda_itens
-                SET assunto = COALESCE(:assunto, assunto),
+                SET assunto = :assunto,
                     descricao = :descricao,
                     agendado_para = :agendado_para,
+                    status = :status,
+                    motivo_status = :motivo_status,
+                    informacoes_livres = :informacoes_livres,
+                    departamento_destino = :departamento_destino,
+                    concluido_em = CASE
+                        WHEN :status = 'finalizado' THEN COALESCE(concluido_em, NOW())
+                        ELSE NULL
+                    END,
                     notificado_em = CASE
                         WHEN :reset_notificado THEN NULL
                         ELSE notificado_em
@@ -359,9 +523,13 @@ def update_item(
             ),
             {
                 "assunto": assunto,
-                "descricao": descricao if "descricao" in updates else item.get("descricao"),
+                "descricao": descricao,
                 "agendado_para": agendado_para,
-                "reset_notificado": "agendado_para" in updates,
+                "status": status_value if scheduled else "registrado",
+                "motivo_status": motivo_status if scheduled else None,
+                "informacoes_livres": informacoes_livres if scheduled else None,
+                "departamento_destino": departamento_destino if scheduled else None,
+                "reset_notificado": reset_notificado,
                 "item_id": item_id,
                 "empresa_id": int(current_user.empresa_id),
             },
@@ -383,8 +551,11 @@ def update_item_status(
     item = get_item(db, current_user, item_id)
     require_entity_permission(db, current_user, str(item["entidade_tipo"]), "editar")
 
-    if item.get("tipo") != "lembrete":
-        raise HTTPException(status_code=400, detail="Somente lembretes possuem status.")
+    if not is_scheduled_type(str(item.get("tipo") or "")):
+        raise HTTPException(status_code=400, detail="Somente agendamentos e tarefas possuem status.")
+
+    motivo_status = normalize_optional_text(payload.motivo_status)
+    informacoes_livres = normalize_optional_text(payload.informacoes_livres)
 
     row = (
         db.execute(
@@ -392,8 +563,16 @@ def update_item_status(
                 """
                 UPDATE agenda_itens
                 SET status = :status,
-                    concluido_em = CASE WHEN :status = 'concluido' THEN NOW() ELSE NULL END,
-                    notificado_em = CASE WHEN :status = 'pendente' THEN NULL ELSE notificado_em END,
+                    motivo_status = COALESCE(:motivo_status, motivo_status),
+                    informacoes_livres = COALESCE(:informacoes_livres, informacoes_livres),
+                    concluido_em = CASE
+                        WHEN :status = 'finalizado' THEN COALESCE(concluido_em, NOW())
+                        ELSE NULL
+                    END,
+                    notificado_em = CASE
+                        WHEN :status IN ('em_aberto', 'em_andamento', 'em_analise', 'parado') THEN NULL
+                        ELSE notificado_em
+                    END,
                     atualizado_em = NOW()
                 WHERE id = :item_id AND empresa_id = :empresa_id
                 RETURNING *
@@ -401,6 +580,8 @@ def update_item_status(
             ),
             {
                 "status": payload.status,
+                "motivo_status": motivo_status,
+                "informacoes_livres": informacoes_livres,
                 "item_id": item_id,
                 "empresa_id": int(current_user.empresa_id),
             },
@@ -466,8 +647,9 @@ def list_notifications(
     }
     where_sql = f"""
         empresa_id = :empresa_id
-        AND tipo = 'lembrete'
-        AND status = 'pendente'
+        AND tipo <> 'registro'
+        AND status IN ('em_aberto', 'em_andamento', 'em_analise', 'parado')
+        AND agendado_para IS NOT NULL
         AND responsavel_usuario_id = :usuario_id
         AND entidade_tipo IN ({type_placeholders})
     """
@@ -547,8 +729,8 @@ def mark_notified(
                 WHERE id = :item_id
                   AND empresa_id = :empresa_id
                   AND responsavel_usuario_id = :usuario_id
-                  AND tipo = 'lembrete'
-                  AND status = 'pendente'
+                  AND tipo <> 'registro'
+                  AND status IN ('em_aberto', 'em_andamento', 'em_analise', 'parado')
                 RETURNING *
                 """
             ),
@@ -562,6 +744,6 @@ def mark_notified(
         .first()
     )
     if not row:
-        raise HTTPException(status_code=404, detail="Lembrete não encontrado.")
+        raise HTTPException(status_code=404, detail="Agendamento não encontrado.")
     db.commit()
     return serialize_row(row)
