@@ -1,11 +1,11 @@
-import { state } from './state.js';
-import { obterClienteNoServidor, salvarClienteNoServidor, apiJson } from './api.js';
-import { $, $$, escapeHtml, toast, openModal, closeModal } from './utils.js';
+import { state } from './clientes/state.js';
+import { obterClienteNoServidor, salvarClienteNoServidor, apiJson } from './clientes/api.js';
+import { $, $$, escapeHtml, toast, openModal, closeModal } from './clientes/utils.js';
 import {
   renderCustomFieldsInputs,
   normalizeCustomFieldsPayload,
   validateRequiredCustomFields,
-} from './custom-fields.js';
+} from './clientes/custom-fields.js';
 
 let _afterSave = async () => {};
 let _bound = false;

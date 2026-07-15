@@ -37,10 +37,10 @@
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260630-ficha-sidebar-v5" />
 
-  <script src="/frontend/js/pages/app.js?v=20260714-agenda-historico-v1" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260715-agenda-fixa-topo-v2" defer></script>
   <script src="/frontend/js/shared/exportacoes.js?v=20260715-filtros-exatos-v2" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/shared/ficha-principal.js?v=20260714-agenda-historico-v1" defer></script>
+  <script src="/frontend/js/shared/ficha-principal.js?v=20260715-agenda-fixa-topo-v2" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="/frontend/js/shared/localizar-personalizado.js?v=20260715-localizar-arrastar-restaurado-v5" defer></script>
@@ -210,10 +210,6 @@
                   <span>Personalizados</span>
                 </button>
 
-                <button type="button" class="fornecedor-tab-btn" data-tab="tab-fornecedor-agenda" data-ficha-keep="true">
-                  <i class="fa-solid fa-calendar-check"></i>
-                  <span>Agenda e histórico</span>
-                </button>
               </nav>
 
               <div class="fornecedor-sidebar-bottom">
@@ -236,6 +232,20 @@
                 </div>
 
                 <div class="fornecedor-modal-top-actions">
+                  <button
+                    type="button"
+                    class="agenda-fixed-top-btn"
+                    data-agenda-fixed-open="tab-fornecedor-agenda"
+                    data-agenda-scope="#formFornecedor"
+                    data-agenda-panel-selector=".fornecedor-tab"
+                    data-agenda-tab-selector=".fornecedor-tab-btn"
+                    aria-label="Abrir agenda e histórico do fornecedor"
+                    aria-pressed="false"
+                    title="Agenda e histórico">
+                    <i class="fa-regular fa-calendar-check"></i>
+                    <span>Agenda</span>
+                  </button>
+
                   <span class="fornecedor-status-pill">
                     <i class="fa-solid fa-circle"></i>
                     Ativo
@@ -520,7 +530,7 @@
                   </article>
                 </section>
 
-                <section class="fornecedor-tab" id="tab-fornecedor-agenda" data-ficha-keep="true">
+                <section class="fornecedor-tab" id="tab-fornecedor-agenda" data-ficha-fixed="true">
                   <div id="agenda-fornecedor" class="agenda-entity-slot"></div>
                 </section>
               </div>

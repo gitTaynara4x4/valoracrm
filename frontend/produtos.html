@@ -30,10 +30,10 @@
   <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260630-ficha-sidebar-v5" />
 
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="/frontend/js/pages/app.js?v=20260714-agenda-historico-v1" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260715-agenda-fixa-topo-v2" defer></script>
   <script src="/frontend/js/shared/exportacoes.js?v=20260715-filtros-exatos-v2" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/shared/ficha-principal.js?v=20260714-agenda-historico-v1" defer></script>
+  <script src="/frontend/js/shared/ficha-principal.js?v=20260715-agenda-fixa-topo-v2" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script src="/frontend/js/shared/localizar-personalizado.js?v=20260715-localizar-arrastar-restaurado-v5" defer></script>
   <script src="/frontend/js/pages/produtos.js?v=20260715-localizar-arrastar-restaurado-v5" defer></script>
@@ -171,10 +171,6 @@
                   <span>Campos personalizados</span>
                 </button>
 
-                <button type="button" class="cliente-tab-btn produto-tab-btn" data-tab="tab-produto-agenda" data-ficha-keep="true">
-                  <i class="fa-solid fa-calendar-check"></i>
-                  <span>Agenda e histórico</span>
-                </button>
               </nav>
 
               <div class="cliente-sidebar-bottom produto-sidebar-bottom">
@@ -197,6 +193,20 @@
                 </div>
 
                 <div class="cliente-modal-top-actions produto-modal-top-actions">
+                  <button
+                    type="button"
+                    class="agenda-fixed-top-btn"
+                    data-agenda-fixed-open="tab-produto-agenda"
+                    data-agenda-scope="#formProduto"
+                    data-agenda-panel-selector=".produto-tab"
+                    data-agenda-tab-selector=".produto-tab-btn"
+                    aria-label="Abrir agenda e histórico do produto"
+                    aria-pressed="false"
+                    title="Agenda e histórico">
+                    <i class="fa-regular fa-calendar-check"></i>
+                    <span>Agenda</span>
+                  </button>
+
                   <span class="cliente-status-pill produto-status-pill">
                     <i class="fa-solid fa-circle"></i>
                     Catálogo
@@ -332,7 +342,7 @@
                   </article>
                 </section>
 
-                <section class="cliente-tab produto-tab" id="tab-produto-agenda" data-ficha-keep="true">
+                <section class="cliente-tab produto-tab" id="tab-produto-agenda" data-ficha-fixed="true">
                   <div id="agenda-produto" class="agenda-entity-slot"></div>
                 </section>
               </div>

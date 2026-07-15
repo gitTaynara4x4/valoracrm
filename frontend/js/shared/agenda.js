@@ -586,10 +586,96 @@
     }
   }
 
+  function getFixedAgendaScope(button) {
+    const selector = button?.dataset?.agendaScope;
+    if (selector) {
+      try {
+        const scoped = document.querySelector(selector);
+        if (scoped) return scoped;
+      } catch (_) {}
+    }
+    return button?.closest('form, .modal-content, .modal-overlay') || document;
+  }
+
+  function syncFixedAgendaButton(button) {
+    if (!button) return;
+    const scope = getFixedAgendaScope(button);
+    const targetId = String(button.dataset.agendaFixedOpen || '').trim();
+    const target = targetId ? scope.querySelector(`#${CSS.escape(targetId)}`) : null;
+    const active = !!target?.classList.contains('active');
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
+
+  function openFixedEntityAgenda(button) {
+    const scope = getFixedAgendaScope(button);
+    const targetId = String(button.dataset.agendaFixedOpen || '').trim();
+    const panelSelector = String(button.dataset.agendaPanelSelector || '').trim();
+    const tabSelector = String(button.dataset.agendaTabSelector || '').trim();
+    if (!targetId || !panelSelector) return;
+
+    const target = scope.querySelector(`#${CSS.escape(targetId)}`);
+    if (!target) {
+      console.warn('[Agenda] Painel fixo não encontrado:', targetId);
+      return;
+    }
+
+    scope.querySelectorAll(panelSelector).forEach((panel) => {
+      panel.classList.toggle('active', panel === target);
+    });
+
+    if (tabSelector) {
+      scope.querySelectorAll(tabSelector).forEach((tabButton) => {
+        tabButton.classList.remove('active');
+      });
+    }
+
+    target.style.display = '';
+    button.classList.add('is-active');
+    button.setAttribute('aria-pressed', 'true');
+
+    const slot = target.querySelector('.agenda-entity-slot[id]');
+    if (slot?.id) refreshEntity(slot.id);
+  }
+
+  function bindFixedEntityAgendaButtons() {
+    document.querySelectorAll('[data-agenda-fixed-open]').forEach((button) => {
+      if (button.dataset.agendaFixedBound === 'true') return;
+      button.dataset.agendaFixedBound = 'true';
+
+      const scope = getFixedAgendaScope(button);
+      const targetId = String(button.dataset.agendaFixedOpen || '').trim();
+      const target = targetId ? scope.querySelector(`#${CSS.escape(targetId)}`) : null;
+
+      button.addEventListener('click', () => openFixedEntityAgenda(button));
+
+      if (target) {
+        const observer = new MutationObserver(() => syncFixedAgendaButton(button));
+        observer.observe(target, { attributes: true, attributeFilter: ['class'] });
+        button._valoraAgendaObserver = observer;
+      }
+
+      syncFixedAgendaButton(button);
+    });
+
+    document.addEventListener('click', (event) => {
+      const regularTab = event.target.closest('[data-tab], [data-ficha-section]');
+      if (!regularTab || regularTab.closest('[data-agenda-fixed-open]')) return;
+
+      document.querySelectorAll('[data-agenda-fixed-open].is-active').forEach((button) => {
+        const scope = getFixedAgendaScope(button);
+        if (!scope.contains(regularTab)) return;
+        button.classList.remove('is-active');
+        button.setAttribute('aria-pressed', 'false');
+      });
+    });
+  }
+
   function init() {
     if (state.initialized) return;
     state.initialized = true;
     ensureGlobalUi();
+    bindFixedEntityAgendaButtons();
 
     window.addEventListener('message', (event) => {
       if (event.origin !== window.location.origin) return;

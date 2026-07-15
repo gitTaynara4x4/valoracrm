@@ -2122,9 +2122,9 @@
     function showOnlyCustomTab() {
       qa(tabPanelSelector).forEach((tab) => {
         const isCustom = tab.id === customTabId;
-        const keepVisible = tab.dataset.fichaKeep === 'true';
+        const fixedBodyPanel = tab.dataset.fichaFixed === 'true';
         tab.classList.toggle('active', isCustom);
-        tab.style.display = (isCustom || keepVisible) ? '' : 'none';
+        tab.style.display = (isCustom || fixedBodyPanel) ? '' : 'none';
       });
     }
 
