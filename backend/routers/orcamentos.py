@@ -68,8 +68,17 @@ def q2(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
+def q4(value: Decimal) -> Decimal:
+    return value.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+
+
 def dec_out(value: Any) -> str:
     return f"{q2(money(value)):.2f}"
+
+
+def dec4_out(value: Any) -> str:
+    text_value = f"{q4(money(value)):.4f}"
+    return text_value.rstrip("0").rstrip(".") or "0"
 
 
 def parse_date(value: Any, default: Optional[date] = None) -> Optional[date]:
@@ -242,6 +251,34 @@ def ensure_schema(db: Session) -> None:
             criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     """))
+
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS orcamento_kits (
+            id BIGSERIAL PRIMARY KEY,
+            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+            nome VARCHAR(160) NOT NULL,
+            descricao TEXT,
+            ativo BOOLEAN NOT NULL DEFAULT TRUE,
+            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT uq_orcamento_kit_empresa_nome UNIQUE (empresa_id, nome)
+        )
+    """))
+
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS orcamento_kit_itens (
+            id BIGSERIAL PRIMARY KEY,
+            kit_id BIGINT NOT NULL REFERENCES orcamento_kits(id) ON DELETE CASCADE,
+            produto_id BIGINT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
+            quantidade NUMERIC(18,4) NOT NULL DEFAULT 1,
+            ordem INTEGER NOT NULL DEFAULT 0,
+            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT uq_orcamento_kit_produto UNIQUE (kit_id, produto_id)
+        )
+    """))
+
+    db.execute(text("CREATE INDEX IF NOT EXISTS idx_orcamento_kits_empresa_ativo ON orcamento_kits (empresa_id, ativo, nome)"))
+    db.execute(text("CREATE INDEX IF NOT EXISTS idx_orcamento_kit_itens_kit_ordem ON orcamento_kit_itens (kit_id, ordem, id)"))
 
     db.execute(text("""
         CREATE TABLE IF NOT EXISTS orcamentos (
@@ -792,6 +829,19 @@ class TemplateIn(BaseModel):
     pagamentos: List[PaymentOption] = Field(default_factory=list)
     ativo: bool = True
     itens: List[BudgetItemIn] = Field(default_factory=list)
+
+
+class KitItemIn(BaseModel):
+    produto_id: int = Field(gt=0)
+    quantidade: Decimal = Field(default=Decimal("1"), gt=Decimal("0"), le=Decimal("1000000"))
+    ordem: int = 0
+
+
+class KitIn(BaseModel):
+    nome: str
+    descricao: Optional[str] = None
+    ativo: bool = True
+    itens: List[KitItemIn] = Field(default_factory=list)
 
 
 class SettingsIn(BaseModel):
@@ -1413,6 +1463,289 @@ def delete_template(
     found = db.execute(text("DELETE FROM orcamento_modelos WHERE id=:id AND empresa_id=:e RETURNING id"), {"id": template_id, "e": company_id}).scalar()
     if not found:
         raise HTTPException(status_code=404, detail="Modelo não encontrado.")
+    db.commit()
+    return None
+
+
+def kit_to_out(db: Session, row: dict, show_costs: bool, with_items: bool = True) -> dict:
+    out = dict(row)
+    out["criado_em"] = iso(out.get("criado_em"))
+    out["atualizado_em"] = iso(out.get("atualizado_em"))
+    out["itens_quantidade"] = int(out.get("itens_quantidade") or 0)
+    out["valor_estimado"] = dec_out(out.get("valor_estimado"))
+
+    if with_items:
+        rows = db.execute(text("""
+            SELECT ki.id, ki.produto_id, ki.quantidade, ki.ordem,
+                   p.codigo, p.nome, p.descricao AS produto_descricao,
+                   p.unidade, p.preco_venda, p.custo
+            FROM orcamento_kit_itens ki
+            JOIN produtos p ON p.id=ki.produto_id
+            WHERE ki.kit_id=:kit_id
+            ORDER BY ki.ordem, ki.id
+        """), {"kit_id": out["id"]}).mappings().all()
+        items = []
+        for item in rows:
+            obj = {
+                "id": item["id"],
+                "produto_id": item["produto_id"],
+                "origem": "produto",
+                "codigo": item.get("codigo"),
+                "descricao": item.get("nome") or "Produto",
+                "referencia": item.get("produto_descricao"),
+                "unidade": item.get("unidade") or "UN",
+                "quantidade": dec4_out(item.get("quantidade")),
+                "valor_unitario": dec_out(item.get("preco_venda")),
+                "desconto": "0.00",
+                "ordem": int(item.get("ordem") or 0),
+            }
+            if show_costs:
+                obj["custo_unitario"] = dec_out(item.get("custo"))
+            items.append(obj)
+        out["itens"] = items
+        out["itens_quantidade"] = len(items)
+        out["valor_estimado"] = dec_out(sum(
+            (money(item.get("quantidade")) * money(item.get("preco_venda")) for item in rows),
+            Decimal("0"),
+        ))
+    return out
+
+
+def get_kit_row(db: Session, kit_id: int, company_id: int):
+    # preco_venda é VARCHAR no cadastro de produtos. O valor estimado é
+    # recalculado em Python por kit_to_out(), usando money(), para aceitar
+    # formatos como "150,00", "1.234,56" e "R$ 150,00" sem cast inválido.
+    return db.execute(text("""
+        SELECT k.*,
+               COUNT(ki.id)::INTEGER AS itens_quantidade,
+               0::NUMERIC AS valor_estimado
+        FROM orcamento_kits k
+        LEFT JOIN orcamento_kit_itens ki ON ki.kit_id=k.id
+        WHERE k.id=:id AND k.empresa_id=:empresa_id
+        GROUP BY k.id
+    """), {"id": kit_id, "empresa_id": company_id}).mappings().first()
+
+
+def save_kit_items(db: Session, kit_id: int, company_id: int, items: List[KitItemIn]) -> None:
+    db.execute(text("DELETE FROM orcamento_kit_itens WHERE kit_id=:kit_id"), {"kit_id": kit_id})
+
+    merged: Dict[int, dict] = {}
+    for index, item in enumerate(items or []):
+        product_id = int(item.produto_id)
+        product = product_for_company(db, product_id, company_id)
+        if not product:
+            raise HTTPException(status_code=422, detail=f"Produto #{product_id} não pertence a esta empresa ou não existe.")
+        quantity = q4(max(money(item.quantidade, Decimal("1")), Decimal("0.0001")))
+        if product_id in merged:
+            merged[product_id]["quantidade"] = q4(merged[product_id]["quantidade"] + quantity)
+        else:
+            merged[product_id] = {
+                "produto_id": product_id,
+                "quantidade": quantity,
+                "ordem": int(item.ordem if item.ordem is not None else index),
+            }
+
+    for values in sorted(merged.values(), key=lambda current: current["ordem"]):
+        db.execute(text("""
+            INSERT INTO orcamento_kit_itens (kit_id, produto_id, quantidade, ordem)
+            VALUES (:kit_id, :produto_id, :quantidade, :ordem)
+        """), {"kit_id": kit_id, **values})
+
+
+@router.get("/kits")
+def list_kits(
+    incluir_inativos: bool = False,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    sql = """
+        SELECT k.*,
+               COUNT(ki.id)::INTEGER AS itens_quantidade,
+               0::NUMERIC AS valor_estimado
+        FROM orcamento_kits k
+        LEFT JOIN orcamento_kit_itens ki ON ki.kit_id=k.id
+        WHERE k.empresa_id=:empresa_id
+    """
+    if not incluir_inativos:
+        sql += " AND k.ativo=TRUE"
+    sql += " GROUP BY k.id ORDER BY k.nome"
+    rows = db.execute(text(sql), {"empresa_id": company_id}).mappings().all()
+
+    # O preço de venda é armazenado como texto no módulo de Produtos.
+    # Calculamos em Python com money() para suportar vírgula, ponto e "R$"
+    # sem tentar multiplicar NUMERIC por VARCHAR no PostgreSQL.
+    totals_sql = """
+        SELECT ki.kit_id, ki.quantidade, p.preco_venda
+        FROM orcamento_kit_itens ki
+        JOIN orcamento_kits k ON k.id=ki.kit_id
+        JOIN produtos p ON p.id=ki.produto_id
+        WHERE k.empresa_id=:empresa_id
+    """
+    if not incluir_inativos:
+        totals_sql += " AND k.ativo=TRUE"
+
+    totals: Dict[int, Decimal] = {}
+    price_rows = db.execute(text(totals_sql), {"empresa_id": company_id}).mappings().all()
+    for item in price_rows:
+        current_kit_id = int(item["kit_id"])
+        item_total = money(item.get("quantidade")) * money(item.get("preco_venda"))
+        totals[current_kit_id] = totals.get(current_kit_id, Decimal("0")) + item_total
+
+    result = []
+    show_costs = can_view_costs(current_user)
+    for row in rows:
+        obj = dict(row)
+        obj["valor_estimado"] = totals.get(int(obj["id"]), Decimal("0"))
+        result.append(kit_to_out(db, obj, show_costs, with_items=False))
+    return result
+
+
+@router.get("/kits/{kit_id}")
+def get_kit(
+    kit_id: int,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    row = get_kit_row(db, kit_id, company_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Kit de produtos não encontrado.")
+    return kit_to_out(db, dict(row), can_view_costs(current_user), with_items=True)
+
+
+@router.post("/kits", status_code=status.HTTP_201_CREATED)
+def create_kit(
+    payload: KitIn,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    assert_settings_access(current_user)
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    name = norm_str(payload.nome)
+    if not name:
+        raise HTTPException(status_code=422, detail="Informe o nome do kit.")
+    if not payload.itens:
+        raise HTTPException(status_code=422, detail="Adicione pelo menos um produto ao kit.")
+    try:
+        kit_id = db.execute(text("""
+            INSERT INTO orcamento_kits (empresa_id, nome, descricao, ativo)
+            VALUES (:empresa_id, :nome, :descricao, :ativo)
+            RETURNING id
+        """), {
+            "empresa_id": company_id,
+            "nome": name,
+            "descricao": norm_str(payload.descricao),
+            "ativo": payload.ativo,
+        }).scalar_one()
+        save_kit_items(db, int(kit_id), company_id, payload.itens)
+        db.commit()
+        return get_kit(int(kit_id), current_user=current_user, db=db)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Já existe um kit com esse nome.")
+
+
+@router.put("/kits/{kit_id}")
+def update_kit(
+    kit_id: int,
+    payload: KitIn,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    assert_settings_access(current_user)
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    name = norm_str(payload.nome)
+    if not name:
+        raise HTTPException(status_code=422, detail="Informe o nome do kit.")
+    if not payload.itens:
+        raise HTTPException(status_code=422, detail="Adicione pelo menos um produto ao kit.")
+    try:
+        found = db.execute(text("""
+            UPDATE orcamento_kits
+            SET nome=:nome, descricao=:descricao, ativo=:ativo, atualizado_em=NOW()
+            WHERE id=:id AND empresa_id=:empresa_id
+            RETURNING id
+        """), {
+            "nome": name,
+            "descricao": norm_str(payload.descricao),
+            "ativo": payload.ativo,
+            "id": kit_id,
+            "empresa_id": company_id,
+        }).scalar()
+        if not found:
+            raise HTTPException(status_code=404, detail="Kit de produtos não encontrado.")
+        save_kit_items(db, kit_id, company_id, payload.itens)
+        db.commit()
+        return get_kit(kit_id, current_user=current_user, db=db)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Já existe um kit com esse nome.")
+
+
+@router.post("/kits/{kit_id}/duplicar", status_code=status.HTTP_201_CREATED)
+def duplicate_kit(
+    kit_id: int,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    assert_settings_access(current_user)
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    source = get_kit_row(db, kit_id, company_id)
+    if not source:
+        raise HTTPException(status_code=404, detail="Kit de produtos não encontrado.")
+
+    base_name = f"{source['nome']} (cópia)"
+    new_name = base_name
+    suffix = 2
+    while db.execute(text("SELECT 1 FROM orcamento_kits WHERE empresa_id=:empresa_id AND LOWER(nome)=LOWER(:nome)"), {
+        "empresa_id": company_id,
+        "nome": new_name,
+    }).scalar():
+        new_name = f"{base_name} {suffix}"
+        suffix += 1
+
+    new_id = db.execute(text("""
+        INSERT INTO orcamento_kits (empresa_id, nome, descricao, ativo)
+        VALUES (:empresa_id, :nome, :descricao, :ativo)
+        RETURNING id
+    """), {
+        "empresa_id": company_id,
+        "nome": new_name,
+        "descricao": source.get("descricao"),
+        "ativo": source.get("ativo", True),
+    }).scalar_one()
+    db.execute(text("""
+        INSERT INTO orcamento_kit_itens (kit_id, produto_id, quantidade, ordem)
+        SELECT :new_id, produto_id, quantidade, ordem
+        FROM orcamento_kit_itens
+        WHERE kit_id=:source_id
+    """), {"new_id": new_id, "source_id": kit_id})
+    db.commit()
+    return get_kit(int(new_id), current_user=current_user, db=db)
+
+
+@router.delete("/kits/{kit_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_kit(
+    kit_id: int,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    assert_settings_access(current_user)
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    found = db.execute(text("""
+        DELETE FROM orcamento_kits
+        WHERE id=:id AND empresa_id=:empresa_id
+        RETURNING id
+    """), {"id": kit_id, "empresa_id": company_id}).scalar()
+    if not found:
+        raise HTTPException(status_code=404, detail="Kit de produtos não encontrado.")
     db.commit()
     return None
 

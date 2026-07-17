@@ -1,0 +1,18 @@
+{
+  "name": "Valora CRM",
+  "short_name": "Valora",
+  "description": "CRM empresarial com agenda, clientes, produtos e orçamentos.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f9fc",
+  "theme_color": "#65acde",
+  "icons": [
+    {
+      "src": "/frontend/img/logo-favicon.jpg",
+      "sizes": "any",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

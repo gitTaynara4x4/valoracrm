@@ -1,0 +1,1747 @@
+/* =========================================================
+   CONFIGURAÇÕES DE ORÇAMENTOS — CLEAR v13
+   Visual leve, tipografia Inter e hierarquia sem excesso de peso.
+   ========================================================= */
+
+
+/* =========================================================
+   TIPOGRAFIA GLOBAL DO MÓDULO — INTER
+   Aplica Inter em toda a página de Orçamentos, inclusive
+   formulários, tabelas, modais, campos e botões.
+   ========================================================= */
+body[data-page="orcamentos"],
+body[data-page="orcamentos"] input,
+body[data-page="orcamentos"] textarea,
+body[data-page="orcamentos"] select,
+body[data-page="orcamentos"] button,
+body[data-page="orcamentos"] table,
+body[data-page="orcamentos"] th,
+body[data-page="orcamentos"] td,
+body[data-page="orcamentos"] label,
+body[data-page="orcamentos"] .btn,
+body[data-page="orcamentos"] .modal-content {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-synthesis: none;
+}
+
+body[data-page="orcamentos"] {
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Preserva a família correta dos ícones em toda a página. */
+body[data-page="orcamentos"] .fa,
+body[data-page="orcamentos"] .fas,
+body[data-page="orcamentos"] .fa-solid {
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 900 !important;
+}
+
+body[data-page="orcamentos"] .far,
+body[data-page="orcamentos"] .fa-regular {
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 400 !important;
+}
+
+body[data-page="orcamentos"] .fab,
+body[data-page="orcamentos"] .fa-brands {
+  font-family: "Font Awesome 6 Brands" !important;
+  font-weight: 400 !important;
+}
+
+/* =========================================================
+   TIPOGRAFIA CLEAR — igual ao padrão de Formulários
+   ========================================================= */
+#settings-modal,
+#settings-modal * {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+/* Mantém os ícones do Font Awesome corretos. */
+#settings-modal .fa,
+#settings-modal .fas,
+#settings-modal .fa-solid {
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 900 !important;
+  font-style: normal !important;
+  font-variant: normal !important;
+  line-height: 1 !important;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#settings-modal .far,
+#settings-modal .fa-regular {
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
+}
+
+#settings-modal .fab,
+#settings-modal .fa-brands {
+  font-family: "Font Awesome 6 Brands" !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
+}
+
+#settings-modal {
+  font-weight: 400;
+}
+
+#settings-modal h1,
+#settings-modal h2,
+#settings-modal h3,
+#settings-modal h4,
+#settings-modal h5,
+#settings-modal h6 {
+  font-weight: 600 !important;
+}
+
+#settings-modal strong {
+  font-weight: 600 !important;
+}
+
+#settings-modal label {
+  font-weight: 500 !important;
+}
+
+#settings-modal button,
+#settings-modal .btn {
+  font-weight: 600 !important;
+}
+
+#settings-modal {
+  --settings-blue: #1479e8;
+  --settings-blue-2: #0f6fdd;
+  --settings-teal: #4bc3c7;
+  --settings-text: #344054;
+  --settings-title: #172033;
+  --settings-muted: #667085;
+  --settings-soft-muted: #98a2b3;
+  --settings-border: #e8edf3;
+  --settings-border-strong: #dce3eb;
+  --settings-surface: #ffffff;
+  --settings-bg: #f8fafc;
+  --settings-soft-blue: #f3f8fe;
+  padding: 16px !important;
+  background: rgba(15, 23, 42, .52) !important;
+  backdrop-filter: blur(6px) !important;
+}
+
+#settings-modal .settings-modal-content {
+  width: min(1480px, calc(100vw - 36px)) !important;
+  height: min(960px, calc(100dvh - 36px)) !important;
+  max-height: calc(100dvh - 36px) !important;
+  border: 1px solid rgba(221, 230, 239, .96) !important;
+  border-radius: 16px !important;
+  background: var(--settings-bg) !important;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .20) !important;
+  overflow: hidden !important;
+}
+
+#settings-modal .settings-modal-header {
+  min-height: 86px !important;
+  padding: 17px 24px !important;
+  border-bottom: 1px solid var(--settings-border) !important;
+  background: rgba(255, 255, 255, .98) !important;
+}
+
+#settings-modal .settings-modal-title-wrap {
+  display: block !important;
+}
+
+#settings-modal .settings-modal-title-wrap > div {
+  display: block !important;
+}
+
+#settings-modal .settings-modal-eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--settings-blue);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+#settings-modal .settings-modal-header h3 {
+  margin: 0 !important;
+  color: var(--settings-title) !important;
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  line-height: 1.15 !important;
+  letter-spacing: -.025em !important;
+}
+
+#settings-modal .settings-modal-header p {
+  max-width: 760px;
+  margin: 6px 0 0 !important;
+  color: #66758a !important;
+  font-size: 12.5px !important;
+  line-height: 1.5 !important;
+}
+
+#settings-modal .btn-close {
+  width: 40px !important;
+  height: 40px !important;
+  border: 1px solid var(--settings-border) !important;
+  border-radius: 10px !important;
+  color: #5f6f84 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+#settings-modal .btn-close:hover {
+  color: #172033 !important;
+  border-color: #cfd9e5 !important;
+  background: #f9fbfd !important;
+}
+
+#settings-modal .settings-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+  background:
+    linear-gradient(180deg, #fbfcfe 0%, var(--settings-bg) 100%) !important;
+}
+
+/* Navegação igual à barra de módulos do HTML Formulários */
+#settings-modal .settings-sidebar {
+  flex: 0 0 auto;
+  min-height: auto !important;
+  padding: 14px 20px 0 !important;
+  border: 0 !important;
+  display: block !important;
+  background: transparent !important;
+}
+
+#settings-modal .settings-tabs {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 10px !important;
+  border: 1px solid var(--settings-border) !important;
+  border-radius: 12px !important;
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 6px !important;
+  background: rgba(255, 255, 255, .97) !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+#settings-modal .settings-tabs button {
+  position: relative;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 60px !important;
+  padding: 0 16px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px !important;
+  color: #657188 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-align: left;
+  transition: color .16s ease, background .16s ease !important;
+}
+
+#settings-modal .settings-tabs button::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  bottom: 0;
+  left: 14px;
+  height: 2px;
+  border-radius: 999px 999px 0 0;
+  background: transparent;
+}
+
+#settings-modal .settings-tabs button:hover {
+  color: var(--settings-blue) !important;
+  background: #f8fbff !important;
+}
+
+#settings-modal .settings-tabs button.active {
+  color: var(--settings-blue) !important;
+  background: #f8fbff !important;
+}
+
+#settings-modal .settings-tabs button.active::after {
+  background: var(--settings-blue);
+}
+
+#settings-modal .settings-tab-icon {
+  flex: 0 0 auto;
+  width: 23px !important;
+  height: 23px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  color: currentColor !important;
+  background: transparent !important;
+  font-size: 14px !important;
+}
+
+#settings-modal .settings-tabs button.active .settings-tab-icon {
+  color: currentColor !important;
+  background: transparent !important;
+}
+
+#settings-modal .settings-tab-copy {
+  min-width: 0;
+}
+
+#settings-modal .settings-tab-copy strong {
+  color: currentColor !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  white-space: nowrap;
+}
+
+#settings-modal .settings-tab-copy small {
+  display: none !important;
+}
+
+#settings-modal .settings-tip-card {
+  display: none !important;
+}
+
+#settings-modal .settings-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 18px 20px 24px !important;
+  background: transparent !important;
+  overflow-y: auto !important;
+  scrollbar-gutter: stable;
+}
+
+#settings-modal .settings-panel.active {
+  width: min(1260px, 100%);
+  margin: 0 auto;
+  display: grid !important;
+  gap: 14px !important;
+}
+
+#settings-modal .settings-panel-title {
+  margin: 0 !important;
+  padding: 4px 2px 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+#settings-modal .settings-panel-title > div {
+  min-width: 0;
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+}
+
+#settings-modal .settings-panel-title > div > div {
+  min-width: 0;
+}
+
+#settings-modal .settings-panel-eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--settings-blue);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+#settings-modal .settings-panel-icon {
+  flex: 0 0 auto;
+  width: 40px !important;
+  height: 40px !important;
+  border: 1px solid #d6e8fb !important;
+  border-radius: 10px !important;
+  color: var(--settings-blue) !important;
+  background: #f6f9fc !important;
+  font-size: 15px !important;
+}
+
+#settings-modal .settings-panel-title h4 {
+  margin: 0 !important;
+  color: var(--settings-title) !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  letter-spacing: -.02em;
+}
+
+#settings-modal .settings-panel-title p {
+  max-width: 560px;
+  margin: 0 !important;
+  color: #758297 !important;
+  font-size: 11px !important;
+  line-height: 1.55;
+  text-align: right;
+}
+
+#settings-modal .settings-card,
+#settings-modal .settings-list-card,
+#settings-modal .settings-editor,
+#settings-modal .template-editor {
+  border: 1px solid var(--settings-border) !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, .98) !important;
+  box-shadow: none !important;
+}
+
+#settings-modal .settings-card {
+  padding: 18px !important;
+}
+
+#settings-modal .settings-card-header {
+  margin-bottom: 16px !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+#settings-modal .settings-card-header.compact {
+  margin-bottom: 18px !important;
+}
+
+#settings-modal .settings-step {
+  width: 32px !important;
+  height: 32px !important;
+  border: 1px solid #cfe4fb !important;
+  border-radius: 10px !important;
+  color: var(--settings-blue) !important;
+  background: #f6f9fc !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+
+#settings-modal .settings-card-header h4 {
+  margin: 0 !important;
+  color: var(--settings-title) !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+}
+
+#settings-modal .settings-card-header p {
+  margin: 4px 0 0 !important;
+  color: #8290a3 !important;
+  font-size: 10.5px !important;
+  line-height: 1.5 !important;
+}
+
+#settings-modal .budget-form-grid {
+  gap: 14px !important;
+}
+
+#settings-modal .form-group label {
+  margin-bottom: 7px !important;
+  color: #475467 !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+
+#settings-modal .form-group input,
+#settings-modal .form-group select,
+#settings-modal .form-group textarea,
+#settings-modal .product-search-box input,
+#settings-modal .budget-items-table input,
+#settings-modal .budget-items-table textarea {
+  border: 1px solid var(--settings-border-strong) !important;
+  border-radius: 9px !important;
+  color: #344054 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+  transition: border-color .16s ease, box-shadow .16s ease !important;
+}
+
+#settings-modal .form-group input,
+#settings-modal .form-group select {
+  height: 42px !important;
+}
+
+#settings-modal .form-group textarea {
+  padding: 11px 13px !important;
+  min-height: 88px;
+  line-height: 1.58 !important;
+}
+
+#settings-modal #config-condicoes {
+  min-height: 150px !important;
+}
+
+#settings-modal .form-group input:focus,
+#settings-modal .form-group select:focus,
+#settings-modal .form-group textarea:focus,
+#settings-modal .product-search-box input:focus,
+#settings-modal .budget-items-table input:focus,
+#settings-modal .budget-items-table textarea:focus {
+  border-color: rgba(20, 121, 232, .48) !important;
+  box-shadow: 0 0 0 3px rgba(20, 121, 232, .09) !important;
+  outline: none !important;
+}
+
+#settings-modal .settings-help {
+  color: #a2adbb !important;
+}
+
+#settings-modal .settings-summary-grid {
+  grid-template-columns: minmax(330px, .85fr) minmax(520px, 1.35fr) !important;
+  gap: 14px !important;
+}
+
+#settings-modal .settings-appearance-grid {
+  gap: 14px !important;
+}
+
+#settings-modal .settings-color-picker {
+  grid-template-rows: 44px 42px !important;
+  gap: 8px !important;
+}
+
+#settings-modal #config-cor,
+#settings-modal .settings-color-code,
+#settings-modal .settings-suffix-input input {
+  border-color: var(--settings-border-strong) !important;
+  border-radius: 10px !important;
+}
+
+#settings-modal .settings-toggle-grid {
+  gap: 0 22px !important;
+}
+
+#settings-modal .settings-toggle-row {
+  min-height: 78px !important;
+  padding: 13px 2px !important;
+  border-color: #edf1f5 !important;
+  grid-template-columns: 39px minmax(0, 1fr) 18px !important;
+  gap: 10px !important;
+}
+
+#settings-modal .settings-toggle-copy strong {
+  color: #25324a !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+
+#settings-modal .settings-toggle-copy small {
+  margin-top: 4px !important;
+  color: #7b8799 !important;
+  font-size: 9.5px !important;
+  line-height: 1.5 !important;
+}
+
+#settings-modal .settings-toggle-visual {
+  width: 38px !important;
+  height: 22px !important;
+  background: #dce3ea !important;
+}
+
+#settings-modal .settings-toggle-visual::after {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+#settings-modal input:checked + .settings-toggle-visual {
+  background: var(--settings-blue) !important;
+}
+
+#settings-modal .settings-document-card .settings-subsection-title {
+  margin-top: 4px !important;
+  padding: 14px 0 1px !important;
+  border-top: 1px solid #edf1f5 !important;
+}
+
+#settings-modal .settings-subsection-title strong {
+  color: #25324a !important;
+  font-size: 11px !important;
+}
+
+#settings-modal .settings-subsection-title small {
+  color: #8290a3 !important;
+  font-size: 9.5px !important;
+}
+
+/* Botões no mesmo padrão limpo do Formulários */
+#settings-modal .btn {
+  min-height: 40px !important;
+  padding: 0 15px !important;
+  border-radius: 10px !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+#settings-modal .btn-small {
+  min-height: 37px !important;
+  padding-inline: 13px !important;
+  font-size: 10.5px !important;
+}
+
+#settings-modal .btn-secondary {
+  border: 1px solid var(--settings-border-strong) !important;
+  color: #25324a !important;
+  background: #fff !important;
+}
+
+#settings-modal .btn-secondary:hover {
+  border-color: #c3d0dc !important;
+  background: #f9fbfd !important;
+}
+
+#settings-modal .btn-primary {
+  border-color: var(--settings-blue) !important;
+  color: #fff !important;
+  background: var(--settings-blue) !important;
+  box-shadow: none !important;
+}
+
+/* Categorias */
+#settings-modal .settings-split {
+  grid-template-columns: minmax(0, 1fr) 360px !important;
+  gap: 14px !important;
+  align-items: start;
+}
+
+#settings-modal .settings-list-card,
+#settings-modal .settings-editor,
+#settings-modal .template-editor {
+  padding: 18px !important;
+}
+
+#settings-modal .settings-list-header {
+  margin-bottom: 18px !important;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #edf1f5;
+}
+
+#settings-modal .settings-list-header h4,
+#settings-modal .settings-editor-heading h4,
+#settings-modal .template-editor-header h4 {
+  margin: 0 !important;
+  color: var(--settings-title) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: -.015em;
+}
+
+#settings-modal .settings-list-header p,
+#settings-modal .template-editor-header p,
+#settings-modal .template-items-header p {
+  margin: 5px 0 0 !important;
+  color: #8491a3 !important;
+  font-size: 10px !important;
+  line-height: 1.5 !important;
+}
+
+#settings-modal .settings-list {
+  gap: 10px !important;
+}
+
+#settings-modal .settings-list-item.category-settings-card {
+  min-height: 72px;
+  padding: 10px 12px !important;
+  border: 1px solid var(--settings-border) !important;
+  border-radius: 10px !important;
+  display: grid !important;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  background: #fff !important;
+  transition: border-color .16s ease, background .16s ease !important;
+}
+
+#settings-modal .settings-list-item.category-settings-card:hover {
+  border-color: #cbdceb !important;
+  background: #fbfdff !important;
+}
+
+#settings-modal .category-settings-card.is-inactive {
+  opacity: .72;
+  background: #f8fafc !important;
+}
+
+#settings-modal .category-settings-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: var(--settings-blue);
+  background: #f6f9fc;
+  font-size: 13px;
+}
+
+#settings-modal .category-settings-copy {
+  min-width: 0;
+}
+
+#settings-modal .category-settings-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#settings-modal .category-settings-title strong {
+  color: #1e293b !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+}
+
+#settings-modal .category-settings-copy small {
+  display: block;
+  margin-top: 4px !important;
+  color: #778498 !important;
+  font-size: 9.5px !important;
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#settings-modal .category-settings-order {
+  display: inline-block;
+  margin-top: 7px;
+  color: #94a0b0;
+  font-size: 8.5px;
+  font-weight: 500;
+}
+
+#settings-modal .settings-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: #18764d;
+  background: #eaf8f0;
+  font-size: 8.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+#settings-modal .settings-status-badge.inactive {
+  color: #6c7889;
+  background: #eef2f5;
+}
+
+#settings-modal .settings-list-actions,
+#settings-modal .kit-settings-actions,
+#settings-modal .template-card-actions {
+  display: flex !important;
+  align-items: center;
+  gap: 6px !important;
+}
+
+#settings-modal .budget-action-btn {
+  width: 32px !important;
+  height: 32px !important;
+  border: 1px solid var(--settings-border) !important;
+  border-radius: 9px !important;
+  color: #64748b !important;
+  background: #fff !important;
+}
+
+#settings-modal .budget-action-btn:hover {
+  color: var(--settings-blue) !important;
+  border-color: #c9def4 !important;
+  background: #f5faff !important;
+}
+
+#settings-modal .budget-action-btn.danger:hover {
+  color: #d43d4f !important;
+  border-color: #f0c9cf !important;
+  background: #fff7f8 !important;
+}
+
+#settings-modal .settings-editor {
+  position: sticky;
+  top: 0;
+}
+
+#settings-modal .settings-editor-heading {
+  margin-bottom: 16px !important;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #edf1f5;
+  gap: 10px !important;
+}
+
+#settings-modal .settings-editor-heading > span {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 10px !important;
+  color: var(--settings-blue) !important;
+  background: #f6f9fc !important;
+}
+
+#settings-modal .settings-editor > .btn {
+  width: 100% !important;
+  margin-top: 18px !important;
+}
+
+/* Switch compacto reutilizado em Categoria, Kit e Modelo */
+#settings-modal .settings-inline-toggle {
+  min-height: 56px;
+  margin-top: 2px;
+  padding: 11px 12px;
+  border: 1px solid var(--settings-border);
+  border-radius: 10px;
+  display: grid;
+  grid-template-columns: 39px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  background: #fbfcfe;
+  cursor: pointer;
+}
+
+#settings-modal .settings-inline-toggle.compact {
+  min-height: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 6px 10px;
+}
+
+#settings-modal .settings-inline-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#settings-modal .settings-inline-toggle > span:last-child {
+  min-width: 0;
+}
+
+#settings-modal .settings-inline-toggle strong,
+#settings-modal .settings-inline-toggle small {
+  display: block;
+}
+
+#settings-modal .settings-inline-toggle strong {
+  color: #344054;
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+#settings-modal .settings-inline-toggle small {
+  margin-top: 2px;
+  color: #8491a3;
+  font-size: 8.8px;
+  line-height: 1.35;
+}
+
+#settings-modal .settings-template-toggle {
+  width: min(390px, 100%);
+  margin-top: 16px;
+}
+
+/* Estados vazios */
+#settings-modal .settings-empty-state {
+  min-height: 230px;
+  padding: 34px 20px;
+  border: 1px dashed #cad8e6;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #778498;
+  background: #fbfdff;
+}
+
+#settings-modal .settings-empty-state > span {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 13px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--settings-blue);
+  background: #f6f9fc;
+  font-size: 18px;
+}
+
+#settings-modal .settings-empty-state strong {
+  color: #24324a;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#settings-modal .settings-empty-state small {
+  max-width: 390px;
+  margin-top: 6px;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+#settings-modal .settings-empty-wide {
+  grid-column: 1 / -1;
+}
+
+/* Kits e modelos */
+#settings-modal .kit-settings-grid,
+#settings-modal .template-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 13px !important;
+}
+
+#settings-modal .kit-settings-card,
+#settings-modal .template-card {
+  position: relative;
+  min-height: 190px !important;
+  padding: 16px 16px 54px !important;
+  border: 1px solid var(--settings-border) !important;
+  border-radius: 11px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease !important;
+}
+
+#settings-modal .kit-settings-card:hover,
+#settings-modal .template-card:hover {
+  transform: none !important;
+  border-color: #c8dbea !important;
+  box-shadow: none !important;
+}
+
+#settings-modal .kit-settings-card.is-inactive,
+#settings-modal .template-card.is-inactive {
+  opacity: .72;
+  background: #f9fbfc !important;
+}
+
+#settings-modal .kit-settings-card-top,
+#settings-modal .template-card-top {
+  min-height: 40px;
+  margin-bottom: 13px !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#settings-modal .kit-settings-icon,
+#settings-modal .template-card-icon {
+  width: 40px !important;
+  height: 40px !important;
+  border: 0;
+  border-radius: 10px !important;
+  display: grid;
+  place-items: center;
+  color: var(--settings-blue) !important;
+  background: #f6f9fc !important;
+  font-size: 13px;
+}
+
+#settings-modal .kit-settings-card h5,
+#settings-modal .template-card h5 {
+  margin: 0 0 6px !important;
+  color: #182338 !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+}
+
+#settings-modal .kit-settings-card p,
+#settings-modal .template-card p {
+  min-height: 43px !important;
+  margin: 0 0 13px !important;
+  color: #748196 !important;
+  font-size: 9.8px !important;
+  line-height: 1.5 !important;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+#settings-modal .kit-settings-meta,
+#settings-modal .template-card-meta {
+  margin-top: auto !important;
+  padding-top: 12px !important;
+  border-top: 1px solid #edf1f5 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px !important;
+  color: #6f7d91 !important;
+  font-size: 9px !important;
+}
+
+#settings-modal .template-card-meta {
+  justify-content: flex-start !important;
+  flex-wrap: wrap;
+}
+
+#settings-modal .template-card-meta span {
+  padding: 5px 8px !important;
+  border: 1px solid #e4ebf2;
+  border-radius: 999px !important;
+  color: #64748b !important;
+  background: #f8fafc !important;
+  font-size: 8.7px !important;
+}
+
+#settings-modal .kit-settings-meta strong {
+  color: #172a3f !important;
+  font-size: 10.5px !important;
+}
+
+#settings-modal .kit-settings-actions,
+#settings-modal .template-card-actions {
+  position: absolute !important;
+  right: 14px !important;
+  bottom: 12px !important;
+}
+
+/* Editores de kit e modelo */
+#settings-modal .template-editor {
+  overflow: visible;
+}
+
+#settings-modal .template-editor-header {
+  margin: -2px 0 22px !important;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #edf1f5;
+  align-items: center !important;
+}
+
+#settings-modal .template-editor-header .btn {
+  flex: 0 0 auto;
+}
+
+#settings-modal .kit-products-card {
+  padding: 18px !important;
+  border: 1px solid var(--settings-border) !important;
+  border-radius: 12px !important;
+  background: #fbfdff !important;
+}
+
+#settings-modal .template-items-header {
+  margin: 18px 0 12px !important;
+  padding: 0 !important;
+}
+
+#settings-modal .template-items-header h5 {
+  color: var(--settings-title) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+}
+
+#settings-modal .template-items-header > div:last-child {
+  display: flex;
+  gap: 8px;
+}
+
+#settings-modal .product-search-box {
+  margin: 12px 0 !important;
+  padding: 12px !important;
+  border: 1px solid #d8e5f0 !important;
+  border-radius: 12px !important;
+  background: #f5faff !important;
+}
+
+#settings-modal .budget-items-table-wrap {
+  border: 1px solid var(--settings-border) !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  overflow: auto !important;
+}
+
+#settings-modal .budget-items-table th {
+  height: 42px !important;
+  padding: 10px !important;
+  color: #59677c !important;
+  background: #f7f9fc !important;
+  font-size: 9px !important;
+  font-weight: 500 !important;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+#settings-modal .budget-items-table td {
+  padding: 9px 10px !important;
+  border-color: #edf1f5 !important;
+  font-size: 9.5px !important;
+}
+
+#settings-modal .kit-editor-summary {
+  margin-top: 12px !important;
+  padding: 12px 14px !important;
+  border: 1px solid #d7e9fa;
+  border-radius: 10px !important;
+  color: #5f7186 !important;
+  background: #f1f8ff !important;
+}
+
+#settings-modal .kit-editor-summary strong {
+  color: #143b62 !important;
+}
+
+#settings-modal .template-editor-actions {
+  margin-top: 20px !important;
+  padding-top: 18px;
+  border-top: 1px solid #edf1f5;
+}
+
+/* Rodapé fixo apenas na aba Geral */
+#settings-modal .settings-footer {
+  min-height: 60px !important;
+  padding: 13px 28px !important;
+  border-top: 1px solid var(--settings-border) !important;
+  gap: 9px !important;
+  background: rgba(255, 255, 255, .98) !important;
+}
+
+#settings-modal .settings-footer .btn {
+  min-width: 130px;
+  min-height: 42px !important;
+}
+
+#settings-modal .settings-footer .btn-primary {
+  min-width: 195px !important;
+}
+
+
+
+/* =========================================================
+   REFINAMENTO CLEAR
+   Menos caixas, menos negrito e mais espaço em branco.
+   ========================================================= */
+#settings-modal .settings-modal-eyebrow,
+#settings-modal .settings-panel-eyebrow {
+  font-weight: 500 !important;
+  letter-spacing: .055em !important;
+}
+
+#settings-modal .settings-tabs {
+  border-color: #e8edf3 !important;
+  background: #fff !important;
+}
+
+#settings-modal .settings-tabs button {
+  color: #667085 !important;
+  font-weight: 500 !important;
+}
+
+#settings-modal .settings-tabs button.active {
+  color: #1677df !important;
+}
+
+#settings-modal .settings-card,
+#settings-modal .settings-list-card,
+#settings-modal .settings-editor,
+#settings-modal .template-editor {
+  border-color: #e8edf3 !important;
+  background: #fff !important;
+}
+
+#settings-modal .settings-panel-title {
+  min-height: 42px;
+}
+
+#settings-modal .settings-panel-title p {
+  color: #7d899a !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+}
+
+#settings-modal .settings-list-header,
+#settings-modal .settings-editor-heading,
+#settings-modal .template-editor-header {
+  border-bottom-color: #eef2f6 !important;
+}
+
+#settings-modal .settings-list-header h4,
+#settings-modal .settings-editor-heading h4,
+#settings-modal .template-editor-header h4,
+#settings-modal .settings-card-header h4,
+#settings-modal .template-items-header h5 {
+  color: #27364b !important;
+  font-weight: 500 !important;
+}
+
+#settings-modal .settings-list-header p,
+#settings-modal .settings-card-header p,
+#settings-modal .template-editor-header p,
+#settings-modal .template-items-header p {
+  color: #8a96a7 !important;
+  font-weight: 400 !important;
+}
+
+#settings-modal .settings-list-item.category-settings-card {
+  border-color: #e7ecf2 !important;
+  box-shadow: none !important;
+}
+
+#settings-modal .settings-list-item.category-settings-card:hover {
+  border-color: #d6e1ec !important;
+  background: #fcfdff !important;
+}
+
+#settings-modal .category-settings-title strong,
+#settings-modal .kit-settings-card h5,
+#settings-modal .template-card h5 {
+  color: #344054 !important;
+  font-weight: 500 !important;
+}
+
+#settings-modal .category-settings-copy small,
+#settings-modal .category-settings-order,
+#settings-modal .kit-settings-card p,
+#settings-modal .template-card p,
+#settings-modal .kit-settings-meta,
+#settings-modal .template-card-meta {
+  font-weight: 400 !important;
+}
+
+#settings-modal .settings-status-badge {
+  min-height: 20px;
+  padding: 0 7px;
+  font-weight: 500 !important;
+}
+
+#settings-modal .settings-editor-heading > span,
+#settings-modal .category-settings-icon,
+#settings-modal .kit-settings-icon,
+#settings-modal .template-card-icon {
+  color: #5d8fbd !important;
+  background: #f5f8fb !important;
+}
+
+#settings-modal .form-group label {
+  color: #526174 !important;
+  font-weight: 500 !important;
+}
+
+#settings-modal .form-group input,
+#settings-modal .form-group select,
+#settings-modal .form-group textarea,
+#settings-modal .product-search-box input,
+#settings-modal .budget-items-table input,
+#settings-modal .budget-items-table textarea {
+  border-color: #dfe6ee !important;
+  color: #344054 !important;
+  font-weight: 400 !important;
+}
+
+#settings-modal .form-group input::placeholder,
+#settings-modal .form-group textarea::placeholder,
+#settings-modal .product-search-box input::placeholder {
+  color: #9ba7b7 !important;
+  font-weight: 400 !important;
+}
+
+#settings-modal .settings-inline-toggle,
+#settings-modal .kit-products-card,
+#settings-modal .product-search-box,
+#settings-modal .budget-items-table-wrap {
+  border-color: #e6ebf1 !important;
+  background: #fbfcfd !important;
+}
+
+#settings-modal .settings-inline-toggle strong,
+#settings-modal .settings-toggle-copy strong,
+#settings-modal .settings-subsection-title strong {
+  font-weight: 500 !important;
+}
+
+#settings-modal .settings-inline-toggle small,
+#settings-modal .settings-toggle-copy small,
+#settings-modal .settings-subsection-title small {
+  font-weight: 400 !important;
+}
+
+#settings-modal .btn {
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+}
+
+#settings-modal .btn-primary {
+  background: #1677df !important;
+  box-shadow: none !important;
+}
+
+#settings-modal .btn-primary:hover {
+  background: #116dce !important;
+}
+
+#settings-modal .budget-action-btn {
+  color: #758195 !important;
+  background: #fff !important;
+}
+
+#settings-modal .settings-footer {
+  box-shadow: 0 -1px 0 rgba(15, 23, 42, .02) !important;
+}
+
+
+/* Tema escuro */
+html[data-theme="dark"] #settings-modal,
+[data-theme="dark"] #settings-modal {
+  --settings-text: #edf4f8;
+  --settings-title: #f1f6f9;
+  --settings-muted: #a9bac6;
+  --settings-border: #294350;
+  --settings-border-strong: #365464;
+  --settings-surface: #122934;
+  --settings-bg: #0c1c25;
+  --settings-soft-blue: rgba(42, 130, 224, .13);
+}
+
+html[data-theme="dark"] #settings-modal .settings-modal-content,
+html[data-theme="dark"] #settings-modal .settings-workspace,
+html[data-theme="dark"] #settings-modal .settings-body,
+[data-theme="dark"] #settings-modal .settings-modal-content,
+[data-theme="dark"] #settings-modal .settings-workspace,
+[data-theme="dark"] #settings-modal .settings-body {
+  background: #0c1c25 !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-modal-header,
+html[data-theme="dark"] #settings-modal .settings-tabs,
+html[data-theme="dark"] #settings-modal .settings-card,
+html[data-theme="dark"] #settings-modal .settings-list-card,
+html[data-theme="dark"] #settings-modal .settings-editor,
+html[data-theme="dark"] #settings-modal .template-editor,
+html[data-theme="dark"] #settings-modal .settings-footer,
+html[data-theme="dark"] #settings-modal .kit-settings-card,
+html[data-theme="dark"] #settings-modal .template-card,
+html[data-theme="dark"] #settings-modal .settings-list-item.category-settings-card,
+[data-theme="dark"] #settings-modal .settings-modal-header,
+[data-theme="dark"] #settings-modal .settings-tabs,
+[data-theme="dark"] #settings-modal .settings-card,
+[data-theme="dark"] #settings-modal .settings-list-card,
+[data-theme="dark"] #settings-modal .settings-editor,
+[data-theme="dark"] #settings-modal .template-editor,
+[data-theme="dark"] #settings-modal .settings-footer,
+[data-theme="dark"] #settings-modal .kit-settings-card,
+[data-theme="dark"] #settings-modal .template-card,
+[data-theme="dark"] #settings-modal .settings-list-item.category-settings-card {
+  border-color: var(--settings-border) !important;
+  background: #122934 !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-modal-header h3,
+html[data-theme="dark"] #settings-modal .settings-panel-title h4,
+html[data-theme="dark"] #settings-modal .settings-card-header h4,
+html[data-theme="dark"] #settings-modal .settings-list-header h4,
+html[data-theme="dark"] #settings-modal .settings-editor-heading h4,
+html[data-theme="dark"] #settings-modal .template-editor-header h4,
+html[data-theme="dark"] #settings-modal .kit-settings-card h5,
+html[data-theme="dark"] #settings-modal .template-card h5,
+html[data-theme="dark"] #settings-modal .category-settings-title strong,
+[data-theme="dark"] #settings-modal .settings-modal-header h3,
+[data-theme="dark"] #settings-modal .settings-panel-title h4,
+[data-theme="dark"] #settings-modal .settings-card-header h4,
+[data-theme="dark"] #settings-modal .settings-list-header h4,
+[data-theme="dark"] #settings-modal .settings-editor-heading h4,
+[data-theme="dark"] #settings-modal .template-editor-header h4,
+[data-theme="dark"] #settings-modal .kit-settings-card h5,
+[data-theme="dark"] #settings-modal .template-card h5,
+[data-theme="dark"] #settings-modal .category-settings-title strong {
+  color: var(--settings-title) !important;
+}
+
+html[data-theme="dark"] #settings-modal .form-group input,
+html[data-theme="dark"] #settings-modal .form-group select,
+html[data-theme="dark"] #settings-modal .form-group textarea,
+html[data-theme="dark"] #settings-modal .settings-color-code,
+html[data-theme="dark"] #settings-modal #config-cor,
+html[data-theme="dark"] #settings-modal .budget-items-table-wrap,
+html[data-theme="dark"] #settings-modal .budget-items-table input,
+html[data-theme="dark"] #settings-modal .budget-items-table textarea,
+[data-theme="dark"] #settings-modal .form-group input,
+[data-theme="dark"] #settings-modal .form-group select,
+[data-theme="dark"] #settings-modal .form-group textarea,
+[data-theme="dark"] #settings-modal .settings-color-code,
+[data-theme="dark"] #settings-modal #config-cor,
+[data-theme="dark"] #settings-modal .budget-items-table-wrap,
+[data-theme="dark"] #settings-modal .budget-items-table input,
+[data-theme="dark"] #settings-modal .budget-items-table textarea {
+  border-color: var(--settings-border-strong) !important;
+  color: #e9f2f6 !important;
+  background: #0f222c !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-inline-toggle,
+html[data-theme="dark"] #settings-modal .kit-products-card,
+html[data-theme="dark"] #settings-modal .product-search-box,
+html[data-theme="dark"] #settings-modal .settings-empty-state,
+[data-theme="dark"] #settings-modal .settings-inline-toggle,
+[data-theme="dark"] #settings-modal .kit-products-card,
+[data-theme="dark"] #settings-modal .product-search-box,
+[data-theme="dark"] #settings-modal .settings-empty-state {
+  border-color: var(--settings-border) !important;
+  background: #10252f !important;
+}
+
+html[data-theme="dark"] #settings-modal .budget-items-table th,
+[data-theme="dark"] #settings-modal .budget-items-table th {
+  color: #aebec8 !important;
+  background: #17313c !important;
+}
+
+html[data-theme="dark"] #settings-modal .btn-secondary,
+html[data-theme="dark"] #settings-modal .btn-close,
+html[data-theme="dark"] #settings-modal .budget-action-btn,
+[data-theme="dark"] #settings-modal .btn-secondary,
+[data-theme="dark"] #settings-modal .btn-close,
+[data-theme="dark"] #settings-modal .budget-action-btn {
+  border-color: var(--settings-border-strong) !important;
+  color: #dbe8ee !important;
+  background: #10252f !important;
+}
+
+/* Responsivo */
+@media (max-width: 1120px) {
+  #settings-modal .settings-summary-grid,
+  #settings-modal .settings-split {
+    grid-template-columns: 1fr !important;
+  }
+
+  #settings-modal .settings-editor {
+    position: static;
+  }
+
+  #settings-modal .kit-settings-grid,
+  #settings-modal .template-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 860px) {
+  #settings-modal {
+    padding: 10px !important;
+  }
+
+  #settings-modal .settings-modal-content {
+    width: calc(100vw - 20px) !important;
+    height: calc(100dvh - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    border-radius: 16px !important;
+  }
+
+  #settings-modal .settings-modal-header {
+    min-height: 84px !important;
+    padding: 16px 20px !important;
+  }
+
+  #settings-modal .settings-sidebar {
+    padding: 12px 14px 0 !important;
+  }
+
+  #settings-modal .settings-tabs {
+    min-height: 66px;
+    padding: 0 6px !important;
+  }
+
+  #settings-modal .settings-tabs button {
+    min-height: 64px !important;
+    padding: 0 8px !important;
+    gap: 7px !important;
+  }
+
+  #settings-modal .settings-tab-copy strong {
+    font-size: 10.5px !important;
+  }
+
+  #settings-modal .settings-body {
+    padding: 16px 14px 22px !important;
+  }
+
+  #settings-modal .settings-panel-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  #settings-modal .settings-panel-title p {
+    max-width: none;
+    padding-left: 52px;
+    text-align: left;
+  }
+
+  #settings-modal .settings-general-grid,
+  #settings-modal .settings-document-card .budget-form-grid,
+  #settings-modal .settings-appearance-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #settings-modal .settings-general-grid .span-2,
+  #settings-modal .settings-general-grid .span-3,
+  #settings-modal .settings-document-card .span-2,
+  #settings-modal .settings-document-card .span-3 {
+    grid-column: 1 !important;
+  }
+}
+
+@media (max-width: 680px) {
+  #settings-modal {
+    padding: 0 !important;
+  }
+
+  #settings-modal .settings-modal-content {
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+  }
+
+  #settings-modal .settings-modal-header {
+    min-height: 78px !important;
+    padding: 13px 15px !important;
+  }
+
+  #settings-modal .settings-modal-header h3 {
+    font-size: 17px !important;
+  }
+
+  #settings-modal .settings-modal-header p {
+    max-width: calc(100vw - 82px);
+    font-size: 9.5px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #settings-modal .settings-sidebar {
+    padding: 9px 10px 0 !important;
+  }
+
+  #settings-modal .settings-tabs {
+    min-height: 58px;
+    display: flex !important;
+    gap: 2px !important;
+    overflow-x: auto !important;
+    scrollbar-width: none;
+  }
+
+  #settings-modal .settings-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  #settings-modal .settings-tabs button {
+    flex: 0 0 auto;
+    width: auto !important;
+    min-width: 118px !important;
+    min-height: 56px !important;
+    padding-inline: 10px !important;
+  }
+
+  #settings-modal .settings-tab-icon {
+    width: 22px !important;
+    height: 22px !important;
+    font-size: 11px !important;
+  }
+
+  #settings-modal .settings-body {
+    padding: 13px 10px 20px !important;
+  }
+
+  #settings-modal .settings-card,
+  #settings-modal .settings-list-card,
+  #settings-modal .settings-editor,
+  #settings-modal .template-editor {
+    padding: 15px !important;
+    border-radius: 11px !important;
+  }
+
+  #settings-modal .settings-summary-grid,
+  #settings-modal .settings-toggle-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #settings-modal .kit-settings-grid,
+  #settings-modal .template-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #settings-modal .settings-list-header,
+  #settings-modal .template-items-header {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  #settings-modal .settings-list-header .btn,
+  #settings-modal .template-items-header > div:last-child,
+  #settings-modal .template-items-header > div:last-child .btn {
+    width: 100% !important;
+  }
+
+  #settings-modal .template-items-header > div:last-child {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #settings-modal .category-settings-card {
+    grid-template-columns: 38px minmax(0, 1fr) !important;
+  }
+
+  #settings-modal .category-settings-card .settings-list-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  #settings-modal .settings-footer {
+    min-height: auto !important;
+    padding: 10px !important;
+    display: grid !important;
+    grid-template-columns: .85fr 1.25fr;
+  }
+
+  #settings-modal .settings-footer .btn,
+  #settings-modal .settings-footer .btn-primary {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+/* =========================================================
+   HIERARQUIA TIPOGRÁFICA EQUILIBRADA — INTER v15
+   Mantém a interface clara, mas recupera contraste e leitura.
+   ========================================================= */
+#settings-modal {
+  color: #475467 !important;
+  font-weight: 400 !important;
+}
+
+/* Título principal: destaque forte, sem peso excessivo. */
+#settings-modal .settings-modal-header h3 {
+  color: #172033 !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  letter-spacing: -.025em !important;
+}
+
+#settings-modal .settings-modal-header p {
+  color: #6b778c !important;
+  font-weight: 400 !important;
+}
+
+#settings-modal .settings-modal-eyebrow,
+#settings-modal .settings-panel-eyebrow {
+  font-weight: 600 !important;
+}
+
+/* Abas: discretas em repouso e mais definidas quando ativas. */
+#settings-modal .settings-tabs button {
+  font-weight: 500 !important;
+}
+
+#settings-modal .settings-tab-copy strong {
+  font-weight: 500 !important;
+}
+
+#settings-modal .settings-tabs button.active,
+#settings-modal .settings-tabs button.active .settings-tab-copy strong {
+  font-weight: 600 !important;
+}
+
+/* Cabeçalhos das áreas e cards. */
+#settings-modal .settings-panel-title h4 {
+  color: #202b3d !important;
+  font-weight: 600 !important;
+}
+
+#settings-modal .settings-list-header h4,
+#settings-modal .settings-editor-heading h4,
+#settings-modal .template-editor-header h4,
+#settings-modal .settings-card-header h4,
+#settings-modal .template-items-header h5 {
+  color: #253044 !important;
+  font-weight: 600 !important;
+}
+
+#settings-modal .settings-panel-title p,
+#settings-modal .settings-list-header p,
+#settings-modal .settings-card-header p,
+#settings-modal .template-editor-header p,
+#settings-modal .template-items-header p {
+  font-weight: 400 !important;
+}
+
+/* Conteúdo principal das listas. */
+#settings-modal .category-settings-title strong,
+#settings-modal .kit-settings-card h5,
+#settings-modal .template-card h5,
+#settings-modal .settings-empty-state strong {
+  color: #273244 !important;
+  font-weight: 600 !important;
+}
+
+#settings-modal .category-settings-copy small,
+#settings-modal .category-settings-order,
+#settings-modal .kit-settings-card p,
+#settings-modal .template-card p,
+#settings-modal .kit-settings-meta,
+#settings-modal .template-card-meta,
+#settings-modal .settings-empty-state small {
+  font-weight: 400 !important;
+}
+
+/* Formulários: rótulo definido e conteúdo leve. */
+#settings-modal .form-group label {
+  color: #475467 !important;
+  font-weight: 500 !important;
+}
+
+#settings-modal .form-group input,
+#settings-modal .form-group select,
+#settings-modal .form-group textarea,
+#settings-modal .product-search-box input,
+#settings-modal .budget-items-table input,
+#settings-modal .budget-items-table textarea {
+  font-weight: 400 !important;
+}
+
+/* Controles e informações importantes. */
+#settings-modal .settings-toggle-copy strong,
+#settings-modal .settings-inline-toggle strong,
+#settings-modal .settings-subsection-title strong {
+  color: #344054 !important;
+  font-weight: 600 !important;
+}
+
+#settings-modal .settings-toggle-copy small,
+#settings-modal .settings-inline-toggle small,
+#settings-modal .settings-subsection-title small {
+  font-weight: 400 !important;
+}
+
+#settings-modal .settings-status-badge {
+  font-weight: 600 !important;
+}
+
+#settings-modal .budget-items-table th {
+  font-weight: 600 !important;
+}
+
+#settings-modal .budget-items-table td {
+  font-weight: 400 !important;
+}
+
+/* Botões: legíveis e claros, sem aparência pesada. */
+#settings-modal .btn,
+#settings-modal button {
+  font-weight: 600 !important;
+}
+
+#settings-modal .btn-close,
+#settings-modal .settings-icon-btn,
+#settings-modal .icon-btn {
+  font-weight: 500 !important;
+}
+
+/* Valores e resumos merecem contraste visual. */
+#settings-modal .kit-editor-summary strong,
+#settings-modal .settings-step {
+  font-weight: 600 !important;
+}
+

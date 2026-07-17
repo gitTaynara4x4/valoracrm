@@ -32,6 +32,7 @@ from backend.routers import campos_propostas
 from backend.routers.integracoes_zapschat import router as integracoes_zapschat_router
 from backend.routers.exportacoes import router as exportacoes_router
 from backend.routers.agenda import router as agenda_router
+from backend.agenda_push import start_push_dispatcher, stop_push_dispatcher
 
 
 # ============================================
@@ -55,6 +56,16 @@ app = FastAPI(
 )
 
 
+@app.on_event("startup")
+async def start_agenda_push_background() -> None:
+    await start_push_dispatcher()
+
+
+@app.on_event("shutdown")
+async def stop_agenda_push_background() -> None:
+    await stop_push_dispatcher()
+
+
 # ============================================
 # Config global de favicon
 # ============================================
@@ -75,6 +86,8 @@ PUBLIC_EXACT_PATHS = {
     "/frontend/login.html/",
     "/ping",
     "/favicon.ico",
+    "/valora-sw.js",
+    "/manifest.webmanifest",
 
     # assets básicos do login
     "/frontend/js/pages/login.js",
@@ -297,6 +310,27 @@ def serve_html(page_name: str) -> FileResponse:
 # ============================================
 # Rotas básicas
 # ============================================
+@app.get("/valora-sw.js", include_in_schema=False)
+def service_worker() -> FileResponse:
+    return FileResponse(
+        str(FRONTEND_DIR / "valora-sw.js"),
+        media_type="application/javascript; charset=utf-8",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Service-Worker-Allowed": "/",
+        },
+    )
+
+
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def web_manifest() -> FileResponse:
+    return FileResponse(
+        str(FRONTEND_DIR / "manifest.webmanifest"),
+        media_type="application/manifest+json; charset=utf-8",
+        headers={"Cache-Control": "no-cache, max-age=300"},
+    )
+
+
 @app.get("/ping")
 def ping():
     return {"status": "ok", "app": "4X Valora"}

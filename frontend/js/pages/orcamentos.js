@@ -26,14 +26,17 @@
     productSearch: {
       budget: { results: [], version: 0, pageSize: 10, offset: 0, hasMore: false, loading: false, query: '', total: 0 },
       template: { results: [], version: 0, pageSize: 10, offset: 0, hasMore: false, loading: false, query: '', total: 0 },
+      kit: { results: [], version: 0, pageSize: 10, offset: 0, hasMore: false, loading: false, query: '', total: 0 },
     },
     categories: [],
     templates: [],
+    kits: [],
     users: [],
     company: null,
     meta: { pode_ver_custos: false, pode_configurar: false, configuracao: {} },
     activeTab: 'dados',
     templateItems: [],
+    kitItems: [],
     settingsTab: 'geral',
   };
 
@@ -84,6 +87,10 @@
 
   function inputMoney(value) {
     return parseNumber(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function inputQuantity(value) {
+    return parseNumber(value).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
   }
 
   function formatPercent(value) {
@@ -204,10 +211,11 @@
 
   async function bootstrap() {
     try {
-      const [meta, categories, templates, users, company, clientsResponse] = await Promise.all([
+      const [meta, categories, templates, kits, users, company, clientsResponse] = await Promise.all([
         api(`${API}/meta`),
         api(`${API}/categorias`),
         api(`${API}/modelos`),
+        api(`${API}/kits`),
         api(API_USERS),
         api(API_COMPANY).catch(() => null),
         api(`${API_CLIENTS}?paginated=true&limit=20&offset=0`).catch(() => ({ items: [] })),
@@ -215,6 +223,7 @@
       state.meta = meta;
       state.categories = categories || [];
       state.templates = templates || [];
+      state.kits = kits || [];
       state.users = (users || []).filter((user) => user.ativo !== false);
       state.company = company;
       state.clients = normalizeCollection(clientsResponse);
@@ -243,6 +252,7 @@
     const showCosts = canShowCosts();
     $$('.cost-only').forEach((element) => element.classList.toggle('is-hidden', !showCosts));
     $('btn-configurar-orcamentos').classList.toggle('is-hidden', !state.meta.pode_configurar);
+    if ($('btn-gerenciar-kits')) $('btn-gerenciar-kits').classList.toggle('is-hidden', !state.meta.pode_configurar);
   }
 
   async function loadBudgets() {
@@ -702,7 +712,9 @@
   }
 
   function getProductSearchState(target = 'budget') {
-    return state.productSearch[target === 'template' ? 'template' : 'budget'];
+    if (target === 'template') return state.productSearch.template;
+    if (target === 'kit') return state.productSearch.kit;
+    return state.productSearch.budget;
   }
 
   function getProductSearchElements(target = 'budget') {
@@ -711,6 +723,13 @@
         input: $('template-product-input'),
         results: $('template-product-results'),
         box: $('template-product-search'),
+      };
+    }
+    if (target === 'kit') {
+      return {
+        input: $('kit-product-input'),
+        results: $('kit-product-results'),
+        box: $('kit-product-search'),
       };
     }
 
@@ -932,6 +951,12 @@
       state.templateItems.push(item);
       renderTemplateItems();
       resetProductSearch('template', { reload: true });
+    } else if (target === 'kit') {
+      const existing = state.kitItems.find((current) => Number(current.produto_id) === Number(item.produto_id));
+      if (existing) existing.quantidade = parseNumber(existing.quantidade) + 1;
+      else state.kitItems.push(item);
+      renderKitItems();
+      resetProductSearch('kit', { reload: true });
     } else {
       state.items.push(item);
       renderItems();
@@ -1504,21 +1529,97 @@
     } catch (error) { toast(error.message, 'error'); }
   }
 
+  // Kits de produtos no orçamento
+  function activeKits() {
+    return (state.kits || []).filter((kit) => kit.ativo !== false);
+  }
+
+  function renderKitPicker() {
+    const query = String($('kit-picker-search-input')?.value || '').trim().toLowerCase();
+    const kits = activeKits().filter((kit) => !query || [kit.nome, kit.descricao].join(' ').toLowerCase().includes(query));
+    $('kit-picker-count').textContent = `${kits.length} ${kits.length === 1 ? 'kit disponível' : 'kits disponíveis'}`;
+    $('kit-picker-list').innerHTML = kits.map((kit) => `
+      <article class="kit-picker-card">
+        <div class="kit-picker-card-icon"><i class="fa-solid fa-layer-group"></i></div>
+        <div class="kit-picker-card-copy">
+          <h4>${escapeHtml(kit.nome)}</h4>
+          <p>${escapeHtml(kit.descricao || 'Conjunto de produtos pronto para o orçamento.')}</p>
+          <div class="kit-picker-card-meta">
+            <span><i class="fa-solid fa-boxes-stacked"></i> ${Number(kit.itens_quantidade || 0)} ${Number(kit.itens_quantidade || 0) === 1 ? 'produto' : 'produtos'}</span>
+            <span><i class="fa-solid fa-coins"></i> ${formatMoney(kit.valor_estimado)}</span>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-small" type="button" data-add-kit="${kit.id}"><i class="fa-solid fa-plus"></i> Adicionar</button>
+      </article>`).join('') || `
+      <div class="kit-picker-empty">
+        <i class="fa-solid fa-layer-group"></i>
+        <strong>${query ? 'Nenhum kit encontrado' : 'Nenhum kit cadastrado'}</strong>
+        <span>${query ? 'Tente buscar por outro nome.' : 'Crie kits em Configurações de orçamentos para inserir vários produtos de uma vez.'}</span>
+      </div>`;
+  }
+
+  async function openKitPicker() {
+    try {
+      state.kits = await api(`${API}/kits`);
+      $('kit-picker-search-input').value = '';
+      renderKitPicker();
+      openOverlay('kit-picker-modal');
+      setTimeout(() => $('kit-picker-search-input')?.focus(), 80);
+    } catch (error) {
+      toast(error.message || 'Não foi possível carregar os kits.', 'error');
+    }
+  }
+
+  async function addKitToBudget(kitId, button = null) {
+    try {
+      setButtonLoading(button, true, 'Adicionando...');
+      const kit = await api(`${API}/kits/${kitId}`);
+      let addedLines = 0;
+      let mergedLines = 0;
+      (kit.itens || []).forEach((rawItem) => {
+        const item = normalizeItem(rawItem);
+        const existing = item.produto_id
+          ? state.items.find((current) => Number(current.produto_id) === Number(item.produto_id))
+          : null;
+        if (existing) {
+          existing.quantidade = parseNumber(existing.quantidade) + parseNumber(item.quantidade);
+          mergedLines += 1;
+        } else {
+          state.items.push(item);
+          addedLines += 1;
+        }
+      });
+      renderItems();
+      updateTotals();
+      setTab('itens');
+      closeOverlay('kit-picker-modal');
+      const detail = mergedLines ? ` (${mergedLines} quantidades somadas aos produtos já existentes)` : '';
+      toast(`Kit “${kit.nome}” adicionado com ${addedLines + mergedLines} produtos${detail}.`);
+    } catch (error) {
+      toast(error.message || 'Não foi possível adicionar o kit.', 'error');
+    } finally {
+      setButtonLoading(button, false);
+    }
+  }
+
   // Configurações
   async function openSettings() {
     try {
-      const [categories, templates] = await Promise.all([
+      const [categories, templates, kits] = await Promise.all([
         api(`${API}/categorias?incluir_inativas=true`),
         api(`${API}/modelos?incluir_inativos=true`),
+        api(`${API}/kits?incluir_inativos=true`),
       ]);
       state.categories = categories || [];
       state.templates = templates || [];
+      state.kits = kits || [];
     } catch (error) {
       toast(error.message || 'Não foi possível atualizar as configurações.', 'error');
     }
     fillSettingsForm();
     renderCategories();
     renderTemplates();
+    renderKits();
     renderSelects();
     setSettingsTab('geral');
     openOverlay('settings-modal');
@@ -1526,9 +1627,44 @@
 
   function setSettingsTab(tab) {
     state.settingsTab = tab;
-    $$('.settings-tabs button').forEach((button) => button.classList.toggle('active', button.dataset.settingsTab === tab));
+    $$('.settings-tabs button').forEach((button) => {
+      const active = button.dataset.settingsTab === tab;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
     $$('.settings-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.settingsPanel === tab));
     $('settings-footer').classList.toggle('is-hidden', tab !== 'geral');
+    if ($('settings-modal') && !$('settings-modal').hidden) $('settings-modal').querySelector('.settings-body').scrollTop = 0;
+  }
+
+  function normalizeSettingsColor(value, fallback = '#65ACDE') {
+    const raw = String(value || '').trim().replace(/^#/, '');
+    return /^[0-9a-fA-F]{6}$/.test(raw) ? `#${raw.toUpperCase()}` : fallback;
+  }
+
+  function syncSettingsColorFromPicker() {
+    const color = normalizeSettingsColor($('config-cor').value);
+    $('config-cor').value = color;
+    $('config-cor-hex').value = color.slice(1);
+  }
+
+  function syncSettingsColorFromText(force = false) {
+    const typed = String($('config-cor-hex').value || '').trim().replace(/^#/, '');
+    if (/^[0-9a-fA-F]{6}$/.test(typed)) {
+      const color = `#${typed.toUpperCase()}`;
+      $('config-cor').value = color;
+      $('config-cor-hex').value = typed.toUpperCase();
+      return;
+    }
+    if (force) syncSettingsColorFromPicker();
+  }
+
+  function updateSettingsConditionalFields() {
+    const isDav = $('config-modelo-documento').value === 'dav';
+    $$('[data-settings-dav]').forEach((field) => field.classList.toggle('is-hidden', !isDav));
+
+    const useCover = $('config-usar-capa').checked;
+    $$('[data-settings-cover-field]').forEach((field) => field.classList.toggle('settings-fields-muted', !useCover));
   }
 
   function fillSettingsForm() {
@@ -1541,7 +1677,6 @@
       'config-condicoes': config.condicoes_padrao || '',
       'config-observacoes': config.observacoes_padrao || '',
       'config-rodape': config.rodape_padrao || '',
-      'config-cor': config.cor_primaria || '#65ACDE',
       'config-margem-minima': inputMoney(config.margem_minima),
       'config-titulo-capa': config.titulo_capa || '',
       'config-subtitulo-capa': config.subtitulo_capa || '',
@@ -1557,10 +1692,14 @@
       'config-cabecalho-rodape': config.cabecalho_rodape || '',
     };
     Object.entries(values).forEach(([id, value]) => { if ($(id)) $(id).value = value; });
+    const primaryColor = normalizeSettingsColor(config.cor_primaria || '#65ACDE');
+    $('config-cor').value = primaryColor;
+    $('config-cor-hex').value = primaryColor.slice(1);
     $('config-exigir-aprovacao').checked = Boolean(config.exigir_aprovacao_margem);
     $('config-controlar-custos').checked = config.controlar_custos !== false;
     $('config-usar-capa').checked = Boolean(config.usar_capa);
     $('config-mostrar-codigo').checked = config.mostrar_codigo !== false;
+    updateSettingsConditionalFields();
   }
 
   async function saveSettings() {
@@ -1586,7 +1725,7 @@
         condicoes_padrao: $('config-condicoes').value.trim() || null,
         observacoes_padrao: $('config-observacoes').value.trim() || null,
         rodape_padrao: $('config-rodape').value.trim() || null,
-        cor_primaria: $('config-cor').value || '#65ACDE',
+        cor_primaria: normalizeSettingsColor($('config-cor-hex').value || $('config-cor').value),
         titulo_capa: $('config-titulo-capa').value.trim() || null,
         subtitulo_capa: $('config-subtitulo-capa').value.trim() || null,
         usar_capa: $('config-usar-capa').checked,
@@ -1617,7 +1756,22 @@
 
   function renderCategories() {
     $('categories-list').innerHTML = state.categories.map((category) => `
-      <article class="settings-list-item"><div><strong>${escapeHtml(category.nome)}</strong><small>${escapeHtml(category.descricao || 'Sem descrição')}</small></div><div class="settings-list-actions"><button class="budget-action-btn" data-edit-category="${category.id}" type="button"><i class="fa-solid fa-pen"></i></button><button class="budget-action-btn danger" data-delete-category="${category.id}" type="button"><i class="fa-solid fa-trash"></i></button></div></article>`).join('') || '<div class="empty-state">Nenhuma categoria cadastrada.</div>';
+      <article class="settings-list-item category-settings-card ${category.ativo === false ? 'is-inactive' : ''}">
+        <span class="category-settings-icon"><i class="fa-regular fa-folder-open"></i></span>
+        <div class="category-settings-copy">
+          <div class="category-settings-title">
+            <strong>${escapeHtml(category.nome)}</strong>
+            <span class="settings-status-badge ${category.ativo === false ? 'inactive' : ''}">${category.ativo === false ? 'Inativa' : 'Ativa'}</span>
+          </div>
+          <small>${escapeHtml(category.descricao || 'Categoria sem descrição interna.')}</small>
+          <span class="category-settings-order">Ordem ${Number(category.ordem || 0)}</span>
+        </div>
+        <div class="settings-list-actions">
+          <button class="budget-action-btn" data-edit-category="${category.id}" type="button" title="Editar categoria"><i class="fa-solid fa-pen"></i></button>
+          <button class="budget-action-btn danger" data-delete-category="${category.id}" type="button" title="Excluir categoria"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </article>`).join('') || `
+      <div class="settings-empty-state"><span><i class="fa-regular fa-folder-open"></i></span><strong>Nenhuma categoria criada</strong><small>Crie categorias para organizar e identificar os tipos de orçamento.</small></div>`;
   }
 
   function editCategory(id) {
@@ -1653,9 +1807,158 @@
     } catch (error) { toast(error.message, 'error'); }
   }
 
+  function renderKits() {
+    $('kits-list').innerHTML = state.kits.map((kit) => `
+      <article class="kit-settings-card ${kit.ativo === false ? 'is-inactive' : ''}">
+        <div class="kit-settings-card-top">
+          <span class="kit-settings-icon"><i class="fa-solid fa-layer-group"></i></span>
+          <span class="settings-status-badge ${kit.ativo === false ? 'inactive' : ''}">${kit.ativo === false ? 'Inativo' : 'Ativo'}</span>
+        </div>
+        <div class="kit-settings-copy">
+          <h5>${escapeHtml(kit.nome)}</h5>
+          <p>${escapeHtml(kit.descricao || 'Conjunto de produtos pronto para inserção no orçamento.')}</p>
+        </div>
+        <div class="kit-settings-meta">
+          <span><i class="fa-solid fa-boxes-stacked"></i> ${Number(kit.itens_quantidade || 0)} ${Number(kit.itens_quantidade || 0) === 1 ? 'produto' : 'produtos'}</span>
+          <strong>${formatMoney(kit.valor_estimado)}</strong>
+        </div>
+        <div class="kit-settings-actions">
+          <button class="budget-action-btn" data-edit-kit="${kit.id}" type="button" title="Editar kit"><i class="fa-solid fa-pen"></i></button>
+          <button class="budget-action-btn" data-duplicate-kit="${kit.id}" type="button" title="Duplicar kit"><i class="fa-regular fa-copy"></i></button>
+          <button class="budget-action-btn danger" data-delete-kit="${kit.id}" type="button" title="Excluir kit"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </article>`).join('') || `
+      <div class="settings-empty-state settings-empty-wide"><span><i class="fa-solid fa-layer-group"></i></span><strong>Nenhum kit criado</strong><small>Monte um conjunto de produtos para adicioná-los ao orçamento com um clique.</small></div>`;
+  }
+
+  function openKitEditor(kit = null) {
+    $('kits-list-view').classList.add('is-hidden');
+    $('kit-editor').classList.remove('is-hidden');
+    $('kit-id').value = kit?.id || '';
+    $('kit-name').value = kit?.nome || '';
+    $('kit-description').value = kit?.descricao || '';
+    $('kit-active').checked = kit?.ativo !== false;
+    state.kitItems = (kit?.itens || []).map(normalizeItem);
+    $('kit-editor-title').textContent = kit ? 'Editar kit' : 'Novo kit';
+    $('kit-product-search').hidden = true;
+    resetProductSearch('kit');
+    renderKitItems();
+  }
+
+  function closeKitEditor() {
+    $('kit-editor').classList.add('is-hidden');
+    $('kits-list-view').classList.remove('is-hidden');
+    state.kitItems = [];
+    resetProductSearch('kit');
+  }
+
+  async function editKit(id) {
+    try {
+      openKitEditor(await api(`${API}/kits/${id}`));
+    } catch (error) {
+      toast(error.message || 'Não foi possível abrir o kit.', 'error');
+    }
+  }
+
+  function renderKitItems() {
+    const count = state.kitItems.length;
+    const estimatedTotal = state.kitItems.reduce((sum, item) => sum + parseNumber(item.quantidade) * parseNumber(item.valor_unitario), 0);
+    $('kit-items-count').textContent = String(count);
+    $('kit-estimated-total').textContent = formatMoney(estimatedTotal);
+    $('kit-items-body').innerHTML = state.kitItems.map((item, index) => `
+      <tr data-kit-index="${index}">
+        <td><div class="kit-product-cell"><strong>${escapeHtml(item.descricao || 'Produto')}</strong><small>${escapeHtml(item.referencia || 'Produto cadastrado')}</small></div></td>
+        <td>${escapeHtml(item.codigo || '—')}</td>
+        <td>${escapeHtml(item.unidade || 'UN')}</td>
+        <td><input class="kit-quantity-input" data-kit-field="quantidade" value="${inputQuantity(item.quantidade)}" inputmode="decimal" /></td>
+        <td>${formatMoney(item.valor_unitario)}</td>
+        <td class="kit-line-total">${formatMoney(parseNumber(item.quantidade) * parseNumber(item.valor_unitario))}</td>
+        <td><button class="item-remove" data-remove-kit-item="${index}" type="button" title="Remover produto"><i class="fa-solid fa-xmark"></i></button></td>
+      </tr>`).join('') || '<tr><td colspan="7" class="empty-state">Nenhum produto adicionado ao kit.</td></tr>';
+  }
+
+  function updateKitItem(input) {
+    const row = input.closest('tr');
+    const item = state.kitItems[Number(row?.dataset.kitIndex)];
+    if (!item) return;
+    item.quantidade = Math.max(parseNumber(input.value), 0.0001);
+    row.querySelector('.kit-line-total').textContent = formatMoney(item.quantidade * parseNumber(item.valor_unitario));
+    const estimatedTotal = state.kitItems.reduce((sum, current) => sum + parseNumber(current.quantidade) * parseNumber(current.valor_unitario), 0);
+    $('kit-estimated-total').textContent = formatMoney(estimatedTotal);
+  }
+
+  async function saveKit() {
+    const button = $('btn-salvar-kit');
+    const id = Number($('kit-id').value) || null;
+    const payload = {
+      nome: $('kit-name').value.trim(),
+      descricao: $('kit-description').value.trim() || null,
+      ativo: $('kit-active').checked,
+      itens: state.kitItems.map((item, index) => ({
+        produto_id: Number(item.produto_id),
+        quantidade: Math.max(parseNumber(item.quantidade), 0.0001),
+        ordem: index,
+      })),
+    };
+    if (!payload.nome) { toast('Informe o nome do kit.', 'error'); return; }
+    if (!payload.itens.length) { toast('Adicione pelo menos um produto ao kit.', 'error'); return; }
+    try {
+      setButtonLoading(button, true);
+      await api(id ? `${API}/kits/${id}` : `${API}/kits`, { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+      state.kits = await api(`${API}/kits?incluir_inativos=true`);
+      renderKits();
+      closeKitEditor();
+      toast('Kit salvo. Ele já está disponível na etapa Itens do orçamento.');
+    } catch (error) {
+      toast(error.message || 'Não foi possível salvar o kit.', 'error');
+    } finally {
+      setButtonLoading(button, false);
+    }
+  }
+
+  async function duplicateKit(id) {
+    try {
+      await api(`${API}/kits/${id}/duplicar`, { method: 'POST' });
+      state.kits = await api(`${API}/kits?incluir_inativos=true`);
+      renderKits();
+      toast('Kit duplicado.');
+    } catch (error) {
+      toast(error.message || 'Não foi possível duplicar o kit.', 'error');
+    }
+  }
+
+  async function deleteKit(id) {
+    if (!confirm('Excluir este kit? Os produtos e orçamentos existentes não serão apagados.')) return;
+    try {
+      await api(`${API}/kits/${id}`, { method: 'DELETE' });
+      state.kits = await api(`${API}/kits?incluir_inativos=true`);
+      renderKits();
+      closeKitEditor();
+      toast('Kit excluído.');
+    } catch (error) {
+      toast(error.message || 'Não foi possível excluir o kit.', 'error');
+    }
+  }
+
   function renderTemplates() {
     $('templates-list').innerHTML = state.templates.map((template) => `
-      <article class="template-card"><h5>${escapeHtml(template.nome)}</h5><p>${escapeHtml(template.descricao || template.titulo || 'Modelo reutilizável')}</p><div class="template-card-meta"><span>${escapeHtml(template.categoria_nome || 'Sem categoria')}</span>${template.validade_dias ? `<span>${template.validade_dias} dias</span>` : ''}</div><div class="template-card-actions"><button class="budget-action-btn" data-edit-template="${template.id}" type="button"><i class="fa-solid fa-pen"></i></button><button class="budget-action-btn danger" data-delete-template="${template.id}" type="button"><i class="fa-solid fa-trash"></i></button></div></article>`).join('') || '<div class="empty-state">Nenhum modelo criado.</div>';
+      <article class="template-card ${template.ativo === false ? 'is-inactive' : ''}">
+        <div class="template-card-top">
+          <span class="template-card-icon"><i class="fa-regular fa-file-lines"></i></span>
+          <span class="settings-status-badge ${template.ativo === false ? 'inactive' : ''}">${template.ativo === false ? 'Inativo' : 'Ativo'}</span>
+        </div>
+        <h5>${escapeHtml(template.nome)}</h5>
+        <p>${escapeHtml(template.descricao || template.titulo || 'Estrutura reutilizável de orçamento.')}</p>
+        <div class="template-card-meta">
+          <span><i class="fa-regular fa-folder"></i> ${escapeHtml(template.categoria_nome || 'Sem categoria')}</span>
+          ${template.validade_dias ? `<span><i class="fa-regular fa-calendar"></i> ${template.validade_dias} dias</span>` : ''}
+        </div>
+        <div class="template-card-actions">
+          <button class="budget-action-btn" data-edit-template="${template.id}" type="button" title="Editar modelo"><i class="fa-solid fa-pen"></i></button>
+          <button class="budget-action-btn danger" data-delete-template="${template.id}" type="button" title="Excluir modelo"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </article>`).join('') || `
+      <div class="settings-empty-state settings-empty-wide"><span><i class="fa-regular fa-file-lines"></i></span><strong>Nenhum modelo criado</strong><small>Crie estruturas prontas para preencher títulos, condições e itens automaticamente.</small></div>`;
   }
 
   function openTemplateEditor(template = null) {
@@ -1767,6 +2070,20 @@
       fillAddressFromClient(state.selectedClient, true);
     });
 
+    $('btn-adicionar-kit').addEventListener('click', openKitPicker);
+    $('btn-fechar-kit-picker').addEventListener('click', () => closeOverlay('kit-picker-modal'));
+    $('btn-cancelar-kit-picker').addEventListener('click', () => closeOverlay('kit-picker-modal'));
+    $('kit-picker-search-input').addEventListener('input', renderKitPicker);
+    $('kit-picker-list').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-add-kit]');
+      if (button) addKitToBudget(Number(button.dataset.addKit), button);
+    });
+    $('btn-gerenciar-kits').addEventListener('click', async () => {
+      closeOverlay('kit-picker-modal');
+      await openSettings();
+      setSettingsTab('kits');
+    });
+
     $('btn-buscar-produto').addEventListener('click', () => {
       const box = $('produto-search-box');
       box.hidden = !box.hidden;
@@ -1796,9 +2113,41 @@
     $('btn-cancelar-settings').addEventListener('click', () => closeOverlay('settings-modal'));
     $('btn-salvar-settings').addEventListener('click', saveSettings);
     $$('.settings-tabs button').forEach((button) => button.addEventListener('click', () => setSettingsTab(button.dataset.settingsTab)));
+    $('config-cor').addEventListener('input', syncSettingsColorFromPicker);
+    $('config-cor-hex').addEventListener('input', () => syncSettingsColorFromText(false));
+    $('config-cor-hex').addEventListener('blur', () => syncSettingsColorFromText(true));
+    $('config-modelo-documento').addEventListener('change', updateSettingsConditionalFields);
+    $('config-usar-capa').addEventListener('change', updateSettingsConditionalFields);
     $('btn-nova-categoria').addEventListener('click', resetCategoryEditor);
     $('btn-salvar-categoria').addEventListener('click', saveCategory);
     $('categories-list').addEventListener('click', (event) => { const edit = event.target.closest('[data-edit-category]'); const del = event.target.closest('[data-delete-category]'); if (edit) editCategory(edit.dataset.editCategory); if (del) deleteCategory(del.dataset.deleteCategory); });
+    $('btn-novo-kit').addEventListener('click', () => openKitEditor());
+    $('btn-voltar-kits').addEventListener('click', closeKitEditor);
+    $('btn-cancelar-kit').addEventListener('click', closeKitEditor);
+    $('btn-salvar-kit').addEventListener('click', saveKit);
+    $('kits-list').addEventListener('click', (event) => {
+      const edit = event.target.closest('[data-edit-kit]');
+      const duplicate = event.target.closest('[data-duplicate-kit]');
+      const del = event.target.closest('[data-delete-kit]');
+      if (edit) editKit(edit.dataset.editKit);
+      if (duplicate) duplicateKit(duplicate.dataset.duplicateKit);
+      if (del) deleteKit(del.dataset.deleteKit);
+    });
+    $('btn-kit-product').addEventListener('click', () => {
+      const box = $('kit-product-search');
+      box.hidden = !box.hidden;
+      if (!box.hidden) {
+        $('kit-product-input').focus();
+        showProductOptions('kit');
+      }
+    });
+    $('kit-product-input').addEventListener('input', debounce((event) => searchProducts(event.target.value, 'kit'), 250));
+    $('kit-product-results').addEventListener('scroll', () => loadMoreProductsOnScroll('kit'), { passive: true });
+    $('kit-product-results').addEventListener('click', (event) => { const button = event.target.closest('[data-product-id]'); if (button) addProduct(button.dataset.productId, 'kit'); });
+    $('kit-items-body').addEventListener('input', (event) => { if (event.target.dataset.kitField) updateKitItem(event.target); });
+    $('kit-items-body').addEventListener('focusout', (event) => { if (event.target.dataset.kitField === 'quantidade') { event.target.value = inputQuantity(event.target.value); updateKitItem(event.target); } });
+    $('kit-items-body').addEventListener('click', (event) => { const button = event.target.closest('[data-remove-kit-item]'); if (button) { state.kitItems.splice(Number(button.dataset.removeKitItem), 1); renderKitItems(); } });
+
     $('btn-novo-modelo').addEventListener('click', () => openTemplateEditor());
     $('btn-voltar-modelos').addEventListener('click', closeTemplateEditor);
     $('btn-cancelar-modelo').addEventListener('click', closeTemplateEditor);
@@ -1827,7 +2176,8 @@
     });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
-        if (!$('settings-modal').hidden) closeOverlay('settings-modal');
+        if (!$('kit-picker-modal').hidden) closeOverlay('kit-picker-modal');
+        else if (!$('settings-modal').hidden) closeOverlay('settings-modal');
         else if (!$('budget-modal').hidden) closeOverlay('budget-modal');
       }
     });

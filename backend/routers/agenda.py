@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from backend import models
+from backend import agenda_push, models
 from backend.security.permissions import get_current_user, get_db, user_has_permission
 
 
@@ -79,6 +79,26 @@ class AgendaStatusUpdate(BaseModel):
     status: AgendaStatus
     motivo_status: Optional[str] = Field(default=None, max_length=180)
     informacoes_livres: Optional[str] = Field(default=None, max_length=12000)
+
+
+class PushSubscriptionKeys(BaseModel):
+    p256dh: str = Field(min_length=20, max_length=500)
+    auth: str = Field(min_length=8, max_length=500)
+
+
+class PushSubscriptionPayload(BaseModel):
+    endpoint: str = Field(min_length=20, max_length=4000)
+    keys: PushSubscriptionKeys
+    plataforma: Optional[str] = Field(default=None, max_length=80)
+    user_agent: Optional[str] = Field(default=None, max_length=700)
+
+
+class PushUnsubscribePayload(BaseModel):
+    endpoint: str = Field(min_length=20, max_length=4000)
+
+
+class PushTestPayload(BaseModel):
+    endpoint: str = Field(min_length=20, max_length=4000)
 
 
 def ensure_agenda_table(db: Session) -> None:
@@ -537,6 +557,8 @@ def update_item(
         .mappings()
         .first()
     )
+    if reset_notificado:
+        agenda_push.reset_item_deliveries(db, item_id=item_id)
     db.commit()
     return serialize_row(row)
 
@@ -589,6 +611,8 @@ def update_item_status(
         .mappings()
         .first()
     )
+    if payload.status in ACTIVE_STATUSES:
+        agenda_push.reset_item_deliveries(db, item_id=item_id)
     db.commit()
     return serialize_row(row)
 
@@ -747,3 +771,97 @@ def mark_notified(
         raise HTTPException(status_code=404, detail="Agendamento não encontrado.")
     db.commit()
     return serialize_row(row)
+
+@router.get("/push/config")
+def get_push_config(
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+) -> Dict[str, Any]:
+    ensure_agenda_table(db)
+    try:
+        material = agenda_push.get_vapid_material(db)
+    except Exception as error:
+        return {
+            "supported": False,
+            "public_key": None,
+            "detail": str(error),
+        }
+
+    total = db.execute(
+        text(
+            """
+            SELECT COUNT(*)
+            FROM agenda_push_assinaturas
+            WHERE empresa_id = :empresa_id
+              AND usuario_id = :usuario_id
+              AND ativo = TRUE
+            """
+        ),
+        {
+            "empresa_id": int(current_user.empresa_id),
+            "usuario_id": int(current_user.id),
+        },
+    ).scalar()
+    return {
+        "supported": True,
+        "public_key": material["public_key"],
+        "active_subscriptions": int(total or 0),
+    }
+
+
+@router.post("/push/assinaturas", status_code=status.HTTP_201_CREATED)
+def save_push_subscription(
+    payload: PushSubscriptionPayload,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+) -> Dict[str, Any]:
+    ensure_agenda_table(db)
+    row = agenda_push.upsert_subscription(
+        db,
+        empresa_id=int(current_user.empresa_id),
+        usuario_id=int(current_user.id),
+        endpoint=payload.endpoint.strip(),
+        p256dh=payload.keys.p256dh.strip(),
+        auth=payload.keys.auth.strip(),
+        plataforma=payload.plataforma,
+        user_agent=payload.user_agent,
+    )
+    return {"ok": True, "subscription": row}
+
+
+@router.delete("/push/assinaturas")
+def remove_push_subscription(
+    payload: PushUnsubscribePayload,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+) -> Dict[str, Any]:
+    ensure_agenda_table(db)
+    removed = agenda_push.disable_subscription(
+        db,
+        empresa_id=int(current_user.empresa_id),
+        usuario_id=int(current_user.id),
+        endpoint=payload.endpoint.strip(),
+    )
+    return {"ok": True, "removed": removed}
+
+
+@router.post("/push/teste")
+def test_push_notification(
+    payload: PushTestPayload,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+) -> Dict[str, Any]:
+    ensure_agenda_table(db)
+    result = agenda_push.send_test_to_user(
+        db,
+        empresa_id=int(current_user.empresa_id),
+        usuario_id=int(current_user.id),
+        endpoint=payload.endpoint.strip(),
+    )
+    if result["enviadas"] < 1:
+        raise HTTPException(
+            status_code=503,
+            detail="Não foi possível enviar a notificação de teste para este dispositivo.",
+        )
+    return {"ok": True, **result}
+

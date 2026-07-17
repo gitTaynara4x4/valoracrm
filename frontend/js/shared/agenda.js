@@ -8,9 +8,22 @@
     contexts: new Map(),
     notifications: { vencidos: [], proximos: [], novos_alertas: [], total_pendentes: 0, total_vencidos: 0 },
     shownAlerts: new Set(),
+    recentPushes: new Map(),
     polling: null,
     notificationRequest: null,
     lastNotificationAt: 0,
+    audioContext: null,
+    push: {
+      supported: false,
+      configLoaded: false,
+      publicKey: '',
+      permission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
+      registration: null,
+      subscription: null,
+      enabled: false,
+      loading: false,
+      detail: '',
+    },
     initialized: false,
   };
 
@@ -44,6 +57,311 @@
       throw new Error(message);
     }
     return data;
+  }
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+  }
+
+  function notificationPlatform() {
+    const ua = navigator.userAgent || '';
+    if (/iphone|ipad|ipod/i.test(ua)) return 'iOS';
+    if (/android/i.test(ua)) return 'Android';
+    if (/windows/i.test(ua)) return 'Windows';
+    if (/macintosh|mac os/i.test(ua)) return 'macOS';
+    return navigator.platform || 'Navegador';
+  }
+
+  function pushApisAvailable() {
+    return Boolean(
+      window.isSecureContext
+      && 'serviceWorker' in navigator
+      && 'PushManager' in window
+      && 'Notification' in window
+    );
+  }
+
+  async function ensureServiceWorker() {
+    if (!pushApisAvailable()) throw new Error('Este navegador não permite notificações neste acesso.');
+    if (state.push.registration) return state.push.registration;
+    const registration = await navigator.serviceWorker.register('/valora-sw.js', { scope: '/' });
+    await navigator.serviceWorker.ready;
+    state.push.registration = registration;
+    return registration;
+  }
+
+  function subscriptionPayload(subscription) {
+    const json = subscription.toJSON();
+    return {
+      endpoint: json.endpoint,
+      keys: {
+        p256dh: json.keys?.p256dh || '',
+        auth: json.keys?.auth || '',
+      },
+      plataforma: notificationPlatform(),
+      user_agent: navigator.userAgent || '',
+    };
+  }
+
+  async function loadPushConfig() {
+    if (state.push.configLoaded) return state.push;
+    state.push.configLoaded = true;
+    state.push.supported = pushApisAvailable();
+    state.push.permission = state.push.supported ? Notification.permission : 'unsupported';
+    if (!state.push.supported) {
+      state.push.detail = window.isSecureContext
+        ? 'Este navegador não oferece notificações em segundo plano.'
+        : 'As notificações precisam de HTTPS ou acesso local seguro.';
+      renderPushControl();
+      return state.push;
+    }
+
+    try {
+      const config = await apiJson(`${API}/push/config`);
+      state.push.supported = Boolean(config?.supported);
+      state.push.publicKey = String(config?.public_key || '');
+      state.push.detail = String(config?.detail || '');
+    } catch (error) {
+      state.push.supported = false;
+      state.push.detail = error.message;
+    }
+    renderPushControl();
+    return state.push;
+  }
+
+  async function syncPushState({ subscribeWhenGranted = true } = {}) {
+    await loadPushConfig();
+    if (!state.push.supported || !state.push.publicKey) {
+      renderPushControl();
+      return state.push;
+    }
+
+    try {
+      const registration = await ensureServiceWorker();
+      state.push.permission = Notification.permission;
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription && subscribeWhenGranted && Notification.permission === 'granted') {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(state.push.publicKey),
+        });
+      }
+      state.push.subscription = subscription;
+      state.push.enabled = Boolean(subscription && Notification.permission === 'granted');
+      if (state.push.enabled) {
+        await apiJson(`${API}/push/assinaturas`, {
+          method: 'POST',
+          body: JSON.stringify(subscriptionPayload(subscription)),
+        });
+      }
+    } catch (error) {
+      state.push.enabled = false;
+      state.push.detail = error.message || 'Não foi possível preparar as notificações.';
+    }
+    renderPushControl();
+    return state.push;
+  }
+
+  async function unlockReminderAudio() {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return false;
+      if (!state.audioContext) state.audioContext = new AudioContext();
+      if (state.audioContext.state === 'suspended') await state.audioContext.resume();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function playReminderSound({ test = false } = {}) {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return false;
+      if (!state.audioContext) state.audioContext = new AudioContext();
+      if (state.audioContext.state === 'suspended') await state.audioContext.resume();
+
+      const ctx = state.audioContext;
+      const now = ctx.currentTime;
+      const notes = test
+        ? [[659.25, 0], [783.99, 0.16], [987.77, 0.32]]
+        : [[783.99, 0], [987.77, 0.18]];
+      notes.forEach(([frequency, offset], index) => {
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, now + offset);
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(index === notes.length - 1 ? 0.18 : 0.12, now + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.28);
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+        oscillator.start(now + offset);
+        oscillator.stop(now + offset + 0.3);
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function showLocalSystemNotification(item) {
+    if (!pushApisAvailable() || Notification.permission !== 'granted') return;
+    try {
+      const registration = await ensureServiceWorker();
+      await registration.showNotification(item.assunto || 'Lembrete da agenda', {
+        body: `${entityLabel(item.entidade_tipo)}: ${item.entidade_nome}\n${formatDateTime(item.agendado_para)}`,
+        icon: '/frontend/img/logo-favicon.jpg',
+        badge: '/frontend/img/logo-favicon.jpg',
+        tag: `valora-agenda-local-${item.id}-${item.agendado_para || ''}`,
+        renotify: true,
+        requireInteraction: true,
+        silent: false,
+        vibrate: [220, 110, 220],
+        data: {
+          url: `${modulePath(item.entidade_tipo)}?abrir_agenda=1`,
+          type: 'agenda-reminder',
+          agendaItemId: item.id,
+          entityType: item.entidade_tipo,
+          entityId: item.entidade_id,
+        },
+      });
+    } catch (_) {}
+  }
+
+  async function enablePushNotifications() {
+    if (state.push.loading) return;
+    state.push.loading = true;
+    renderPushControl();
+    try {
+      if (!pushApisAvailable()) {
+        throw new Error('Este navegador não permite notificações neste acesso.');
+      }
+      const permission = await Notification.requestPermission();
+      state.push.permission = permission;
+      if (permission !== 'granted') {
+        throw new Error(permission === 'denied'
+          ? 'A permissão foi bloqueada. Libere as notificações nas configurações do navegador.'
+          : 'A permissão de notificação não foi concedida.');
+      }
+
+      await loadPushConfig();
+      if (!state.push.supported || !state.push.publicKey) {
+        throw new Error(state.push.detail || 'Notificações indisponíveis no servidor.');
+      }
+
+      const registration = await ensureServiceWorker();
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(state.push.publicKey),
+        });
+      }
+      await apiJson(`${API}/push/assinaturas`, {
+        method: 'POST',
+        body: JSON.stringify(subscriptionPayload(subscription)),
+      });
+      state.push.subscription = subscription;
+      state.push.enabled = true;
+      state.push.detail = '';
+      await playReminderSound({ test: true });
+      try {
+        await apiJson(`${API}/push/teste`, { method: 'POST', body: JSON.stringify({ endpoint: subscription.endpoint }) });
+      } catch (testError) {
+        console.warn('[Agenda] A inscrição foi salva, mas o teste de push falhou:', testError.message);
+      }
+      showMessage('Notificações ativadas neste dispositivo.');
+    } catch (error) {
+      state.push.enabled = false;
+      state.push.detail = error.message;
+      showMessage(error.message, 'error');
+    } finally {
+      state.push.loading = false;
+      renderPushControl();
+    }
+  }
+
+  async function disablePushNotifications() {
+    if (state.push.loading) return;
+    state.push.loading = true;
+    renderPushControl();
+    try {
+      const registration = await ensureServiceWorker();
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        const endpoint = subscription.endpoint;
+        try {
+          await apiJson(`${API}/push/assinaturas`, {
+            method: 'DELETE',
+            body: JSON.stringify({ endpoint }),
+          });
+        } finally {
+          await subscription.unsubscribe();
+        }
+      }
+      state.push.subscription = null;
+      state.push.enabled = false;
+      state.push.detail = '';
+      showMessage('Notificações desativadas neste dispositivo.');
+    } catch (error) {
+      state.push.detail = error.message;
+      showMessage(error.message, 'error');
+    } finally {
+      state.push.loading = false;
+      renderPushControl();
+    }
+  }
+
+  function renderPushControl() {
+    const card = document.querySelector('[data-agenda-push-card]');
+    if (!card) return;
+    const title = card.querySelector('[data-agenda-push-title]');
+    const description = card.querySelector('[data-agenda-push-description]');
+    const status = card.querySelector('[data-agenda-push-status]');
+    const button = card.querySelector('[data-agenda-push-toggle]');
+    const icon = card.querySelector('[data-agenda-push-icon]');
+    if (!title || !description || !status || !button) return;
+
+    const permission = state.push.permission;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+    const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
+    let descriptionText = 'Receba lembretes com aviso do Windows ou do celular, mesmo fora da tela do Valora.';
+    let statusText = 'Não ativadas neste dispositivo';
+    let buttonText = 'Ativar notificações';
+    let statusClass = '';
+
+    if (state.push.loading) {
+      buttonText = 'Aguarde...';
+    } else if (!state.push.supported) {
+      statusText = state.push.detail || 'Indisponível neste navegador';
+      buttonText = 'Indisponível';
+    } else if (permission === 'denied') {
+      statusText = 'Permissão bloqueada no navegador';
+      descriptionText = 'Abra as permissões do site e libere Notificações para o Valora.';
+      buttonText = 'Permissão bloqueada';
+    } else if (state.push.enabled) {
+      statusText = `Ativadas neste ${notificationPlatform()}`;
+      buttonText = 'Desativar';
+      statusClass = 'is-enabled';
+    } else if (isIOS && !standalone) {
+      descriptionText = 'No iPhone, adicione o Valora à Tela de Início e abra pelo ícone para ativar os avisos.';
+    } else if (state.push.detail) {
+      statusText = state.push.detail;
+    }
+
+    title.textContent = 'Notificações no dispositivo';
+    description.textContent = descriptionText;
+    status.textContent = statusText;
+    status.classList.toggle('is-enabled', statusClass === 'is-enabled');
+    button.textContent = buttonText;
+    button.disabled = state.push.loading || !state.push.supported || permission === 'denied';
+    button.classList.toggle('is-danger', state.push.enabled);
+    card.classList.toggle('is-enabled', state.push.enabled);
+    if (icon) icon.className = state.push.enabled ? 'fa-solid fa-bell' : 'fa-regular fa-bell';
   }
 
   function formatDateTime(value) {
@@ -655,6 +973,15 @@
             <div class="agenda-summary-box"><strong data-agenda-total-overdue>0</strong><span>vencidos</span></div>
             <div class="agenda-summary-box"><strong data-agenda-total-pending>0</strong><span>em acompanhamento</span></div>
           </div>
+          <section class="agenda-push-card" data-agenda-push-card>
+            <div class="agenda-push-icon"><i class="fa-regular fa-bell" data-agenda-push-icon></i></div>
+            <div class="agenda-push-copy">
+              <strong data-agenda-push-title>Notificações no dispositivo</strong>
+              <p data-agenda-push-description>Receba lembretes no Windows e no celular.</p>
+              <span data-agenda-push-status>Verificando...</span>
+            </div>
+            <button class="agenda-push-toggle" type="button" data-agenda-push-toggle>Ativar notificações</button>
+          </section>
           <div class="valora-agenda-drawer-list" data-agenda-global-list>
             <div class="agenda-loading">Carregando agenda...</div>
           </div>
@@ -663,9 +990,17 @@
       <div class="valora-agenda-alerts" id="valora-agenda-alerts" aria-live="assertive"></div>
     `);
 
+    renderPushControl();
     const overlay = document.getElementById('valora-agenda-overlay');
     overlay?.addEventListener('click', (event) => {
-      if (event.target === overlay || event.target.closest('[data-agenda-close]')) closePanel();
+      if (event.target === overlay || event.target.closest('[data-agenda-close]')) {
+        closePanel();
+        return;
+      }
+      if (event.target.closest('[data-agenda-push-toggle]')) {
+        if (state.push.enabled) void disablePushNotifications();
+        else void enablePushNotifications();
+      }
     });
     overlay?.addEventListener('click', async (event) => {
       const button = event.target.closest('[data-agenda-action]');
@@ -686,6 +1021,7 @@
     overlay.classList.add('is-open');
     overlay.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
+    void syncPushState({ subscribeWhenGranted: true });
     refreshNotifications({ showAlerts: false, force: true });
   }
 
@@ -798,6 +1134,8 @@
       }
     });
 
+    void playReminderSound();
+    if (!state.push.enabled) void showLocalSystemNotification(item);
     markNotified(id);
   }
 
@@ -924,6 +1262,35 @@
     state.initialized = true;
     ensureGlobalUi();
     bindFixedEntityAgendaButtons();
+    void syncPushState({ subscribeWhenGranted: true });
+
+    document.addEventListener('pointerdown', () => {
+      void unlockReminderAudio();
+    }, { once: true, passive: true });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data?.type === 'valora-agenda-open') {
+          openPanel();
+          return;
+        }
+        if (event.data?.type === 'valora-agenda-push-received') {
+          const id = Number(event.data?.payload?.agendaItemId || 0);
+          if (id) state.recentPushes.set(id, Date.now());
+          void refreshNotifications({ showAlerts: false, force: true });
+        }
+      });
+    }
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('abrir_agenda') === '1') {
+        window.setTimeout(openPanel, 450);
+        params.delete('abrir_agenda');
+        const clean = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash || ''}`;
+        window.history.replaceState({}, '', clean);
+      }
+    } catch (_) {}
 
     window.addEventListener('message', (event) => {
       if (event.origin !== window.location.origin) return;
@@ -959,6 +1326,9 @@
     openPanel,
     closePanel,
     consumePendingNavigation,
+    enablePushNotifications,
+    disablePushNotifications,
+    syncPushState,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });

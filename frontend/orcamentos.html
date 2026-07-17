@@ -14,7 +14,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260713-orcamentos-v6">
@@ -22,12 +22,13 @@
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260713-orcamentos-v9">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260717-settings-formularios-v12">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
+  <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260717-settings-inter-v15">
 
   <script src="/frontend/js/pages/app.js?v=20260715-agenda-fluxo-nilson-v9" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260713-orcamentos-v9" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260717-settings-formularios-v12" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -206,7 +207,11 @@
             <div class="budget-section-card">
               <div class="budget-section-heading">
                 <div><h4>Produtos e serviços</h4><p>Adicione itens cadastrados ou linhas manuais.</p></div>
-                <div class="budget-inline-actions"><button class="btn btn-secondary btn-small" id="btn-buscar-produto" type="button"><i class="fa-solid fa-box"></i> Buscar produto</button><button class="btn btn-primary btn-small" id="btn-adicionar-item" type="button"><i class="fa-solid fa-plus"></i> Item manual</button></div>
+                <div class="budget-inline-actions">
+                  <button class="btn btn-secondary btn-small btn-add-kit" id="btn-adicionar-kit" type="button"><i class="fa-solid fa-layer-group"></i> Adicionar kit</button>
+                  <button class="btn btn-secondary btn-small" id="btn-buscar-produto" type="button"><i class="fa-solid fa-box"></i> Buscar produto</button>
+                  <button class="btn btn-primary btn-small" id="btn-adicionar-item" type="button"><i class="fa-solid fa-plus"></i> Item manual</button>
+                </div>
               </div>
               <div id="produto-search-box" class="product-search-box" hidden>
                 <div class="input-with-icon"><i class="fa-solid fa-magnifying-glass"></i><input id="produto-search-input" type="search" placeholder="Digite código, nome ou descrição" autocomplete="off" /></div>
@@ -296,77 +301,353 @@
     </div>
   </div>
 
+  <!-- SELEÇÃO DE KIT -->
+  <div class="modal-overlay" id="kit-picker-modal" hidden>
+    <div class="modal-content kit-picker-modal-content" data-close-target="false">
+      <header class="modal-header kit-picker-header">
+        <div class="kit-picker-title">
+          <span class="kit-picker-title-icon"><i class="fa-solid fa-layer-group"></i></span>
+          <div>
+            <h3>Adicionar kit de produtos</h3>
+            <p class="modal-subtitle">Escolha um conjunto pronto para preencher os itens do orçamento.</p>
+          </div>
+        </div>
+        <button class="btn-close" id="btn-fechar-kit-picker" type="button" aria-label="Fechar seleção de kits"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+      <div class="modal-body kit-picker-body">
+        <div class="kit-picker-toolbar">
+          <div class="input-with-icon kit-picker-search"><i class="fa-solid fa-magnifying-glass"></i><input id="kit-picker-search-input" type="search" placeholder="Buscar kit pelo nome ou descrição" autocomplete="off" /></div>
+          <button class="btn btn-secondary btn-small is-hidden" id="btn-gerenciar-kits" type="button"><i class="fa-solid fa-gear"></i> Gerenciar kits</button>
+        </div>
+        <div id="kit-picker-list" class="kit-picker-grid"></div>
+      </div>
+      <footer class="modal-footer kit-picker-footer">
+        <span id="kit-picker-count" class="counter-text">0 kits disponíveis</span>
+        <button class="btn btn-secondary" id="btn-cancelar-kit-picker" type="button">Fechar</button>
+      </footer>
+    </div>
+  </div>
+
   <!-- CONFIGURAÇÕES -->
   <div class="modal-overlay" id="settings-modal" hidden>
     <div class="modal-content settings-modal-content" data-close-target="false">
-      <header class="modal-header"><div><h3>Configurações de orçamentos</h3><p class="modal-subtitle">Personalize o módulo para sua empresa.</p></div><button class="btn-close" id="btn-fechar-settings" type="button"><i class="fa-solid fa-xmark"></i></button></header>
-      <nav class="settings-tabs"><button class="active" type="button" data-settings-tab="geral">Geral</button><button type="button" data-settings-tab="categorias">Categorias</button><button type="button" data-settings-tab="modelos">Modelos</button></nav>
-      <div class="modal-body settings-body">
-        <section class="settings-panel active" data-settings-panel="geral">
-          <div class="budget-form-grid grid-3">
-            <div class="form-group"><label for="config-nome-documento">Nome padrão</label><input id="config-nome-documento" type="text" /></div>
-            <div class="form-group"><label for="config-prefixo">Prefixo da numeração</label><input id="config-prefixo" type="text" maxlength="20" /></div>
-            <div class="form-group"><label for="config-validade">Validade padrão (dias)</label><input id="config-validade" type="number" min="0" /></div>
-            <div class="form-group span-3"><label for="config-prazo">Prazo padrão</label><input id="config-prazo" type="text" /></div>
-            <div class="form-group span-3"><label for="config-condicoes">Condições gerais padrão</label><textarea id="config-condicoes" rows="8"></textarea></div>
-            <div class="form-group span-3"><label for="config-observacoes">Observações padrão</label><textarea id="config-observacoes" rows="4"></textarea></div>
-            <div class="form-group span-3"><label for="config-rodape">Rodapé do documento</label><input id="config-rodape" type="text" /></div>
-            <div class="form-group"><label for="config-cor">Cor principal do PDF</label><input id="config-cor" type="color" /></div>
-            <div class="form-group"><label for="config-margem-minima">Margem mínima (%)</label><input id="config-margem-minima" type="text" /></div>
-            <div class="form-group switch-group"><label><input id="config-exigir-aprovacao" type="checkbox" /> Exigir aprovação abaixo da margem</label></div>
-            <div class="form-group switch-group"><label><input id="config-controlar-custos" type="checkbox" /> Controlar custos e margem</label></div>
-            <div class="form-group switch-group"><label><input id="config-usar-capa" type="checkbox" /> Usar capa por padrão</label></div>
-            <div class="form-group switch-group"><label><input id="config-mostrar-codigo" type="checkbox" /> Mostrar código dos itens</label></div>
-            <div class="form-group span-2"><label for="config-titulo-capa">Título padrão da capa</label><input id="config-titulo-capa" type="text" /></div>
-            <div class="form-group"><label for="config-subtitulo-capa">Subtítulo da capa</label><input id="config-subtitulo-capa" type="text" /></div>
+      <header class="modal-header settings-modal-header">
+        <div class="settings-modal-title-wrap">
+          <div>
+            <span class="settings-modal-eyebrow">Orçamentos</span>
+            <h3>Configurações de orçamentos</h3>
+            <p class="modal-subtitle">Organize padrões, categorias, kits e modelos usados pela sua equipe comercial.</p>
+          </div>
+        </div>
+        <button class="btn-close" id="btn-fechar-settings" type="button" aria-label="Fechar configurações">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
 
-            <div class="settings-document-heading span-3">
-              <h4>Modelo do documento</h4>
-              <p>Escolha o formato do PDF e os dados que aparecem no cabeçalho.</p>
+      <div class="settings-workspace">
+        <aside class="settings-sidebar">
+          <nav class="settings-tabs" aria-label="Seções das configurações">
+            <button class="active" type="button" data-settings-tab="geral">
+              <span class="settings-tab-icon"><i class="fa-solid fa-gear"></i></span>
+              <span class="settings-tab-copy"><strong>Geral</strong><small>Configurações principais</small></span>
+            </button>
+            <button type="button" data-settings-tab="categorias">
+              <span class="settings-tab-icon"><i class="fa-regular fa-folder-open"></i></span>
+              <span class="settings-tab-copy"><strong>Categorias</strong><small>Gerencie as categorias</small></span>
+            </button>
+            <button type="button" data-settings-tab="kits">
+              <span class="settings-tab-icon"><i class="fa-solid fa-layer-group"></i></span>
+              <span class="settings-tab-copy"><strong>Kits de produtos</strong><small>Conjuntos para inserção rápida</small></span>
+            </button>
+            <button type="button" data-settings-tab="modelos">
+              <span class="settings-tab-icon"><i class="fa-regular fa-file-lines"></i></span>
+              <span class="settings-tab-copy"><strong>Modelos</strong><small>Modelos de documentos</small></span>
+            </button>
+          </nav>
+
+          <div class="settings-tip-card">
+            <span class="settings-tip-icon"><i class="fa-solid fa-circle-info"></i></span>
+            <div>
+              <strong>Dica</strong>
+              <p>Estas configurações serão aplicadas a todos os novos orçamentos criados na empresa.</p>
             </div>
-            <div class="form-group"><label for="config-modelo-documento">Formato do documento</label><select id="config-modelo-documento"><option value="padrao">Orçamento moderno</option><option value="dav">DAV - Documento Auxiliar de Venda</option></select></div>
-            <div class="form-group span-2"><label for="config-dav-titulo">Título do DAV</label><input id="config-dav-titulo" type="text" /></div>
-            <div class="form-group span-2"><label for="config-cabecalho-razao">Razão social no documento</label><input id="config-cabecalho-razao" type="text" /></div>
-            <div class="form-group"><label for="config-cabecalho-fantasia">Nome fantasia</label><input id="config-cabecalho-fantasia" type="text" /></div>
-            <div class="form-group"><label for="config-cabecalho-cnpj">CNPJ</label><input id="config-cabecalho-cnpj" type="text" /></div>
-            <div class="form-group"><label for="config-cabecalho-email">E-mail</label><input id="config-cabecalho-email" type="email" /></div>
-            <div class="form-group"><label for="config-cabecalho-site">Site</label><input id="config-cabecalho-site" type="text" /></div>
-            <div class="form-group"><label for="config-cabecalho-telefone">Telefone</label><input id="config-cabecalho-telefone" type="text" /></div>
-            <div class="form-group span-2"><label for="config-cabecalho-endereco">Endereço do cabeçalho</label><input id="config-cabecalho-endereco" type="text" /></div>
-            <div class="form-group span-3"><label for="config-cabecalho-rodape">Rodapé do DAV</label><input id="config-cabecalho-rodape" type="text" /></div>
           </div>
-        </section>
+        </aside>
 
-        <section class="settings-panel" data-settings-panel="categorias">
-          <div class="settings-split">
-            <div class="settings-list-card"><div class="settings-list-header"><div><h4>Categorias</h4><p>Tipos de orçamento da sua empresa.</p></div><button class="btn btn-primary btn-small" id="btn-nova-categoria" type="button"><i class="fa-solid fa-plus"></i> Nova</button></div><div id="categories-list" class="settings-list"></div></div>
-            <form id="category-form" class="settings-editor" onsubmit="return false;"><input id="category-id" type="hidden" /><h4 id="category-editor-title">Nova categoria</h4><div class="form-group"><label for="category-name">Nome *</label><input id="category-name" type="text" /></div><div class="form-group"><label for="category-description">Descrição</label><textarea id="category-description" rows="5"></textarea></div><div class="form-group"><label for="category-order">Ordem</label><input id="category-order" type="number" value="0" /></div><label class="switch-row"><input id="category-active" type="checkbox" checked /><span>Categoria ativa</span></label><button class="btn btn-primary" id="btn-salvar-categoria" type="button">Salvar categoria</button></form>
-          </div>
-        </section>
-
-        <section class="settings-panel" data-settings-panel="modelos">
-          <div id="templates-list-view" class="settings-list-card"><div class="settings-list-header"><div><h4>Modelos de orçamento</h4><p>Crie kits e estruturas reutilizáveis.</p></div><button class="btn btn-primary btn-small" id="btn-novo-modelo" type="button"><i class="fa-solid fa-plus"></i> Novo modelo</button></div><div id="templates-list" class="template-grid"></div></div>
-          <div id="template-editor" class="template-editor is-hidden">
-            <div class="template-editor-header"><button class="btn btn-secondary btn-small" id="btn-voltar-modelos" type="button"><i class="fa-solid fa-arrow-left"></i> Voltar</button><div><h4 id="template-editor-title">Novo modelo</h4><p>Defina os dados e itens que serão inseridos automaticamente.</p></div></div>
-            <input id="template-id" type="hidden" />
-            <div class="budget-form-grid grid-3">
-              <div class="form-group span-2"><label for="template-name">Nome do modelo *</label><input id="template-name" type="text" /></div>
-              <div class="form-group"><label for="template-category">Categoria</label><select id="template-category"><option value="">Sem categoria</option></select></div>
-              <div class="form-group span-2"><label for="template-title">Título do orçamento</label><input id="template-title" type="text" /></div>
-              <div class="form-group"><label for="template-validity">Validade (dias)</label><input id="template-validity" type="number" min="0" /></div>
-              <div class="form-group span-3"><label for="template-deadline">Prazo de execução</label><input id="template-deadline" type="text" /></div>
-              <div class="form-group span-3"><label for="template-conditions">Condições</label><textarea id="template-conditions" rows="5"></textarea></div>
-              <div class="form-group span-3"><label for="template-notes">Observações</label><textarea id="template-notes" rows="3"></textarea></div>
+        <div class="modal-body settings-body">
+          <section class="settings-panel active" data-settings-panel="geral">
+            <div class="settings-panel-title settings-panel-title-general">
+              <div>
+                <span class="settings-panel-icon"><i class="fa-solid fa-sliders"></i></span>
+                <div><span class="settings-panel-eyebrow">Preferências do módulo</span><h4>Configurações gerais</h4></div>
+              </div>
+              <p>Defina os padrões que serão preenchidos automaticamente ao criar um novo orçamento.</p>
             </div>
-            <div class="template-items-header"><h5>Itens do modelo</h5><div><button class="btn btn-secondary btn-small" id="btn-template-product" type="button">Buscar produto</button><button class="btn btn-primary btn-small" id="btn-template-manual" type="button">Item manual</button></div></div>
-            <div id="template-product-search" class="product-search-box" hidden><div class="input-with-icon"><i class="fa-solid fa-magnifying-glass"></i><input id="template-product-input" type="search" placeholder="Buscar produto" /></div><div id="template-product-results" class="product-results"></div></div>
-            <div class="budget-items-table-wrap"><table class="budget-items-table"><thead><tr><th>Descrição</th><th>Código</th><th>Un.</th><th>Qtd.</th><th>Venda</th><th class="cost-only">Custo</th><th></th></tr></thead><tbody id="template-items-body"></tbody></table></div>
-            <label class="switch-row"><input id="template-active" type="checkbox" checked /><span>Modelo ativo</span></label>
-            <div class="template-editor-actions"><button class="btn btn-secondary" id="btn-cancelar-modelo" type="button">Cancelar</button><button class="btn btn-primary" id="btn-salvar-modelo" type="button">Salvar modelo</button></div>
-          </div>
-        </section>
+            <article class="settings-card">
+              <header class="settings-card-header">
+                <span class="settings-step">1</span>
+                <div>
+                  <h4>Identificação e textos padrão</h4>
+                  <p>Informações principais usadas na criação e no documento final.</p>
+                </div>
+              </header>
+
+              <div class="budget-form-grid grid-3 settings-general-grid">
+                <div class="form-group">
+                  <label for="config-nome-documento">Nome padrão <span class="settings-help" title="Nome exibido no documento e na criação do orçamento"><i class="fa-regular fa-circle-question"></i></span></label>
+                  <input id="config-nome-documento" type="text" />
+                </div>
+                <div class="form-group">
+                  <label for="config-prefixo">Prefixo da numeração <span class="settings-help" title="Texto que aparece antes do número sequencial"><i class="fa-regular fa-circle-question"></i></span></label>
+                  <input id="config-prefixo" type="text" maxlength="20" />
+                </div>
+                <div class="form-group">
+                  <label for="config-validade">Validade padrão (dias) <span class="settings-help" title="Quantidade de dias até a data de validade do orçamento"><i class="fa-regular fa-circle-question"></i></span></label>
+                  <input id="config-validade" type="number" min="0" />
+                </div>
+
+                <div class="form-group span-3">
+                  <label for="config-prazo">Prazo padrão <span class="settings-help" title="Prazo de execução sugerido nos novos orçamentos"><i class="fa-regular fa-circle-question"></i></span></label>
+                  <input id="config-prazo" type="text" />
+                </div>
+                <div class="form-group span-3">
+                  <label for="config-condicoes">Condições gerais padrão <span class="settings-help" title="Regras comerciais exibidas no documento"><i class="fa-regular fa-circle-question"></i></span></label>
+                  <textarea id="config-condicoes" rows="7"></textarea>
+                </div>
+                <div class="form-group span-3">
+                  <label for="config-observacoes">Observações padrão <span class="settings-help" title="Informações adicionais incluídas em todos os novos orçamentos"><i class="fa-regular fa-circle-question"></i></span></label>
+                  <textarea id="config-observacoes" rows="3" placeholder="Digite observações adicionais que aparecerão em todos os orçamentos..."></textarea>
+                </div>
+                <div class="form-group span-3">
+                  <label for="config-rodape">Rodapé do documento <span class="settings-help" title="Texto exibido no final do documento"><i class="fa-regular fa-circle-question"></i></span></label>
+                  <input id="config-rodape" type="text" />
+                </div>
+              </div>
+            </article>
+
+            <div class="settings-summary-grid">
+              <article class="settings-card settings-appearance-card">
+                <header class="settings-card-header compact">
+                  <span class="settings-step">2</span>
+                  <div><h4>Aparência do documento</h4><p>Personalize a identidade visual e a margem comercial.</p></div>
+                </header>
+
+                <div class="settings-appearance-grid">
+                  <div class="form-group">
+                    <label for="config-cor">Cor principal do PDF <span class="settings-help" title="Cor usada nos destaques do orçamento"><i class="fa-regular fa-circle-question"></i></span></label>
+                    <div class="settings-color-picker">
+                      <input id="config-cor" type="color" aria-label="Selecionar cor principal do PDF" />
+                      <div class="settings-color-code">
+                        <span>#</span>
+                        <input id="config-cor-hex" type="text" maxlength="7" aria-label="Código hexadecimal da cor" />
+                        <i class="fa-solid fa-pen"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="config-margem-minima">Margem mínima (%) <span class="settings-help" title="Margem mínima usada para exigir aprovação"><i class="fa-regular fa-circle-question"></i></span></label>
+                    <div class="settings-suffix-input"><input id="config-margem-minima" type="text" /><span>%</span></div>
+                    <small class="settings-field-hint">Define a margem mínima exigida para aprovação.</small>
+                  </div>
+                </div>
+              </article>
+
+              <article class="settings-card settings-controls-card">
+                <header class="settings-card-header compact">
+                  <span class="settings-step">3</span>
+                  <div><h4>Comportamento e controles</h4><p>Escolha o que o sistema deve controlar e mostrar.</p></div>
+                </header>
+
+                <div class="settings-toggle-grid">
+                  <label class="settings-toggle-row" for="config-controlar-custos">
+                    <input id="config-controlar-custos" type="checkbox" />
+                    <span class="settings-toggle-visual" aria-hidden="true"></span>
+                    <span class="settings-toggle-copy"><strong>Controlar custos e margem</strong><small>Exibe informações de custo e margem aos usuários autorizados.</small></span>
+                    <span class="settings-help" title="Ativa o acompanhamento interno de custos"><i class="fa-regular fa-circle-question"></i></span>
+                  </label>
+
+                  <label class="settings-toggle-row" for="config-exigir-aprovacao">
+                    <input id="config-exigir-aprovacao" type="checkbox" />
+                    <span class="settings-toggle-visual" aria-hidden="true"></span>
+                    <span class="settings-toggle-copy"><strong>Exigir aprovação abaixo da margem</strong><small>Orçamentos abaixo da margem mínima exigem aprovação.</small></span>
+                    <span class="settings-help" title="Bloqueia a aprovação automática abaixo da margem definida"><i class="fa-regular fa-circle-question"></i></span>
+                  </label>
+
+                  <label class="settings-toggle-row" for="config-usar-capa">
+                    <input id="config-usar-capa" type="checkbox" />
+                    <span class="settings-toggle-visual" aria-hidden="true"></span>
+                    <span class="settings-toggle-copy"><strong>Usar capa por padrão</strong><small>Exibe a capa de apresentação no início do documento.</small></span>
+                    <span class="settings-help" title="Adiciona uma capa comercial aos novos documentos"><i class="fa-regular fa-circle-question"></i></span>
+                  </label>
+
+                  <label class="settings-toggle-row" for="config-mostrar-codigo">
+                    <input id="config-mostrar-codigo" type="checkbox" />
+                    <span class="settings-toggle-visual" aria-hidden="true"></span>
+                    <span class="settings-toggle-copy"><strong>Mostrar código dos itens</strong><small>Exibe o código interno dos produtos e serviços no PDF.</small></span>
+                    <span class="settings-help" title="Mostra o código dos itens no documento do cliente"><i class="fa-regular fa-circle-question"></i></span>
+                  </label>
+                </div>
+              </article>
+            </div>
+
+            <article class="settings-card settings-document-card">
+              <header class="settings-card-header">
+                <span class="settings-step">4</span>
+                <div><h4>Modelo do documento</h4><p>Escolha o formato do PDF, a capa e os dados que aparecem no cabeçalho.</p></div>
+              </header>
+
+              <div class="budget-form-grid grid-3">
+                <div class="form-group">
+                  <label for="config-modelo-documento">Formato do documento</label>
+                  <select id="config-modelo-documento"><option value="padrao">Orçamento moderno</option><option value="dav">DAV - Documento Auxiliar de Venda</option></select>
+                </div>
+                <div class="form-group span-2" data-settings-dav>
+                  <label for="config-dav-titulo">Título do DAV</label>
+                  <input id="config-dav-titulo" type="text" />
+                </div>
+
+                <div class="form-group span-2" data-settings-cover-field>
+                  <label for="config-titulo-capa">Título padrão da capa</label>
+                  <input id="config-titulo-capa" type="text" />
+                </div>
+                <div class="form-group" data-settings-cover-field>
+                  <label for="config-subtitulo-capa">Subtítulo da capa</label>
+                  <input id="config-subtitulo-capa" type="text" />
+                </div>
+
+                <div class="settings-subsection-title span-3" data-settings-dav>
+                  <strong>Cabeçalho do DAV</strong><small>Dados comerciais exibidos na identificação do documento.</small>
+                </div>
+                <div class="form-group span-2" data-settings-dav><label for="config-cabecalho-razao">Razão social no documento</label><input id="config-cabecalho-razao" type="text" /></div>
+                <div class="form-group" data-settings-dav><label for="config-cabecalho-fantasia">Nome fantasia</label><input id="config-cabecalho-fantasia" type="text" /></div>
+                <div class="form-group" data-settings-dav><label for="config-cabecalho-cnpj">CNPJ</label><input id="config-cabecalho-cnpj" type="text" /></div>
+                <div class="form-group" data-settings-dav><label for="config-cabecalho-email">E-mail</label><input id="config-cabecalho-email" type="email" /></div>
+                <div class="form-group" data-settings-dav><label for="config-cabecalho-site">Site</label><input id="config-cabecalho-site" type="text" /></div>
+                <div class="form-group" data-settings-dav><label for="config-cabecalho-telefone">Telefone</label><input id="config-cabecalho-telefone" type="text" /></div>
+                <div class="form-group span-2" data-settings-dav><label for="config-cabecalho-endereco">Endereço do cabeçalho</label><input id="config-cabecalho-endereco" type="text" /></div>
+                <div class="form-group span-3" data-settings-dav><label for="config-cabecalho-rodape">Rodapé do DAV</label><input id="config-cabecalho-rodape" type="text" /></div>
+              </div>
+            </article>
+          </section>
+
+          <section class="settings-panel" data-settings-panel="categorias">
+            <div class="settings-panel-title">
+              <div><span class="settings-panel-icon"><i class="fa-regular fa-folder-open"></i></span><h4>Categorias de orçamento</h4></div>
+              <p>Organize seus orçamentos por tipos de serviço, produtos ou áreas comerciais.</p>
+            </div>
+            <div class="settings-split">
+              <div class="settings-list-card">
+                <div class="settings-list-header">
+                  <div><h4>Categorias cadastradas</h4><p>Tipos de orçamento disponíveis na empresa.</p></div>
+                  <button class="btn btn-primary btn-small" id="btn-nova-categoria" type="button"><i class="fa-solid fa-plus"></i> Nova categoria</button>
+                </div>
+                <div id="categories-list" class="settings-list"></div>
+              </div>
+              <form id="category-form" class="settings-editor" onsubmit="return false;">
+                <input id="category-id" type="hidden" />
+                <div class="settings-editor-heading"><span><i class="fa-solid fa-pen-to-square"></i></span><h4 id="category-editor-title">Nova categoria</h4></div>
+                <div class="form-group"><label for="category-name">Nome da categoria *</label><input id="category-name" type="text" placeholder="Ex.: Alarme, CFTV ou Manutenção" /></div>
+                <div class="form-group"><label for="category-description">Descrição interna</label><textarea id="category-description" rows="5" placeholder="Explique quando esta categoria deve ser utilizada..."></textarea></div>
+                <div class="form-group"><label for="category-order">Ordem</label><input id="category-order" type="number" value="0" /></div>
+                <label class="settings-inline-toggle" for="category-active"><input id="category-active" type="checkbox" checked /><span class="settings-toggle-visual" aria-hidden="true"></span><span><strong>Categoria ativa</strong><small>Disponível ao criar ou editar orçamentos.</small></span></label>
+                <button class="btn btn-primary" id="btn-salvar-categoria" type="button"><i class="fa-solid fa-floppy-disk"></i> Salvar categoria</button>
+              </form>
+            </div>
+          </section>
+
+          <section class="settings-panel" data-settings-panel="kits">
+            <div class="settings-panel-title">
+              <div><span class="settings-panel-icon"><i class="fa-solid fa-layer-group"></i></span><h4>Kits de produtos</h4></div>
+              <p>Monte conjuntos de produtos para adicionar vários itens ao orçamento com um único clique.</p>
+            </div>
+
+            <div id="kits-list-view" class="settings-list-card">
+              <div class="settings-list-header">
+                <div><h4>Kits cadastrados</h4><p>Os preços são atualizados pelo cadastro dos produtos no momento da inclusão.</p></div>
+                <button class="btn btn-primary btn-small" id="btn-novo-kit" type="button"><i class="fa-solid fa-plus"></i> Novo kit</button>
+              </div>
+              <div id="kits-list" class="kit-settings-grid"></div>
+            </div>
+
+            <div id="kit-editor" class="template-editor kit-editor is-hidden">
+              <div class="template-editor-header">
+                <button class="btn btn-secondary btn-small" id="btn-voltar-kits" type="button"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+                <div><h4 id="kit-editor-title">Novo kit</h4><p>Escolha os produtos e defina as quantidades que serão inseridas no orçamento.</p></div>
+              </div>
+
+              <input id="kit-id" type="hidden" />
+              <div class="budget-form-grid grid-3 kit-editor-fields">
+                <div class="form-group span-2"><label for="kit-name">Nome do kit *</label><input id="kit-name" type="text" placeholder="Ex.: Alarme residencial completo" /></div>
+                <div class="form-group kit-active-field"><label>Status</label><label class="settings-inline-toggle compact" for="kit-active"><input id="kit-active" type="checkbox" checked /><span class="settings-toggle-visual" aria-hidden="true"></span><span><strong>Kit ativo</strong><small>Disponível na etapa Itens.</small></span></label></div>
+                <div class="form-group span-3"><label for="kit-description">Descrição interna</label><textarea id="kit-description" rows="3" placeholder="Explique quando este kit deve ser utilizado..."></textarea></div>
+              </div>
+
+              <div class="kit-products-card">
+                <div class="template-items-header">
+                  <div><h5>Produtos do kit</h5><p>Busque produtos já cadastrados e ajuste a quantidade padrão.</p></div>
+                  <button class="btn btn-primary btn-small" id="btn-kit-product" type="button"><i class="fa-solid fa-magnifying-glass"></i> Adicionar produto</button>
+                </div>
+                <div id="kit-product-search" class="product-search-box" hidden>
+                  <div class="input-with-icon"><i class="fa-solid fa-magnifying-glass"></i><input id="kit-product-input" type="search" placeholder="Buscar por código, nome ou descrição" autocomplete="off" /></div>
+                  <div id="kit-product-results" class="product-results"></div>
+                </div>
+                <div class="budget-items-table-wrap kit-items-table-wrap">
+                  <table class="budget-items-table kit-items-table">
+                    <thead><tr><th>Produto</th><th>Código</th><th>Un.</th><th>Quantidade</th><th>Preço atual</th><th>Total estimado</th><th></th></tr></thead>
+                    <tbody id="kit-items-body"></tbody>
+                  </table>
+                </div>
+                <div class="kit-editor-summary"><span><strong id="kit-items-count">0</strong> produtos no kit</span><span>Valor estimado <strong id="kit-estimated-total">R$ 0,00</strong></span></div>
+              </div>
+
+              <div class="template-editor-actions">
+                <button class="btn btn-secondary" id="btn-cancelar-kit" type="button">Cancelar</button>
+                <button class="btn btn-primary" id="btn-salvar-kit" type="button"><i class="fa-solid fa-floppy-disk"></i> Salvar kit</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-panel" data-settings-panel="modelos">
+            <div class="settings-panel-title">
+              <div><span class="settings-panel-icon"><i class="fa-regular fa-file-lines"></i></span><h4>Modelos de orçamento</h4></div>
+              <p>Crie estruturas reutilizáveis para ganhar velocidade e manter o padrão comercial.</p>
+            </div>
+            <div id="templates-list-view" class="settings-list-card">
+              <div class="settings-list-header">
+                <div><h4>Modelos cadastrados</h4><p>Kits, serviços e estruturas prontas para reutilização.</p></div>
+                <button class="btn btn-primary btn-small" id="btn-novo-modelo" type="button"><i class="fa-solid fa-plus"></i> Novo modelo</button>
+              </div>
+              <div id="templates-list" class="template-grid"></div>
+            </div>
+            <div id="template-editor" class="template-editor is-hidden">
+              <div class="template-editor-header">
+                <button class="btn btn-secondary btn-small" id="btn-voltar-modelos" type="button"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+                <div><h4 id="template-editor-title">Novo modelo</h4><p>Defina os dados e itens que serão inseridos automaticamente.</p></div>
+              </div>
+              <input id="template-id" type="hidden" />
+              <div class="budget-form-grid grid-3">
+                <div class="form-group span-2"><label for="template-name">Nome do modelo *</label><input id="template-name" type="text" placeholder="Ex.: Proposta padrão de CFTV" /></div>
+                <div class="form-group"><label for="template-category">Categoria</label><select id="template-category"><option value="">Sem categoria</option></select></div>
+                <div class="form-group span-2"><label for="template-title">Título do orçamento</label><input id="template-title" type="text" placeholder="Título preenchido ao aplicar este modelo" /></div>
+                <div class="form-group"><label for="template-validity">Validade (dias)</label><input id="template-validity" type="number" min="0" /></div>
+                <div class="form-group span-3"><label for="template-deadline">Prazo de execução</label><input id="template-deadline" type="text" /></div>
+                <div class="form-group span-3"><label for="template-conditions">Condições</label><textarea id="template-conditions" rows="5"></textarea></div>
+                <div class="form-group span-3"><label for="template-notes">Observações</label><textarea id="template-notes" rows="3"></textarea></div>
+              </div>
+              <div class="template-items-header"><div><h5>Itens do modelo</h5><p>Produtos e serviços inseridos automaticamente ao escolher este modelo.</p></div><div><button class="btn btn-secondary btn-small" id="btn-template-product" type="button"><i class="fa-solid fa-magnifying-glass"></i> Buscar produto</button><button class="btn btn-primary btn-small" id="btn-template-manual" type="button"><i class="fa-solid fa-plus"></i> Item manual</button></div></div>
+              <div id="template-product-search" class="product-search-box" hidden><div class="input-with-icon"><i class="fa-solid fa-magnifying-glass"></i><input id="template-product-input" type="search" placeholder="Buscar produto" /></div><div id="template-product-results" class="product-results"></div></div>
+              <div class="budget-items-table-wrap"><table class="budget-items-table"><thead><tr><th>Descrição</th><th>Código</th><th>Un.</th><th>Qtd.</th><th>Venda</th><th class="cost-only">Custo</th><th></th></tr></thead><tbody id="template-items-body"></tbody></table></div>
+              <label class="settings-inline-toggle settings-template-toggle" for="template-active"><input id="template-active" type="checkbox" checked /><span class="settings-toggle-visual" aria-hidden="true"></span><span><strong>Modelo ativo</strong><small>Disponível para seleção em novos orçamentos.</small></span></label>
+              <div class="template-editor-actions"><button class="btn btn-secondary" id="btn-cancelar-modelo" type="button">Cancelar</button><button class="btn btn-primary" id="btn-salvar-modelo" type="button"><i class="fa-solid fa-floppy-disk"></i> Salvar modelo</button></div>
+            </div>
+          </section>
+        </div>
       </div>
-      <footer class="modal-footer" id="settings-footer"><button class="btn btn-secondary" id="btn-cancelar-settings" type="button">Fechar</button><button class="btn btn-primary" id="btn-salvar-settings" type="button"><i class="fa-solid fa-floppy-disk"></i> Salvar configurações</button></footer>
+
+      <footer class="modal-footer settings-footer" id="settings-footer">
+        <button class="btn btn-secondary" id="btn-cancelar-settings" type="button">Cancelar</button>
+        <button class="btn btn-primary" id="btn-salvar-settings" type="button"><i class="fa-solid fa-floppy-disk"></i> Salvar configurações</button>
+      </footer>
     </div>
   </div>
 </body>

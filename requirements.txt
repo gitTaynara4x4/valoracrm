@@ -31,3 +31,4 @@ websockets==15.0.1
 reportlab==4.4.9
 XlsxWriter==3.2.9
 tzdata
+pywebpush==2.3.0

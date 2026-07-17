@@ -1,5 +1,29 @@
 
 // ==========================================
+// INSTALAÇÃO E NOTIFICAÇÕES DO DISPOSITIVO
+// ==========================================
+(() => {
+  if (!document.querySelector('link[rel="manifest"]')) {
+    const manifest = document.createElement('link');
+    manifest.rel = 'manifest';
+    manifest.href = '/manifest.webmanifest';
+    document.head.appendChild(manifest);
+  }
+  if (!document.querySelector('meta[name="theme-color"]')) {
+    const theme = document.createElement('meta');
+    theme.name = 'theme-color';
+    theme.content = '#65acde';
+    document.head.appendChild(theme);
+  }
+  if (!document.querySelector('link[rel="apple-touch-icon"]')) {
+    const appleIcon = document.createElement('link');
+    appleIcon.rel = 'apple-touch-icon';
+    appleIcon.href = '/frontend/img/logo-favicon.jpg';
+    document.head.appendChild(appleIcon);
+  }
+})();
+
+// ==========================================
 // AGENDA E LEMBRETES GLOBAIS
 // Carrega o sino, avisos e componentes de histórico em todas as páginas.
 // ==========================================
@@ -7,7 +31,7 @@
   if (!document.querySelector('link[data-valora-agenda-css]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/frontend/css/agenda.css?v=20260715-agenda-fluxo-nilson-v9';
+    link.href = '/frontend/css/agenda.css?v=20260717-agenda-push-v10';
     link.dataset.valoraAgendaCss = 'true';
     document.head.appendChild(link);
   }
@@ -19,7 +43,7 @@
         return;
       }
       const script = document.createElement('script');
-      script.src = '/frontend/js/shared/agenda.js?v=20260715-agenda-fluxo-nilson-v9';
+      script.src = '/frontend/js/shared/agenda.js?v=20260717-agenda-push-v10';
       script.defer = true;
       script.onload = () => resolve(window.ValoraAgenda);
       script.onerror = () => reject(new Error('Não foi possível carregar a agenda do Valora.'));
