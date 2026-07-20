@@ -24,6 +24,7 @@ MODULOS_VALIDOS = (
     "usuarios",
     "empresa",
     "configuracoes",
+    "financeiro",
 )
 
 ACOES_VALIDAS = {"ver", "criar", "editar", "excluir"}

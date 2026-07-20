@@ -48,12 +48,16 @@ def normalize_plano(plano: str | None) -> str:
 
 
 def send_email_token(to_email: str, token: str):
-    smtp_host = os.getenv("SMTP_HOST", "").strip()
+    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "").strip()
-    smtp_pass = os.getenv("SMTP_PASS", "").strip()
-    smtp_from = os.getenv("SMTP_FROM", smtp_user).strip()
-    smtp_tls = os.getenv("SMTP_TLS", "true").lower() == "true"
+    smtp_user = (os.getenv("SMTP_USER") or os.getenv("EMAIL_REMETENTE") or "").strip()
+    smtp_pass = (os.getenv("SMTP_PASS") or os.getenv("EMAIL_SENHA") or "").strip()
+    smtp_from = (os.getenv("SMTP_FROM") or smtp_user).strip()
+    smtp_tls = os.getenv("SMTP_TLS", "true").lower() in {"1", "true", "yes", "on"}
+    smtp_ssl = os.getenv("SMTP_SSL", "false").lower() in {"1", "true", "yes", "on"}
+
+    if not smtp_user or not smtp_pass or not smtp_from:
+        raise RuntimeError("Configuração de e-mail não definida no servidor.")
 
     subject = "Código de confirmação - Valora CRM"
     body = f"""
@@ -66,16 +70,18 @@ Esse código expira em 10 minutos.
 Valora CRM
 """.strip()
 
-    if not smtp_host or not smtp_user or not smtp_pass:
-        print(f"[CADASTRO TOKEN] email={to_email} token={token}")
-        return
-
     msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = subject
     msg["From"] = smtp_from
     msg["To"] = to_email
 
-    with smtplib.SMTP(smtp_host, smtp_port) as server:
+    if smtp_ssl:
+        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=20) as server:
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_from, [to_email], msg.as_string())
+        return
+
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
         server.ehlo()
         if smtp_tls:
             server.starttls()
@@ -103,7 +109,7 @@ class CadastroConfirmarIn(BaseModel):
 
 @router.get("/cadastro")
 def cadastro_page():
-    return FileResponse(BASE_DIR / "cadastro.html")
+    return FileResponse(BASE_DIR / "frontend" / "cadastro.html")
 
 
 @router.post("/api/auth/cadastro/iniciar")
@@ -223,6 +229,7 @@ def cadastro_confirmar(data: CadastroConfirmarIn, db: Session = Depends(get_db))
         telefone=row.telefone,
         senha_hash=row.senha_hash,
         cargo=row.cargo or "admin",
+        papel="owner",
         exigir_token_login=bool(row.exigir_token_login),
         ativo=True,
     )

@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from backend import models as core_models
 from backend.database import SessionLocal
 from backend.dynamic_filters import apply_dynamic_filters
+from backend.audit import count_history as count_audit_history, list_history as list_audit_history, record_section_changes
 
 router = APIRouter(tags=["Clientes e Campos"])
 
@@ -1086,6 +1087,92 @@ def listar_anexos(db: Session, cliente_id: int) -> List[AnexoOut]:
 
 
 
+CLIENT_AUDIT_SECTIONS = {
+    "identificacao": "Identificação",
+    "documentos": "Documentos",
+    "contato": "Contato",
+    "comercial": "Comercial",
+    "endereco_principal": "Endereço principal",
+    "observacoes": "Observações",
+    "enderecos": "Endereços adicionais",
+    "referencias_comerciais": "Referências comerciais",
+    "referencias_bancarias": "Referências bancárias",
+    "socios": "Sócios",
+    "ocorrencias": "Ocorrências",
+    "campos_personalizados": "Campos personalizados",
+}
+
+CLIENT_FIELD_LABELS = {
+    "codigo": "Código", "tipo_pessoa": "Tipo de pessoa", "situacao": "Situação",
+    "nome": "Nome/Razão social", "nome_fantasia": "Nome fantasia", "cpf_cnpj": "CPF/CNPJ",
+    "rg_ie": "RG/Inscrição estadual", "inscricao_municipal": "Inscrição municipal", "suframa": "SUFRAMA",
+    "data_nascimento": "Data de nascimento", "telefone": "Telefone", "whatsapp": "WhatsApp",
+    "fax": "Fax", "email": "E-mail", "email_nfe": "E-mail NF-e", "email_cobranca": "E-mail cobrança",
+    "email_fiscal": "E-mail fiscal", "site": "Site", "contato": "Contato",
+    "parceiro_comercial": "Parceiro comercial", "percentual_comissao": "Comissão",
+    "percentual_desconto": "Desconto", "regiao": "Região", "segmento": "Segmento",
+    "modalidade_pagamento": "Modalidade de pagamento", "classificacao": "Classificação",
+    "cep": "CEP", "endereco": "Endereço", "numero": "Número", "complemento": "Complemento",
+    "bairro": "Bairro", "cidade": "Cidade", "estado": "UF", "pais": "País",
+    "observacoes": "Observações",
+}
+
+
+def _audit_model_list(items: List[BaseModel]) -> List[dict]:
+    output: List[dict] = []
+    for item in items:
+        data = pydantic_dump(item)
+        data.pop("id", None)
+        output.append(data)
+    return output
+
+
+def snapshot_cliente_auditoria(db: Session, cliente: Cliente) -> Dict[str, Any]:
+    cliente_id = int(cliente.id)
+    return {
+        "identificacao": {
+            "codigo": normalizar_codigo_cliente(cliente.codigo) or "",
+            "tipo_pessoa": cliente.tipo_pessoa,
+            "situacao": cliente.situacao,
+            "nome": cliente.nome,
+            "nome_fantasia": cliente.nome_fantasia,
+            "data_nascimento": serialize_date(cliente.data_nascimento),
+            "codigo_referencia": cliente.codigo_referencia,
+        },
+        "documentos": {
+            "cpf_cnpj": cliente.cpf_cnpj, "rg_ie": cliente.rg_ie,
+            "inscricao_municipal": cliente.inscricao_municipal, "suframa": cliente.suframa,
+        },
+        "contato": {
+            "telefone": cliente.telefone, "whatsapp": cliente.whatsapp, "fax": cliente.fax,
+            "email": cliente.email, "email_nfe": cliente.email_nfe,
+            "email_cobranca": cliente.email_cobranca, "email_fiscal": cliente.email_fiscal,
+            "site": cliente.site, "contato": cliente.contato,
+        },
+        "comercial": {
+            "parceiro_comercial": cliente.parceiro_comercial,
+            "percentual_comissao": serialize_decimal(cliente.percentual_comissao),
+            "percentual_desconto": serialize_decimal(cliente.percentual_desconto),
+            "retencao_percentual": serialize_decimal(cliente.retencao_percentual),
+            "regiao": cliente.regiao, "segmento": cliente.segmento,
+            "modalidade_pagamento": cliente.modalidade_pagamento, "classificacao": cliente.classificacao,
+        },
+        "endereco_principal": {
+            "cep": cliente.cep, "endereco": cliente.endereco, "numero": cliente.numero,
+            "complemento": cliente.complemento, "bairro": cliente.bairro, "cidade": cliente.cidade,
+            "estado": cliente.estado, "pais": cliente.pais,
+            "codigo_ibge_cidade": cliente.codigo_ibge_cidade, "codigo_ibge_uf": cliente.codigo_ibge_uf,
+        },
+        "observacoes": {"observacoes": cliente.observacoes},
+        "enderecos": _audit_model_list(listar_enderecos(db, cliente_id)),
+        "referencias_comerciais": _audit_model_list(listar_refs_comerciais(db, cliente_id)),
+        "referencias_bancarias": _audit_model_list(listar_refs_bancarias(db, cliente_id)),
+        "socios": _audit_model_list(listar_socios(db, cliente_id)),
+        "ocorrencias": _audit_model_list(listar_ocorrencias(db, cliente_id)),
+        "campos_personalizados": buscar_custom_fields_cliente(db, int(cliente.empresa_id), cliente_id),
+    }
+
+
 def safe_optional_fetch(default: Any, callback):
     """Evita que tabelas opcionais/antigas derrubem a abertura do cliente.
 
@@ -1101,9 +1188,14 @@ def safe_optional_fetch(default: Any, callback):
 def montar_historico_cliente(db: Session, cliente: Cliente) -> Dict[str, Any]:
     historico: Dict[str, Any] = {
         "ultimas_propostas": [],
+        "ultimos_orcamentos": [],
+        "alteracoes": [],
         "resumo": {
             "total_propostas": 0,
             "propostas_aprovadas": 0,
+            "total_orcamentos": 0,
+            "orcamentos_aprovados": 0,
+            "total_alteracoes": 0,
         },
         "ultimas_ocorrencias": [],
     }
@@ -1111,29 +1203,63 @@ def montar_historico_cliente(db: Session, cliente: Cliente) -> Dict[str, Any]:
     try:
         proposta_model = getattr(core_models, "Proposta", None)
         if proposta_model is not None:
-            propostas = (
-                db.query(proposta_model)
-                .filter(proposta_model.empresa_id == cliente.empresa_id, proposta_model.cliente_id == cliente.id)
-                .order_by(proposta_model.id.desc())
-                .limit(10)
-                .all()
+            base_query = db.query(proposta_model).filter(
+                proposta_model.empresa_id == cliente.empresa_id,
+                proposta_model.cliente_id == cliente.id,
             )
-            historico["ultimas_propostas"] = [
-                {
-                    "id": int(getattr(p, "id")),
-                    "codigo": getattr(p, "codigo", None),
-                    "titulo": getattr(p, "titulo", None),
-                    "status": getattr(p, "status", None),
-                    "total": serialize_decimal(getattr(p, "total", None)),
-                }
-                for p in propostas
-            ]
-            historico["resumo"]["total_propostas"] = len(propostas)
-            historico["resumo"]["propostas_aprovadas"] = sum(
-                1 for p in propostas if str(getattr(p, "status", "")).lower() == "aprovada"
-            )
+            historico["resumo"]["total_propostas"] = base_query.count()
+            historico["resumo"]["propostas_aprovadas"] = base_query.filter(
+                func.lower(proposta_model.status).in_(["aprovada", "aprovado"])
+            ).count()
+            propostas = base_query.order_by(proposta_model.id.desc()).limit(10).all()
+            historico["ultimas_propostas"] = [{
+                "id": int(getattr(p, "id")),
+                "codigo": getattr(p, "codigo", None),
+                "titulo": getattr(p, "titulo", None),
+                "status": getattr(p, "status", None),
+                "total": serialize_decimal(getattr(p, "total", None)),
+            } for p in propostas]
     except Exception:
         pass
+
+    try:
+        exists = db.execute(sql_text("SELECT to_regclass('public.orcamentos') IS NOT NULL")).scalar()
+        if exists:
+            counts = db.execute(sql_text("""
+                SELECT COUNT(*) AS total,
+                       COUNT(*) FILTER (WHERE status='aprovado') AS aprovados
+                FROM orcamentos
+                WHERE empresa_id=:empresa_id AND cliente_id=:cliente_id
+            """), {"empresa_id": int(cliente.empresa_id), "cliente_id": int(cliente.id)}).mappings().one()
+            historico["resumo"]["total_orcamentos"] = int(counts.get("total") or 0)
+            historico["resumo"]["orcamentos_aprovados"] = int(counts.get("aprovados") or 0)
+            rows = db.execute(sql_text("""
+                SELECT id, codigo, titulo, status, total, data_emissao, atualizado_em
+                FROM orcamentos
+                WHERE empresa_id=:empresa_id AND cliente_id=:cliente_id
+                ORDER BY data_emissao DESC, id DESC LIMIT 10
+            """), {"empresa_id": int(cliente.empresa_id), "cliente_id": int(cliente.id)}).mappings().all()
+            historico["ultimos_orcamentos"] = [{
+                **dict(row),
+                "total": serialize_decimal(row.get("total")),
+                "data_emissao": serialize_date(row.get("data_emissao")),
+                "atualizado_em": serialize_datetime(row.get("atualizado_em")),
+            } for row in rows]
+    except Exception:
+        historico["ultimos_orcamentos"] = []
+
+    try:
+        alterations = list_audit_history(
+            db, empresa_id=int(cliente.empresa_id), modulo="clientes",
+            entidade_tipo="cliente", entidade_id=int(cliente.id), limit=200,
+        )
+        historico["alteracoes"] = alterations
+        historico["resumo"]["total_alteracoes"] = count_audit_history(
+            db, empresa_id=int(cliente.empresa_id), modulo="clientes",
+            entidade_tipo="cliente", entidade_id=int(cliente.id),
+        )
+    except Exception:
+        historico["alteracoes"] = []
 
     try:
         historico["ultimas_ocorrencias"] = [pydantic_dump(o) for o in listar_ocorrencias(db, int(cliente.id))[:10]]
@@ -1865,6 +1991,14 @@ def criar_cliente(
             sync_socios(db, int(cliente.id), payload.socios)
             sync_ocorrencias(db, int(cliente.id), payload.ocorrencias, current_user)
             salvar_custom_fields_cliente(db, empresa_id, int(cliente.id), payload.custom_fields)
+            db.flush()
+            after_snapshot = snapshot_cliente_auditoria(db, cliente)
+            record_section_changes(
+                db, empresa_id=empresa_id, modulo="clientes", entidade_tipo="cliente",
+                entidade_id=int(cliente.id), before_sections={}, after_sections=after_snapshot,
+                user=current_user, labels=CLIENT_AUDIT_SECTIONS, field_labels=CLIENT_FIELD_LABELS,
+                origem="cadastro_cliente",
+            )
 
             db.commit()
             db.refresh(cliente)
@@ -1904,6 +2038,7 @@ def atualizar_cliente(
     try:
         bloquear_transacao_clientes(db, empresa_id)
         validar_duplicidade_cliente(db, empresa_id, payload, cliente_atual=cliente)
+        before_snapshot = snapshot_cliente_auditoria(db, cliente)
 
         # Código nunca é atualizado pelo payload.
         # Mantém o código fixo que já está no banco; se um registro antigo estiver sem código,
@@ -1919,6 +2054,14 @@ def atualizar_cliente(
         sync_socios(db, int(cliente.id), payload.socios)
         sync_ocorrencias(db, int(cliente.id), payload.ocorrencias, current_user)
         salvar_custom_fields_cliente(db, empresa_id, int(cliente.id), payload.custom_fields)
+        db.flush()
+        after_snapshot = snapshot_cliente_auditoria(db, cliente)
+        record_section_changes(
+            db, empresa_id=empresa_id, modulo="clientes", entidade_tipo="cliente",
+            entidade_id=int(cliente.id), before_sections=before_snapshot, after_sections=after_snapshot,
+            user=current_user, labels=CLIENT_AUDIT_SECTIONS, field_labels=CLIENT_FIELD_LABELS,
+            origem="cadastro_cliente",
+        )
 
         db.commit()
         db.refresh(cliente)

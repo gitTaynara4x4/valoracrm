@@ -4,6 +4,7 @@
   const API = '/api/orcamentos';
   const API_CLIENTS = '/api/clientes';
   const API_PRODUCTS = '/api/produtos';
+  const API_BUDGET_PRODUCTS = `${API}/produtos`;
   const API_USERS = '/api/usuarios';
   const API_COMPANY = '/api/empresa/atual';
 
@@ -31,6 +32,7 @@
     categories: [],
     templates: [],
     kits: [],
+    emitters: [],
     users: [],
     company: null,
     meta: { pode_ver_custos: false, pode_configurar: false, configuracao: {} },
@@ -38,6 +40,10 @@
     templateItems: [],
     kitItems: [],
     settingsTab: 'geral',
+    calculation: null,
+    calculationVersion: 0,
+    calculationTimer: null,
+    initialRouteHandled: false,
   };
 
   const statusMeta = {
@@ -226,11 +232,13 @@
       state.kits = kits || [];
       state.users = (users || []).filter((user) => user.ativo !== false);
       state.company = company;
+      state.emitters = meta.emitentes || [];
       state.clients = normalizeCollection(clientsResponse);
       applyPermissions();
       renderSelects();
       fillSettingsForm();
       await loadBudgets();
+      await handleInitialRoute();
     } catch (error) {
       console.error('[orcamentos] bootstrap:', error);
 
@@ -311,11 +319,15 @@
   function renderSelects() {
     const activeCategories = state.categories.filter((category) => category.ativo !== false);
     const activeTemplates = state.templates.filter((template) => template.ativo !== false);
+    const activeEmitters = state.emitters.filter((emitter) => emitter.ativo !== false);
     const categoryOptions = '<option value="">Sem categoria</option>' + activeCategories.map((category) => `<option value="${category.id}">${escapeHtml(category.nome)}</option>`).join('');
     $('orcamento-categoria').innerHTML = categoryOptions;
     $('template-category').innerHTML = categoryOptions;
     $('orcamento-modelo').innerHTML = '<option value="">Começar do zero</option>' + activeTemplates.map((template) => `<option value="${template.id}">${escapeHtml(template.nome)}</option>`).join('');
     $('orcamento-consultor').innerHTML = '<option value="">Selecionar</option>' + state.users.map((user) => `<option value="${user.id}">${escapeHtml(user.nome)}</option>`).join('');
+    if ($('orcamento-emitente-id')) {
+      $('orcamento-emitente-id').innerHTML = '<option value="">Selecionar empresa</option>' + activeEmitters.map((emitter) => `<option value="${emitter.id}">${escapeHtml(emitter.nome)}${emitter.padrao ? ' (padrão)' : ''}</option>`).join('');
+    }
   }
 
   function resetBudgetForm() {
@@ -324,6 +336,7 @@
     state.items = [];
     state.payments = [];
     state.selectedClient = null;
+    state.calculation = null;
     $('form-orcamento').reset();
     $('orcamento-cliente-id').value = '';
     $('orcamento-codigo').value = '';
@@ -343,6 +356,8 @@
     $('orcamento-frete').value = '0,00';
     $('orcamento-acrescimo').value = '0,00';
     $('orcamento-status').value = 'rascunho';
+    const defaultEmitter = state.emitters.find((emitter) => emitter.padrao && emitter.ativo !== false) || state.emitters.find((emitter) => emitter.ativo !== false);
+    if ($('orcamento-emitente-id')) $('orcamento-emitente-id').value = defaultEmitter ? String(defaultEmitter.id) : '';
     if ($('budget-sidebar-title')) $('budget-sidebar-title').textContent = 'Novo orçamento';
     if ($('budget-sidebar-code')) $('budget-sidebar-code').textContent = 'Código não gerado';
     $('btn-imprimir-orcamento').classList.add('is-hidden');
@@ -408,10 +423,18 @@
   }
 
   function fillBudgetForm(budget) {
+    const emitterSelect = $('orcamento-emitente-id');
+    const fallbackEmitter = state.emitters.find((emitter) => emitter.padrao && emitter.ativo !== false)
+      || state.emitters.find((emitter) => emitter.ativo !== false);
+    if (emitterSelect && budget?.emitente_id && !Array.from(emitterSelect.options).some((option) => Number(option.value) === Number(budget.emitente_id))) {
+      const label = budget.emitente_nome_documento || budget.emitente_nome_fantasia_documento || budget.emitente_razao_social_documento || 'Empresa emitente arquivada';
+      emitterSelect.insertAdjacentHTML('beforeend', `<option value="${Number(budget.emitente_id)}" data-archived-emitter="true">${escapeHtml(label)} (inativa)</option>`);
+    }
     const map = {
       'orcamento-codigo': budget.codigo,
       'orcamento-titulo': budget.titulo,
       'orcamento-status': budget.status,
+      'orcamento-emitente-id': budget.emitente_id || fallbackEmitter?.id || '',
       'orcamento-cliente-id': budget.cliente_id || '',
       'orcamento-cliente-busca': budget.cliente_nome || '',
       'orcamento-categoria': budget.categoria_id || '',
@@ -682,6 +705,8 @@
   }
 
   function normalizeItem(item = {}) {
+    const hasExplicitCostFlag = typeof item.custo_informado === 'boolean';
+    const hasCostValue = item.custo_unitario !== null && item.custo_unitario !== undefined && item.custo_unitario !== '';
     return {
       id: item.id || null,
       produto_id: item.produto_id || null,
@@ -693,14 +718,15 @@
       quantidade: parseNumber(item.quantidade || 1),
       valor_unitario: parseNumber(item.valor_unitario),
       desconto: parseNumber(item.desconto),
-      custo_unitario: parseNumber(item.custo_unitario),
+      custo_unitario: hasCostValue ? parseNumber(item.custo_unitario) : null,
+      custo_informado: hasExplicitCostFlag ? item.custo_informado : hasCostValue,
       observacao: item.observacao || '',
       ordem: Number(item.ordem || 0),
     };
   }
 
   function addManualItem(target = 'budget') {
-    const item = normalizeItem({ quantidade: 1, unidade: 'UN' });
+    const item = normalizeItem({ quantidade: 1, unidade: 'UN', custo_unitario: null, custo_informado: false });
     if (target === 'template') {
       state.templateItems.push(item);
       renderTemplateItems();
@@ -852,7 +878,7 @@
       });
       if (normalizedQuery) params.set('busca', normalizedQuery);
 
-      const response = await api(`${API_PRODUCTS}?${params.toString()}`);
+      const response = await api(`${API_BUDGET_PRODUCTS}?${params.toString()}`);
       if (version !== searchState.version || normalizedQuery !== searchState.query) return;
 
       const products = normalizeCollection(response);
@@ -945,7 +971,8 @@
       unidade: product.unidade || 'UN',
       quantidade: 1,
       valor_unitario: product.preco_venda,
-      custo_unitario: canShowCosts() ? product.custo : 0,
+      custo_unitario: product.custo ?? null,
+      custo_informado: product.custo !== null && product.custo !== undefined && product.custo !== '',
     });
     if (target === 'template') {
       state.templateItems.push(item);
@@ -978,11 +1005,11 @@
         <td><textarea data-field="descricao" placeholder="Descrição do produto ou serviço">${escapeHtml(item.descricao)}</textarea><input data-field="referencia" value="${escapeHtml(item.referencia)}" placeholder="Referência/detalhe (opcional)" /></td>
         <td><input data-field="codigo" value="${escapeHtml(item.codigo)}" /></td>
         <td><input data-field="unidade" value="${escapeHtml(item.unidade)}" /></td>
-        <td><input data-field="quantidade" value="${inputMoney(item.quantidade)}" inputmode="decimal" /></td>
+        <td><input data-field="quantidade" value="${inputQuantity(item.quantidade)}" inputmode="decimal" /></td>
         <td><input data-field="valor_unitario" value="${inputMoney(item.valor_unitario)}" inputmode="decimal" /></td>
         <td><input data-field="desconto" value="${inputMoney(item.desconto)}" inputmode="decimal" /></td>
         <td class="item-total-cell">${formatMoney(itemTotal(item))}</td>
-        <td class="cost-only ${canShowCosts() ? '' : 'is-hidden'}"><input data-field="custo_unitario" value="${inputMoney(item.custo_unitario)}" inputmode="decimal" /></td>
+        <td class="cost-only ${canShowCosts() ? '' : 'is-hidden'}"><input data-field="custo_unitario" value="${item.custo_unitario === null ? '' : inputMoney(item.custo_unitario)}" inputmode="decimal" placeholder="Não informado" /></td>
         <td><button class="item-remove" type="button" data-remove-item="${index}" title="Remover"><i class="fa-solid fa-xmark"></i></button></td>
       </tr>`).join('');
   }
@@ -992,7 +1019,12 @@
     const item = state.items[Number(row.dataset.index)];
     if (!item) return;
     const field = input.dataset.field;
-    item[field] = ['quantidade', 'valor_unitario', 'desconto', 'custo_unitario'].includes(field) ? parseNumber(input.value) : input.value;
+    if (field === 'custo_unitario') {
+      item.custo_unitario = String(input.value || '').trim() === '' ? null : parseNumber(input.value);
+      item.custo_informado = item.custo_unitario !== null;
+    } else {
+      item[field] = ['quantidade', 'valor_unitario', 'desconto'].includes(field) ? parseNumber(input.value) : input.value;
+    }
     const totalCell = row.querySelector('.item-total-cell');
     if (totalCell) totalCell.textContent = formatMoney(itemTotal(item));
     updateTotals();
@@ -1075,41 +1107,79 @@
     const freight = Math.max(parseNumber($('orcamento-frete').value), 0);
     const addition = Math.max(parseNumber($('orcamento-acrescimo').value), 0);
     const total = Math.max(subtotal - discount + freight + addition, 0);
-    const cost = state.items.reduce((sum, item) => sum + item.quantidade * item.custo_unitario, 0);
+    const cost = state.items.reduce((sum, item) => sum + item.quantidade * parseNumber(item.custo_unitario), 0);
     const profit = total - cost;
     const margin = total > 0 ? profit / total * 100 : 0;
     return { subtotal, discount, freight, addition, total, cost, profit, margin };
   }
 
+  function applyAnalysisResult(result) {
+    if (!result || !canShowCosts()) return;
+    state.calculation = result;
+    $('analysis-sale').textContent = formatMoney(result.total);
+    $('analysis-cost').textContent = formatMoney(result.custo_total);
+    $('analysis-profit').textContent = formatMoney(result.lucro_total);
+    $('analysis-margin').textContent = formatPercent(result.margem_percentual);
+    const missing = Number(result.itens_sem_custo || 0);
+    $('missing-cost-alert')?.classList.toggle('is-hidden', missing === 0);
+    if ($('missing-cost-title')) $('missing-cost-title').textContent = missing === 1 ? '1 item está sem custo informado' : `${missing} itens estão sem custo informado`;
+    const minMargin = parseNumber(state.meta.configuracao?.margem_minima);
+    const alert = Boolean(state.meta.configuracao?.exigir_aprovacao_margem) && parseNumber(result.margem_percentual) < minMargin;
+    $('margin-alert').classList.toggle('is-hidden', !alert);
+    renderAnalysis();
+  }
+
+  function scheduleServerCalculation() {
+    if (!canShowCosts()) return;
+    clearTimeout(state.calculationTimer);
+    const version = ++state.calculationVersion;
+    state.calculationTimer = setTimeout(async () => {
+      try {
+        const payload = collectBudgetPayload();
+        const result = await api(`${API}/calcular`, { method: 'POST', body: JSON.stringify(payload) });
+        if (version !== state.calculationVersion) return;
+        applyAnalysisResult(result);
+      } catch (error) {
+        if (version !== state.calculationVersion) return;
+        console.warn('[orcamentos] cálculo financeiro:', error);
+      }
+    }, 260);
+  }
+
   function updateTotals() {
+    state.calculation = null;
     const totals = calculateTotals();
     $('summary-subtotal').textContent = formatMoney(totals.subtotal);
     $('summary-desconto').textContent = formatMoney(totals.discount);
     $('summary-total').textContent = formatMoney(totals.total);
     $('footer-total').textContent = formatMoney(totals.total);
     if ($('budget-sidebar-total')) $('budget-sidebar-total').textContent = formatMoney(totals.total);
-    $('analysis-sale').textContent = formatMoney(totals.total);
-    $('analysis-cost').textContent = formatMoney(totals.cost);
-    $('analysis-profit').textContent = formatMoney(totals.profit);
-    $('analysis-margin').textContent = formatPercent(totals.margin);
-    const minMargin = parseNumber(state.meta.configuracao?.margem_minima);
-    const alert = Boolean(state.meta.configuracao?.exigir_aprovacao_margem) && totals.margin < minMargin;
-    $('margin-alert').classList.toggle('is-hidden', !alert);
+    if (!state.calculation) {
+      $('analysis-sale').textContent = formatMoney(totals.total);
+      $('analysis-cost').textContent = formatMoney(totals.cost);
+      $('analysis-profit').textContent = formatMoney(totals.profit);
+      $('analysis-margin').textContent = formatPercent(totals.margin);
+    }
     recalculatePayments();
     renderAnalysis();
     renderPreviewIfVisible();
+    scheduleServerCalculation();
   }
 
   function renderAnalysis() {
     const tbody = $('analysis-items-body');
-    tbody.innerHTML = state.items.map((item) => {
+    const items = state.calculation?.itens || state.items.map((item) => {
       const sale = itemTotal(item);
-      const cost = item.quantidade * item.custo_unitario;
+      const cost = item.quantidade * parseNumber(item.custo_unitario);
       const profit = sale - cost;
-      const margin = sale > 0 ? profit / sale * 100 : 0;
-      return `<tr><td>${escapeHtml(item.descricao || 'Item sem descrição')}</td><td class="text-right">${formatMoney(sale)}</td><td class="text-right">${formatMoney(cost)}</td><td class="text-right">${formatMoney(profit)}</td><td class="text-right">${formatPercent(margin)}</td></tr>`;
+      return { ...item, valor_total: sale, custo_total: cost, lucro_total: profit, margem_percentual: sale > 0 ? profit / sale * 100 : 0 };
+    });
+    tbody.innerHTML = items.map((item) => {
+      const costKnown = item.custo_informado !== false;
+      return `<tr><td>${escapeHtml(item.descricao || 'Item sem descrição')}</td><td class="text-right">${formatMoney(item.valor_total)}</td><td class="text-right ${costKnown ? '' : 'analysis-missing-cost'}">${costKnown ? formatMoney(item.custo_total) : 'Não informado'}</td><td class="text-right">${costKnown ? formatMoney(item.lucro_total) : '—'}</td><td class="text-right">${costKnown ? formatPercent(item.margem_percentual) : '—'}</td></tr>`;
     }).join('') || '<tr><td colspan="5" class="empty-state">Nenhum item.</td></tr>';
   }
+
 
   function paymentDescription(payment) {
     const parts = [];
@@ -1140,13 +1210,13 @@
 
   function buildStandardPreviewHtml() {
     const totals = calculateTotals();
-    const company = state.company || {};
+    const company = documentCompanyData();
     const color = state.meta.configuracao?.cor_primaria || '#65ACDE';
     const documentName = $('orcamento-nome-documento').value || state.meta.configuracao?.nome_documento || 'Orçamento';
     const code = $('orcamento-codigo').value || 'Prévia';
     const title = $('orcamento-titulo').value || 'Orçamento comercial';
     const clientName = $('orcamento-cliente-busca').value || 'Cliente não selecionado';
-    const logo = company.logo_url ? `<img src="${escapeHtml(company.logo_url)}" alt="Logo">` : '';
+    const logo = company.logo ? `<img src="${escapeHtml(company.logo)}" alt="Logo">` : '';
     const rows = state.items.map((item, index) => `
       <tr>
         ${state.meta.configuracao?.mostrar_codigo !== false ? `<td>${escapeHtml(item.codigo || String(index + 1).padStart(4, '0'))}</td>` : ''}
@@ -1159,7 +1229,7 @@
     const payments = state.payments.map((payment) => `<li><strong>${escapeHtml(payment.nome)}</strong>: ${escapeHtml(paymentDescription(payment))}</li>`).join('');
     const cover = $('orcamento-usar-capa').checked ? `
       <section class="preview-cover">
-        <div class="preview-cover-brand">${logo}<div><strong>${escapeHtml(company.nome || 'Sua empresa')}</strong><p>${escapeHtml(companyAddress())}</p></div></div>
+        <div class="preview-cover-brand">${logo}<div><strong>${escapeHtml(company.fantasia || company.razao || 'Sua empresa')}</strong><p>${escapeHtml(company.endereco || companyAddress())}</p></div></div>
         <div class="preview-cover-title"><h1>${escapeHtml($('orcamento-titulo-capa').value || documentName)}</h1><p>${escapeHtml($('orcamento-subtitulo-capa').value || title)}</p></div>
         <div class="preview-cover-client"><small>Preparado para</small><h2>${escapeHtml(clientName)}</h2><p>${escapeHtml(code)} • ${escapeHtml(localDate($('orcamento-data-emissao').value))}</p></div>
       </section>` : '';
@@ -1167,7 +1237,7 @@
     return `<div style="--preview-color:${escapeHtml(color)}">${cover}
       <section class="preview-document-page">
         <header class="preview-doc-header">
-          <div class="preview-doc-brand">${logo}<div><h2>${escapeHtml(company.nome || 'Sua empresa')}</h2>${company.cnpj ? `<p>CNPJ: ${escapeHtml(company.cnpj)}</p>` : ''}<p>${escapeHtml(companyAddress())}</p><p>${escapeHtml([company.telefone, company.email].filter(Boolean).join(' • '))}</p></div></div>
+          <div class="preview-doc-brand">${logo}<div><h2>${escapeHtml(company.fantasia || company.razao || 'Sua empresa')}</h2>${company.cnpj ? `<p>CNPJ: ${escapeHtml(company.cnpj)}</p>` : ''}<p>${escapeHtml(company.endereco || companyAddress())}</p><p>${escapeHtml([company.telefone, company.email].filter(Boolean).join(' • '))}</p></div></div>
           <div class="preview-doc-meta"><h1>${escapeHtml(documentName)}</h1><p><strong>${escapeHtml(code)}</strong></p><p>Emissão: ${escapeHtml(localDate($('orcamento-data-emissao').value))}</p><p>Validade: ${escapeHtml(localDate($('orcamento-data-validade').value))}</p></div>
         </header>
         <div class="preview-title"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(state.categories.find((c) => String(c.id) === $('orcamento-categoria').value)?.nome || '')}</p></div>
@@ -1183,7 +1253,7 @@
         ${$('orcamento-prazo-execucao').value ? `<section class="preview-section"><h4>Prazo de entrega/execução</h4><p>${escapeHtml($('orcamento-prazo-execucao').value)}</p></section>` : ''}
         ${$('orcamento-condicoes').value ? `<section class="preview-section"><h4>Condições gerais</h4><p>${escapeHtml($('orcamento-condicoes').value)}</p></section>` : ''}
         ${$('orcamento-observacoes').value ? `<section class="preview-section"><h4>Observações</h4><p>${escapeHtml($('orcamento-observacoes').value)}</p></section>` : ''}
-        <footer class="preview-footer"><span>${escapeHtml(state.meta.configuracao?.rodape_padrao || company.nome || '')}</span><span>Documento gerado pelo Valora CRM</span></footer>
+        <footer class="preview-footer"><span>${escapeHtml(company.rodape || state.meta.configuracao?.rodape_padrao || company.fantasia || company.razao || '')}</span><span>Documento gerado pelo Valora CRM</span></footer>
       </section></div>`;
   }
 
@@ -1192,21 +1262,35 @@
     return String(state.meta.configuracao?.modelo_documento || 'padrao').toLowerCase() === 'dav';
   }
 
+  function selectedEmitterData() {
+    const selectedId = Number($('orcamento-emitente-id')?.value || state.current?.emitente_id || 0);
+    return state.emitters.find((emitter) => Number(emitter.id) === selectedId) || null;
+  }
+
   function documentCompanyData() {
     const config = state.meta.configuracao || {};
     const company = state.company || {};
+    const budget = state.current || {};
+    const emitter = selectedEmitterData() || {};
+    const selectedId = Number($('orcamento-emitente-id')?.value || budget.emitente_id || 0);
+    const useSnapshot = selectedId > 0 && Number(budget.emitente_id || 0) === selectedId;
+    const snapshotAddress = useSnapshot ? budget.emitente_endereco_documento : null;
+    const emitterAddress = [emitter.endereco, emitter.numero, emitter.complemento, emitter.bairro, emitter.cidade, emitter.estado, emitter.cep].filter(Boolean).join(', ');
     return {
-      razao: config.cabecalho_razao_social || company.nome || 'Sua empresa',
-      fantasia: config.cabecalho_nome_fantasia || '',
-      cnpj: config.cabecalho_cnpj || company.cnpj || '',
-      email: config.cabecalho_email || company.email || '',
-      site: config.cabecalho_site || '',
-      telefone: config.cabecalho_telefone || company.telefone || '',
-      endereco: config.cabecalho_endereco || companyAddress(),
-      rodape: config.cabecalho_rodape || config.rodape_padrao || company.nome || '',
+      razao: (useSnapshot ? budget.emitente_razao_social_documento : null) || emitter.razao_social || config.cabecalho_razao_social || company.nome || 'Sua empresa',
+      fantasia: (useSnapshot ? budget.emitente_nome_fantasia_documento : null) || emitter.nome_fantasia || config.cabecalho_nome_fantasia || '',
+      cnpj: (useSnapshot ? budget.emitente_cnpj_documento : null) || emitter.cnpj || config.cabecalho_cnpj || company.cnpj || '',
+      ie: (useSnapshot ? budget.emitente_ie_documento : null) || emitter.inscricao_estadual || '',
+      email: (useSnapshot ? budget.emitente_email_documento : null) || emitter.email || config.cabecalho_email || company.email || '',
+      site: (useSnapshot ? budget.emitente_site_documento : null) || emitter.site || config.cabecalho_site || '',
+      telefone: (useSnapshot ? budget.emitente_telefone_documento : null) || emitter.telefone || config.cabecalho_telefone || company.telefone || '',
+      endereco: snapshotAddress || emitterAddress || config.cabecalho_endereco || companyAddress(),
+      logo: (useSnapshot ? budget.emitente_logo_documento : null) || emitter.logo_url || company.logo_url || '',
+      rodape: (useSnapshot ? budget.emitente_rodape_documento : null) || emitter.rodape || config.cabecalho_rodape || config.rodape_padrao || company.nome || '',
       titulo: config.dav_titulo || 'DAV - Documento Auxiliar de Venda',
     };
   }
+
 
   function documentClientData() {
     const budget = state.current || {};
@@ -1361,14 +1445,34 @@
     if (state.activeTab === 'documento') renderPreview();
   }
 
-  function renderHistory(history) {
-    $('budget-history').innerHTML = (history || []).map((item) => `
-      <article class="history-item"><strong>${escapeHtml(item.usuario_nome || 'Sistema')} • ${escapeHtml((item.acao || '').replaceAll('_', ' '))}</strong><p>${escapeHtml(item.descricao || '')}</p><small>${new Date(item.criado_em).toLocaleString('pt-BR')}</small></article>`).join('') || '<div class="empty-state">O histórico será criado ao salvar o orçamento.</div>';
+  function renderHistoryValue(value) {
+    if (value === null || value === undefined || value === '') return '—';
+    if (typeof value === 'object') {
+      try { return JSON.stringify(value); } catch (_) { return String(value); }
+    }
+    return String(value);
   }
+
+  function renderHistory(history) {
+    $('budget-history').innerHTML = (history || []).map((item) => {
+      const changes = Array.isArray(item.dados?.alteracoes) ? item.dados.alteracoes : [];
+      const details = changes.length ? `<details class="history-details"><summary>${changes.length} ${changes.length === 1 ? 'alteração' : 'alterações'}</summary>${changes.map((change) => {
+        const label = change.nome || change.campo_nome || change.campo || 'Informação';
+        const before = change.anterior ?? change.valor_anterior;
+        const after = change.novo ?? change.valor_novo;
+        return `<div class="history-change"><strong>${escapeHtml(change.secao || 'Geral')} • ${escapeHtml(label)}</strong><span><del>${escapeHtml(renderHistoryValue(before))}</del><i class="fa-solid fa-arrow-right"></i><ins>${escapeHtml(renderHistoryValue(after))}</ins></span></div>`;
+      }).join('')}</details>` : '';
+      const parsedDate = item.criado_em ? new Date(item.criado_em) : null;
+      const dateLabel = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.toLocaleString('pt-BR') : '';
+      return `<article class="history-item"><strong>${escapeHtml(item.usuario_nome || 'Sistema')} • ${escapeHtml((item.acao || '').replaceAll('_', ' '))}</strong><p>${escapeHtml(item.descricao || '')}</p>${details}${dateLabel ? `<small>${escapeHtml(dateLabel)}</small>` : ''}</article>`;
+    }).join('') || '<div class="empty-state">O histórico será criado ao salvar o orçamento.</div>';
+  }
+
 
   function collectBudgetPayload() {
     return {
       cliente_id: Number($('orcamento-cliente-id').value) || null,
+      emitente_id: Number($('orcamento-emitente-id')?.value) || null,
       consultor_id: Number($('orcamento-consultor').value) || null,
       categoria_id: Number($('orcamento-categoria').value) || null,
       modelo_id: Number($('orcamento-modelo').value) || null,
@@ -1398,12 +1502,13 @@
       usar_capa: $('orcamento-usar-capa').checked,
       titulo_capa: $('orcamento-titulo-capa').value.trim() || null,
       subtitulo_capa: $('orcamento-subtitulo-capa').value.trim() || null,
-      itens: state.items.map((item, index) => ({ ...item, ordem: index })),
+      itens: state.items.map((item, index) => ({ ...item, custo_unitario: item.custo_unitario === null ? null : parseNumber(item.custo_unitario), custo_informado: Boolean(item.custo_informado), ordem: index })),
     };
   }
 
   function validateBudget(payload) {
     if (!payload.titulo) { setTab('dados'); $('orcamento-titulo').focus(); throw new Error('Informe o título do orçamento.'); }
+    if (!payload.emitente_id) { setTab('dados'); $('orcamento-emitente-id')?.focus(); throw new Error('Selecione a empresa emitente.'); }
     if (!payload.cliente_id) { setTab('dados'); $('orcamento-cliente-busca').focus(); throw new Error('Selecione um cliente.'); }
     if (!payload.itens.length) { setTab('itens'); throw new Error('Adicione pelo menos um produto ou serviço.'); }
     if (payload.itens.some((item) => !String(item.descricao || '').trim())) { setTab('itens'); throw new Error('Preencha a descrição de todos os itens.'); }
@@ -1509,10 +1614,11 @@
 
   function printStyles() {
     if (usesDavDocument()) {
-      return `*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;font-family:Arial,sans-serif;color:#000}.document-preview{width:210mm;min-height:297mm;margin:0;padding:0;background:#fff}.dav-document{width:210mm;min-height:297mm;padding:4mm;display:flex;flex-direction:column;background:#fff;color:#000;font-family:Arial,sans-serif;font-size:8px}.dav-header{position:relative;min-height:18mm;padding:0 28mm 1.5mm 0;border-bottom:1px solid #000}.dav-company-title{text-align:center}.dav-company-title>strong{display:inline-block;padding:0 2mm;border-bottom:1px solid #000;font-size:12px;font-weight:500}.dav-company-title>span{display:block;margin-top:1mm;font-size:8px}.dav-company-title h1{margin:3mm 0 0;font-size:17px;line-height:1}.dav-document-meta{position:absolute;top:0;right:0;width:27mm;font-size:7px}.dav-document-meta div{display:grid;grid-template-columns:11mm 1fr;gap:1mm;min-height:4mm;align-items:center}.dav-document-meta b{text-align:right}.dav-document-meta span{text-align:right}.dav-client-table,.dav-items-table,.dav-totals-table{width:100%;border-collapse:collapse;table-layout:fixed}.dav-client-table td{height:8mm;padding:.7mm 1mm;border:1px solid #000;vertical-align:top}.dav-client-table label{display:block;font-size:6.6px;font-weight:700;line-height:1.15}.dav-client-table strong{display:block;margin-top:.5mm;font-size:7.5px;font-weight:400;line-height:1.15;overflow-wrap:anywhere}.dav-reference-line{height:7mm;padding:1.5mm 1mm .5mm;border-left:1px solid #000;border-right:1px solid #000;border-bottom:1px solid #000;font-size:7px}.dav-items-table th{height:10mm;padding:.7mm .5mm;border-bottom:1px solid #000;font-size:6.4px;line-height:1.08;text-align:center;vertical-align:bottom}.dav-items-table th:nth-child(1){width:9%}.dav-items-table th:nth-child(2){width:35%;text-align:left}.dav-items-table th:nth-child(3){width:6%}.dav-items-table th:nth-child(4){width:7%}.dav-items-table th:nth-child(5){width:11%}.dav-items-table th:nth-child(6){width:10%}.dav-items-table th:nth-child(7){width:11%}.dav-items-table th:nth-child(8){width:11%}.dav-items-table th span{font-weight:400}.dav-items-table td{height:8.2mm;padding:1mm .6mm;border:0;font-size:7px;line-height:1.15;vertical-align:top}.dav-items-table tbody tr:last-child td{border-bottom:1px solid #000}.dav-description strong{font-weight:400}.dav-description small{display:block;margin-top:.4mm;font-size:6.2px}.dav-center{text-align:center}.dav-number{text-align:right;white-space:nowrap}.dav-empty{text-align:center}.dav-totals-table td{height:15mm;border:1px solid #000;vertical-align:middle}.dav-total-spacer{width:13%}.dav-order-total{width:50%;padding:1mm 2mm;white-space:nowrap}.dav-order-total>div{width:48%;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1mm;vertical-align:middle}.dav-order-total b,.dav-note-total b{font-size:7px}.dav-order-total strong{font-size:8px;font-weight:400}.dav-order-total span{font-size:6.5px;white-space:nowrap}.dav-total-middle{width:15%}.dav-note-total{width:22%;padding:1mm 2mm}.dav-note-total div{display:flex;justify-content:space-between;gap:2mm;padding:.7mm 0}.dav-note-total strong{font-size:8px}.dav-observations{flex:1;min-height:54mm;padding:2.5mm 2mm;border:1px solid #000;border-top:0}.dav-observations h2{margin:0 0 5mm;font-size:7.5px}.dav-observation-lines{font-size:7px;line-height:1.45}.dav-footer{min-height:4.5mm;padding:.8mm 1mm;border:1px solid #000;border-top:0;background:#edf7fc;text-align:center;font-size:6.2px}@page{size:A4;margin:0}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+      return `*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;font-family:Arial,sans-serif;color:#000}.document-preview{width:auto;margin:0;background:#fff}.dav-document{width:100%;padding:0;background:#fff;color:#000;font-family:Arial,sans-serif;font-size:9.5pt}.dav-header{position:relative;min-height:18mm;padding:0 31mm 2mm 0;border-bottom:1px solid #000}.dav-company-title{text-align:center}.dav-company-title>strong{display:inline-block;padding:0 2mm;border-bottom:1px solid #000;font-size:13pt;font-weight:600}.dav-company-title>span{display:block;margin-top:1mm;font-size:9pt}.dav-company-title h1{margin:3mm 0 0;font-size:16pt;line-height:1.1}.dav-document-meta{position:absolute;top:0;right:0;width:30mm;font-size:8.5pt}.dav-document-meta div{display:grid;grid-template-columns:12mm 1fr;gap:1mm;min-height:4mm;align-items:center}.dav-document-meta b,.dav-document-meta span{text-align:right}.dav-client-table,.dav-items-table,.dav-totals-table{width:100%;border-collapse:collapse;table-layout:fixed}.dav-client-table td{min-height:8mm;padding:1mm 1.2mm;border:1px solid #000;vertical-align:top}.dav-client-table label{display:block;font-size:8pt;font-weight:700;line-height:1.15}.dav-client-table strong{display:block;margin-top:.6mm;font-size:9pt;font-weight:400;line-height:1.25;overflow-wrap:anywhere}.dav-reference-line{min-height:7mm;padding:1.5mm 1mm;border:1px solid #000;border-top:0;font-size:9pt}.dav-items-table thead{display:table-header-group}.dav-items-table tr{break-inside:avoid;page-break-inside:avoid}.dav-items-table th{padding:1.2mm .7mm;border-bottom:1px solid #000;font-size:8pt;line-height:1.15;text-align:center;vertical-align:bottom}.dav-items-table th:nth-child(1){width:9%}.dav-items-table th:nth-child(2){width:35%;text-align:left}.dav-items-table th:nth-child(3){width:6%}.dav-items-table th:nth-child(4){width:7%}.dav-items-table th:nth-child(5){width:11%}.dav-items-table th:nth-child(6){width:10%}.dav-items-table th:nth-child(7){width:11%}.dav-items-table th:nth-child(8){width:11%}.dav-items-table td{padding:1.5mm .8mm;border-bottom:.25mm solid #aaa;font-size:9pt;line-height:1.25;vertical-align:top}.dav-description strong{font-weight:400}.dav-description small{display:block;margin-top:.5mm;font-size:8pt}.dav-center{text-align:center}.dav-number{text-align:right;white-space:nowrap}.dav-empty{text-align:center}.dav-totals-table,.dav-observations,.dav-footer{break-inside:avoid;page-break-inside:avoid}.dav-totals-table td{min-height:15mm;border:1px solid #000;vertical-align:middle}.dav-total-spacer{width:13%}.dav-order-total{width:50%;padding:1.5mm 2mm}.dav-order-total>div{width:48%;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1mm;vertical-align:middle}.dav-order-total b,.dav-note-total b{font-size:8.5pt}.dav-order-total strong,.dav-note-total strong{font-size:9.5pt}.dav-order-total span{font-size:8pt}.dav-total-middle{width:15%}.dav-note-total{width:22%;padding:1mm 2mm}.dav-note-total div{display:flex;justify-content:space-between;gap:2mm;padding:.7mm 0}.dav-observations{min-height:35mm;padding:2.5mm 2mm;border:1px solid #000;border-top:0}.dav-observations h2{margin:0 0 4mm;font-size:9pt}.dav-observation-lines{font-size:9pt;line-height:1.45}.dav-footer{min-height:5mm;padding:1mm;border:1px solid #000;border-top:0;background:#edf7fc;text-align:center;font-size:8pt}@page{size:A4 portrait;margin:8mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
     }
-    return `*{box-sizing:border-box}body{margin:0;background:#fff;font-family:Arial,sans-serif;color:#263746}.document-preview{width:190mm;min-height:277mm;margin:0 auto;padding:12mm;background:#fff}.preview-cover{min-height:265mm;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always}.preview-cover-brand,.preview-doc-brand{display:flex;align-items:center;gap:16px}.preview-cover-brand img{width:76px;max-height:76px;object-fit:contain}.preview-cover-title{margin:auto 0}.preview-cover-title h1{margin:0 0 14px;color:var(--preview-color);font-size:42px}.preview-cover-title p{color:#667783;font-size:18px}.preview-cover-client{padding-top:24px;border-top:2px solid var(--preview-color)}.preview-doc-header{display:flex;justify-content:space-between;gap:20px;padding-bottom:20px;border-bottom:3px solid var(--preview-color)}.preview-doc-brand img{width:58px;max-height:58px;object-fit:contain}.preview-doc-brand h2{margin:0 0 4px;font-size:18px}.preview-doc-brand p,.preview-doc-meta p{margin:2px 0;color:#687884;font-size:10px}.preview-doc-meta{text-align:right}.preview-doc-meta h1{margin:0 0 6px;color:var(--preview-color);font-size:22px}.preview-title{margin:22px 0 15px}.preview-title h3{margin:0 0 4px;font-size:17px}.preview-title p{margin:0;color:#71808b;font-size:10px}.preview-client-box{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin-bottom:18px;padding:14px 16px;border:1px solid #dfe6ea;border-radius:8px;background:#f8fafb}.preview-field label{display:block;color:#82909a;font-size:8px;text-transform:uppercase}.preview-field strong,.preview-field span{font-size:10px}.preview-items{width:100%;border-collapse:collapse}.preview-items th{padding:8px 7px;color:#fff;background:#365465;font-size:8px;text-align:left}.preview-items td{padding:9px 7px;border-bottom:1px solid #e2e8eb;font-size:9px;vertical-align:top}.preview-items td small{display:block;margin-top:3px;color:#84919a}.preview-summary{width:310px;margin:18px 0 0 auto}.preview-summary-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #e2e8eb;font-size:9px}.preview-summary-total{margin-top:8px;padding:12px 14px;border-radius:7px;color:#fff;background:var(--preview-color)}.preview-summary-total span{font-size:8px}.preview-summary-total strong{display:block;margin-top:3px;font-size:17px}.preview-section{margin-top:18px;padding:13px 15px;border:1px solid #dfe6ea;border-radius:8px}.preview-section h4{margin:0 0 7px;font-size:10px}.preview-section p,.preview-section li{font-size:9px;line-height:1.55;white-space:pre-line}.preview-footer{margin-top:24px;padding-top:12px;border-top:1px solid #e0e7eb;display:flex;justify-content:space-between;color:#88949c;font-size:8px}@page{size:A4;margin:0}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+    return `*{box-sizing:border-box}body{margin:0;background:#fff;font-family:Arial,sans-serif;color:#263746}.document-preview{width:auto;margin:0;background:#fff}.preview-cover{min-height:265mm;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always}.preview-cover-brand,.preview-doc-brand{display:flex;align-items:center;gap:16px}.preview-cover-brand img{width:76px;max-height:76px;object-fit:contain}.preview-cover-title{margin:auto 0}.preview-cover-title h1{margin:0 0 14px;color:var(--preview-color);font-size:42px}.preview-cover-title p{color:#667783;font-size:18px}.preview-cover-client{padding-top:24px;border-top:2px solid var(--preview-color)}.preview-doc-header{display:flex;justify-content:space-between;gap:20px;padding-bottom:20px;border-bottom:3px solid var(--preview-color)}.preview-doc-brand img{width:58px;max-height:58px;object-fit:contain}.preview-doc-brand h2{margin:0 0 4px;font-size:18px}.preview-doc-brand p,.preview-doc-meta p{margin:2px 0;color:#687884;font-size:10px}.preview-doc-meta{text-align:right}.preview-doc-meta h1{margin:0 0 6px;color:var(--preview-color);font-size:22px}.preview-title{margin:22px 0 15px}.preview-title h3{margin:0 0 4px;font-size:17px}.preview-title p{margin:0;color:#71808b;font-size:10px}.preview-client-box{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin-bottom:18px;padding:14px 16px;border:1px solid #dfe6ea;border-radius:8px;background:#f8fafb}.preview-field label{display:block;color:#82909a;font-size:8px;text-transform:uppercase}.preview-field strong,.preview-field span{font-size:10px}.preview-items{width:100%;border-collapse:collapse}.preview-items thead{display:table-header-group}.preview-items tr{break-inside:avoid}.preview-items th{padding:8px 7px;color:#fff;background:#365465;font-size:8px;text-align:left}.preview-items td{padding:9px 7px;border-bottom:1px solid #e2e8eb;font-size:9px;vertical-align:top}.preview-items td small{display:block;margin-top:3px;color:#84919a}.preview-summary{width:310px;margin:18px 0 0 auto}.preview-summary-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #e2e8eb;font-size:9px}.preview-summary-total{margin-top:8px;padding:12px 14px;border-radius:7px;color:#fff;background:var(--preview-color)}.preview-summary-total span{font-size:8px}.preview-summary-total strong{display:block;margin-top:3px;font-size:17px}.preview-section{margin-top:18px;padding:13px 15px;border:1px solid #dfe6ea;border-radius:8px;break-inside:avoid}.preview-section h4{margin:0 0 7px;font-size:10px}.preview-section p,.preview-section li{font-size:9px;line-height:1.55;white-space:pre-line}.preview-footer{margin-top:24px;padding-top:12px;border-top:1px solid #e0e7eb;display:flex;justify-content:space-between;color:#88949c;font-size:8px}@page{size:A4 portrait;margin:10mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
   }
+
 
   async function sendWhatsApp(id) {
     try {
@@ -1605,14 +1711,16 @@
   // Configurações
   async function openSettings() {
     try {
-      const [categories, templates, kits] = await Promise.all([
+      const [categories, templates, kits, emitters] = await Promise.all([
         api(`${API}/categorias?incluir_inativas=true`),
         api(`${API}/modelos?incluir_inativos=true`),
         api(`${API}/kits?incluir_inativos=true`),
+        api(`${API}/emitentes?incluir_inativos=true`),
       ]);
       state.categories = categories || [];
       state.templates = templates || [];
       state.kits = kits || [];
+      state.emitters = emitters || [];
     } catch (error) {
       toast(error.message || 'Não foi possível atualizar as configurações.', 'error');
     }
@@ -1620,9 +1728,29 @@
     renderCategories();
     renderTemplates();
     renderKits();
+    renderEmitters();
+    resetEmitterEditor();
     renderSelects();
     setSettingsTab('geral');
     openOverlay('settings-modal');
+  }
+
+  function updateSettingsFooter(tab) {
+    const footer = $('settings-footer');
+    const primaryButton = $('btn-salvar-settings');
+    if (!footer || !primaryButton) return;
+
+    const visible = tab === 'geral' || tab === 'emitentes';
+    footer.classList.toggle('is-hidden', !visible);
+    footer.dataset.mode = tab;
+
+    if (tab === 'emitentes') {
+      primaryButton.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar empresa';
+      primaryButton.setAttribute('aria-label', 'Salvar empresa emitente');
+    } else {
+      primaryButton.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar configurações';
+      primaryButton.setAttribute('aria-label', 'Salvar configurações gerais');
+    }
   }
 
   function setSettingsTab(tab) {
@@ -1633,7 +1761,7 @@
       button.setAttribute('aria-selected', active ? 'true' : 'false');
     });
     $$('.settings-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.settingsPanel === tab));
-    $('settings-footer').classList.toggle('is-hidden', tab !== 'geral');
+    updateSettingsFooter(tab);
     if ($('settings-modal') && !$('settings-modal').hidden) $('settings-modal').querySelector('.settings-body').scrollTop = 0;
   }
 
@@ -1743,6 +1871,74 @@
       closeOverlay('settings-modal');
     } catch (error) { toast(error.message, 'error'); }
     finally { setButtonLoading(button, false); }
+  }
+
+  function resetEmitterEditor() {
+    const ids = ['emitter-id','emitter-name','emitter-legal-name','emitter-fantasy-name','emitter-cnpj','emitter-ie','emitter-email','emitter-site','emitter-phone','emitter-cep','emitter-address','emitter-number','emitter-complement','emitter-neighborhood','emitter-city','emitter-state','emitter-logo','emitter-footer'];
+    ids.forEach((id) => { if ($(id)) $(id).value = ''; });
+    $('emitter-default').checked = !state.emitters.some((emitter) => emitter.padrao && emitter.ativo !== false);
+    $('emitter-active').checked = true;
+    $('emitter-editor-title').textContent = 'Nova empresa emitente';
+  }
+
+  function renderEmitters() {
+    if (!$('emitters-list')) return;
+    $('emitters-list').innerHTML = state.emitters.map((emitter) => `<article class="emitter-list-item ${emitter.ativo === false ? 'is-inactive' : ''}"><div><strong>${escapeHtml(emitter.nome)}</strong><span>${escapeHtml(emitter.razao_social || '')}</span><small>${escapeHtml([emitter.cnpj, emitter.cidade, emitter.estado].filter(Boolean).join(' • '))}</small></div><div class="emitter-list-actions">${emitter.padrao ? '<span class="settings-status-badge">Padrão</span>' : ''}<button type="button" class="budget-action-btn" data-edit-emitter="${emitter.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>${emitter.ativo === false ? '' : `<button type="button" class="budget-action-btn danger" data-delete-emitter="${emitter.id}" title="Desativar"><i class="fa-regular fa-trash-can"></i></button>`}</div></article>`).join('') || '<div class="settings-empty-state"><strong>Nenhuma empresa emitente</strong><small>Cadastre a empresa que deverá aparecer no orçamento.</small></div>';
+  }
+
+  function editEmitter(id) {
+    const emitter = state.emitters.find((item) => Number(item.id) === Number(id));
+    if (!emitter) return;
+    const values = {
+      'emitter-id': emitter.id, 'emitter-name': emitter.nome, 'emitter-legal-name': emitter.razao_social,
+      'emitter-fantasy-name': emitter.nome_fantasia, 'emitter-cnpj': emitter.cnpj, 'emitter-ie': emitter.inscricao_estadual,
+      'emitter-email': emitter.email, 'emitter-site': emitter.site, 'emitter-phone': emitter.telefone, 'emitter-cep': emitter.cep,
+      'emitter-address': emitter.endereco, 'emitter-number': emitter.numero, 'emitter-complement': emitter.complemento,
+      'emitter-neighborhood': emitter.bairro, 'emitter-city': emitter.cidade, 'emitter-state': emitter.estado,
+      'emitter-logo': emitter.logo_url, 'emitter-footer': emitter.rodape,
+    };
+    Object.entries(values).forEach(([idField, value]) => { $(idField).value = value || ''; });
+    $('emitter-default').checked = Boolean(emitter.padrao);
+    $('emitter-active').checked = emitter.ativo !== false;
+    $('emitter-editor-title').textContent = `Editar ${emitter.nome}`;
+  }
+
+  function emitterPayload() {
+    return {
+      nome: $('emitter-name').value.trim(), razao_social: $('emitter-legal-name').value.trim(), nome_fantasia: $('emitter-fantasy-name').value.trim() || null,
+      cnpj: $('emitter-cnpj').value.trim() || null, inscricao_estadual: $('emitter-ie').value.trim() || null, email: $('emitter-email').value.trim() || null,
+      site: $('emitter-site').value.trim() || null, telefone: $('emitter-phone').value.trim() || null, cep: $('emitter-cep').value.trim() || null,
+      endereco: $('emitter-address').value.trim() || null, numero: $('emitter-number').value.trim() || null, complemento: $('emitter-complement').value.trim() || null,
+      bairro: $('emitter-neighborhood').value.trim() || null, cidade: $('emitter-city').value.trim() || null, estado: $('emitter-state').value.trim().toUpperCase() || null,
+      logo_url: $('emitter-logo').value.trim() || null, rodape: $('emitter-footer').value.trim() || null,
+      padrao: $('emitter-default').checked, ativo: $('emitter-active').checked,
+    };
+  }
+
+  async function saveEmitter(triggerButton = null) {
+    const button = triggerButton || $('btn-salvar-emitente');
+    try {
+      const payload = emitterPayload();
+      if (!payload.nome || !payload.razao_social) throw new Error('Informe o nome interno e a razão social.');
+      setButtonLoading(button, true);
+      const id = Number($('emitter-id').value || 0);
+      await api(id ? `${API}/emitentes/${id}` : `${API}/emitentes`, { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+      state.emitters = await api(`${API}/emitentes?incluir_inativos=true`);
+      state.meta.emitentes = state.emitters.filter((emitter) => emitter.ativo !== false);
+      renderEmitters(); renderSelects(); resetEmitterEditor();
+      toast('Empresa emitente salva.');
+    } catch (error) { toast(error.message || 'Não foi possível salvar a empresa.', 'error'); }
+    finally { setButtonLoading(button, false); }
+  }
+
+  async function deleteEmitter(id) {
+    if (!confirm('Desativar esta empresa emitente? Orçamentos antigos manterão os dados gravados.')) return;
+    try {
+      await api(`${API}/emitentes/${id}`, { method: 'DELETE' });
+      state.emitters = await api(`${API}/emitentes?incluir_inativos=true`);
+      renderEmitters(); renderSelects(); resetEmitterEditor();
+      toast('Empresa emitente desativada.');
+    } catch (error) { toast(error.message, 'error'); }
   }
 
   function resetCategoryEditor() {
@@ -2029,6 +2225,22 @@
     } catch (error) { toast(error.message, 'error'); }
   }
 
+  async function handleInitialRoute() {
+    if (state.initialRouteHandled) return;
+    state.initialRouteHandled = true;
+    const params = new URLSearchParams(window.location.search);
+    const budgetId = Number(params.get('orcamento_id') || 0);
+    const clientId = Number(params.get('cliente_id') || 0);
+    if (budgetId) {
+      await openEditBudget(budgetId);
+      return;
+    }
+    if (params.get('novo') === '1' || clientId) {
+      await openNewBudget();
+      if (clientId) await selectClient(clientId);
+    }
+  }
+
   function bindEvents() {
     $('btn-novo-orcamento').addEventListener('click', openNewBudget);
     $('btn-atualizar-orcamentos').addEventListener('click', loadBudgets);
@@ -2097,7 +2309,7 @@
     $('produto-search-results').addEventListener('scroll', () => loadMoreProductsOnScroll('budget'), { passive: true });
     $('produto-search-results').addEventListener('click', (event) => { const button = event.target.closest('[data-product-id]'); if (button) addProduct(button.dataset.productId, 'budget'); });
     $('budget-items-body').addEventListener('input', (event) => { if (event.target.dataset.field) updateItemField(event.target); });
-    $('budget-items-body').addEventListener('focusout', (event) => { if (['quantidade', 'valor_unitario', 'desconto', 'custo_unitario'].includes(event.target.dataset.field)) { event.target.value = inputMoney(event.target.value); updateItemField(event.target); } });
+    $('budget-items-body').addEventListener('focusout', (event) => { const field = event.target.dataset.field; if (!['quantidade', 'valor_unitario', 'desconto', 'custo_unitario'].includes(field)) return; if (field === 'custo_unitario' && !String(event.target.value || '').trim()) event.target.value = ''; else event.target.value = field === 'quantidade' ? inputQuantity(event.target.value) : inputMoney(event.target.value); updateItemField(event.target); });
     $('budget-items-body').addEventListener('click', (event) => { const button = event.target.closest('[data-remove-item]'); if (button) { state.items.splice(Number(button.dataset.removeItem), 1); renderItems(); updateTotals(); } });
 
     ['orcamento-desconto-tipo', 'orcamento-desconto-valor', 'orcamento-frete', 'orcamento-acrescimo'].forEach((id) => $(id).addEventListener('input', updateTotals));
@@ -2106,12 +2318,23 @@
     $('payment-options').addEventListener('input', (event) => { if (event.target.dataset.paymentField) updatePaymentField(event.target); });
     $('payment-options').addEventListener('change', (event) => { if (event.target.dataset.paymentField) updatePaymentField(event.target); });
     $('payment-options').addEventListener('click', (event) => { const button = event.target.closest('[data-remove-payment]'); if (button) { state.payments.splice(Number(button.dataset.removePayment), 1); renderPayments(); } });
+    $('orcamento-emitente-id')?.addEventListener('change', renderPreviewIfVisible);
     ['orcamento-titulo', 'orcamento-nome-documento', 'orcamento-condicoes', 'orcamento-observacoes', 'orcamento-prazo-execucao', 'orcamento-titulo-capa', 'orcamento-subtitulo-capa', 'orcamento-usar-capa', 'orcamento-categoria', 'orcamento-consultor', 'orcamento-data-emissao', 'orcamento-data-validade'].forEach((id) => $(id).addEventListener('input', renderPreviewIfVisible));
 
     // Settings
     $('btn-fechar-settings').addEventListener('click', () => closeOverlay('settings-modal'));
     $('btn-cancelar-settings').addEventListener('click', () => closeOverlay('settings-modal'));
-    $('btn-salvar-settings').addEventListener('click', saveSettings);
+    $('btn-salvar-settings').addEventListener('click', () => {
+      if (state.settingsTab === 'emitentes') {
+        saveEmitter($('btn-salvar-settings'));
+        return;
+      }
+      saveSettings();
+    });
+    $('btn-novo-emitente')?.addEventListener('click', resetEmitterEditor);
+    $('btn-cancelar-emitente')?.addEventListener('click', resetEmitterEditor);
+    $('btn-salvar-emitente')?.addEventListener('click', saveEmitter);
+    $('emitters-list')?.addEventListener('click', (event) => { const edit = event.target.closest('[data-edit-emitter]'); const del = event.target.closest('[data-delete-emitter]'); if (edit) editEmitter(edit.dataset.editEmitter); if (del) deleteEmitter(del.dataset.deleteEmitter); });
     $$('.settings-tabs button').forEach((button) => button.addEventListener('click', () => setSettingsTab(button.dataset.settingsTab)));
     $('config-cor').addEventListener('input', syncSettingsColorFromPicker);
     $('config-cor-hex').addEventListener('input', () => syncSettingsColorFromText(false));

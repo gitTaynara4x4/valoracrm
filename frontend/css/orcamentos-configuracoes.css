@@ -1745,3 +1745,10 @@ html[data-theme="dark"] #settings-modal .budget-action-btn,
   font-weight: 600 !important;
 }
 
+
+
+/* Garante que o rodapé contextual possa ser ocultado mesmo com as regras
+   globais de .modal-footer que usam display: flex !important. */
+#settings-modal #settings-footer.is-hidden {
+  display: none !important;
+}

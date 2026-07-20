@@ -179,6 +179,7 @@
       const avatarInput = document.getElementById("avatarInput");
       const formPerfil = document.getElementById("formPerfil");
       const formSenha = document.getElementById("formSenha");
+      let currentAvatarUrl = "";
 
       function notify(message, type = "success") {
         if (typeof window.showToast === "function") {
@@ -231,8 +232,13 @@
           const doc = iframe && iframe.contentWindow && iframe.contentWindow.document;
           const sidebarAvatar = doc && doc.querySelector(".Valora-user-avatar");
 
-          if (sidebarAvatar && url) {
-            sidebarAvatar.innerHTML = `<img class="sidebar-avatar-img" src="${url}" alt="Foto de perfil">`;
+          if (sidebarAvatar) {
+            if (url) {
+              sidebarAvatar.innerHTML = `<img class="sidebar-avatar-img" src="${url}" alt="Foto de perfil">`;
+            } else {
+              const nome = document.getElementById("nome")?.value || "Usuário";
+              sidebarAvatar.textContent = getInitial(nome);
+            }
           }
         } catch (error) {
           console.warn("Não foi possível atualizar o avatar no menu lateral.", error);
@@ -250,7 +256,8 @@
           document.getElementById("telefone").value = user.telefone || "";
           document.getElementById("cargo").value = user.cargo || "";
 
-          renderAvatar(user.avatar_url, user.nome);
+          currentAvatarUrl = user.avatar_url || "";
+          renderAvatar(currentAvatarUrl, user.nome);
         }
       } catch (error) {
         console.error("Erro ao carregar perfil:", error);
@@ -260,11 +267,30 @@
         avatarInput.click();
       });
 
-      btnRemove.addEventListener("click", () => {
+      btnRemove.addEventListener("click", async () => {
         avatarInput.value = "";
-        const nome = document.getElementById("nome").value;
-        renderAvatar("", nome);
-        notify("Foto removida da pré-visualização.", "success");
+        setButtonLoading(btnRemove, "Removendo...", true);
+
+        try {
+          const response = await fetch("/api/perfil/avatar", {
+            method: "DELETE",
+            credentials: "include"
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || "Erro ao remover foto");
+          }
+
+          currentAvatarUrl = "";
+          const nome = document.getElementById("nome").value;
+          renderAvatar("", nome);
+          updateSidebarAvatar("");
+          notify("Foto de perfil removida.", "success");
+        } catch (error) {
+          notify(error.message || "Erro ao remover foto.", "error");
+        } finally {
+          setButtonLoading(btnRemove, "", false);
+        }
       });
 
       avatarInput.addEventListener("change", async (event) => {
@@ -296,8 +322,10 @@
             throw new Error(data.detail || "Erro ao salvar foto");
           }
 
+          currentAvatarUrl = data.avatar_url || "";
+          renderAvatar(currentAvatarUrl, document.getElementById("nome").value);
           notify("Foto de perfil atualizada!", "success");
-          updateSidebarAvatar(data.avatar_url);
+          updateSidebarAvatar(currentAvatarUrl);
         } catch (error) {
           notify(error.message || "Erro ao salvar foto.", "error");
         } finally {
@@ -333,8 +361,10 @@
           }
 
           notify("Perfil atualizado com sucesso!", "success");
-          document.cookie = `user_nome=${payload.nome}; path=/`;
-          renderAvatar("", payload.nome);
+          localStorage.setItem("nome", data.nome || payload.nome);
+          localStorage.setItem("email", data.email || payload.email);
+          localStorage.setItem("user_nome", data.nome || payload.nome);
+          renderAvatar(currentAvatarUrl || data.avatar_url || "", data.nome || payload.nome);
         } catch (error) {
           notify(error.message || "Erro de conexão.", "error");
         } finally {

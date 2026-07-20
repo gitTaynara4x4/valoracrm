@@ -1264,61 +1264,97 @@ function renderAnexos(items = []) {
     .join('');
 }
 
+function formatHistoryValue(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (Array.isArray(value)) return value.length ? JSON.stringify(value) : '—';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function formatHistoryMoney(value) {
+  if (value === null || value === undefined || String(value).trim() === '') return '—';
+  const raw = String(value).trim().replace(/[^0-9,.-]/g, '');
+  const normalized = raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw;
+  const number = Number(normalized);
+  return Number.isFinite(number)
+    ? number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : String(value);
+}
+
+function formatHistoryDate(value) {
+  if (!value) return '';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString('pt-BR');
+}
+
 function renderHistorico(data = {}) {
   const resumo = $('historico-resumo');
   const propostas = $('historico-propostas');
+  const orcamentos = $('historico-orcamentos');
   const ocorrencias = $('historico-ocorrencias');
+  const alteracoes = $('historico-alteracoes');
 
   const resumoData = data.resumo || {};
   const ultimasPropostas = Array.isArray(data.ultimas_propostas) ? data.ultimas_propostas : [];
+  const ultimosOrcamentos = Array.isArray(data.ultimos_orcamentos) ? data.ultimos_orcamentos : [];
   const ultimasOcorrencias = Array.isArray(data.ultimas_ocorrencias) ? data.ultimas_ocorrencias : [];
+  const historicoAlteracoes = Array.isArray(data.alteracoes) ? data.alteracoes : [];
 
   if (resumo) {
     resumo.innerHTML = `
-      <div class="history-item">
-        <strong>Total de propostas:</strong> ${escapeHtml(resumoData.total_propostas ?? 0)}
-      </div>
-
-      <div class="history-item">
-        <strong>Propostas aprovadas:</strong> ${escapeHtml(resumoData.propostas_aprovadas ?? 0)}
-      </div>
+      <div class="history-item"><strong>Propostas:</strong> ${escapeHtml(resumoData.total_propostas ?? 0)} <span class="subtle">(${escapeHtml(resumoData.propostas_aprovadas ?? 0)} aprovadas)</span></div>
+      <div class="history-item"><strong>Orçamentos:</strong> ${escapeHtml(resumoData.total_orcamentos ?? 0)} <span class="subtle">(${escapeHtml(resumoData.orcamentos_aprovados ?? 0)} aprovados)</span></div>
+      <div class="history-item"><strong>Alterações registradas:</strong> ${escapeHtml(resumoData.total_alteracoes ?? 0)}</div>
     `;
   }
 
   if (propostas) {
     propostas.innerHTML = ultimasPropostas.length
-      ? ultimasPropostas
-          .map(
-            (item) => `
-              <div class="history-item">
-                <strong>${escapeHtml(item.codigo || 'Sem código')}</strong>
-                <div class="subtle">${escapeHtml(item.titulo || '')}</div>
-                <div class="subtle">
-                  Status: ${escapeHtml(item.status || '-')} • Total: ${escapeHtml(item.total || '-')}
-                </div>
-              </div>
-            `
-          )
-          .join('')
-      : `<div class="empty-soft">Nenhuma proposta encontrada para este cliente.</div>`;
+      ? ultimasPropostas.map((item) => `
+          <div class="history-item">
+            <strong>${escapeHtml(item.codigo || 'Sem código')}</strong>
+            <div class="subtle">${escapeHtml(item.titulo || '')}</div>
+            <div class="subtle">Status: ${escapeHtml(item.status || '-')} • Total: ${escapeHtml(formatHistoryMoney(item.total))}</div>
+          </div>`).join('')
+      : '<div class="empty-soft">Nenhuma proposta encontrada para este cliente.</div>';
+  }
+
+  if (orcamentos) {
+    orcamentos.innerHTML = ultimosOrcamentos.length
+      ? ultimosOrcamentos.map((item) => `
+          <a class="history-item history-budget-link" href="/orcamentos?orcamento_id=${encodeURIComponent(item.id)}">
+            <strong>${escapeHtml(item.codigo || 'Sem código')} • ${escapeHtml(item.titulo || 'Orçamento')}</strong>
+            <div class="subtle">${escapeHtml(item.data_emissao || '')} • ${escapeHtml(item.status || '-')}</div>
+            <div>${escapeHtml(formatHistoryMoney(item.total))}</div>
+          </a>`).join('')
+      : '<div class="empty-soft">Nenhum orçamento encontrado para este cliente.</div>';
   }
 
   if (ocorrencias) {
     ocorrencias.innerHTML = ultimasOcorrencias.length
-      ? ultimasOcorrencias
-          .map(
-            (item) => `
-              <div class="history-item">
-                <strong>${escapeHtml(item.tipo || 'Ocorrência')}</strong>
-                <div class="subtle">${escapeHtml(item.data_movimento || '')}</div>
-                <div>${escapeHtml(item.descricao || '')}</div>
-              </div>
-            `
-          )
-          .join('')
-      : `<div class="empty-soft">Nenhuma ocorrência registrada.</div>`;
+      ? ultimasOcorrencias.map((item) => `
+          <div class="history-item">
+            <strong>${escapeHtml(item.tipo || 'Ocorrência')}</strong>
+            <div class="subtle">${escapeHtml(item.data_movimento || '')}</div>
+            <div>${escapeHtml(item.descricao || '')}</div>
+          </div>`).join('')
+      : '<div class="empty-soft">Nenhuma ocorrência registrada.</div>';
   }
+
+  if (alteracoes) {
+    alteracoes.innerHTML = historicoAlteracoes.length
+      ? historicoAlteracoes.map((item) => `
+          <article class="history-item history-audit-item">
+            <div class="history-audit-meta"><strong>${escapeHtml(item.secao || 'Cadastro')} • ${escapeHtml(item.campo_nome || item.campo || 'Informação')}</strong><span>${escapeHtml(item.usuario_nome || 'Sistema')} • ${escapeHtml(formatHistoryDate(item.criado_em))}</span></div>
+            <div class="history-audit-values"><del>${escapeHtml(formatHistoryValue(item.valor_anterior))}</del><i class="fa-solid fa-arrow-right"></i><ins>${escapeHtml(formatHistoryValue(item.valor_novo))}</ins></div>
+          </article>`).join('')
+      : '<div class="empty-soft">Nenhuma alteração registrada. As próximas edições serão exibidas aqui.</div>';
+  }
+
+  const newBudgetButton = $('btn-novo-orcamento-cliente');
+  if (newBudgetButton) newBudgetButton.disabled = !Number(state.clienteEditandoId || currentDetail?.id || 0);
 }
+
 
 async function uploadAnexo() {
   if (!state.clienteEditandoId) {
@@ -1495,6 +1531,7 @@ export function bindClientModal({ afterSave } = {}) {
   $('btn-cancelar-cliente')?.addEventListener('click', closeClientModal);
   $('formCliente')?.addEventListener('submit', saveCliente);
   $('btn-abrir-zapschat-cliente')?.addEventListener('click', (event) => abrirClienteNoZapsChat(state.clienteEditandoId || currentDetail?.id, { button: event.currentTarget }));
+  $('btn-novo-orcamento-cliente')?.addEventListener('click', () => { const id = Number(state.clienteEditandoId || currentDetail?.id || 0); if (!id) { toast('Salve o cliente antes de criar um orçamento.', 'error'); return; } window.location.href = `/orcamentos?novo=1&cliente_id=${encodeURIComponent(id)}`; });
   $('toggle-ficha-principal-cliente')?.addEventListener('change', salvarToggleFichaPrincipalCliente);
   bindResumoSidebarCliente();
 

@@ -120,11 +120,18 @@ def atualizar_empresa(
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada.")
 
-    # Atualiza apenas os campos que foram enviados
-    data = payload.dict(exclude_unset=True)
+    # Atualiza somente os campos enviados. Campo enviado vazio limpa o valor;
+    # campo omitido permanece inalterado. Isso permite corrigir dados antigos
+    # que tenham sido preenchidos por engano.
+    data = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload.dict(exclude_unset=True)
     for key, value in data.items():
-        if value is not None and str(value).strip() != "":
-            setattr(empresa, key, str(value).strip())
+        cleaned = "" if value is None else str(value).strip()
+        if key == "nome":
+            if not cleaned:
+                raise HTTPException(status_code=422, detail="O nome da empresa não pode ficar vazio.")
+            setattr(empresa, key, cleaned)
+        else:
+            setattr(empresa, key, cleaned or None)
 
     try:
         db.commit()

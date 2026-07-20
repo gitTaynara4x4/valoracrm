@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend import models
@@ -35,7 +35,7 @@ class PermissaoModuloIn(BaseModel):
 
 class SalvarPermissoesIn(BaseModel):
     papel: str | None = None
-    permissoes: List[PermissaoModuloIn] = []
+    permissoes: List[PermissaoModuloIn] = Field(default_factory=list)
 
 
 class TransferirOwnerIn(BaseModel):
@@ -131,7 +131,11 @@ def salvar_permissoes_usuario(
         .delete()
     )
 
-    for item in payload.permissoes:
+    permissoes_para_salvar = payload.permissoes
+    if str(target.papel or "").strip().lower() in {"owner", "admin"}:
+        permissoes_para_salvar = []
+
+    for item in permissoes_para_salvar:
         modulo = str(item.modulo).strip().lower()
 
         row = models.UsuarioPermissao(
@@ -170,6 +174,9 @@ def transferir_owner(
 
     if int(target.id) == int(current_user.id):
         raise HTTPException(status_code=400, detail="Escolha outro usuário para transferir o ownership.")
+
+    if not bool(getattr(target, "ativo", True)):
+        raise HTTPException(status_code=400, detail="Não é possível transferir o ownership para um usuário inativo.")
 
     target.papel = "owner"
     current_user.papel = "admin" if payload.antigo_owner_vira_admin else "colaborador"

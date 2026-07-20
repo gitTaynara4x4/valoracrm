@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
@@ -19,6 +20,7 @@ from backend.security.permissions import (
     is_admin,
     is_owner,
     require_permission,
+    user_has_permission,
 )
 
 router = APIRouter(prefix="/api/orcamentos", tags=["Orçamentos"])
@@ -41,6 +43,26 @@ _PREPARED_COMPANIES: set[int] = set()
 def norm_str(value: Any) -> Optional[str]:
     value = str(value or "").strip()
     return value or None
+
+
+def natural_sort_key(value: Any) -> tuple:
+    """Ordena textos como o seletor do navegador: sem diferenciar acentos/caixa e com números naturais."""
+    normalized = unicodedata.normalize("NFD", str(value or ""))
+    normalized = "".join(
+        char for char in normalized if unicodedata.category(char) != "Mn"
+    ).casefold().strip()
+
+    key = []
+    for part in re.split(r"(\d+)", normalized):
+        if not part:
+            continue
+        if part.isdigit():
+            # 800 deve vir antes de 1800; o comprimento desempata zeros à esquerda.
+            key.append((1, int(part), len(part), part))
+        else:
+            # Mantém pontuação relevante: "(" antes de letras e "P/" antes de "PAR".
+            key.append((0, part))
+    return tuple(key)
 
 
 def money(value: Any, default: Decimal = Decimal("0")) -> Decimal:
@@ -135,8 +157,16 @@ def can_manage_settings(user: models.Usuario) -> bool:
     return is_owner(user) or is_admin(user)
 
 
-def can_view_costs(user: models.Usuario) -> bool:
-    return is_owner(user) or is_admin(user)
+def can_view_costs(user: models.Usuario, db: Optional[Session] = None) -> bool:
+    """Autoriza custos para gestores e usuários com edição de Orçamentos.
+
+    A permissão de edição é usada porque o modelo atual de permissões possui
+    apenas ver/criar/editar/excluir. Isso evita obrigar um responsável
+    comercial a ser administrador apenas para visualizar a análise financeira.
+    """
+    if is_owner(user) or is_admin(user):
+        return True
+    return bool(db is not None and user_has_permission(db, user, "orcamentos", "editar"))
 
 
 def assert_settings_access(user: models.Usuario) -> None:
@@ -199,6 +229,53 @@ def ensure_schema(db: Session) -> None:
         "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS preset_aplicado VARCHAR(80)",
     ):
         db.execute(text(sql))
+
+    # Remove somente o cabeçalho gravado pelo preset antigo. Os dados corretos
+    # passam a vir do perfil emitente escolhido, sem alterar o cadastro principal.
+    db.execute(text("""
+        UPDATE orcamento_configuracoes SET
+            cabecalho_razao_social=NULL,
+            cabecalho_nome_fantasia=NULL,
+            cabecalho_cnpj=NULL,
+            cabecalho_email=NULL,
+            cabecalho_site=NULL,
+            cabecalho_telefone=NULL,
+            cabecalho_endereco=NULL,
+            cabecalho_rodape=NULL,
+            preset_aplicado=NULL,
+            atualizado_em=NOW()
+        WHERE preset_aplicado='segsis_dav_v1'
+    """))
+
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS orcamento_emitentes (
+            id BIGSERIAL PRIMARY KEY,
+            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+            nome VARCHAR(160) NOT NULL,
+            razao_social VARCHAR(180) NOT NULL,
+            nome_fantasia VARCHAR(180),
+            cnpj VARCHAR(30),
+            inscricao_estadual VARCHAR(40),
+            email VARCHAR(255),
+            site VARCHAR(255),
+            telefone VARCHAR(60),
+            cep VARCHAR(20),
+            endereco VARCHAR(240),
+            numero VARCHAR(30),
+            complemento VARCHAR(120),
+            bairro VARCHAR(120),
+            cidade VARCHAR(120),
+            estado VARCHAR(20),
+            logo_url TEXT,
+            rodape TEXT,
+            padrao BOOLEAN NOT NULL DEFAULT FALSE,
+            ativo BOOLEAN NOT NULL DEFAULT TRUE,
+            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT uq_orcamento_emitente_empresa_nome UNIQUE (empresa_id, nome)
+        )
+    """))
+    db.execute(text("CREATE INDEX IF NOT EXISTS ix_orcamento_emitentes_empresa ON orcamento_emitentes (empresa_id, ativo, nome)"))
 
     db.execute(text("""
         CREATE TABLE IF NOT EXISTS orcamento_categorias (
@@ -346,6 +423,19 @@ def ensure_schema(db: Session) -> None:
         "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cliente_fax VARCHAR(30)",
         "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cliente_email_nfe VARCHAR(255)",
         "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cliente_contato_nome VARCHAR(120)",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_id BIGINT REFERENCES orcamento_emitentes(id) ON DELETE SET NULL",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_nome_documento VARCHAR(160)",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_razao_social_documento VARCHAR(180)",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_nome_fantasia_documento VARCHAR(180)",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_cnpj_documento VARCHAR(30)",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_ie_documento VARCHAR(40)",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_email_documento VARCHAR(255)",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_site_documento VARCHAR(255)",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_telefone_documento VARCHAR(60)",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_endereco_documento TEXT",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_logo_documento TEXT",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_rodape_documento TEXT",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS itens_sem_custo INTEGER NOT NULL DEFAULT 0",
     ):
         db.execute(text(sql))
 
@@ -380,6 +470,7 @@ def ensure_schema(db: Session) -> None:
             desconto NUMERIC(18,4) NOT NULL DEFAULT 0,
             valor_total NUMERIC(18,4) NOT NULL DEFAULT 0,
             custo_unitario NUMERIC(18,4) NOT NULL DEFAULT 0,
+            custo_informado BOOLEAN NOT NULL DEFAULT FALSE,
             custo_total NUMERIC(18,4) NOT NULL DEFAULT 0,
             lucro_total NUMERIC(18,4) NOT NULL DEFAULT 0,
             margem_percentual NUMERIC(18,4) NOT NULL DEFAULT 0,
@@ -388,6 +479,13 @@ def ensure_schema(db: Session) -> None:
             criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
+    """))
+
+    db.execute(text("ALTER TABLE orcamento_itens ADD COLUMN IF NOT EXISTS custo_informado BOOLEAN NOT NULL DEFAULT FALSE"))
+    db.execute(text("""
+        UPDATE orcamento_itens
+        SET custo_informado=TRUE
+        WHERE custo_informado=FALSE AND COALESCE(custo_unitario, 0) <> 0
     """))
 
     db.execute(text("""
@@ -452,83 +550,53 @@ def ensure_default_config(db: Session, empresa_id: int) -> None:
         ]),
     })
 
-    # Preset solicitado para o cliente SEG Sistemas. A identificação usa o ID
-    # confirmado no diagnóstico e também os dados atuais da conta, evitando
-    # aplicar o modelo em uma empresa 2 diferente em outra instalação.
-    company = db.execute(text("""
-        SELECT id, nome, email, cnpj FROM empresas WHERE id=:empresa_id
-    """), {"empresa_id": empresa_id}).mappings().first()
-    company_email = str((company or {}).get("email") or "").strip().lower()
-    company_name = str((company or {}).get("nome") or "").strip().lower()
-    company_cnpj = re.sub(r"\D", "", str((company or {}).get("cnpj") or ""))
-    is_segsis = (
-        int(empresa_id) == 2
-        and (
-            company_email == "nlsgv2010@gmail.com"
-            or "seg zeladoria patrimonial" in company_name
-            or company_cnpj == "04964210000150"
+    # Cria um perfil emitente padrão usando o cadastro atual da empresa.
+    # O perfil é independente do cadastro principal: editar um modelo de
+    # documento nunca mais altera razão social, CNPJ ou endereço da empresa.
+    db.execute(text("""
+        INSERT INTO orcamento_emitentes (
+            empresa_id, nome, razao_social, nome_fantasia, cnpj, email, site, telefone,
+            cep, endereco, numero, complemento, cidade, estado, logo_url, rodape, padrao, ativo
         )
-    )
+        SELECT
+            e.id,
+            COALESCE(NULLIF(cfg.cabecalho_nome_fantasia, ''), NULLIF(cfg.cabecalho_razao_social, ''), NULLIF(e.nome, ''), 'Empresa principal'),
+            COALESCE(NULLIF(cfg.cabecalho_razao_social, ''), NULLIF(e.nome, ''), 'Empresa principal'),
+            COALESCE(NULLIF(cfg.cabecalho_nome_fantasia, ''), e.nome),
+            COALESCE(NULLIF(cfg.cabecalho_cnpj, ''), e.cnpj),
+            COALESCE(NULLIF(cfg.cabecalho_email, ''), e.email),
+            NULLIF(cfg.cabecalho_site, ''),
+            COALESCE(NULLIF(cfg.cabecalho_telefone, ''), e.telefone),
+            CASE WHEN NULLIF(cfg.cabecalho_endereco, '') IS NOT NULL THEN NULL ELSE e.cep END,
+            COALESCE(NULLIF(cfg.cabecalho_endereco, ''), e.rua),
+            CASE WHEN NULLIF(cfg.cabecalho_endereco, '') IS NOT NULL THEN NULL ELSE e.numero END,
+            CASE WHEN NULLIF(cfg.cabecalho_endereco, '') IS NOT NULL THEN NULL ELSE e.complemento END,
+            CASE WHEN NULLIF(cfg.cabecalho_endereco, '') IS NOT NULL THEN NULL ELSE e.cidade END,
+            CASE WHEN NULLIF(cfg.cabecalho_endereco, '') IS NOT NULL THEN NULL ELSE e.estado END,
+            e.logo_url,
+            COALESCE(NULLIF(cfg.cabecalho_rodape, ''), NULLIF(cfg.rodape_padrao, '')),
+            TRUE,
+            TRUE
+        FROM empresas e
+        JOIN orcamento_configuracoes cfg ON cfg.empresa_id=e.id
+        WHERE e.id=:empresa_id
+          AND NOT EXISTS (
+              SELECT 1 FROM orcamento_emitentes oe WHERE oe.empresa_id=e.id
+          )
+    """), {"empresa_id": empresa_id})
 
-    if is_segsis:
-        preset_key = "segsis_dav_v1"
-        updated = db.execute(text("""
-            UPDATE orcamento_configuracoes SET
-                nome_documento='DAV - Documento Auxiliar de Venda',
-                prefixo='DAV',
-                validade_padrao_dias=15,
-                prazo_execucao_padrao='02 (Dois) dias úteis a contar da data de assinatura da ficha cadastral/contrato.',
-                condicoes_padrao=:condicoes,
-                observacoes_padrao=NULL,
-                rodape_padrao=:rodape,
-                cor_primaria='#263746',
-                usar_capa=FALSE,
-                mostrar_codigo=TRUE,
-                mostrar_desconto=TRUE,
-                modelo_documento='dav',
-                dav_titulo='DAV - Documento Auxiliar de Venda',
-                cabecalho_razao_social='SEG ZELADORIA PATRIMONIAL E LOGÍSTICA LTDA. ME',
-                cabecalho_nome_fantasia='GRUPO SEGSIS',
-                cabecalho_cnpj='04.964.210/0001-50',
-                cabecalho_email='info@segsis.com.br',
-                cabecalho_site='www.segsis.com.br',
-                cabecalho_telefone='(12) 3633-4871',
-                cabecalho_endereco='R. Francisco de Paula Simões, nº 147 - Taubaté/SP',
-                cabecalho_rodape=:rodape,
-                preset_aplicado=:preset_key,
-                atualizado_em=NOW()
+    # Garante somente um perfil padrão por empresa.
+    default_id = db.execute(text("""
+        SELECT id FROM orcamento_emitentes
+        WHERE empresa_id=:empresa_id AND ativo=TRUE
+        ORDER BY padrao DESC, id ASC LIMIT 1
+    """), {"empresa_id": empresa_id}).scalar()
+    if default_id:
+        db.execute(text("""
+            UPDATE orcamento_emitentes
+            SET padrao=(id=:default_id), atualizado_em=CASE WHEN id=:default_id THEN atualizado_em ELSE atualizado_em END
             WHERE empresa_id=:empresa_id
-              AND COALESCE(preset_aplicado, '') <> :preset_key
-        """), {
-            "empresa_id": empresa_id,
-            "preset_key": preset_key,
-            "condicoes": (
-                "1- Proposta com valores referentes aos produtos e serviços descritos neste documento.\n"
-                "2- NÃO incluso nesta proposta valores referentes a equipamentos e/ou serviços NÃO descritos.\n"
-                "3- Garantia de 12 meses para equipamentos e 90 dias para mão de obra de serviços.\n"
-                "4- Garantia exclusivamente para defeitos de fabricação e/ou execução dos serviços, não cobrindo mau uso ou danos provocados.\n"
-                "5- Impostos vigentes já inclusos quando aplicáveis. Eventuais alterações na legislação implicarão na revisão dos valores.\n"
-                "6- Prazo para início dos serviços: 02 (dois) dias úteis a contar da assinatura da ficha cadastral/contrato.\n"
-                "7- Validade da proposta: 15 (quinze) dias."
-            ),
-            "rodape": (
-                "CNPJ: 04.964.210/0001-50 / R. Francisco de Paula Simões, nº 147 / "
-                "Taubaté-SP / Tel.: (12) 3633-4871"
-            ),
-        }).rowcount
-
-        if updated:
-            db.execute(text("""
-                UPDATE empresas SET
-                    nome='SEG ZELADORIA PATRIMONIAL E LOGÍSTICA LTDA. ME',
-                    cnpj='04.964.210/0001-50',
-                    email='info@segsis.com.br',
-                    telefone='(12) 3633-4871',
-                    cidade='Taubaté', estado='SP',
-                    rua='R. Francisco de Paula Simões', numero='147',
-                    atualizado_em=NOW()
-                WHERE id=:empresa_id
-            """), {"empresa_id": empresa_id})
+        """), {"empresa_id": empresa_id, "default_id": int(default_id)})
 
     db.commit()
 
@@ -756,13 +824,15 @@ class BudgetItemIn(BaseModel):
     quantidade: Decimal = Decimal("1")
     valor_unitario: Decimal = Decimal("0")
     desconto: Decimal = Decimal("0")
-    custo_unitario: Decimal = Decimal("0")
+    custo_unitario: Optional[Decimal] = None
+    custo_informado: Optional[bool] = None
     observacao: Optional[str] = None
     ordem: int = 0
 
 
 class BudgetBase(BaseModel):
     cliente_id: Optional[int] = None
+    emitente_id: Optional[int] = None
     consultor_id: Optional[int] = None
     categoria_id: Optional[int] = None
     modelo_id: Optional[int] = None
@@ -805,6 +875,10 @@ class BudgetUpdate(BudgetBase):
     pagamentos: Optional[List[PaymentOption]] = None
 
 
+class CalculationIn(BudgetBase):
+    titulo: str = "Prévia"
+
+
 class StatusIn(BaseModel):
     status: str
     observacao: Optional[str] = None
@@ -842,6 +916,28 @@ class KitIn(BaseModel):
     descricao: Optional[str] = None
     ativo: bool = True
     itens: List[KitItemIn] = Field(default_factory=list)
+
+
+class EmitenteIn(BaseModel):
+    nome: str
+    razao_social: str
+    nome_fantasia: Optional[str] = None
+    cnpj: Optional[str] = None
+    inscricao_estadual: Optional[str] = None
+    email: Optional[str] = None
+    site: Optional[str] = None
+    telefone: Optional[str] = None
+    cep: Optional[str] = None
+    endereco: Optional[str] = None
+    numero: Optional[str] = None
+    complemento: Optional[str] = None
+    bairro: Optional[str] = None
+    cidade: Optional[str] = None
+    estado: Optional[str] = None
+    logo_url: Optional[str] = None
+    rodape: Optional[str] = None
+    padrao: bool = False
+    ativo: bool = True
 
 
 class SettingsIn(BaseModel):
@@ -922,6 +1018,76 @@ def client_snapshot(db: Session, client_id: Optional[int], company_id: int) -> d
     }
 
 
+def emitter_row(db: Session, emitter_id: Optional[int], company_id: int):
+    if emitter_id:
+        row = db.execute(text("""
+            SELECT * FROM orcamento_emitentes
+            WHERE id=:id AND empresa_id=:empresa_id AND ativo=TRUE
+        """), {"id": int(emitter_id), "empresa_id": company_id}).mappings().first()
+        if not row:
+            raise HTTPException(status_code=422, detail="A empresa emitente selecionada não está disponível.")
+        return dict(row)
+
+    row = db.execute(text("""
+        SELECT * FROM orcamento_emitentes
+        WHERE empresa_id=:empresa_id AND ativo=TRUE
+        ORDER BY padrao DESC, nome ASC, id ASC LIMIT 1
+    """), {"empresa_id": company_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=422, detail="Cadastre ao menos uma empresa emitente nas configurações do orçamento.")
+    return dict(row)
+
+
+def emitter_snapshot(db: Session, emitter_id: Optional[int], company_id: int) -> dict:
+    row = emitter_row(db, emitter_id, company_id)
+    address = ", ".join(filter(None, [
+        norm_str(row.get("endereco")),
+        norm_str(row.get("numero")),
+        norm_str(row.get("complemento")),
+        norm_str(row.get("bairro")),
+        norm_str(row.get("cidade")),
+        norm_str(row.get("estado")),
+        norm_str(row.get("cep")),
+    ]))
+    return {
+        "emitente_id": int(row["id"]),
+        "emitente_nome_documento": norm_str(row.get("nome")),
+        "emitente_razao_social_documento": norm_str(row.get("razao_social")) or norm_str(row.get("nome")),
+        "emitente_nome_fantasia_documento": norm_str(row.get("nome_fantasia")),
+        "emitente_cnpj_documento": norm_str(row.get("cnpj")),
+        "emitente_ie_documento": norm_str(row.get("inscricao_estadual")),
+        "emitente_email_documento": norm_str(row.get("email")),
+        "emitente_site_documento": norm_str(row.get("site")),
+        "emitente_telefone_documento": norm_str(row.get("telefone")),
+        "emitente_endereco_documento": address or None,
+        "emitente_logo_documento": norm_str(row.get("logo_url")),
+        "emitente_rodape_documento": norm_str(row.get("rodape")),
+    }
+
+
+def stored_emitter_snapshot(row: dict) -> dict:
+    """Reutiliza os dados emitentes já gravados no documento.
+
+    Orçamentos antigos não devem mudar quando um perfil emitente for editado ou
+    desativado. A fotografia só é renovada quando o usuário escolhe outro perfil.
+    """
+    keys = (
+        "emitente_id", "emitente_nome_documento", "emitente_razao_social_documento",
+        "emitente_nome_fantasia_documento", "emitente_cnpj_documento",
+        "emitente_ie_documento", "emitente_email_documento", "emitente_site_documento",
+        "emitente_telefone_documento", "emitente_endereco_documento",
+        "emitente_logo_documento", "emitente_rodape_documento",
+    )
+    return {key: row.get(key) for key in keys}
+
+
+def serialize_emitter(row: dict) -> dict:
+    out = dict(row)
+    for key in ("criado_em", "atualizado_em"):
+        out[key] = iso(out.get(key))
+    return out
+
+
 def product_for_company(db: Session, product_id: int, company_id: int):
     return db.execute(text("""
         SELECT id, codigo, nome, descricao, unidade, preco_venda, custo
@@ -934,42 +1100,67 @@ def calculate_items(
     company_id: int,
     user: models.Usuario,
     items: List[BudgetItemIn],
-    existing_costs: Optional[Dict[int, Decimal]] = None,
+    existing_costs: Optional[Dict[int, tuple[Decimal, bool]]] = None,
 ) -> tuple[List[dict], dict]:
     normalized: List[dict] = []
     subtotal = Decimal("0")
     cost_total = Decimal("0")
-    allow_cost = can_view_costs(user)
+    missing_costs = 0
+    allow_cost = can_view_costs(user, db)
     existing_costs = existing_costs or {}
 
     for index, item in enumerate(items or []):
         description = norm_str(item.descricao)
         if not description:
             continue
+
         qty = max(money(item.quantidade, Decimal("1")), Decimal("0.0001"))
         unit_value = max(money(item.valor_unitario), Decimal("0"))
         discount = max(money(item.desconto), Decimal("0"))
         product = product_for_company(db, int(item.produto_id), company_id) if item.produto_id else None
+        previous_entry = existing_costs.get(int(item.id)) if item.id else None
+        if isinstance(previous_entry, tuple):
+            previous_cost, previous_cost_known = previous_entry
+        elif previous_entry is not None:
+            previous_cost, previous_cost_known = previous_entry, True
+        else:
+            previous_cost, previous_cost_known = None, False
+        submitted_cost = None if item.custo_unitario is None else max(money(item.custo_unitario), Decimal("0"))
 
-        previous_cost = existing_costs.get(int(item.id)) if item.id else None
         if product:
             code = norm_str(item.codigo) or product["codigo"]
             unit = norm_str(item.unidade) or product["unidade"] or "UN"
-            if allow_cost:
-                cost_unit = money(item.custo_unitario)
-            elif previous_cost is not None:
-                cost_unit = previous_cost
+            product_cost_raw = product.get("custo")
+            product_cost = max(money(product_cost_raw), Decimal("0"))
+            product_has_cost = product_cost_raw is not None and str(product_cost_raw).strip() != ""
+
+            # O custo cadastrado no banco é a fonte padrão. Um zero enviado pelo
+            # navegador não apaga o custo do produto. Usuários autorizados podem
+            # substituir o custo quando enviam um valor explícito.
+            if allow_cost and submitted_cost is not None and (submitted_cost > 0 or not product_has_cost):
+                cost_unit = submitted_cost
+                cost_known = True
+            elif previous_cost is not None and previous_cost_known:
+                cost_unit = max(previous_cost, Decimal("0"))
+                cost_known = True
             else:
-                cost_unit = money(product["custo"])
+                cost_unit = product_cost
+                cost_known = product_has_cost
         else:
             code = norm_str(item.codigo)
             unit = norm_str(item.unidade) or "UN"
-            if allow_cost:
-                cost_unit = money(item.custo_unitario)
-            elif previous_cost is not None:
-                cost_unit = previous_cost
+            if allow_cost and submitted_cost is not None:
+                cost_unit = submitted_cost
+                cost_known = bool(item.custo_informado) or submitted_cost > 0
+            elif previous_cost is not None and previous_cost_known:
+                cost_unit = max(previous_cost, Decimal("0"))
+                cost_known = True
             else:
                 cost_unit = Decimal("0")
+                cost_known = False
+
+        if not cost_known:
+            missing_costs += 1
 
         gross = qty * unit_value
         total = max(gross - discount, Decimal("0"))
@@ -980,17 +1171,19 @@ def calculate_items(
         cost_total += cost
 
         normalized.append({
+            "id": int(item.id) if item.id else None,
             "produto_id": int(product["id"]) if product else None,
             "origem": "produto" if product else (norm_str(item.origem) or "manual"),
             "codigo": code,
             "descricao": description,
             "referencia": norm_str(item.referencia),
             "unidade": unit,
-            "quantidade": q2(qty),
-            "valor_unitario": q2(unit_value),
-            "desconto": q2(discount),
+            "quantidade": q4(qty),
+            "valor_unitario": q4(unit_value),
+            "desconto": q4(discount),
             "valor_total": q2(total),
-            "custo_unitario": q2(cost_unit),
+            "custo_unitario": q4(cost_unit),
+            "custo_informado": bool(cost_known),
             "custo_total": q2(cost),
             "lucro_total": q2(profit),
             "margem_percentual": q2(margin),
@@ -998,7 +1191,11 @@ def calculate_items(
             "ordem": int(item.ordem if item.ordem is not None else index),
         })
 
-    return normalized, {"subtotal": subtotal, "custo_total": cost_total}
+    return normalized, {
+        "subtotal": subtotal,
+        "custo_total": cost_total,
+        "itens_sem_custo": missing_costs,
+    }
 
 
 def calculate_totals(payload: BudgetBase, subtotal: Decimal, cost_total: Decimal) -> dict:
@@ -1064,7 +1261,7 @@ def serialize_items(db: Session, budget_id: int, show_costs: bool) -> List[dict]
 
 def serialize_budget(db: Session, row: dict, user: models.Usuario, complete: bool = True) -> dict:
     out = dict(row)
-    show_costs = can_view_costs(user)
+    show_costs = can_view_costs(user, db)
     for key in ("desconto_valor", "desconto_total", "frete", "acrescimo", "subtotal", "total"):
         out[key] = dec_out(out.get(key))
     if show_costs:
@@ -1074,6 +1271,7 @@ def serialize_budget(db: Session, row: dict, user: models.Usuario, complete: boo
         out.pop("custo_total", None)
         out.pop("lucro_total", None)
         out.pop("margem_percentual", None)
+        out.pop("itens_sem_custo", None)
     for key in ("data_solicitacao", "data_emissao", "data_validade", "data_aprovacao", "aprovado_em", "criado_em", "atualizado_em"):
         out[key] = iso(out.get(key))
     out["pagamentos"] = json_load(out.pop("pagamentos_json", None), [])
@@ -1081,10 +1279,14 @@ def serialize_budget(db: Session, row: dict, user: models.Usuario, complete: boo
     if complete:
         out["itens"] = serialize_items(db, int(out["id"]), show_costs)
         history = db.execute(text("""
-            SELECT id, usuario_id, usuario_nome, acao, status_anterior, status_novo, descricao, criado_em
+            SELECT id, usuario_id, usuario_nome, acao, status_anterior, status_novo, descricao, dados_json, criado_em
             FROM orcamento_historico WHERE orcamento_id=:o ORDER BY criado_em DESC, id DESC
         """), {"o": out["id"]}).mappings().all()
-        out["historico"] = [{**dict(h), "criado_em": iso(h["criado_em"])} for h in history]
+        out["historico"] = [{
+            **dict(h),
+            "dados": json_load(h.get("dados_json"), {}),
+            "criado_em": iso(h["criado_em"]),
+        } for h in history]
     return out
 
 
@@ -1124,11 +1326,17 @@ def meta(
     config_out = dict(config)
     config_out["margem_minima"] = dec_out(config.get("margem_minima"))
     config_out["formas_pagamento"] = json_load(config_out.pop("formas_pagamento_json", None), [])
+    emitters = db.execute(text("""
+        SELECT * FROM orcamento_emitentes
+        WHERE empresa_id=:empresa_id AND ativo=TRUE
+        ORDER BY padrao DESC, nome ASC, id ASC
+    """), {"empresa_id": company_id}).mappings().all()
     return {
-        "pode_ver_custos": can_view_costs(current_user),
+        "pode_ver_custos": can_view_costs(current_user, db),
         "pode_configurar": can_manage_settings(current_user),
         "usuario": {"id": int(current_user.id), "nome": current_user.nome, "papel": current_user.papel},
         "configuracao": config_out,
+        "emitentes": [serialize_emitter(dict(row)) for row in emitters],
     }
 
 
@@ -1226,6 +1434,236 @@ def update_settings(
     })
     db.commit()
     return get_settings(current_user=current_user, db=db)
+
+
+@router.get("/emitentes")
+def list_emitters(
+    incluir_inativos: bool = False,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    where = "empresa_id=:empresa_id"
+    if not incluir_inativos:
+        where += " AND ativo=TRUE"
+    rows = db.execute(text(f"""
+        SELECT * FROM orcamento_emitentes WHERE {where}
+        ORDER BY padrao DESC, nome ASC, id ASC
+    """), {"empresa_id": company_id}).mappings().all()
+    return [serialize_emitter(dict(row)) for row in rows]
+
+
+@router.post("/emitentes", status_code=status.HTTP_201_CREATED)
+def create_emitter(
+    payload: EmitenteIn,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    assert_settings_access(current_user)
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    name = norm_str(payload.nome)
+    legal_name = norm_str(payload.razao_social)
+    if not name or not legal_name:
+        raise HTTPException(status_code=422, detail="Informe o nome e a razão social da empresa emitente.")
+    if payload.padrao and not payload.ativo:
+        raise HTTPException(status_code=422, detail="A empresa emitente padrão precisa estar ativa.")
+    active_count = db.execute(text("SELECT COUNT(*) FROM orcamento_emitentes WHERE empresa_id=:e AND ativo=TRUE"), {"e": company_id}).scalar() or 0
+    if not payload.ativo and active_count == 0:
+        raise HTTPException(status_code=422, detail="Mantenha ao menos uma empresa emitente ativa.")
+    try:
+        if payload.padrao:
+            db.execute(text("UPDATE orcamento_emitentes SET padrao=FALSE WHERE empresa_id=:empresa_id"), {"empresa_id": company_id})
+        emitter_id = db.execute(text("""
+            INSERT INTO orcamento_emitentes (
+                empresa_id, nome, razao_social, nome_fantasia, cnpj, inscricao_estadual,
+                email, site, telefone, cep, endereco, numero, complemento, bairro, cidade, estado,
+                logo_url, rodape, padrao, ativo
+            ) VALUES (
+                :empresa_id, :nome, :razao_social, :nome_fantasia, :cnpj, :inscricao_estadual,
+                :email, :site, :telefone, :cep, :endereco, :numero, :complemento, :bairro, :cidade, :estado,
+                :logo_url, :rodape, :padrao, :ativo
+            ) RETURNING id
+        """), {
+            **(payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()),
+            "empresa_id": company_id,
+            "nome": name,
+            "razao_social": legal_name,
+        }).scalar_one()
+        if not db.execute(text("SELECT 1 FROM orcamento_emitentes WHERE empresa_id=:e AND ativo=TRUE AND padrao=TRUE"), {"e": company_id}).scalar():
+            default_id = db.execute(text("""
+                SELECT id FROM orcamento_emitentes
+                WHERE empresa_id=:e AND ativo=TRUE
+                ORDER BY id ASC LIMIT 1
+            """), {"e": company_id}).scalar()
+            if default_id:
+                db.execute(text("UPDATE orcamento_emitentes SET padrao=(id=:id) WHERE empresa_id=:e"), {"id": int(default_id), "e": company_id})
+        db.commit()
+        row = db.execute(text("SELECT * FROM orcamento_emitentes WHERE id=:id AND empresa_id=:e"), {"id": emitter_id, "e": company_id}).mappings().one()
+        return serialize_emitter(dict(row))
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Já existe uma empresa emitente com esse nome.")
+
+
+@router.put("/emitentes/{emitter_id}")
+def update_emitter(
+    emitter_id: int,
+    payload: EmitenteIn,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    assert_settings_access(current_user)
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    existing = db.execute(text("SELECT id, padrao, ativo FROM orcamento_emitentes WHERE id=:id AND empresa_id=:e"), {"id": emitter_id, "e": company_id}).mappings().first()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Empresa emitente não encontrada.")
+    name = norm_str(payload.nome)
+    legal_name = norm_str(payload.razao_social)
+    if not name or not legal_name:
+        raise HTTPException(status_code=422, detail="Informe o nome e a razão social da empresa emitente.")
+    if payload.padrao and not payload.ativo:
+        raise HTTPException(status_code=422, detail="A empresa emitente padrão precisa estar ativa.")
+    if bool(existing.get("ativo", True)) and not payload.ativo:
+        active_count = db.execute(text("SELECT COUNT(*) FROM orcamento_emitentes WHERE empresa_id=:e AND ativo=TRUE"), {"e": company_id}).scalar() or 0
+        if active_count <= 1:
+            raise HTTPException(status_code=422, detail="Mantenha ao menos uma empresa emitente ativa.")
+    try:
+        if payload.padrao:
+            db.execute(text("UPDATE orcamento_emitentes SET padrao=FALSE WHERE empresa_id=:empresa_id"), {"empresa_id": company_id})
+        data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+        if not payload.ativo:
+            data["padrao"] = False
+        db.execute(text("""
+            UPDATE orcamento_emitentes SET
+                nome=:nome, razao_social=:razao_social, nome_fantasia=:nome_fantasia, cnpj=:cnpj,
+                inscricao_estadual=:inscricao_estadual, email=:email, site=:site, telefone=:telefone,
+                cep=:cep, endereco=:endereco, numero=:numero, complemento=:complemento, bairro=:bairro,
+                cidade=:cidade, estado=:estado, logo_url=:logo_url, rodape=:rodape,
+                padrao=:padrao, ativo=:ativo, atualizado_em=NOW()
+            WHERE id=:id AND empresa_id=:empresa_id
+        """), {**data, "nome": name, "razao_social": legal_name, "id": emitter_id, "empresa_id": company_id})
+        default_id = db.execute(text("""
+            SELECT id FROM orcamento_emitentes WHERE empresa_id=:e AND ativo=TRUE
+            ORDER BY padrao DESC, id ASC LIMIT 1
+        """), {"e": company_id}).scalar()
+        if default_id:
+            db.execute(text("UPDATE orcamento_emitentes SET padrao=(id=:id) WHERE empresa_id=:e"), {"id": int(default_id), "e": company_id})
+        db.commit()
+        row = db.execute(text("SELECT * FROM orcamento_emitentes WHERE id=:id AND empresa_id=:e"), {"id": emitter_id, "e": company_id}).mappings().one()
+        return serialize_emitter(dict(row))
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Já existe uma empresa emitente com esse nome.")
+
+
+@router.delete("/emitentes/{emitter_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_emitter(
+    emitter_id: int,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    assert_settings_access(current_user)
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    row = db.execute(text("SELECT id, padrao, ativo FROM orcamento_emitentes WHERE id=:id AND empresa_id=:e"), {"id": emitter_id, "e": company_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Empresa emitente não encontrada.")
+    if row.get("ativo") is False:
+        return None
+    active_count = db.execute(text("SELECT COUNT(*) FROM orcamento_emitentes WHERE empresa_id=:e AND ativo=TRUE"), {"e": company_id}).scalar() or 0
+    if active_count <= 1:
+        raise HTTPException(status_code=422, detail="Mantenha ao menos uma empresa emitente ativa.")
+    db.execute(text("UPDATE orcamento_emitentes SET ativo=FALSE, padrao=FALSE, atualizado_em=NOW() WHERE id=:id AND empresa_id=:e"), {"id": emitter_id, "e": company_id})
+    default_id = db.execute(text("SELECT id FROM orcamento_emitentes WHERE empresa_id=:e AND ativo=TRUE ORDER BY id LIMIT 1"), {"e": company_id}).scalar()
+    if default_id:
+        db.execute(text("UPDATE orcamento_emitentes SET padrao=(id=:id) WHERE empresa_id=:e"), {"id": int(default_id), "e": company_id})
+    db.commit()
+    return None
+
+
+@router.get("/produtos")
+def search_budget_products(
+    busca: Optional[str] = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    where = ["empresa_id=:empresa_id", "ativo=TRUE"]
+    params: Dict[str, Any] = {"empresa_id": company_id}
+    if norm_str(busca):
+        where.append("(codigo ILIKE :q OR nome ILIKE :q OR descricao ILIKE :q OR categoria ILIKE :q)")
+        params["q"] = f"%{str(busca).strip()}%"
+    clause = " AND ".join(where)
+
+    # A collation padrão do PostgreSQL pode ignorar pontuação e ordenar números
+    # como texto. Buscamos o conjunto filtrado, aplicamos a mesma ordem natural
+    # usada pela interface e somente depois recortamos a página solicitada.
+    all_rows = db.execute(text(f"""
+        SELECT id, codigo, nome, descricao, categoria, unidade, preco_venda, custo, estoque_atual
+        FROM produtos
+        WHERE {clause}
+        ORDER BY id ASC
+    """), params).mappings().all()
+    ordered_rows = sorted(
+        all_rows,
+        key=lambda row: (natural_sort_key(row.get("nome")), int(row.get("id") or 0)),
+    )
+    total = len(ordered_rows)
+    rows = ordered_rows[offset:offset + limit]
+
+    show_cost = can_view_costs(current_user, db)
+    items = []
+    for row in rows:
+        item = dict(row)
+        if not show_cost:
+            item.pop("custo", None)
+        items.append(item)
+    return {
+        "items": items,
+        "total": int(total),
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + len(items) < total,
+    }
+
+
+@router.post("/calcular")
+def calculate_budget_preview(
+    payload: CalculationIn,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    items, partial = calculate_items(db, company_id, current_user, payload.itens)
+    totals = calculate_totals(payload, partial["subtotal"], partial["custo_total"])
+    result = {key: dec_out(value) if isinstance(value, Decimal) else value for key, value in totals.items()}
+    result["itens_sem_custo"] = int(partial.get("itens_sem_custo") or 0)
+    result["analise_confiavel"] = result["itens_sem_custo"] == 0
+    result["itens"] = [{
+        **item,
+        "quantidade": dec4_out(item.get("quantidade")),
+        "valor_unitario": dec4_out(item.get("valor_unitario")),
+        "desconto": dec4_out(item.get("desconto")),
+        "valor_total": dec_out(item.get("valor_total")),
+        "custo_unitario": dec4_out(item.get("custo_unitario")),
+        "custo_total": dec_out(item.get("custo_total")),
+        "lucro_total": dec_out(item.get("lucro_total")),
+        "margem_percentual": dec_out(item.get("margem_percentual")),
+    } for item in items]
+    if not can_view_costs(current_user, db):
+        for key in ("custo_total", "lucro_total", "margem_percentual", "itens_sem_custo", "analise_confiavel"):
+            result.pop(key, None)
+        for item in result["itens"]:
+            for key in ("custo_unitario", "custo_total", "lucro_total", "margem_percentual", "custo_informado"):
+                item.pop(key, None)
+    return result
 
 
 @router.get("/categorias")
@@ -1349,7 +1787,7 @@ def list_templates(
         sql += " AND m.ativo=TRUE"
     sql += " ORDER BY m.nome"
     rows = db.execute(text(sql), {"e": company_id}).mappings().all()
-    return [template_to_out(db, dict(r), can_view_costs(current_user), with_items=False) for r in rows]
+    return [template_to_out(db, dict(r), can_view_costs(current_user, db), with_items=False) for r in rows]
 
 
 @router.get("/modelos/{template_id}")
@@ -1367,7 +1805,7 @@ def get_template(
     """), {"id": template_id, "e": company_id}).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Modelo não encontrado.")
-    return template_to_out(db, dict(row), can_view_costs(current_user), with_items=True)
+    return template_to_out(db, dict(row), can_view_costs(current_user, db), with_items=True)
 
 
 def save_template_items(db: Session, template_id: int, company_id: int, user: models.Usuario, items: List[BudgetItemIn]) -> None:
@@ -1594,7 +2032,7 @@ def list_kits(
         totals[current_kit_id] = totals.get(current_kit_id, Decimal("0")) + item_total
 
     result = []
-    show_costs = can_view_costs(current_user)
+    show_costs = can_view_costs(current_user, db)
     for row in rows:
         obj = dict(row)
         obj["valor_estimado"] = totals.get(int(obj["id"]), Decimal("0"))
@@ -1613,7 +2051,7 @@ def get_kit(
     row = get_kit_row(db, kit_id, company_id)
     if not row:
         raise HTTPException(status_code=404, detail="Kit de produtos não encontrado.")
-    return kit_to_out(db, dict(row), can_view_costs(current_user), with_items=True)
+    return kit_to_out(db, dict(row), can_view_costs(current_user, db), with_items=True)
 
 
 @router.post("/kits", status_code=status.HTTP_201_CREATED)
@@ -1774,18 +2212,26 @@ def save_budget_items(db: Session, budget_id: int, items: List[dict]) -> None:
         db.execute(text("""
             INSERT INTO orcamento_itens (
                 orcamento_id, produto_id, origem, codigo, descricao, referencia, unidade,
-                quantidade, valor_unitario, desconto, valor_total, custo_unitario,
+                quantidade, valor_unitario, desconto, valor_total, custo_unitario, custo_informado,
                 custo_total, lucro_total, margem_percentual, observacao, ordem
             ) VALUES (
                 :orcamento_id, :produto_id, :origem, :codigo, :descricao, :referencia, :unidade,
-                :quantidade, :valor_unitario, :desconto, :valor_total, :custo_unitario,
+                :quantidade, :valor_unitario, :desconto, :valor_total, :custo_unitario, :custo_informado,
                 :custo_total, :lucro_total, :margem_percentual, :observacao, :ordem
             )
         """), {"orcamento_id": budget_id, **item})
 
 
-def payload_params(payload: BudgetBase, config: dict, totals: dict, snapshot: Optional[dict] = None) -> dict:
+def payload_params(
+    payload: BudgetBase,
+    config: dict,
+    totals: dict,
+    snapshot: Optional[dict] = None,
+    emitter: Optional[dict] = None,
+    itens_sem_custo: int = 0,
+) -> dict:
     snapshot = snapshot or {}
+    emitter = emitter or {}
     emission = parse_date(payload.data_emissao, date.today())
     validity = parse_date(payload.data_validade)
     if not validity and int(config.get("validade_padrao_dias") or 0) > 0:
@@ -1819,6 +2265,8 @@ def payload_params(payload: BudgetBase, config: dict, totals: dict, snapshot: Op
         "cliente_fax": snapshot.get("cliente_fax"),
         "cliente_email_nfe": snapshot.get("cliente_email_nfe"),
         "cliente_contato_nome": snapshot.get("cliente_contato_nome"),
+        **emitter,
+        "itens_sem_custo": int(itens_sem_custo or 0),
         **totals,
         "prazo_execucao": norm_str(payload.prazo_execucao) or norm_str(config.get("prazo_execucao_padrao")),
         "condicoes": norm_str(payload.condicoes) or norm_str(config.get("condicoes_padrao")),
@@ -1855,8 +2303,17 @@ def create_budget(
         and totals["margem_percentual"] < money(config.get("margem_minima"))
     )
     snapshot = client_snapshot(db, payload.cliente_id, company_id)
-    params = payload_params(payload, config, totals, snapshot)
+    emitter = emitter_snapshot(db, payload.emitente_id, company_id)
+    params = payload_params(
+        payload, config, totals, snapshot, emitter,
+        itens_sem_custo=int(partial.get("itens_sem_custo") or 0),
+    )
     requested_approved = params["status"] == "aprovado"
+    if requested_approved and bool(config.get("controlar_custos")) and params["itens_sem_custo"] > 0:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Informe o custo de todos os itens antes de aprovar. Há {params['itens_sem_custo']} item(ns) sem custo.",
+        )
     manager_approval = bool(approval_needed and requested_approved and can_manage_settings(current_user))
     if approval_needed and requested_approved and not manager_approval:
         raise HTTPException(
@@ -1875,8 +2332,11 @@ def create_budget(
                 endereco_complemento, endereco_bairro, endereco_cidade, endereco_estado,
                 cliente_nome_documento, cliente_nome_fantasia_documento, cliente_cpf_cnpj, cliente_rg_ie,
                 cliente_telefone, cliente_whatsapp_documento, cliente_fax, cliente_email_nfe, cliente_contato_nome,
+                emitente_id, emitente_nome_documento, emitente_razao_social_documento, emitente_nome_fantasia_documento,
+                emitente_cnpj_documento, emitente_ie_documento, emitente_email_documento, emitente_site_documento,
+                emitente_telefone_documento, emitente_endereco_documento, emitente_logo_documento, emitente_rodape_documento,
                 desconto_tipo, desconto_valor, desconto_total, frete, acrescimo, subtotal, total,
-                custo_total, lucro_total, margem_percentual, prazo_execucao, condicoes, observacoes,
+                custo_total, lucro_total, margem_percentual, itens_sem_custo, prazo_execucao, condicoes, observacoes,
                 pagamentos_json, usar_capa, titulo_capa, subtitulo_capa, aprovacao_necessaria, aprovacao_status,
                 aprovado_por_id, aprovado_em
             ) VALUES (
@@ -1886,8 +2346,11 @@ def create_budget(
                 :endereco_complemento, :endereco_bairro, :endereco_cidade, :endereco_estado,
                 :cliente_nome_documento, :cliente_nome_fantasia_documento, :cliente_cpf_cnpj, :cliente_rg_ie,
                 :cliente_telefone, :cliente_whatsapp_documento, :cliente_fax, :cliente_email_nfe, :cliente_contato_nome,
+                :emitente_id, :emitente_nome_documento, :emitente_razao_social_documento, :emitente_nome_fantasia_documento,
+                :emitente_cnpj_documento, :emitente_ie_documento, :emitente_email_documento, :emitente_site_documento,
+                :emitente_telefone_documento, :emitente_endereco_documento, :emitente_logo_documento, :emitente_rodape_documento,
                 :desconto_tipo, :desconto_valor, :desconto_total, :frete, :acrescimo, :subtotal, :total,
-                :custo_total, :lucro_total, :margem_percentual, :prazo_execucao, :condicoes, :observacoes,
+                :custo_total, :lucro_total, :margem_percentual, :itens_sem_custo, :prazo_execucao, :condicoes, :observacoes,
                 :pagamentos_json, :usar_capa, :titulo_capa, :subtitulo_capa, :aprovacao_necessaria, :aprovacao_status,
                 :aprovado_por_id, :aprovado_em
             ) RETURNING id
@@ -1906,6 +2369,82 @@ def create_budget(
     except Exception:
         db.rollback()
         raise
+
+
+def _history_value(value: Any) -> Any:
+    if isinstance(value, Decimal):
+        return dec4_out(value)
+    if isinstance(value, (date, datetime)):
+        return iso(value)
+    return value
+
+
+def budget_change_details(old: dict, new_params: dict, old_items: List[dict], new_items: List[dict]) -> List[dict]:
+    field_map = {
+        "cliente_id": ("Dados gerais", "Cliente"),
+        "emitente_id": ("Dados gerais", "Empresa emitente"),
+        "consultor_id": ("Dados gerais", "Consultor"),
+        "categoria_id": ("Dados gerais", "Categoria"),
+        "modelo_id": ("Dados gerais", "Modelo"),
+        "titulo": ("Dados gerais", "Título"),
+        "nome_documento": ("Condições", "Nome do documento"),
+        "status": ("Dados gerais", "Status"),
+        "data_solicitacao": ("Dados gerais", "Data da solicitação"),
+        "data_emissao": ("Dados gerais", "Data de emissão"),
+        "data_validade": ("Dados gerais", "Validade"),
+        "responsavel_cliente": ("Local e contato", "Responsável no cliente"),
+        "contato_cliente": ("Local e contato", "Contato"),
+        "endereco_cep": ("Local e contato", "CEP"),
+        "endereco_logradouro": ("Local e contato", "Endereço"),
+        "endereco_numero": ("Local e contato", "Número"),
+        "endereco_complemento": ("Local e contato", "Complemento"),
+        "endereco_bairro": ("Local e contato", "Bairro"),
+        "endereco_cidade": ("Local e contato", "Cidade"),
+        "endereco_estado": ("Local e contato", "UF"),
+        "desconto_tipo": ("Pagamento", "Tipo de desconto"),
+        "desconto_valor": ("Pagamento", "Desconto"),
+        "frete": ("Pagamento", "Frete"),
+        "acrescimo": ("Pagamento", "Acréscimo"),
+        "prazo_execucao": ("Condições", "Prazo de execução"),
+        "condicoes": ("Condições", "Condições gerais"),
+        "observacoes": ("Condições", "Observações"),
+        "usar_capa": ("Documento", "Usar capa"),
+        "titulo_capa": ("Documento", "Título da capa"),
+        "subtitulo_capa": ("Documento", "Subtítulo da capa"),
+    }
+    changes: List[dict] = []
+    for field, (section, label) in field_map.items():
+        before = _history_value(old.get(field))
+        after = _history_value(new_params.get(field))
+        if before != after:
+            changes.append({"secao": section, "campo": field, "nome": label, "anterior": before, "novo": after})
+
+    def item_key(item: dict, index: int) -> str:
+        return str(item.get("id") or item.get("produto_id") or f"manual-{index}")
+
+    old_map = {item_key(item, index): item for index, item in enumerate(old_items)}
+    new_map = {item_key(item, index): item for index, item in enumerate(new_items)}
+    for key in sorted(set(old_map) | set(new_map)):
+        before = old_map.get(key)
+        after = new_map.get(key)
+        if before is None:
+            changes.append({"secao": "Itens", "campo": "item", "nome": after.get("descricao") or "Item", "anterior": None, "novo": "Adicionado"})
+            continue
+        if after is None:
+            changes.append({"secao": "Itens", "campo": "item", "nome": before.get("descricao") or "Item", "anterior": "Existente", "novo": "Removido"})
+            continue
+        for field, label in (("descricao", "Descrição"), ("quantidade", "Quantidade"), ("valor_unitario", "Valor unitário"), ("desconto", "Desconto"), ("custo_unitario", "Custo unitário"), ("observacao", "Observação")):
+            old_value = _history_value(before.get(field))
+            new_value = _history_value(after.get(field))
+            if old_value != new_value:
+                changes.append({
+                    "secao": "Itens",
+                    "campo": field,
+                    "nome": f"{after.get('descricao') or before.get('descricao') or 'Item'} — {label}",
+                    "anterior": old_value,
+                    "novo": new_value,
+                })
+    return changes
 
 
 @router.put("/{budget_id}")
@@ -1939,7 +2478,10 @@ def update_budget(
         validate_company_fk(db, table, row_id, company_id, label)
 
     config = get_config_row(db, company_id)
-    existing_costs = {int(item["id"]): money(item.get("custo_unitario")) for item in current_items if item.get("id")}
+    existing_costs = {
+        int(item["id"]): (money(item.get("custo_unitario")), bool(item.get("custo_informado")))
+        for item in current_items if item.get("id")
+    }
     items, partial = calculate_items(db, company_id, current_user, effective.itens, existing_costs=existing_costs)
     totals = calculate_totals(effective, partial["subtotal"], partial["custo_total"])
     approval_needed = (
@@ -1948,8 +2490,19 @@ def update_budget(
         and totals["margem_percentual"] < money(config.get("margem_minima"))
     )
     snapshot = client_snapshot(db, effective.cliente_id, company_id)
-    params = payload_params(effective, config, totals, snapshot)
+    same_emitter = int(effective.emitente_id or 0) == int(data.get("emitente_id") or 0)
+    has_stored_emitter = bool(data.get("emitente_razao_social_documento") or data.get("emitente_nome_documento"))
+    emitter = stored_emitter_snapshot(data) if same_emitter and has_stored_emitter else emitter_snapshot(db, effective.emitente_id, company_id)
+    params = payload_params(
+        effective, config, totals, snapshot, emitter,
+        itens_sem_custo=int(partial.get("itens_sem_custo") or 0),
+    )
     requested_approved = params["status"] == "aprovado"
+    if requested_approved and bool(config.get("controlar_custos")) and params["itens_sem_custo"] > 0:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Informe o custo de todos os itens antes de aprovar. Há {params['itens_sem_custo']} item(ns) sem custo.",
+        )
     previous_margin_approved = (
         data.get("aprovacao_status") == "aprovado"
         and q2(money(data.get("margem_percentual"))) == q2(totals["margem_percentual"])
@@ -1977,9 +2530,17 @@ def update_budget(
             cliente_telefone=:cliente_telefone, cliente_whatsapp_documento=:cliente_whatsapp_documento,
             cliente_fax=:cliente_fax, cliente_email_nfe=:cliente_email_nfe,
             cliente_contato_nome=:cliente_contato_nome,
+            emitente_id=:emitente_id, emitente_nome_documento=:emitente_nome_documento,
+            emitente_razao_social_documento=:emitente_razao_social_documento,
+            emitente_nome_fantasia_documento=:emitente_nome_fantasia_documento,
+            emitente_cnpj_documento=:emitente_cnpj_documento, emitente_ie_documento=:emitente_ie_documento,
+            emitente_email_documento=:emitente_email_documento, emitente_site_documento=:emitente_site_documento,
+            emitente_telefone_documento=:emitente_telefone_documento, emitente_endereco_documento=:emitente_endereco_documento,
+            emitente_logo_documento=:emitente_logo_documento, emitente_rodape_documento=:emitente_rodape_documento,
             desconto_tipo=:desconto_tipo, desconto_valor=:desconto_valor, desconto_total=:desconto_total,
             frete=:frete, acrescimo=:acrescimo, subtotal=:subtotal, total=:total,
             custo_total=:custo_total, lucro_total=:lucro_total, margem_percentual=:margem_percentual,
+            itens_sem_custo=:itens_sem_custo,
             prazo_execucao=:prazo_execucao, condicoes=:condicoes, observacoes=:observacoes,
             pagamentos_json=:pagamentos_json, usar_capa=:usar_capa, titulo_capa=:titulo_capa,
             subtitulo_capa=:subtitulo_capa, aprovacao_necessaria=:aprovacao_necessaria,
@@ -2011,8 +2572,14 @@ def update_budget(
         "id": budget_id,
         "empresa_id": company_id,
     })
+    changes = budget_change_details(data, params, current_items, items)
     save_budget_items(db, budget_id, items)
-    add_history(db, budget_id, current_user, "editado", "Orçamento atualizado.", old_status=data.get("status"), new_status=params["status"])
+    description = f"Orçamento atualizado: {len(changes)} alteração(ões)." if changes else "Orçamento salvo sem mudanças de conteúdo."
+    add_history(
+        db, budget_id, current_user, "editado", description,
+        old_status=data.get("status"), new_status=params["status"],
+        data={"alteracoes": changes},
+    )
     db.commit()
     return get_budget(budget_id, current_user=current_user, db=db)
 
@@ -2025,8 +2592,13 @@ def duplicate_budget(
 ):
     company_id = int(current_user.empresa_id)
     source = get_budget(budget_id, current_user=current_user, db=db)
+    source_emitter_id = source.get("emitente_id")
+    active_emitter = db.execute(text("""
+        SELECT id FROM orcamento_emitentes
+        WHERE id=:id AND empresa_id=:empresa_id AND ativo=TRUE
+    """), {"id": source_emitter_id, "empresa_id": company_id}).scalar() if source_emitter_id else None
     payload = BudgetCreate(
-        cliente_id=source.get("cliente_id"), consultor_id=source.get("consultor_id"), categoria_id=source.get("categoria_id"),
+        cliente_id=source.get("cliente_id"), emitente_id=int(active_emitter) if active_emitter else None, consultor_id=source.get("consultor_id"), categoria_id=source.get("categoria_id"),
         modelo_id=source.get("modelo_id"), titulo=f"{source.get('titulo') or 'Orçamento'} (cópia)", status="rascunho",
         data_solicitacao=date.today(), data_emissao=date.today(), data_validade=None,
         responsavel_cliente=source.get("responsavel_cliente"), contato_cliente=source.get("contato_cliente"),

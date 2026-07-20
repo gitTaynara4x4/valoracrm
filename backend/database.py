@@ -5,11 +5,14 @@ import os
 from typing import Generator
 
 from dotenv import load_dotenv
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 
-# Carrega variáveis do .env (DATABASE_URL)
-load_dotenv()
+# Carrega .env e também .ENV para manter compatibilidade em Linux.
+_PROJECT_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(_PROJECT_DIR / ".env")
+load_dotenv(_PROJECT_DIR / ".ENV")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:

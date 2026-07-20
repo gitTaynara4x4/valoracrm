@@ -8,14 +8,21 @@ from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 
-from backend.database import SessionLocal
 from backend import models
+from backend.security.permissions import (
+    MODULOS_VALIDOS,
+    PAPEIS_VALIDOS,
+    build_effective_permissions,
+    get_current_user,
+    get_db,
+    require_permission,
+)
 
 router = APIRouter(tags=["Usuários"])
 
@@ -30,61 +37,6 @@ ALLOWED_IMAGE_MIMES = {
     "image/png": "png",
     "image/webp": "webp",
 }
-
-MODULOS_VALIDOS = {
-    "dashboard",
-    "clientes",
-    "fornecedores",
-    "produtos",
-    "patrimonio",
-    "cotacoes",
-    "propostas",
-    "orcamentos",
-    "contratos",
-    "usuarios",
-    "empresa",
-    "configuracoes",
-}
-
-PAPEIS_VALIDOS = {"owner", "admin", "colaborador", "visualizador"}
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-def get_current_user(
-    user_id: Optional[str] = Cookie(default=None),
-    db: Session = Depends(get_db),
-) -> models.Usuario:
-    if not user_id or not str(user_id).strip():
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        user_id_int = int(str(user_id).strip())
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(models.Usuario).filter(models.Usuario.id == user_id_int).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    if hasattr(usuario, "ativo") and usuario.ativo is False:
-        raise HTTPException(status_code=403, detail="Usuário inativo.")
-
-    return usuario
-
-
-def get_empresa_id(current_user: models.Usuario = Depends(get_current_user)) -> int:
-    return int(current_user.empresa_id)
-
 
 try:
     from pydantic import ConfigDict  # type: ignore
@@ -102,10 +54,11 @@ def norm_str(value: Optional[str]) -> Optional[str]:
     return v or None
 
 
-def normalize_papel(value: Optional[str]) -> str:
-    papel = (value or "colaborador").strip().lower()
+def normalize_papel(value: Optional[str], *, default: Optional[str] = "colaborador") -> str:
+    raw = value if value is not None else default
+    papel = str(raw or "").strip().lower()
     if papel not in PAPEIS_VALIDOS:
-        return "colaborador"
+        raise HTTPException(status_code=400, detail=f"Papel inválido: {value}")
     return papel
 
 
@@ -219,39 +172,10 @@ def buscar_usuario_empresa(db: Session, usuario_id: int, empresa_id: int):
 
 
 def build_permissoes_dict(db: Session, usuario_id: int) -> dict:
-    rows = (
-        db.query(models.UsuarioPermissao)
-        .filter(models.UsuarioPermissao.usuario_id == usuario_id)
-        .all()
-    )
-
-    mapa = {
-        modulo: {
-            "pode_ver": False,
-            "pode_criar": False,
-            "pode_editar": False,
-            "pode_excluir": False,
-        }
-        for modulo in MODULOS_VALIDOS
-    }
-
-    modulos_encontrados = set()
-    for row in rows:
-        modulo = str(row.modulo or "").strip().lower()
-        if modulo not in mapa:
-            continue
-        modulos_encontrados.add(modulo)
-        mapa[modulo] = {
-            "pode_ver": bool(row.pode_ver),
-            "pode_criar": bool(row.pode_criar),
-            "pode_editar": bool(row.pode_editar),
-            "pode_excluir": bool(row.pode_excluir),
-        }
-
-    if "orcamentos" not in modulos_encontrados and "propostas" in modulos_encontrados:
-        mapa["orcamentos"] = dict(mapa["propostas"])
-
-    return mapa
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+    if not usuario:
+        return {}
+    return build_effective_permissions(db, usuario)
 
 
 def usuario_to_out(db: Session, u: models.Usuario) -> "UsuarioOut":
@@ -323,8 +247,6 @@ class UsuarioBase(BaseModel):
     email: Optional[str] = None
     telefone: Optional[str] = None
     cargo: Optional[str] = None
-    papel: Optional[str] = "colaborador"
-    ativo: Optional[bool] = True
     avatar_url: Optional[str] = None
     foto_url: Optional[str] = None
     foto_base64: Optional[str] = None
@@ -333,15 +255,21 @@ class UsuarioBase(BaseModel):
 
 class UsuarioCreate(UsuarioBase):
     senha: Optional[str] = None
+    papel: str = "colaborador"
+    ativo: bool = True
 
 
 class UsuarioUpdate(UsuarioBase):
     senha: Optional[str] = None
+    papel: Optional[str] = None
+    ativo: Optional[bool] = None
 
 
 class UsuarioOut(UsuarioBase, _Cfg):
     id: int
     empresa_id: int
+    papel: str = "colaborador"
+    ativo: bool = True
     permissoes: dict = Field(default_factory=dict)
     criado_em: Optional[datetime] = None
     atualizado_em: Optional[datetime] = None
@@ -350,8 +278,9 @@ class UsuarioOut(UsuarioBase, _Cfg):
 @router.get("/api/usuarios", response_model=List[UsuarioOut])
 def listar_usuarios(
     db: Session = Depends(get_db),
-    empresa_id: int = Depends(get_empresa_id),
+    current_user: models.Usuario = Depends(require_permission("usuarios", "ver")),
 ):
+    empresa_id = int(current_user.empresa_id)
     rows = (
         db.query(models.Usuario)
         .filter(models.Usuario.empresa_id == empresa_id)
@@ -365,8 +294,9 @@ def listar_usuarios(
 def obter_usuario(
     usuario_id: int,
     db: Session = Depends(get_db),
-    empresa_id: int = Depends(get_empresa_id),
+    current_user: models.Usuario = Depends(require_permission("usuarios", "ver")),
 ):
+    empresa_id = int(current_user.empresa_id)
     usuario = buscar_usuario_empresa(db, usuario_id, empresa_id)
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
@@ -377,7 +307,7 @@ def obter_usuario(
 def criar_usuario(
     payload: UsuarioCreate,
     db: Session = Depends(get_db),
-    current_user: models.Usuario = Depends(get_current_user),
+    current_user: models.Usuario = Depends(require_permission("usuarios", "criar")),
 ):
     empresa_id = int(current_user.empresa_id)
     nome = (payload.nome or "").strip()
@@ -435,7 +365,7 @@ def criar_usuario(
         raise HTTPException(status_code=409, detail="Já existe um usuário com este e-mail nesta empresa.")
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Erro ao criar usuário: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao criar usuário.")
 
 
 @router.put("/api/usuarios/{usuario_id}", response_model=UsuarioOut)
@@ -443,7 +373,7 @@ def atualizar_usuario(
     usuario_id: int,
     payload: UsuarioUpdate,
     db: Session = Depends(get_db),
-    current_user: models.Usuario = Depends(get_current_user),
+    current_user: models.Usuario = Depends(require_permission("usuarios", "editar")),
 ):
     empresa_id = int(current_user.empresa_id)
     usuario = buscar_usuario_empresa(db, usuario_id, empresa_id)
@@ -464,6 +394,14 @@ def atualizar_usuario(
     if str(usuario.papel or "").strip().lower() == "owner" and novo_papel != "owner":
         if count_active_owners(db, empresa_id) <= 1:
             raise HTTPException(status_code=400, detail="Não é possível rebaixar o último owner da empresa.")
+
+    if (
+        str(usuario.papel or "").strip().lower() == "owner"
+        and payload.ativo is False
+        and bool(getattr(usuario, "ativo", True))
+        and count_active_owners(db, empresa_id) <= 1
+    ):
+        raise HTTPException(status_code=400, detail="Não é possível desativar o último owner ativo da empresa.")
 
     if payload.nome is not None:
         nome = payload.nome.strip()
@@ -518,14 +456,14 @@ def atualizar_usuario(
         raise HTTPException(status_code=409, detail="Já existe outro usuário com este e-mail nesta empresa.")
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Erro ao atualizar usuário: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao atualizar usuário.")
 
 
 @router.delete("/api/usuarios/{usuario_id}", status_code=status.HTTP_204_NO_CONTENT)
 def excluir_usuario(
     usuario_id: int,
     db: Session = Depends(get_db),
-    current_user: models.Usuario = Depends(get_current_user),
+    current_user: models.Usuario = Depends(require_permission("usuarios", "excluir")),
 ):
     empresa_id = int(current_user.empresa_id)
     usuario = buscar_usuario_empresa(db, usuario_id, empresa_id)

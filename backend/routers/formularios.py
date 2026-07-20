@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import text
+from sqlalchemy import String, cast, func, or_, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -1324,31 +1324,31 @@ def _relacao_to_out(item: Any, tipo: str) -> Dict[str, Any]:
     if tipo == "cliente":
         codigo = _texto_primeiro(getattr(item, "codigo", None))
         nome = _texto_primeiro(getattr(item, "nome", None), getattr(item, "razao_social", None), getattr(item, "nome_fantasia", None))
-        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(nome, codigo, f"Cliente #{value}")
+        label = f"{nome} — Cód. {codigo}" if codigo and nome else _texto_primeiro(nome, codigo, f"Cliente #{value}")
     elif tipo == "fornecedor":
         codigo = _texto_primeiro(getattr(item, "codigo", None))
         nome = _texto_primeiro(getattr(item, "nome", None), getattr(item, "razao_social", None), getattr(item, "nome_fantasia", None))
-        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(nome, codigo, f"Fornecedor #{value}")
+        label = f"{nome} — Cód. {codigo}" if codigo and nome else _texto_primeiro(nome, codigo, f"Fornecedor #{value}")
     elif tipo == "produto":
         codigo = _texto_primeiro(getattr(item, "codigo", None))
         nome = _texto_primeiro(getattr(item, "nome", None), getattr(item, "descricao", None))
-        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(nome, codigo, f"Produto #{value}")
+        label = f"{nome} — Cód. {codigo}" if codigo and nome else _texto_primeiro(nome, codigo, f"Produto #{value}")
     elif tipo == "patrimonio":
         codigo = _texto_primeiro(getattr(item, "codigo", None))
         nome = _texto_primeiro(getattr(item, "nome", None), getattr(item, "descricao", None), getattr(item, "numero_serie", None))
-        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(nome, codigo, f"Patrimônio #{value}")
+        label = f"{nome} — Cód. {codigo}" if codigo and nome else _texto_primeiro(nome, codigo, f"Patrimônio #{value}")
     elif tipo == "cotacao":
         codigo = _texto_primeiro(getattr(item, "codigo", None))
         nome = _texto_primeiro(getattr(item, "item_nome", None), getattr(item, "titulo", None), getattr(item, "descricao", None))
-        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(nome, codigo, f"Cotação #{value}")
+        label = f"{nome} — Cód. {codigo}" if codigo and nome else _texto_primeiro(nome, codigo, f"Cotação #{value}")
     elif tipo == "proposta":
         codigo = _texto_primeiro(getattr(item, "codigo", None))
         nome = _texto_primeiro(getattr(item, "titulo", None), getattr(item, "cliente_nome", None))
-        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(nome, codigo, f"Proposta #{value}")
+        label = f"{nome} — Cód. {codigo}" if codigo and nome else _texto_primeiro(nome, codigo, f"Proposta #{value}")
     elif tipo == "contrato":
         codigo = _texto_primeiro(getattr(item, "numero_contrato", None), getattr(item, "codigo", None))
         nome = _texto_primeiro(getattr(item, "cliente_nome", None), getattr(item, "tipo_contrato", None))
-        label = f"{codigo} • {nome}" if codigo and nome else _texto_primeiro(codigo, nome, f"Contrato #{value}")
+        label = f"{nome} — Nº {codigo}" if codigo and nome else _texto_primeiro(nome, codigo, f"Contrato #{value}")
     else:
         label = _texto_primeiro(getattr(item, "nome", None), getattr(item, "codigo", None), value)
 
@@ -1366,9 +1366,18 @@ def listar_opcoes_relacao(
     tipo: str = Query(..., min_length=1),
     q: Optional[str] = Query(None),
     limit: int = Query(5000, ge=1, le=5000),
+    offset: int = Query(0, ge=0),
+    paginated: bool = Query(False),
+    value: Optional[str] = Query(None),
     request: Request = None,
     db: Session = Depends(get_db),
 ):
+    """Lista opções de campos de relação com busca e paginação.
+
+    A resposta antiga em lista continua disponível quando ``paginated=false``.
+    Isso mantém compatibilidade com formulários já publicados enquanto os campos
+    pesquisáveis usam páginas pequenas, sem carregar milhares de registros.
+    """
     empresa_id = validar_usuario_empresa(request, db)
     tipo_norm = _normalizar_tipo_relacao(tipo)
 
@@ -1383,7 +1392,7 @@ def listar_opcoes_relacao(
 
     if tipo_norm == "contrato":
         if models_contratos is None or not hasattr(models_contratos, "Contrato"):
-            return []
+            return {"items": [], "total": 0, "has_more": False} if paginated else []
         Model = models_contratos.Contrato
     else:
         Model = mapa.get(tipo_norm)
@@ -1394,31 +1403,60 @@ def listar_opcoes_relacao(
     query = db.query(Model).filter(Model.empresa_id == empresa_id)
 
     if hasattr(Model, "ativo"):
-        try:
-            query = query.filter(Model.ativo == True)  # noqa: E712
-        except Exception:
-            pass
+        query = query.filter(Model.ativo == True)  # noqa: E712
 
-    if q:
-        termo = f"%{q.strip()}%"
-        filtros = []
-        for attr in ("nome", "codigo", "nome_fantasia", "item_nome", "titulo", "numero_contrato"):
+    search_filters = []
+    termo_limpo = str(q or "").strip()
+    if termo_limpo:
+        termo = f"%{termo_limpo}%"
+        atributos_busca = (
+            "nome", "razao_social", "nome_fantasia", "codigo", "cpf_cnpj",
+            "telefone", "whatsapp", "contato", "email", "descricao",
+            "item_nome", "titulo", "numero_contrato", "numero_serie",
+        )
+        for attr in atributos_busca:
             if hasattr(Model, attr):
-                filtros.append(getattr(Model, attr).ilike(termo))
-        if filtros:
-            from sqlalchemy import or_
-            query = query.filter(or_(*filtros))
+                search_filters.append(cast(getattr(Model, attr), String).ilike(termo))
+
+    current_id = None
+    if value not in (None, ""):
+        try:
+            current_id = int(str(value).strip())
+        except (TypeError, ValueError):
+            current_id = None
+
+    if search_filters:
+        combined = or_(*search_filters)
+        if current_id is not None and hasattr(Model, "id"):
+            combined = or_(combined, Model.id == current_id)
+        query = query.filter(combined)
+    elif current_id is not None and paginated and not termo_limpo:
+        # A página inicial permanece alfabética. O valor atual será incluído pelo
+        # front em uma chamada própria se ele estiver fora desta primeira página.
+        pass
+
+    total = query.order_by(None).with_entities(func.count(Model.id)).scalar() or 0
 
     ordem = None
-    for attr in ("nome", "titulo", "item_nome", "numero_contrato", "codigo", "id"):
+    for attr in ("nome", "razao_social", "nome_fantasia", "titulo", "item_nome", "numero_contrato", "codigo", "id"):
         if hasattr(Model, attr):
             ordem = getattr(Model, attr)
             break
     if ordem is not None:
-        query = query.order_by(ordem.asc())
+        query = query.order_by(ordem.asc(), Model.id.asc())
 
-    itens = query.limit(limit).all()
-    return [_relacao_to_out(item, tipo_norm) for item in itens]
+    itens = query.offset(offset).limit(limit).all()
+    payload = [_relacao_to_out(item, tipo_norm) for item in itens]
+    if not paginated:
+        return payload
+
+    return {
+        "items": payload,
+        "total": int(total),
+        "offset": offset,
+        "limit": limit,
+        "has_more": offset + len(payload) < int(total),
+    }
 
 
 @router.get("/modulos")

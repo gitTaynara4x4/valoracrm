@@ -1610,3 +1610,84 @@ textarea.campo-obrigatorio-pendente {
   border-color: rgba(37, 211, 102, 0.22);
   color: #128C7E;
 }
+
+/* Integração Cliente → Orçamentos e auditoria de alterações. */
+.history-client-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.history-audit-box {
+  margin-top: 16px;
+}
+
+.history-audit-head {
+  margin-bottom: 10px;
+}
+
+.history-audit-head h5,
+.history-audit-head p {
+  margin: 0;
+}
+
+.history-audit-list {
+  max-height: 420px;
+  overflow: auto;
+}
+
+.history-budget-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color .15s ease, transform .15s ease;
+}
+
+.history-budget-link:hover {
+  border-color: var(--primary, #65acde);
+  transform: translateY(-1px);
+}
+
+.history-audit-item {
+  display: grid;
+  grid-template-columns: minmax(180px, .8fr) minmax(0, 1.2fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.history-audit-meta {
+  display: grid;
+  gap: 4px;
+}
+
+.history-audit-meta > span {
+  color: var(--text-muted, #64748b);
+  font-size: 11px;
+}
+
+.history-audit-values {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.history-audit-values del,
+.history-audit-values ins {
+  max-width: 44%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.history-audit-values del { color: #a43a32; }
+.history-audit-values ins { color: #157347; text-decoration: none; }
+.history-audit-values i { color: var(--text-muted, #64748b); font-size: 9px; }
+
+@media (max-width: 720px) {
+  .history-client-head { align-items: stretch; flex-direction: column; }
+  .history-audit-item { grid-template-columns: 1fr; }
+  .history-audit-values del,
+  .history-audit-values ins { max-width: 46%; }
+}

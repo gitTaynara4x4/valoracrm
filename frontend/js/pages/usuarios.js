@@ -11,6 +11,7 @@ const MODULOS = [
   { key: "usuarios", label: "Usuários", desc: "Gestão de acessos" },
   { key: "empresa", label: "Empresa", desc: "Dados da empresa" },
   { key: "configuracoes", label: "Configurações", desc: "Preferências e ajustes" },
+  { key: "financeiro", label: "Financeiro", desc: "Contas, fluxo de caixa e relatórios" },
 ];
 
 const stateUsuarios = {
@@ -323,6 +324,18 @@ function atualizarContagem() {
   $("contagem-usuarios").textContent = `${total} usuário${total === 1 ? "" : "s"}`;
 }
 
+function podeUsuarios(acao) {
+  const me = stateUsuarios.currentUser || {};
+  const papel = normalizeText(me.papel);
+  if (papel === "owner" || papel === "admin") return true;
+  return !!me?.permissoes?.usuarios?.[`pode_${acao}`];
+}
+
+function aplicarPermissoesDaTela() {
+  const btnNovo = $("btn-novo-usuario");
+  if (btnNovo) btnNovo.style.display = podeUsuarios("criar") ? "" : "none";
+}
+
 function renderTabela() {
   const tbody = $("tabela-usuarios");
   const lista = stateUsuarios.filtrados;
@@ -351,12 +364,14 @@ function renderTabela() {
       <td><span class="badge-role ${roleClass(usuario.papel)}">${escapeHtml(roleLabel(usuario.papel))}</span></td>
       <td><span class="badge-status ${usuario.ativo ? "ativo" : "inativo"}">${escapeHtml(statusLabel(!!usuario.ativo))}</span></td>
       <td style="text-align:right;">
-        <button class="btn-icon" type="button" title="Editar" data-edit-id="${usuario.id}">
-          <i class="fa-solid fa-pen"></i>
-        </button>
-        <button class="btn-icon danger" type="button" title="Excluir" data-del-id="${usuario.id}">
-          <i class="fa-solid fa-trash"></i>
-        </button>
+        ${podeUsuarios("editar") ? `
+          <button class="btn-icon" type="button" title="Editar" data-edit-id="${usuario.id}">
+            <i class="fa-solid fa-pen"></i>
+          </button>` : ""}
+        ${podeUsuarios("excluir") ? `
+          <button class="btn-icon danger" type="button" title="Excluir" data-del-id="${usuario.id}">
+            <i class="fa-solid fa-trash"></i>
+          </button>` : ""}
       </td>
     </tr>
   `).join("");
@@ -451,6 +466,7 @@ async function carregarMeuPerfilPermissoes() {
   try {
     const me = await api("/api/permissoes/me");
     stateUsuarios.currentUser = me;
+    aplicarPermissoesDaTela();
   } catch (err) {
     console.error("[usuarios] erro ao carregar /me:", err);
   }
@@ -638,12 +654,14 @@ function bindTabelaEventos() {
     const btnDelete = event.target.closest("[data-del-id]");
 
     if (btnEdit) {
+      if (!podeUsuarios("editar")) return;
       const id = Number(btnEdit.dataset.editId);
       carregarUsuarioParaEdicao(id);
       return;
     }
 
     if (btnDelete) {
+      if (!podeUsuarios("excluir")) return;
       const id = Number(btnDelete.dataset.delId);
       excluirUsuario(id);
     }
@@ -691,6 +709,10 @@ function bindUI() {
   $("Valora-confirm-ok")?.addEventListener("click", () => closeConfirm(true));
 
   $("btn-novo-usuario")?.addEventListener("click", () => {
+    if (!podeUsuarios("criar")) {
+      toast("Você não tem permissão para criar usuários.", true);
+      return;
+    }
     limparFormulario();
     openModal(false);
   });
@@ -725,5 +747,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindUI();
   await carregarMeuPerfilPermissoes();
   await carregarUsuarios();
+  aplicarPermissoesDaTela();
   setPermissionsVisibility();
 });

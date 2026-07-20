@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import re
 
 from fastapi import FastAPI, HTTPException, Request
@@ -33,6 +34,10 @@ from backend.routers.integracoes_zapschat import router as integracoes_zapschat_
 from backend.routers.exportacoes import router as exportacoes_router
 from backend.routers.agenda import router as agenda_router
 from backend.agenda_push import start_push_dispatcher, stop_push_dispatcher
+from backend.database import SessionLocal
+from backend import models
+from backend.security.permissions import user_has_permission
+from backend.security.session import SESSION_COOKIE_NAME, decode_session_token
 
 
 # ============================================
@@ -56,8 +61,54 @@ app = FastAPI(
 )
 
 
+def ensure_each_company_has_owner() -> None:
+    """Corrige contas antigas criadas antes do papel owner existir no cadastro."""
+    db = SessionLocal()
+    repaired = 0
+    try:
+        company_ids = [int(row[0]) for row in db.query(models.Empresa.id).all()]
+        for company_id in company_ids:
+            has_owner = (
+                db.query(models.Usuario.id)
+                .filter(
+                    models.Usuario.empresa_id == company_id,
+                    models.Usuario.papel == "owner",
+                    models.Usuario.ativo == True,
+                )
+                .first()
+            )
+            if has_owner:
+                continue
+
+            candidate = (
+                db.query(models.Usuario)
+                .filter(
+                    models.Usuario.empresa_id == company_id,
+                    models.Usuario.ativo == True,
+                )
+                .order_by(
+                    (models.Usuario.cargo == "admin").desc(),
+                    models.Usuario.id.asc(),
+                )
+                .first()
+            )
+            if candidate:
+                candidate.papel = "owner"
+                repaired += 1
+
+        if repaired:
+            db.commit()
+            print(f"[USUÁRIOS] {repaired} empresa(s) antiga(s) receberam um owner automaticamente.")
+    except Exception as exc:
+        db.rollback()
+        print(f"[USUÁRIOS] Não foi possível verificar owners antigos: {exc}")
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
 async def start_agenda_push_background() -> None:
+    ensure_each_company_has_owner()
     await start_push_dispatcher()
 
 
@@ -74,93 +125,257 @@ FAVICON_TAG_ALT = '<link rel="shortcut icon" type="image/jpeg" href="/frontend/i
 
 
 # ============================================
-# Auth global
-# Bloqueia tudo sem cookie "user_id",
-# exceto login, assets necessários e APIs públicas liberadas
+# Autenticação e autorização global
 # ============================================
 PUBLIC_EXACT_PATHS = {
     "/",
     "/login",
     "/login/",
+    "/cadastro",
+    "/cadastro/",
     "/frontend/login.html",
     "/frontend/login.html/",
+    "/frontend/cadastro.html",
+    "/frontend/cadastro.html/",
     "/ping",
     "/favicon.ico",
     "/valora-sw.js",
     "/manifest.webmanifest",
 
-    # assets básicos do login
+    # scripts públicos de autenticação/cadastro
     "/frontend/js/pages/login.js",
-    "/frontend/css/login.css",
-    "/frontend/css/validacao.css",
+    "/frontend/js/pages/cadastro.js",
     "/frontend/js/shared/validacao.js",
     "/frontend/img/logo-favicon.jpg",
 }
 
 PUBLIC_PREFIXES = (
-    "/api/auth",                  # login/logout/refresh/etc
-    "/api/area-cliente-publica",  # API pública usada pelo portal do cliente
-    "/frontend/img/",             # logo/favicon usados no login
-    "/frontend/fonts/",           # fontes locais, se houver
+    "/api/auth",
+    "/api/area-cliente-publica",
+    "/frontend/img/",
+    "/frontend/fonts/",
+    "/frontend/css/",
 )
+
+# Prefixos que recebem a proteção das permissões configuradas em Usuários.
+# A checagem é feita no backend; esconder botão no frontend não é segurança.
+PERMISSION_PREFIXES = (
+    ("/api/dashboard", "dashboard"),
+    ("/api/campos-clientes", "clientes"),
+    ("/api/clientes", "clientes"),
+    ("/api/fornecedores", "fornecedores"),
+    ("/api/produtos", "produtos"),
+    ("/api/patrimonio", "patrimonio"),
+    ("/api/cotacoes", "cotacoes"),
+    ("/api/propostas", "propostas"),
+    ("/api/contratos-admin", "contratos"),
+    ("/api/area-cliente-admin", "contratos"),
+    ("/api/area-cliente-acessos-admin", "contratos"),
+    ("/api/monitoramento", "contratos"),
+    ("/api/usuarios", "usuarios"),
+    ("/api/permissoes/usuarios", "usuarios"),
+    ("/api/empresa", "empresa"),
+    ("/api/financeiro", "financeiro"),
+    ("/api/formularios", "configuracoes"),
+)
+
+PAGE_PERMISSION_MODULES = {
+    "/dashboard": "dashboard",
+    "/clientes": "clientes",
+    "/fornecedores": "fornecedores",
+    "/produtos": "produtos",
+    "/patrimonio": "patrimonio",
+    "/cotacoes": "cotacoes",
+    "/propostas": "propostas",
+    "/orcamentos": "orcamentos",
+    "/contratos-admin": "contratos",
+    "/area-cliente-admin": "contratos",
+    "/monitoramento": "contratos",
+    "/usuarios": "usuarios",
+    "/empresa": "empresa",
+    "/configuracoes": "configuracoes",
+    "/financeiro": "financeiro",
+    "/fluxo-caixa": "financeiro",
+    "/contas-pagar": "financeiro",
+    "/contas-receber": "financeiro",
+    "/contas-bancos": "financeiro",
+    "/categorias-financeiras": "financeiro",
+    "/formas-pagamento": "financeiro",
+    "/relatorios-financeiros": "financeiro",
+}
+
 
 
 def normalize_path(path: str) -> str:
     path = (path or "/").strip()
     if not path:
         return "/"
-
     path = path.split("?")[0].split("#")[0]
     path = path.rstrip("/")
-
     return path or "/"
 
 
 def is_public_path(path: str) -> bool:
     raw = path or "/"
     norm = normalize_path(raw)
-
     if raw in PUBLIC_EXACT_PATHS or norm in PUBLIC_EXACT_PATHS:
         return True
+    for prefix in PUBLIC_PREFIXES:
+        if prefix.endswith("/"):
+            if raw.startswith(prefix) or norm.startswith(prefix):
+                return True
+        elif norm == prefix or norm.startswith(prefix + "/"):
+            return True
+    return False
 
-    return any(
-        raw.startswith(prefix) or norm.startswith(prefix)
-        for prefix in PUBLIC_PREFIXES
+
+def _permission_module(path: str) -> str | None:
+    normalized = normalize_path(path)
+    for prefix, module in PERMISSION_PREFIXES:
+        if normalized == prefix or normalized.startswith(prefix + "/"):
+            return module
+    return None
+
+
+def _permission_action(request: Request, path: str) -> str:
+    method = request.method.upper()
+    normalized = normalize_path(path)
+
+    if method in {"GET", "HEAD", "OPTIONS"}:
+        return "ver"
+    if method == "DELETE":
+        return "excluir"
+    if method in {"PUT", "PATCH"}:
+        return "editar"
+
+    # POST nem sempre significa criação.
+    if method == "POST" and "/verificar-duplicidade" in normalized:
+        return "ver"
+
+    # Ações em um registro existente são edição.
+    edit_markers = (
+        "/baixar",
+        "/cancelar",
+        "/aprovar",
+        "/vencedor",
+        "/status",
+        "/logo",
+        "/upload",
+        "/revogar",
     )
+    if method == "POST" and any(marker in normalized for marker in edit_markers):
+        return "editar"
+    return "criar"
 
 
-def has_auth_cookie(request: Request) -> bool:
-    user_id = request.cookies.get("user_id")
-    return bool(user_id and str(user_id).strip())
+def _request_uses_https(request: Request) -> bool:
+    configured = os.getenv("COOKIE_SECURE")
+    if configured is not None and configured.strip():
+        return configured.strip().lower() in {"1", "true", "yes", "on"}
+    forwarded = str(request.headers.get("x-forwarded-proto") or "").split(",", 1)[0].strip().lower()
+    if forwarded:
+        return forwarded == "https"
+    return str(request.url.scheme or "").lower() == "https"
+
+
+def _clear_auth_response(request: Request, status_code: int, detail: str, *, api: bool):
+    if api:
+        response = JSONResponse(status_code=status_code, content={"detail": detail})
+    else:
+        response = RedirectResponse(url="/login", status_code=302)
+
+    for key, httponly in (
+        (SESSION_COOKIE_NAME, True),
+        ("user_id", True),
+        ("empresa_id", True),
+        ("user_nome", False),
+    ):
+        response.delete_cookie(
+            key,
+            path="/",
+            domain=os.getenv("COOKIE_DOMAIN") or None,
+            secure=_request_uses_https(request),
+            httponly=httponly,
+            samesite=os.getenv("COOKIE_SAMESITE", "lax").strip().lower(),
+        )
+    return response
 
 
 @app.middleware("http")
 async def require_auth_globally(request: Request, call_next):
     raw_path = request.url.path or "/"
     path = normalize_path(raw_path)
-    authenticated = has_auth_cookie(request)
 
-    # Se já estiver logado e tentar abrir login, manda pro dashboard
-    if authenticated and path in {"/login", "/frontend/login.html"}:
+    if path in {"/login", "/frontend/login.html"}:
+        existing_session = decode_session_token(request.cookies.get(SESSION_COOKIE_NAME, ""))
+        if existing_session:
+            try:
+                same_user = int(request.cookies.get("user_id", "")) == int(existing_session["uid"])
+                same_company = int(request.cookies.get("empresa_id", "")) == int(existing_session["eid"])
+            except (TypeError, ValueError):
+                same_user = same_company = False
+            if same_user and same_company:
+                return RedirectResponse(url="/dashboard", status_code=302)
+
+    if is_public_path(raw_path):
+        # Login/cadastro são públicos. /api/auth/me faz sua própria validação.
+        return await call_next(request)
+
+    session = decode_session_token(request.cookies.get(SESSION_COOKIE_NAME, ""))
+    is_api = path.startswith("/api/")
+    if not session:
+        return _clear_auth_response(request, 401, "Sessão inválida ou expirada.", api=is_api)
+
+    # Cookies antigos são aceitos apenas quando correspondem à sessão assinada.
+    try:
+        cookie_user_id = int(request.cookies.get("user_id", ""))
+        cookie_empresa_id = int(request.cookies.get("empresa_id", ""))
+    except (TypeError, ValueError):
+        return _clear_auth_response(request, 401, "Sessão inválida.", api=is_api)
+
+    if cookie_user_id != int(session["uid"]) or cookie_empresa_id != int(session["eid"]):
+        return _clear_auth_response(request, 401, "Sessão inconsistente.", api=is_api)
+
+    db = SessionLocal()
+    try:
+        user = (
+            db.query(models.Usuario)
+            .filter(
+                models.Usuario.id == int(session["uid"]),
+                models.Usuario.empresa_id == int(session["eid"]),
+            )
+            .first()
+        )
+        if not user:
+            return _clear_auth_response(request, 401, "Usuário não encontrado.", api=is_api)
+        if not bool(getattr(user, "ativo", True)):
+            return _clear_auth_response(request, 403, "Usuário inativo.", api=is_api)
+
+        request.state.current_user_id = int(user.id)
+        request.state.current_empresa_id = int(user.empresa_id)
+
+        # Orçamentos já possui dependências detalhadas por rota.
+        module = _permission_module(path)
+        action = _permission_action(request, path)
+
+        if not module and request.method.upper() in {"GET", "HEAD"}:
+            module = PAGE_PERMISSION_MODULES.get(path)
+            action = "ver"
+
+        if module and not user_has_permission(db, user, module, action):
+            if is_api:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": f"Sem permissão para {action} em {module}."},
+                )
+            return RedirectResponse(url="/inicio?erro=sem-permissao", status_code=302)
+    finally:
+        db.close()
+
+    if path in {"/login", "/frontend/login.html"}:
         return RedirectResponse(url="/dashboard", status_code=302)
 
-    # Caminhos públicos
-    if is_public_path(raw_path):
-        return await call_next(request)
-
-    # Usuário autenticado segue normal
-    if authenticated:
-        return await call_next(request)
-
-    # API sem autenticação => 401 json
-    if path.startswith("/api/"):
-        return JSONResponse(
-            status_code=401,
-            content={"detail": "Não autenticado."},
-        )
-
-    # Qualquer página/arquivo sem autenticação => login
-    return RedirectResponse(url="/login", status_code=302)
+    return await call_next(request)
 
 
 # ============================================

@@ -8,12 +8,18 @@
   const erroBox = document.getElementById('erro');
   const btnLogin = document.getElementById('btn-login');
   const togglePassBtn = document.getElementById('togglePassBtn');
+  const googleLoginBtn = document.getElementById('btn-google-login');
+  const ssoLoginBtn = document.getElementById('btn-sso-login');
+  const forgotPasswordLink = document.getElementById('forgot-password-link');
+  const supportLink = document.getElementById('support-link');
 
   const step1Fields = document.getElementById('step1-fields');
   const step2Fields = document.getElementById('step2-fields');
   const tokenInput = document.getElementById('login-token');
   const tokenInfo = document.getElementById('token-info');
   const btnTokenBack = document.getElementById('btn-token-back');
+  const companyField = document.getElementById('company-field');
+  const companySelect = document.getElementById('empresa-login');
 
   let currentStep = 'password';
   let lastLoginPayload = null;
@@ -37,16 +43,16 @@
     btnLogin.disabled = !!isLoading;
 
     if (isLoading) {
-      btnLogin.innerHTML = '<span>Entrando...</span><i class="fa-solid fa-spinner fa-spin"></i>';
+      btnLogin.innerHTML = '<span>Entrando...</span><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>';
       return;
     }
 
     if (currentStep === 'token') {
-      btnLogin.innerHTML = '<span>Validar código</span><i class="fa-solid fa-arrow-right"></i>';
+      btnLogin.innerHTML = '<span>Validar código</span>';
       return;
     }
 
-    btnLogin.innerHTML = '<span>Entrar</span><i class="fa-solid fa-arrow-right"></i>';
+    btnLogin.innerHTML = '<span>Entrar</span>';
   }
 
   function normalizeEmail(value) {
@@ -90,6 +96,34 @@
     setTimeout(() => {
       senhaInput?.focus();
     }, 50);
+  }
+
+  function hideCompanyChoices() {
+    companyField?.classList.add('hidden');
+    if (companySelect) companySelect.innerHTML = '';
+  }
+
+  function showCompanyChoices(empresas = []) {
+    if (!companyField || !companySelect || !Array.isArray(empresas) || !empresas.length) return;
+
+    companySelect.replaceChildren();
+
+    empresas.forEach((empresa) => {
+      const id = String(empresa.empresa_id || empresa.id || '');
+      const nome = String(empresa.nome || `Empresa #${id}`);
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = nome;
+      companySelect.appendChild(option);
+    });
+
+    const rememberedCompany = localStorage.getItem('empresa_id');
+    if (rememberedCompany && [...companySelect.options].some((option) => option.value === rememberedCompany)) {
+      companySelect.value = rememberedCompany;
+    }
+
+    companyField.classList.remove('hidden');
+    companySelect.focus();
   }
 
   function saveSessionData(data = {}) {
@@ -174,14 +208,15 @@
     }
 
     if (!response.ok) {
+      const detail = data.detail;
       const message =
-        data.detail ||
+        (detail && typeof detail === 'object' ? detail.message : detail) ||
         data.message ||
         data.erro ||
         data.error ||
         `Erro HTTP ${response.status}`;
 
-      const err = new Error(message);
+      const err = new Error(String(message));
       err.status = response.status;
       err.data = data;
       throw err;
@@ -214,32 +249,12 @@
   }
 
   async function tryValidateToken(payload) {
-    const endpoints = [
-      '/api/auth/validar-token',
-      '/api/auth/confirmar-token',
-      '/api/auth/login',
-      '/api/login',
-    ];
-
-    let lastError = null;
-
-    for (const endpoint of endpoints) {
-      try {
-        return await postJson(endpoint, payload);
-      } catch (error) {
-        lastError = error;
-
-        if (error.status !== 404 && error.status !== 405) {
-          throw error;
-        }
-      }
-    }
-
-    throw lastError || new Error('Não foi possível validar o código.');
+    return postJson('/api/auth/login/token', payload);
   }
 
   function needsToken(data = {}) {
     return !!(
+      data.require_token ||
       data.requer_token ||
       data.requires_token ||
       data.token_required ||
@@ -279,6 +294,7 @@
       senha,
       password: senha,
       remember: !!rememberInput?.checked,
+      empresa_id: companySelect?.value ? Number(companySelect.value) : null,
     };
 
     lastLoginPayload = payload;
@@ -287,6 +303,11 @@
       const data = await tryLogin(payload);
 
       if (needsToken(data)) {
+        lastLoginPayload = {
+          ...payload,
+          challenge: data.challenge || null,
+          empresa_id: data.empresa_id || payload.empresa_id || null,
+        };
         goToTokenStep(data);
         return;
       }
@@ -294,7 +315,16 @@
       saveSessionData(data);
       redirectAfterLogin(data);
     } catch (error) {
-      setError(error.message || 'Não foi possível entrar. Verifique os dados e tente novamente.');
+      const detail = error?.data?.detail;
+      const requiresCompany = error?.data?.requires_company || detail?.requires_company;
+      const empresas = error?.data?.empresas || detail?.empresas || [];
+
+      if (requiresCompany && empresas.length) {
+        showCompanyChoices(empresas);
+        setError('Este e-mail está vinculado a mais de uma empresa. Escolha qual deseja acessar.');
+      } else {
+        setError(error.message || 'Não foi possível entrar. Verifique os dados e tente novamente.');
+      }
     } finally {
       setLoading(false);
     }
@@ -373,7 +403,32 @@
     });
   }
 
+  function showUnavailableFeature(message) {
+    setError(message);
+    erroBox?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
   function initEvents() {
+    emailInput?.addEventListener('input', hideCompanyChoices);
+
+    googleLoginBtn?.addEventListener('click', () => {
+      showUnavailableFeature('O acesso com Google ainda não está configurado neste ambiente. Use seu e-mail e senha.');
+    });
+
+    ssoLoginBtn?.addEventListener('click', () => {
+      showUnavailableFeature('O acesso por SSO ainda não está configurado neste ambiente. Use seu e-mail e senha.');
+    });
+
+    forgotPasswordLink?.addEventListener('click', (event) => {
+      event.preventDefault();
+      showUnavailableFeature('A recuperação automática de senha ainda não está configurada. Entre em contato com o suporte.');
+    });
+
+    supportLink?.addEventListener('click', (event) => {
+      event.preventDefault();
+      showUnavailableFeature('Entre em contato com o administrador da sua empresa para receber ajuda com o acesso.');
+    });
+
     form?.addEventListener('submit', (event) => {
       event.preventDefault();
 

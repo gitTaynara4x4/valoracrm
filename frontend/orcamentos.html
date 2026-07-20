@@ -22,13 +22,13 @@
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260717-settings-formularios-v12">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260717-nilson-fixes-v1">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
-  <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260717-settings-inter-v15">
+  <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260720-emitter-save-v2">
 
   <script src="/frontend/js/pages/app.js?v=20260715-agenda-fluxo-nilson-v9" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260717-settings-formularios-v12" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260720-emitter-save-v2" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -177,6 +177,7 @@
                 <div class="form-group"><label>Número</label><input id="orcamento-codigo" type="text" readonly placeholder="Gerado automaticamente" /></div>
                 <div class="form-group span-2"><label for="orcamento-titulo">Título *</label><input id="orcamento-titulo" type="text" placeholder="Ex.: Implantação de rede e câmeras" /></div>
                 <div class="form-group"><label for="orcamento-status">Status</label><select id="orcamento-status"><option value="rascunho">Em elaboração</option><option value="enviado">Enviado</option><option value="em_negociacao">Em negociação</option><option value="aprovado">Aprovado</option><option value="recusado">Recusado</option><option value="cancelado">Cancelado</option></select></div>
+                <div class="form-group"><label for="orcamento-emitente-id">Empresa emitente *</label><select id="orcamento-emitente-id"><option value="">Selecionar empresa</option></select><small class="form-help">Define CNPJ, endereço e logotipo usados neste documento.</small></div>
                 <div class="form-group span-2 autocomplete-field"><label for="orcamento-cliente-busca">Cliente *</label><div class="input-with-icon"><i class="fa-regular fa-user"></i><input id="orcamento-cliente-busca" type="text" placeholder="Nome, documento ou telefone" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="orcamento-cliente-resultados" aria-expanded="false" /></div><input id="orcamento-cliente-id" type="hidden" /><div id="orcamento-cliente-resultados" class="budget-autocomplete" hidden></div></div>
                 <div class="form-group"><label for="orcamento-categoria">Categoria/tipo</label><select id="orcamento-categoria"><option value="">Sem categoria</option></select></div>
                 <div class="form-group"><label for="orcamento-modelo">Modelo</label><select id="orcamento-modelo"><option value="">Começar do zero</option></select></div>
@@ -264,6 +265,7 @@
               <article><span>Margem</span><strong id="analysis-margin">0,00%</strong></article>
             </div>
             <div id="margin-alert" class="margin-alert is-hidden"><i class="fa-solid fa-triangle-exclamation"></i><div><strong>Margem abaixo do limite configurado</strong><p>Este orçamento precisará de aprovação gerencial.</p></div></div>
+            <div id="missing-cost-alert" class="margin-alert missing-cost-alert is-hidden"><i class="fa-solid fa-circle-exclamation"></i><div><strong id="missing-cost-title">Existem itens sem custo informado</strong><p>A margem não é confiável enquanto todos os produtos e serviços não tiverem custo cadastrado.</p></div></div>
             <div class="budget-section-card"><div class="budget-section-heading"><div><h4>Espelho de custo</h4><p>Informação interna. Estes valores nunca aparecem no documento do cliente.</p></div></div><div class="valora-table-wrapper"><table class="valora-table"><thead><tr><th>Item</th><th class="text-right">Venda</th><th class="text-right">Custo</th><th class="text-right">Lucro</th><th class="text-right">Margem</th></tr></thead><tbody id="analysis-items-body"></tbody></table></div></div>
           </section>
 
@@ -350,6 +352,10 @@
             <button class="active" type="button" data-settings-tab="geral">
               <span class="settings-tab-icon"><i class="fa-solid fa-gear"></i></span>
               <span class="settings-tab-copy"><strong>Geral</strong><small>Configurações principais</small></span>
+            </button>
+            <button type="button" data-settings-tab="emitentes">
+              <span class="settings-tab-icon"><i class="fa-solid fa-building"></i></span>
+              <span class="settings-tab-copy"><strong>Empresas emitentes</strong><small>ANG, SATCOM e empresas SEG</small></span>
             </button>
             <button type="button" data-settings-tab="categorias">
               <span class="settings-tab-icon"><i class="fa-regular fa-folder-open"></i></span>
@@ -528,6 +534,50 @@
                 <div class="form-group span-3" data-settings-dav><label for="config-cabecalho-rodape">Rodapé do DAV</label><input id="config-cabecalho-rodape" type="text" /></div>
               </div>
             </article>
+          </section>
+
+          <section class="settings-panel" data-settings-panel="emitentes">
+            <div class="settings-panel-title">
+              <div><span class="settings-panel-icon"><i class="fa-solid fa-building"></i></span><h4>Empresas emitentes</h4></div>
+              <p>Cadastre as empresas que podem emitir um orçamento. Os dados são copiados para o documento no momento em que ele é salvo.</p>
+            </div>
+            <div class="emitter-settings-layout">
+              <div class="settings-list-card">
+                <div class="settings-list-header">
+                  <div><h4>Empresas cadastradas</h4><p>Escolha uma empresa para editar ou crie uma nova.</p></div>
+                  <button class="btn btn-primary btn-small" id="btn-novo-emitente" type="button"><i class="fa-solid fa-plus"></i> Nova empresa</button>
+                </div>
+                <div id="emitters-list" class="emitters-list"></div>
+              </div>
+              <div class="settings-card emitter-editor-card">
+                <input id="emitter-id" type="hidden" />
+                <div class="settings-card-header emitter-editor-header"><span class="settings-step"><i class="fa-solid fa-building"></i></span><div><h4 id="emitter-editor-title">Nova empresa emitente</h4><p>Preencha exatamente os dados que devem sair no orçamento.</p></div></div>
+                <div class="budget-form-grid grid-3">
+                  <div class="form-group"><label for="emitter-name">Nome interno *</label><input id="emitter-name" type="text" placeholder="Ex.: SEG Sistemas" /></div>
+                  <div class="form-group span-2"><label for="emitter-legal-name">Razão social *</label><input id="emitter-legal-name" type="text" /></div>
+                  <div class="form-group"><label for="emitter-fantasy-name">Nome fantasia</label><input id="emitter-fantasy-name" type="text" /></div>
+                  <div class="form-group"><label for="emitter-cnpj">CNPJ</label><input id="emitter-cnpj" type="text" /></div>
+                  <div class="form-group"><label for="emitter-ie">Inscrição estadual</label><input id="emitter-ie" type="text" /></div>
+                  <div class="form-group"><label for="emitter-email">E-mail</label><input id="emitter-email" type="email" /></div>
+                  <div class="form-group"><label for="emitter-site">Site</label><input id="emitter-site" type="text" /></div>
+                  <div class="form-group"><label for="emitter-phone">Telefone</label><input id="emitter-phone" type="text" /></div>
+                  <div class="form-group"><label for="emitter-cep">CEP</label><input id="emitter-cep" type="text" /></div>
+                  <div class="form-group span-2"><label for="emitter-address">Endereço</label><input id="emitter-address" type="text" /></div>
+                  <div class="form-group"><label for="emitter-number">Número</label><input id="emitter-number" type="text" /></div>
+                  <div class="form-group"><label for="emitter-complement">Complemento</label><input id="emitter-complement" type="text" /></div>
+                  <div class="form-group"><label for="emitter-neighborhood">Bairro</label><input id="emitter-neighborhood" type="text" /></div>
+                  <div class="form-group"><label for="emitter-city">Cidade</label><input id="emitter-city" type="text" /></div>
+                  <div class="form-group"><label for="emitter-state">UF</label><input id="emitter-state" type="text" maxlength="2" /></div>
+                  <div class="form-group span-3"><label for="emitter-logo">URL do logotipo</label><input id="emitter-logo" type="text" placeholder="/frontend/img/uploads/logos/..." /></div>
+                  <div class="form-group span-3"><label for="emitter-footer">Rodapé do documento</label><textarea id="emitter-footer" rows="3"></textarea></div>
+                </div>
+                <div class="emitter-toggles">
+                  <label class="settings-inline-toggle"><input id="emitter-default" type="checkbox" /><span class="settings-toggle-visual"></span><span><strong>Empresa padrão</strong><small>Selecionada automaticamente em novos orçamentos.</small></span></label>
+                  <label class="settings-inline-toggle"><input id="emitter-active" type="checkbox" checked /><span class="settings-toggle-visual"></span><span><strong>Empresa ativa</strong><small>Disponível para seleção nos orçamentos.</small></span></label>
+                </div>
+                <div class="template-editor-actions"><button class="btn btn-secondary" id="btn-cancelar-emitente" type="button">Limpar</button><button class="btn btn-primary" id="btn-salvar-emitente" type="button"><i class="fa-solid fa-floppy-disk"></i> Salvar empresa</button></div>
+              </div>
+            </div>
           </section>
 
           <section class="settings-panel" data-settings-panel="categorias">

@@ -282,32 +282,32 @@
 
   const LOOKUP_CONFIG = {
     relacao_cliente: {
-      endpoint: '/api/formularios/opcoes-relacao?tipo=cliente&limit=5000',
+      endpoint: '/api/formularios/opcoes-relacao?tipo=cliente',
       fallbackEndpoint: '/api/clientes',
       keys: ['items', 'clientes', 'data'],
       empty: 'Nenhum cliente encontrado',
-      label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.codigo} • ${item.nome}` : '', item.nome, item.razao_social, item.nome_fantasia, item.pessoa_contato, `Cliente #${item.id}`),
+      label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.nome} — Cód. ${item.codigo}` : '', item.nome, item.razao_social, item.nome_fantasia, item.pessoa_contato, `Cliente #${item.id}`),
     },
     relacao_fornecedor: {
-      endpoint: '/api/formularios/opcoes-relacao?tipo=fornecedor&limit=5000',
+      endpoint: '/api/formularios/opcoes-relacao?tipo=fornecedor',
       fallbackEndpoint: '/api/fornecedores',
       keys: ['items', 'fornecedores', 'data'],
       empty: 'Nenhum fornecedor encontrado',
-      label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.codigo} • ${item.nome}` : '', item.nome, item.razao_social, item.nome_fantasia, item.email, `Fornecedor #${item.id}`),
+      label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.nome} — Cód. ${item.codigo}` : '', item.nome, item.razao_social, item.nome_fantasia, item.email, `Fornecedor #${item.id}`),
     },
     relacao_produto: {
-      endpoint: '/api/formularios/opcoes-relacao?tipo=produto&limit=5000',
+      endpoint: '/api/formularios/opcoes-relacao?tipo=produto',
       fallbackEndpoint: '/api/produtos',
       keys: ['items', 'produtos', 'data'],
       empty: 'Nenhum produto encontrado',
-      label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.codigo} • ${item.nome}` : '', item.nome, item.descricao, item.categoria, `Produto #${item.id}`),
+      label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.nome} — Cód. ${item.codigo}` : '', item.nome, item.descricao, item.categoria, `Produto #${item.id}`),
     },
     relacao_patrimonio: {
-      endpoint: '/api/formularios/opcoes-relacao?tipo=patrimonio&limit=5000',
+      endpoint: '/api/formularios/opcoes-relacao?tipo=patrimonio',
       fallbackEndpoint: '/api/patrimonio',
       keys: ['items', 'patrimonios', 'patrimonio', 'data'],
       empty: 'Nenhum patrimônio encontrado',
-      label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.codigo} • ${item.nome}` : '', item.nome, item.descricao, item.numero_serie, `Patrimônio #${item.id}`),
+      label: (item) => firstFilled(item.label, item.codigo && item.nome ? `${item.nome} — Cód. ${item.codigo}` : '', item.nome, item.descricao, item.numero_serie, `Patrimônio #${item.id}`),
     },
     relacao_cotacao: {
       endpoint: '/api/formularios/opcoes-relacao?tipo=cotacao',
@@ -357,22 +357,39 @@
     return [];
   }
 
-  async function fetchLookupOptions(tipo) {
+  async function fetchLookupOptions(tipo, options = {}) {
     const tipoBase = getTipoRelacaoBase(tipo);
     const config = LOOKUP_CONFIG[tipoBase];
     if (!config?.endpoint) return [];
 
-    if (lookupCache.has(tipoBase)) return lookupCache.get(tipoBase);
+    const query = String(options.query || '').trim();
+    const limit = Math.max(Number(options.limit || 50), 1);
+    const offset = Math.max(Number(options.offset || 0), 0);
+    const paginated = Boolean(options.paginated);
+    const currentValue = String(options.currentValue || '').trim();
+    const cacheKey = `${tipoBase}|${query}|${limit}|${offset}|${paginated ? 1 : 0}|${currentValue}`;
 
-    const promise = apiJson(config.endpoint)
-      .then((data) => extractArray(data, config.keys))
+    if (!query && !paginated && lookupCache.has(cacheKey)) return lookupCache.get(cacheKey);
+
+    const loadPrimary = async () => {
+      const url = new URL(config.endpoint, window.location.origin);
+      url.searchParams.set('limit', String(limit));
+      if (offset) url.searchParams.set('offset', String(offset));
+      if (query) url.searchParams.set('q', query);
+      if (paginated) url.searchParams.set('paginated', 'true');
+      if (currentValue) url.searchParams.set('value', currentValue);
+      const data = await apiJson(`${url.pathname}${url.search}`);
+      return extractArray(data, config.keys);
+    };
+
+    const promise = loadPrimary()
       .then((items) => {
-        if (items.length || !config.fallbackEndpoint) return items;
+        if (items.length || !config.fallbackEndpoint || query || paginated) return items;
         return apiJson(config.fallbackEndpoint).then((fallbackData) => extractArray(fallbackData, config.keys));
       })
       .catch((error) => {
-        console.warn('[ValoraFichaPrincipal] erro ao carregar relação principal, tentando fallback:', tipoBase, error);
-        if (!config.fallbackEndpoint) return [];
+        console.warn('[ValoraFichaPrincipal] erro ao carregar relação principal:', tipoBase, error);
+        if (!config.fallbackEndpoint || query || paginated) return [];
         return apiJson(config.fallbackEndpoint)
           .then((fallbackData) => extractArray(fallbackData, config.keys))
           .catch((fallbackError) => {
@@ -381,9 +398,10 @@
           });
       });
 
-    lookupCache.set(tipoBase, promise);
+    if (!query && !paginated) lookupCache.set(cacheKey, promise);
     return promise;
   }
+
 
   function getLookupValue(item) {
     return String(item?.value ?? item?.id ?? item?.codigo ?? item?.numero_contrato ?? '').trim();
@@ -396,44 +414,89 @@
     if (!selects.length && !multiPanels.length) return;
 
     selects.forEach(async (select) => {
+      if (select.dataset.lookupBound === 'true') return;
+      select.dataset.lookupBound = 'true';
+
       const tipo = select.getAttribute('data-custom-lookup');
       const tipoBase = getTipoRelacaoBase(tipo);
       const config = LOOKUP_CONFIG[tipoBase];
-      const selectedValue = String(select.getAttribute('data-current-value') || '').trim();
+      const selectedValue = String(select.getAttribute('data-current-value') || select.value || '').trim();
+      const wrapper = select.closest('.custom-lookup-searchable');
+      const searchInput = wrapper?.querySelector('[data-custom-lookup-search]');
+      let requestVersion = 0;
 
       if (!config) return;
 
-      select.disabled = true;
-      const items = await fetchLookupOptions(tipoBase);
-      const options = [];
+      const populate = async (query = '', preserveValue = true) => {
+        const version = ++requestVersion;
+        const current = preserveValue ? String(select.value || selectedValue || '').trim() : '';
+        select.disabled = true;
+        select.innerHTML = '<option value="">Carregando...</option>';
 
-      options.push('<option value="">Selecione</option>');
+        const items = await fetchLookupOptions(tipoBase, {
+          query,
+          limit: 50,
+          paginated: true,
+          currentValue: current,
+        });
+        if (version !== requestVersion) return;
 
-      let foundSelected = false;
-
-      if (items.length) {
+        const options = ['<option value="">Selecione</option>'];
+        let foundSelected = false;
         items.forEach((item) => {
           const value = getLookupValue(item);
           if (!value) return;
           const label = config.label(item) || value;
-          const selected = String(value) === String(selectedValue) ? 'selected' : '';
+          const selected = current && String(value) === String(current) ? 'selected' : '';
           if (selected) foundSelected = true;
           options.push(`<option value="${escapeHtml(value)}" ${selected}>${escapeHtml(label)}</option>`);
         });
 
-        if (selectedValue && !foundSelected) {
-          options.push(`<option value="${escapeHtml(selectedValue)}" selected>Registro salvo #${escapeHtml(selectedValue)}</option>`);
+        if (current && !foundSelected) {
+          const currentItems = await fetchLookupOptions(tipoBase, {
+            query: current,
+            limit: 10,
+            paginated: true,
+            currentValue: current,
+          });
+          const currentItem = currentItems.find((item) => getLookupValue(item) === current);
+          if (currentItem) {
+            options.push(`<option value="${escapeHtml(current)}" selected>${escapeHtml(config.label(currentItem) || current)}</option>`);
+          } else {
+            options.push(`<option value="${escapeHtml(current)}" selected>Registro salvo #${escapeHtml(current)}</option>`);
+          }
         }
-      } else {
-        if (selectedValue) {
-          options.push(`<option value="${escapeHtml(selectedValue)}" selected>Registro salvo #${escapeHtml(selectedValue)}</option>`);
-        }
-        options.push(`<option value="" disabled>${escapeHtml(config.empty || 'Nenhum item encontrado')}</option>`);
-      }
 
-      select.innerHTML = options.join('');
-      select.disabled = select.hasAttribute('data-original-disabled');
+        if (!items.length && !current) {
+          options.push(`<option value="" disabled>${escapeHtml(config.empty || 'Nenhum item encontrado')}</option>`);
+        }
+
+        select.innerHTML = options.join('');
+        select.disabled = select.hasAttribute('data-original-disabled');
+      };
+
+      await populate('', true);
+
+      if (searchInput && searchInput.dataset.lookupSearchBound !== 'true') {
+        searchInput.dataset.lookupSearchBound = 'true';
+        let timer = null;
+        searchInput.addEventListener('input', () => {
+          clearTimeout(timer);
+          timer = setTimeout(() => populate(searchInput.value, true), 250);
+        });
+        searchInput.addEventListener('keydown', (event) => {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            select.focus();
+          }
+          if (event.key === 'Escape') {
+            searchInput.value = '';
+            populate('', true);
+          }
+        });
+      }
     });
+
 
     multiPanels.forEach(async (panel) => {
       if (panel.dataset.lookupMultiBound === 'true') return;
@@ -450,7 +513,7 @@
       if (!config || !hidden) return;
 
       panel.innerHTML = '<div class="custom-multiselect-empty">Carregando registros...</div>';
-      const items = await fetchLookupOptions(tipoBase);
+      const items = await fetchLookupOptions(tipoBase, { limit: 5000 });
       const valoresDisponiveis = new Set(
         items.map((item) => getLookupValue(item)).filter(Boolean).map((value) => String(value))
       );
@@ -1195,18 +1258,33 @@
         `;
       } else {
         html += `
-          <select
-            id="${id}"
-            class="custom-lookup-select"
-            data-custom-field="${escapeHtml(slug)}"
-            data-custom-label="${escapeHtml(label)}"
-            data-required="${campo.obrigatorio ? 'true' : 'false'}"
-            data-custom-lookup="${escapeHtml(tipo)}"
-            data-current-value="${escapeHtml(valor)}"
-            ${disabled ? 'data-original-disabled="true" disabled' : ''}
-          >
-            <option value="">Carregando...</option>
-          </select>
+          <div class="custom-lookup-searchable">
+            <div class="custom-lookup-search-wrap">
+              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+              <input
+                type="search"
+                class="custom-lookup-search"
+                data-custom-lookup-search="${escapeHtml(tipo)}"
+                data-no-long-field="true"
+                data-campo-longo-ignore="true"
+                autocomplete="off"
+                placeholder="Pesquisar por nome, código ou documento..."
+                ${disabled ? 'disabled' : ''}
+              />
+            </div>
+            <select
+              id="${id}"
+              class="custom-lookup-select"
+              data-custom-field="${escapeHtml(slug)}"
+              data-custom-label="${escapeHtml(label)}"
+              data-required="${campo.obrigatorio ? 'true' : 'false'}"
+              data-custom-lookup="${escapeHtml(tipo)}"
+              data-current-value="${escapeHtml(valor)}"
+              ${disabled ? 'data-original-disabled="true" disabled' : ''}
+            >
+              <option value="">Carregando...</option>
+            </select>
+          </div>
         `;
       }
     } else if (tipo === 'email') {

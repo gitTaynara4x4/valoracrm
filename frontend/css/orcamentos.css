@@ -2487,3 +2487,131 @@ html[data-theme="dark"] #settings-modal .kit-editor-summary strong,
     gap: 6px;
   }
 }
+
+/* Correções Nilson: análise confiável, DAV legível e empresas emitentes. */
+.form-help {
+  display: block;
+  margin-top: 5px;
+  color: var(--budget-muted, #71808b);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.missing-cost-alert {
+  border-color: #efb0a5;
+  color: #9f2d21;
+  background: #fff1ef;
+}
+
+.analysis-missing-cost {
+  color: #b42318;
+  font-weight: 600;
+}
+
+.history-details {
+  margin: 10px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--budget-border, #dfe6ea);
+  border-radius: 8px;
+  background: var(--budget-soft, #f8fafb);
+}
+
+.history-details summary {
+  cursor: pointer;
+  color: var(--budget-text, #263746);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.history-change {
+  display: grid;
+  gap: 5px;
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px solid var(--budget-border, #dfe6ea);
+}
+
+.history-change > strong { font-size: 10px; }
+.history-change > span { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: 10px; }
+.history-change del { color: #9f3a32; }
+.history-change ins { color: #177245; text-decoration: none; }
+.history-change i { color: var(--budget-muted, #71808b); font-size: 8px; }
+
+.emitter-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, .72fr) minmax(0, 1.45fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.emitters-list {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+}
+
+.emitter-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--budget-border, #dfe6ea);
+  border-radius: 9px;
+  background: var(--budget-card, #fff);
+}
+
+.emitter-list-item.is-inactive { opacity: .58; }
+.emitter-list-item > div:first-child { min-width: 0; display: grid; gap: 3px; }
+.emitter-list-item strong,
+.emitter-list-item span,
+.emitter-list-item small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.emitter-list-item strong { color: var(--budget-text, #263746); font-size: 11px; }
+.emitter-list-item span { color: var(--budget-muted, #71808b); font-size: 10px; }
+.emitter-list-item small { color: var(--budget-muted, #71808b); font-size: 9px; }
+.emitter-list-actions { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.emitter-editor-card { margin: 0; }
+.emitter-editor-header { margin-bottom: 16px; }
+.emitter-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+
+/* A prévia deve reproduzir uma impressão legível, sem fontes de 6 px. */
+.document-preview.dav-preview-active {
+  width: min(980px, 100%);
+  min-height: 0;
+}
+
+.dav-document {
+  min-height: 0;
+  display: block;
+  font-size: 11px;
+}
+
+.dav-company-title > strong { font-size: 16px; font-weight: 600; }
+.dav-company-title > span { font-size: 10px; }
+.dav-company-title h1 { font-size: 21px; }
+.dav-document-meta { font-size: 9px; }
+.dav-client-table label { font-size: 9px; }
+.dav-client-table strong { font-size: 10.5px; line-height: 1.25; }
+.dav-reference-line { height: auto; min-height: 30px; font-size: 10px; white-space: normal; }
+.dav-items-table thead { display: table-header-group; }
+.dav-items-table tr { break-inside: avoid; }
+.dav-items-table th { height: auto; padding: 6px 3px; font-size: 8.8px; }
+.dav-items-table td { height: auto; min-height: 34px; padding: 6px 4px; border-bottom: 1px solid #aaa; font-size: 10px; }
+.dav-description small { font-size: 9px; }
+.dav-order-total b,
+.dav-note-total b { font-size: 9px; }
+.dav-order-total strong,
+.dav-note-total strong { font-size: 10px; }
+.dav-order-total span { font-size: 8.5px; }
+.dav-observations { min-height: 140px; flex: none; }
+.dav-observations h2 { font-size: 10px; }
+.dav-observation-lines { font-size: 10px; }
+.dav-footer { font-size: 9px; }
+
+@media (max-width: 980px) {
+  .emitter-settings-layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 700px) {
+  .emitter-toggles { grid-template-columns: 1fr; }
+}

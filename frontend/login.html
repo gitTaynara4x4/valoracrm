@@ -3,15 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
 
   <title>Entrar | Valora CRM</title>
-
-  <script>
-    (() => {
-      const savedTheme = localStorage.getItem('valora_theme') || 'light';
-      document.documentElement.setAttribute('data-theme', savedTheme);
-    })();
-  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,67 +20,76 @@
   >
 
   <link rel="icon" type="image/jpeg" href="/frontend/img/logo-favicon.jpg" />
-
-  <link rel="stylesheet" href="/frontend/css/login.css?v=20260630-dark-chatgpt-v6" />
+  <link rel="stylesheet" href="/frontend/css/login.css?v=20260720-logo-central-v2" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
 
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/login.js?v=20260624-valora-final-normal" defer></script>
-  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
+  <script src="/frontend/js/pages/login.js?v=20260720-login-central-v1" defer></script>
 </head>
 
 <body>
-  <main class="login-layout">
-    <section class="login-hero" aria-label="Apresentação do Valora CRM">
-      <img
-        src="/frontend/img/login-valora-hero.png"
-        alt="Gestão inteligente para clientes, propostas e faturamento"
-        class="login-hero-image"
-        decoding="async"
-        fetchpriority="high"
-      >
-    </section>
+  <main class="login-page">
+    <section class="login-shell" aria-labelledby="login-title">
+      <header class="login-header">
+        <img
+          class="login-logo"
+          src="/frontend/img/logo-valora.svg?v=20260720-logo-central-v2"
+          alt="Valora CRM"
+          width="150"
+          height="32"
+        >
 
-    <section class="login-panel" aria-label="Acesso ao Valora CRM">
-      <div class="login-panel-inner">
-        <header class="login-brand">
-          <img
-            class="login-logo-full"
-            src="/frontend/img/logo-valora.svg"
-            alt="Valora CRM"
-          >
-        </header>
+        <h1 id="login-title">Bem-vindo de volta!</h1>
+        <p>Acesse sua conta para continuar</p>
+      </header>
 
-        <div class="login-heading">
-          <h2>Entrar no sistema</h2>
-          <p>Acesse sua conta para continuar.</p>
-        </div>
-
+      <div class="login-card">
         <form id="form-login" class="login-form" novalidate>
           <div id="step1-fields">
+            <div class="provider-list" aria-label="Outras formas de acesso">
+              <button type="button" id="btn-google-login" class="provider-button provider-google">
+                <i class="fa-brands fa-google" aria-hidden="true"></i>
+                <span>Continuar com Google</span>
+              </button>
+
+              <button type="button" id="btn-sso-login" class="provider-button">
+                <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                <span>Continuar com SSO</span>
+              </button>
+            </div>
+
+            <div class="login-divider" aria-hidden="true">
+              <span></span>
+              <small>ou</small>
+              <span></span>
+            </div>
+
             <div class="form-field">
-              <label for="email">E-mail</label>
-
+              <label for="email">E-mail de trabalho</label>
               <div class="input-box">
-                <i class="fa-regular fa-envelope"></i>
-
                 <input
                   type="email"
                   id="email"
                   name="email"
-                  placeholder="seuemail@empresa.com.br"
+                  placeholder="seu@email.com"
                   autocomplete="email"
+                  inputmode="email"
                   required
                 >
               </div>
             </div>
 
+            <div class="form-field hidden" id="company-field">
+              <label for="empresa-login">Empresa</label>
+              <div class="input-box select-box">
+                <select id="empresa-login" name="empresa-login" aria-label="Escolha a empresa"></select>
+                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+              </div>
+            </div>
+
             <div class="form-field">
               <label for="senha">Senha</label>
-
-              <div class="input-box">
-                <i class="fa-solid fa-lock"></i>
-
+              <div class="input-box password-box">
                 <input
                   type="password"
                   id="senha"
@@ -97,25 +100,18 @@
                 >
 
                 <button type="button" id="togglePassBtn" class="eye-btn" aria-label="Mostrar senha">
-                  <i class="fa-regular fa-eye"></i>
+                  <i class="fa-regular fa-eye" aria-hidden="true"></i>
                 </button>
               </div>
             </div>
 
-            <div class="login-options">
-              <label class="remember">
-                <input type="checkbox" id="remember">
-                <span></span>
-                Manter conectado
-              </label>
-
-              <a href="#" class="forgot-link">Esqueci a senha</a>
-            </div>
+            <!-- Mantido para preservar a regra atual da sessão sem alterar a API. -->
+            <input type="checkbox" id="remember" class="remember-hidden" tabindex="-1" aria-hidden="true">
           </div>
 
           <div id="step2-fields" class="hidden">
             <div class="token-message">
-              <div class="token-icon">
+              <div class="token-icon" aria-hidden="true">
                 <i class="fa-solid fa-shield-halved"></i>
               </div>
 
@@ -127,7 +123,6 @@
 
             <div class="form-field">
               <label for="login-token">Código de acesso</label>
-
               <div class="input-box token-input-box">
                 <input
                   type="text"
@@ -142,23 +137,30 @@
             </div>
 
             <button type="button" id="btn-token-back" class="back-btn">
-              <i class="fa-solid fa-arrow-left"></i>
-              Voltar
+              <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+              Voltar para o login
             </button>
           </div>
 
-          <div id="erro" class="error-box hidden"></div>
+          <div id="erro" class="error-box hidden" role="alert"></div>
 
           <button type="submit" id="btn-login" class="login-submit">
             <span>Entrar</span>
-            <i class="fa-solid fa-arrow-right"></i>
           </button>
         </form>
 
-        <footer class="login-footer">
-          <p>Problemas para acessar? <a href="#">Fale com o suporte</a></p>
-        </footer>
+        <div class="login-links">
+          <a href="#" id="forgot-password-link">Esqueceu a senha?</a>
+          <a href="/cadastro">Criar uma conta</a>
+        </div>
       </div>
+
+      <footer class="login-help">
+        <a href="#" id="support-link">
+          <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+          <span>Precisa de ajuda?</span>
+        </a>
+      </footer>
     </section>
   </main>
 </body>
