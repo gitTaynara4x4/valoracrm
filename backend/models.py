@@ -9,6 +9,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Integer,
     Numeric,
     String,
     Text,
@@ -867,6 +868,51 @@ class ProdutoCampoValor(Base):
         return f"<ProdutoCampoValor id={self.id} produto_id={self.produto_id} campo_id={self.campo_id}>"
 
 
+class ProdutoPrecoHistorico(Base):
+    __tablename__ = "produtos_precos_historico"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True, autoincrement=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    produto_id = Column(
+        BigInteger,
+        ForeignKey("produtos.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    usuario_id = Column(
+        BigInteger,
+        ForeignKey("usuarios.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    campo_chave = Column(String(180), nullable=False, index=True)
+    campo_nome = Column(String(180), nullable=False)
+    valor_anterior = Column(Text, nullable=True)
+    valor_novo = Column(Text, nullable=True)
+    motivo = Column(Text, nullable=True)
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        index=True,
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ProdutoPrecoHistorico id={self.id} produto_id={self.produto_id} "
+            f"campo_chave={self.campo_chave!r}>"
+        )
 
 
 class Patrimonio(Base):

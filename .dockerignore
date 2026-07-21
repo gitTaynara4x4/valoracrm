@@ -1,0 +1,35 @@
+# Controle de versao
+.git
+.gitignore
+
+# Credenciais e variaveis locais
+.env
+.env.*
+.ENV
+.ENV.*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+
+# Ambientes e caches locais
+.venv
+.venv-*
+venv
+ENV
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+
+# Arquivos locais que nao devem entrar na imagem
+*.log
+*.zip
+
+# Segredo local persistente de sessão (somente desenvolvimento)
+.valora_session_secret

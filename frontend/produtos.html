@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/frontend/css/exportacoes.css?v=20260713-exportacoes-completas-v1" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260717-busca-relacao-v1" />
-  <link rel="stylesheet" href="/frontend/css/produtos.css?v=20260627-sidebar-icons-v2" />
+  <link rel="stylesheet" href="/frontend/css/produtos.css?v=20260721-atualizacao-precos-v1" />
   <link rel="stylesheet" href="/frontend/css/localizar-personalizado.css?v=20260715-localizar-arrastar-restaurado-v8" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
@@ -36,7 +36,7 @@
   <script src="/frontend/js/shared/ficha-principal.js?v=20260717-busca-relacao-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script src="/frontend/js/shared/localizar-personalizado.js?v=20260715-localizar-arrastar-restaurado-v8" defer></script>
-  <script src="/frontend/js/pages/produtos.js?v=20260715-localizar-arrastar-restaurado-v8" defer></script>
+  <script src="/frontend/js/pages/produtos.js?v=20260721-atualizacao-precos-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 </head>
 
@@ -60,6 +60,10 @@
             <i class="fa-solid fa-file-export"></i> Exportar
           </button>
 
+          <button class="btn btn-secondary" type="button" id="btn-atualizacao-precos">
+            <i class="fa-solid fa-tags"></i> Atualizar preços
+          </button>
+
           <button class="btn btn-secondary" type="button" id="btn-gerenciar-formulario-produto">
             <i class="fa-solid fa-sliders"></i> Gerenciar formulário
           </button>
@@ -77,6 +81,7 @@
         </div>
       </header>
 
+      <section id="tela-catalogo-produtos">
       <article class="panel-card produtos-filter-card">
         <div class="panel-head">
           <h3>Localizar produtos</h3>
@@ -144,6 +149,125 @@
 
         <div class="table-pagination" id="paginacao-produtos" data-pagination="produtos" aria-label="Paginação inferior"></div>
       </article>
+      </section>
+
+      <section id="tela-atualizacao-precos" class="price-update-screen" hidden>
+        <header class="price-update-header">
+          <div>
+            <button class="price-back-button" type="button" id="btn-voltar-catalogo-produtos">
+              <i class="fa-solid fa-arrow-left"></i> Voltar para produtos
+            </button>
+            <span class="eyebrow">Produtos</span>
+            <h2>Atualização rápida de preços</h2>
+            <p>Edite custos, preços e todos os campos da formação de preços diretamente na lista.</p>
+          </div>
+
+          <div class="price-update-header-actions">
+            <button class="btn btn-secondary" type="button" id="btn-historico-precos">
+              <i class="fa-solid fa-clock-rotate-left"></i> Histórico
+            </button>
+            <button class="btn btn-primary" type="button" id="btn-salvar-precos" disabled>
+              <i class="fa-solid fa-floppy-disk"></i> Salvar alterações
+            </button>
+          </div>
+        </header>
+
+        <article class="panel-card price-filter-card">
+          <div class="panel-head price-filter-head">
+            <div>
+              <h3>Localizar produtos</h3>
+              <p>Os filtros podem ser combinados. A lista permanece em ordem alfabética.</p>
+            </div>
+            <span id="contagem-atualizacao-precos" class="counter-text">0 produtos</span>
+          </div>
+
+          <div class="price-filter-grid">
+            <div class="form-group price-filter-search">
+              <label for="preco-filtro-busca">Busca</label>
+              <input id="preco-filtro-busca" type="text" placeholder="Código ou nome oficial do produto" autocomplete="off" />
+            </div>
+
+            <div class="form-group">
+              <label for="preco-filtro-situacao">Situação comercial</label>
+              <select id="preco-filtro-situacao"><option value="">Todas</option></select>
+            </div>
+
+            <div class="form-group">
+              <label for="preco-filtro-tipo">Tipo de produto</label>
+              <select id="preco-filtro-tipo"><option value="">Todos</option></select>
+            </div>
+
+            <div class="form-group">
+              <label for="preco-filtro-origem">Origem do produto</label>
+              <select id="preco-filtro-origem"><option value="">Todas</option></select>
+            </div>
+
+            <div class="form-group">
+              <label for="preco-filtro-categoria">Categoria</label>
+              <select id="preco-filtro-categoria"><option value="">Todas</option></select>
+            </div>
+
+            <div class="form-group">
+              <label for="preco-filtro-fornecedor">Fornecedor</label>
+              <select id="preco-filtro-fornecedor"><option value="">Todos</option></select>
+            </div>
+
+            <div class="form-group">
+              <label for="preco-filtro-fabricante">Fabricante</label>
+              <select id="preco-filtro-fabricante"><option value="">Todos</option></select>
+            </div>
+          </div>
+
+          <div class="footer-actions price-filter-actions">
+            <div class="price-change-summary">
+              <strong id="contador-alteracoes-precos">Nenhuma alteração pendente</strong>
+              <span id="aviso-campos-precos">Carregando campos de formação de preços...</span>
+            </div>
+
+            <div class="price-filter-buttons">
+              <button class="btn btn-secondary" type="button" id="btn-limpar-filtros-precos">Limpar filtros</button>
+              <button class="btn btn-primary" type="button" id="btn-filtrar-precos">Filtrar</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel-card price-table-card">
+          <div class="price-table-toolbar">
+            <div class="price-table-help">
+              <i class="fa-solid fa-circle-info"></i>
+              <span>Campos alterados ficam destacados. Nada é salvo até confirmar.</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" type="button" id="btn-descartar-precos" disabled>
+              Descartar alterações
+            </button>
+          </div>
+
+          <div class="table-pagination price-pagination price-pagination-top" data-pagination="atualizacao-precos" aria-label="Paginação superior"></div>
+
+          <div class="price-table-wrapper">
+            <table class="price-update-table" id="tabela-atualizacao-precos">
+              <thead id="thead-atualizacao-precos"></thead>
+              <tbody id="tbody-atualizacao-precos">
+                <tr><td class="empty-state">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-pagination price-pagination" data-pagination="atualizacao-precos" aria-label="Paginação inferior"></div>
+        </article>
+
+        <div class="price-save-bar" id="barra-salvar-precos" hidden>
+          <div>
+            <strong id="barra-contador-precos">0 produtos alterados</strong>
+            <span>Revise os valores antes de salvar.</span>
+          </div>
+          <div class="price-save-bar-actions">
+            <input id="motivo-atualizacao-precos" type="text" maxlength="500" placeholder="Motivo da alteração (opcional)" />
+            <button class="btn btn-secondary" type="button" id="btn-descartar-precos-barra">Descartar</button>
+            <button class="btn btn-primary" type="button" id="btn-salvar-precos-barra">Salvar alterações</button>
+          </div>
+        </div>
+      </section>
 
       <div class="modal-overlay" id="modal-produto-backdrop" hidden>
         <div class="modal-content modal-xl cliente-modal-content produto-modal-content" data-close-target="false">
@@ -356,6 +480,30 @@
               </footer>
             </section>
           </form>
+        </div>
+      </div>
+
+      <div class="modal-overlay" id="modal-historico-precos" hidden>
+        <div class="modal-content price-history-modal" data-close-target="false">
+          <header class="price-history-header">
+            <div>
+              <span class="section-kicker">Auditoria</span>
+              <h3>Histórico de preços</h3>
+              <p>Valores anteriores e novos, usuário responsável e data da alteração.</p>
+            </div>
+            <button class="btn-close" type="button" id="btn-fechar-historico-precos" title="Fechar">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </header>
+          <div class="price-history-body">
+            <div class="form-group price-history-filter">
+              <label for="historico-preco-produto">Filtrar pelo produto atual</label>
+              <select id="historico-preco-produto"><option value="">Todos os produtos</option></select>
+            </div>
+            <div class="price-history-list" id="lista-historico-precos">
+              <div class="empty-state">Carregando histórico...</div>
+            </div>
+          </div>
         </div>
       </div>
 

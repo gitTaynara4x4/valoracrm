@@ -7,32 +7,162 @@ import json
 import os
 import secrets
 import time
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+
+from dotenv import load_dotenv
 
 
 SESSION_COOKIE_NAME = "valora_session"
 SESSION_PURPOSE = "valora_session"
+MIN_SECRET_BYTES = 32
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+# Garante que o segredo seja lido mesmo quando este módulo for importado antes
+# de backend.database. Variáveis fornecidas pelo servidor têm prioridade.
+load_dotenv(_PROJECT_ROOT / ".env", override=False)
+load_dotenv(_PROJECT_ROOT / ".ENV", override=False)
+
+_PRODUCTION_ENVIRONMENTS = {
+    "prod",
+    "production",
+    "staging",
+    "homolog",
+    "homologacao",
+    "homologação",
+}
+
+
+def _configured_secret() -> Tuple[str, str]:
+    for variable_name in (
+        "VALORA_SESSION_SECRET",
+        "SESSION_SECRET",
+        "SECRET_KEY",
+    ):
+        value = str(os.getenv(variable_name) or "").strip()
+        if value:
+            return value, variable_name
+    return "", ""
+
+
+def _validate_secret(secret: str, source: str) -> bytes:
+    raw = secret.encode("utf-8")
+
+    if len(raw) < MIN_SECRET_BYTES:
+        raise RuntimeError(
+            f"{source} deve possuir pelo menos {MIN_SECRET_BYTES} bytes. "
+            "Gere um valor aleatório forte antes de iniciar o Valora."
+        )
+
+    normalized = secret.lower().replace("_", "-")
+    insecure_markers = (
+        "troque-este",
+        "troque-aqui",
+        "change-me",
+        "changeme",
+        "secret-here",
+        "sua-chave",
+        "sua-senha",
+    )
+    if any(marker in normalized for marker in insecure_markers):
+        raise RuntimeError(
+            f"{source} ainda contém um valor de exemplo. "
+            "Configure um segredo aleatório real antes de iniciar o Valora."
+        )
+
+    return raw
+
+
+def _development_secret_path() -> Path:
+    configured_path = str(os.getenv("VALORA_SESSION_SECRET_FILE") or "").strip()
+    if configured_path:
+        return Path(configured_path).expanduser().resolve()
+    return _PROJECT_ROOT / ".valora_session_secret"
+
+
+def _read_secret_file(path: Path) -> bytes:
+    try:
+        value = path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return b""
+    except OSError as exc:
+        raise RuntimeError(
+            f"Não foi possível ler o segredo local de sessão em '{path}': {exc}"
+        ) from exc
+
+    if not value:
+        raise RuntimeError(f"O arquivo de segredo de sessão está vazio: '{path}'.")
+
+    return _validate_secret(value, str(path))
+
+
+def _load_or_create_development_secret() -> bytes:
+    """Cria um segredo local persistente somente fora de produção.
+
+    O uso de criação exclusiva evita que dois workers gerem valores diferentes
+    durante a primeira inicialização. Todos passam a ler o mesmo arquivo.
+    """
+    path = _development_secret_path()
+    existing = _read_secret_file(path)
+    if existing:
+        return existing
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        generated = secrets.token_urlsafe(64)
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        file_descriptor = os.open(path, flags, 0o600)
+        try:
+            with os.fdopen(file_descriptor, "w", encoding="utf-8") as handle:
+                handle.write(generated + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+        except Exception:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise
+    except FileExistsError:
+        # Outro worker venceu a criação. Lê exatamente o mesmo segredo.
+        pass
+    except OSError as exc:
+        raise RuntimeError(
+            f"Não foi possível criar o segredo local de sessão em '{path}': {exc}"
+        ) from exc
+
+    secret = _read_secret_file(path)
+    if not secret:
+        raise RuntimeError(f"Não foi possível carregar o segredo de sessão em '{path}'.")
+
+    print(
+        "[SEGURANÇA] VALORA_SESSION_SECRET não foi configurado. "
+        f"Ambiente de desenvolvimento usando segredo persistente em '{path}'."
+    )
+    return secret
 
 
 def _load_secret() -> bytes:
-    configured = (
-        os.getenv("VALORA_SESSION_SECRET")
-        or os.getenv("SESSION_SECRET")
-        or os.getenv("SECRET_KEY")
-        or ""
-    ).strip()
-
+    configured, source = _configured_secret()
     if configured:
-        return configured.encode("utf-8")
+        if source != "VALORA_SESSION_SECRET":
+            print(
+                f"[SEGURANÇA] Usando {source} como segredo de sessão por compatibilidade. "
+                "Prefira configurar VALORA_SESSION_SECRET."
+            )
+        return _validate_secret(configured, source)
 
-    # Mantém o projeto funcionando em desenvolvimento sem deixar a sessão
-    # previsível. Em produção deve ser configurado VALORA_SESSION_SECRET.
-    generated = secrets.token_urlsafe(64)
-    print(
-        "[SEGURANÇA] VALORA_SESSION_SECRET não configurado. "
-        "Foi gerado um segredo temporário; sessões serão invalidadas ao reiniciar."
-    )
-    return generated.encode("utf-8")
+    environment = str(os.getenv("ENV") or "dev").strip().lower()
+    if environment in _PRODUCTION_ENVIRONMENTS:
+        raise RuntimeError(
+            "VALORA_SESSION_SECRET não configurado. Em produção o Valora não pode "
+            "gerar um segredo temporário, pois isso invalida sessões após reinícios "
+            "e causa falhas entre múltiplos workers ou servidores. Configure no "
+            "EasyPanel uma chave aleatória com pelo menos 32 bytes."
+        )
+
+    return _load_or_create_development_secret()
 
 
 _SECRET = _load_secret()

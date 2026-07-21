@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
 from backend import models
+from backend.security.permissions import user_has_permission
+from backend.security.session import SESSION_COOKIE_NAME, decode_session_token
 
 router = APIRouter(prefix="/api/campos-propostas", tags=["Campos Propostas"])
 
@@ -35,8 +37,57 @@ except Exception:
             orm_mode = True
 
 
-def validar_usuario_empresa(request: Request, db: Session) -> int:
-    return 1
+def validar_usuario_permissao(
+    request: Request,
+    db: Session,
+    acao: str,
+) -> models.Usuario:
+    """Valida sessão, empresa e permissão para campos de propostas.
+
+    A identidade e a empresa são obtidas exclusivamente da sessão assinada.
+    Depois, a ação solicitada é conferida no módulo ``propostas`` antes de
+    qualquer leitura ou alteração no banco.
+    """
+    session = decode_session_token(
+        request.cookies.get(SESSION_COOKIE_NAME, "")
+    )
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sessão inválida ou expirada.",
+        )
+
+    user_id = int(session["uid"])
+    session_empresa_id = int(session["eid"])
+
+    usuario = (
+        db.query(models.Usuario)
+        .filter(
+            models.Usuario.id == user_id,
+            models.Usuario.empresa_id == session_empresa_id,
+        )
+        .first()
+    )
+
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuário não encontrado para a empresa da sessão.",
+        )
+
+    if getattr(usuario, "ativo", True) is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuário inativo.",
+        )
+
+    if not user_has_permission(db, usuario, "propostas", acao):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Sem permissão para {acao} em propostas.",
+        )
+
+    return usuario
 
 
 def get_fields_set(payload) -> set:
@@ -144,7 +195,8 @@ def listar_campos_propostas(
     somente_ativos: bool = False,
     db: Session = Depends(get_db),
 ):
-    empresa_id = validar_usuario_empresa(request, db)
+    usuario = validar_usuario_permissao(request, db, "ver")
+    empresa_id = int(usuario.empresa_id)
 
     q = (
         db.query(models.CampoProposta)
@@ -164,7 +216,8 @@ def criar_campo_proposta(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    empresa_id = validar_usuario_empresa(request, db)
+    usuario = validar_usuario_permissao(request, db, "criar")
+    empresa_id = int(usuario.empresa_id)
 
     nome = (payload.nome or "").strip()
     if not nome:
@@ -204,7 +257,8 @@ def atualizar_campo_proposta(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    empresa_id = validar_usuario_empresa(request, db)
+    usuario = validar_usuario_permissao(request, db, "editar")
+    empresa_id = int(usuario.empresa_id)
     row = buscar_campo_empresa(db, campo_id, empresa_id)
 
     if not row:
@@ -254,7 +308,8 @@ def excluir_campo_proposta(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    empresa_id = validar_usuario_empresa(request, db)
+    usuario = validar_usuario_permissao(request, db, "excluir")
+    empresa_id = int(usuario.empresa_id)
     row = buscar_campo_empresa(db, campo_id, empresa_id)
 
     if not row:

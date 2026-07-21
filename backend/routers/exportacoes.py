@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from backend import models
 from backend.database import SessionLocal
 from backend.dynamic_filters import apply_dynamic_filters, parse_bool
+from backend.security.permissions import get_current_user, user_has_permission
 
 router = APIRouter(prefix="/api/exportacoes", tags=["Exportações"])
 
@@ -32,27 +33,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-
-def get_empresa_id(request: Request, db: Session) -> int:
-    user_id = str(request.cookies.get("user_id") or "").strip()
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        user_id_int = int(user_id)
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(models.Usuario).filter(models.Usuario.id == user_id_int).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-    if getattr(usuario, "ativo", True) is False:
-        raise HTTPException(status_code=403, detail="Usuário inativo.")
-
-    return int(usuario.empresa_id)
 
 
 # -----------------------------------------------------------------------------
@@ -1065,6 +1045,7 @@ def exportar_modulo(
     request: Request,
     somente_preenchidos: bool = Query(default=True),
     db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
 ):
     modulo = str(modulo or "").strip().lower()
     formato = str(formato or "").strip().lower()
@@ -1074,7 +1055,13 @@ def exportar_modulo(
     if formato not in FORMATTERS:
         raise HTTPException(status_code=400, detail="Formato inválido. Use PDF, XLSX, CSV, JSON ou TXT.")
 
-    empresa_id = get_empresa_id(request, db)
+    if not user_has_permission(db, current_user, modulo, "ver"):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Sem permissão para ver em {modulo}.",
+        )
+
+    empresa_id = int(current_user.empresa_id)
     dataset = _build_dataset(modulo, request, db, empresa_id, filled_only=bool(somente_preenchidos))
 
     formatter, media_type = FORMATTERS[formato]

@@ -1326,3 +1326,645 @@ html[data-theme="dark"] #tbody-produtos .produto-warning-chip {
   border-color: rgba(101, 172, 222, 0.36);
   background: rgba(101, 172, 222, 0.14);
 }
+
+/* =========================================
+   ATUALIZAÇÃO RÁPIDA DE PREÇOS
+   ========================================= */
+
+.price-update-screen[hidden],
+#tela-catalogo-produtos[hidden],
+.topbar[hidden] {
+  display: none !important;
+}
+
+.price-update-screen {
+  padding-bottom: 96px;
+}
+
+.price-update-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.price-update-header h2 {
+  margin: 5px 0 5px;
+  color: var(--text);
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.price-update-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.price-back-button {
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.price-back-button:hover {
+  color: var(--text);
+}
+
+.price-update-header-actions,
+.price-filter-buttons,
+.price-save-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.price-filter-card,
+.price-table-card {
+  border-radius: 10px;
+}
+
+.price-filter-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.price-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.6fr) repeat(3, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+.price-filter-grid .form-group {
+  min-width: 0;
+}
+
+.price-filter-grid select:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.price-filter-actions {
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.price-change-summary {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.price-change-summary strong {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.price-change-summary span {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.price-table-card {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.price-table-toolbar {
+  min-height: 54px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.price-table-help {
+  min-width: 0;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.price-table-help i {
+  color: var(--brand);
+}
+
+.price-table-wrapper {
+  position: relative;
+  width: 100%;
+  max-height: calc(100dvh - 365px);
+  min-height: 320px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.price-update-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--panel);
+  font-size: 12px;
+}
+
+.price-update-table th,
+.price-update-table td {
+  height: 52px;
+  padding: 8px 10px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.price-update-table th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  min-width: 170px;
+  background: var(--panel-2, var(--panel));
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  text-transform: none;
+}
+
+.price-update-table th > span {
+  display: inline-block;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.price-update-table th > i {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.price-update-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.price-update-table th:last-child,
+.price-update-table td:last-child {
+  border-right: 0;
+}
+
+.price-update-table tbody tr:hover td {
+  background: var(--hover, rgba(15, 23, 42, 0.025));
+}
+
+.price-update-table tbody tr.has-price-changes td {
+  background: color-mix(in srgb, var(--brand) 4%, var(--panel));
+}
+
+.price-sticky-code,
+.price-sticky-name {
+  position: sticky !important;
+  z-index: 4;
+}
+
+.price-update-table thead .price-sticky-code,
+.price-update-table thead .price-sticky-name {
+  z-index: 8;
+}
+
+.price-sticky-code {
+  left: 0;
+  width: 108px;
+  min-width: 108px !important;
+  max-width: 108px;
+}
+
+.price-sticky-name {
+  left: 108px;
+  width: 300px;
+  min-width: 300px !important;
+  max-width: 300px;
+  box-shadow: 6px 0 10px rgba(15, 23, 42, 0.035);
+}
+
+.price-product-name {
+  min-width: 0;
+  max-width: 275px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  white-space: normal;
+}
+
+.price-product-name strong {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.price-product-name span {
+  color: var(--muted);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.price-value-cell {
+  min-width: 170px;
+  transition: background-color 0.12s ease;
+}
+
+.price-value-cell.is-price-changed {
+  background: color-mix(in srgb, var(--brand) 10%, var(--panel)) !important;
+  box-shadow: inset 0 -2px 0 var(--brand);
+}
+
+.price-input-wrap {
+  position: relative;
+  min-width: 145px;
+}
+
+.price-inline-input {
+  width: 100%;
+  min-width: 145px;
+  height: 34px;
+  padding: 6px 28px 6px 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  outline: none;
+}
+
+.price-inline-input:hover:not([readonly]) {
+  border-color: var(--border);
+  background: var(--panel);
+}
+
+.price-inline-input:focus:not([readonly]) {
+  border-color: var(--brand);
+  background: var(--panel);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 12%, transparent);
+}
+
+.price-inline-input[readonly] {
+  color: var(--muted);
+  cursor: default;
+}
+
+.price-field-lock {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 9px;
+  pointer-events: none;
+}
+
+.price-pagination {
+  min-height: 52px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.price-pagination-top {
+  border-top: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.price-save-bar {
+  position: fixed;
+  right: 28px;
+  bottom: 18px;
+  left: calc(var(--sidebar-width, 250px) + 28px);
+  z-index: 40;
+  min-height: 66px;
+  padding: 12px 14px 12px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.price-save-bar[hidden] {
+  display: none !important;
+}
+
+.price-save-bar > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.price-save-bar strong {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.price-save-bar span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.price-save-bar input {
+  width: min(360px, 32vw);
+  min-width: 220px;
+  height: 38px;
+}
+
+/* Histórico */
+
+#modal-historico-precos {
+  position: fixed !important;
+  inset: 0 !important;
+  padding: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+#modal-historico-precos[hidden] {
+  display: none !important;
+}
+
+.price-history-modal {
+  width: min(900px, calc(100vw - 56px));
+  max-height: calc(100dvh - 56px);
+  padding: 0 !important;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.price-history-header {
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.price-history-header h3 {
+  margin: 3px 0 4px;
+  color: var(--text);
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.price-history-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.price-history-body {
+  min-height: 0;
+  padding: 16px 18px 20px;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+}
+
+.price-history-filter {
+  max-width: 420px;
+}
+
+.price-history-list {
+  min-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.price-history-item {
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 10px 18px;
+}
+
+.price-history-product {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.price-history-product > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.price-history-product strong {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.price-history-product span:not(.badge-codigo) {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.price-history-change {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.price-history-change span {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.price-history-change i {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.price-history-change strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.price-history-meta {
+  grid-column: 1 / -1;
+  padding-top: 9px;
+  border-top: 1px dashed var(--border);
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 10.5px;
+}
+
+.price-history-meta i {
+  margin-right: 4px;
+}
+
+.price-history-reason {
+  flex-basis: 100%;
+}
+
+@media (max-width: 1180px) {
+  .price-filter-grid {
+    grid-template-columns: repeat(3, minmax(170px, 1fr));
+  }
+
+  .price-filter-search {
+    grid-column: span 2;
+  }
+
+  .price-save-bar {
+    left: 24px;
+  }
+}
+
+@media (max-width: 760px) {
+  .price-update-screen {
+    padding-bottom: 130px;
+  }
+
+  .price-update-header,
+  .price-filter-head,
+  .price-filter-actions,
+  .price-save-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .price-update-header-actions,
+  .price-filter-buttons,
+  .price-save-bar-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .price-update-header-actions .btn,
+  .price-filter-buttons .btn,
+  .price-save-bar-actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .price-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .price-filter-search {
+    grid-column: auto;
+  }
+
+  .price-table-wrapper {
+    max-height: calc(100dvh - 420px);
+  }
+
+  .price-sticky-name {
+    left: 92px;
+    min-width: 220px !important;
+    width: 220px;
+    max-width: 220px;
+  }
+
+  .price-sticky-code {
+    min-width: 92px !important;
+    width: 92px;
+    max-width: 92px;
+  }
+
+  .price-product-name {
+    max-width: 195px;
+  }
+
+  .price-save-bar {
+    right: 12px;
+    bottom: 10px;
+    left: 12px;
+  }
+
+  .price-save-bar input {
+    width: 100%;
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  #modal-historico-precos {
+    padding: 10px !important;
+  }
+
+  .price-history-modal {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+
+  .price-history-item {
+    grid-template-columns: 1fr;
+  }
+
+  .price-history-change {
+    justify-content: flex-start;
+  }
+}
+
+html[data-theme="dark"] .price-update-table th,
+html[data-theme="dark"] .price-update-table td,
+html[data-theme="dark"] .price-update-table,
+html[data-theme="dark"] .price-save-bar,
+html[data-theme="dark"] .price-history-modal,
+html[data-theme="dark"] .price-history-item {
+  background: var(--panel);
+}
+
+html[data-theme="dark"] .price-sticky-name {
+  box-shadow: 6px 0 12px rgba(0, 0, 0, 0.18);
+}

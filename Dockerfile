@@ -8,7 +8,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Copia somente os arquivos necessarios para executar o sistema.
+# Credenciais devem ser fornecidas pelas variaveis do EasyPanel/Docker.
+COPY backend ./backend
+COPY frontend ./frontend
+COPY evo_db.py ./evo_db.py
+
+# Dados enviados por usuarios devem ficar em volume persistente.
+RUN mkdir -p /app/uploads
 
 EXPOSE 5888
 

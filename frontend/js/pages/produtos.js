@@ -59,6 +59,14 @@
   let produtoAtualDetalhe = null;
   let produtoModalSomenteLeitura = false;
 
+  let atualizacaoPrecosMeta = null;
+  let atualizacaoPrecosItens = [];
+  let atualizacaoPrecosPage = { offset: 0, limit: 100, total: 0, hasMore: false };
+  let alteracoesPrecos = new Map();
+  let podeEditarPrecos = false;
+  let telaPrecosAberta = false;
+  let atualizacaoPrecosBuscaTimer = null;
+
   async function syncAgendaProduto(produto = null, readonly = false) {
     try {
       const agenda = await window.ValoraAgendaReady;
@@ -1738,8 +1746,583 @@
     toast('Ficha de Produtos atualizada.', { ms: 1800 });
   }
 
+  function canonicalPriceValue(value) {
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+
+    let cleaned = raw
+      .replace(/R\$/gi, '')
+      .replace(/%/g, '')
+      .replace(/[\s\u00a0]/g, '');
+
+    if (cleaned.includes(',') && cleaned.includes('.')) {
+      if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')) {
+        cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      } else {
+        cleaned = cleaned.replace(/,/g, '');
+      }
+    } else if (cleaned.includes(',')) {
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else if ((cleaned.match(/\./g) || []).length > 1) {
+      const parts = cleaned.split('.');
+      cleaned = `${parts.slice(0, -1).join('')}.${parts.at(-1)}`;
+    }
+
+    const number = Number(cleaned);
+    if (!Number.isFinite(number)) return raw;
+    return String(number);
+  }
+
+  function formatPriceInputValue(value) {
+    return String(value ?? '').trim();
+  }
+
+  function priceFieldMap() {
+    return new Map((atualizacaoPrecosMeta?.campos_preco || []).map((field) => [String(field.key), field]));
+  }
+
+  function getPendingProduct(productId) {
+    return alteracoesPrecos.get(Number(productId)) || null;
+  }
+
+  function getPendingValue(productId, key, fallback = '') {
+    const pending = getPendingProduct(productId);
+    if (!pending) return fallback;
+    return pending.valores.has(String(key)) ? pending.valores.get(String(key)) : fallback;
+  }
+
+  function totalCamposAlteradosPrecos() {
+    let total = 0;
+    alteracoesPrecos.forEach((item) => { total += item.valores.size; });
+    return total;
+  }
+
+  function atualizarResumoAlteracoesPrecos() {
+    const produtosAlterados = alteracoesPrecos.size;
+    const camposAlterados = totalCamposAlteradosPrecos();
+    const hasChanges = produtosAlterados > 0;
+    const text = hasChanges
+      ? `${produtosAlterados} produto(s) e ${camposAlterados} campo(s) alterado(s)`
+      : 'Nenhuma alteração pendente';
+
+    if ($('contador-alteracoes-precos')) $('contador-alteracoes-precos').textContent = text;
+    if ($('barra-contador-precos')) $('barra-contador-precos').textContent = hasChanges
+      ? `${produtosAlterados} produto(s) alterado(s)`
+      : '0 produtos alterados';
+
+    ['btn-salvar-precos', 'btn-salvar-precos-barra'].forEach((id) => {
+      const button = $(id);
+      if (button) button.disabled = !hasChanges || !podeEditarPrecos;
+    });
+
+    ['btn-descartar-precos', 'btn-descartar-precos-barra'].forEach((id) => {
+      const button = $(id);
+      if (button) button.disabled = !hasChanges;
+    });
+
+    const bar = $('barra-salvar-precos');
+    if (bar) bar.hidden = !hasChanges;
+  }
+
+  function setPriceFilterOptions(selectId, filterMeta, emptyLabel) {
+    const select = $(selectId);
+    if (!select) return;
+
+    const options = Array.isArray(filterMeta?.options) ? filterMeta.options : [];
+    const configured = filterMeta?.source === 'native' || !!filterMeta?.campo;
+
+    select.innerHTML = `<option value="">${escapeHtml(emptyLabel)}</option>` + options.map((value) => (
+      `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`
+    )).join('');
+
+    select.disabled = !configured;
+    select.title = configured ? '' : 'Esse campo ainda não foi configurado no formulário de Produtos.';
+
+    if (!configured) {
+      select.innerHTML = '<option value="">Campo não configurado</option>';
+    }
+  }
+
+  function preencherFiltrosAtualizacaoPrecos() {
+    const filters = atualizacaoPrecosMeta?.filtros || {};
+    setPriceFilterOptions('preco-filtro-situacao', filters.situacao_comercial, 'Todas');
+    setPriceFilterOptions('preco-filtro-tipo', filters.tipo_produto, 'Todos');
+    setPriceFilterOptions('preco-filtro-origem', filters.origem_produto, 'Todas');
+    setPriceFilterOptions('preco-filtro-categoria', filters.categoria, 'Todas');
+    setPriceFilterOptions('preco-filtro-fornecedor', filters.fornecedor, 'Todos');
+    setPriceFilterOptions('preco-filtro-fabricante', filters.fabricante, 'Todos');
+  }
+
+  async function carregarMetaAtualizacaoPrecos() {
+    const [meta, me] = await Promise.all([
+      apiJson(`${API_PRODUTOS}/atualizacao-precos/meta`),
+      apiJson('/api/permissoes/me'),
+    ]);
+
+    atualizacaoPrecosMeta = meta || { campos_preco: [], filtros: {} };
+    podeEditarPrecos = !!me?.permissoes?.produtos?.pode_editar;
+    preencherFiltrosAtualizacaoPrecos();
+
+    const priceFields = atualizacaoPrecosMeta?.campos_preco || [];
+    const editable = priceFields.filter((field) => field.editable).length;
+    const info = $('aviso-campos-precos');
+    if (info) {
+      info.textContent = podeEditarPrecos
+        ? `${priceFields.length} campo(s) de preço identificado(s), ${editable} editável(is).`
+        : 'Você pode consultar os valores, mas não possui permissão para editá-los.';
+    }
+  }
+
+  function montarUrlAtualizacaoPrecos({ offset = atualizacaoPrecosPage.offset || 0 } = {}) {
+    const params = new URLSearchParams({
+      limit: String(atualizacaoPrecosPage.limit || 100),
+      offset: String(offset),
+    });
+
+    const fields = {
+      busca: 'preco-filtro-busca',
+      situacao_comercial: 'preco-filtro-situacao',
+      tipo_produto: 'preco-filtro-tipo',
+      origem_produto: 'preco-filtro-origem',
+      categoria: 'preco-filtro-categoria',
+      fornecedor: 'preco-filtro-fornecedor',
+      fabricante: 'preco-filtro-fabricante',
+    };
+
+    Object.entries(fields).forEach(([key, id]) => {
+      const value = String($(id)?.value || '').trim();
+      if (value) params.set(key, value);
+    });
+
+    return `${API_PRODUTOS}/atualizacao-precos?${params.toString()}`;
+  }
+
+  function setAtualizacaoPrecosLoading(message = 'Carregando produtos e campos de preço...') {
+    const tbody = $('tbody-atualizacao-precos');
+    if (!tbody) return;
+    const colspan = Math.max(3, 2 + (atualizacaoPrecosMeta?.campos_preco || []).length);
+    tbody.innerHTML = `<tr><td colspan="${colspan}" class="empty-state">${escapeHtml(message)}</td></tr>`;
+  }
+
+  async function carregarAtualizacaoPrecos({ offset = atualizacaoPrecosPage.offset || 0, silent = false } = {}) {
+    try {
+      if (!atualizacaoPrecosMeta) await carregarMetaAtualizacaoPrecos();
+      if (!silent) setAtualizacaoPrecosLoading();
+
+      const data = await apiJson(montarUrlAtualizacaoPrecos({ offset }));
+      atualizacaoPrecosItens = Array.isArray(data?.items) ? data.items : [];
+      atualizacaoPrecosPage = {
+        offset: Number(data?.offset || 0),
+        limit: Number(data?.limit || 100),
+        total: Number(data?.total || 0),
+        hasMore: !!data?.has_more,
+      };
+
+      if (Array.isArray(data?.campos_preco) && data.campos_preco.length) {
+        atualizacaoPrecosMeta.campos_preco = data.campos_preco;
+      }
+
+      renderTabelaAtualizacaoPrecos();
+    } catch (error) {
+      atualizacaoPrecosItens = [];
+      renderTabelaAtualizacaoPrecos();
+      toast(error.message || 'Erro ao carregar atualização de preços.', { error: true, ms: 5000 });
+    }
+  }
+
+  function fieldInputMode(field) {
+    return ['moeda', 'numero', 'percentual'].includes(String(field?.tipo || '').toLowerCase()) ? 'decimal' : 'text';
+  }
+
+  function renderPriceCell(product, field) {
+    const original = String(product?.valores?.[field.key] ?? '');
+    const effective = getPendingValue(product.id, field.key, original);
+    const pending = getPendingProduct(product.id)?.valores.has(String(field.key));
+    const readonly = !podeEditarPrecos || !field.editable;
+    const title = readonly ? `${field.label} — somente leitura` : `${field.label} — editável`;
+    const options = Array.isArray(field?.options) ? [...field.options] : [];
+    if (effective && !options.some((option) => String(option) === String(effective))) options.unshift(effective);
+
+    const commonAttributes = `
+      data-price-input="true"
+      data-product-id="${escapeHtml(product.id)}"
+      data-product-code="${escapeHtml(product.codigo || '')}"
+      data-product-name="${escapeHtml(product.nome || '')}"
+      data-field-key="${escapeHtml(field.key)}"
+      data-original-value="${escapeHtml(original)}"
+      title="${escapeHtml(title)}"
+      aria-label="${escapeHtml(`${field.label} de ${product.nome}`)}"
+    `;
+
+    const editor = options.length
+      ? `
+        <select class="price-inline-input price-inline-select" ${commonAttributes} ${readonly ? 'disabled' : ''}>
+          <option value="">—</option>
+          ${options.map((option) => `
+            <option value="${escapeHtml(option)}" ${String(option) === String(effective) ? 'selected' : ''}>${escapeHtml(option)}</option>
+          `).join('')}
+        </select>
+      `
+      : `
+        <input
+          class="price-inline-input"
+          type="text"
+          inputmode="${fieldInputMode(field)}"
+          value="${escapeHtml(formatPriceInputValue(effective))}"
+          ${commonAttributes}
+          maxlength="80"
+          ${readonly ? 'readonly' : ''}
+        />
+      `;
+
+    return `
+      <td class="price-value-cell ${pending ? 'is-price-changed' : ''}" data-price-cell="${escapeHtml(product.id)}:${escapeHtml(field.key)}">
+        <div class="price-input-wrap">
+          ${editor}
+          ${readonly ? '<i class="fa-solid fa-lock price-field-lock" aria-hidden="true"></i>' : ''}
+        </div>
+      </td>
+    `;
+  }
+
+  function renderTabelaAtualizacaoPrecos() {
+    const thead = $('thead-atualizacao-precos');
+    const tbody = $('tbody-atualizacao-precos');
+    const count = $('contagem-atualizacao-precos');
+    if (!thead || !tbody) return;
+
+    const fields = atualizacaoPrecosMeta?.campos_preco || [];
+    thead.innerHTML = `
+      <tr>
+        <th class="price-sticky-code">Código</th>
+        <th class="price-sticky-name">Nome oficial do produto</th>
+        ${fields.map((field) => `
+          <th title="${escapeHtml(field.secao || 'Formação de preços')}">
+            <span>${escapeHtml(field.label)}</span>
+            ${field.editable ? '' : '<i class="fa-solid fa-lock" title="Somente leitura"></i>'}
+          </th>
+        `).join('')}
+      </tr>
+    `;
+
+    if (!atualizacaoPrecosItens.length) {
+      tbody.innerHTML = `<tr><td colspan="${Math.max(2, 2 + fields.length)}" class="empty-state">Nenhum produto encontrado.</td></tr>`;
+    } else {
+      tbody.innerHTML = atualizacaoPrecosItens.map((product) => `
+        <tr data-price-row="${escapeHtml(product.id)}" class="${getPendingProduct(product.id) ? 'has-price-changes' : ''}">
+          <td class="price-sticky-code"><span class="badge-codigo">${escapeHtml(product.codigo || '-')}</span></td>
+          <td class="price-sticky-name">
+            <div class="price-product-name">
+              <strong>${escapeHtml(product.nome || '-')}</strong>
+              <span>${escapeHtml(product.categoria || (product.ativo ? 'Ativo' : 'Inativo'))}</span>
+            </div>
+          </td>
+          ${fields.map((field) => renderPriceCell(product, field)).join('')}
+        </tr>
+      `).join('');
+    }
+
+    const total = Number(atualizacaoPrecosPage.total || 0);
+    const start = total ? Number(atualizacaoPrecosPage.offset || 0) + 1 : 0;
+    const end = Math.min(Number(atualizacaoPrecosPage.offset || 0) + atualizacaoPrecosItens.length, total);
+    if (count) count.textContent = total ? `${start}-${end} de ${total} produtos` : '0 produtos';
+
+    renderPaginacaoAtualizacaoPrecos();
+    atualizarResumoAlteracoesPrecos();
+  }
+
+  function renderPaginacaoAtualizacaoPrecos() {
+    const wraps = document.querySelectorAll('[data-pagination="atualizacao-precos"]');
+    if (!wraps.length) return;
+
+    const offset = Number(atualizacaoPrecosPage.offset || 0);
+    const limit = Number(atualizacaoPrecosPage.limit || 100);
+    const total = Number(atualizacaoPrecosPage.total || 0);
+    const page = total ? Math.floor(offset / limit) + 1 : 1;
+    const pages = Math.max(1, Math.ceil(total / limit));
+    const lastOffset = Math.max(0, (pages - 1) * limit);
+
+    const html = `
+      <button class="btn btn-secondary btn-sm" type="button" data-price-page="first" ${offset <= 0 ? 'disabled' : ''}>Primeira</button>
+      <button class="btn btn-secondary btn-sm" type="button" data-price-page="prev" ${offset <= 0 ? 'disabled' : ''}>Anterior</button>
+      <span class="pagination-info">Página ${page} de ${pages}</span>
+      <button class="btn btn-secondary btn-sm" type="button" data-price-page="next" ${!atualizacaoPrecosPage.hasMore ? 'disabled' : ''}>Próxima</button>
+      <button class="btn btn-secondary btn-sm" type="button" data-price-page="last" data-last-offset="${lastOffset}" ${offset >= lastOffset ? 'disabled' : ''}>Última</button>
+    `;
+    wraps.forEach((wrap) => { wrap.innerHTML = html; });
+  }
+
+  function registrarAlteracaoPreco(input) {
+    if (!input || input.readOnly) return;
+
+    const productId = Number(input.dataset.productId);
+    const key = String(input.dataset.fieldKey || '');
+    const original = String(input.dataset.originalValue || '');
+    const current = String(input.value || '').trim();
+    if (!productId || !key) return;
+
+    let pending = getPendingProduct(productId);
+    const isSame = canonicalPriceValue(current) === canonicalPriceValue(original);
+
+    if (isSame) {
+      if (pending) {
+        pending.valores.delete(key);
+        if (!pending.valores.size) alteracoesPrecos.delete(productId);
+      }
+    } else {
+      if (!pending) {
+        pending = {
+          produto_id: productId,
+          codigo: input.dataset.productCode || '',
+          nome: input.dataset.productName || '',
+          valores: new Map(),
+        };
+        alteracoesPrecos.set(productId, pending);
+      }
+      pending.valores.set(key, current);
+    }
+
+    const cell = input.closest('.price-value-cell');
+    cell?.classList.toggle('is-price-changed', !isSame);
+    input.closest('tr')?.classList.toggle('has-price-changes', !!getPendingProduct(productId));
+    atualizarResumoAlteracoesPrecos();
+  }
+
+  async function salvarAlteracoesPrecos() {
+    if (!podeEditarPrecos) {
+      toast('Você não possui permissão para editar Produtos.', { error: true });
+      return;
+    }
+    if (!alteracoesPrecos.size) return;
+    if (alteracoesPrecos.size > Number(atualizacaoPrecosMeta?.limite_lote || 500)) {
+      toast('O lote ultrapassa o limite de produtos permitido.', { error: true, ms: 4200 });
+      return;
+    }
+
+    const ok = await confirmDialog({
+      title: 'Salvar atualização de preços',
+      message: `Confirmar alterações em ${alteracoesPrecos.size} produto(s)? O histórico será registrado.`,
+      confirmText: 'Salvar',
+      cancelText: 'Revisar',
+    });
+    if (!ok) return;
+
+    const buttons = [$('btn-salvar-precos'), $('btn-salvar-precos-barra')].filter(Boolean);
+    buttons.forEach((button) => { button.disabled = true; });
+
+    try {
+      const payload = {
+        motivo: String($('motivo-atualizacao-precos')?.value || '').trim() || null,
+        itens: Array.from(alteracoesPrecos.values()).map((item) => ({
+          produto_id: item.produto_id,
+          valores: Object.fromEntries(item.valores.entries()),
+        })),
+      };
+
+      const result = await apiJson(`${API_PRODUTOS}/atualizacao-precos`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+
+      alteracoesPrecos.clear();
+      if ($('motivo-atualizacao-precos')) $('motivo-atualizacao-precos').value = '';
+      await carregarMetaAtualizacaoPrecos();
+      await carregarAtualizacaoPrecos({ offset: atualizacaoPrecosPage.offset });
+      toast(result?.message || 'Valores atualizados com sucesso.', { ms: 2500 });
+    } catch (error) {
+      toast(error.message || 'Erro ao salvar atualização de preços.', { error: true, ms: 5200 });
+    } finally {
+      atualizarResumoAlteracoesPrecos();
+    }
+  }
+
+  async function descartarAlteracoesPrecos({ ask = true } = {}) {
+    if (!alteracoesPrecos.size) return true;
+    if (ask) {
+      const ok = await confirmDialog({
+        title: 'Descartar alterações',
+        message: 'As alterações ainda não salvas serão perdidas. Deseja continuar?',
+        confirmText: 'Descartar',
+        cancelText: 'Continuar editando',
+        danger: true,
+      });
+      if (!ok) return false;
+    }
+
+    alteracoesPrecos.clear();
+    renderTabelaAtualizacaoPrecos();
+    return true;
+  }
+
+  async function abrirTelaAtualizacaoPrecos() {
+    telaPrecosAberta = true;
+    $('tela-catalogo-produtos')?.setAttribute('hidden', '');
+    $('tela-atualizacao-precos')?.removeAttribute('hidden');
+    document.querySelector('.topbar')?.setAttribute('hidden', '');
+
+    try {
+      await carregarMetaAtualizacaoPrecos();
+      await carregarAtualizacaoPrecos({ offset: 0 });
+    } catch (error) {
+      toast(error.message || 'Não foi possível abrir a atualização de preços.', { error: true, ms: 5000 });
+    }
+  }
+
+  async function fecharTelaAtualizacaoPrecos() {
+    if (alteracoesPrecos.size) {
+      const discarded = await descartarAlteracoesPrecos({ ask: true });
+      if (!discarded) return;
+    }
+
+    telaPrecosAberta = false;
+    $('tela-atualizacao-precos')?.setAttribute('hidden', '');
+    $('tela-catalogo-produtos')?.removeAttribute('hidden');
+    document.querySelector('.topbar')?.removeAttribute('hidden');
+    await carregarProdutos({ offset: produtosPage.offset, silent: true });
+  }
+
+  function formatHistoryDate(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return new Intl.DateTimeFormat('pt-BR', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    }).format(date);
+  }
+
+  function formatHistoryValue(fieldKey, value) {
+    if (value === null || value === undefined || String(value).trim() === '') return 'Vazio';
+    const field = priceFieldMap().get(String(fieldKey));
+    if (field?.tipo === 'moeda') return formatCurrency(value);
+    if (field?.tipo === 'percentual') return `${String(value)}%`;
+    return String(value);
+  }
+
+  async function carregarHistoricoPrecos() {
+    const list = $('lista-historico-precos');
+    if (!list) return;
+    list.innerHTML = '<div class="empty-state">Carregando histórico...</div>';
+
+    try {
+      const productId = String($('historico-preco-produto')?.value || '').trim();
+      const params = new URLSearchParams({ limit: '200' });
+      if (productId) params.set('produto_id', productId);
+      const rows = await apiJson(`${API_PRODUTOS}/atualizacao-precos/historico?${params.toString()}`);
+
+      if (!Array.isArray(rows) || !rows.length) {
+        list.innerHTML = '<div class="empty-state">Nenhuma alteração de preço registrada.</div>';
+        return;
+      }
+
+      list.innerHTML = rows.map((row) => `
+        <article class="price-history-item">
+          <div class="price-history-product">
+            <span class="badge-codigo">${escapeHtml(row.produto_codigo || '-')}</span>
+            <div><strong>${escapeHtml(row.produto_nome || '-')}</strong><span>${escapeHtml(row.campo_nome || '-')}</span></div>
+          </div>
+          <div class="price-history-change">
+            <span>${escapeHtml(formatHistoryValue(row.campo_chave, row.valor_anterior))}</span>
+            <i class="fa-solid fa-arrow-right"></i>
+            <strong>${escapeHtml(formatHistoryValue(row.campo_chave, row.valor_novo))}</strong>
+          </div>
+          <div class="price-history-meta">
+            <span><i class="fa-regular fa-user"></i> ${escapeHtml(row.usuario_nome || '-')}</span>
+            <span><i class="fa-regular fa-clock"></i> ${escapeHtml(formatHistoryDate(row.criado_em))}</span>
+            ${row.motivo ? `<span class="price-history-reason"><i class="fa-regular fa-comment"></i> ${escapeHtml(row.motivo)}</span>` : ''}
+          </div>
+        </article>
+      `).join('');
+    } catch (error) {
+      list.innerHTML = `<div class="empty-state is-error">${escapeHtml(error.message || 'Erro ao carregar histórico.')}</div>`;
+    }
+  }
+
+  async function abrirHistoricoPrecos() {
+    const select = $('historico-preco-produto');
+    if (select) {
+      const current = select.value;
+      const products = [...atualizacaoPrecosItens].sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+      select.innerHTML = '<option value="">Todos os produtos</option>' + products.map((product) => (
+        `<option value="${escapeHtml(product.id)}">${escapeHtml(`${product.codigo || ''} — ${product.nome || ''}`)}</option>`
+      )).join('');
+      select.value = current;
+    }
+    openModal('modal-historico-precos');
+    await carregarHistoricoPrecos();
+  }
+
+  function fecharHistoricoPrecos() {
+    closeModal('modal-historico-precos');
+  }
+
+  function bindEventosAtualizacaoPrecos() {
+    $('btn-atualizacao-precos')?.addEventListener('click', abrirTelaAtualizacaoPrecos);
+    $('btn-voltar-catalogo-produtos')?.addEventListener('click', fecharTelaAtualizacaoPrecos);
+    $('btn-salvar-precos')?.addEventListener('click', salvarAlteracoesPrecos);
+    $('btn-salvar-precos-barra')?.addEventListener('click', salvarAlteracoesPrecos);
+    $('btn-descartar-precos')?.addEventListener('click', () => descartarAlteracoesPrecos({ ask: true }));
+    $('btn-descartar-precos-barra')?.addEventListener('click', () => descartarAlteracoesPrecos({ ask: true }));
+    $('btn-historico-precos')?.addEventListener('click', abrirHistoricoPrecos);
+    $('btn-fechar-historico-precos')?.addEventListener('click', fecharHistoricoPrecos);
+    $('historico-preco-produto')?.addEventListener('change', carregarHistoricoPrecos);
+
+    const historyModal = $('modal-historico-precos');
+    historyModal?.addEventListener('click', (event) => {
+      if (event.target === historyModal) fecharHistoricoPrecos();
+    });
+
+    const reloadPriceFilters = (delay = 0) => {
+      clearTimeout(atualizacaoPrecosBuscaTimer);
+      atualizacaoPrecosBuscaTimer = setTimeout(() => carregarAtualizacaoPrecos({ offset: 0, silent: true }), delay);
+    };
+
+    $('preco-filtro-busca')?.addEventListener('input', () => reloadPriceFilters(350));
+    ['preco-filtro-situacao', 'preco-filtro-tipo', 'preco-filtro-origem', 'preco-filtro-categoria', 'preco-filtro-fornecedor', 'preco-filtro-fabricante']
+      .forEach((id) => $(id)?.addEventListener('change', () => reloadPriceFilters(0)));
+
+    $('btn-filtrar-precos')?.addEventListener('click', () => carregarAtualizacaoPrecos({ offset: 0 }));
+    $('btn-limpar-filtros-precos')?.addEventListener('click', () => {
+      ['preco-filtro-busca', 'preco-filtro-situacao', 'preco-filtro-tipo', 'preco-filtro-origem', 'preco-filtro-categoria', 'preco-filtro-fornecedor', 'preco-filtro-fabricante']
+        .forEach((id) => { if ($(id)) $(id).value = ''; });
+      carregarAtualizacaoPrecos({ offset: 0 });
+    });
+
+    const priceTableBody = $('tbody-atualizacao-precos');
+    const handlePriceInput = (event) => {
+      const input = event.target.closest('[data-price-input]');
+      if (input) registrarAlteracaoPreco(input);
+    };
+    priceTableBody?.addEventListener('input', handlePriceInput);
+    priceTableBody?.addEventListener('change', handlePriceInput);
+
+    document.querySelectorAll('[data-pagination="atualizacao-precos"]').forEach((wrap) => {
+      wrap.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-price-page]');
+        if (!button || button.disabled) return;
+        const offset = Number(atualizacaoPrecosPage.offset || 0);
+        const limit = Number(atualizacaoPrecosPage.limit || 100);
+        const total = Number(atualizacaoPrecosPage.total || 0);
+        const lastOffset = Math.max(0, (Math.max(1, Math.ceil(total / limit)) - 1) * limit);
+        let nextOffset = offset;
+        if (button.dataset.pricePage === 'first') nextOffset = 0;
+        if (button.dataset.pricePage === 'prev') nextOffset = Math.max(0, offset - limit);
+        if (button.dataset.pricePage === 'next') nextOffset = Math.min(lastOffset, offset + limit);
+        if (button.dataset.pricePage === 'last') nextOffset = lastOffset;
+        carregarAtualizacaoPrecos({ offset: nextOffset });
+      });
+    });
+
+    window.addEventListener('beforeunload', (event) => {
+      if (!alteracoesPrecos.size) return;
+      event.preventDefault();
+      event.returnValue = '';
+    });
+  }
+
   function bindEventos() {
     desativarValidacaoGlobalProduto();
+    bindEventosAtualizacaoPrecos();
     const modalProdutoBackdrop = $('modal-produto-backdrop');
     const confirmBackdrop = $('Valora-confirm-backdrop');
 

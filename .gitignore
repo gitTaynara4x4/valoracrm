@@ -1,4 +1,4 @@
-﻿# venv
+# Ambientes virtuais
 .venv/
 .venv-*/
 venv/
@@ -6,15 +6,28 @@ ENV/
 env/
 .venv-Valorapro/
 
-# python
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# dotenv
+# Variaveis de ambiente e credenciais
 .env
 .env.*
+.ENV
+.ENV.*
+!.env.example
+!.ENV.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
 
-# logs
+# Logs
 *.log
+
+# Segredo local persistente de sessão (somente desenvolvimento)
+.valora_session_secret
