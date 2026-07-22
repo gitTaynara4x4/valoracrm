@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 import re
+import unicodedata
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, status
@@ -114,6 +115,216 @@ def normalizar_codigo_sistema(codigo: Any) -> str:
     Ex.: "FOR-0007" vira "0007".
     """
     return re.sub(r"\D+", "", str(codigo or "")).strip()
+
+
+def slugify_campo_formulario(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    text = text.lower()
+
+    out = []
+    last_underscore = False
+    for ch in text:
+        if ch.isalnum():
+            out.append(ch)
+            last_underscore = False
+        elif not last_underscore:
+            out.append("_")
+            last_underscore = True
+
+    return "".join(out).strip("_")[:120]
+
+
+def tipo_campo_fornecedor_from_formulario(tipo: Any) -> str:
+    tipo_norm = str(tipo or "texto").strip().lower()
+    mapa = {
+        "texto": "texto",
+        "textarea": "textarea",
+        "numero": "numero",
+        "data": "data",
+        "select": "select",
+        "multiselect": "multiselect",
+        "checkbox": "checkbox",
+        "email": "email",
+        "telefone": "telefone",
+        "moeda": "moeda",
+        "percentual": "percentual",
+        "relacao_cliente": "relacao_cliente",
+        "relacao_fornecedor": "relacao_fornecedor",
+        "relacao_produto": "relacao_produto",
+        "relacao_patrimonio": "relacao_patrimonio",
+        "relacao_cotacao": "relacao_cotacao",
+        "relacao_proposta": "relacao_proposta",
+        "relacao_contrato": "relacao_contrato",
+        "relacao_cliente_multi": "relacao_cliente_multi",
+        "relacao_fornecedor_multi": "relacao_fornecedor_multi",
+        "relacao_produto_multi": "relacao_produto_multi",
+        "relacao_patrimonio_multi": "relacao_patrimonio_multi",
+        "relacao_cotacao_multi": "relacao_cotacao_multi",
+        "relacao_proposta_multi": "relacao_proposta_multi",
+        "relacao_contrato_multi": "relacao_contrato_multi",
+    }
+    return mapa.get(tipo_norm, tipo_norm if tipo_norm.startswith("relacao_") else "texto")
+
+
+def sincronizar_campos_fornecedores_do_formulario(
+    db: Session,
+    empresa_id: int,
+    *,
+    modelo_id: Optional[int] = None,
+    commit: bool = False,
+) -> None:
+    """Vincula os campos personalizados da ficha a ``campos_fornecedores``.
+
+    O vínculo por ``campo_personalizado_id`` mantém uma chave estável para o
+    valor salvo, mesmo quando o rótulo do campo é alterado no construtor.
+    """
+    FormularioModelo = getattr(models, "FormularioModelo", None)
+    FormularioCampo = getattr(models, "FormularioCampo", None)
+    if FormularioModelo is None or FormularioCampo is None:
+        return
+
+    modelo_query = (
+        db.query(FormularioModelo)
+        .filter(FormularioModelo.empresa_id == empresa_id)
+        .filter(FormularioModelo.modulo == "fornecedores")
+        .filter(FormularioModelo.ativo == True)  # noqa: E712
+    )
+    if modelo_id is not None:
+        modelo_query = modelo_query.filter(FormularioModelo.id == int(modelo_id))
+
+    modelo = (
+        modelo_query
+        .order_by(
+            getattr(FormularioModelo, "usar_como_ficha_principal", FormularioModelo.padrao).desc(),
+            FormularioModelo.padrao.desc(),
+            FormularioModelo.id.desc(),
+        )
+        .first()
+    )
+    if not modelo:
+        return
+
+    campos_formulario = (
+        db.query(FormularioCampo)
+        .filter(FormularioCampo.formulario_id == modelo.id)
+        .filter(FormularioCampo.origem == "personalizado")
+        .order_by(FormularioCampo.ordem.asc(), FormularioCampo.id.asc())
+        .all()
+    )
+    if not campos_formulario:
+        return
+
+    existentes = (
+        db.query(CampoFornecedor)
+        .filter(CampoFornecedor.empresa_id == empresa_id)
+        .order_by(CampoFornecedor.id.asc())
+        .all()
+    )
+    por_id = {int(c.id): c for c in existentes}
+    por_slug = {str(c.slug): c for c in existentes}
+    ids_reivindicados: set[int] = set()
+    changed = False
+
+    def slug_livre(base: str) -> str:
+        base = (base or "campo")[:120]
+        slug = base
+        sufixo = 2
+        while slug in por_slug:
+            sufixo_txt = f"_{sufixo}"
+            slug = f"{base[: max(1, 120 - len(sufixo_txt))]}{sufixo_txt}"
+            sufixo += 1
+        return slug
+
+    for campo_form in campos_formulario:
+        label = norm_str(getattr(campo_form, "label", None))
+        if not label:
+            continue
+
+        tipo = tipo_campo_fornecedor_from_formulario(getattr(campo_form, "tipo_campo", None))
+        opcoes_json = getattr(campo_form, "opcoes_json", None)
+        obrigatorio = bool(getattr(campo_form, "obrigatorio", False))
+        ativo = bool(getattr(campo_form, "ativo", True))
+        ordem = int(getattr(campo_form, "ordem", 0) or 0)
+
+        campo_fornecedor = None
+        linked_id = getattr(campo_form, "campo_personalizado_id", None)
+        try:
+            linked_id = int(linked_id) if linked_id is not None else None
+        except (TypeError, ValueError):
+            linked_id = None
+
+        if linked_id is not None:
+            campo_fornecedor = por_id.get(linked_id)
+
+        base_slug = slugify_campo_formulario(label)
+        if campo_fornecedor is None and base_slug:
+            candidato = por_slug.get(base_slug)
+            if candidato is not None and int(candidato.id) not in ids_reivindicados:
+                campo_fornecedor = candidato
+
+        if campo_fornecedor is None:
+            candidatos = [
+                item
+                for item in existentes
+                if int(item.id) not in ids_reivindicados
+                and int(item.ordem or 0) == ordem
+                and str(item.tipo or "") == tipo
+            ]
+            if len(candidatos) == 1:
+                campo_fornecedor = candidatos[0]
+
+        if campo_fornecedor is None:
+            slug = slug_livre(base_slug or f"campo_{int(campo_form.id)}")
+            campo_fornecedor = CampoFornecedor(
+                empresa_id=empresa_id,
+                nome=label,
+                slug=slug,
+                tipo=tipo,
+                obrigatorio=obrigatorio,
+                ativo=ativo,
+                opcoes_json=opcoes_json,
+                ordem=ordem,
+            )
+            db.add(campo_fornecedor)
+            db.flush()
+            existentes.append(campo_fornecedor)
+            por_id[int(campo_fornecedor.id)] = campo_fornecedor
+            por_slug[str(campo_fornecedor.slug)] = campo_fornecedor
+            changed = True
+
+        ids_reivindicados.add(int(campo_fornecedor.id))
+
+        if getattr(campo_form, "campo_personalizado_id", None) != int(campo_fornecedor.id):
+            campo_form.campo_personalizado_id = int(campo_fornecedor.id)
+            changed = True
+        if campo_fornecedor.nome != label:
+            campo_fornecedor.nome = label
+            changed = True
+        if campo_fornecedor.tipo != tipo:
+            campo_fornecedor.tipo = tipo
+            changed = True
+        if bool(campo_fornecedor.obrigatorio) != obrigatorio:
+            campo_fornecedor.obrigatorio = obrigatorio
+            changed = True
+        if bool(campo_fornecedor.ativo) != ativo:
+            campo_fornecedor.ativo = ativo
+            changed = True
+        if (campo_fornecedor.opcoes_json or None) != (opcoes_json or None):
+            campo_fornecedor.opcoes_json = opcoes_json
+            changed = True
+        if int(campo_fornecedor.ordem or 0) != ordem:
+            campo_fornecedor.ordem = ordem
+            changed = True
+
+    if changed:
+        db.flush()
+        if commit:
+            db.commit()
 
 
 def parse_decimal(value: Any) -> Optional[Decimal]:
@@ -288,6 +499,7 @@ def gerar_codigo_fornecedor(db: Session, empresa_id: int) -> str:
 
 
 def buscar_campos_empresa_map(db: Session, empresa_id: int) -> Dict[str, CampoFornecedor]:
+    sincronizar_campos_fornecedores_do_formulario(db, empresa_id, commit=False)
     campos = db.query(CampoFornecedor).filter(CampoFornecedor.empresa_id == empresa_id).all()
     return {str(c.slug): c for c in campos}
 
@@ -313,16 +525,35 @@ def salvar_custom_fields_fornecedor(
     fornecedor_id: int,
     custom_fields: Optional[Dict[str, Any]],
 ) -> None:
-    payload = custom_fields or {}
+    payload = {str(slug): value for slug, value in (custom_fields or {}).items()}
     campos_map = buscar_campos_empresa_map(db, empresa_id)
 
-    # O formulário/ficha principal pode renderizar campos-base com data-custom-field.
-    # Esses campos não pertencem à tabela campos_fornecedores e não devem bloquear o cadastro.
-    payload = {
-        str(slug): value
-        for slug, value in payload.items()
-        if str(slug) in campos_map
+    # A ficha principal também usa data-custom-field nos campos nativos. Eles
+    # alimentam as colunas normais do fornecedor e não a tabela personalizada.
+    campos_sistema = {
+        "codigo", "data_cadastro", "criado_em", "nome", "fornecedor",
+        "nome_razao_social", "razao_social", "nome_fantasia", "tipo",
+        "tipo_fornecedor", "situacao", "status", "cpf_cnpj", "cnpj",
+        "cpf", "documento", "inscricao_estadual", "ie",
+        "inscricao_municipal", "im", "contato", "responsavel",
+        "nome_responsavel", "telefone", "telefone_contato",
+        "telefone_principal", "telefone_celular", "whatsapp", "fax",
+        "email", "e_mail", "email_principal", "e_mail_principal",
+        "site", "home_page", "cep", "endereco", "logradouro",
+        "numero", "complemento", "bairro", "cidade", "estado",
+        "uf", "pais", "codigo_ibge_cidade", "ibge_cidade",
+        "codigo_ibge_uf", "ibge_uf", "limite_compras",
+        "limite_de_compras", "classificacao", "plano_contas",
+        "plano_de_contas", "observacoes", "observacao",
     }
+    slugs_invalidos = sorted(set(payload) - set(campos_map) - campos_sistema)
+    if slugs_invalidos:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Campos personalizados de fornecedor inválidos: {', '.join(slugs_invalidos)}",
+        )
+
+    payload = {slug: value for slug, value in payload.items() if slug in campos_map}
 
     valores_existentes = (
         db.query(FornecedorCampoValor)
@@ -331,7 +562,13 @@ def salvar_custom_fields_fornecedor(
         .filter(CampoFornecedor.empresa_id == empresa_id)
         .all()
     )
-    existentes_por_campo_id = {int(v.campo_id): v for v in valores_existentes}
+    existentes_por_campo_id: Dict[int, FornecedorCampoValor] = {}
+    for valor in sorted(valores_existentes, key=lambda item: int(item.id or 0), reverse=True):
+        campo_id = int(valor.campo_id)
+        if campo_id in existentes_por_campo_id:
+            db.delete(valor)
+            continue
+        existentes_por_campo_id[campo_id] = valor
 
     for slug, raw_value in payload.items():
         campo = campos_map[slug]
@@ -479,6 +716,15 @@ def listar_campos(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
+    try:
+        sincronizar_campos_fornecedores_do_formulario(db, empresa_id, commit=True)
+    except OperationalError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="A estrutura de Formulários/Campos de fornecedores ainda não existe no banco.",
+        ) from exc
+
     return (
         db.query(CampoFornecedor)
         .filter(CampoFornecedor.empresa_id == empresa_id)

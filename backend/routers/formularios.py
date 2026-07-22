@@ -908,17 +908,21 @@ def garantir_data_cadastro_no_modelo(db: Session, modelo) -> None:
 def formulario_completo(db: Session, modelo) -> Dict[str, Any]:
     garantir_data_cadastro_no_modelo(db, modelo)
 
-    # Clientes precisam de uma chave estável para campos personalizados. Sem
-    # isso, renomear o rótulo mudava o slug usado pelo front e os valores já
-    # existentes pareciam desaparecer.
-    if str(getattr(modelo, "modulo", "")) == "clientes":
+    # Clientes e fornecedores precisam de uma chave estável para campos
+    # personalizados. Sem o vínculo, o formulário exibe o campo, mas o valor
+    # pode ser descartado ao salvar ou parecer perdido depois de renomeá-lo.
+    modulo = str(getattr(modelo, "modulo", ""))
+    if modulo == "clientes":
         from backend.routers.clientes import sincronizar_campos_clientes_do_formulario
 
         sincronizar_campos_clientes_do_formulario(
-            db,
-            int(modelo.empresa_id),
-            modelo_id=int(modelo.id),
-            commit=False,
+            db, int(modelo.empresa_id), modelo_id=int(modelo.id), commit=False
+        )
+    elif modulo == "fornecedores":
+        from backend.routers.fornecedores import sincronizar_campos_fornecedores_do_formulario
+
+        sincronizar_campos_fornecedores_do_formulario(
+            db, int(modelo.empresa_id), modelo_id=int(modelo.id), commit=False
         )
 
     db.commit()
@@ -939,20 +943,25 @@ def formulario_completo(db: Session, modelo) -> Dict[str, Any]:
     )
 
     campos_personalizados_slugs: Dict[int, str] = {}
-    if str(getattr(modelo, "modulo", "")) == "clientes":
-        ids = {
-            int(c.campo_personalizado_id)
-            for c in campos
-            if getattr(c, "campo_personalizado_id", None) is not None
-        }
-        if ids:
-            rows = (
-                db.query(models.CampoCliente)
-                .filter(models.CampoCliente.empresa_id == int(modelo.empresa_id))
-                .filter(models.CampoCliente.id.in_(ids))
-                .all()
-            )
-            campos_personalizados_slugs = {int(row.id): str(row.slug) for row in rows}
+    ids = {
+        int(c.campo_personalizado_id)
+        for c in campos
+        if getattr(c, "campo_personalizado_id", None) is not None
+    }
+    campo_model = None
+    if modulo == "clientes":
+        campo_model = models.CampoCliente
+    elif modulo == "fornecedores":
+        campo_model = models.CampoFornecedor
+
+    if ids and campo_model is not None:
+        rows = (
+            db.query(campo_model)
+            .filter(campo_model.empresa_id == int(modelo.empresa_id))
+            .filter(campo_model.id.in_(ids))
+            .all()
+        )
+        campos_personalizados_slugs = {int(row.id): str(row.slug) for row in rows}
 
     def campo_dict_com_slug(campo) -> Dict[str, Any]:
         out = campo_dict(campo)
