@@ -1934,14 +1934,25 @@
     return ['moeda', 'numero', 'percentual'].includes(String(field?.tipo || '').toLowerCase()) ? 'decimal' : 'text';
   }
 
+  function fieldUsesSelectOptions(field) {
+    const type = String(field?.tipo || '').trim().toLowerCase();
+    return ['select', 'lista', 'dropdown', 'radio'].includes(type);
+  }
+
   function renderPriceCell(product, field) {
     const original = String(product?.valores?.[field.key] ?? '');
     const effective = getPendingValue(product.id, field.key, original);
     const pending = getPendingProduct(product.id)?.valores.has(String(field.key));
     const readonly = !podeEditarPrecos || !field.editable;
     const title = readonly ? `${field.label} — somente leitura` : `${field.label} — editável`;
-    const options = Array.isArray(field?.options) ? [...field.options] : [];
-    if (effective && !options.some((option) => String(option) === String(effective))) options.unshift(effective);
+    const configuredOptions = Array.isArray(field?.options)
+      ? field.options.map((option) => String(option ?? '').trim()).filter(Boolean)
+      : [];
+    const usesSelect = fieldUsesSelectOptions(field) && configuredOptions.length > 0;
+    const options = usesSelect ? [...configuredOptions] : [];
+    if (usesSelect && effective && !options.some((option) => String(option) === String(effective))) {
+      options.unshift(effective);
+    }
 
     const commonAttributes = `
       data-price-input="true"
@@ -1954,7 +1965,7 @@
       aria-label="${escapeHtml(`${field.label} de ${product.nome}`)}"
     `;
 
-    const editor = options.length
+    const editor = usesSelect
       ? `
         <select class="price-inline-input price-inline-select" ${commonAttributes} ${readonly ? 'disabled' : ''}>
           <option value="">—</option>
