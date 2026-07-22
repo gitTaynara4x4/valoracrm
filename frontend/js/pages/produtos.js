@@ -7,6 +7,8 @@
 
   const API_PRODUTOS = '/api/produtos';
   const MODULO_FORMULARIO = 'produtos';
+  const ATUALIZACAO_PRECOS_LIMITE_PAGINA = 25;
+  const ATUALIZACAO_PRECOS_COLUNAS_STORAGE = 'valora:produtos:atualizacao-precos:colunas-v1';
 
   const SYSTEM_FIELD_SLUGS = new Set([
     'codigo',
@@ -61,11 +63,16 @@
 
   let atualizacaoPrecosMeta = null;
   let atualizacaoPrecosItens = [];
-  let atualizacaoPrecosPage = { offset: 0, limit: 100, total: 0, hasMore: false };
+  let atualizacaoPrecosPage = { offset: 0, limit: ATUALIZACAO_PRECOS_LIMITE_PAGINA, total: 0, hasMore: false };
   let alteracoesPrecos = new Map();
   let podeEditarPrecos = false;
   let telaPrecosAberta = false;
   let atualizacaoPrecosBuscaTimer = null;
+  let atualizacaoPrecosColunasTimer = null;
+  let atualizacaoPrecosRequestController = null;
+  let atualizacaoPrecosRequestId = 0;
+  let atualizacaoPrecosResumoFrame = null;
+  let colunasPrecosVisiveis = new Set();
 
   async function syncAgendaProduto(produto = null, readonly = false) {
     try {
@@ -1777,6 +1784,98 @@
     return String(value ?? '').trim();
   }
 
+  function camposPadraoAtualizacaoPrecos(fields = atualizacaoPrecosMeta?.campos_preco || []) {
+    const available = new Set(fields.map((field) => String(field.key)));
+    const defaults = ['custo', 'preco_venda'].filter((key) => available.has(key));
+    if (defaults.length) return defaults;
+    return fields.slice(0, 2).map((field) => String(field.key));
+  }
+
+  function salvarPreferenciasColunasPrecos() {
+    try {
+      localStorage.setItem(ATUALIZACAO_PRECOS_COLUNAS_STORAGE, JSON.stringify([...colunasPrecosVisiveis]));
+    } catch (_) {}
+  }
+
+  function prepararColunasPrecosVisiveis(fields = atualizacaoPrecosMeta?.campos_preco || []) {
+    const validKeys = new Set(fields.map((field) => String(field.key)));
+    let stored = [];
+
+    try {
+      const parsed = JSON.parse(localStorage.getItem(ATUALIZACAO_PRECOS_COLUNAS_STORAGE) || '[]');
+      stored = Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch (_) {}
+
+    const current = colunasPrecosVisiveis.size ? [...colunasPrecosVisiveis] : stored;
+    const valid = current.filter((key) => validKeys.has(key));
+    colunasPrecosVisiveis = new Set(valid.length ? valid : camposPadraoAtualizacaoPrecos(fields));
+    salvarPreferenciasColunasPrecos();
+  }
+
+  function camposVisiveisAtualizacaoPrecos() {
+    const fields = atualizacaoPrecosMeta?.campos_preco || [];
+    if (!colunasPrecosVisiveis.size) prepararColunasPrecosVisiveis(fields);
+    return fields.filter((field) => colunasPrecosVisiveis.has(String(field.key)));
+  }
+
+  function atualizarAvisoCamposPrecos() {
+    const fields = atualizacaoPrecosMeta?.campos_preco || [];
+    const visible = camposVisiveisAtualizacaoPrecos();
+    const editable = fields.filter((field) => field.editable).length;
+    const info = $('aviso-campos-precos');
+    const count = $('contador-colunas-precos');
+
+    if (count) count.textContent = String(visible.length);
+    if (!info) return;
+
+    if (!podeEditarPrecos) {
+      info.textContent = `Exibindo ${visible.length} de ${fields.length} coluna(s). Você não possui permissão para editar.`;
+      return;
+    }
+
+    const performanceHint = visible.length > 8 ? ' Muitas colunas podem deixar a tabela mais lenta.' : '';
+    info.textContent = `${fields.length} campo(s) identificado(s), ${editable} editável(is). Exibindo ${visible.length}.${performanceHint}`;
+  }
+
+  function renderSeletorColunasPrecos() {
+    const list = $('lista-colunas-precos');
+    if (!list) return;
+
+    const fields = atualizacaoPrecosMeta?.campos_preco || [];
+    list.innerHTML = fields.map((field) => {
+      const key = String(field.key);
+      const checked = colunasPrecosVisiveis.has(key);
+      return `
+        <label class="price-column-option">
+          <input type="checkbox" value="${escapeHtml(key)}" data-price-column="true" ${checked ? 'checked' : ''} />
+          <span>
+            <strong>${escapeHtml(field.label)}</strong>
+            <small>${escapeHtml(field.secao || 'Formação de preços')}</small>
+          </span>
+          ${field.editable ? '' : '<i class="fa-solid fa-lock" title="Somente leitura"></i>'}
+        </label>
+      `;
+    }).join('');
+
+    atualizarAvisoCamposPrecos();
+  }
+
+  function fecharSeletorColunasPrecos() {
+    const panel = $('painel-colunas-precos');
+    const button = $('btn-colunas-precos');
+    if (panel) panel.hidden = true;
+    button?.setAttribute('aria-expanded', 'false');
+  }
+
+  function alternarSeletorColunasPrecos() {
+    const panel = $('painel-colunas-precos');
+    const button = $('btn-colunas-precos');
+    if (!panel || !button) return;
+    const willOpen = panel.hidden;
+    panel.hidden = !willOpen;
+    button.setAttribute('aria-expanded', String(willOpen));
+  }
+
   function priceFieldMap() {
     return new Map((atualizacaoPrecosMeta?.campos_preco || []).map((field) => [String(field.key), field]));
   }
@@ -1824,6 +1923,15 @@
     if (bar) bar.hidden = !hasChanges;
   }
 
+  function agendarAtualizacaoResumoPrecos() {
+    if (atualizacaoPrecosResumoFrame !== null) return;
+    const schedule = window.requestAnimationFrame || ((callback) => window.setTimeout(callback, 16));
+    atualizacaoPrecosResumoFrame = schedule(() => {
+      atualizacaoPrecosResumoFrame = null;
+      atualizarResumoAlteracoesPrecos();
+    });
+  }
+
   function setPriceFilterOptions(selectId, filterMeta, emptyLabel) {
     const select = $(selectId);
     if (!select) return;
@@ -1862,22 +1970,18 @@
     atualizacaoPrecosMeta = meta || { campos_preco: [], filtros: {} };
     podeEditarPrecos = !!me?.permissoes?.produtos?.pode_editar;
     preencherFiltrosAtualizacaoPrecos();
-
-    const priceFields = atualizacaoPrecosMeta?.campos_preco || [];
-    const editable = priceFields.filter((field) => field.editable).length;
-    const info = $('aviso-campos-precos');
-    if (info) {
-      info.textContent = podeEditarPrecos
-        ? `${priceFields.length} campo(s) de preço identificado(s), ${editable} editável(is).`
-        : 'Você pode consultar os valores, mas não possui permissão para editá-los.';
-    }
+    prepararColunasPrecosVisiveis(atualizacaoPrecosMeta?.campos_preco || []);
+    renderSeletorColunasPrecos();
   }
 
   function montarUrlAtualizacaoPrecos({ offset = atualizacaoPrecosPage.offset || 0 } = {}) {
     const params = new URLSearchParams({
-      limit: String(atualizacaoPrecosPage.limit || 100),
+      limit: String(atualizacaoPrecosPage.limit || ATUALIZACAO_PRECOS_LIMITE_PAGINA),
       offset: String(offset),
     });
+
+    const visibleKeys = camposVisiveisAtualizacaoPrecos().map((field) => String(field.key));
+    if (visibleKeys.length) params.set('campos', visibleKeys.join(','));
 
     const fields = {
       busca: 'preco-filtro-busca',
@@ -1900,33 +2004,43 @@
   function setAtualizacaoPrecosLoading(message = 'Carregando produtos e campos de preço...') {
     const tbody = $('tbody-atualizacao-precos');
     if (!tbody) return;
-    const colspan = Math.max(3, 2 + (atualizacaoPrecosMeta?.campos_preco || []).length);
+    const colspan = Math.max(3, 2 + camposVisiveisAtualizacaoPrecos().length);
     tbody.innerHTML = `<tr><td colspan="${colspan}" class="empty-state">${escapeHtml(message)}</td></tr>`;
   }
 
   async function carregarAtualizacaoPrecos({ offset = atualizacaoPrecosPage.offset || 0, silent = false } = {}) {
+    if (!atualizacaoPrecosMeta) await carregarMetaAtualizacaoPrecos();
+
+    atualizacaoPrecosRequestController?.abort();
+    const controller = new AbortController();
+    const requestId = ++atualizacaoPrecosRequestId;
+    atualizacaoPrecosRequestController = controller;
+
     try {
-      if (!atualizacaoPrecosMeta) await carregarMetaAtualizacaoPrecos();
       if (!silent) setAtualizacaoPrecosLoading();
 
-      const data = await apiJson(montarUrlAtualizacaoPrecos({ offset }));
+      const data = await apiJson(montarUrlAtualizacaoPrecos({ offset }), { signal: controller.signal });
+      if (requestId !== atualizacaoPrecosRequestId) return;
+
       atualizacaoPrecosItens = Array.isArray(data?.items) ? data.items : [];
       atualizacaoPrecosPage = {
         offset: Number(data?.offset || 0),
-        limit: Number(data?.limit || 100),
+        limit: Number(data?.limit || ATUALIZACAO_PRECOS_LIMITE_PAGINA),
         total: Number(data?.total || 0),
         hasMore: !!data?.has_more,
       };
 
-      if (Array.isArray(data?.campos_preco) && data.campos_preco.length) {
-        atualizacaoPrecosMeta.campos_preco = data.campos_preco;
-      }
-
       renderTabelaAtualizacaoPrecos();
     } catch (error) {
+      if (error?.name === 'AbortError') return;
+      if (requestId !== atualizacaoPrecosRequestId) return;
       atualizacaoPrecosItens = [];
       renderTabelaAtualizacaoPrecos();
       toast(error.message || 'Erro ao carregar atualização de preços.', { error: true, ms: 5000 });
+    } finally {
+      if (atualizacaoPrecosRequestController === controller) {
+        atualizacaoPrecosRequestController = null;
+      }
     }
   }
 
@@ -2002,7 +2116,7 @@
     const count = $('contagem-atualizacao-precos');
     if (!thead || !tbody) return;
 
-    const fields = atualizacaoPrecosMeta?.campos_preco || [];
+    const fields = camposVisiveisAtualizacaoPrecos();
     thead.innerHTML = `
       <tr>
         <th class="price-sticky-code">Código</th>
@@ -2047,7 +2161,7 @@
     if (!wraps.length) return;
 
     const offset = Number(atualizacaoPrecosPage.offset || 0);
-    const limit = Number(atualizacaoPrecosPage.limit || 100);
+    const limit = Number(atualizacaoPrecosPage.limit || ATUALIZACAO_PRECOS_LIMITE_PAGINA);
     const total = Number(atualizacaoPrecosPage.total || 0);
     const page = total ? Math.floor(offset / limit) + 1 : 1;
     const pages = Math.max(1, Math.ceil(total / limit));
@@ -2064,7 +2178,7 @@
   }
 
   function registrarAlteracaoPreco(input) {
-    if (!input || input.readOnly) return;
+    if (!input || input.readOnly || input.disabled) return;
 
     const productId = Number(input.dataset.productId);
     const key = String(input.dataset.fieldKey || '');
@@ -2096,7 +2210,7 @@
     const cell = input.closest('.price-value-cell');
     cell?.classList.toggle('is-price-changed', !isSame);
     input.closest('tr')?.classList.toggle('has-price-changes', !!getPendingProduct(productId));
-    atualizarResumoAlteracoesPrecos();
+    agendarAtualizacaoResumoPrecos();
   }
 
   async function salvarAlteracoesPrecos() {
@@ -2186,6 +2300,9 @@
     }
 
     telaPrecosAberta = false;
+    atualizacaoPrecosRequestController?.abort();
+    atualizacaoPrecosRequestController = null;
+    fecharSeletorColunasPrecos();
     $('tela-atualizacao-precos')?.setAttribute('hidden', '');
     $('tela-catalogo-produtos')?.removeAttribute('hidden');
     document.querySelector('.topbar')?.removeAttribute('hidden');
@@ -2283,6 +2400,51 @@
       if (event.target === historyModal) fecharHistoricoPrecos();
     });
 
+    $('btn-colunas-precos')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      alternarSeletorColunasPrecos();
+    });
+
+    $('painel-colunas-precos')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const checkbox = event.target.closest('[data-price-column]');
+      if (!checkbox) return;
+
+      const key = String(checkbox.value || '');
+      if (checkbox.checked) {
+        colunasPrecosVisiveis.add(key);
+      } else if (colunasPrecosVisiveis.size > 1) {
+        colunasPrecosVisiveis.delete(key);
+      } else {
+        checkbox.checked = true;
+        toast('Mantenha pelo menos uma coluna visível.', { error: true, ms: 2600 });
+        return;
+      }
+
+      salvarPreferenciasColunasPrecos();
+      atualizarAvisoCamposPrecos();
+      clearTimeout(atualizacaoPrecosColunasTimer);
+      atualizacaoPrecosColunasTimer = setTimeout(() => {
+        carregarAtualizacaoPrecos({ offset: atualizacaoPrecosPage.offset, silent: false });
+      }, 120);
+    });
+
+    $('btn-restaurar-colunas-precos')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      colunasPrecosVisiveis = new Set(camposPadraoAtualizacaoPrecos());
+      salvarPreferenciasColunasPrecos();
+      renderSeletorColunasPrecos();
+      carregarAtualizacaoPrecos({ offset: atualizacaoPrecosPage.offset, silent: false });
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('#seletor-colunas-precos')) fecharSeletorColunasPrecos();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') fecharSeletorColunasPrecos();
+    });
+
     const reloadPriceFilters = (delay = 0) => {
       clearTimeout(atualizacaoPrecosBuscaTimer);
       atualizacaoPrecosBuscaTimer = setTimeout(() => carregarAtualizacaoPrecos({ offset: 0, silent: true }), delay);
@@ -2312,7 +2474,7 @@
         const button = event.target.closest('[data-price-page]');
         if (!button || button.disabled) return;
         const offset = Number(atualizacaoPrecosPage.offset || 0);
-        const limit = Number(atualizacaoPrecosPage.limit || 100);
+        const limit = Number(atualizacaoPrecosPage.limit || ATUALIZACAO_PRECOS_LIMITE_PAGINA);
         const total = Number(atualizacaoPrecosPage.total || 0);
         const lastOffset = Math.max(0, (Math.max(1, Math.ceil(total / limit)) - 1) * limit);
         let nextOffset = offset;

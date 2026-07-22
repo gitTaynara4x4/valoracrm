@@ -1468,6 +1468,109 @@ html[data-theme="dark"] #tbody-produtos .produto-warning-chip {
   color: var(--brand);
 }
 
+.price-table-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.price-column-selector {
+  position: relative;
+}
+
+.price-column-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  color: var(--brand);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.price-column-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: min(360px, calc(100vw - 40px));
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18);
+}
+
+.price-column-panel[hidden] { display: none !important; }
+
+.price-column-panel-head {
+  padding: 4px 5px 9px;
+  border-bottom: 1px solid var(--border);
+}
+
+.price-column-panel-head > div,
+.price-column-option > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.price-column-panel-head strong {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.price-column-panel-head span {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.price-column-list {
+  max-height: min(390px, 56vh);
+  padding: 6px 0;
+  overflow-y: auto;
+}
+
+.price-column-option {
+  min-height: 46px;
+  padding: 6px 7px;
+  border-radius: 7px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.price-column-option:hover { background: var(--hover, rgba(15, 23, 42, 0.04)); }
+.price-column-option input { width: 15px; height: 15px; margin: 0; accent-color: var(--brand); }
+.price-column-option > span { min-width: 0; gap: 1px; }
+.price-column-option strong,
+.price-column-option small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.price-column-option strong { color: var(--text); font-size: 11.5px; font-weight: 500; }
+.price-column-option small,
+.price-column-option > i { color: var(--muted); font-size: 9.5px; }
+
+.price-column-reset {
+  width: 100%;
+  padding: 9px 8px 4px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--brand);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.price-column-reset:hover { color: var(--text); }
+
 .price-table-wrapper {
   position: relative;
   width: 100%;

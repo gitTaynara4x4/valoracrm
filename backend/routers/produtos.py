@@ -843,8 +843,11 @@ def campos_formulario_produtos_com_secao(db: Session, empresa_id: int) -> Dict[s
     return out
 
 
-def obter_campos_formacao_preco(db: Session, empresa_id: int) -> List[dict]:
-    sincronizar_campos_produtos_com_formulario(db, empresa_id)
+def obter_campos_formacao_preco(
+    db: Session, empresa_id: int, *, sincronizar: bool = True
+) -> List[dict]:
+    if sincronizar:
+        sincronizar_campos_produtos_com_formulario(db, empresa_id)
     campos_formulario = campos_formulario_produtos_com_secao(db, empresa_id)
 
     result = [
@@ -943,8 +946,11 @@ def encontrar_campo_filtro(campos: List[models.CampoProduto], aliases) -> Option
     return None
 
 
-def obter_campos_filtro_produtos(db: Session, empresa_id: int) -> Dict[str, Optional[models.CampoProduto]]:
-    sincronizar_campos_produtos_com_formulario(db, empresa_id)
+def obter_campos_filtro_produtos(
+    db: Session, empresa_id: int, *, sincronizar: bool = True
+) -> Dict[str, Optional[models.CampoProduto]]:
+    if sincronizar:
+        sincronizar_campos_produtos_com_formulario(db, empresa_id)
     rows = (
         db.query(models.CampoProduto)
         .filter(models.CampoProduto.empresa_id == empresa_id)
@@ -1082,8 +1088,11 @@ def listar_produtos(
 def obter_meta_atualizacao_precos(request: Request, db: Session = Depends(get_db)):
     empresa_id, _ = validar_permissao_produtos(request, db, "ver")
 
-    campos_preco = obter_campos_formacao_preco(db, empresa_id)
-    campos_filtro = obter_campos_filtro_produtos(db, empresa_id)
+    # Sincroniza uma única vez ao abrir a tela. Filtros e paginação seguintes
+    # consultam os campos já sincronizados, sem refazer o formulário.
+    sincronizar_campos_produtos_com_formulario(db, empresa_id)
+    campos_preco = obter_campos_formacao_preco(db, empresa_id, sincronizar=False)
+    campos_filtro = obter_campos_filtro_produtos(db, empresa_id, sincronizar=False)
     db.commit()
 
     categorias_rows = (
@@ -1156,14 +1165,30 @@ def listar_atualizacao_precos(
     categoria: Optional[str] = Query(default=None),
     fornecedor: Optional[str] = Query(default=None),
     fabricante: Optional[str] = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=200),
+    campos: Optional[str] = Query(default=None),
+    limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):
     empresa_id, _ = validar_permissao_produtos(request, db, "ver")
-    campos_preco = obter_campos_formacao_preco(db, empresa_id)
-    campos_filtro = obter_campos_filtro_produtos(db, empresa_id)
-    db.commit()
+    todos_campos_preco = obter_campos_formacao_preco(db, empresa_id, sincronizar=False)
+    campos_filtro = obter_campos_filtro_produtos(db, empresa_id, sincronizar=False)
+
+    chaves_solicitadas = {
+        chave.strip()
+        for chave in str(campos or "").split(",")
+        if chave and chave.strip()
+    }
+    campos_preco = (
+        [campo for campo in todos_campos_preco if str(campo["key"]) in chaves_solicitadas]
+        if chaves_solicitadas
+        else todos_campos_preco
+    )
+    if not campos_preco:
+        campos_preco = [
+            campo for campo in todos_campos_preco
+            if str(campo["key"]) in {"custo", "preco_venda"}
+        ] or todos_campos_preco[:2]
 
     query = db.query(models.Produto).filter(models.Produto.empresa_id == empresa_id)
 

@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/frontend/css/exportacoes.css?v=20260713-exportacoes-completas-v1" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260717-busca-relacao-v1" />
-  <link rel="stylesheet" href="/frontend/css/produtos.css?v=20260721-atualizacao-precos-v1" />
+  <link rel="stylesheet" href="/frontend/css/produtos.css?v=20260722-atualizacao-precos-performance-v3" />
   <link rel="stylesheet" href="/frontend/css/localizar-personalizado.css?v=20260715-localizar-arrastar-restaurado-v8" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
@@ -36,7 +36,7 @@
   <script src="/frontend/js/shared/ficha-principal.js?v=20260717-busca-relacao-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script src="/frontend/js/shared/localizar-personalizado.js?v=20260715-localizar-arrastar-restaurado-v8" defer></script>
-  <script src="/frontend/js/pages/produtos.js?v=20260722-atualizacao-precos-edicao-livre-v2" defer></script>
+  <script src="/frontend/js/pages/produtos.js?v=20260722-atualizacao-precos-performance-v3" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 </head>
 
@@ -159,7 +159,7 @@
             </button>
             <span class="eyebrow">Produtos</span>
             <h2>Atualização rápida de preços</h2>
-            <p>Edite custos, preços e todos os campos da formação de preços diretamente na lista.</p>
+            <p>Custo e preço de venda aparecem por padrão. Abra Colunas somente quando precisar de outros campos.</p>
           </div>
 
           <div class="price-update-header-actions">
@@ -178,7 +178,7 @@
               <h3>Localizar produtos</h3>
               <p>Os filtros podem ser combinados. A lista permanece em ordem alfabética.</p>
             </div>
-            <span id="contagem-atualizacao-precos" class="counter-text">0 produtos</span>
+            <span id="contagem-atualizacao-precos" class="counter-text" aria-live="polite">0 produtos</span>
           </div>
 
           <div class="price-filter-grid">
@@ -237,9 +237,32 @@
               <i class="fa-solid fa-circle-info"></i>
               <span>Campos alterados ficam destacados. Nada é salvo até confirmar.</span>
             </div>
-            <button class="btn btn-secondary btn-sm" type="button" id="btn-descartar-precos" disabled>
-              Descartar alterações
-            </button>
+            <div class="price-table-toolbar-actions">
+              <div class="price-column-selector" id="seletor-colunas-precos">
+                <button class="btn btn-secondary btn-sm" type="button" id="btn-colunas-precos" aria-expanded="false" aria-controls="painel-colunas-precos">
+                  <i class="fa-solid fa-table-columns"></i>
+                  Colunas
+                  <span class="price-column-count" id="contador-colunas-precos">2</span>
+                </button>
+
+                <div class="price-column-panel" id="painel-colunas-precos" hidden>
+                  <div class="price-column-panel-head">
+                    <div>
+                      <strong>Colunas exibidas</strong>
+                      <span>Menos colunas deixam a edição mais rápida.</span>
+                    </div>
+                  </div>
+                  <div class="price-column-list" id="lista-colunas-precos"></div>
+                  <button class="price-column-reset" type="button" id="btn-restaurar-colunas-precos">
+                    Mostrar somente Custo e Preço de venda
+                  </button>
+                </div>
+              </div>
+
+              <button class="btn btn-secondary btn-sm" type="button" id="btn-descartar-precos" disabled>
+                Descartar alterações
+              </button>
+            </div>
           </div>
 
           <div class="table-pagination price-pagination price-pagination-top" data-pagination="atualizacao-precos" aria-label="Paginação superior"></div>
