@@ -22,13 +22,13 @@
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260722-cliente-orcamento-v1">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260722-atualizar-precos-v1">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260720-emitter-save-v2">
 
   <script src="/frontend/js/pages/app.js?v=20260722-agenda-editor-v11" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260722-cliente-orcamento-v1" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260722-atualizar-precos-v1" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -224,6 +224,7 @@
               <div class="budget-section-heading">
                 <div><h4>Produtos e serviços</h4><p>Adicione itens cadastrados ou linhas manuais.</p></div>
                 <div class="budget-inline-actions">
+                  <button class="btn btn-secondary btn-small edit-only is-hidden" id="btn-atualizar-precos-itens" type="button" title="Buscar novamente os preços de compra e venda no cadastro dos produtos"><i class="fa-solid fa-arrows-rotate"></i> Atualizar preços</button>
                   <button class="btn btn-secondary btn-small btn-add-kit" id="btn-adicionar-kit" type="button"><i class="fa-solid fa-layer-group"></i> Adicionar kit</button>
                   <button class="btn btn-secondary btn-small" id="btn-buscar-produto" type="button"><i class="fa-solid fa-box"></i> Buscar produto</button>
                   <button class="btn btn-primary btn-small" id="btn-adicionar-item" type="button"><i class="fa-solid fa-plus"></i> Item manual</button>

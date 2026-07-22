@@ -440,12 +440,79 @@
       $('btn-imprimir-orcamento').classList.remove('is-hidden');
       $('btn-whatsapp-orcamento').classList.remove('is-hidden');
       $$('.edit-only').forEach((el) => el.classList.remove('is-hidden'));
+      syncRefreshPricesButton(budget.status);
       const canApprove = state.meta.pode_configurar && budget.aprovacao_necessaria && budget.aprovacao_status !== 'aprovado';
       $('btn-aprovar-margem').classList.toggle('is-hidden', !canApprove);
       setTab('dados');
       openOverlay('budget-modal');
     } catch (error) {
       toast(error.message, 'error');
+    }
+  }
+
+  function canRefreshBudgetPrices(status) {
+    return !['aprovado', 'recusado', 'cancelado', 'expirado'].includes(String(status || '').toLowerCase());
+  }
+
+  function syncRefreshPricesButton(status = $('orcamento-status')?.value) {
+    const button = $('btn-atualizar-precos-itens');
+    if (!button) return;
+    const visible = Boolean(state.currentId) && canRefreshBudgetPrices(status);
+    button.classList.toggle('is-hidden', !visible);
+  }
+
+  async function refreshCurrentBudgetPrices() {
+    const button = $('btn-atualizar-precos-itens');
+    if (!state.currentId) {
+      toast('Salve o orçamento antes de atualizar os preços.', 'error');
+      return;
+    }
+    const status = $('orcamento-status')?.value || state.current?.status;
+    if (!canRefreshBudgetPrices(status)) {
+      toast('Este orçamento já está encerrado. Duplique-o para atualizar os preços.', 'error');
+      return;
+    }
+    const linkedItems = state.items.filter((item) => Number(item.produto_id) > 0);
+    if (!linkedItems.length) {
+      toast('Não há produtos vinculados ao cadastro neste orçamento.', 'error');
+      return;
+    }
+    const confirmed = confirm(
+      `Atualizar os preços de compra e venda de ${linkedItems.length} item(ns) pela tabela atual de produtos?\n\n` +
+      'Quantidade, desconto, descrição e observações serão mantidos. A alteração será salva no orçamento.'
+    );
+    if (!confirmed) return;
+
+    try {
+      const payload = collectBudgetPayload();
+      validateBudget(payload);
+      setButtonLoading(button, true, 'Atualizando...');
+      const budget = await api(`${API}/${state.currentId}?atualizar_precos=true`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      state.current = budget;
+      state.items = (budget.itens || []).map(normalizeItem);
+      state.payments = (budget.pagamentos || []).map(normalizePayment);
+      fillBudgetForm(budget);
+      $('budget-modal-subtitle').textContent = `Versão ${budget.versao || 1} • atualizado em ${localDate(budget.atualizado_em)}`;
+      syncRefreshPricesButton(budget.status);
+
+      const summary = budget.atualizacao_precos || {};
+      const updated = Number(summary.itens_atualizados || 0);
+      if (!updated) {
+        toast('Os preços deste orçamento já estavam iguais aos da tabela atual.');
+      } else {
+        const sale = Number(summary.precos_venda_alterados || 0);
+        const cost = Number(summary.custos_alterados || 0);
+        toast(`${updated} item(ns) atualizado(s): ${sale} preço(s) de venda e ${cost} custo(s).`);
+      }
+      await loadBudgets();
+    } catch (error) {
+      toast(error.message || 'Não foi possível atualizar os preços.', 'error');
+    } finally {
+      setButtonLoading(button, false);
+      syncRefreshPricesButton();
     }
   }
 
@@ -498,6 +565,7 @@
     renderPayments();
     renderHistory(budget.historico || []);
     updateStatusPreview();
+    syncRefreshPricesButton(budget.status);
     updateTotals();
   }
 
@@ -2293,7 +2361,7 @@
     $('btn-whatsapp-orcamento').addEventListener('click', () => state.currentId && sendWhatsApp(state.currentId));
     $('btn-aprovar-margem').addEventListener('click', approveMargin);
     $$('.budget-tab').forEach((button) => button.addEventListener('click', () => setTab(button.dataset.tab)));
-    $('orcamento-status').addEventListener('change', updateStatusPreview);
+    $('orcamento-status').addEventListener('change', () => { updateStatusPreview(); syncRefreshPricesButton(); });
     $('orcamento-titulo').addEventListener('input', (event) => {
       if ($('budget-sidebar-title')) $('budget-sidebar-title').textContent = event.target.value.trim() || 'Novo orçamento';
     });
@@ -2317,6 +2385,7 @@
       fillAddressFromClient(state.selectedClient, true);
     });
 
+    $('btn-atualizar-precos-itens')?.addEventListener('click', refreshCurrentBudgetPrices);
     $('btn-adicionar-kit').addEventListener('click', openKitPicker);
     $('btn-fechar-kit-picker').addEventListener('click', () => closeOverlay('kit-picker-modal'));
     $('btn-cancelar-kit-picker').addEventListener('click', () => closeOverlay('kit-picker-modal'));

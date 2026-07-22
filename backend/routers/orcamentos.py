@@ -36,6 +36,7 @@ STATUS_VALIDOS = {
 }
 
 TIPOS_DESCONTO = {"valor", "percentual"}
+STATUS_PRECOS_BLOQUEADOS = {"aprovado", "recusado", "cancelado", "expirado"}
 _SCHEMA_READY = False
 _PREPARED_COMPANIES: set[int] = set()
 
@@ -1101,6 +1102,7 @@ def calculate_items(
     user: models.Usuario,
     items: List[BudgetItemIn],
     existing_costs: Optional[Dict[int, tuple[Decimal, bool]]] = None,
+    refresh_product_prices: bool = False,
 ) -> tuple[List[dict], dict]:
     normalized: List[dict] = []
     subtotal = Decimal("0")
@@ -1130,14 +1132,25 @@ def calculate_items(
         if product:
             code = norm_str(item.codigo) or product["codigo"]
             unit = norm_str(item.unidade) or product["unidade"] or "UN"
+            product_sale_raw = product.get("preco_venda")
+            product_has_sale = product_sale_raw is not None and str(product_sale_raw).strip() != ""
+            if refresh_product_prices and product_has_sale:
+                unit_value = max(money(product_sale_raw), Decimal("0"))
+
             product_cost_raw = product.get("custo")
             product_cost = max(money(product_cost_raw), Decimal("0"))
             product_has_cost = product_cost_raw is not None and str(product_cost_raw).strip() != ""
 
+            # Na atualização explícita de preços, o cadastro do produto é a fonte
+            # principal. Campo vazio no cadastro preserva o valor antigo para não
+            # apagar preços já negociados por acidente.
+            if refresh_product_prices and product_has_cost:
+                cost_unit = product_cost
+                cost_known = True
             # O custo cadastrado no banco é a fonte padrão. Um zero enviado pelo
             # navegador não apaga o custo do produto. Usuários autorizados podem
             # substituir o custo quando enviam um valor explícito.
-            if allow_cost and submitted_cost is not None and (submitted_cost > 0 or not product_has_cost):
+            elif allow_cost and submitted_cost is not None and (submitted_cost > 0 or not product_has_cost):
                 cost_unit = submitted_cost
                 cost_known = True
             elif previous_cost is not None and previous_cost_known:
@@ -1218,6 +1231,34 @@ def calculate_totals(payload: BudgetBase, subtotal: Decimal, cost_total: Decimal
         "lucro_total": q2(profit),
         "margem_percentual": q2(margin),
     }
+
+
+def recalculate_payment_options(payments: List[PaymentOption], total: Decimal) -> List[dict]:
+    """Recalcula parcelas quando o total do orçamento muda."""
+    normalized: List[dict] = []
+    budget_total = max(money(total), Decimal("0"))
+    for payment in payments or []:
+        discount_percent = max(money(payment.desconto_percentual), Decimal("0"))
+        entry_percent = max(money(payment.entrada_percentual), Decimal("0"))
+        interest_percent = max(money(payment.juros_percentual), Decimal("0"))
+        installments = max(int(payment.parcelas or 1), 1)
+        discounted = budget_total * (Decimal("1") - discount_percent / Decimal("100"))
+        with_interest = max(discounted, Decimal("0")) * (Decimal("1") + interest_percent / Decimal("100"))
+        payment_total = max(with_interest, Decimal("0"))
+        entry_value = payment_total * entry_percent / Decimal("100")
+        installment_value = max((payment_total - entry_value) / Decimal(installments), Decimal("0"))
+        item = payment.model_dump(mode="json") if hasattr(payment, "model_dump") else payment.dict()
+        item.update({
+            "desconto_percentual": dec_out(discount_percent),
+            "entrada_percentual": dec_out(entry_percent),
+            "entrada_valor": dec_out(entry_value),
+            "parcelas": installments,
+            "juros_percentual": dec_out(interest_percent),
+            "valor_parcela": dec_out(installment_value),
+            "total": dec_out(payment_total),
+        })
+        normalized.append(item)
+    return normalized
 
 
 def get_config_row(db: Session, company_id: int) -> dict:
@@ -2451,6 +2492,7 @@ def budget_change_details(old: dict, new_params: dict, old_items: List[dict], ne
 def update_budget(
     budget_id: int,
     payload: BudgetUpdate,
+    atualizar_precos: bool = Query(default=False),
     current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
     db: Session = Depends(get_db),
 ):
@@ -2461,6 +2503,12 @@ def update_budget(
         raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
 
     data = dict(old)
+    if atualizar_precos and status_norm(data.get("status")) in STATUS_PRECOS_BLOQUEADOS:
+        raise HTTPException(
+            status_code=409,
+            detail="Este orçamento já está encerrado. Duplique-o para atualizar os preços em uma nova versão.",
+        )
+
     incoming = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload.dict(exclude_unset=True)
     current_items = serialize_items(db, budget_id, show_costs=True)
     base_fields = list(getattr(BudgetBase, "model_fields", {}).keys()) or list(getattr(BudgetBase, "__fields__", {}).keys())
@@ -2468,6 +2516,11 @@ def update_budget(
     merged["itens"] = incoming.get("itens", current_items)
     merged["pagamentos"] = incoming.get("pagamentos", json_load(data.get("pagamentos_json"), []))
     effective = BudgetCreate(**merged)
+    if atualizar_precos and not any(item.produto_id for item in effective.itens):
+        raise HTTPException(
+            status_code=422,
+            detail="Este orçamento não possui produtos vinculados ao cadastro para atualizar.",
+        )
 
     for table, row_id, label in (
         ("clientes", effective.cliente_id, "Cliente"),
@@ -2482,7 +2535,19 @@ def update_budget(
         int(item["id"]): (money(item.get("custo_unitario")), bool(item.get("custo_informado")))
         for item in current_items if item.get("id")
     }
-    items, partial = calculate_items(db, company_id, current_user, effective.itens, existing_costs=existing_costs)
+    comparison_items = None
+    if atualizar_precos:
+        comparison_items, _ = calculate_items(
+            db, company_id, current_user, effective.itens, existing_costs=existing_costs
+        )
+    items, partial = calculate_items(
+        db,
+        company_id,
+        current_user,
+        effective.itens,
+        existing_costs=existing_costs,
+        refresh_product_prices=atualizar_precos,
+    )
     totals = calculate_totals(effective, partial["subtotal"], partial["custo_total"])
     approval_needed = (
         bool(config.get("controlar_custos"))
@@ -2497,6 +2562,8 @@ def update_budget(
         effective, config, totals, snapshot, emitter,
         itens_sem_custo=int(partial.get("itens_sem_custo") or 0),
     )
+    if atualizar_precos:
+        params["pagamentos_json"] = json_dump(recalculate_payment_options(effective.pagamentos, totals["total"]))
     requested_approved = params["status"] == "aprovado"
     if requested_approved and bool(config.get("controlar_custos")) and params["itens_sem_custo"] > 0:
         raise HTTPException(
@@ -2573,15 +2640,54 @@ def update_budget(
         "empresa_id": company_id,
     })
     changes = budget_change_details(data, params, current_items, items)
+    price_summary = None
+    if atualizar_precos:
+        sale_changes = 0
+        cost_changes = 0
+        changed_products = 0
+        linked_items = 0
+        for before, after in zip(comparison_items or [], items):
+            if not before.get("produto_id"):
+                continue
+            linked_items += 1
+            sale_changed = q4(money(before.get("valor_unitario"))) != q4(money(after.get("valor_unitario")))
+            cost_changed = (
+                q4(money(before.get("custo_unitario"))) != q4(money(after.get("custo_unitario")))
+                or bool(before.get("custo_informado")) != bool(after.get("custo_informado"))
+            )
+            sale_changes += int(sale_changed)
+            cost_changes += int(cost_changed)
+            changed_products += int(sale_changed or cost_changed)
+        price_summary = {
+            "itens_vinculados": linked_items,
+            "itens_atualizados": changed_products,
+            "precos_venda_alterados": sale_changes,
+            "custos_alterados": cost_changes,
+        }
+
     save_budget_items(db, budget_id, items)
-    description = f"Orçamento atualizado: {len(changes)} alteração(ões)." if changes else "Orçamento salvo sem mudanças de conteúdo."
+    if atualizar_precos:
+        description = (
+            f"Preços atualizados pela tabela de produtos: {price_summary['itens_atualizados']} item(ns), "
+            f"{price_summary['precos_venda_alterados']} preço(s) de venda e {price_summary['custos_alterados']} custo(s)."
+        )
+        action = "precos_atualizados"
+    else:
+        description = f"Orçamento atualizado: {len(changes)} alteração(ões)." if changes else "Orçamento salvo sem mudanças de conteúdo."
+        action = "editado"
+    history_data = {"alteracoes": changes}
+    if price_summary is not None:
+        history_data["atualizacao_precos"] = price_summary
     add_history(
-        db, budget_id, current_user, "editado", description,
+        db, budget_id, current_user, action, description,
         old_status=data.get("status"), new_status=params["status"],
-        data={"alteracoes": changes},
+        data=history_data,
     )
     db.commit()
-    return get_budget(budget_id, current_user=current_user, db=db)
+    result = get_budget(budget_id, current_user=current_user, db=db)
+    if price_summary is not None:
+        result["atualizacao_precos"] = price_summary
+    return result
 
 
 @router.post("/{budget_id}/duplicar", status_code=status.HTTP_201_CREATED)
