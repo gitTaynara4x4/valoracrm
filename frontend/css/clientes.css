@@ -1612,6 +1612,11 @@ textarea.campo-obrigatorio-pendente {
 }
 
 /* Integração Cliente → Orçamentos e auditoria de alterações. */
+.cliente-budget-action {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
 .history-client-head {
   display: flex;
   align-items: center;
@@ -1686,6 +1691,8 @@ textarea.campo-obrigatorio-pendente {
 .history-audit-values i { color: var(--text-muted, #64748b); font-size: 9px; }
 
 @media (max-width: 720px) {
+  .cliente-budget-action { width: 36px; min-width: 36px; padding: 0; }
+  .cliente-budget-action span { display: none; }
   .history-client-head { align-items: stretch; flex-direction: column; }
   .history-audit-item { grid-template-columns: 1fr; }
   .history-audit-values del,

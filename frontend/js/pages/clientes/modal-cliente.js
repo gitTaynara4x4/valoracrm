@@ -1287,6 +1287,33 @@ function formatHistoryDate(value) {
   return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString('pt-BR');
 }
 
+function getClienteAtualId() {
+  return Number(state.clienteEditandoId || currentDetail?.id || 0);
+}
+
+function syncClienteBudgetActions() {
+  const clientId = getClienteAtualId();
+  const topButton = $('btn-fazer-orcamento-cliente');
+  const historyButton = $('btn-novo-orcamento-cliente');
+
+  if (topButton) {
+    topButton.hidden = !clientId;
+    topButton.disabled = !clientId;
+  }
+
+  if (historyButton) historyButton.disabled = !clientId;
+}
+
+function abrirOrcamentoDoCliente() {
+  const clientId = getClienteAtualId();
+  if (!clientId) {
+    toast('Salve o cliente antes de criar um orçamento.', 'error');
+    return;
+  }
+
+  window.location.href = `/orcamentos?novo=1&cliente_id=${encodeURIComponent(clientId)}`;
+}
+
 function renderHistorico(data = {}) {
   const resumo = $('historico-resumo');
   const propostas = $('historico-propostas');
@@ -1351,8 +1378,7 @@ function renderHistorico(data = {}) {
       : '<div class="empty-soft">Nenhuma alteração registrada. As próximas edições serão exibidas aqui.</div>';
   }
 
-  const newBudgetButton = $('btn-novo-orcamento-cliente');
-  if (newBudgetButton) newBudgetButton.disabled = !Number(state.clienteEditandoId || currentDetail?.id || 0);
+  syncClienteBudgetActions();
 }
 
 
@@ -1531,7 +1557,8 @@ export function bindClientModal({ afterSave } = {}) {
   $('btn-cancelar-cliente')?.addEventListener('click', closeClientModal);
   $('formCliente')?.addEventListener('submit', saveCliente);
   $('btn-abrir-zapschat-cliente')?.addEventListener('click', (event) => abrirClienteNoZapsChat(state.clienteEditandoId || currentDetail?.id, { button: event.currentTarget }));
-  $('btn-novo-orcamento-cliente')?.addEventListener('click', () => { const id = Number(state.clienteEditandoId || currentDetail?.id || 0); if (!id) { toast('Salve o cliente antes de criar um orçamento.', 'error'); return; } window.location.href = `/orcamentos?novo=1&cliente_id=${encodeURIComponent(id)}`; });
+  $('btn-fazer-orcamento-cliente')?.addEventListener('click', abrirOrcamentoDoCliente);
+  $('btn-novo-orcamento-cliente')?.addEventListener('click', abrirOrcamentoDoCliente);
   $('toggle-ficha-principal-cliente')?.addEventListener('change', salvarToggleFichaPrincipalCliente);
   bindResumoSidebarCliente();
 
@@ -1643,6 +1670,7 @@ export async function openClientModalNew() {
   setClienteModalReadonly(false);
   state.clienteEditandoId = null;
   syncZapsChatButton(null);
+  syncClienteBudgetActions();
 
   $('modal-cliente-titulo').textContent = 'Novo cliente';
   $('formCliente')?.reset();
@@ -1664,6 +1692,7 @@ export async function openClientModalEdit(id) {
     const cliente = await obterClienteNoServidor(id);
 
     state.clienteEditandoId = cliente.id;
+    syncClienteBudgetActions();
     $('modal-cliente-titulo').textContent = 'Editar cliente';
 
     await fillClientForm(cliente);
@@ -1686,6 +1715,7 @@ export async function openClientModalView(id) {
     const cliente = await obterClienteNoServidor(id);
 
     state.clienteEditandoId = cliente.id;
+    syncClienteBudgetActions();
     $('modal-cliente-titulo').textContent = 'Visualizar cliente';
 
     await fillClientForm(cliente);

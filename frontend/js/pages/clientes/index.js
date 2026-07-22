@@ -4,7 +4,7 @@ import { $, toast } from './utils.js';
 import { renderTabelaClientes } from './table.js?v=20260715-localizar-arrastar-restaurado-v4';
 import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js?v=20260715-filtros-exatos-v2';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
-import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260717-historico-orcamentos-v1';
+import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260722-cliente-orcamento-v1';
 import { bindImportExport, exportarClientesJSON } from './import-export.js';
 
 function renderAll() {
@@ -152,6 +152,20 @@ function bindFormularioActions() {
   });
 }
 
+async function handleInitialClientRoute() {
+  const params = new URLSearchParams(window.location.search);
+  const clientId = Number(params.get('editar_cliente_id') || 0);
+  if (!clientId) return false;
+
+  await openClientModalEdit(clientId);
+
+  params.delete('editar_cliente_id');
+  const query = params.toString();
+  const cleanUrl = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+  window.history.replaceState({}, '', cleanUrl);
+  return true;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   bindConfirmDialog();
 
@@ -205,6 +219,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     toast(err.message || 'Erro ao carregar dados do servidor.', 'error');
     return;
+  }
+
+  try {
+    await handleInitialClientRoute();
+  } catch (err) {
+    toast(err.message || 'Não foi possível abrir o cliente solicitado.', 'error');
   }
 
   try {

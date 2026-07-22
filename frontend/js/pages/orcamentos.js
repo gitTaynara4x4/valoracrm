@@ -330,6 +330,32 @@
     }
   }
 
+  function syncClientEditButton() {
+    const button = $('btn-editar-cliente-orcamento');
+    if (!button) return;
+
+    const clientId = Number($('orcamento-cliente-id')?.value || state.selectedClient?.id || 0);
+    button.classList.toggle('is-hidden', !clientId);
+    button.disabled = !clientId;
+    button.dataset.clientId = clientId ? String(clientId) : '';
+  }
+
+  function openSelectedClientEditor() {
+    const clientId = Number($('orcamento-cliente-id')?.value || state.selectedClient?.id || 0);
+    if (!clientId) {
+      toast('Selecione um cliente primeiro.', 'error');
+      return;
+    }
+
+    const url = `/clientes?editar_cliente_id=${encodeURIComponent(clientId)}`;
+    const popup = window.open(url, '_blank');
+    if (!popup) {
+      toast('O navegador bloqueou a nova aba. Libere pop-ups para editar o cliente sem perder o orçamento.', 'error');
+      return;
+    }
+    popup.opener = null;
+  }
+
   function resetBudgetForm() {
     state.currentId = null;
     state.current = null;
@@ -339,6 +365,7 @@
     state.calculation = null;
     $('form-orcamento').reset();
     $('orcamento-cliente-id').value = '';
+    syncClientEditButton();
     $('orcamento-codigo').value = '';
     $('orcamento-data-solicitacao').value = today();
     $('orcamento-data-emissao').value = today();
@@ -465,6 +492,7 @@
     };
     Object.entries(map).forEach(([id, value]) => { if ($(id)) $(id).value = value; });
     $('orcamento-usar-capa').checked = Boolean(budget.usar_capa);
+    syncClientEditButton();
     renderItems();
     if (!state.payments.length) addDefaultPayment();
     renderPayments();
@@ -682,6 +710,7 @@
       $('orcamento-contato-cliente').value ||= client.whatsapp || client.telefone || '';
       $('orcamento-cliente-resultados').hidden = true;
       $('orcamento-cliente-busca').setAttribute('aria-expanded', 'false');
+      syncClientEditButton();
       fillAddressFromClient(client, false);
       updateTotals();
     } catch (error) {
@@ -2272,7 +2301,13 @@
 
     $('orcamento-cliente-busca').addEventListener('focus', showClientOptions);
     $('orcamento-cliente-busca').addEventListener('click', showClientOptions);
-    $('orcamento-cliente-busca').addEventListener('input', () => { $('orcamento-cliente-id').value = ''; state.selectedClient = null; searchClients(); });
+    $('orcamento-cliente-busca').addEventListener('input', () => {
+      $('orcamento-cliente-id').value = '';
+      state.selectedClient = null;
+      syncClientEditButton();
+      searchClients();
+    });
+    $('btn-editar-cliente-orcamento')?.addEventListener('click', openSelectedClientEditor);
     $('orcamento-cliente-resultados').addEventListener('click', (event) => { const button = event.target.closest('[data-client-id]'); if (button) selectClient(button.dataset.clientId); });
     $('orcamento-cliente-resultados').addEventListener('scroll', loadMoreClientsOnScroll, { passive: true });
     $('btn-usar-endereco-cliente').addEventListener('click', async () => {

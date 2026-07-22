@@ -33,6 +33,23 @@
     })[char]);
   }
 
+  function isMaskedText(value) {
+    const text = String(value ?? '').trim();
+    return text.length >= 3 && /^[*•●·\s]+$/.test(text);
+  }
+
+  function agendaSubjectText(item = {}) {
+    const subject = String(item.assunto ?? '').trim();
+    if (subject && !isMaskedText(subject)) return subject;
+
+    const description = String(item.descricao ?? '').trim();
+    if (description && !isMaskedText(description)) {
+      return description.split(/\r?\n/, 1)[0].slice(0, 180);
+    }
+
+    return agendaTypeText(item.tipo) || 'Agendamento';
+  }
+
   async function apiJson(url, options = {}) {
     const response = await fetch(url, {
       credentials: 'same-origin',
@@ -573,7 +590,7 @@
       <article class="valora-agenda-item ${overdue ? 'is-overdue' : ''} ${finalized || cancelled ? 'is-completed' : ''}" data-agenda-item="${item.id}">
         <div class="agenda-item-icon"><i class="fa-solid ${agendaTypeIcon(item.tipo)}"></i></div>
         <div class="agenda-item-main">
-          <strong>${escapeHtml(item.assunto)}</strong>
+          <strong>${escapeHtml(agendaSubjectText(item))}</strong>
           ${description}
           <div class="agenda-item-meta">${entity}${typeChip}${dateChip}${statusChip}${author}</div>
           ${reason}${department}${freeInfo}
@@ -612,7 +629,7 @@
             <p>Registre um contato ou crie uma tarefa com data, status e acompanhamento.</p>
           </div>
         </div>
-        <div class="valora-agenda-form" data-agenda-form="${escapeHtml(context.containerId)}">
+        <div class="valora-agenda-form" data-agenda-form="${escapeHtml(context.containerId)}" autocomplete="off">
           <div class="agenda-field">
             <label>Tipo</label>
             <select name="tipo">
@@ -625,7 +642,7 @@
           </div>
           <div class="agenda-field agenda-field-grow">
             <label>Assunto *</label>
-            <input name="assunto" maxlength="180" placeholder="Ex.: Retorno sobre orçamento" required />
+            <input name="assunto" maxlength="180" placeholder="Ex.: Retorno sobre orçamento" autocomplete="off" data-lpignore="true" data-1p-ignore="true" required />
           </div>
           <div class="agenda-field" data-agenda-scheduled-field hidden>
             <label>Data e horário *</label>
@@ -729,6 +746,10 @@
 
       if (!assunto) {
         showMessage('Informe o assunto do registro ou agendamento.', 'error');
+        return;
+      }
+      if (isMaskedText(assunto)) {
+        showMessage('Digite um assunto válido em vez de apenas asteriscos.', 'error');
         return;
       }
       if (scheduled && !localDate) {

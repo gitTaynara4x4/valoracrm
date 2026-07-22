@@ -22,13 +22,13 @@
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260717-nilson-fixes-v1">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260722-cliente-orcamento-v1">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260720-emitter-save-v2">
 
-  <script src="/frontend/js/pages/app.js?v=20260715-agenda-fluxo-nilson-v9" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260722-agenda-editor-v11" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260720-emitter-save-v2" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260722-cliente-orcamento-v1" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -178,7 +178,22 @@
                 <div class="form-group span-2"><label for="orcamento-titulo">Título *</label><input id="orcamento-titulo" type="text" placeholder="Ex.: Implantação de rede e câmeras" /></div>
                 <div class="form-group"><label for="orcamento-status">Status</label><select id="orcamento-status"><option value="rascunho">Em elaboração</option><option value="enviado">Enviado</option><option value="em_negociacao">Em negociação</option><option value="aprovado">Aprovado</option><option value="recusado">Recusado</option><option value="cancelado">Cancelado</option></select></div>
                 <div class="form-group"><label for="orcamento-emitente-id">Empresa emitente *</label><select id="orcamento-emitente-id"><option value="">Selecionar empresa</option></select><small class="form-help">Define CNPJ, endereço e logotipo usados neste documento.</small></div>
-                <div class="form-group span-2 autocomplete-field"><label for="orcamento-cliente-busca">Cliente *</label><div class="input-with-icon"><i class="fa-regular fa-user"></i><input id="orcamento-cliente-busca" type="text" placeholder="Nome, documento ou telefone" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="orcamento-cliente-resultados" aria-expanded="false" /></div><input id="orcamento-cliente-id" type="hidden" /><div id="orcamento-cliente-resultados" class="budget-autocomplete" hidden></div></div>
+                <div class="form-group span-2 autocomplete-field">
+                  <div class="budget-field-label-row">
+                    <label for="orcamento-cliente-busca">Cliente *</label>
+                    <button
+                      class="btn btn-secondary btn-small budget-client-edit-btn is-hidden"
+                      id="btn-editar-cliente-orcamento"
+                      type="button"
+                      title="Abrir o cadastro deste cliente em uma nova aba">
+                      <i class="fa-regular fa-pen-to-square"></i>
+                      Editar cliente
+                    </button>
+                  </div>
+                  <div class="input-with-icon"><i class="fa-regular fa-user"></i><input id="orcamento-cliente-busca" type="text" placeholder="Nome, documento ou telefone" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="orcamento-cliente-resultados" aria-expanded="false" /></div>
+                  <input id="orcamento-cliente-id" type="hidden" />
+                  <div id="orcamento-cliente-resultados" class="budget-autocomplete" hidden></div>
+                </div>
                 <div class="form-group"><label for="orcamento-categoria">Categoria/tipo</label><select id="orcamento-categoria"><option value="">Sem categoria</option></select></div>
                 <div class="form-group"><label for="orcamento-modelo">Modelo</label><select id="orcamento-modelo"><option value="">Começar do zero</option></select></div>
                 <div class="form-group"><label for="orcamento-data-solicitacao">Data da solicitação</label><input id="orcamento-data-solicitacao" type="date" /></div>
@@ -216,6 +231,7 @@
               </div>
               <div id="produto-search-box" class="product-search-box" hidden>
                 <div class="input-with-icon"><i class="fa-solid fa-magnifying-glass"></i><input id="produto-search-input" type="search" placeholder="Digite código, nome ou descrição" autocomplete="off" /></div>
+                <div class="product-list-header" aria-hidden="true"><span>Produto / serviço</span><span>Valor</span></div>
                 <div id="produto-search-results" class="product-results"></div>
               </div>
               <div class="budget-items-table-wrap">
