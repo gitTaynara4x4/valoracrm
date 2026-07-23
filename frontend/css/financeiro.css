@@ -1740,3 +1740,167 @@ html[data-theme="dark"] .financeiro-line-chart line {
 html[data-theme="dark"] .financeiro-line-chart .point {
   stroke: var(--fin-card) !important;
 }
+
+/* =========================================================
+   Fase 1 - baixas, histórico e auditoria
+   ========================================================= */
+.financeiro-field-full {
+  grid-column: 1 / -1;
+}
+
+.financeiro-field input[readonly],
+.financeiro-field textarea[readonly] {
+  cursor: not-allowed;
+  opacity: .78;
+  background: rgba(148, 163, 184, .08);
+}
+
+.financeiro-baixa-resumo,
+.financeiro-history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.financeiro-baixa-resumo > div,
+.financeiro-history-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--fin-border);
+  border-radius: 12px;
+  background: var(--fin-card-soft, rgba(148, 163, 184, .06));
+}
+
+.financeiro-baixa-resumo span,
+.financeiro-history-summary span {
+  color: var(--fin-muted);
+  font-size: 12px;
+}
+
+.financeiro-baixa-resumo strong,
+.financeiro-history-summary strong {
+  color: var(--fin-text);
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.financeiro-modal-historico {
+  width: min(860px, calc(100vw - 28px));
+  max-height: min(840px, calc(100vh - 28px));
+}
+
+.financeiro-modal-historico .financeiro-modal-body {
+  overflow: auto;
+}
+
+.financeiro-history-section + .financeiro-history-section {
+  margin-top: 24px;
+}
+
+.financeiro-history-section h4 {
+  margin: 0 0 10px;
+  color: var(--fin-text);
+  font-size: 14px;
+}
+
+.financeiro-history-item {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--fin-border);
+}
+
+.financeiro-history-item:last-child {
+  border-bottom: 0;
+}
+
+.financeiro-history-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: #15803d;
+  background: rgba(34, 197, 94, .12);
+}
+
+.financeiro-history-item.is-estorno .financeiro-history-icon {
+  color: #b45309;
+  background: rgba(245, 158, 11, .14);
+}
+
+.financeiro-history-main {
+  min-width: 0;
+}
+
+.financeiro-history-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--fin-text);
+}
+
+.financeiro-history-meta,
+.financeiro-history-note,
+.financeiro-audit-item span,
+.financeiro-audit-item small {
+  display: block;
+  margin-top: 4px;
+  color: var(--fin-muted);
+  font-size: 12px;
+}
+
+.financeiro-history-note {
+  white-space: pre-wrap;
+}
+
+.financeiro-history-status {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #b45309;
+  background: rgba(245, 158, 11, .14);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.financeiro-audit-list {
+  display: grid;
+  gap: 8px;
+}
+
+.financeiro-audit-item {
+  padding: 10px 12px;
+  border: 1px solid var(--fin-border);
+  border-radius: 10px;
+  background: var(--fin-card-soft, rgba(148, 163, 184, .05));
+}
+
+.financeiro-audit-item strong {
+  color: var(--fin-text);
+  text-transform: capitalize;
+}
+
+@media (max-width: 700px) {
+  .financeiro-baixa-resumo,
+  .financeiro-history-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .financeiro-history-item {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .financeiro-history-item > .financeiro-mini-btn {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

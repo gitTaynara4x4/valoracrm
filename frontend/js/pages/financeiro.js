@@ -11,6 +11,7 @@
     auxItems: [],
     opcoes: { categorias: [], formas_pagamento: [], contas_bancos: [], clientes: [], fornecedores: [] },
     filtros: {},
+    historicoLancamentoId: null,
   };
 
   const ENDPOINTS = {
@@ -78,6 +79,13 @@
     const [y, m, d] = String(value).slice(0, 10).split("-");
     if (!y || !m || !d) return String(value);
     return `${d}/${m}/${y}`;
+  };
+
+  const dateTimeBR = (value) => {
+    if (!value) return "-";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return dateBR(value);
+    return parsed.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
   };
 
   const escapeHtml = (v) => String(v ?? "").replace(/[&<>'"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[c]));
@@ -154,8 +162,9 @@
     return `<div class="actions-cell">
       <button class="financeiro-mini-btn" type="button" data-action="editar-lancamento" data-id="${item.id}"><i class="fa-regular fa-pen-to-square"></i> Editar</button>
       <button class="financeiro-mini-btn ok" type="button" data-action="baixar-lancamento" data-id="${item.id}" ${finalizado ? "disabled" : ""}><i class="fa-solid fa-check"></i> Baixar</button>
-      <button class="financeiro-mini-btn warn" type="button" data-action="cancelar-lancamento" data-id="${item.id}" ${status === "cancelado" ? "disabled" : ""}><i class="fa-solid fa-ban"></i></button>
-      <button class="financeiro-mini-btn danger" type="button" data-action="excluir-lancamento" data-id="${item.id}"><i class="fa-regular fa-trash-can"></i></button>
+      <button class="financeiro-mini-btn" type="button" data-action="historico-lancamento" data-id="${item.id}"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</button>
+      <button class="financeiro-mini-btn warn" type="button" data-action="cancelar-lancamento" data-id="${item.id}" ${status === "cancelado" ? "disabled" : ""} title="Cancelar"><i class="fa-solid fa-ban"></i></button>
+      <button class="financeiro-mini-btn danger" type="button" data-action="excluir-lancamento" data-id="${item.id}" title="Excluir"><i class="fa-regular fa-trash-can"></i></button>
     </div>`;
   }
 
@@ -532,10 +541,10 @@
   async function carregarContas() {
     const items = await request("/api/financeiro/contas-bancos");
     state.auxItems = items;
-    setKPI("contas-saldo", money(soma(items, i => i.saldo_inicial)));
+    setKPI("contas-saldo", money(soma(items, i => i.saldo_atual ?? i.saldo_inicial)));
     setKPI("contas-ativas", `${items.filter(i => i.ativo).length}`);
     setKPI("contas-inativas", `${items.filter(i => !i.ativo).length}`);
-    setTable("tbody-contas", 7, items.map(i => `<tr><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(i.banco || "-")}</td><td>${escapeHtml(i.agencia || "-")}</td><td>${escapeHtml(i.conta || "-")}</td><td class="financeiro-amount">${money(i.saldo_inicial)}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "conta")}</td></tr>`).join(""), "Nenhuma conta cadastrada.");
+    setTable("tbody-contas", 7, items.map(i => `<tr><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(i.banco || "-")}</td><td>${escapeHtml(i.agencia || "-")}</td><td>${escapeHtml(i.conta || "-")}</td><td class="financeiro-amount" title="Saldo inicial: ${money(i.saldo_inicial)} em ${dateBR(i.data_saldo_inicial)}">${money(i.saldo_atual ?? i.saldo_inicial)}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "conta")}</td></tr>`).join(""), "Nenhuma conta cadastrada.");
     setStatusText(`${items.length} conta(s).`);
   }
 
@@ -656,6 +665,18 @@
       base.valor_pago = formatMoneyForInput(item.valor_pago ?? "", base.moeda);
     }
     setForm(form, base);
+    const valorPagoInput = form.querySelector('[name="valor_pago"]');
+    if (valorPagoInput) {
+      valorPagoInput.readOnly = true;
+      valorPagoInput.setAttribute("aria-readonly", "true");
+      valorPagoInput.title = "Valor calculado automaticamente pelas baixas e estornos.";
+    }
+    const dataPagamentoInput = form.querySelector('[name="data_pagamento"]');
+    if (dataPagamentoInput) {
+      dataPagamentoInput.readOnly = true;
+      dataPagamentoInput.setAttribute("aria-readonly", "true");
+      dataPagamentoInput.title = "Data calculada automaticamente pelas movimentações.";
+    }
     $("#modal-lancamento-titulo").textContent = item ? `Editar lançamento #${item.id}` : "Novo lançamento";
     const chip = $("#modal-lancamento-chip");
     if (chip) chip.textContent = item ? "Edição" : (base.status ? base.status.charAt(0).toUpperCase() + base.status.slice(1) : "Aberto");
@@ -670,14 +691,20 @@
     if (!form) return;
     form.reset();
     preencherSelects();
-    const restante = Number(item.valor_total || 0) - Number(item.valor_pago || 0);
+    const restante = Math.max(0, Number(item.valor_total || 0) - Number(item.valor_pago || 0));
     setForm(form, {
       id: item.id,
-      valor_pago: formatMoneyForInput(restante > 0 ? restante : item.valor_total || 0, item.moeda || "BRL"),
+      valor_baixa: formatMoneyForInput(restante, item.moeda || "BRL"),
       data_pagamento: todayISO(),
       forma_pagamento_id: item.forma_pagamento_id || "",
       conta_banco_id: item.conta_banco_id || "",
+      observacoes: "",
     });
+    const resumo = $("#financeiro-baixa-resumo", form);
+    if (resumo) resumo.innerHTML = `
+      <div><span>Valor total</span><strong>${money(item.valor_total, item.moeda)}</strong></div>
+      <div><span>Já baixado</span><strong>${money(item.valor_pago, item.moeda)}</strong></div>
+      <div><span>Saldo aberto</span><strong>${money(restante, item.moeda)}</strong></div>`;
     abrirModal("#modal-baixa");
   }
 
@@ -721,10 +748,125 @@
     } else if (tipo === "forma") {
       body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo</label><input name="tipo" placeholder="pix, boleto, cartão..."></div><div class="financeiro-field"><label>Status</label><select name="ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div></div>`;
     } else {
-      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Banco</label><input name="banco"></div><div class="financeiro-field"><label>Agência</label><input name="agencia"></div><div class="financeiro-field"><label>Conta</label><input name="conta"></div><div class="financeiro-field"><label>Saldo inicial</label><input name="saldo_inicial" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off" placeholder="R$ 0,00"></div><div class="financeiro-field"><label>Status</label><select name="ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div></div>`;
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Banco</label><input name="banco"></div><div class="financeiro-field"><label>Agência</label><input name="agencia"></div><div class="financeiro-field"><label>Conta</label><input name="conta"></div><div class="financeiro-field"><label>Saldo inicial</label><input name="saldo_inicial" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off" placeholder="R$ 0,00"></div><div class="financeiro-field"><label>Data do saldo inicial</label><input name="data_saldo_inicial" type="date" value="${todayISO()}" required></div><div class="financeiro-field"><label>Status</label><select name="ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div></div>`;
     }
     if (item) setForm(form, { ...item, ativo: String(Boolean(item.ativo)) });
     abrirModal("#modal-auxiliar");
+  }
+
+  function prepararInterfaceFinanceiro() {
+    const formLancamento = $("#form-lancamento");
+    if (formLancamento) {
+      const pago = formLancamento.querySelector('[name="valor_pago"]');
+      if (pago) {
+        pago.readOnly = true;
+        pago.setAttribute("aria-readonly", "true");
+        const label = pago.closest(".financeiro-field")?.querySelector("label");
+        if (label) label.textContent = "Pago/recebido (calculado)";
+      }
+      const dataPg = formLancamento.querySelector('[name="data_pagamento"]');
+      if (dataPg) {
+        dataPg.readOnly = true;
+        dataPg.setAttribute("aria-readonly", "true");
+      }
+    }
+
+    const formBaixa = $("#form-baixa");
+    if (formBaixa) {
+      const inputValor = formBaixa.querySelector('[name="valor_pago"], [name="valor_baixa"]');
+      if (inputValor) {
+        inputValor.name = "valor_baixa";
+        const label = inputValor.closest(".financeiro-field")?.querySelector("label");
+        if (label) label.textContent = "Valor desta baixa";
+      }
+      const modalBody = $(".financeiro-modal-body", formBaixa);
+      if (modalBody && !$("#financeiro-baixa-resumo", formBaixa)) {
+        const resumo = document.createElement("div");
+        resumo.id = "financeiro-baixa-resumo";
+        resumo.className = "financeiro-baixa-resumo";
+        modalBody.prepend(resumo);
+      }
+      const grid = $(".financeiro-form-grid", formBaixa);
+      if (grid && !grid.querySelector('[name="observacoes"]')) {
+        const campo = document.createElement("div");
+        campo.className = "financeiro-field financeiro-field-full";
+        campo.innerHTML = '<label>Observação da baixa</label><textarea name="observacoes" rows="2" placeholder="Opcional"></textarea>';
+        grid.appendChild(campo);
+      }
+    }
+
+    if (!$("#modal-historico-financeiro")) {
+      document.body.insertAdjacentHTML("beforeend", `
+        <div class="financeiro-modal-backdrop" id="modal-historico-financeiro" aria-hidden="true">
+          <div class="financeiro-modal financeiro-modal-historico">
+            <div class="financeiro-modal-head">
+              <div class="financeiro-modal-title"><h3 id="historico-financeiro-titulo">Histórico financeiro</h3><p>Baixas, estornos e alterações registradas.</p></div>
+              <button class="financeiro-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="financeiro-modal-body" id="historico-financeiro-conteudo"></div>
+            <div class="financeiro-modal-foot"><button class="btn btn-secondary" type="button" data-close-modal>Fechar</button></div>
+          </div>
+        </div>`);
+      $("#modal-historico-financeiro")?.addEventListener("click", ev => {
+        if (ev.target.id === "modal-historico-financeiro") fecharModais();
+      });
+      $$("[data-close-modal]", $("#modal-historico-financeiro")).forEach(btn => btn.addEventListener("click", fecharModais));
+    }
+  }
+
+  function renderHistorico(data) {
+    const host = $("#historico-financeiro-conteudo");
+    if (!host) return;
+    const lancamento = data.lancamento || {};
+    const movimentos = Array.isArray(data.movimentacoes) ? data.movimentacoes : [];
+    const auditoria = Array.isArray(data.auditoria) ? data.auditoria : [];
+    const saldo = Number(lancamento.valor_total || 0) - Number(lancamento.valor_pago || 0);
+    $("#historico-financeiro-titulo").textContent = `Histórico do lançamento #${lancamento.id || "-"}`;
+
+    const movHtml = movimentos.length ? movimentos.map(m => {
+      const estorno = String(m.tipo_movimentacao).toLowerCase() === "estorno";
+      const podeEstornar = !estorno && !m.estornada;
+      return `<div class="financeiro-history-item ${estorno ? "is-estorno" : ""}">
+        <div class="financeiro-history-icon"><i class="fa-solid ${estorno ? "fa-rotate-left" : "fa-check"}"></i></div>
+        <div class="financeiro-history-main">
+          <div class="financeiro-history-title"><strong>${estorno ? "Estorno" : (lancamento.tipo === "pagar" ? "Pagamento" : "Recebimento")}</strong><span>${money(m.valor, lancamento.moeda)}</span></div>
+          <div class="financeiro-history-meta">${dateBR(m.data_movimentacao)} • ${escapeHtml(m.usuario_nome || "Usuário não identificado")} • ${escapeHtml(m.conta_banco_nome || "Sem conta/banco")}</div>
+          ${m.observacoes ? `<div class="financeiro-history-note">${escapeHtml(m.observacoes)}</div>` : ""}
+          ${m.estornada ? '<span class="financeiro-history-status">Estornada</span>' : ""}
+        </div>
+        ${podeEstornar ? `<button class="financeiro-mini-btn warn" type="button" data-action="estornar-movimentacao" data-id="${m.id}" data-lancamento-id="${lancamento.id}"><i class="fa-solid fa-rotate-left"></i> Estornar</button>` : ""}
+      </div>`;
+    }).join("") : '<div class="financeiro-empty-soft">Nenhuma baixa registrada.</div>';
+
+    const auditHtml = auditoria.length ? auditoria.map(a => `<div class="financeiro-audit-item">
+      <strong>${escapeHtml(String(a.acao || "ação").replaceAll("_", " "))}</strong>
+      <span>${escapeHtml(a.usuario_nome || "Usuário não identificado")} • ${dateTimeBR(a.criado_em)}</span>
+      ${a.motivo ? `<small>${escapeHtml(a.motivo)}</small>` : ""}
+    </div>`).join("") : '<div class="financeiro-empty-soft">Nenhuma alteração registrada.</div>';
+
+    host.innerHTML = `
+      <div class="financeiro-history-summary">
+        <div><span>Total</span><strong>${money(lancamento.valor_total, lancamento.moeda)}</strong></div>
+        <div><span>Baixado</span><strong>${money(lancamento.valor_pago, lancamento.moeda)}</strong></div>
+        <div><span>Saldo aberto</span><strong>${money(Math.max(0, saldo), lancamento.moeda)}</strong></div>
+        <div><span>Status</span><strong>${escapeHtml(lancamento.status || "-")}</strong></div>
+      </div>
+      <section class="financeiro-history-section"><h4>Movimentações</h4>${movHtml}</section>
+      <section class="financeiro-history-section"><h4>Auditoria</h4><div class="financeiro-audit-list">${auditHtml}</div></section>`;
+  }
+
+  async function abrirHistorico(lancamentoId) {
+    state.historicoLancamentoId = Number(lancamentoId);
+    prepararInterfaceFinanceiro();
+    const host = $("#historico-financeiro-conteudo");
+    if (host) host.innerHTML = '<div class="financeiro-empty-soft">Carregando histórico...</div>';
+    abrirModal("#modal-historico-financeiro");
+    try {
+      const data = await request(`/api/financeiro/lancamentos/${lancamentoId}/historico`);
+      renderHistorico(data);
+    } catch (err) {
+      if (host) host.innerHTML = `<div class="financeiro-alert danger">${escapeHtml(err.message)}</div>`;
+    }
   }
 
   async function salvarLancamento(ev) {
@@ -749,10 +891,11 @@
     const data = getForm(ev.currentTarget);
     try {
       await request(`/api/financeiro/lancamentos/${data.id}/baixar`, { method: "PATCH", body: {
-        valor_pago: moneyToBackend(data.valor_pago),
+        valor_baixa: moneyToBackend(data.valor_baixa),
         data_pagamento: data.data_pagamento,
         forma_pagamento_id: nullNumber(data.forma_pagamento_id),
         conta_banco_id: nullNumber(data.conta_banco_id),
+        observacoes: data.observacoes || null,
       }});
       fecharModais();
       alertBox("Baixa registrada com sucesso.", "ok");
@@ -769,7 +912,10 @@
     const id = form.dataset.id;
     const data = getForm(form);
     data.ativo = data.ativo !== "false";
-    if (tipo === "conta") data.saldo_inicial = moneyToBackend(data.saldo_inicial || 0);
+    if (tipo === "conta") {
+      data.saldo_inicial = moneyToBackend(data.saldo_inicial || 0);
+      data.data_saldo_inicial = data.data_saldo_inicial || todayISO();
+    }
     const endpoint = ENDPOINTS[tipo === "categoria" ? "categorias" : tipo === "forma" ? "formas" : "contas"];
     try {
       await request(id ? `${endpoint}/${id}` : endpoint, { method: id ? "PUT" : "POST", body: data });
@@ -788,24 +934,40 @@
     const action = btn.dataset.action;
     const item = state.items.find(i => Number(i.id) === id) || state.auxItems.find(i => Number(i.id) === id);
 
-    if (action === "editar-lancamento" && item) abrirLancamento(item.tipo, item);
-    if (action === "baixar-lancamento" && item) abrirBaixa(item);
-    if (action === "cancelar-lancamento") {
-      if (!confirm("Cancelar este lançamento?")) return;
-      await request(`/api/financeiro/lancamentos/${id}/cancelar`, { method: "PATCH" });
-      await recarregar();
-    }
-    if (action === "excluir-lancamento") {
-      if (!confirm("Excluir definitivamente este lançamento?")) return;
-      await request(`/api/financeiro/lancamentos/${id}`, { method: "DELETE" });
-      await recarregar();
-    }
-    if (action === "editar-aux" && item) abrirAux(btn.dataset.tipo, item);
-    if (action === "excluir-aux") {
-      if (!confirm("Excluir este cadastro?")) return;
-      const endpoint = ENDPOINTS[btn.dataset.tipo === "categoria" ? "categorias" : btn.dataset.tipo === "forma" ? "formas" : "contas"];
-      await request(`${endpoint}/${id}`, { method: "DELETE" });
-      await recarregar();
+    try {
+      if (action === "editar-lancamento" && item) abrirLancamento(item.tipo, item);
+      if (action === "baixar-lancamento" && item) abrirBaixa(item);
+      if (action === "historico-lancamento") await abrirHistorico(id);
+      if (action === "estornar-movimentacao") {
+        const motivo = prompt("Informe o motivo do estorno:");
+        if (!motivo?.trim()) return;
+        await request(`/api/financeiro/movimentacoes/${id}/estornar`, { method: "PATCH", body: { motivo: motivo.trim() } });
+        alertBox("Estorno registrado com sucesso.", "ok");
+        await recarregar();
+        await abrirHistorico(Number(btn.dataset.lancamentoId));
+      }
+      if (action === "cancelar-lancamento") {
+        const motivo = prompt("Informe o motivo do cancelamento:");
+        if (!motivo?.trim()) return;
+        await request(`/api/financeiro/lancamentos/${id}/cancelar`, { method: "PATCH", body: { motivo: motivo.trim() } });
+        alertBox("Lançamento cancelado.", "ok");
+        await recarregar();
+      }
+      if (action === "excluir-lancamento") {
+        if (!confirm("Excluir definitivamente este lançamento sem movimentações?")) return;
+        await request(`/api/financeiro/lancamentos/${id}`, { method: "DELETE" });
+        alertBox("Lançamento excluído.", "ok");
+        await recarregar();
+      }
+      if (action === "editar-aux" && item) abrirAux(btn.dataset.tipo, item);
+      if (action === "excluir-aux") {
+        if (!confirm("Excluir este cadastro?")) return;
+        const endpoint = ENDPOINTS[btn.dataset.tipo === "categoria" ? "categorias" : btn.dataset.tipo === "forma" ? "formas" : "contas"];
+        await request(`${endpoint}/${id}`, { method: "DELETE" });
+        await recarregar();
+      }
+    } catch (err) {
+      alertBox(`Erro: ${err.message}`, "danger");
     }
   }
 
@@ -824,6 +986,7 @@
   }
 
   function bind() {
+    prepararInterfaceFinanceiro();
     document.addEventListener("click", actionClick);
     $$('[data-close-modal]').forEach(btn => btn.addEventListener("click", fecharModais));
     $$(".financeiro-modal-backdrop").forEach(back => back.addEventListener("click", ev => { if (ev.target === back) fecharModais(); }));
