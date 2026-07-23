@@ -199,6 +199,7 @@ PAGE_PERMISSION_MODULES = {
     "/contas-pagar": "financeiro",
     "/contas-receber": "financeiro",
     "/contas-bancos": "financeiro",
+    "/cadastros-financeiros": "financeiro",
     "/categorias-financeiras": "financeiro",
     "/formas-pagamento": "financeiro",
     "/relatorios-financeiros": "financeiro",

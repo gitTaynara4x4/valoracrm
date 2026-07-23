@@ -924,6 +924,12 @@ def formulario_completo(db: Session, modelo) -> Dict[str, Any]:
         sincronizar_campos_fornecedores_do_formulario(
             db, int(modelo.empresa_id), modelo_id=int(modelo.id), commit=False
         )
+    elif modulo == "produtos":
+        from backend.routers.produtos import sincronizar_campos_produtos_com_formulario
+
+        sincronizar_campos_produtos_com_formulario(
+            db, int(modelo.empresa_id), modelo_id=int(modelo.id), commit=False
+        )
 
     db.commit()
     db.refresh(modelo)
@@ -953,6 +959,8 @@ def formulario_completo(db: Session, modelo) -> Dict[str, Any]:
         campo_model = models.CampoCliente
     elif modulo == "fornecedores":
         campo_model = models.CampoFornecedor
+    elif modulo == "produtos":
+        campo_model = models.CampoProduto
 
     if ids and campo_model is not None:
         rows = (

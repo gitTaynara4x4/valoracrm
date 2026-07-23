@@ -89,26 +89,96 @@
   }
 
   function normalizarTipo(tipo) {
-    const t = String(tipo || 'texto').trim().toLowerCase();
-    const mapa = {
+    const raw = String(tipo || 'texto').trim().toLowerCase();
+    const token = raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '');
+
+    const aliases = {
       text: 'texto',
       texto: 'texto',
+      texto_curto: 'texto',
+      campo_texto: 'texto',
       textarea: 'textarea',
+      texto_longo: 'textarea',
+      area_de_texto: 'textarea',
       numero: 'numero',
       number: 'numero',
       data: 'data',
       date: 'data',
       select: 'select',
       lista: 'select',
-      multiselect: 'multiselect',
+      lista_simples: 'select',
       checkbox: 'checkbox',
+      flag: 'checkbox',
+      fleg: 'checkbox',
       email: 'email',
+      e_mail: 'email',
       telefone: 'telefone',
+      phone: 'telefone',
       tel: 'telefone',
       moeda: 'moeda',
+      money: 'moeda',
       percentual: 'percentual',
+      percent: 'percentual',
+      multiselect: 'multiselect',
+      multi_select: 'multiselect',
+      lista_multipla: 'multiselect',
+      lista_multiplas: 'multiselect',
+      lista_com_multipla_selecao: 'multiselect',
+      multipla_selecao: 'multiselect',
+      multipla_escolha: 'multiselect',
+      multiplas_escolhas: 'multiselect',
+      multivalor: 'multiselect',
+      multivaloravel: 'multiselect',
+      multvaloravel: 'multiselect',
     };
-    return mapa[t] || t;
+    if (aliases[token]) return aliases[token];
+
+    const canonical = new Set([
+      'texto', 'textarea', 'numero', 'data', 'select', 'multiselect',
+      'checkbox', 'email', 'telefone', 'moeda', 'percentual',
+      'relacao_cliente', 'relacao_fornecedor', 'relacao_produto',
+      'relacao_patrimonio', 'relacao_cotacao', 'relacao_proposta',
+      'relacao_contrato', 'relacao_cliente_multi',
+      'relacao_fornecedor_multi', 'relacao_produto_multi',
+      'relacao_patrimonio_multi', 'relacao_cotacao_multi',
+      'relacao_proposta_multi', 'relacao_contrato_multi',
+    ]);
+    if (canonical.has(token)) return token;
+
+    const multi = /(^|_)(multi|multiplo|multipla|multiplos|multiplas|varios|varias)($|_)/.test(token) || token.endsWith('_multi');
+    const relationToken = token
+      .replace(/(^|_)(relacao|lookup|puxar|puxa)($|_)/g, '_')
+      .replace(/(^|_)(multi|multiplo|multipla|multiplos|multiplas|varios|varias)($|_)/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const entities = {
+      cliente: 'cliente', clientes: 'cliente',
+      fornecedor: 'fornecedor', fornecedores: 'fornecedor',
+      produto: 'produto', produtos: 'produto',
+      patrimonio: 'patrimonio', patrimonios: 'patrimonio',
+      cotacao: 'cotacao', cotacoes: 'cotacao',
+      proposta: 'proposta', propostas: 'proposta',
+      contrato: 'contrato', contratos: 'contrato',
+    };
+    const entity = entities[relationToken];
+    if (entity) return `relacao_${entity}${multi ? '_multi' : ''}`;
+
+    return 'texto';
+  }
+
+  function isTipoRelacao(tipo) {
+    return String(tipo || '').startsWith('relacao_');
+  }
+
+  function tipoRelacaoBase(tipo) {
+    return String(tipo || '')
+      .replace(/^relacao_/, '')
+      .replace(/_multi$/, '');
   }
 
   function getCondicao(campo) {
@@ -385,6 +455,23 @@
       data-layout-key="${escapeHtml(itemLayoutKey(field.origem, field.key))}"
     `;
 
+    if (isTipoRelacao(field.tipo)) {
+      return `
+        <div class="form-group localizar-personalizado-field" ${wrapperAttrs}>
+          <label for="${escapeHtml(inputId)}">${label}</label>
+          <select
+            id="${escapeHtml(inputId)}"
+            data-relation-filter="true"
+            data-relation-type="${escapeHtml(tipoRelacaoBase(field.tipo))}"
+            ${dataAttrs}
+            disabled
+          >
+            <option value="">Carregando opções...</option>
+          </select>
+        </div>
+      `;
+    }
+
     if (field.tipo === 'checkbox') {
       return `
         <div class="form-group localizar-personalizado-field" ${wrapperAttrs}>
@@ -435,6 +522,51 @@
     container.classList.toggle('is-layout-contents', !!fields.length);
   }
 
+  async function hidratarFiltroRelacao(select) {
+    const tipo = String(select?.dataset?.relationType || '').trim();
+    if (!select || !tipo) return;
+
+    const valorAtual = String(select.value || '').trim();
+    try {
+      const params = new URLSearchParams({
+        tipo,
+        limit: '5000',
+        offset: '0',
+        paginated: 'false',
+      });
+      const data = await apiJson(`${API_FORMULARIOS}/opcoes-relacao?${params.toString()}`);
+      const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+
+      select.innerHTML = '<option value="">Todos</option>';
+      items.forEach((item) => {
+        const value = String(item?.value ?? item?.id ?? '').trim();
+        if (!value) return;
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = String(item?.label ?? item?.nome ?? item?.codigo ?? value).trim() || value;
+        select.appendChild(option);
+      });
+
+      select.disabled = false;
+      select.title = '';
+      if (valorAtual && Array.from(select.options).some((option) => option.value === valorAtual)) {
+        select.value = valorAtual;
+      }
+    } catch (error) {
+      console.warn(`[Localizar] não foi possível carregar relação ${tipo}:`, error);
+      select.innerHTML = '<option value="">Todos</option>';
+      select.disabled = false;
+      select.title = 'Não foi possível carregar as opções deste campo.';
+    }
+  }
+
+  async function hidratarFiltrosRelacao(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const selects = Array.from(container.querySelectorAll('select[data-relation-filter="true"]'));
+    await Promise.all(selects.map((select) => hidratarFiltroRelacao(select)));
+  }
+
   function applyNativeFilterLayout(modulo, filtersContainerId) {
     const map = NATIVE_FILTERS[modulo] || {};
     const config = cache.get(modulo) || { filterFields: [] };
@@ -477,7 +609,10 @@
     await carregarLayoutServidor(modulo);
     if (force) cache.delete(String(modulo || '').trim());
     const config = await carregarModulo(modulo, { force });
-    if (filtersContainerId) renderFiltros(modulo, filtersContainerId);
+    if (filtersContainerId) {
+      renderFiltros(modulo, filtersContainerId);
+      await hidratarFiltrosRelacao(filtersContainerId);
+    }
     applyNativeFilterLayout(modulo, filtersContainerId);
     return config;
   }

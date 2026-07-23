@@ -183,7 +183,10 @@ def _custom_value_condition(column: Any, field_type: str, raw: str):
         return _multi_value_condition(column, raw)
 
     if normalized_type in _EXACT_CUSTOM_TYPES or normalized_type.startswith("relacao_"):
-        return _exact_text_condition(column, raw)
+        # Também aceita bases antigas em que um campo simples foi salvo como
+        # array JSON por engano ou teve o tipo alterado depois do cadastro.
+        # A busca continua exata por item: "Ativo" não encontra "Inativo".
+        return _multi_value_condition(column, raw)
 
     if normalized_type in _DIGIT_CUSTOM_TYPES:
         digits = re.sub(r"\D+", "", raw)

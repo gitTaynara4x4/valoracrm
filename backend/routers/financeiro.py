@@ -86,6 +86,20 @@ def parse_money(value: Any) -> Decimal:
         raise HTTPException(status_code=422, detail=f"Valor inválido: {value}")
 
 
+def parse_percentage(value: Any) -> Decimal:
+    if value in (None, "", "null"):
+        return Decimal("0")
+    text_value = str(value).strip().replace("%", "").replace(" ", "")
+    if "," in text_value and "." in text_value:
+        text_value = text_value.replace(".", "").replace(",", ".")
+    else:
+        text_value = text_value.replace(",", ".")
+    try:
+        return Decimal(text_value).quantize(Decimal("0.0001"))
+    except (InvalidOperation, ValueError):
+        raise HTTPException(status_code=422, detail=f"Percentual inválido: {value}")
+
+
 def to_json_value(value: Any) -> Any:
     if isinstance(value, Decimal):
         return float(value)
@@ -150,6 +164,13 @@ def ensure_tables(db: Session):
         "financeiro_contas_bancos",
         "financeiro_movimentacoes",
         "financeiro_auditoria",
+        "financeiro_tipos_documento",
+        "financeiro_naturezas_operacao",
+        "financeiro_centros_custo",
+        "financeiro_unidades_consumo",
+        "financeiro_contas_contabeis",
+        "financeiro_formas_cobranca",
+        "financeiro_regras_encargos",
     )
     placeholders = ", ".join(f"'{nome}'" for nome in obrigatorias)
     existentes = {
@@ -167,7 +188,8 @@ def ensure_tables(db: Session):
             status_code=500,
             detail=(
                 "Estrutura financeira incompleta. Execute "
-                "sql/financeiro/001_base_financeiro_segura.sql. "
+                "sql/financeiro/001_base_financeiro_segura.sql e "
+                "sql/financeiro/002_cadastros_financeiros.sql. "
                 f"Tabelas ausentes: {', '.join(faltantes)}."
             ),
         )
@@ -248,6 +270,13 @@ def validar_id_empresa(
         "financeiro_categorias",
         "financeiro_formas_pagamento",
         "financeiro_contas_bancos",
+        "financeiro_tipos_documento",
+        "financeiro_naturezas_operacao",
+        "financeiro_centros_custo",
+        "financeiro_unidades_consumo",
+        "financeiro_contas_contabeis",
+        "financeiro_formas_cobranca",
+        "financeiro_regras_encargos",
     }
     if table_name not in permitidas:
         raise RuntimeError("Tabela não permitida na validação financeira.")
@@ -269,6 +298,16 @@ def validar_referencias_lancamento(
     categoria_id: Optional[int],
     forma_pagamento_id: Optional[int],
     conta_banco_id: Optional[int],
+    tipo_documento_id: Optional[int],
+    natureza_operacao_id: Optional[int],
+    centro_custo_principal_id: Optional[int],
+    centro_custo_secundario_id: Optional[int],
+    unidade_consumo_principal_id: Optional[int],
+    unidade_consumo_secundaria_id: Optional[int],
+    conta_contabil_id: Optional[int],
+    forma_cobranca_id: Optional[int],
+    regra_encargos_id: Optional[int],
+    entidade_emissora_id: Optional[int],
 ) -> None:
     if tipo == "receber" and fornecedor_id is not None:
         raise HTTPException(status_code=422, detail="Conta a receber não pode usar fornecedor.")
@@ -280,6 +319,55 @@ def validar_referencias_lancamento(
     validar_id_empresa(db, table_name="financeiro_categorias", item_id=categoria_id, empresa_id=empresa_id, label="Categoria")
     validar_id_empresa(db, table_name="financeiro_formas_pagamento", item_id=forma_pagamento_id, empresa_id=empresa_id, label="Forma de pagamento")
     validar_id_empresa(db, table_name="financeiro_contas_bancos", item_id=conta_banco_id, empresa_id=empresa_id, label="Conta/Banco")
+    validar_id_empresa(db, table_name="financeiro_tipos_documento", item_id=tipo_documento_id, empresa_id=empresa_id, label="Tipo de documento")
+    validar_id_empresa(db, table_name="financeiro_naturezas_operacao", item_id=natureza_operacao_id, empresa_id=empresa_id, label="Natureza da operação")
+    validar_id_empresa(db, table_name="financeiro_centros_custo", item_id=centro_custo_principal_id, empresa_id=empresa_id, label="Centro de custo principal")
+    validar_id_empresa(db, table_name="financeiro_centros_custo", item_id=centro_custo_secundario_id, empresa_id=empresa_id, label="Centro de custo secundário")
+    validar_id_empresa(db, table_name="financeiro_unidades_consumo", item_id=unidade_consumo_principal_id, empresa_id=empresa_id, label="Unidade de consumo principal")
+    validar_id_empresa(db, table_name="financeiro_unidades_consumo", item_id=unidade_consumo_secundaria_id, empresa_id=empresa_id, label="Unidade de consumo secundária")
+    validar_id_empresa(db, table_name="financeiro_contas_contabeis", item_id=conta_contabil_id, empresa_id=empresa_id, label="Conta contábil")
+    validar_id_empresa(db, table_name="financeiro_formas_cobranca", item_id=forma_cobranca_id, empresa_id=empresa_id, label="Forma de cobrança")
+    validar_id_empresa(db, table_name="financeiro_regras_encargos", item_id=regra_encargos_id, empresa_id=empresa_id, label="Regra de multa e mora")
+    validar_id_empresa(db, table_name="financeiro_contas_bancos", item_id=entidade_emissora_id, empresa_id=empresa_id, label="Entidade emissora")
+
+    if centro_custo_principal_id is not None and centro_custo_principal_id == centro_custo_secundario_id:
+        raise HTTPException(status_code=422, detail="Centro de custo principal e secundário devem ser diferentes.")
+    if unidade_consumo_principal_id is not None and unidade_consumo_principal_id == unidade_consumo_secundaria_id:
+        raise HTTPException(status_code=422, detail="Unidade de consumo principal e secundária devem ser diferentes.")
+
+    for table_name, item_id, label in (
+        ("financeiro_tipos_documento", tipo_documento_id, "Tipo de documento"),
+        ("financeiro_naturezas_operacao", natureza_operacao_id, "Natureza da operação"),
+        ("financeiro_regras_encargos", regra_encargos_id, "Regra de multa e mora"),
+    ):
+        if item_id is None:
+            continue
+        aplicacao = db.execute(text(f"""
+            SELECT aplicacao FROM public.{table_name}
+            WHERE id = :id AND empresa_id = :empresa_id
+        """), {"id": item_id, "empresa_id": empresa_id}).scalar()
+        if aplicacao not in {"ambos", tipo}:
+            raise HTTPException(status_code=422, detail=f"{label} não aceita lançamentos do tipo {tipo}.")
+
+    if tipo_documento_id is not None:
+        exige_entidade = db.execute(text("""
+            SELECT exige_entidade_emissora
+            FROM public.financeiro_tipos_documento
+            WHERE id = :id AND empresa_id = :empresa_id
+        """), {"id": tipo_documento_id, "empresa_id": empresa_id}).scalar()
+        if exige_entidade is True and entidade_emissora_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail="O tipo de documento selecionado exige uma entidade emissora (Conta/Banco).",
+            )
+
+    if conta_contabil_id is not None:
+        aceita = db.execute(text("""
+            SELECT aceita_lancamento FROM public.financeiro_contas_contabeis
+            WHERE id = :id AND empresa_id = :empresa_id
+        """), {"id": conta_contabil_id, "empresa_id": empresa_id}).scalar()
+        if aceita is False:
+            raise HTTPException(status_code=422, detail="A conta contábil selecionada é apenas agrupadora e não aceita lançamentos.")
 
     if categoria_id is not None:
         categoria = db.execute(text("""
@@ -329,6 +417,61 @@ class ContaBancoIn(BaseModel):
     ativo: bool = True
 
 
+class TipoDocumentoIn(BaseModel):
+    nome: str
+    codigo: Optional[str] = None
+    aplicacao: str = "ambos"
+    exige_entidade_emissora: bool = False
+    ativo: bool = True
+
+
+class NaturezaOperacaoIn(BaseModel):
+    nome: str
+    codigo: Optional[str] = None
+    aplicacao: str = "ambos"
+    ativo: bool = True
+
+
+class CentroCustoIn(BaseModel):
+    nome: str
+    codigo: Optional[str] = None
+    centro_pai_id: Optional[int] = None
+    ativo: bool = True
+
+
+class UnidadeConsumoIn(BaseModel):
+    nome: str
+    codigo: Optional[str] = None
+    departamento_referencia: Optional[str] = None
+    ativo: bool = True
+
+
+class ContaContabilIn(BaseModel):
+    codigo: str
+    nome: str
+    tipo: str = "outros"
+    conta_pai_id: Optional[int] = None
+    aceita_lancamento: bool = True
+    ativo: bool = True
+
+
+class FormaCobrancaIn(BaseModel):
+    nome: str
+    tipo: str = "outro"
+    ativo: bool = True
+
+
+class RegraEncargosIn(BaseModel):
+    nome: str
+    aplicacao: str = "ambos"
+    possui_multa: bool = False
+    indice_multa_percent: Optional[Any] = 0
+    possui_mora_diaria: bool = False
+    indice_mora_diaria_percent: Optional[Any] = 0
+    padrao: bool = False
+    ativo: bool = True
+
+
 class LancamentoIn(BaseModel):
     tipo: str
     descricao: str
@@ -346,6 +489,21 @@ class LancamentoIn(BaseModel):
     categoria_id: Optional[int] = None
     forma_pagamento_id: Optional[int] = None
     conta_banco_id: Optional[int] = None
+
+    tipo_documento_id: Optional[int] = None
+    natureza_operacao_id: Optional[int] = None
+    centro_custo_principal_id: Optional[int] = None
+    centro_custo_secundario_id: Optional[int] = None
+    unidade_consumo_principal_id: Optional[int] = None
+    unidade_consumo_secundaria_id: Optional[int] = None
+    conta_contabil_id: Optional[int] = None
+    forma_cobranca_id: Optional[int] = None
+    regra_encargos_id: Optional[int] = None
+    entidade_emissora_id: Optional[int] = None
+    possui_multa: Optional[bool] = None
+    indice_multa_percent: Optional[Any] = None
+    possui_mora_diaria: Optional[bool] = None
+    indice_mora_diaria_percent: Optional[Any] = None
 
     documento: Optional[str] = None
     observacoes: Optional[str] = None
@@ -389,6 +547,17 @@ SELECT
     cat.nome AS categoria_nome,
     fp.nome AS forma_pagamento_nome,
     cb.nome AS conta_banco_nome,
+    td.nome AS tipo_documento_nome,
+    no.nome AS natureza_operacao_nome,
+    ccp.nome AS centro_custo_principal_nome,
+    ccs.nome AS centro_custo_secundario_nome,
+    ucp.nome AS unidade_consumo_principal_nome,
+    ucs.nome AS unidade_consumo_secundaria_nome,
+    ccont.codigo AS conta_contabil_codigo,
+    ccont.nome AS conta_contabil_nome,
+    fc.nome AS forma_cobranca_nome,
+    re.nome AS regra_encargos_nome,
+    ee.nome AS entidade_emissora_nome,
     uc.nome AS criado_por_nome,
     ua.nome AS atualizado_por_nome,
     ucan.nome AS cancelado_por_nome
@@ -408,6 +577,26 @@ LEFT JOIN public.financeiro_formas_pagamento fp
 LEFT JOIN public.financeiro_contas_bancos cb
        ON cb.id = l.conta_banco_id
       AND cb.empresa_id = l.empresa_id
+LEFT JOIN public.financeiro_tipos_documento td
+       ON td.id = l.tipo_documento_id AND td.empresa_id = l.empresa_id
+LEFT JOIN public.financeiro_naturezas_operacao no
+       ON no.id = l.natureza_operacao_id AND no.empresa_id = l.empresa_id
+LEFT JOIN public.financeiro_centros_custo ccp
+       ON ccp.id = l.centro_custo_principal_id AND ccp.empresa_id = l.empresa_id
+LEFT JOIN public.financeiro_centros_custo ccs
+       ON ccs.id = l.centro_custo_secundario_id AND ccs.empresa_id = l.empresa_id
+LEFT JOIN public.financeiro_unidades_consumo ucp
+       ON ucp.id = l.unidade_consumo_principal_id AND ucp.empresa_id = l.empresa_id
+LEFT JOIN public.financeiro_unidades_consumo ucs
+       ON ucs.id = l.unidade_consumo_secundaria_id AND ucs.empresa_id = l.empresa_id
+LEFT JOIN public.financeiro_contas_contabeis ccont
+       ON ccont.id = l.conta_contabil_id AND ccont.empresa_id = l.empresa_id
+LEFT JOIN public.financeiro_formas_cobranca fc
+       ON fc.id = l.forma_cobranca_id AND fc.empresa_id = l.empresa_id
+LEFT JOIN public.financeiro_regras_encargos re
+       ON re.id = l.regra_encargos_id AND re.empresa_id = l.empresa_id
+LEFT JOIN public.financeiro_contas_bancos ee
+       ON ee.id = l.entidade_emissora_id AND ee.empresa_id = l.empresa_id
 LEFT JOIN public.usuarios uc ON uc.id = l.criado_por_usuario_id
 LEFT JOIN public.usuarios ua ON ua.id = l.atualizado_por_usuario_id
 LEFT JOIN public.usuarios ucan ON ucan.id = l.cancelado_por_usuario_id
@@ -549,12 +738,27 @@ def opcoes_financeiro(
         LIMIT 250
     """), fornecedor_params).fetchall()]
 
+    def ativos(nome_tabela: str, order_by: str = "nome ASC") -> list[Dict[str, Any]]:
+        rows = db.execute(text(f"""
+            SELECT * FROM public.{nome_tabela}
+            WHERE empresa_id = :empresa_id AND ativo = TRUE
+            ORDER BY {order_by}
+        """), params).fetchall()
+        return [row_to_dict(r) for r in rows]
+
     return {
         "categorias": categorias,
         "formas_pagamento": formas,
         "contas_bancos": contas,
         "clientes": clientes,
         "fornecedores": fornecedores,
+        "tipos_documento": ativos("financeiro_tipos_documento"),
+        "naturezas_operacao": ativos("financeiro_naturezas_operacao"),
+        "centros_custo": ativos("financeiro_centros_custo", "codigo NULLS LAST, nome ASC"),
+        "unidades_consumo": ativos("financeiro_unidades_consumo", "codigo NULLS LAST, nome ASC"),
+        "contas_contabeis": ativos("financeiro_contas_contabeis", "codigo ASC, nome ASC"),
+        "formas_cobranca": ativos("financeiro_formas_cobranca"),
+        "regras_encargos": ativos("financeiro_regras_encargos", "padrao DESC, nome ASC"),
     }
 
 
@@ -778,7 +982,38 @@ def montar_params_lancamento(payload: LancamentoIn, empresa_id: int, db: Session
         categoria_id=payload.categoria_id,
         forma_pagamento_id=payload.forma_pagamento_id,
         conta_banco_id=payload.conta_banco_id,
+        tipo_documento_id=payload.tipo_documento_id,
+        natureza_operacao_id=payload.natureza_operacao_id,
+        centro_custo_principal_id=payload.centro_custo_principal_id,
+        centro_custo_secundario_id=payload.centro_custo_secundario_id,
+        unidade_consumo_principal_id=payload.unidade_consumo_principal_id,
+        unidade_consumo_secundaria_id=payload.unidade_consumo_secundaria_id,
+        conta_contabil_id=payload.conta_contabil_id,
+        forma_cobranca_id=payload.forma_cobranca_id,
+        regra_encargos_id=payload.regra_encargos_id,
+        entidade_emissora_id=payload.entidade_emissora_id,
     )
+
+    regra = None
+    if payload.regra_encargos_id is not None:
+        regra_row = db.execute(text("""
+            SELECT possui_multa, indice_multa_percent, possui_mora_diaria, indice_mora_diaria_percent
+            FROM public.financeiro_regras_encargos
+            WHERE id = :id AND empresa_id = :empresa_id
+        """), {"id": payload.regra_encargos_id, "empresa_id": empresa_id}).first()
+        regra = row_to_dict(regra_row) if regra_row else None
+
+    possui_multa = payload.possui_multa if payload.possui_multa is not None else bool(regra and regra.get("possui_multa"))
+    possui_mora = payload.possui_mora_diaria if payload.possui_mora_diaria is not None else bool(regra and regra.get("possui_mora_diaria"))
+    indice_multa = parse_percentage(payload.indice_multa_percent if payload.indice_multa_percent is not None else (regra or {}).get("indice_multa_percent", 0))
+    indice_mora = parse_percentage(payload.indice_mora_diaria_percent if payload.indice_mora_diaria_percent is not None else (regra or {}).get("indice_mora_diaria_percent", 0))
+    if indice_multa < 0 or indice_multa > 100 or indice_mora < 0 or indice_mora > 100:
+        raise HTTPException(status_code=422, detail="Índices de multa e mora devem ficar entre 0% e 100%.")
+    if not possui_multa:
+        indice_multa = Decimal("0")
+    if not possui_mora:
+        indice_mora = Decimal("0")
+
     return {
         "empresa_id": empresa_id,
         "tipo": tipo,
@@ -792,6 +1027,20 @@ def montar_params_lancamento(payload: LancamentoIn, empresa_id: int, db: Session
         "categoria_id": payload.categoria_id,
         "forma_pagamento_id": payload.forma_pagamento_id,
         "conta_banco_id": payload.conta_banco_id,
+        "tipo_documento_id": payload.tipo_documento_id,
+        "natureza_operacao_id": payload.natureza_operacao_id,
+        "centro_custo_principal_id": payload.centro_custo_principal_id,
+        "centro_custo_secundario_id": payload.centro_custo_secundario_id,
+        "unidade_consumo_principal_id": payload.unidade_consumo_principal_id,
+        "unidade_consumo_secundaria_id": payload.unidade_consumo_secundaria_id,
+        "conta_contabil_id": payload.conta_contabil_id,
+        "forma_cobranca_id": payload.forma_cobranca_id,
+        "regra_encargos_id": payload.regra_encargos_id,
+        "entidade_emissora_id": payload.entidade_emissora_id,
+        "possui_multa": possui_multa,
+        "indice_multa_percent": indice_multa,
+        "possui_mora_diaria": possui_mora,
+        "indice_mora_diaria_percent": indice_mora,
         "documento": norm_str(payload.documento),
         "observacoes": norm_str(payload.observacoes),
         "anexo_url": norm_str(payload.anexo_url),
@@ -821,6 +1070,11 @@ def criar_lancamento(
             empresa_id, tipo, descricao, moeda, valor_total, valor_pago,
             data_emissao, data_vencimento, data_pagamento, status,
             cliente_id, fornecedor_id, categoria_id, forma_pagamento_id, conta_banco_id,
+            tipo_documento_id, natureza_operacao_id,
+            centro_custo_principal_id, centro_custo_secundario_id,
+            unidade_consumo_principal_id, unidade_consumo_secundaria_id,
+            conta_contabil_id, forma_cobranca_id, regra_encargos_id, entidade_emissora_id,
+            possui_multa, indice_multa_percent, possui_mora_diaria, indice_mora_diaria_percent,
             documento, observacoes, anexo_url,
             recorrente, parcelado, parcela_numero, parcela_total, grupo_recorrencia,
             criado_por_usuario_id, atualizado_por_usuario_id, criado_em, atualizado_em
@@ -828,6 +1082,11 @@ def criar_lancamento(
             :empresa_id, :tipo, :descricao, :moeda, :valor_total, 0,
             :data_emissao, :data_vencimento, NULL, :status,
             :cliente_id, :fornecedor_id, :categoria_id, :forma_pagamento_id, :conta_banco_id,
+            :tipo_documento_id, :natureza_operacao_id,
+            :centro_custo_principal_id, :centro_custo_secundario_id,
+            :unidade_consumo_principal_id, :unidade_consumo_secundaria_id,
+            :conta_contabil_id, :forma_cobranca_id, :regra_encargos_id, :entidade_emissora_id,
+            :possui_multa, :indice_multa_percent, :possui_mora_diaria, :indice_mora_diaria_percent,
             :documento, :observacoes, :anexo_url,
             :recorrente, :parcelado, :parcela_numero, :parcela_total, :grupo_recorrencia,
             :usuario_id, :usuario_id, NOW(), NOW()
@@ -904,6 +1163,20 @@ def atualizar_lancamento(
                categoria_id = :categoria_id,
                forma_pagamento_id = :forma_pagamento_id,
                conta_banco_id = :conta_banco_id,
+               tipo_documento_id = :tipo_documento_id,
+               natureza_operacao_id = :natureza_operacao_id,
+               centro_custo_principal_id = :centro_custo_principal_id,
+               centro_custo_secundario_id = :centro_custo_secundario_id,
+               unidade_consumo_principal_id = :unidade_consumo_principal_id,
+               unidade_consumo_secundaria_id = :unidade_consumo_secundaria_id,
+               conta_contabil_id = :conta_contabil_id,
+               forma_cobranca_id = :forma_cobranca_id,
+               regra_encargos_id = :regra_encargos_id,
+               entidade_emissora_id = :entidade_emissora_id,
+               possui_multa = :possui_multa,
+               indice_multa_percent = :indice_multa_percent,
+               possui_mora_diaria = :possui_mora_diaria,
+               indice_mora_diaria_percent = :indice_mora_diaria_percent,
                documento = :documento,
                observacoes = :observacoes,
                anexo_url = :anexo_url,
@@ -1337,7 +1610,13 @@ def relatorio_resumo(
 
 def listar_auxiliar(table_name: str, empresa_id: int, db: Session):
     ensure_tables(db)
-    permitidas = {"financeiro_categorias", "financeiro_formas_pagamento"}
+    permitidas = {
+        "financeiro_categorias", "financeiro_formas_pagamento",
+        "financeiro_tipos_documento", "financeiro_naturezas_operacao",
+        "financeiro_centros_custo", "financeiro_unidades_consumo",
+        "financeiro_contas_contabeis", "financeiro_formas_cobranca",
+        "financeiro_regras_encargos",
+    }
     if table_name not in permitidas:
         raise RuntimeError("Tabela auxiliar não permitida.")
     rows = db.execute(text(f"SELECT * FROM public.{table_name} WHERE empresa_id = :empresa_id ORDER BY ativo DESC, nome ASC, id ASC"), {"empresa_id": empresa_id}).fetchall()
@@ -1346,7 +1625,13 @@ def listar_auxiliar(table_name: str, empresa_id: int, db: Session):
 
 def excluir_auxiliar(table_name: str, item_id: int, empresa_id: int, db: Session, usuario_id: int):
     ensure_tables(db)
-    permitidas = {"financeiro_categorias", "financeiro_formas_pagamento", "financeiro_contas_bancos"}
+    permitidas = {
+        "financeiro_categorias", "financeiro_formas_pagamento", "financeiro_contas_bancos",
+        "financeiro_tipos_documento", "financeiro_naturezas_operacao",
+        "financeiro_centros_custo", "financeiro_unidades_consumo",
+        "financeiro_contas_contabeis", "financeiro_formas_cobranca",
+        "financeiro_regras_encargos",
+    }
     if table_name not in permitidas:
         raise RuntimeError("Tabela auxiliar não permitida.")
     anterior_row = db.execute(text(f"SELECT * FROM public.{table_name} WHERE empresa_id = :empresa_id AND id = :id"), {"empresa_id": empresa_id, "id": item_id}).first()
@@ -1546,3 +1831,450 @@ def atualizar_conta_banco(item_id: int, payload: ContaBancoIn, db: Session = Dep
 @router.delete("/contas-bancos/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_conta_banco(item_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
     return excluir_auxiliar("financeiro_contas_bancos", item_id, empresa_do(usuario), db, int(usuario.id))
+
+
+# =========================================================
+# Cadastros financeiros configuráveis (Fase 3)
+# =========================================================
+
+def _nome_obrigatorio(value: str, label: str = "Nome") -> str:
+    value_norm = (value or "").strip()
+    if not value_norm:
+        raise HTTPException(status_code=422, detail=f"{label} é obrigatório.")
+    return value_norm
+
+
+def _aplicacao(value: str) -> str:
+    value_norm = (value or "ambos").strip().lower()
+    if value_norm not in {"pagar", "receber", "ambos"}:
+        raise HTTPException(status_code=422, detail="Aplicação deve ser pagar, receber ou ambos.")
+    return value_norm
+
+
+def _percentual(value: Any, label: str) -> Decimal:
+    parsed = parse_percentage(value)
+    if parsed < 0 or parsed > 100:
+        raise HTTPException(status_code=422, detail=f"{label} deve ficar entre 0% e 100%.")
+    return parsed
+
+
+def _auditar_salvar_auxiliar(db: Session, usuario: models.Usuario, entidade: str, item_id: int, anterior: Optional[Dict[str, Any]], novo: Dict[str, Any]) -> None:
+    registrar_auditoria(
+        db,
+        empresa_id=empresa_do(usuario),
+        usuario_id=int(usuario.id),
+        acao="editar" if anterior else "criar",
+        entidade=entidade,
+        entidade_id=item_id,
+        anteriores=anterior,
+        novos=novo,
+    )
+
+
+def _validar_hierarquia_sem_ciclo(
+    db: Session,
+    *,
+    table_name: str,
+    parent_column: str,
+    item_id: int,
+    parent_id: Optional[int],
+    empresa_id: int,
+    label: str,
+) -> None:
+    if parent_id is None:
+        return
+    permitidas = {
+        ("financeiro_centros_custo", "centro_pai_id"),
+        ("financeiro_contas_contabeis", "conta_pai_id"),
+    }
+    if (table_name, parent_column) not in permitidas:
+        raise RuntimeError("Hierarquia financeira não permitida.")
+    forma_ciclo = db.execute(text(f"""
+        WITH RECURSIVE descendentes AS (
+            SELECT id
+              FROM public.{table_name}
+             WHERE empresa_id = :empresa_id AND id = :item_id
+            UNION ALL
+            SELECT filho.id
+              FROM public.{table_name} filho
+              JOIN descendentes pai ON filho.{parent_column} = pai.id
+             WHERE filho.empresa_id = :empresa_id
+        )
+        SELECT 1 FROM descendentes WHERE id = :parent_id LIMIT 1
+    """), {
+        "empresa_id": empresa_id,
+        "item_id": item_id,
+        "parent_id": parent_id,
+    }).first()
+    if forma_ciclo:
+        raise HTTPException(status_code=422, detail=f"{label} criaria uma hierarquia circular.")
+
+
+@router.get("/tipos-documento")
+def listar_tipos_documento(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return listar_auxiliar("financeiro_tipos_documento", empresa_do(usuario), db)
+
+
+@router.post("/tipos-documento", status_code=status.HTTP_201_CREATED)
+def criar_tipo_documento(payload: TipoDocumentoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    row = db.execute(text("""
+        INSERT INTO public.financeiro_tipos_documento
+            (empresa_id, codigo, nome, aplicacao, exige_entidade_emissora, ativo, criado_em, atualizado_em)
+        VALUES (:empresa_id, :codigo, :nome, :aplicacao, :exige, :ativo, NOW(), NOW())
+        RETURNING *
+    """), {
+        "empresa_id": empresa_id, "codigo": norm_str(payload.codigo),
+        "nome": _nome_obrigatorio(payload.nome), "aplicacao": _aplicacao(payload.aplicacao),
+        "exige": payload.exige_entidade_emissora, "ativo": payload.ativo,
+    }).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_tipos_documento", int(novo["id"]), None, novo)
+    db.commit()
+    return novo
+
+
+@router.put("/tipos-documento/{item_id}")
+def atualizar_tipo_documento(item_id: int, payload: TipoDocumentoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    anterior_row = db.execute(text("SELECT * FROM public.financeiro_tipos_documento WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
+    if not anterior_row:
+        raise HTTPException(status_code=404, detail="Tipo de documento não encontrado.")
+    row = db.execute(text("""
+        UPDATE public.financeiro_tipos_documento SET codigo=:codigo, nome=:nome, aplicacao=:aplicacao,
+            exige_entidade_emissora=:exige, ativo=:ativo, atualizado_em=NOW()
+        WHERE empresa_id=:empresa_id AND id=:id RETURNING *
+    """), {
+        "empresa_id": empresa_id, "id": item_id, "codigo": norm_str(payload.codigo),
+        "nome": _nome_obrigatorio(payload.nome), "aplicacao": _aplicacao(payload.aplicacao),
+        "exige": payload.exige_entidade_emissora, "ativo": payload.ativo,
+    }).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_tipos_documento", item_id, row_to_dict(anterior_row), novo)
+    db.commit()
+    return novo
+
+
+@router.delete("/tipos-documento/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_tipo_documento(item_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return excluir_auxiliar("financeiro_tipos_documento", item_id, empresa_do(usuario), db, int(usuario.id))
+
+
+@router.get("/naturezas-operacao")
+def listar_naturezas_operacao(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return listar_auxiliar("financeiro_naturezas_operacao", empresa_do(usuario), db)
+
+
+@router.post("/naturezas-operacao", status_code=status.HTTP_201_CREATED)
+def criar_natureza_operacao(payload: NaturezaOperacaoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    row = db.execute(text("""
+        INSERT INTO public.financeiro_naturezas_operacao
+            (empresa_id, codigo, nome, aplicacao, ativo, criado_em, atualizado_em)
+        VALUES (:empresa_id, :codigo, :nome, :aplicacao, :ativo, NOW(), NOW()) RETURNING *
+    """), {"empresa_id": empresa_id, "codigo": norm_str(payload.codigo), "nome": _nome_obrigatorio(payload.nome), "aplicacao": _aplicacao(payload.aplicacao), "ativo": payload.ativo}).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_naturezas_operacao", int(novo["id"]), None, novo)
+    db.commit()
+    return novo
+
+
+@router.put("/naturezas-operacao/{item_id}")
+def atualizar_natureza_operacao(item_id: int, payload: NaturezaOperacaoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    anterior_row = db.execute(text("SELECT * FROM public.financeiro_naturezas_operacao WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
+    if not anterior_row:
+        raise HTTPException(status_code=404, detail="Natureza da operação não encontrada.")
+    row = db.execute(text("""
+        UPDATE public.financeiro_naturezas_operacao SET codigo=:codigo, nome=:nome, aplicacao=:aplicacao,
+            ativo=:ativo, atualizado_em=NOW() WHERE empresa_id=:empresa_id AND id=:id RETURNING *
+    """), {"empresa_id": empresa_id, "id": item_id, "codigo": norm_str(payload.codigo), "nome": _nome_obrigatorio(payload.nome), "aplicacao": _aplicacao(payload.aplicacao), "ativo": payload.ativo}).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_naturezas_operacao", item_id, row_to_dict(anterior_row), novo)
+    db.commit()
+    return novo
+
+
+@router.delete("/naturezas-operacao/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_natureza_operacao(item_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return excluir_auxiliar("financeiro_naturezas_operacao", item_id, empresa_do(usuario), db, int(usuario.id))
+
+
+@router.get("/centros-custo")
+def listar_centros_custo(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    rows = db.execute(text("""
+        SELECT cc.*, pai.nome AS centro_pai_nome
+        FROM public.financeiro_centros_custo cc
+        LEFT JOIN public.financeiro_centros_custo pai ON pai.id=cc.centro_pai_id AND pai.empresa_id=cc.empresa_id
+        WHERE cc.empresa_id=:empresa_id ORDER BY cc.ativo DESC, cc.codigo NULLS LAST, cc.nome, cc.id
+    """), {"empresa_id": empresa_do(usuario)}).fetchall()
+    return [row_to_dict(r) for r in rows]
+
+
+@router.post("/centros-custo", status_code=status.HTTP_201_CREATED)
+def criar_centro_custo(payload: CentroCustoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    validar_id_empresa(db, table_name="financeiro_centros_custo", item_id=payload.centro_pai_id, empresa_id=empresa_id, label="Centro de custo pai")
+    row = db.execute(text("""
+        INSERT INTO public.financeiro_centros_custo
+            (empresa_id, codigo, nome, centro_pai_id, ativo, criado_em, atualizado_em)
+        VALUES (:empresa_id, :codigo, :nome, :pai, :ativo, NOW(), NOW()) RETURNING *
+    """), {"empresa_id": empresa_id, "codigo": norm_str(payload.codigo), "nome": _nome_obrigatorio(payload.nome), "pai": payload.centro_pai_id, "ativo": payload.ativo}).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_centros_custo", int(novo["id"]), None, novo)
+    db.commit()
+    return novo
+
+
+@router.put("/centros-custo/{item_id}")
+def atualizar_centro_custo(item_id: int, payload: CentroCustoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    if payload.centro_pai_id == item_id:
+        raise HTTPException(status_code=422, detail="Um centro de custo não pode ser pai de si mesmo.")
+    validar_id_empresa(db, table_name="financeiro_centros_custo", item_id=payload.centro_pai_id, empresa_id=empresa_id, label="Centro de custo pai")
+    _validar_hierarquia_sem_ciclo(
+        db, table_name="financeiro_centros_custo", parent_column="centro_pai_id",
+        item_id=item_id, parent_id=payload.centro_pai_id, empresa_id=empresa_id,
+        label="O centro de custo pai selecionado",
+    )
+    anterior_row = db.execute(text("SELECT * FROM public.financeiro_centros_custo WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
+    if not anterior_row:
+        raise HTTPException(status_code=404, detail="Centro de custo não encontrado.")
+    row = db.execute(text("""
+        UPDATE public.financeiro_centros_custo SET codigo=:codigo, nome=:nome, centro_pai_id=:pai,
+            ativo=:ativo, atualizado_em=NOW() WHERE empresa_id=:empresa_id AND id=:id RETURNING *
+    """), {"empresa_id": empresa_id, "id": item_id, "codigo": norm_str(payload.codigo), "nome": _nome_obrigatorio(payload.nome), "pai": payload.centro_pai_id, "ativo": payload.ativo}).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_centros_custo", item_id, row_to_dict(anterior_row), novo)
+    db.commit()
+    return novo
+
+
+@router.delete("/centros-custo/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_centro_custo(item_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return excluir_auxiliar("financeiro_centros_custo", item_id, empresa_do(usuario), db, int(usuario.id))
+
+
+@router.get("/unidades-consumo")
+def listar_unidades_consumo(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return listar_auxiliar("financeiro_unidades_consumo", empresa_do(usuario), db)
+
+
+@router.post("/unidades-consumo", status_code=status.HTTP_201_CREATED)
+def criar_unidade_consumo(payload: UnidadeConsumoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    row = db.execute(text("""
+        INSERT INTO public.financeiro_unidades_consumo
+            (empresa_id, codigo, nome, departamento_referencia, ativo, criado_em, atualizado_em)
+        VALUES (:empresa_id, :codigo, :nome, :departamento, :ativo, NOW(), NOW()) RETURNING *
+    """), {"empresa_id": empresa_id, "codigo": norm_str(payload.codigo), "nome": _nome_obrigatorio(payload.nome), "departamento": norm_str(payload.departamento_referencia), "ativo": payload.ativo}).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_unidades_consumo", int(novo["id"]), None, novo)
+    db.commit()
+    return novo
+
+
+@router.put("/unidades-consumo/{item_id}")
+def atualizar_unidade_consumo(item_id: int, payload: UnidadeConsumoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    anterior_row = db.execute(text("SELECT * FROM public.financeiro_unidades_consumo WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
+    if not anterior_row:
+        raise HTTPException(status_code=404, detail="Unidade de consumo não encontrada.")
+    row = db.execute(text("""
+        UPDATE public.financeiro_unidades_consumo SET codigo=:codigo, nome=:nome,
+            departamento_referencia=:departamento, ativo=:ativo, atualizado_em=NOW()
+        WHERE empresa_id=:empresa_id AND id=:id RETURNING *
+    """), {"empresa_id": empresa_id, "id": item_id, "codigo": norm_str(payload.codigo), "nome": _nome_obrigatorio(payload.nome), "departamento": norm_str(payload.departamento_referencia), "ativo": payload.ativo}).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_unidades_consumo", item_id, row_to_dict(anterior_row), novo)
+    db.commit()
+    return novo
+
+
+@router.delete("/unidades-consumo/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_unidade_consumo(item_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return excluir_auxiliar("financeiro_unidades_consumo", item_id, empresa_do(usuario), db, int(usuario.id))
+
+
+@router.get("/contas-contabeis")
+def listar_contas_contabeis(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    rows = db.execute(text("""
+        SELECT cc.*, pai.codigo AS conta_pai_codigo, pai.nome AS conta_pai_nome
+        FROM public.financeiro_contas_contabeis cc
+        LEFT JOIN public.financeiro_contas_contabeis pai ON pai.id=cc.conta_pai_id AND pai.empresa_id=cc.empresa_id
+        WHERE cc.empresa_id=:empresa_id ORDER BY cc.ativo DESC, cc.codigo, cc.nome, cc.id
+    """), {"empresa_id": empresa_do(usuario)}).fetchall()
+    return [row_to_dict(r) for r in rows]
+
+
+@router.post("/contas-contabeis", status_code=status.HTTP_201_CREATED)
+def criar_conta_contabil(payload: ContaContabilIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    validar_id_empresa(db, table_name="financeiro_contas_contabeis", item_id=payload.conta_pai_id, empresa_id=empresa_id, label="Conta contábil pai")
+    tipo = (payload.tipo or "outros").strip().lower()
+    if tipo not in {"ativo", "passivo", "receita", "despesa", "patrimonio", "outros"}:
+        raise HTTPException(status_code=422, detail="Tipo de conta contábil inválido.")
+    row = db.execute(text("""
+        INSERT INTO public.financeiro_contas_contabeis
+            (empresa_id, codigo, nome, tipo, conta_pai_id, aceita_lancamento, ativo, criado_em, atualizado_em)
+        VALUES (:empresa_id, :codigo, :nome, :tipo, :pai, :aceita, :ativo, NOW(), NOW()) RETURNING *
+    """), {"empresa_id": empresa_id, "codigo": _nome_obrigatorio(payload.codigo, "Código"), "nome": _nome_obrigatorio(payload.nome), "tipo": tipo, "pai": payload.conta_pai_id, "aceita": payload.aceita_lancamento, "ativo": payload.ativo}).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_contas_contabeis", int(novo["id"]), None, novo)
+    db.commit()
+    return novo
+
+
+@router.put("/contas-contabeis/{item_id}")
+def atualizar_conta_contabil(item_id: int, payload: ContaContabilIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    if payload.conta_pai_id == item_id:
+        raise HTTPException(status_code=422, detail="Uma conta contábil não pode ser pai de si mesma.")
+    validar_id_empresa(db, table_name="financeiro_contas_contabeis", item_id=payload.conta_pai_id, empresa_id=empresa_id, label="Conta contábil pai")
+    _validar_hierarquia_sem_ciclo(
+        db, table_name="financeiro_contas_contabeis", parent_column="conta_pai_id",
+        item_id=item_id, parent_id=payload.conta_pai_id, empresa_id=empresa_id,
+        label="A conta contábil pai selecionada",
+    )
+    anterior_row = db.execute(text("SELECT * FROM public.financeiro_contas_contabeis WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
+    if not anterior_row:
+        raise HTTPException(status_code=404, detail="Conta contábil não encontrada.")
+    tipo = (payload.tipo or "outros").strip().lower()
+    if tipo not in {"ativo", "passivo", "receita", "despesa", "patrimonio", "outros"}:
+        raise HTTPException(status_code=422, detail="Tipo de conta contábil inválido.")
+    row = db.execute(text("""
+        UPDATE public.financeiro_contas_contabeis SET codigo=:codigo, nome=:nome, tipo=:tipo,
+            conta_pai_id=:pai, aceita_lancamento=:aceita, ativo=:ativo, atualizado_em=NOW()
+        WHERE empresa_id=:empresa_id AND id=:id RETURNING *
+    """), {"empresa_id": empresa_id, "id": item_id, "codigo": _nome_obrigatorio(payload.codigo, "Código"), "nome": _nome_obrigatorio(payload.nome), "tipo": tipo, "pai": payload.conta_pai_id, "aceita": payload.aceita_lancamento, "ativo": payload.ativo}).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_contas_contabeis", item_id, row_to_dict(anterior_row), novo)
+    db.commit()
+    return novo
+
+
+@router.delete("/contas-contabeis/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_conta_contabil(item_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return excluir_auxiliar("financeiro_contas_contabeis", item_id, empresa_do(usuario), db, int(usuario.id))
+
+
+@router.get("/formas-cobranca")
+def listar_formas_cobranca(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return listar_auxiliar("financeiro_formas_cobranca", empresa_do(usuario), db)
+
+
+@router.post("/formas-cobranca", status_code=status.HTTP_201_CREATED)
+def criar_forma_cobranca(payload: FormaCobrancaIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    tipo = (payload.tipo or "outro").strip().lower()
+    permitidos = {"carteira", "pix", "promissoria", "boleto", "cartao_credito", "debito_conta", "deposito", "outro"}
+    if tipo not in permitidos:
+        raise HTTPException(status_code=422, detail="Tipo de forma de cobrança inválido.")
+    row = db.execute(text("""
+        INSERT INTO public.financeiro_formas_cobranca (empresa_id, nome, tipo, ativo, criado_em, atualizado_em)
+        VALUES (:empresa_id, :nome, :tipo, :ativo, NOW(), NOW()) RETURNING *
+    """), {"empresa_id": empresa_id, "nome": _nome_obrigatorio(payload.nome), "tipo": tipo, "ativo": payload.ativo}).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_formas_cobranca", int(novo["id"]), None, novo)
+    db.commit()
+    return novo
+
+
+@router.put("/formas-cobranca/{item_id}")
+def atualizar_forma_cobranca(item_id: int, payload: FormaCobrancaIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    anterior_row = db.execute(text("SELECT * FROM public.financeiro_formas_cobranca WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
+    if not anterior_row:
+        raise HTTPException(status_code=404, detail="Forma de cobrança não encontrada.")
+    tipo = (payload.tipo or "outro").strip().lower()
+    permitidos = {"carteira", "pix", "promissoria", "boleto", "cartao_credito", "debito_conta", "deposito", "outro"}
+    if tipo not in permitidos:
+        raise HTTPException(status_code=422, detail="Tipo de forma de cobrança inválido.")
+    row = db.execute(text("""
+        UPDATE public.financeiro_formas_cobranca SET nome=:nome, tipo=:tipo, ativo=:ativo, atualizado_em=NOW()
+        WHERE empresa_id=:empresa_id AND id=:id RETURNING *
+    """), {"empresa_id": empresa_id, "id": item_id, "nome": _nome_obrigatorio(payload.nome), "tipo": tipo, "ativo": payload.ativo}).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_formas_cobranca", item_id, row_to_dict(anterior_row), novo)
+    db.commit()
+    return novo
+
+
+@router.delete("/formas-cobranca/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_forma_cobranca(item_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return excluir_auxiliar("financeiro_formas_cobranca", item_id, empresa_do(usuario), db, int(usuario.id))
+
+
+@router.get("/regras-encargos")
+def listar_regras_encargos(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return listar_auxiliar("financeiro_regras_encargos", empresa_do(usuario), db)
+
+
+@router.post("/regras-encargos", status_code=status.HTTP_201_CREATED)
+def criar_regra_encargos(payload: RegraEncargosIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    if payload.padrao:
+        db.execute(text("UPDATE public.financeiro_regras_encargos SET padrao=FALSE, atualizado_em=NOW() WHERE empresa_id=:empresa_id AND aplicacao=:aplicacao"), {"empresa_id": empresa_id, "aplicacao": _aplicacao(payload.aplicacao)})
+    row = db.execute(text("""
+        INSERT INTO public.financeiro_regras_encargos
+            (empresa_id, nome, aplicacao, possui_multa, indice_multa_percent,
+             possui_mora_diaria, indice_mora_diaria_percent, padrao, ativo, criado_em, atualizado_em)
+        VALUES (:empresa_id, :nome, :aplicacao, :multa, :indice_multa, :mora, :indice_mora, :padrao, :ativo, NOW(), NOW()) RETURNING *
+    """), {
+        "empresa_id": empresa_id, "nome": _nome_obrigatorio(payload.nome), "aplicacao": _aplicacao(payload.aplicacao),
+        "multa": payload.possui_multa, "indice_multa": _percentual(payload.indice_multa_percent, "Índice de multa") if payload.possui_multa else Decimal("0"),
+        "mora": payload.possui_mora_diaria, "indice_mora": _percentual(payload.indice_mora_diaria_percent, "Índice de mora diária") if payload.possui_mora_diaria else Decimal("0"),
+        "padrao": payload.padrao, "ativo": payload.ativo,
+    }).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_regras_encargos", int(novo["id"]), None, novo)
+    db.commit()
+    return novo
+
+
+@router.put("/regras-encargos/{item_id}")
+def atualizar_regra_encargos(item_id: int, payload: RegraEncargosIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    ensure_tables(db)
+    empresa_id = empresa_do(usuario)
+    anterior_row = db.execute(text("SELECT * FROM public.financeiro_regras_encargos WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
+    if not anterior_row:
+        raise HTTPException(status_code=404, detail="Regra de multa e mora não encontrada.")
+    aplicacao = _aplicacao(payload.aplicacao)
+    if payload.padrao:
+        db.execute(text("UPDATE public.financeiro_regras_encargos SET padrao=FALSE, atualizado_em=NOW() WHERE empresa_id=:empresa_id AND aplicacao=:aplicacao AND id<>:id"), {"empresa_id": empresa_id, "aplicacao": aplicacao, "id": item_id})
+    row = db.execute(text("""
+        UPDATE public.financeiro_regras_encargos SET nome=:nome, aplicacao=:aplicacao,
+            possui_multa=:multa, indice_multa_percent=:indice_multa,
+            possui_mora_diaria=:mora, indice_mora_diaria_percent=:indice_mora,
+            padrao=:padrao, ativo=:ativo, atualizado_em=NOW()
+        WHERE empresa_id=:empresa_id AND id=:id RETURNING *
+    """), {
+        "empresa_id": empresa_id, "id": item_id, "nome": _nome_obrigatorio(payload.nome), "aplicacao": aplicacao,
+        "multa": payload.possui_multa, "indice_multa": _percentual(payload.indice_multa_percent, "Índice de multa") if payload.possui_multa else Decimal("0"),
+        "mora": payload.possui_mora_diaria, "indice_mora": _percentual(payload.indice_mora_diaria_percent, "Índice de mora diária") if payload.possui_mora_diaria else Decimal("0"),
+        "padrao": payload.padrao, "ativo": payload.ativo,
+    }).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_regras_encargos", item_id, row_to_dict(anterior_row), novo)
+    db.commit()
+    return novo
+
+
+@router.delete("/regras-encargos/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_regra_encargos(item_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return excluir_auxiliar("financeiro_regras_encargos", item_id, empresa_do(usuario), db, int(usuario.id))

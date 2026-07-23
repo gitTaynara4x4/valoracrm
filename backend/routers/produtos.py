@@ -1,19 +1,25 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from decimal import Decimal, InvalidOperation
+import json
 import re
 import unicodedata
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
-from sqlalchemy import func, text
+from sqlalchemy import func, or_, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
 from backend.dynamic_filters import apply_dynamic_filters
 from backend import models
+
+try:
+    from backend import models_contratos
+except Exception:  # pragma: no cover
+    models_contratos = None
 from backend.security.permissions import user_has_permission
 
 router = APIRouter(prefix="/api/produtos", tags=["Produtos"])
@@ -348,9 +354,52 @@ def buscar_campos_empresa_map(db: Session, empresa_id: int) -> Dict[str, models.
     campos = (
         db.query(models.CampoProduto)
         .filter(models.CampoProduto.empresa_id == empresa_id)
+        .order_by(models.CampoProduto.id.asc())
         .all()
     )
-    return {str(c.slug): c for c in campos}
+
+    # Em bases antigas pode existir mais de uma definição com o mesmo slug.
+    # Prioriza o ID efetivamente ligado à ficha principal; depois usa o campo
+    # mais antigo como fallback estável. Isso evita salvar novos valores em uma
+    # duplicata diferente daquela que o formulário exibe.
+    linked_ids: List[int] = []
+    modelo = (
+        db.query(models.FormularioModelo)
+        .filter(models.FormularioModelo.empresa_id == empresa_id)
+        .filter(models.FormularioModelo.modulo == "produtos")
+        .filter(models.FormularioModelo.ativo == True)  # noqa: E712
+        .order_by(
+            models.FormularioModelo.usar_como_ficha_principal.desc(),
+            models.FormularioModelo.padrao.desc(),
+            models.FormularioModelo.id.desc(),
+        )
+        .first()
+    )
+    if modelo is not None:
+        rows = (
+            db.query(models.FormularioCampo.campo_personalizado_id)
+            .filter(models.FormularioCampo.formulario_id == modelo.id)
+            .filter(models.FormularioCampo.origem == "personalizado")
+            .filter(models.FormularioCampo.campo_personalizado_id.isnot(None))
+            .order_by(models.FormularioCampo.ordem.asc(), models.FormularioCampo.id.asc())
+            .all()
+        )
+        for row in rows:
+            raw_id = row[0] if isinstance(row, tuple) else getattr(row, "campo_personalizado_id", None)
+            try:
+                linked_ids.append(int(raw_id))
+            except (TypeError, ValueError):
+                continue
+
+    por_id = {int(c.id): c for c in campos}
+    out: Dict[str, models.CampoProduto] = {}
+    for linked_id in linked_ids:
+        campo = por_id.get(linked_id)
+        if campo is not None:
+            out[str(campo.slug)] = campo
+    for campo in campos:
+        out.setdefault(str(campo.slug), campo)
+    return out
 
 
 # =========================================================
@@ -376,20 +425,72 @@ def slugify_formulario(value: Optional[str]) -> str:
     return text[:120]
 
 
+TIPOS_CAMPOS_PRODUTO = {
+    "texto",
+    "textarea",
+    "numero",
+    "data",
+    "select",
+    "multiselect",
+    "checkbox",
+    "email",
+    "telefone",
+    "moeda",
+    "percentual",
+    "relacao_cliente",
+    "relacao_fornecedor",
+    "relacao_produto",
+    "relacao_patrimonio",
+    "relacao_cotacao",
+    "relacao_proposta",
+    "relacao_contrato",
+    "relacao_cliente_multi",
+    "relacao_fornecedor_multi",
+    "relacao_produto_multi",
+    "relacao_patrimonio_multi",
+    "relacao_cotacao_multi",
+    "relacao_proposta_multi",
+    "relacao_contrato_multi",
+}
+
+
+def _token_tipo_formulario(value: Optional[str]) -> str:
+    raw = unicodedata.normalize("NFKD", str(value or "texto"))
+    raw = "".join(ch for ch in raw if not unicodedata.combining(ch))
+    raw = raw.lower().strip()
+    raw = re.sub(r"[^a-z0-9]+", "_", raw)
+    return re.sub(r"_+", "_", raw).strip("_")
+
+
 def normalizar_tipo_formulario(tipo: Optional[str]) -> str:
-    t = str(tipo or "texto").strip().lower()
-    mapa = {
+    """Converte qualquer nome aceito pelo construtor para o tipo canônico.
+
+    Produtos precisa conservar o tipo real do formulário. Em especial,
+    multiselect e relações múltiplas são salvos como arrays JSON e não podem ser
+    tratados como ``select``/texto simples durante a filtragem.
+    """
+    token = _token_tipo_formulario(tipo)
+
+    aliases = {
         "text": "texto",
         "texto": "texto",
+        "texto_curto": "texto",
+        "campo_texto": "texto",
         "textarea": "textarea",
+        "texto_longo": "textarea",
+        "area_de_texto": "textarea",
         "numero": "numero",
         "number": "numero",
         "data": "data",
         "date": "data",
         "select": "select",
         "lista": "select",
+        "lista_simples": "select",
         "checkbox": "checkbox",
+        "flag": "checkbox",
+        "fleg": "checkbox",
         "email": "email",
+        "e_mail": "email",
         "telefone": "telefone",
         "phone": "telefone",
         "tel": "telefone",
@@ -397,8 +498,55 @@ def normalizar_tipo_formulario(tipo: Optional[str]) -> str:
         "money": "moeda",
         "percentual": "percentual",
         "percent": "percentual",
+        "multiselect": "multiselect",
+        "multi_select": "multiselect",
+        "lista_multipla": "multiselect",
+        "lista_multiplas": "multiselect",
+        "lista_com_multipla_selecao": "multiselect",
+        "multipla_selecao": "multiselect",
+        "multipla_escolha": "multiselect",
+        "multiplas_escolhas": "multiselect",
+        "multivalor": "multiselect",
+        "multivaloravel": "multiselect",
+        "multvaloravel": "multiselect",
     }
-    return mapa.get(t, "texto")
+    if token in aliases:
+        return aliases[token]
+    if token in TIPOS_CAMPOS_PRODUTO:
+        return token
+
+    # Relações podem chegar tanto no nome técnico quanto no nome amigável
+    # mostrado pelo construtor ("Puxar vários fornecedores", por exemplo).
+    relation_token = token
+    multi = bool(
+        relation_token.endswith("_multi")
+        or re.search(r"(^|_)(multi|multiplo|multipla|multiplos|multiplas|varios|varias)($|_)", relation_token)
+    )
+    relation_token = re.sub(r"(^|_)(relacao|lookup|puxar|puxa)($|_)", "_", relation_token)
+    relation_token = re.sub(r"(^|_)(multi|multiplo|multipla|multiplos|multiplas|varios|varias)($|_)", "_", relation_token)
+    relation_token = re.sub(r"_+", "_", relation_token).strip("_")
+
+    entidades = {
+        "cliente": "cliente",
+        "clientes": "cliente",
+        "fornecedor": "fornecedor",
+        "fornecedores": "fornecedor",
+        "produto": "produto",
+        "produtos": "produto",
+        "patrimonio": "patrimonio",
+        "patrimonios": "patrimonio",
+        "cotacao": "cotacao",
+        "cotacoes": "cotacao",
+        "proposta": "proposta",
+        "propostas": "proposta",
+        "contrato": "contrato",
+        "contratos": "contrato",
+    }
+    entidade = entidades.get(relation_token)
+    if entidade:
+        return f"relacao_{entidade}{'_multi' if multi else ''}"
+
+    return "texto"
 
 
 def campo_formulario_slug(campo: models.FormularioCampo) -> str:
@@ -440,6 +588,39 @@ def buscar_formulario_produtos_principal(db: Session, empresa_id: int) -> Option
     )
 
 
+def _buscar_formulario_produtos(
+    db: Session,
+    empresa_id: int,
+    modelo_id: Optional[int] = None,
+) -> Optional[models.FormularioModelo]:
+    if modelo_id is None:
+        return buscar_formulario_produtos_principal(db, empresa_id)
+    return (
+        db.query(models.FormularioModelo)
+        .filter(models.FormularioModelo.id == int(modelo_id))
+        .filter(models.FormularioModelo.empresa_id == empresa_id)
+        .filter(models.FormularioModelo.modulo == "produtos")
+        .first()
+    )
+
+
+def _campo_produto_ligado(
+    campo_form: models.FormularioCampo,
+    campos_por_id: Dict[int, models.CampoProduto],
+    campos_por_slug: Dict[str, models.CampoProduto],
+) -> Optional[models.CampoProduto]:
+    linked_id = getattr(campo_form, "campo_personalizado_id", None)
+    try:
+        linked_id = int(linked_id) if linked_id is not None else None
+    except (TypeError, ValueError):
+        linked_id = None
+    if linked_id is not None and linked_id in campos_por_id:
+        return campos_por_id[linked_id]
+
+    slug = slugify_formulario(getattr(campo_form, "label", None))
+    return campos_por_slug.get(slug) if slug else None
+
+
 def campos_formulario_produtos_map(db: Session, empresa_id: int) -> Dict[str, models.FormularioCampo]:
     modelo = buscar_formulario_produtos_principal(db, empresa_id)
     if not modelo:
@@ -448,16 +629,28 @@ def campos_formulario_produtos_map(db: Session, empresa_id: int) -> Dict[str, mo
     rows = (
         db.query(models.FormularioCampo)
         .filter(models.FormularioCampo.formulario_id == modelo.id)
+        .filter(models.FormularioCampo.origem == "personalizado")
         .filter(models.FormularioCampo.ativo == True)  # noqa: E712
         .order_by(models.FormularioCampo.ordem.asc(), models.FormularioCampo.id.asc())
         .all()
     )
+    campos_produtos = (
+        db.query(models.CampoProduto)
+        .filter(models.CampoProduto.empresa_id == empresa_id)
+        .order_by(models.CampoProduto.id.asc())
+        .all()
+    )
+    por_id = {int(row.id): row for row in campos_produtos}
+    por_slug: Dict[str, models.CampoProduto] = {}
+    for row in campos_produtos:
+        por_slug.setdefault(str(row.slug), row)
 
     out: Dict[str, models.FormularioCampo] = {}
     for campo in rows:
         if campo_formulario_visual(campo):
             continue
-        slug = campo_formulario_slug(campo)
+        campo_produto = _campo_produto_ligado(campo, por_id, por_slug)
+        slug = str(getattr(campo_produto, "slug", "") or "").strip()
         if slug:
             out[slug] = campo
     return out
@@ -467,34 +660,149 @@ def sincronizar_campos_produtos_com_formulario(
     db: Session,
     empresa_id: int,
     somente_slugs: Optional[set[str]] = None,
+    *,
+    modelo_id: Optional[int] = None,
+    commit: bool = False,
 ) -> Dict[str, models.CampoProduto]:
-    campos_map = buscar_campos_empresa_map(db, empresa_id)
-    campos_formulario = campos_formulario_produtos_map(db, empresa_id)
+    """Sincroniza a ficha de Produtos com ``campos_produtos`` sem perder valores.
 
-    for slug, campo_form in campos_formulario.items():
-        if somente_slugs is not None and slug not in somente_slugs:
-            continue
-        if slug in campos_map:
-            campo_produto = campos_map[slug]
-            if not campo_produto.nome:
-                campo_produto.nome = campo_formulario_nome(campo_form)
-            if not campo_produto.tipo:
-                campo_produto.tipo = normalizar_tipo_formulario(getattr(campo_form, "tipo_campo", None))
+    O vínculo estável é gravado em ``campo_personalizado_id``. Renomear um campo
+    passa a atualizar apenas o nome exibido, preservando slug, ID e todos os
+    valores já cadastrados. ``somente_slugs`` é mantido por compatibilidade; a
+    sincronização completa é intencional para também corrigir tipos antigos.
+    """
+    del somente_slugs  # compatibilidade com chamadas antigas
+
+    modelo = _buscar_formulario_produtos(db, empresa_id, modelo_id=modelo_id)
+    if not modelo:
+        return buscar_campos_empresa_map(db, empresa_id)
+
+    campos_formulario = (
+        db.query(models.FormularioCampo)
+        .filter(models.FormularioCampo.formulario_id == modelo.id)
+        .filter(models.FormularioCampo.origem == "personalizado")
+        .order_by(models.FormularioCampo.ordem.asc(), models.FormularioCampo.id.asc())
+        .all()
+    )
+
+    existentes = (
+        db.query(models.CampoProduto)
+        .filter(models.CampoProduto.empresa_id == empresa_id)
+        .order_by(models.CampoProduto.id.asc())
+        .all()
+    )
+    por_id = {int(row.id): row for row in existentes}
+    por_slug: Dict[str, models.CampoProduto] = {}
+    for row in existentes:
+        por_slug.setdefault(str(row.slug), row)
+    ids_reivindicados: set[int] = set()
+    changed = False
+
+    def slug_livre(base: str) -> str:
+        base = (base or "campo")[:120]
+        slug = base
+        suffix = 2
+        while slug in por_slug:
+            suffix_text = f"_{suffix}"
+            slug = f"{base[: max(1, 120 - len(suffix_text))]}{suffix_text}"
+            suffix += 1
+        return slug
+
+    for campo_form in campos_formulario:
+        label = campo_formulario_nome(campo_form)
+        if not label:
             continue
 
-        novo = models.CampoProduto(
-            empresa_id=empresa_id,
-            nome=campo_formulario_nome(campo_form),
-            slug=slug,
-            tipo=normalizar_tipo_formulario(getattr(campo_form, "tipo_campo", None)),
-            obrigatorio=bool(getattr(campo_form, "obrigatorio", False)),
-            ativo=bool(getattr(campo_form, "ativo", True)),
-            opcoes_json=norm_str(getattr(campo_form, "opcoes_json", None)),
-            ordem=int(getattr(campo_form, "ordem", 0) or 0),
-        )
-        db.add(novo)
+        tipo = normalizar_tipo_formulario(getattr(campo_form, "tipo_campo", None))
+        obrigatorio = bool(getattr(campo_form, "obrigatorio", False))
+        ativo = bool(getattr(campo_form, "ativo", True))
+        opcoes_json = norm_str(getattr(campo_form, "opcoes_json", None))
+        ordem = int(getattr(campo_form, "ordem", 0) or 0)
+
+        campo_produto = None
+        linked_id = getattr(campo_form, "campo_personalizado_id", None)
+        try:
+            linked_id = int(linked_id) if linked_id is not None else None
+        except (TypeError, ValueError):
+            linked_id = None
+        if linked_id is not None:
+            campo_produto = por_id.get(linked_id)
+
+        base_slug = slugify_formulario(label)
+        if campo_produto is None and base_slug:
+            candidate = por_slug.get(base_slug)
+            if candidate is not None and int(candidate.id) not in ids_reivindicados:
+                campo_produto = candidate
+
+        # Recupera fichas antigas cujo rótulo foi alterado antes de existir o
+        # vínculo estável. A ordem é o identificador legado mais confiável. Se
+        # houver colisão de ordem, o tipo é usado para desambiguar; assim também
+        # preservamos os valores quando nome e tipo foram alterados juntos.
+        if campo_produto is None:
+            candidates_by_order = [
+                item
+                for item in existentes
+                if int(item.id) not in ids_reivindicados
+                and int(item.ordem or 0) == ordem
+            ]
+            if len(candidates_by_order) == 1:
+                campo_produto = candidates_by_order[0]
+            elif len(candidates_by_order) > 1:
+                candidates_by_type = [
+                    item
+                    for item in candidates_by_order
+                    if normalizar_tipo_formulario(getattr(item, "tipo", None)) == tipo
+                ]
+                if len(candidates_by_type) == 1:
+                    campo_produto = candidates_by_type[0]
+
+        if campo_produto is None:
+            slug = slug_livre(base_slug or f"campo_{int(campo_form.id)}")
+            campo_produto = models.CampoProduto(
+                empresa_id=empresa_id,
+                nome=label,
+                slug=slug,
+                tipo=tipo,
+                obrigatorio=obrigatorio,
+                ativo=ativo,
+                opcoes_json=opcoes_json,
+                ordem=ordem,
+            )
+            db.add(campo_produto)
+            db.flush()
+            existentes.append(campo_produto)
+            por_id[int(campo_produto.id)] = campo_produto
+            por_slug[str(campo_produto.slug)] = campo_produto
+            changed = True
+
+        ids_reivindicados.add(int(campo_produto.id))
+
+        if getattr(campo_form, "campo_personalizado_id", None) != int(campo_produto.id):
+            campo_form.campo_personalizado_id = int(campo_produto.id)
+            changed = True
+        if campo_produto.nome != label:
+            campo_produto.nome = label
+            changed = True
+        if normalizar_tipo_formulario(campo_produto.tipo) != tipo or campo_produto.tipo != tipo:
+            campo_produto.tipo = tipo
+            changed = True
+        if bool(campo_produto.obrigatorio) != obrigatorio:
+            campo_produto.obrigatorio = obrigatorio
+            changed = True
+        if bool(campo_produto.ativo) != ativo:
+            campo_produto.ativo = ativo
+            changed = True
+        if (campo_produto.opcoes_json or None) != (opcoes_json or None):
+            campo_produto.opcoes_json = opcoes_json
+            changed = True
+        if int(campo_produto.ordem or 0) != ordem:
+            campo_produto.ordem = ordem
+            changed = True
+
+    if changed:
         db.flush()
-        campos_map[slug] = novo
+        if commit:
+            db.commit()
 
     return buscar_campos_empresa_map(db, empresa_id)
 
@@ -821,16 +1129,28 @@ def campos_formulario_produtos_com_secao(db: Session, empresa_id: int) -> Dict[s
     campos = (
         db.query(models.FormularioCampo)
         .filter(models.FormularioCampo.formulario_id == modelo.id)
+        .filter(models.FormularioCampo.origem == "personalizado")
         .filter(models.FormularioCampo.ativo == True)  # noqa: E712
         .order_by(models.FormularioCampo.ordem.asc(), models.FormularioCampo.id.asc())
         .all()
     )
+    campos_produtos = (
+        db.query(models.CampoProduto)
+        .filter(models.CampoProduto.empresa_id == empresa_id)
+        .order_by(models.CampoProduto.id.asc())
+        .all()
+    )
+    por_id = {int(row.id): row for row in campos_produtos}
+    por_slug: Dict[str, models.CampoProduto] = {}
+    for row in campos_produtos:
+        por_slug.setdefault(str(row.slug), row)
 
     out: Dict[str, dict] = {}
     for campo in campos:
         if campo_formulario_visual(campo):
             continue
-        slug = campo_formulario_slug(campo)
+        campo_produto = _campo_produto_ligado(campo, por_id, por_slug)
+        slug = str(getattr(campo_produto, "slug", "") or "").strip()
         if not slug:
             continue
         secao = secoes_map.get(int(campo.secao_id)) if campo.secao_id else None
@@ -961,45 +1281,213 @@ def obter_campos_filtro_produtos(
     return {key: encontrar_campo_filtro(rows, aliases) for key, aliases in FILTER_FIELD_ALIASES.items()}
 
 
-def opcoes_campo_filtro(db: Session, empresa_id: int, campo: Optional[models.CampoProduto]) -> List[str]:
+def _valores_salvos_campo(raw_value: Any) -> List[str]:
+    if raw_value is None:
+        return []
+    if isinstance(raw_value, (list, tuple, set)):
+        parsed = list(raw_value)
+    else:
+        text_value = str(raw_value).strip()
+        if not text_value:
+            return []
+        try:
+            loaded = json.loads(text_value)
+            parsed = loaded if isinstance(loaded, list) else [loaded]
+        except Exception:
+            parsed = [text_value]
+
+    out: List[str] = []
+    seen = set()
+    for item in parsed:
+        if isinstance(item, dict):
+            value = item.get("value", item.get("id", item.get("label", "")))
+        else:
+            value = item
+        text_value = str(value or "").strip()
+        key = text_value.casefold()
+        if text_value and key not in seen:
+            seen.add(key)
+            out.append(text_value)
+    return out
+
+
+def _tipo_relacao_produto(tipo: Optional[str]) -> Optional[str]:
+    tipo_norm = normalizar_tipo_formulario(tipo)
+    if not tipo_norm.startswith("relacao_"):
+        return None
+    base = tipo_norm[len("relacao_"):]
+    if base.endswith("_multi"):
+        base = base[:-6]
+    return base or None
+
+
+def _modelo_relacao_produto(tipo_base: str):
+    mapping = {
+        "cliente": getattr(models, "Cliente", None),
+        "fornecedor": getattr(models, "Fornecedor", None),
+        "produto": getattr(models, "Produto", None),
+        "patrimonio": getattr(models, "Patrimonio", None),
+        "cotacao": getattr(models, "Cotacao", None),
+        "proposta": getattr(models, "Proposta", None),
+    }
+    if tipo_base == "contrato":
+        return getattr(models_contratos, "Contrato", None) if models_contratos is not None else None
+    return mapping.get(tipo_base)
+
+
+def _texto_relacao(*values: Any) -> str:
+    for value in values:
+        text_value = str(value or "").strip()
+        if text_value:
+            return text_value
+    return ""
+
+
+def _rotulo_relacao_produto(item: Any, tipo_base: str) -> str:
+    item_id = _texto_relacao(getattr(item, "id", None))
+    codigo = _texto_relacao(getattr(item, "codigo", None), getattr(item, "numero_contrato", None))
+    nome = _texto_relacao(
+        getattr(item, "nome", None),
+        getattr(item, "razao_social", None),
+        getattr(item, "nome_fantasia", None),
+        getattr(item, "titulo", None),
+        getattr(item, "item_nome", None),
+        getattr(item, "cliente_nome", None),
+        getattr(item, "descricao", None),
+    )
+    if nome and codigo:
+        marcador = "Nº" if tipo_base == "contrato" else "Cód."
+        return f"{nome} — {marcador} {codigo}"
+    return _texto_relacao(nome, codigo, f"Registro #{item_id}")
+
+
+def _opcoes_relacao_produto(db: Session, empresa_id: int, campo: models.CampoProduto) -> List[dict]:
+    tipo_base = _tipo_relacao_produto(getattr(campo, "tipo", None))
+    Model = _modelo_relacao_produto(tipo_base or "")
+    if not tipo_base or Model is None:
+        return []
+
+    query = db.query(Model).filter(Model.empresa_id == empresa_id)
+    if hasattr(Model, "ativo"):
+        query = query.filter(Model.ativo == True)  # noqa: E712
+
+    order_columns = []
+    for attr in ("nome", "razao_social", "titulo", "item_nome", "codigo", "numero_contrato", "id"):
+        column = getattr(Model, attr, None)
+        if column is not None:
+            order_columns.append(column.asc())
+            if len(order_columns) >= 2:
+                break
+    if order_columns:
+        query = query.order_by(*order_columns)
+
+    items = query.limit(500).all()
+    return [
+        {
+            "value": str(getattr(item, "id", "") or ""),
+            "label": _rotulo_relacao_produto(item, tipo_base),
+        }
+        for item in items
+        if getattr(item, "id", None) is not None
+    ]
+
+
+def opcoes_campo_filtro(db: Session, empresa_id: int, campo: Optional[models.CampoProduto]) -> List[Any]:
     if not campo:
         return []
-    configured = parse_field_options(getattr(campo, "opcoes_json", None))
+
+    relation_options = _opcoes_relacao_produto(db, empresa_id, campo)
+    if relation_options:
+        return relation_options
+
+    # Bases antigas podem conter mais de uma definição do mesmo slug. As opções
+    # e valores precisam ser reunidos para não esconder produtos ligados ao ID
+    # antigo do campo.
+    campos_mesmo_slug = (
+        db.query(models.CampoProduto)
+        .filter(models.CampoProduto.empresa_id == empresa_id)
+        .filter(models.CampoProduto.slug == campo.slug)
+        .order_by(models.CampoProduto.id.asc())
+        .all()
+    ) or [campo]
+    campo_ids = [int(item.id) for item in campos_mesmo_slug]
+
+    values: List[str] = []
+    seen = set()
+
+    for campo_item in campos_mesmo_slug:
+        for value in parse_field_options(getattr(campo_item, "opcoes_json", None)):
+            key = value.casefold()
+            if key not in seen:
+                seen.add(key)
+                values.append(value)
+
     rows = (
         db.query(models.ProdutoCampoValor.valor)
         .join(models.Produto, models.Produto.id == models.ProdutoCampoValor.produto_id)
         .filter(models.Produto.empresa_id == empresa_id)
-        .filter(models.ProdutoCampoValor.campo_id == int(campo.id))
+        .filter(models.ProdutoCampoValor.campo_id.in_(campo_ids))
         .filter(models.ProdutoCampoValor.valor.isnot(None))
         .distinct()
-        .order_by(models.ProdutoCampoValor.valor.asc())
         .all()
     )
-    values = []
-    seen = set()
-    for value in configured:
-        key = value.casefold()
-        if key not in seen:
-            seen.add(key)
-            values.append(value)
     for row in rows:
-        value = str(row[0] if isinstance(row, tuple) else getattr(row, "valor", "") or "").strip()
-        norm = value.casefold()
-        if not value or norm in seen:
-            continue
-        seen.add(norm)
-        values.append(value)
-    return values[:500]
+        raw = row[0] if isinstance(row, tuple) else getattr(row, "valor", None)
+        for value in _valores_salvos_campo(raw):
+            key = value.casefold()
+            if key not in seen:
+                seen.add(key)
+                values.append(value)
+
+    return sorted(values, key=str.casefold)[:500]
+
+
+def _escape_like_produto(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _condicao_valor_campo_produto(column, tipo: Optional[str], raw: str):
+    tipo_norm = normalizar_tipo_formulario(tipo)
+    lowered = func.lower(func.trim(func.coalesce(column, "")))
+    normalized = raw.strip().lower()
+
+    if tipo_norm == "multiselect" or tipo_norm.endswith("_multi"):
+        json_token = json.dumps(raw.strip(), ensure_ascii=False).lower()
+        return or_(
+            lowered == normalized,
+            lowered.like(f"%{_escape_like_produto(json_token)}%", escape="\\"),
+        )
+    return lowered == normalized
 
 
 def aplicar_filtro_campo_produto(query, db: Session, empresa_id: int, campo, value: Optional[str]):
     raw = norm_str(value)
     if not raw or not campo:
         return query
+
+    campos_mesmo_slug = (
+        db.query(models.CampoProduto)
+        .filter(models.CampoProduto.empresa_id == empresa_id)
+        .filter(models.CampoProduto.slug == campo.slug)
+        .order_by(models.CampoProduto.id.asc())
+        .all()
+    ) or [campo]
+
+    conditions = [
+        (
+            (models.ProdutoCampoValor.campo_id == int(campo_item.id))
+            & _condicao_valor_campo_produto(
+                models.ProdutoCampoValor.valor,
+                getattr(campo_item, "tipo", None),
+                raw,
+            )
+        )
+        for campo_item in campos_mesmo_slug
+    ]
     subquery = (
         db.query(models.ProdutoCampoValor.produto_id)
-        .filter(models.ProdutoCampoValor.campo_id == int(campo.id))
-        .filter(func.lower(func.trim(models.ProdutoCampoValor.valor)) == raw.lower())
+        .filter(or_(*conditions))
+        .distinct()
     )
     return query.filter(models.Produto.id.in_(subquery))
 
@@ -1042,6 +1530,12 @@ def listar_produtos(
     produtos. O produto completo continua vindo em /api/produtos/{id}.
     """
     empresa_id = validar_usuario_empresa(request, db)
+
+    # Corrige e persiste os metadados dos campos antes de interpretar os
+    # parâmetros filtro_custom_*. Assim, campos antigos marcados como select
+    # passam a ser tratados como multiselect/relação múltipla imediatamente.
+    sincronizar_campos_produtos_com_formulario(db, empresa_id)
+    db.commit()
 
     query = db.query(models.Produto).filter(models.Produto.empresa_id == empresa_id)
 

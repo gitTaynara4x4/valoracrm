@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cadastros Financeiros | Valora CRM</title>
+  <script>(() => { const t = localStorage.getItem("valora_theme") || "light"; document.documentElement.setAttribute("data-theme", t); })();</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260630-dark-chatgpt-v6" />
+  <link rel="stylesheet" href="/frontend/css/financeiro.css?v=20260723-financeiro-base-v1" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
+  <script src="/frontend/js/pages/app.js?v=20260715-agenda-fluxo-nilson-v9" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260723-financeiro-cadastros-v2" defer></script>
+  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260723-financeiro-cadastros-v2" />
+</head>
+<body class="financeiro-theme-valora">
+  <div class="layout">
+    <iframe src="/frontend/partials/sidebar.html?v=20260723-financeiro-cadastros-v2" class="sidebar-frame" title="Menu Valora" loading="eager"></iframe>
+    <main class="main financeiro-page financeiro-page--valora" data-financeiro-page="cadastros">
+      <header class="topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Financeiro</span>
+          <h1>Cadastros Financeiros</h1>
+          <p class="topbar-subtitle">Configure os dados usados em Contas a Pagar e Contas a Receber.</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn btn-secondary" href="/contas-pagar"><i class="fa-solid fa-file-invoice-dollar"></i> Contas a pagar</a>
+          <a class="btn btn-primary" href="/contas-receber"><i class="fa-solid fa-hand-holding-dollar"></i> Contas a receber</a>
+        </div>
+      </header>
+
+      <div class="financeiro-toolbar">
+        <nav class="financeiro-tabs">
+          <a href="/financeiro"><i class="fa-regular fa-clipboard"></i><span>Visão Geral</span></a>
+          <a href="/contas-receber"><i class="fa-regular fa-calendar-check"></i><span>Contas a Receber</span></a>
+          <a href="/contas-pagar"><i class="fa-regular fa-file-lines"></i><span>Contas a Pagar</span></a>
+          <a href="/fluxo-caixa"><i class="fa-solid fa-wave-square"></i><span>Fluxo de Caixa</span></a>
+          <a href="/categorias-financeiras"><i class="fa-regular fa-folder-open"></i><span>Categorias</span></a>
+          <a href="/formas-pagamento"><i class="fa-regular fa-credit-card"></i><span>Formas</span></a>
+          <a href="/contas-bancos"><i class="fa-solid fa-building-columns"></i><span>Contas/Bancos</span></a>
+          <a href="/cadastros-financeiros" class="active"><i class="fa-solid fa-sliders"></i><span>Cadastros</span></a>
+          <a href="/relatorios-financeiros"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a>
+        </nav>
+        <span class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando cadastros...</span>
+      </div>
+
+      <section class="financeiro-grid-3">
+        <article class="financeiro-card">
+          <div class="financeiro-card-top"><div><h3>Total de registros</h3><p>Todos os cadastros desta área</p></div><span class="financeiro-icon blue"><i class="fa-solid fa-database"></i></span></div>
+          <div><div class="financeiro-value" data-kpi="cadastros-total">0</div><div class="financeiro-meta">Dados separados por empresa</div></div>
+        </article>
+        <article class="financeiro-card">
+          <div class="financeiro-card-top"><div><h3>Registros ativos</h3><p>Disponíveis para lançamentos</p></div><span class="financeiro-icon ok"><i class="fa-solid fa-circle-check"></i></span></div>
+          <div><div class="financeiro-value" data-kpi="cadastros-ativos">0</div><div class="financeiro-meta">Cadastros em uso</div></div>
+        </article>
+        <article class="financeiro-card">
+          <div class="financeiro-card-top"><div><h3>Grupos configuráveis</h3><p>Estruturas financeiras novas</p></div><span class="financeiro-icon warn"><i class="fa-solid fa-layer-group"></i></span></div>
+          <div><div class="financeiro-value" data-kpi="cadastros-grupos">7</div><div class="financeiro-meta">Conforme os documentos do cliente</div></div>
+        </article>
+      </section>
+
+      <section class="financeiro-cadastros-grid">
+        <article class="financeiro-panel financeiro-cadastro-panel">
+          <div class="financeiro-panel-head"><div><h3>Tipos de documento</h3><p>Fatura, boleto, PIX, DDA, carteira e outros.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="tipo-documento"><i class="fa-solid fa-plus"></i> Novo</button></div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Nome</th><th>Aplicação</th><th>Exige emissor</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-tipos-documento"><tr><td class="financeiro-empty" colspan="6">Carregando...</td></tr></tbody></table></div>
+        </article>
+
+        <article class="financeiro-panel financeiro-cadastro-panel">
+          <div class="financeiro-panel-head"><div><h3>Naturezas da operação</h3><p>Classificação usada em pagamentos e recebimentos.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="natureza"><i class="fa-solid fa-plus"></i> Nova</button></div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Nome</th><th>Aplicação</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-naturezas"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody></table></div>
+        </article>
+
+        <article class="financeiro-panel financeiro-cadastro-panel">
+          <div class="financeiro-panel-head"><div><h3>Centros de custo</h3><p>Estrutura principal e secundária para rateio e relatórios.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="centro-custo"><i class="fa-solid fa-plus"></i> Novo</button></div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Nome</th><th>Centro pai</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-centros-custo"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody></table></div>
+        </article>
+
+        <article class="financeiro-panel financeiro-cadastro-panel">
+          <div class="financeiro-panel-head"><div><h3>Unidades de consumo</h3><p>Departamentos ou áreas responsáveis pelo consumo.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="unidade-consumo"><i class="fa-solid fa-plus"></i> Nova</button></div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Nome</th><th>Departamento</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-unidades-consumo"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody></table></div>
+        </article>
+
+        <article class="financeiro-panel financeiro-cadastro-panel financeiro-cadastro-panel--wide">
+          <div class="financeiro-panel-head"><div><h3>Plano de contas contábil</h3><p>Contas internas de destino e débito usadas pelo Financeiro.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="conta-contabil"><i class="fa-solid fa-plus"></i> Nova conta</button></div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Nome</th><th>Tipo</th><th>Conta pai</th><th>Aceita lançamentos</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-contas-contabeis"><tr><td class="financeiro-empty" colspan="7">Carregando...</td></tr></tbody></table></div>
+        </article>
+
+        <article class="financeiro-panel financeiro-cadastro-panel">
+          <div class="financeiro-panel-head"><div><h3>Formas de cobrança</h3><p>Carteira, PIX, boleto, promissória, cartão e débito.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="forma-cobranca"><i class="fa-solid fa-plus"></i> Nova</button></div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Nome</th><th>Tipo</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-formas-cobranca"><tr><td class="financeiro-empty" colspan="4">Carregando...</td></tr></tbody></table></div>
+        </article>
+
+        <article class="financeiro-panel financeiro-cadastro-panel financeiro-cadastro-panel--wide">
+          <div class="financeiro-panel-head"><div><h3>Regras de multa e mora</h3><p>Percentuais padrão que serão copiados para cada lançamento.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="regra-encargos"><i class="fa-solid fa-plus"></i> Nova regra</button></div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Nome</th><th>Aplicação</th><th>Multa</th><th>Mora diária</th><th>Padrão</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-regras-encargos"><tr><td class="financeiro-empty" colspan="7">Carregando...</td></tr></tbody></table></div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <div class="financeiro-modal-backdrop" id="modal-auxiliar" aria-hidden="true">
+    <div class="financeiro-modal sm">
+      <form id="form-auxiliar">
+        <div class="financeiro-modal-head"><div class="financeiro-modal-title"><h3 id="modal-auxiliar-titulo">Cadastro</h3><p>Cadastro auxiliar do Financeiro.</p></div><button class="financeiro-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="financeiro-modal-body" id="modal-auxiliar-body"></div>
+        <div class="financeiro-modal-foot"><button class="btn btn-secondary" type="button" data-close-modal>Cancelar</button><button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Salvar</button></div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

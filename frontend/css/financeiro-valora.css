@@ -1192,3 +1192,59 @@ html[data-theme="dark"] body.financeiro-theme-valora .financeiro-table tbody tr:
     min-height: 104px !important;
   }
 }
+
+/* =========================================================
+   Fase 3 — Cadastros financeiros
+   ========================================================= */
+.financeiro-cadastros-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.financeiro-cadastro-panel {
+  min-width: 0;
+  margin: 0;
+}
+
+.financeiro-cadastro-panel--wide {
+  grid-column: 1 / -1;
+}
+
+.financeiro-cadastro-panel .financeiro-table-wrap {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.financeiro-inline-link {
+  color: var(--fin-accent, #65acde);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.financeiro-inline-link:hover {
+  text-decoration: underline;
+}
+
+#fin-sec-classificacao .financeiro-editor-card-head {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+#fin-sec-classificacao input:disabled {
+  opacity: .62;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1100px) {
+  .financeiro-cadastros-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .financeiro-cadastro-panel--wide {
+    grid-column: auto;
+  }
+}

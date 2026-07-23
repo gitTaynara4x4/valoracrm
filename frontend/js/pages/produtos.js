@@ -1939,9 +1939,16 @@
     const options = Array.isArray(filterMeta?.options) ? filterMeta.options : [];
     const configured = filterMeta?.source === 'native' || !!filterMeta?.campo;
 
-    select.innerHTML = `<option value="">${escapeHtml(emptyLabel)}</option>` + options.map((value) => (
-      `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`
-    )).join('');
+    select.innerHTML = `<option value="">${escapeHtml(emptyLabel)}</option>` + options.map((item) => {
+      const value = item && typeof item === 'object'
+        ? String(item.value ?? item.id ?? item.label ?? '').trim()
+        : String(item ?? '').trim();
+      const label = item && typeof item === 'object'
+        ? String(item.label ?? item.nome ?? item.value ?? item.id ?? '').trim()
+        : value;
+      if (!value) return '';
+      return `<option value="${escapeHtml(value)}">${escapeHtml(label || value)}</option>`;
+    }).join('');
 
     select.disabled = !configured;
     select.title = configured ? '' : 'Esse campo ainda não foi configurado no formulário de Produtos.';

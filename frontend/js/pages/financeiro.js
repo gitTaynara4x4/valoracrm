@@ -9,16 +9,29 @@
     page: pageEl.dataset.financeiroPage,
     items: [],
     auxItems: [],
-    opcoes: { categorias: [], formas_pagamento: [], contas_bancos: [], clientes: [], fornecedores: [] },
+    opcoes: {
+      categorias: [], formas_pagamento: [], contas_bancos: [], clientes: [], fornecedores: [],
+      tipos_documento: [], naturezas_operacao: [], centros_custo: [], unidades_consumo: [],
+      contas_contabeis: [], formas_cobranca: [], regras_encargos: [],
+    },
     filtros: {},
     historicoLancamentoId: null,
   };
 
   const ENDPOINTS = {
-    categorias: "/api/financeiro/categorias",
-    formas: "/api/financeiro/formas-pagamento",
-    contas: "/api/financeiro/contas-bancos",
+    categoria: "/api/financeiro/categorias",
+    forma: "/api/financeiro/formas-pagamento",
+    conta: "/api/financeiro/contas-bancos",
+    "tipo-documento": "/api/financeiro/tipos-documento",
+    natureza: "/api/financeiro/naturezas-operacao",
+    "centro-custo": "/api/financeiro/centros-custo",
+    "unidade-consumo": "/api/financeiro/unidades-consumo",
+    "conta-contabil": "/api/financeiro/contas-contabeis",
+    "forma-cobranca": "/api/financeiro/formas-cobranca",
+    "regra-encargos": "/api/financeiro/regras-encargos",
   };
+
+  const endpointAux = (tipo) => ENDPOINTS[tipo] || null;
 
   const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -419,6 +432,89 @@
       sel.innerHTML = '<option value="">Selecione...</option>' + (ops.fornecedores || []).map(i => option(`${i.codigo || ""} - ${i.nome}`, i.id)).join("");
       sel.value = current;
     });
+
+    const popular = (selector, items, labelFn, vazio = "Selecione...") => {
+      $$(selector).forEach(sel => {
+        const current = sel.value;
+        sel.innerHTML = `<option value="">${escapeHtml(vazio)}</option>` + (items || []).map(i => option(labelFn(i), i.id)).join("");
+        sel.value = current;
+      });
+    };
+    popular('[data-select="tipos-documento"]', ops.tipos_documento, i => `${i.nome}${i.aplicacao && i.aplicacao !== "ambos" ? ` (${i.aplicacao})` : ""}`);
+    popular('[data-select="naturezas-operacao"]', ops.naturezas_operacao, i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
+    popular('[data-select="centros-custo"]', ops.centros_custo, i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
+    popular('[data-select="unidades-consumo"]', ops.unidades_consumo, i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
+    popular('[data-select="contas-contabeis"]', (ops.contas_contabeis || []).filter(i => i.aceita_lancamento !== false), i => `${i.codigo} - ${i.nome}`);
+    popular('[data-select="formas-cobranca"]', ops.formas_cobranca, i => i.nome);
+    popular('[data-select="regras-encargos"]', ops.regras_encargos, i => `${i.nome}${i.padrao ? " (padrão)" : ""}`);
+    popular('[data-select="entidades-emissoras"]', ops.contas_bancos, i => i.nome);
+  }
+
+  function filtrarOpcoesPorTipoLancamento(form, tipo) {
+    if (!form) return;
+    const tipoAtual = String(tipo || "").toLowerCase();
+    if (!["pagar", "receber"].includes(tipoAtual)) return;
+    const defs = [
+      { selector: '[data-select="tipos-documento"]', items: state.opcoes.tipos_documento || [], label: i => `${i.nome}${i.aplicacao && i.aplicacao !== "ambos" ? ` (${i.aplicacao})` : ""}` },
+      { selector: '[data-select="naturezas-operacao"]', items: state.opcoes.naturezas_operacao || [], label: i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}` },
+      { selector: '[data-select="regras-encargos"]', items: state.opcoes.regras_encargos || [], label: i => `${i.nome}${i.padrao ? " (padrão)" : ""}` },
+    ];
+    defs.forEach(def => {
+      const select = form.querySelector(def.selector);
+      if (!select) return;
+      const current = select.value;
+      const items = def.items.filter(i => !i.aplicacao || i.aplicacao === "ambos" || i.aplicacao === tipoAtual);
+      select.innerHTML = '<option value="">Selecione...</option>' + items.map(i => option(def.label(i), i.id)).join("");
+      select.value = items.some(i => String(i.id) === String(current)) ? current : "";
+    });
+
+    const categoria = form.querySelector('[data-select="categorias"]');
+    if (categoria) {
+      const current = categoria.value;
+      const esperado = tipoAtual === "pagar" ? "despesa" : "receita";
+      const items = (state.opcoes.categorias || []).filter(i => i.tipo === "ambos" || i.tipo === esperado);
+      categoria.innerHTML = '<option value="">Selecione...</option>' + items.map(i => option(`${i.nome} (${i.tipo})`, i.id)).join("");
+      categoria.value = items.some(i => String(i.id) === String(current)) ? current : "";
+    }
+  }
+
+  function atualizarExigenciaEntidadeEmissora(form) {
+    if (!form) return;
+    const tipoDocumentoId = form.querySelector('[name="tipo_documento_id"]')?.value;
+    const tipoDocumento = (state.opcoes.tipos_documento || []).find(i => String(i.id) === String(tipoDocumentoId));
+    const entidade = form.querySelector('[name="entidade_emissora_id"]');
+    if (!entidade) return;
+    const obrigatoria = Boolean(tipoDocumento?.exige_entidade_emissora);
+    entidade.required = obrigatoria;
+    entidade.setAttribute("aria-required", String(obrigatoria));
+    const label = entidade.closest(".financeiro-field")?.querySelector("label");
+    if (label) label.textContent = obrigatoria ? "Entidade emissora *" : "Entidade emissora";
+  }
+
+  function aplicarRegraEncargos(form, force = false) {
+    if (!form) return;
+    const select = form.querySelector('[name="regra_encargos_id"]');
+    const regra = (state.opcoes.regras_encargos || []).find(i => Number(i.id) === Number(select?.value));
+    if (!regra) return;
+    const set = (name, value) => {
+      const el = form.querySelector(`[name="${name}"]`);
+      if (el && (force || !String(el.value || "").trim())) el.value = String(value);
+    };
+    set("possui_multa", Boolean(regra.possui_multa));
+    set("indice_multa_percent", Number(regra.indice_multa_percent || 0));
+    set("possui_mora_diaria", Boolean(regra.possui_mora_diaria));
+    set("indice_mora_diaria_percent", Number(regra.indice_mora_diaria_percent || 0));
+    atualizarCamposEncargos(form);
+  }
+
+  function atualizarCamposEncargos(form) {
+    if (!form) return;
+    const multa = form.querySelector('[name="possui_multa"]')?.value === "true";
+    const mora = form.querySelector('[name="possui_mora_diaria"]')?.value === "true";
+    const multaInput = form.querySelector('[name="indice_multa_percent"]');
+    const moraInput = form.querySelector('[name="indice_mora_diaria_percent"]');
+    if (multaInput) { multaInput.disabled = !multa; if (!multa) multaInput.value = "0"; }
+    if (moraInput) { moraInput.disabled = !mora; if (!mora) moraInput.value = "0"; }
   }
 
   async function carregarDashboard() {
@@ -520,7 +616,7 @@
 
   async function carregarCategorias() {
     const items = await request("/api/financeiro/categorias");
-    state.auxItems = items;
+    state.auxItems = items.map(i => ({ ...i, _auxType: "categoria" }));
     setKPI("cat-receita", `${items.filter(i => i.tipo === "receita").length} categorias`);
     setKPI("cat-despesa", `${items.filter(i => i.tipo === "despesa").length} categorias`);
     setKPI("cat-ativas", `${items.filter(i => i.ativo).length} ativas`);
@@ -530,7 +626,7 @@
 
   async function carregarFormas() {
     const items = await request("/api/financeiro/formas-pagamento");
-    state.auxItems = items;
+    state.auxItems = items.map(i => ({ ...i, _auxType: "forma" }));
     setKPI("formas-ativas", `${items.filter(i => i.ativo).length}`);
     setKPI("formas-primeira", items[0]?.nome || "-");
     setKPI("formas-inativas", `${items.filter(i => !i.ativo).length}`);
@@ -540,12 +636,33 @@
 
   async function carregarContas() {
     const items = await request("/api/financeiro/contas-bancos");
-    state.auxItems = items;
+    state.auxItems = items.map(i => ({ ...i, _auxType: "conta" }));
     setKPI("contas-saldo", money(soma(items, i => i.saldo_atual ?? i.saldo_inicial)));
     setKPI("contas-ativas", `${items.filter(i => i.ativo).length}`);
     setKPI("contas-inativas", `${items.filter(i => !i.ativo).length}`);
     setTable("tbody-contas", 7, items.map(i => `<tr><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(i.banco || "-")}</td><td>${escapeHtml(i.agencia || "-")}</td><td>${escapeHtml(i.conta || "-")}</td><td class="financeiro-amount" title="Saldo inicial: ${money(i.saldo_inicial)} em ${dateBR(i.data_saldo_inicial)}">${money(i.saldo_atual ?? i.saldo_inicial)}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "conta")}</td></tr>`).join(""), "Nenhuma conta cadastrada.");
     setStatusText(`${items.length} conta(s).`);
+  }
+
+  async function carregarCadastrosFinanceiros() {
+    const defs = [
+      { tipo: "tipo-documento", endpoint: ENDPOINTS["tipo-documento"], tbody: "tbody-tipos-documento", cols: 6, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.aplicacao)}</td><td>${i.exige_entidade_emissora ? "Sim" : "Não"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "tipo-documento")}</td></tr>` },
+      { tipo: "natureza", endpoint: ENDPOINTS.natureza, tbody: "tbody-naturezas", cols: 5, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.aplicacao)}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "natureza")}</td></tr>` },
+      { tipo: "centro-custo", endpoint: ENDPOINTS["centro-custo"], tbody: "tbody-centros-custo", cols: 5, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(i.centro_pai_nome || "Principal")}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "centro-custo")}</td></tr>` },
+      { tipo: "unidade-consumo", endpoint: ENDPOINTS["unidade-consumo"], tbody: "tbody-unidades-consumo", cols: 5, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(i.departamento_referencia || "-")}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "unidade-consumo")}</td></tr>` },
+      { tipo: "conta-contabil", endpoint: ENDPOINTS["conta-contabil"], tbody: "tbody-contas-contabeis", cols: 7, row: i => `<tr><td>${escapeHtml(i.codigo)}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.tipo)}</td><td>${escapeHtml(i.conta_pai_nome || "Raiz")}</td><td>${i.aceita_lancamento ? "Sim" : "Não"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "conta-contabil")}</td></tr>` },
+      { tipo: "forma-cobranca", endpoint: ENDPOINTS["forma-cobranca"], tbody: "tbody-formas-cobranca", cols: 4, row: i => `<tr><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(String(i.tipo || "-").replaceAll("_", " "))}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "forma-cobranca")}</td></tr>` },
+      { tipo: "regra-encargos", endpoint: ENDPOINTS["regra-encargos"], tbody: "tbody-regras-encargos", cols: 7, row: i => `<tr><td>${escapeHtml(i.nome)}</td><td>${pill(i.aplicacao)}</td><td>${i.possui_multa ? `${Number(i.indice_multa_percent || 0).toLocaleString("pt-BR")}%` : "Não"}</td><td>${i.possui_mora_diaria ? `${Number(i.indice_mora_diaria_percent || 0).toLocaleString("pt-BR")}% ao dia` : "Não"}</td><td>${i.padrao ? pill("Padrão") : "-"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "regra-encargos")}</td></tr>` },
+    ];
+    const resultados = await Promise.all(defs.map(async d => ({ ...d, items: await request(d.endpoint) })));
+    state.auxItems = resultados.flatMap(d => d.items.map(i => ({ ...i, _auxType: d.tipo })));
+    resultados.forEach(d => setTable(d.tbody, d.cols, d.items.map(d.row).join(""), "Nenhum cadastro encontrado."));
+    const total = resultados.reduce((acc, d) => acc + d.items.length, 0);
+    const ativos = resultados.reduce((acc, d) => acc + d.items.filter(i => i.ativo).length, 0);
+    setKPI("cadastros-total", String(total));
+    setKPI("cadastros-ativos", String(ativos));
+    setKPI("cadastros-grupos", String(defs.length));
+    setStatusText(`${total} cadastro(s) financeiro(s).`);
   }
 
   async function carregarRelatorios() {
@@ -576,6 +693,7 @@
       else if (state.page === "categorias") await carregarCategorias();
       else if (state.page === "formas") await carregarFormas();
       else if (state.page === "contas") await carregarContas();
+      else if (state.page === "cadastros") await carregarCadastrosFinanceiros();
       else if (state.page === "relatorios") await carregarRelatorios();
       setStatusText("Dados atualizados.");
     } catch (err) {
@@ -664,7 +782,19 @@
       base.valor_total = formatMoneyForInput(item.valor_total ?? "", base.moeda);
       base.valor_pago = formatMoneyForInput(item.valor_pago ?? "", base.moeda);
     }
+    filtrarOpcoesPorTipoLancamento(form, base.tipo);
     setForm(form, base);
+    atualizarExigenciaEntidadeEmissora(form);
+    if (!item) {
+      const regraPadrao = (state.opcoes.regras_encargos || []).find(r => r.padrao && ["ambos", base.tipo].includes(r.aplicacao));
+      if (regraPadrao) {
+        const regraSelect = form.querySelector('[name="regra_encargos_id"]');
+        if (regraSelect) regraSelect.value = String(regraPadrao.id);
+        aplicarRegraEncargos(form, true);
+      }
+    } else {
+      atualizarCamposEncargos(form);
+    }
     const valorPagoInput = form.querySelector('[name="valor_pago"]');
     if (valorPagoInput) {
       valorPagoInput.readOnly = true;
@@ -725,6 +855,20 @@
       categoria_id: nullNumber(data.categoria_id),
       forma_pagamento_id: nullNumber(data.forma_pagamento_id),
       conta_banco_id: nullNumber(data.conta_banco_id),
+      tipo_documento_id: nullNumber(data.tipo_documento_id),
+      natureza_operacao_id: nullNumber(data.natureza_operacao_id),
+      centro_custo_principal_id: nullNumber(data.centro_custo_principal_id),
+      centro_custo_secundario_id: nullNumber(data.centro_custo_secundario_id),
+      unidade_consumo_principal_id: nullNumber(data.unidade_consumo_principal_id),
+      unidade_consumo_secundaria_id: nullNumber(data.unidade_consumo_secundaria_id),
+      conta_contabil_id: nullNumber(data.conta_contabil_id),
+      forma_cobranca_id: nullNumber(data.forma_cobranca_id),
+      regra_encargos_id: nullNumber(data.regra_encargos_id),
+      entidade_emissora_id: nullNumber(data.entidade_emissora_id),
+      possui_multa: data.possui_multa === "true",
+      indice_multa_percent: moneyToBackend(data.indice_multa_percent || 0),
+      possui_mora_diaria: data.possui_mora_diaria === "true",
+      indice_mora_diaria_percent: moneyToBackend(data.indice_mora_diaria_percent || 0),
       documento: data.documento || null,
       observacoes: data.observacoes || null,
       parcelado: data.parcelado === "true",
@@ -740,23 +884,99 @@
     form.reset();
     form.dataset.tipo = tipo;
     form.dataset.id = item?.id || "";
-    const titulo = tipo === "categoria" ? "Categoria financeira" : tipo === "forma" ? "Forma de pagamento" : "Conta/Banco";
-    $("#modal-auxiliar-titulo").textContent = item ? `Editar ${titulo}` : `Nova ${titulo}`;
+    const titulos = {
+      categoria: "Categoria financeira", forma: "Forma de pagamento", conta: "Conta/Banco",
+      "tipo-documento": "Tipo de documento", natureza: "Natureza da operação",
+      "centro-custo": "Centro de custo", "unidade-consumo": "Unidade de consumo",
+      "conta-contabil": "Conta contábil", "forma-cobranca": "Forma de cobrança",
+      "regra-encargos": "Regra de multa e mora",
+    };
+    const titulo = titulos[tipo] || "Cadastro financeiro";
+    $("#modal-auxiliar-titulo").textContent = item ? `Editar ${titulo}` : `Novo: ${titulo}`;
 
+    const status = '<div class="financeiro-field"><label>Status</label><select name="ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>';
+    const aplicacao = '<div class="financeiro-field"><label>Aplicação</label><select name="aplicacao"><option value="ambos">Pagar e receber</option><option value="pagar">Contas a pagar</option><option value="receber">Contas a receber</option></select></div>';
     if (tipo === "categoria") {
-      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo</label><select name="tipo"><option value="receita">Receita</option><option value="despesa">Despesa</option><option value="ambos">Ambos</option></select></div><div class="financeiro-field"><label>Cor</label><input name="cor" placeholder="#65ACDE"></div><div class="financeiro-field"><label>Status</label><select name="ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div></div>`;
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo</label><select name="tipo"><option value="receita">Receita</option><option value="despesa">Despesa</option><option value="ambos">Ambos</option></select></div><div class="financeiro-field"><label>Cor</label><input name="cor" placeholder="#65ACDE"></div>${status}</div>`;
     } else if (tipo === "forma") {
-      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo</label><input name="tipo" placeholder="pix, boleto, cartão..."></div><div class="financeiro-field"><label>Status</label><select name="ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div></div>`;
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo</label><input name="tipo" placeholder="pix, boleto, cartão..."></div>${status}</div>`;
+    } else if (tipo === "conta") {
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Banco</label><input name="banco"></div><div class="financeiro-field"><label>Agência</label><input name="agencia"></div><div class="financeiro-field"><label>Conta</label><input name="conta"></div><div class="financeiro-field"><label>Saldo inicial</label><input name="saldo_inicial" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off" placeholder="R$ 0,00"></div><div class="financeiro-field"><label>Data do saldo inicial</label><input name="data_saldo_inicial" type="date" value="${todayISO()}" required></div>${status}</div>`;
+    } else if (tipo === "tipo-documento") {
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div>${aplicacao}<div class="financeiro-field"><label>Exige banco/entidade emissora?</label><select name="exige_entidade_emissora"><option value="false">Não</option><option value="true">Sim</option></select></div>${status}</div>`;
+    } else if (tipo === "natureza") {
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div>${aplicacao}${status}</div>`;
+    } else if (tipo === "centro-custo") {
+      const centrosCarregados = state.auxItems.filter(i => i._auxType === "centro-custo");
+      const pais = (centrosCarregados.length ? centrosCarregados : (state.opcoes.centros_custo || [])).filter(i => Number(i.id) !== Number(item?.id));
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Centro principal/pai</label><select name="centro_pai_id"><option value="">Nenhum — centro principal</option>${pais.map(i => option(`${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`, i.id)).join("")}</select></div>${status}</div>`;
+    } else if (tipo === "unidade-consumo") {
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Departamento de referência</label><input name="departamento_referencia" placeholder="Ex.: Financeiro, Comercial, Técnico"></div>${status}</div>`;
+    } else if (tipo === "conta-contabil") {
+      const contasCarregadas = state.auxItems.filter(i => i._auxType === "conta-contabil");
+      const pais = (contasCarregadas.length ? contasCarregadas : (state.opcoes.contas_contabeis || [])).filter(i => Number(i.id) !== Number(item?.id));
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" required maxlength="60" placeholder="Ex.: 3.1.01"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo</label><select name="tipo"><option value="ativo">Ativo</option><option value="passivo">Passivo</option><option value="receita">Receita</option><option value="despesa">Despesa</option><option value="patrimonio">Patrimônio</option><option value="outros">Outros</option></select></div><div class="financeiro-field"><label>Conta pai</label><select name="conta_pai_id"><option value="">Nenhuma — conta raiz</option>${pais.map(i => option(`${i.codigo} - ${i.nome}`, i.id)).join("")}</select></div><div class="financeiro-field"><label>Aceita lançamentos?</label><select name="aceita_lancamento"><option value="true">Sim</option><option value="false">Não, apenas agrupadora</option></select></div>${status}</div>`;
+    } else if (tipo === "forma-cobranca") {
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo</label><select name="tipo"><option value="carteira">Em carteira/recibo</option><option value="pix">PIX</option><option value="promissoria">Promissória</option><option value="boleto">Boleto</option><option value="cartao_credito">Cartão de crédito</option><option value="debito_conta">Débito em conta</option><option value="deposito">Depósito</option><option value="outro">Outro</option></select></div>${status}</div>`;
+    } else if (tipo === "regra-encargos") {
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field full"><label>Nome da regra</label><input name="nome" required placeholder="Ex.: Padrão contratos mensais"></div>${aplicacao}<div class="financeiro-field"><label>Regra padrão?</label><select name="padrao"><option value="false">Não</option><option value="true">Sim</option></select></div><div class="financeiro-field"><label>Possui multa?</label><select name="possui_multa"><option value="false">Não</option><option value="true">Sim</option></select></div><div class="financeiro-field"><label>Índice de multa (%)</label><input name="indice_multa_percent" type="number" min="0" max="100" step="0.0001" value="0"></div><div class="financeiro-field"><label>Possui mora diária?</label><select name="possui_mora_diaria"><option value="false">Não</option><option value="true">Sim</option></select></div><div class="financeiro-field"><label>Índice de mora ao dia (%)</label><input name="indice_mora_diaria_percent" type="number" min="0" max="100" step="0.0001" value="0"></div>${status}</div>`;
     } else {
-      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Banco</label><input name="banco"></div><div class="financeiro-field"><label>Agência</label><input name="agencia"></div><div class="financeiro-field"><label>Conta</label><input name="conta"></div><div class="financeiro-field"><label>Saldo inicial</label><input name="saldo_inicial" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off" placeholder="R$ 0,00"></div><div class="financeiro-field"><label>Data do saldo inicial</label><input name="data_saldo_inicial" type="date" value="${todayISO()}" required></div><div class="financeiro-field"><label>Status</label><select name="ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div></div>`;
+      body.innerHTML = '<div class="financeiro-alert danger">Tipo de cadastro não reconhecido.</div>';
     }
-    if (item) setForm(form, { ...item, ativo: String(Boolean(item.ativo)) });
+    if (item) setForm(form, { ...item, ativo: String(Boolean(item.ativo)), exige_entidade_emissora: String(Boolean(item.exige_entidade_emissora)), aceita_lancamento: String(item.aceita_lancamento !== false), possui_multa: String(Boolean(item.possui_multa)), possui_mora_diaria: String(Boolean(item.possui_mora_diaria)), padrao: String(Boolean(item.padrao)) });
+    atualizarCamposEncargos(form);
     abrirModal("#modal-auxiliar");
   }
 
   function prepararInterfaceFinanceiro() {
+    const tabs = $(".financeiro-tabs");
+    if (tabs && !tabs.querySelector('a[href="/cadastros-financeiros"]')) {
+      const rel = tabs.querySelector('a[href="/relatorios-financeiros"]');
+      const link = document.createElement("a");
+      link.href = "/cadastros-financeiros";
+      link.className = state.page === "cadastros" ? "active" : "";
+      link.innerHTML = '<i class="fa-solid fa-sliders"></i><span>Cadastros</span>';
+      tabs.insertBefore(link, rel || null);
+    }
+
     const formLancamento = $("#form-lancamento");
     if (formLancamento) {
+      const nav = formLancamento.querySelector(".financeiro-ficha-nav");
+      if (nav && !nav.querySelector('[data-financeiro-section="fin-sec-classificacao"]')) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.dataset.financeiroSection = "fin-sec-classificacao";
+        btn.innerHTML = '<i class="fa-solid fa-sitemap"></i><span>Classificação</span>';
+        const parcelamentoBtn = nav.querySelector('[data-financeiro-section="fin-sec-parcelamento"]');
+        nav.insertBefore(btn, parcelamentoBtn || null);
+        btn.addEventListener("click", () => ativarNavegacaoModalLancamento("fin-sec-classificacao"));
+      }
+      const corpo = formLancamento.querySelector(".financeiro-modal-body--ficha");
+      if (corpo && !corpo.querySelector("#fin-sec-classificacao")) {
+        const section = document.createElement("section");
+        section.className = "financeiro-editor-card";
+        section.id = "fin-sec-classificacao";
+        section.innerHTML = `
+          <div class="financeiro-editor-card-head"><div><h4>Classificação financeira</h4><p>Cadastros padronizados do financeiro. A multa e a mora serão calculadas em uma etapa posterior.</p></div><a class="financeiro-inline-link" href="/cadastros-financeiros">Gerenciar cadastros</a></div>
+          <div class="financeiro-form-grid cols-3">
+            <div class="financeiro-field"><label>Tipo de documento</label><select name="tipo_documento_id" data-select="tipos-documento"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Natureza da operação</label><select name="natureza_operacao_id" data-select="naturezas-operacao"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Entidade emissora</label><select name="entidade_emissora_id" data-select="entidades-emissoras"><option value="">Selecione banco/conta...</option></select></div>
+            <div class="financeiro-field"><label>Centro de custo principal</label><select name="centro_custo_principal_id" data-select="centros-custo"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Centro de custo secundário</label><select name="centro_custo_secundario_id" data-select="centros-custo"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Conta contábil</label><select name="conta_contabil_id" data-select="contas-contabeis"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Unidade de consumo principal</label><select name="unidade_consumo_principal_id" data-select="unidades-consumo"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Unidade de consumo secundária</label><select name="unidade_consumo_secundaria_id" data-select="unidades-consumo"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Forma de cobrança</label><select name="forma_cobranca_id" data-select="formas-cobranca"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Regra de multa e mora</label><select name="regra_encargos_id" data-select="regras-encargos"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Possui multa?</label><select name="possui_multa"><option value="false">Não</option><option value="true">Sim</option></select></div>
+            <div class="financeiro-field"><label>Índice de multa (%)</label><input name="indice_multa_percent" type="number" min="0" max="100" step="0.0001" value="0"></div>
+            <div class="financeiro-field"><label>Possui mora diária?</label><select name="possui_mora_diaria"><option value="false">Não</option><option value="true">Sim</option></select></div>
+            <div class="financeiro-field"><label>Índice de mora diária (%)</label><input name="indice_mora_diaria_percent" type="number" min="0" max="100" step="0.0001" value="0"></div>
+          </div>`;
+        const parcela = corpo.querySelector("#fin-sec-parcelamento");
+        corpo.insertBefore(section, parcela || corpo.querySelector("#fin-sec-observacoes"));
+      }
       const pago = formLancamento.querySelector('[name="valor_pago"]');
       if (pago) {
         pago.readOnly = true;
@@ -911,12 +1131,18 @@
     const tipo = form.dataset.tipo;
     const id = form.dataset.id;
     const data = getForm(form);
-    data.ativo = data.ativo !== "false";
+    ["ativo", "exige_entidade_emissora", "aceita_lancamento", "possui_multa", "possui_mora_diaria", "padrao"].forEach(k => {
+      if (Object.prototype.hasOwnProperty.call(data, k)) data[k] = data[k] === "true";
+    });
+    ["centro_pai_id", "conta_pai_id"].forEach(k => {
+      if (Object.prototype.hasOwnProperty.call(data, k)) data[k] = nullNumber(data[k]);
+    });
     if (tipo === "conta") {
       data.saldo_inicial = moneyToBackend(data.saldo_inicial || 0);
       data.data_saldo_inicial = data.data_saldo_inicial || todayISO();
     }
-    const endpoint = ENDPOINTS[tipo === "categoria" ? "categorias" : tipo === "forma" ? "formas" : "contas"];
+    const endpoint = endpointAux(tipo);
+    if (!endpoint) return alertBox("Cadastro financeiro inválido.", "danger");
     try {
       await request(id ? `${endpoint}/${id}` : endpoint, { method: id ? "PUT" : "POST", body: data });
       fecharModais();
@@ -932,7 +1158,8 @@
     if (!btn || btn.disabled) return;
     const id = Number(btn.dataset.id);
     const action = btn.dataset.action;
-    const item = state.items.find(i => Number(i.id) === id) || state.auxItems.find(i => Number(i.id) === id);
+    const tipoAux = btn.dataset.tipo || "";
+    const item = state.items.find(i => Number(i.id) === id) || state.auxItems.find(i => Number(i.id) === id && (!tipoAux || i._auxType === tipoAux));
 
     try {
       if (action === "editar-lancamento" && item) abrirLancamento(item.tipo, item);
@@ -962,7 +1189,8 @@
       if (action === "editar-aux" && item) abrirAux(btn.dataset.tipo, item);
       if (action === "excluir-aux") {
         if (!confirm("Excluir este cadastro?")) return;
-        const endpoint = ENDPOINTS[btn.dataset.tipo === "categoria" ? "categorias" : btn.dataset.tipo === "forma" ? "formas" : "contas"];
+        const endpoint = endpointAux(btn.dataset.tipo);
+        if (!endpoint) throw new Error("Cadastro financeiro inválido.");
         await request(`${endpoint}/${id}`, { method: "DELETE" });
         await recarregar();
       }
@@ -996,9 +1224,7 @@
     });
     $$(".btn-novo-registro").forEach(btn => btn.addEventListener("click", () => {
       const type = btn.dataset.new;
-      if (type === "categoria") return abrirAux("categoria");
-      if (type === "forma") return abrirAux("forma");
-      if (type === "conta") return abrirAux("conta");
+      if (endpointAux(type)) return abrirAux(type);
       return abrirLancamento(type || "");
     }));
     $("#btn-toggle-filtros")?.addEventListener("click", () => $("#financeiro-filtros")?.classList.toggle("is-open"));
@@ -1032,6 +1258,22 @@
     }, true);
 
     document.addEventListener("change", (ev) => {
+      const formLancamento = ev.target.closest("#form-lancamento");
+      if (formLancamento && ev.target.matches('[name="tipo"]')) {
+        filtrarOpcoesPorTipoLancamento(formLancamento, ev.target.value);
+        atualizarExigenciaEntidadeEmissora(formLancamento);
+        return;
+      }
+      if (formLancamento && ev.target.matches('[name="tipo_documento_id"]')) {
+        atualizarExigenciaEntidadeEmissora(formLancamento);
+        return;
+      }
+      const regra = ev.target.closest('[name="regra_encargos_id"]');
+      if (regra) { aplicarRegraEncargos(regra.closest("form"), true); return; }
+      if (ev.target.matches('[name="possui_multa"], [name="possui_mora_diaria"]')) {
+        atualizarCamposEncargos(ev.target.closest("form"));
+        return;
+      }
       const select = ev.target.closest('[name="moeda"]');
       if (!select) return;
       const form = select.closest("form");

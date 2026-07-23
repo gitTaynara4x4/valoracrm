@@ -1057,6 +1057,7 @@
           <button class="dropdown-item" type="button" data-target="categorias-financeiras">Categorias</button>
           <button class="dropdown-item" type="button" data-target="formas-pagamento">Formas de Pagamento</button>
           <button class="dropdown-item" type="button" data-target="contas-bancos">Contas/Bancos</button>
+          <button class="dropdown-item" type="button" data-target="cadastros-financeiros">Cadastros Financeiros</button>
           <button class="dropdown-item" type="button" data-target="relatorios-financeiros">Relatórios Financeiros</button>
         </div>
       </div>
@@ -1193,6 +1194,7 @@
       <button class="mobile-link" type="button" data-target="categorias-financeiras"><i class="fa-solid fa-folder-tree"></i> Categorias</button>
       <button class="mobile-link" type="button" data-target="formas-pagamento"><i class="fa-solid fa-credit-card"></i> Formas de Pagamento</button>
       <button class="mobile-link" type="button" data-target="contas-bancos"><i class="fa-solid fa-building-columns"></i> Contas/Bancos</button>
+      <button class="mobile-link" type="button" data-target="cadastros-financeiros"><i class="fa-solid fa-sliders"></i> Cadastros Financeiros</button>
       <button class="mobile-link" type="button" data-target="relatorios-financeiros"><i class="fa-solid fa-chart-column"></i> Relatórios Financeiros</button>
     </div>
 
@@ -1882,6 +1884,10 @@
           goTo('/contas-bancos');
           break;
 
+        case 'cadastros-financeiros':
+          goTo('/cadastros-financeiros');
+          break;
+
         case 'relatorios-financeiros':
           goTo('/relatorios-financeiros');
           break;
@@ -1974,6 +1980,7 @@
       if (path === '/categorias-financeiras' || path === '/frontend/categorias-financeiras.html') return 'categorias-financeiras';
       if (path === '/formas-pagamento' || path === '/frontend/formas-pagamento.html') return 'formas-pagamento';
       if (path === '/contas-bancos' || path === '/frontend/contas-bancos.html') return 'contas-bancos';
+      if (path === '/cadastros-financeiros' || path === '/frontend/cadastros-financeiros.html') return 'cadastros-financeiros';
       if (path === '/relatorios-financeiros' || path === '/frontend/relatorios-financeiros.html') return 'relatorios-financeiros';
 
       if (
