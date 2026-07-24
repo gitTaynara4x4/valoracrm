@@ -22,13 +22,13 @@
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260722-atualizar-precos-v1">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260724-escala-documento-v1">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260720-emitter-save-v2">
 
   <script src="/frontend/js/pages/app.js?v=20260722-agenda-editor-v11" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260722-atualizar-precos-v1" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260724-escala-documento-v1" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -293,6 +293,26 @@
                 <div class="form-group"><label for="orcamento-titulo-capa">Título da capa</label><input id="orcamento-titulo-capa" type="text" /></div>
                 <div class="form-group"><label for="orcamento-subtitulo-capa">Subtítulo da capa</label><input id="orcamento-subtitulo-capa" type="text" /></div>
               </div>
+              <div class="document-scale-control" aria-labelledby="orcamento-escala-label">
+                <div class="document-scale-copy">
+                  <label id="orcamento-escala-label" for="orcamento-escala-documento">Tamanho na impressão</label>
+                  <small>Altera fontes e espaçamentos do PDF sem usar zoom, evitando cortes na página.</small>
+                </div>
+                <div class="document-scale-fields">
+                  <select id="orcamento-escala-preset" aria-label="Tamanho predefinido do documento">
+                    <option value="85">Compacto — 85%</option>
+                    <option value="100">Normal — 100%</option>
+                    <option value="115">Grande — 115%</option>
+                    <option value="custom">Personalizado</option>
+                  </select>
+                  <div class="document-scale-slider">
+                    <input id="orcamento-escala-documento" type="range" min="70" max="125" step="1" value="100" aria-describedby="orcamento-escala-limites" />
+                    <output id="orcamento-escala-valor" for="orcamento-escala-documento">100%</output>
+                  </div>
+                  <button class="btn btn-secondary document-scale-reset" id="btn-restaurar-escala-documento" type="button">Restaurar padrão</button>
+                </div>
+                <small id="orcamento-escala-limites" class="document-scale-limits">Faixa permitida: 70% a 125%. Este tamanho fica salvo neste orçamento.</small>
+              </div>
             </div>
             <div class="document-preview-shell"><div id="document-preview" class="document-preview"></div></div>
           </section>
@@ -527,6 +547,23 @@
                 <div class="form-group span-2" data-settings-dav>
                   <label for="config-dav-titulo">Título do DAV</label>
                   <input id="config-dav-titulo" type="text" />
+                </div>
+
+                <div class="form-group span-3 settings-document-scale">
+                  <label id="config-escala-label" for="config-escala-documento">Tamanho padrão dos novos documentos</label>
+                  <div class="document-scale-fields settings-scale-fields">
+                    <select id="config-escala-preset" aria-label="Tamanho padrão predefinido">
+                      <option value="85">Compacto — 85%</option>
+                      <option value="100">Normal — 100%</option>
+                      <option value="115">Grande — 115%</option>
+                      <option value="custom">Personalizado</option>
+                    </select>
+                    <div class="document-scale-slider">
+                      <input id="config-escala-documento" type="range" min="70" max="125" step="1" value="100" aria-describedby="config-escala-ajuda" />
+                      <output id="config-escala-valor" for="config-escala-documento">100%</output>
+                    </div>
+                  </div>
+                  <small id="config-escala-ajuda" class="settings-field-hint">Será aplicado somente aos novos orçamentos. Cada documento poderá ser ajustado individualmente.</small>
                 </div>
 
                 <div class="form-group span-2" data-settings-cover-field>

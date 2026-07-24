@@ -204,6 +204,7 @@ def ensure_schema(db: Session) -> None:
             titulo_capa VARCHAR(180),
             subtitulo_capa VARCHAR(220),
             usar_capa BOOLEAN NOT NULL DEFAULT FALSE,
+            escala_documento_padrao INTEGER NOT NULL DEFAULT 100,
             mostrar_codigo BOOLEAN NOT NULL DEFAULT TRUE,
             mostrar_desconto BOOLEAN NOT NULL DEFAULT TRUE,
             mostrar_imagens BOOLEAN NOT NULL DEFAULT FALSE,
@@ -228,6 +229,7 @@ def ensure_schema(db: Session) -> None:
         "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS cabecalho_endereco TEXT",
         "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS cabecalho_rodape TEXT",
         "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS preset_aplicado VARCHAR(80)",
+        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS escala_documento_padrao INTEGER NOT NULL DEFAULT 100",
     ):
         db.execute(text(sql))
 
@@ -402,6 +404,7 @@ def ensure_schema(db: Session) -> None:
             usar_capa BOOLEAN NOT NULL DEFAULT FALSE,
             titulo_capa VARCHAR(180),
             subtitulo_capa VARCHAR(220),
+            escala_documento INTEGER NOT NULL DEFAULT 100,
             aprovacao_necessaria BOOLEAN NOT NULL DEFAULT FALSE,
             aprovacao_status VARCHAR(30),
             aprovado_por_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
@@ -437,8 +440,20 @@ def ensure_schema(db: Session) -> None:
         "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_logo_documento TEXT",
         "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_rodape_documento TEXT",
         "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS itens_sem_custo INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS escala_documento INTEGER NOT NULL DEFAULT 100",
     ):
         db.execute(text(sql))
+
+    db.execute(text("""
+        UPDATE orcamento_configuracoes
+        SET escala_documento_padrao=100
+        WHERE escala_documento_padrao IS NULL OR escala_documento_padrao < 70 OR escala_documento_padrao > 125
+    """))
+    db.execute(text("""
+        UPDATE orcamentos
+        SET escala_documento=100
+        WHERE escala_documento IS NULL OR escala_documento < 70 OR escala_documento > 125
+    """))
 
     db.execute(text("""
         UPDATE orcamentos o SET
@@ -863,6 +878,7 @@ class BudgetBase(BaseModel):
     usar_capa: bool = False
     titulo_capa: Optional[str] = None
     subtitulo_capa: Optional[str] = None
+    escala_documento: Optional[int] = Field(default=None, ge=70, le=125)
     itens: List[BudgetItemIn] = Field(default_factory=list)
 
 
@@ -963,6 +979,7 @@ class SettingsIn(BaseModel):
     titulo_capa: Optional[str] = None
     subtitulo_capa: Optional[str] = None
     usar_capa: bool = False
+    escala_documento_padrao: int = Field(default=100, ge=70, le=125)
     mostrar_codigo: bool = True
     mostrar_desconto: bool = True
     mostrar_imagens: bool = False
@@ -1456,6 +1473,7 @@ def update_settings(
             titulo_capa=:titulo_capa,
             subtitulo_capa=:subtitulo_capa,
             usar_capa=:usar_capa,
+            escala_documento_padrao=:escala_documento_padrao,
             mostrar_codigo=:mostrar_codigo,
             mostrar_desconto=:mostrar_desconto,
             mostrar_imagens=:mostrar_imagens,
@@ -2316,6 +2334,7 @@ def payload_params(
         "usar_capa": bool(payload.usar_capa),
         "titulo_capa": norm_str(payload.titulo_capa) or norm_str(config.get("titulo_capa")),
         "subtitulo_capa": norm_str(payload.subtitulo_capa) or norm_str(config.get("subtitulo_capa")),
+        "escala_documento": int(payload.escala_documento or config.get("escala_documento_padrao") or 100),
     }
 
 
@@ -2378,7 +2397,7 @@ def create_budget(
                 emitente_telefone_documento, emitente_endereco_documento, emitente_logo_documento, emitente_rodape_documento,
                 desconto_tipo, desconto_valor, desconto_total, frete, acrescimo, subtotal, total,
                 custo_total, lucro_total, margem_percentual, itens_sem_custo, prazo_execucao, condicoes, observacoes,
-                pagamentos_json, usar_capa, titulo_capa, subtitulo_capa, aprovacao_necessaria, aprovacao_status,
+                pagamentos_json, usar_capa, titulo_capa, subtitulo_capa, escala_documento, aprovacao_necessaria, aprovacao_status,
                 aprovado_por_id, aprovado_em
             ) VALUES (
                 :empresa_id, :cliente_id, :usuario_criador_id, :consultor_id, :categoria_id, :modelo_id,
@@ -2392,7 +2411,7 @@ def create_budget(
                 :emitente_telefone_documento, :emitente_endereco_documento, :emitente_logo_documento, :emitente_rodape_documento,
                 :desconto_tipo, :desconto_valor, :desconto_total, :frete, :acrescimo, :subtotal, :total,
                 :custo_total, :lucro_total, :margem_percentual, :itens_sem_custo, :prazo_execucao, :condicoes, :observacoes,
-                :pagamentos_json, :usar_capa, :titulo_capa, :subtitulo_capa, :aprovacao_necessaria, :aprovacao_status,
+                :pagamentos_json, :usar_capa, :titulo_capa, :subtitulo_capa, :escala_documento, :aprovacao_necessaria, :aprovacao_status,
                 :aprovado_por_id, :aprovado_em
             ) RETURNING id
         """), {
@@ -2452,6 +2471,7 @@ def budget_change_details(old: dict, new_params: dict, old_items: List[dict], ne
         "usar_capa": ("Documento", "Usar capa"),
         "titulo_capa": ("Documento", "Título da capa"),
         "subtitulo_capa": ("Documento", "Subtítulo da capa"),
+        "escala_documento": ("Documento", "Tamanho da impressão (%)"),
     }
     changes: List[dict] = []
     for field, (section, label) in field_map.items():
@@ -2610,7 +2630,7 @@ def update_budget(
             itens_sem_custo=:itens_sem_custo,
             prazo_execucao=:prazo_execucao, condicoes=:condicoes, observacoes=:observacoes,
             pagamentos_json=:pagamentos_json, usar_capa=:usar_capa, titulo_capa=:titulo_capa,
-            subtitulo_capa=:subtitulo_capa, aprovacao_necessaria=:aprovacao_necessaria,
+            subtitulo_capa=:subtitulo_capa, escala_documento=:escala_documento, aprovacao_necessaria=:aprovacao_necessaria,
             aprovacao_status=CASE
                 WHEN NOT :aprovacao_necessaria THEN NULL
                 WHEN :manager_approval THEN 'aprovado'
@@ -2714,6 +2734,7 @@ def duplicate_budget(
         frete=money(source.get("frete")), acrescimo=money(source.get("acrescimo")), prazo_execucao=source.get("prazo_execucao"),
         condicoes=source.get("condicoes"), observacoes=source.get("observacoes"), pagamentos=source.get("pagamentos") or [],
         usar_capa=bool(source.get("usar_capa")), titulo_capa=source.get("titulo_capa"), subtitulo_capa=source.get("subtitulo_capa"),
+        escala_documento=int(source.get("escala_documento") or 100),
         itens=source.get("itens") or [],
     )
     created = create_budget(payload, current_user=current_user, db=db)
