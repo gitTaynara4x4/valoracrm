@@ -13,13 +13,13 @@
   <link rel="stylesheet" href="/frontend/css/financeiro.css?v=20260723-financeiro-base-v1" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
   <script src="/frontend/js/pages/app.js?v=20260715-agenda-fluxo-nilson-v9" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260723-financeiro-cadastros-v2" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260725-financeiro-phase5-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260723-financeiro-cadastros-v2" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260725-financeiro-fase6-v1" />
 </head>
 <body class="financeiro-theme-valora">
   <div class="layout">
-    <iframe src="/frontend/partials/sidebar.html?v=20260723-financeiro-cadastros-v2" class="sidebar-frame" title="Menu Valora" loading="eager"></iframe>
+    <iframe src="/frontend/partials/sidebar.html?v=20260725-financeiro-fase6-v1" class="sidebar-frame" title="Menu Valora" loading="eager"></iframe>
     <main class="main financeiro-page financeiro-page--valora" data-financeiro-page="relatorios">
       <header class="topbar">
         <div class="topbar-title"><span class="eyebrow">Financeiro</span><h1>Relatórios Financeiros</h1><p class="topbar-subtitle">Resumo gerencial, DRE simples e análise por categoria.</p></div>
@@ -29,7 +29,8 @@
           <button class="btn btn-primary btn-novo-registro" type="button" data-new=""><i class="fa-solid fa-plus"></i> Novo lançamento</button>
         </div>
       </header>
-      <div class="financeiro-toolbar"><nav class="financeiro-tabs"><a href="/financeiro" class=""><i class="fa-regular fa-clipboard"></i><span>Visão Geral</span></a><a href="/contas-receber" class=""><i class="fa-regular fa-calendar-check"></i><span>Contas a Receber</span></a><a href="/contas-pagar" class=""><i class="fa-regular fa-file-lines"></i><span>Contas a Pagar</span></a><a href="/fluxo-caixa" class=""><i class="fa-solid fa-wave-square"></i><span>Fluxo de Caixa</span></a><a href="/categorias-financeiras" class=""><i class="fa-regular fa-folder-open"></i><span>Categorias</span></a><a href="/formas-pagamento" class=""><i class="fa-regular fa-credit-card"></i><span>Formas</span></a><a href="/contas-bancos" class=""><i class="fa-solid fa-building-columns"></i><span>Contas/Bancos</span></a><a href="/relatorios-financeiros" class="active"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a></nav><span class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando dados reais...</span></div>
+      <div class="financeiro-toolbar"><nav class="financeiro-tabs"><a href="/financeiro" class=""><i class="fa-regular fa-clipboard"></i><span>Visão Geral</span></a>
+          <a href="/vendas-financeiro"><i class="fa-solid fa-cart-arrow-down"></i><span>Vendas pendentes</span></a><a href="/contas-receber" class=""><i class="fa-regular fa-calendar-check"></i><span>Contas a Receber</span></a><a href="/contas-pagar" class=""><i class="fa-regular fa-file-lines"></i><span>Contas a Pagar</span></a><a href="/fluxo-caixa" class=""><i class="fa-solid fa-wave-square"></i><span>Fluxo de Caixa</span></a><a href="/categorias-financeiras" class=""><i class="fa-regular fa-folder-open"></i><span>Categorias</span></a><a href="/formas-pagamento" class=""><i class="fa-regular fa-credit-card"></i><span>Formas</span></a><a href="/contas-bancos" class=""><i class="fa-solid fa-building-columns"></i><span>Contas/Bancos</span></a><a href="/relatorios-financeiros" class="active"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a></nav><span class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando dados reais...</span></div>
       <section class="financeiro-panel financeiro-filter-panel" id="financeiro-filtros">
   <div class="financeiro-filters-grid">
     <div class="financeiro-field"><label>Busca</label><input id="filtro-busca" placeholder="Descrição, documento, cliente ou fornecedor"></div>
@@ -53,9 +54,27 @@
   <div><div class="financeiro-value" data-kpi="rel-resultado">R$ 0,00</div><div class="financeiro-meta">Dados reais do financeiro</div></div>
 </article>
 </section>
+      <section class="financeiro-grid-4">
+<article class="financeiro-card">
+  <div class="financeiro-card-top"><div><h3>A receber aberto</h3><p>Saldo dos títulos no período</p></div><span class="financeiro-icon blue"><i class="fa-solid fa-file-invoice-dollar"></i></span></div>
+  <div><div class="financeiro-value" data-kpi="rel-receber-aberto">R$ 0,00</div><div class="financeiro-meta">Somente saldo ainda pendente</div></div>
+</article>
+<article class="financeiro-card">
+  <div class="financeiro-card-top"><div><h3>Recebido</h3><p>Movimentações no período</p></div><span class="financeiro-icon ok"><i class="fa-solid fa-circle-check"></i></span></div>
+  <div><div class="financeiro-value" data-kpi="rel-recebido-periodo">R$ 0,00</div><div class="financeiro-meta">Considera baixas e estornos</div></div>
+</article>
+<article class="financeiro-card">
+  <div class="financeiro-card-top"><div><h3>Vencido</h3><p>Saldo em atraso no período</p></div><span class="financeiro-icon danger"><i class="fa-solid fa-triangle-exclamation"></i></span></div>
+  <div><div class="financeiro-value" data-kpi="rel-receber-vencido">R$ 0,00</div><div class="financeiro-meta">Títulos ainda não quitados</div></div>
+</article>
+<article class="financeiro-card">
+  <div class="financeiro-card-top"><div><h3>Inadimplentes</h3><p>Clientes com saldo vencido</p></div><span class="financeiro-icon warn"><i class="fa-solid fa-user-clock"></i></span></div>
+  <div><div class="financeiro-value" data-kpi="rel-clientes-inadimplentes">0</div><div class="financeiro-meta">Clientes distintos no período</div></div>
+</article>
+</section>
       <section class="financeiro-panel">
-  <div class="financeiro-panel-head"><div><h3>Resumo por categoria</h3><p>Base gerencial por tipo e categoria.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new=""><i class="fa-solid fa-plus"></i> Novo lançamento</button></div>
-  <div class="financeiro-table-wrap"><table class="financeiro-table" id="financeiro-table"><thead><tr><th>Tipo</th><th>Categoria</th><th>Quantidade</th><th>Valor total</th><th>Valor pago</th></tr></thead><tbody id="tbody-relatorios"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody></table></div>
+  <div class="financeiro-panel-head"><div><h3>Resumo por categoria</h3><p>Base gerencial por tipo, categoria, baixas e saldo aberto.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new=""><i class="fa-solid fa-plus"></i> Novo lançamento</button></div>
+  <div class="financeiro-table-wrap"><table class="financeiro-table" id="financeiro-table"><thead><tr><th>Tipo</th><th>Categoria</th><th>Quantidade</th><th>Valor total</th><th>Pago/recebido</th><th>Saldo aberto</th></tr></thead><tbody id="tbody-relatorios"><tr><td class="financeiro-empty" colspan="6">Carregando...</td></tr></tbody></table></div>
 </section>
     </main>
   </div>

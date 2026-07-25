@@ -441,6 +441,12 @@ def ensure_schema(db: Session) -> None:
         "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_rodape_documento TEXT",
         "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS itens_sem_custo INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS escala_documento INTEGER NOT NULL DEFAULT 100",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS financeiro_status VARCHAR(30) NOT NULL DEFAULT 'nao_enviado'",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS financeiro_enviado_em TIMESTAMPTZ",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS financeiro_enviado_por_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS financeiro_autenticado_em TIMESTAMPTZ",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS financeiro_autenticado_por_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL",
+        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS financeiro_motivo_retorno TEXT",
     ):
         db.execute(text(sql))
 
@@ -899,6 +905,11 @@ class CalculationIn(BudgetBase):
 class StatusIn(BaseModel):
     status: str
     observacao: Optional[str] = None
+
+
+class EnviarFinanceiroIn(BaseModel):
+    observacao: Optional[str] = None
+    tipo_venda: str = "avulsa"
 
 
 class CategoryIn(BaseModel):
@@ -2523,6 +2534,11 @@ def update_budget(
         raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
 
     data = dict(old)
+    financeiro_status = financeiro_status_norm(data.get("financeiro_status"))
+    if financeiro_status == "autenticado":
+        raise HTTPException(status_code=409, detail="Esta venda já foi autenticada pelo Financeiro. Faça ajustes por cancelamento ou renegociação financeira.")
+    if financeiro_status == "pendente":
+        raise HTTPException(status_code=409, detail="Esta venda está em conferência no Financeiro. Cancele o envio ou aguarde a devolução antes de editar.")
     if atualizar_precos and status_norm(data.get("status")) in STATUS_PRECOS_BLOQUEADOS:
         raise HTTPException(
             status_code=409,
@@ -2710,6 +2726,173 @@ def update_budget(
     return result
 
 
+def ensure_financeiro_vendas_schema(db: Session) -> None:
+    tabela = db.execute(text("SELECT to_regclass('public.financeiro_vendas_pendentes')")).scalar()
+    if not tabela:
+        raise HTTPException(
+            status_code=500,
+            detail="Estrutura da Fase 6 não instalada. Execute sql/financeiro/005_vendas_valora_para_financeiro.sql.",
+        )
+
+
+def financeiro_status_norm(value: Any) -> str:
+    current = str(value or "nao_enviado").strip().lower()
+    permitidos = {"nao_enviado", "pendente", "devolvido", "autenticado", "cancelado"}
+    return current if current in permitidos else "nao_enviado"
+
+
+def snapshot_venda_financeiro(db: Session, budget_id: int, company_id: int) -> dict:
+    row = db.execute(text(base_select() + " WHERE o.id=:id AND o.empresa_id=:e LIMIT 1"), {"id": budget_id, "e": company_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
+    data = dict(row)
+    itens = serialize_items(db, budget_id, show_costs=False)
+    pagamentos = json_load(data.get("pagamentos_json"), [])
+    return {
+        "orcamento_id": int(data["id"]),
+        "cliente_id": int(data["cliente_id"]) if data.get("cliente_id") else None,
+        "consultor_id": int(data["consultor_id"]) if data.get("consultor_id") else None,
+        "orcamento_codigo": str(data.get("codigo") or "").strip(),
+        "orcamento_titulo": str(data.get("titulo") or "Venda").strip(),
+        "cliente_nome": str(data.get("cliente_nome") or data.get("cliente_razao_social") or "").strip(),
+        "cliente_documento": norm_str(data.get("cliente_documento")),
+        "consultor_nome": norm_str(data.get("consultor_nome")),
+        "data_venda": parse_date(data.get("data_aprovacao")) or parse_date(data.get("data_emissao")) or date.today(),
+        "valor_total": q2(money(data.get("total"))),
+        "pagamentos_json": json_dump(pagamentos),
+        "itens_json": json_dump(itens),
+        "condicoes": norm_str(data.get("condicoes")),
+        "observacoes_comerciais": norm_str(data.get("observacoes")),
+        "status_orcamento": status_norm(data.get("status")),
+        "financeiro_status": financeiro_status_norm(data.get("financeiro_status")),
+    }
+
+
+@router.post("/{budget_id}/enviar-financeiro", status_code=status.HTTP_201_CREATED)
+def enviar_orcamento_financeiro(
+    budget_id: int,
+    payload: EnviarFinanceiroIn,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    ensure_financeiro_vendas_schema(db)
+    tipo_venda = str(payload.tipo_venda or "avulsa").strip().lower()
+    if tipo_venda not in {"avulsa", "contrato"}:
+        raise HTTPException(status_code=422, detail="Tipo de venda inválido.")
+    if tipo_venda == "contrato":
+        raise HTTPException(status_code=422, detail="Contratos recorrentes serão enviados na Fase 7. Nesta etapa, envie somente vendas avulsas.")
+
+    db.execute(text("SELECT id FROM orcamentos WHERE id=:id AND empresa_id=:e FOR UPDATE"), {"id": budget_id, "e": company_id}).first()
+    venda = snapshot_venda_financeiro(db, budget_id, company_id)
+    if venda["status_orcamento"] != "aprovado":
+        raise HTTPException(status_code=409, detail="Apenas um orçamento aprovado pode ser fechado e enviado ao Financeiro.")
+    if not venda["cliente_id"]:
+        raise HTTPException(status_code=422, detail="O orçamento precisa ter um cliente vinculado.")
+    if venda["valor_total"] <= 0:
+        raise HTTPException(status_code=422, detail="O total da venda deve ser maior que zero.")
+
+    existente = db.execute(text("""
+        SELECT * FROM public.financeiro_vendas_pendentes
+        WHERE empresa_id=:empresa_id AND orcamento_id=:orcamento_id
+        FOR UPDATE
+    """), {"empresa_id": company_id, "orcamento_id": budget_id}).mappings().first()
+    if existente and existente["status"] == "pendente":
+        raise HTTPException(status_code=409, detail="Esta venda já está aguardando autenticação no Financeiro.")
+    if existente and existente["status"] == "autenticado":
+        raise HTTPException(status_code=409, detail="Esta venda já foi autenticada e possui títulos financeiros.")
+
+    params = {
+        **venda,
+        "empresa_id": company_id,
+        "tipo_venda": tipo_venda,
+        "observacoes_envio": norm_str(payload.observacao),
+        "usuario_id": int(current_user.id),
+    }
+    if existente:
+        pendencia_id = int(existente["id"])
+        db.execute(text("""
+            UPDATE public.financeiro_vendas_pendentes SET
+                cliente_id=:cliente_id, consultor_id=:consultor_id, status='pendente', tipo_venda=:tipo_venda,
+                orcamento_codigo=:orcamento_codigo, orcamento_titulo=:orcamento_titulo,
+                cliente_nome=:cliente_nome, cliente_documento=:cliente_documento, consultor_nome=:consultor_nome,
+                data_venda=:data_venda, valor_total=:valor_total,
+                pagamentos_json=CAST(:pagamentos_json AS JSONB), itens_json=CAST(:itens_json AS JSONB),
+                condicoes=:condicoes, observacoes_comerciais=:observacoes_comerciais,
+                observacoes_envio=:observacoes_envio, enviado_por_usuario_id=:usuario_id, enviado_em=NOW(),
+                devolvido_por_usuario_id=NULL, devolvido_em=NULL, motivo_devolucao=NULL,
+                cancelado_por_usuario_id=NULL, cancelado_em=NULL, motivo_cancelamento=NULL,
+                autenticado_por_usuario_id=NULL, autenticado_em=NULL,
+                grupo_parcelamento=NULL, lancamentos_gerados='[]'::jsonb,
+                atualizado_em=NOW()
+            WHERE id=:pendencia_id AND empresa_id=:empresa_id
+        """), {**params, "pendencia_id": pendencia_id})
+    else:
+        pendencia_id = int(db.execute(text("""
+            INSERT INTO public.financeiro_vendas_pendentes (
+                empresa_id, orcamento_id, cliente_id, consultor_id, status, tipo_venda,
+                orcamento_codigo, orcamento_titulo, cliente_nome, cliente_documento, consultor_nome,
+                data_venda, valor_total, pagamentos_json, itens_json, condicoes,
+                observacoes_comerciais, observacoes_envio, enviado_por_usuario_id, enviado_em,
+                criado_em, atualizado_em
+            ) VALUES (
+                :empresa_id, :orcamento_id, :cliente_id, :consultor_id, 'pendente', :tipo_venda,
+                :orcamento_codigo, :orcamento_titulo, :cliente_nome, :cliente_documento, :consultor_nome,
+                :data_venda, :valor_total, CAST(:pagamentos_json AS JSONB), CAST(:itens_json AS JSONB), :condicoes,
+                :observacoes_comerciais, :observacoes_envio, :usuario_id, NOW(), NOW(), NOW()
+            ) RETURNING id
+        """), params).scalar_one())
+
+    db.execute(text("""
+        UPDATE orcamentos SET financeiro_status='pendente', financeiro_enviado_em=NOW(),
+            financeiro_enviado_por_id=:usuario_id, financeiro_motivo_retorno=NULL, atualizado_em=NOW()
+        WHERE id=:id AND empresa_id=:empresa_id
+    """), {"usuario_id": int(current_user.id), "id": budget_id, "empresa_id": company_id})
+    add_history(
+        db, budget_id, current_user, "enviado_financeiro",
+        norm_str(payload.observacao) or "Venda fechada e enviada para autenticação do Financeiro.",
+        data={"pendencia_financeira_id": pendencia_id, "valor_total": dec_out(venda["valor_total"]), "tipo_venda": tipo_venda},
+    )
+    db.commit()
+    return {"id": pendencia_id, "status": "pendente", "orcamento_id": budget_id}
+
+
+@router.post("/{budget_id}/cancelar-envio-financeiro")
+def cancelar_envio_financeiro(
+    budget_id: int,
+    payload: EnviarFinanceiroIn,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    prepare(db, company_id)
+    ensure_financeiro_vendas_schema(db)
+    motivo = norm_str(payload.observacao) or "Envio cancelado pelo Comercial."
+    row = db.execute(text("""
+        SELECT id, status FROM public.financeiro_vendas_pendentes
+        WHERE empresa_id=:empresa_id AND orcamento_id=:orcamento_id FOR UPDATE
+    """), {"empresa_id": company_id, "orcamento_id": budget_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Esta venda não possui envio ao Financeiro.")
+    if row["status"] == "autenticado":
+        raise HTTPException(status_code=409, detail="A venda já foi autenticada. Cancele os títulos pelo Financeiro.")
+    if row["status"] != "pendente":
+        raise HTTPException(status_code=409, detail="Somente uma venda pendente pode ter o envio cancelado.")
+    db.execute(text("""
+        UPDATE public.financeiro_vendas_pendentes SET status='cancelado', cancelado_por_usuario_id=:usuario_id,
+            cancelado_em=NOW(), motivo_cancelamento=:motivo, atualizado_em=NOW()
+        WHERE id=:id AND empresa_id=:empresa_id
+    """), {"usuario_id": int(current_user.id), "motivo": motivo, "id": int(row["id"]), "empresa_id": company_id})
+    db.execute(text("""
+        UPDATE orcamentos SET financeiro_status='cancelado', financeiro_motivo_retorno=:motivo, atualizado_em=NOW()
+        WHERE id=:id AND empresa_id=:empresa_id
+    """), {"motivo": motivo, "id": budget_id, "empresa_id": company_id})
+    add_history(db, budget_id, current_user, "envio_financeiro_cancelado", motivo, data={"pendencia_financeira_id": int(row["id"])})
+    db.commit()
+    return {"status": "cancelado", "orcamento_id": budget_id}
+
+
 @router.post("/{budget_id}/duplicar", status_code=status.HTTP_201_CREATED)
 def duplicate_budget(
     budget_id: int,
@@ -2752,21 +2935,33 @@ def change_status(
 ):
     company_id = int(current_user.empresa_id)
     prepare(db, company_id)
-    row = db.execute(text("SELECT id, status, aprovacao_necessaria, aprovacao_status FROM orcamentos WHERE id=:id AND empresa_id=:e"), {"id": budget_id, "e": company_id}).mappings().first()
+    row = db.execute(text("SELECT id, status, aprovacao_necessaria, aprovacao_status, financeiro_status FROM orcamentos WHERE id=:id AND empresa_id=:e"), {"id": budget_id, "e": company_id}).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
     new_status = status_norm(payload.status)
+    fin_status = financeiro_status_norm(row.get("financeiro_status"))
+    if fin_status == "autenticado" and new_status != "aprovado":
+        raise HTTPException(status_code=409, detail="A venda já foi autenticada no Financeiro. Cancele ou renegocie os títulos antes de alterar o status comercial.")
+    if fin_status == "pendente" and new_status != "aprovado":
+        ensure_financeiro_vendas_schema(db)
+        db.execute(text("""
+            UPDATE public.financeiro_vendas_pendentes SET status='cancelado', cancelado_por_usuario_id=:u,
+                cancelado_em=NOW(), motivo_cancelamento=:motivo, atualizado_em=NOW()
+            WHERE empresa_id=:e AND orcamento_id=:id AND status='pendente'
+        """), {"u": int(current_user.id), "motivo": norm_str(payload.observacao) or f"Status comercial alterado para {new_status}.", "e": company_id, "id": budget_id})
     if new_status == "aprovado" and row["aprovacao_necessaria"] and row["aprovacao_status"] != "aprovado" and not can_manage_settings(current_user):
         raise HTTPException(status_code=403, detail="Este orçamento precisa de aprovação gerencial por estar abaixo da margem mínima.")
     db.execute(text("""
         UPDATE orcamentos SET status=:s,
+            financeiro_status=CASE WHEN financeiro_status='pendente' AND :s<>'aprovado' THEN 'cancelado' ELSE financeiro_status END,
+            financeiro_motivo_retorno=CASE WHEN financeiro_status='pendente' AND :s<>'aprovado' THEN :obs ELSE financeiro_motivo_retorno END,
             data_aprovacao=CASE WHEN :s='aprovado' THEN NOW() ELSE data_aprovacao END,
             aprovado_por_id=CASE WHEN :s='aprovado' THEN :u ELSE aprovado_por_id END,
             aprovado_em=CASE WHEN :s='aprovado' THEN NOW() ELSE aprovado_em END,
             aprovacao_status=CASE WHEN :s='aprovado' AND aprovacao_necessaria THEN 'aprovado' ELSE aprovacao_status END,
             atualizado_em=NOW()
         WHERE id=:id AND empresa_id=:e
-    """), {"s": new_status, "u": int(current_user.id), "id": budget_id, "e": company_id})
+    """), {"s": new_status, "u": int(current_user.id), "id": budget_id, "e": company_id, "obs": norm_str(payload.observacao) or f"Status comercial alterado para {new_status}."})
     add_history(db, budget_id, current_user, "status_alterado", norm_str(payload.observacao) or f"Status alterado para {new_status}.", row["status"], new_status)
     db.commit()
     return get_budget(budget_id, current_user=current_user, db=db)
@@ -2800,6 +2995,12 @@ def delete_budget(
 ):
     company_id = int(current_user.empresa_id)
     prepare(db, company_id)
+    row = db.execute(text("SELECT id, financeiro_status FROM orcamentos WHERE id=:id AND empresa_id=:e"), {"id": budget_id, "e": company_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
+    fin_status = financeiro_status_norm(row.get("financeiro_status"))
+    if fin_status in {"pendente", "autenticado"}:
+        raise HTTPException(status_code=409, detail="Orçamento enviado ao Financeiro não pode ser excluído. Cancele o envio ou os títulos primeiro.")
     found = db.execute(text("DELETE FROM orcamentos WHERE id=:id AND empresa_id=:e RETURNING id"), {"id": budget_id, "e": company_id}).scalar()
     if not found:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado.")

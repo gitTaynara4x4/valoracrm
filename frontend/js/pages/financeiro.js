@@ -16,6 +16,7 @@
     },
     filtros: {},
     historicoLancamentoId: null,
+    baixaAtual: null,
   };
 
   const ENDPOINTS = {
@@ -33,7 +34,13 @@
 
   const endpointAux = (tipo) => ENDPOINTS[tipo] || null;
 
-  const todayISO = () => new Date().toISOString().slice(0, 10);
+  const todayISO = () => {
+    const agora = new Date();
+    const ano = agora.getFullYear();
+    const mes = String(agora.getMonth() + 1).padStart(2, "0");
+    const dia = String(agora.getDate()).padStart(2, "0");
+    return `${ano}-${mes}-${dia}`;
+  };
 
   const CURRENCY_CONFIG = {
     BRL: { locale: "pt-BR", symbol: "R$" },
@@ -199,15 +206,37 @@
       </tr>`;
     }
     const parceiro = item.tipo === "pagar" ? item.fornecedor_nome : item.cliente_nome;
+    const parcela = item.parcelado && item.parcela_total
+      ? `<small class="financeiro-parcela-label">Parcela ${Number(item.parcela_numero || 1)}/${Number(item.parcela_total)}</small>`
+      : "";
+    if (state.page === "pagar") {
+      const dias = Number(item.dias_atraso || 0);
+      return `<tr>
+        <td>${item.id}</td>
+        <td><strong>${escapeHtml(parceiro || "-")}</strong>${item.fornecedor_tipo ? `<small>${escapeHtml(item.fornecedor_tipo)}</small>` : ""}</td>
+        <td>${escapeHtml(item.descricao)}${parcela}</td>
+        <td>${dateBR(item.data_vencimento)}</td>
+        <td>${dias > 0 ? `<span class="financeiro-atraso">${dias} dia${dias === 1 ? "" : "s"}</span>` : "-"}</td>
+        <td class="financeiro-amount">${money(item.valor_total, item.moeda)}</td>
+        <td class="financeiro-amount">${money(item.valor_pago, item.moeda)}</td>
+        <td class="financeiro-amount"><strong>${money(item.saldo_aberto, item.moeda)}</strong></td>
+        <td>${pill(item.status)}</td>
+        <td>${acoesLancamento(item)}</td>
+      </tr>`;
+    }
+    const dias = Number(item.dias_atraso || 0);
+    const cobranca = item.forma_cobranca_nome || item.modalidade_pagamento || item.forma_pagamento_nome || "-";
     return `<tr>
       <td>${item.id}</td>
-      <td>${escapeHtml(parceiro || "-")}</td>
-      <td>${escapeHtml(item.descricao)}</td>
-      <td>${dateBR(item.data_emissao)}</td>
+      <td><strong>${escapeHtml(parceiro || "-")}</strong>${item.email_cobranca ? `<small>${escapeHtml(item.email_cobranca)}</small>` : ""}</td>
+      <td>${escapeHtml(item.descricao)}${parcela}${item.nota_fiscal_numero ? `<small>NF ${escapeHtml(item.nota_fiscal_numero)}</small>` : ""}</td>
+      <td>${escapeHtml(cobranca)}</td>
       <td>${dateBR(item.data_vencimento)}</td>
-      <td>${pill(item.status)}</td>
-      <td>${escapeHtml(item.tipo === "pagar" ? (item.categoria_nome || "-") : (item.forma_pagamento_nome || "-"))}</td>
+      <td>${dias > 0 ? `<span class="financeiro-atraso">${dias} dia${dias === 1 ? "" : "s"}</span>` : "-"}</td>
       <td class="financeiro-amount">${money(item.valor_total, item.moeda)}</td>
+      <td class="financeiro-amount">${money(item.valor_pago, item.moeda)}</td>
+      <td class="financeiro-amount"><strong>${money(item.saldo_aberto, item.moeda)}</strong></td>
+      <td>${pill(item.status)}</td>
       <td>${acoesLancamento(item)}</td>
     </tr>`;
   }
@@ -388,6 +417,11 @@
       status: $("#filtro-status")?.value || "",
       data_inicio: $("#filtro-data-inicio")?.value || "",
       data_fim: $("#filtro-data-fim")?.value || "",
+      cliente_id: $("#filtro-cliente")?.value || "",
+      fornecedor_id: $("#filtro-fornecedor")?.value || "",
+      forma_cobranca_id: $("#filtro-forma-cobranca")?.value || "",
+      forma_pagamento_id: $("#filtro-forma-pagamento")?.value || "",
+      categoria_id: $("#filtro-categoria")?.value || "",
       limit: 300,
     };
   }
@@ -424,12 +458,14 @@
     });
     $$('[data-select="clientes"]').forEach(sel => {
       const current = sel.value;
-      sel.innerHTML = '<option value="">Selecione...</option>' + (ops.clientes || []).map(i => option(`${i.codigo || ""} - ${i.nome}`, i.id)).join("");
+      const vazio = sel.id === "filtro-cliente" ? "Todos os clientes" : "Selecione...";
+      sel.innerHTML = `<option value="">${vazio}</option>` + (ops.clientes || []).map(i => option(`${i.codigo || ""} - ${i.nome}`, i.id)).join("");
       sel.value = current;
     });
     $$('[data-select="fornecedores"]').forEach(sel => {
       const current = sel.value;
-      sel.innerHTML = '<option value="">Selecione...</option>' + (ops.fornecedores || []).map(i => option(`${i.codigo || ""} - ${i.nome}`, i.id)).join("");
+      const vazio = sel.id === "filtro-fornecedor" ? "Todos os fornecedores" : "Selecione...";
+      sel.innerHTML = `<option value="">${vazio}</option>` + (ops.fornecedores || []).map(i => option(`${i.codigo || ""} - ${i.nome}`, i.id)).join("");
       sel.value = current;
     });
 
@@ -446,6 +482,10 @@
     popular('[data-select="unidades-consumo"]', ops.unidades_consumo, i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
     popular('[data-select="contas-contabeis"]', (ops.contas_contabeis || []).filter(i => i.aceita_lancamento !== false), i => `${i.codigo} - ${i.nome}`);
     popular('[data-select="formas-cobranca"]', ops.formas_cobranca, i => i.nome);
+    const filtroFormaCobranca = $("#filtro-forma-cobranca");
+    if (filtroFormaCobranca && !filtroFormaCobranca.value) filtroFormaCobranca.options[0].textContent = "Todas as formas";
+    const filtroFormaPagamento = $("#filtro-forma-pagamento");
+    if (filtroFormaPagamento && !filtroFormaPagamento.value) filtroFormaPagamento.options[0].textContent = "Todas as formas";
     popular('[data-select="regras-encargos"]', ops.regras_encargos, i => `${i.nome}${i.padrao ? " (padrão)" : ""}`);
     popular('[data-select="entidades-emissoras"]', ops.contas_bancos, i => i.nome);
   }
@@ -517,6 +557,137 @@
     if (moraInput) { moraInput.disabled = !mora; if (!mora) moraInput.value = "0"; }
   }
 
+  function atualizarTipoFornecedor(form) {
+    if (!form) return;
+    const fornecedorId = form.querySelector('[name="fornecedor_id"]')?.value;
+    const fornecedor = (state.opcoes.fornecedores || []).find(i => String(i.id) === String(fornecedorId));
+    const campo = form.querySelector('[data-fornecedor-tipo]');
+    if (campo) campo.value = fornecedor?.tipo_fornecedor || "Não informado no cadastro";
+  }
+
+  function atualizarDadosCobrancaCliente(form, sobrescrever = false) {
+    if (!form) return;
+    const clienteId = form.querySelector('[name="cliente_id"]')?.value;
+    const cliente = (state.opcoes.clientes || []).find(i => String(i.id) === String(clienteId));
+    const valores = {
+      contato_cobranca: cliente?.contato || "",
+      email_cobranca: cliente?.email_cobranca || cliente?.email || "",
+      whatsapp_cobranca: cliente?.whatsapp || cliente?.telefone || "",
+      modalidade_pagamento: cliente?.modalidade_pagamento || "",
+    };
+    Object.entries(valores).forEach(([name, value]) => {
+      const el = form.querySelector(`[name="${name}"]`);
+      if (el && (sobrescrever || !String(el.value || "").trim())) el.value = value;
+    });
+    const resumo = form.querySelector('[data-cliente-cobranca-resumo]');
+    if (resumo) {
+      if (!cliente) resumo.textContent = "Selecione um cliente para carregar os dados de cobrança do cadastro.";
+      else {
+        const contatos = [valores.email_cobranca, valores.whatsapp_cobranca, valores.modalidade_pagamento].filter(Boolean);
+        resumo.textContent = contatos.length ? `Dados carregados: ${contatos.join(" • ")}` : "O cliente não possui dados de cobrança preenchidos no cadastro.";
+      }
+    }
+  }
+
+  function configurarFormularioPorTipo(form, tipo) {
+    if (!form) return;
+    const receber = String(tipo || "").toLowerCase() === "receber";
+    const clienteField = form.querySelector('[name="cliente_id"]')?.closest(".financeiro-field");
+    const fornecedorField = form.querySelector('[name="fornecedor_id"]')?.closest(".financeiro-field");
+    const fornecedorTipoField = form.querySelector('[data-fornecedor-tipo]')?.closest(".financeiro-field");
+    if (clienteField) clienteField.hidden = !receber;
+    if (fornecedorField) fornecedorField.hidden = receber;
+    if (fornecedorTipoField) fornecedorTipoField.hidden = receber;
+    const clienteSelect = form.querySelector('[name="cliente_id"]');
+    const fornecedorSelect = form.querySelector('[name="fornecedor_id"]');
+    if (clienteSelect) clienteSelect.required = receber;
+    if (fornecedorSelect) fornecedorSelect.required = !receber;
+    const secCobranca = form.querySelector("#fin-sec-cobranca-cliente");
+    if (secCobranca) secCobranca.hidden = !receber;
+    const formaCobranca = form.querySelector('[name="forma_cobranca_id"]');
+    if (formaCobranca) {
+      formaCobranca.required = receber;
+      const label = formaCobranca.closest(".financeiro-field")?.querySelector("label");
+      if (label) label.textContent = receber ? "Forma de cobrança *" : "Forma de cobrança";
+    }
+    const navCobranca = form.querySelector('[data-financeiro-section="fin-sec-cobranca-cliente"]');
+    if (navCobranca) navCobranca.hidden = !receber;
+    const pagamento = form.querySelector("#fin-sec-pagamento");
+    if (pagamento) {
+      const h4 = pagamento.querySelector("h4");
+      const p = pagamento.querySelector("p");
+      if (h4) h4.textContent = receber ? "Recebimento" : "Pagamento";
+      if (p) p.textContent = receber ? "Defina a forma de recebimento e a conta bancária que será creditada." : "Escolha a forma de pagamento e a conta ou banco usado no lançamento.";
+      const formaLabel = pagamento.querySelector('[name="forma_pagamento_id"]')?.closest(".financeiro-field")?.querySelector("label");
+      const contaLabel = pagamento.querySelector('[name="conta_banco_id"]')?.closest(".financeiro-field")?.querySelector("label");
+      if (formaLabel) formaLabel.textContent = receber ? "Forma de recebimento" : "Forma de pagamento";
+      if (contaLabel) contaLabel.textContent = receber ? "Conta de destino" : "Conta/Banco";
+    }
+    const tipoSelect = form.querySelector('[name="tipo"]');
+    if (tipoSelect) tipoSelect.disabled = ["receber", "pagar"].includes(state.page);
+  }
+
+  function atualizarCamposParcelamento(form) {
+    if (!form) return;
+    const parcelado = form.querySelector('[name="parcelado"]')?.value === "true";
+    const quantidade = form.querySelector('[name="parcelas_gerar"]');
+    const intervalo = form.querySelector('[name="intervalo_parcelas_meses"]');
+    const modo = form.querySelector('[name="modo_parcelamento"]');
+    [quantidade, intervalo, modo].forEach(el => { if (el) el.disabled = !parcelado || Boolean(form.dataset.editando); });
+    if (!parcelado && quantidade) quantidade.value = "1";
+    const resumo = form.querySelector('[data-parcelamento-resumo]');
+    if (!resumo) return;
+    if (form.dataset.editando) {
+      const numero = form.querySelector('[name="parcela_numero"]')?.value;
+      const total = form.querySelector('[name="parcela_total"]')?.value;
+      resumo.textContent = total ? `Este registro é a parcela ${numero || 1} de ${total}. A edição altera somente esta parcela.` : "Edição de lançamento único.";
+    } else if (parcelado) {
+      const qtd = Math.max(1, Number(quantidade?.value || 1));
+      resumo.textContent = `${qtd} lançamento${qtd === 1 ? "" : "s"} serão criados a partir do primeiro vencimento.`;
+    } else {
+      resumo.textContent = "Será criado somente um lançamento.";
+    }
+  }
+
+  function recalcularTotalBaixaLocal() {
+    const form = $("#form-baixa");
+    if (!form) return;
+    const principal = Number(moneyToBackend(form.querySelector('[name="valor_principal"]')?.value || 0));
+    const desconto = Number(moneyToBackend(form.querySelector('[name="valor_desconto"]')?.value || 0));
+    const multa = Number(moneyToBackend(form.querySelector('[name="valor_multa"]')?.value || 0));
+    const mora = Number(moneyToBackend(form.querySelector('[name="valor_mora"]')?.value || 0));
+    const total = Math.max(0, principal - desconto + multa + mora);
+    const out = form.querySelector('[name="valor_total_baixa"]');
+    if (out) out.value = formatMoneyForInput(total, state.baixaAtual?.moeda || "BRL");
+  }
+
+  async function atualizarCalculoBaixa() {
+    const form = $("#form-baixa");
+    const item = state.baixaAtual;
+    if (!form || !item) return;
+    const principal = moneyToBackend(form.querySelector('[name="valor_principal"]')?.value || 0);
+    const dataPagamento = form.querySelector('[name="data_pagamento"]')?.value || todayISO();
+    if (!(Number(principal) > 0)) return recalcularTotalBaixaLocal();
+    try {
+      const previa = await request(`/api/financeiro/lancamentos/${item.id}/calculo-baixa${qs({ data_pagamento: dataPagamento, valor_principal: principal })}`);
+      const multa = form.querySelector('[name="valor_multa"]');
+      const mora = form.querySelector('[name="valor_mora"]');
+      if (multa) multa.value = formatMoneyForInput(previa.valor_multa || 0, item.moeda);
+      if (mora) mora.value = formatMoneyForInput(previa.valor_mora || 0, item.moeda);
+      const dias = form.querySelector('[data-baixa-dias]');
+      if (dias) dias.textContent = `${Number(previa.dias_atraso || 0)} dia${Number(previa.dias_atraso || 0) === 1 ? "" : "s"}`;
+      const regra = form.querySelector('[data-baixa-regra]');
+      if (regra) regra.textContent = previa.multa_ja_aplicada
+        ? "A multa deste título já foi aplicada em outra baixa válida; somente a mora foi recalculada."
+        : (previa.regra_calculo || "Encargos calculados automaticamente.");
+      recalcularTotalBaixaLocal();
+    } catch (err) {
+      const regra = form.querySelector('[data-baixa-regra]');
+      if (regra) regra.textContent = err.message;
+      recalcularTotalBaixaLocal();
+    }
+  }
+
   async function carregarDashboard() {
     const filtroAtual = filtros();
     const [data, fluxo, relatorio, lancamentosData, receberData] = await Promise.all([
@@ -561,17 +732,14 @@
     const data = await request(`/api/financeiro/contas-receber${qs(filtros())}`);
     const items = data.items || [];
     state.items = items;
-    const aberto = items.filter(i => !["recebido", "cancelado"].includes(String(i.status).toLowerCase()));
-    const recebidos = items.filter(i => String(i.status).toLowerCase() === "recebido");
-    const vencidos = items.filter(i => String(i.status).toLowerCase() === "vencido");
-    const hoje = todayISO();
-    const hojeItems = items.filter(i => String(i.data_vencimento).slice(0, 10) === hoje);
-    setKPI("receber-aberto", money(soma(aberto, i => Number(i.valor_total || 0) - Number(i.valor_pago || 0))));
-    setKPI("receber-recebido", money(soma(recebidos, i => i.valor_pago || i.valor_total)));
-    setKPI("receber-vencido", money(soma(vencidos, i => Number(i.valor_total || 0) - Number(i.valor_pago || 0))));
-    setKPI("receber-hoje", money(soma(hojeItems, i => i.valor_total)));
-    setTable("tbody-receber", 9, items.map(i => rowLancamento(i, "receber")).join(""), "Nenhuma conta a receber cadastrada ainda.");
-    setStatusText(`${data.total || 0} conta(s) a receber.`);
+    const resumo = data.resumo || {};
+    setKPI("receber-aberto", money(resumo.total_em_aberto || 0));
+    setKPI("receber-recebido", money(resumo.total_baixado || 0));
+    setKPI("receber-vencido", money(resumo.total_vencido || 0));
+    setKPI("receber-hoje", money(resumo.total_vence_hoje || 0));
+    setTable("tbody-receber", 11, items.map(i => rowLancamento(i, "receber")).join(""), "Nenhuma conta a receber cadastrada ainda.");
+    const inadimplentes = Number(resumo.clientes_inadimplentes || 0);
+    setStatusText(`${data.total || 0} título(s) a receber • ${inadimplentes} cliente(s) inadimplente(s).`);
   }
 
   async function carregarPagar() {
@@ -586,8 +754,8 @@
     setKPI("pagar-aberto", money(soma(aberto, i => Number(i.valor_total || 0) - Number(i.valor_pago || 0))));
     setKPI("pagar-pago", money(soma(pagos, i => i.valor_pago || i.valor_total)));
     setKPI("pagar-vencido", money(soma(vencidos, i => Number(i.valor_total || 0) - Number(i.valor_pago || 0))));
-    setKPI("pagar-hoje", money(soma(hojeItems, i => i.valor_total)));
-    setTable("tbody-pagar", 9, items.map(i => rowLancamento(i, "pagar")).join(""), "Nenhuma conta a pagar cadastrada ainda.");
+    setKPI("pagar-hoje", money(soma(hojeItems, i => Math.max(0, Number(i.valor_total || 0) - Number(i.valor_pago || 0)))));
+    setTable("tbody-pagar", 10, items.map(i => rowLancamento(i, "pagar")).join(""), "Nenhuma conta a pagar cadastrada ainda.");
     setStatusText(`${data.total || 0} conta(s) a pagar.`);
   }
 
@@ -671,11 +839,16 @@
     state.items = items;
     const receitas = soma(items.filter(i => i.tipo === "receber"), i => i.valor_total);
     const despesas = soma(items.filter(i => i.tipo === "pagar"), i => i.valor_total);
+    const receber = data.contas_receber || {};
     setKPI("rel-receitas", money(receitas));
     setKPI("rel-despesas", money(despesas));
     setKPI("rel-resultado", money(receitas - despesas));
-    setTable("tbody-relatorios", 5, items.map(i => `<tr><td>${i.tipo === "pagar" ? "Despesa" : "Receita"}</td><td>${escapeHtml(i.categoria)}</td><td>${i.quantidade}</td><td class="financeiro-amount">${money(i.valor_total)}</td><td class="financeiro-amount">${money(i.valor_pago)}</td></tr>`).join(""), "Nenhum dado no período.");
-    setStatusText(`${items.length} linha(s) de relatório.`);
+    setKPI("rel-receber-aberto", money(receber.em_aberto_periodo));
+    setKPI("rel-recebido-periodo", money(receber.recebido_periodo));
+    setKPI("rel-receber-vencido", money(receber.vencido_periodo));
+    setKPI("rel-clientes-inadimplentes", String(Number(receber.clientes_inadimplentes || 0)));
+    setTable("tbody-relatorios", 6, items.map(i => `<tr><td>${i.tipo === "pagar" ? "Despesa" : "Receita"}</td><td>${escapeHtml(i.categoria)}</td><td>${i.quantidade}</td><td class="financeiro-amount">${money(i.valor_total)}</td><td class="financeiro-amount">${money(i.valor_pago)}</td><td class="financeiro-amount">${money(i.saldo_aberto)}</td></tr>`).join(""), "Nenhum dado no período.");
+    setStatusText(`${items.length} linha(s) de relatório por categoria.`);
   }
 
   function acoesAuxiliar(item, tipo) {
@@ -767,8 +940,9 @@
     const form = $("#form-lancamento");
     if (!form) return;
     form.reset();
+    form.dataset.editando = item ? "true" : "";
     preencherSelects();
-    const base = item || {
+    const base = item ? { ...item } : {
       tipo: tipo || (state.page === "pagar" ? "pagar" : "receber"),
       status: "aberto",
       data_emissao: todayISO(),
@@ -776,15 +950,26 @@
       moeda: "BRL",
       valor_total: "",
       valor_pago: "0",
+      parcelado: false,
+      parcelas_gerar: 1,
+      intervalo_parcelas_meses: 1,
+      modo_parcelamento: "dividir_total",
     };
     if (item) {
       base.moeda = moedaValida(item.moeda || "BRL");
       base.valor_total = formatMoneyForInput(item.valor_total ?? "", base.moeda);
       base.valor_pago = formatMoneyForInput(item.valor_pago ?? "", base.moeda);
+      base.parcelas_gerar = 1;
+      base.intervalo_parcelas_meses = 1;
+      base.modo_parcelamento = "dividir_total";
     }
     filtrarOpcoesPorTipoLancamento(form, base.tipo);
     setForm(form, base);
+    configurarFormularioPorTipo(form, base.tipo);
     atualizarExigenciaEntidadeEmissora(form);
+    atualizarTipoFornecedor(form);
+    atualizarDadosCobrancaCliente(form, false);
+    atualizarCamposParcelamento(form);
     if (!item) {
       const regraPadrao = (state.opcoes.regras_encargos || []).find(r => r.padrao && ["ambos", base.tipo].includes(r.aplicacao));
       if (regraPadrao) {
@@ -799,7 +984,7 @@
     if (valorPagoInput) {
       valorPagoInput.readOnly = true;
       valorPagoInput.setAttribute("aria-readonly", "true");
-      valorPagoInput.title = "Valor calculado automaticamente pelas baixas e estornos.";
+      valorPagoInput.title = "Valor principal baixado, calculado automaticamente pelas movimentações e estornos.";
     }
     const dataPagamentoInput = form.querySelector('[name="data_pagamento"]');
     if (dataPagamentoInput) {
@@ -807,11 +992,14 @@
       dataPagamentoInput.setAttribute("aria-readonly", "true");
       dataPagamentoInput.title = "Data calculada automaticamente pelas movimentações.";
     }
-    $("#modal-lancamento-titulo").textContent = item ? `Editar lançamento #${item.id}` : "Novo lançamento";
+    const verboTitulo = base.tipo === "receber" ? "conta a receber" : "conta a pagar";
+    $("#modal-lancamento-titulo").textContent = item ? `Editar ${verboTitulo} #${item.id}` : `Nova ${verboTitulo}`;
     const chip = $("#modal-lancamento-chip");
     if (chip) chip.textContent = item ? "Edição" : (base.status ? base.status.charAt(0).toUpperCase() + base.status.slice(1) : "Aberto");
     const subtitulo = $("#modal-lancamento-subtitulo");
-    if (subtitulo) subtitulo.textContent = item ? "Atualize os dados financeiros do lançamento selecionado." : "Preencha os dados financeiros do lançamento.";
+    if (subtitulo) subtitulo.textContent = item
+      ? "Atualize os dados desta parcela ou lançamento."
+      : "Preencha os dados financeiros; o sistema pode gerar as parcelas futuras automaticamente.";
     abrirModal("#modal-lancamento");
     setTimeout(() => ativarNavegacaoModalLancamento("fin-sec-lancamento"), 30);
   }
@@ -819,12 +1007,17 @@
   function abrirBaixa(item) {
     const form = $("#form-baixa");
     if (!form) return;
+    state.baixaAtual = item;
     form.reset();
     preencherSelects();
     const restante = Math.max(0, Number(item.valor_total || 0) - Number(item.valor_pago || 0));
     setForm(form, {
       id: item.id,
-      valor_baixa: formatMoneyForInput(restante, item.moeda || "BRL"),
+      valor_principal: formatMoneyForInput(restante, item.moeda || "BRL"),
+      valor_desconto: formatMoneyForInput(0, item.moeda || "BRL"),
+      valor_multa: formatMoneyForInput(0, item.moeda || "BRL"),
+      valor_mora: formatMoneyForInput(0, item.moeda || "BRL"),
+      valor_total_baixa: formatMoneyForInput(restante, item.moeda || "BRL"),
       data_pagamento: todayISO(),
       forma_pagamento_id: item.forma_pagamento_id || "",
       conta_banco_id: item.conta_banco_id || "",
@@ -832,10 +1025,34 @@
     });
     const resumo = $("#financeiro-baixa-resumo", form);
     if (resumo) resumo.innerHTML = `
-      <div><span>Valor total</span><strong>${money(item.valor_total, item.moeda)}</strong></div>
-      <div><span>Já baixado</span><strong>${money(item.valor_pago, item.moeda)}</strong></div>
-      <div><span>Saldo aberto</span><strong>${money(restante, item.moeda)}</strong></div>`;
+      <div><span>Valor principal</span><strong>${money(item.valor_total, item.moeda)}</strong></div>
+      <div><span>Principal baixado</span><strong>${money(item.valor_pago, item.moeda)}</strong></div>
+      <div><span>Saldo principal</span><strong>${money(restante, item.moeda)}</strong></div>
+      <div><span>Dias em atraso</span><strong data-baixa-dias>${Number(item.dias_atraso || 0)} dia${Number(item.dias_atraso || 0) === 1 ? "" : "s"}</strong></div>`;
+    const comprovante = form.querySelector('[name="comprovante"]');
+    if (comprovante) comprovante.value = "";
+    const ehPagamento = String(item.tipo || "") === "pagar";
+    const formaSelect = form.querySelector('[name="forma_pagamento_id"]');
+    const contaSelect = form.querySelector('[name="conta_banco_id"]');
+    const contaLabel = form.querySelector('[data-baixa-conta-label]');
+    if (formaSelect) formaSelect.required = true;
+    if (contaSelect) contaSelect.required = true;
+    if (contaLabel) contaLabel.textContent = ehPagamento ? "Conta a debitar" : "Conta a creditar";
+    const modal = form.closest(".financeiro-modal");
+    const titulo = modal?.querySelector(".financeiro-modal-title h3");
+    const subtitulo = modal?.querySelector(".financeiro-modal-title p");
+    if (titulo) titulo.textContent = ehPagamento ? "Registrar pagamento" : "Registrar recebimento";
+    if (subtitulo) subtitulo.textContent = ehPagamento ? "Informe os valores efetivamente pagos." : "Informe os valores efetivamente recebidos do cliente.";
+    const dataLabel = form.querySelector('[name="data_pagamento"]')?.closest(".financeiro-field")?.querySelector("label");
+    const formaLabel = formaSelect?.closest(".financeiro-field")?.querySelector("label");
+    const totalLabel = form.querySelector('[name="valor_total_baixa"]')?.closest(".financeiro-field")?.querySelector("label");
+    const comprovanteLabel = form.querySelector('[name="comprovante"]')?.closest(".financeiro-field")?.querySelector("label");
+    if (dataLabel) dataLabel.textContent = ehPagamento ? "Data do pagamento" : "Data do recebimento";
+    if (formaLabel) formaLabel.textContent = ehPagamento ? "Forma de pagamento" : "Forma de recebimento";
+    if (totalLabel) totalLabel.textContent = ehPagamento ? "Total a debitar" : "Total a creditar";
+    if (comprovanteLabel) comprovanteLabel.textContent = ehPagamento ? "Comprovante de pagamento (PDF, até 10 MB)" : "Comprovante de recebimento (PDF, até 10 MB)";
     abrirModal("#modal-baixa");
+    atualizarCalculoBaixa();
   }
 
   function limparPayloadLancamento(data) {
@@ -871,9 +1088,18 @@
       indice_mora_diaria_percent: moneyToBackend(data.indice_mora_diaria_percent || 0),
       documento: data.documento || null,
       observacoes: data.observacoes || null,
+      contato_cobranca: data.contato_cobranca || null,
+      email_cobranca: data.email_cobranca || null,
+      whatsapp_cobranca: data.whatsapp_cobranca || null,
+      modalidade_pagamento: data.modalidade_pagamento || null,
+      nota_fiscal_numero: data.nota_fiscal_numero || null,
+      nota_fiscal_data_emissao: data.nota_fiscal_data_emissao || null,
       parcelado: data.parcelado === "true",
       parcela_numero: nullNumber(data.parcela_numero),
       parcela_total: nullNumber(data.parcela_total),
+      parcelas_gerar: Math.max(1, Number(data.parcelas_gerar || 1)),
+      intervalo_parcelas_meses: Math.max(1, Number(data.intervalo_parcelas_meses || 1)),
+      modo_parcelamento: data.modo_parcelamento || "dividir_total",
     };
   }
 
@@ -951,13 +1177,22 @@
         nav.insertBefore(btn, parcelamentoBtn || null);
         btn.addEventListener("click", () => ativarNavegacaoModalLancamento("fin-sec-classificacao"));
       }
+      if (nav && !nav.querySelector('[data-financeiro-section="fin-sec-cobranca-cliente"]')) {
+        const btnCobranca = document.createElement("button");
+        btnCobranca.type = "button";
+        btnCobranca.dataset.financeiroSection = "fin-sec-cobranca-cliente";
+        btnCobranca.innerHTML = '<i class="fa-solid fa-receipt"></i><span>Cobrança</span>';
+        const pagamentoBtn = nav.querySelector('[data-financeiro-section="fin-sec-pagamento"]');
+        nav.insertBefore(btnCobranca, pagamentoBtn || null);
+        btnCobranca.addEventListener("click", () => ativarNavegacaoModalLancamento("fin-sec-cobranca-cliente"));
+      }
       const corpo = formLancamento.querySelector(".financeiro-modal-body--ficha");
       if (corpo && !corpo.querySelector("#fin-sec-classificacao")) {
         const section = document.createElement("section");
         section.className = "financeiro-editor-card";
         section.id = "fin-sec-classificacao";
         section.innerHTML = `
-          <div class="financeiro-editor-card-head"><div><h4>Classificação financeira</h4><p>Cadastros padronizados do financeiro. A multa e a mora serão calculadas em uma etapa posterior.</p></div><a class="financeiro-inline-link" href="/cadastros-financeiros">Gerenciar cadastros</a></div>
+          <div class="financeiro-editor-card-head"><div><h4>Classificação financeira</h4><p>Cadastros padronizados do financeiro. A multa e a mora são calculadas automaticamente no momento da baixa.</p></div><a class="financeiro-inline-link" href="/cadastros-financeiros">Gerenciar cadastros</a></div>
           <div class="financeiro-form-grid cols-3">
             <div class="financeiro-field"><label>Tipo de documento</label><select name="tipo_documento_id" data-select="tipos-documento"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label>Natureza da operação</label><select name="natureza_operacao_id" data-select="naturezas-operacao"><option value="">Selecione...</option></select></div>
@@ -977,6 +1212,48 @@
         const parcela = corpo.querySelector("#fin-sec-parcelamento");
         corpo.insertBefore(section, parcela || corpo.querySelector("#fin-sec-observacoes"));
       }
+      if (corpo && !corpo.querySelector("#fin-sec-cobranca-cliente")) {
+        const sectionCobranca = document.createElement("section");
+        sectionCobranca.className = "financeiro-editor-card";
+        sectionCobranca.id = "fin-sec-cobranca-cliente";
+        sectionCobranca.innerHTML = `
+          <div class="financeiro-editor-card-head"><div><h4>Dados de cobrança do cliente</h4><p>O sistema copia os dados atuais do cadastro para este título. Depois disso, o lançamento mantém sua própria cópia.</p></div></div>
+          <div class="financeiro-cliente-cobranca-resumo" data-cliente-cobranca-resumo>Selecione um cliente para carregar os dados de cobrança do cadastro.</div>
+          <div class="financeiro-form-grid cols-3">
+            <div class="financeiro-field"><label>Contato financeiro</label><input name="contato_cobranca" maxlength="160" placeholder="Responsável pela cobrança"></div>
+            <div class="financeiro-field"><label>E-mail de cobrança</label><input name="email_cobranca" type="email" maxlength="255" placeholder="financeiro@cliente.com"></div>
+            <div class="financeiro-field"><label>WhatsApp de cobrança</label><input name="whatsapp_cobranca" maxlength="40" placeholder="(00) 00000-0000"></div>
+            <div class="financeiro-field"><label>Modalidade cadastrada</label><input name="modalidade_pagamento" maxlength="120" placeholder="PIX, boleto, carteira..."></div>
+            <div class="financeiro-field"><label>Nota fiscal nº</label><input name="nota_fiscal_numero" maxlength="80" placeholder="Uso de registro"></div>
+            <div class="financeiro-field"><label>Data de emissão da NF</label><input name="nota_fiscal_data_emissao" type="date"></div>
+          </div>`;
+        const pagamento = corpo.querySelector("#fin-sec-pagamento");
+        corpo.insertBefore(sectionCobranca, pagamento || corpo.querySelector("#fin-sec-parcelamento"));
+      }
+
+      const campoFornecedor = formLancamento.querySelector('[name="fornecedor_id"]')?.closest(".financeiro-field");
+      if (campoFornecedor && !formLancamento.querySelector('[data-fornecedor-tipo]')) {
+        campoFornecedor.insertAdjacentHTML("afterend", '<div class="financeiro-field"><label>Tipo do fornecedor</label><input type="text" data-fornecedor-tipo readonly value="Não informado no cadastro"></div>');
+      }
+
+      const secParcelamento = formLancamento.querySelector("#fin-sec-parcelamento");
+      if (secParcelamento && !secParcelamento.dataset.phase4) {
+        secParcelamento.dataset.phase4 = "true";
+        secParcelamento.innerHTML = `
+          <div class="financeiro-editor-card-head">
+            <div><h4>Geração de parcelas</h4><p>Crie automaticamente os lançamentos dos meses futuros.</p></div>
+          </div>
+          <input type="hidden" name="parcela_numero">
+          <input type="hidden" name="parcela_total">
+          <div class="financeiro-form-grid cols-3">
+            <div class="financeiro-field"><label>Gerar parcelas?</label><select name="parcelado"><option value="false">Não</option><option value="true">Sim</option></select></div>
+            <div class="financeiro-field"><label>Quantidade de parcelas</label><input name="parcelas_gerar" type="number" min="1" max="120" value="1"></div>
+            <div class="financeiro-field"><label>Intervalo</label><select name="intervalo_parcelas_meses"><option value="1">Mensal</option><option value="2">A cada 2 meses</option><option value="3">A cada 3 meses</option><option value="6">Semestral</option><option value="12">Anual</option></select></div>
+            <div class="financeiro-field full"><label>Como aplicar o valor informado?</label><select name="modo_parcelamento"><option value="dividir_total">Dividir o valor total entre as parcelas</option><option value="repetir_valor">Repetir o mesmo valor em cada mês</option></select></div>
+            <div class="financeiro-parcelamento-info full" data-parcelamento-resumo>Será criado somente um lançamento.</div>
+          </div>`;
+      }
+
       const pago = formLancamento.querySelector('[name="valor_pago"]');
       if (pago) {
         pago.readOnly = true;
@@ -992,26 +1269,28 @@
     }
 
     const formBaixa = $("#form-baixa");
-    if (formBaixa) {
-      const inputValor = formBaixa.querySelector('[name="valor_pago"], [name="valor_baixa"]');
-      if (inputValor) {
-        inputValor.name = "valor_baixa";
-        const label = inputValor.closest(".financeiro-field")?.querySelector("label");
-        if (label) label.textContent = "Valor desta baixa";
-      }
+    if (formBaixa && !formBaixa.dataset.phase4) {
+      formBaixa.dataset.phase4 = "true";
+      const modalBaixa = formBaixa.closest(".financeiro-modal");
+      if (modalBaixa) { modalBaixa.classList.remove("sm"); modalBaixa.classList.add("financeiro-modal-baixa"); }
       const modalBody = $(".financeiro-modal-body", formBaixa);
-      if (modalBody && !$("#financeiro-baixa-resumo", formBaixa)) {
-        const resumo = document.createElement("div");
-        resumo.id = "financeiro-baixa-resumo";
-        resumo.className = "financeiro-baixa-resumo";
-        modalBody.prepend(resumo);
-      }
-      const grid = $(".financeiro-form-grid", formBaixa);
-      if (grid && !grid.querySelector('[name="observacoes"]')) {
-        const campo = document.createElement("div");
-        campo.className = "financeiro-field financeiro-field-full";
-        campo.innerHTML = '<label>Observação da baixa</label><textarea name="observacoes" rows="2" placeholder="Opcional"></textarea>';
-        grid.appendChild(campo);
+      if (modalBody) {
+        modalBody.innerHTML = `
+          <input type="hidden" name="id">
+          <div class="financeiro-baixa-resumo" id="financeiro-baixa-resumo"></div>
+          <div class="financeiro-form-grid cols-2 financeiro-baixa-grid">
+            <div class="financeiro-field"><label>Principal desta baixa</label><input name="valor_principal" class="financeiro-money-input" data-money-input required inputmode="decimal" autocomplete="off"></div>
+            <div class="financeiro-field"><label>Data do pagamento</label><input name="data_pagamento" type="date" required></div>
+            <div class="financeiro-field"><label>Desconto</label><input name="valor_desconto" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off"></div>
+            <div class="financeiro-field"><label>Multa</label><input name="valor_multa" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off"></div>
+            <div class="financeiro-field"><label>Mora diária acumulada</label><input name="valor_mora" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off"></div>
+            <div class="financeiro-field financeiro-total-baixa"><label>Total a debitar</label><input name="valor_total_baixa" class="financeiro-money-input" readonly aria-readonly="true"></div>
+            <div class="financeiro-field"><label>Forma de pagamento</label><select name="forma_pagamento_id" data-select="formas"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label data-baixa-conta-label>Conta a debitar</label><select name="conta_banco_id" data-select="contas"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field full"><label>Comprovante de pagamento (PDF, até 10 MB)</label><input name="comprovante" type="file" accept="application/pdf,.pdf"><small>O pagamento é salvo primeiro e o comprovante fica vinculado à movimentação.</small></div>
+            <div class="financeiro-field full"><label>Observação da baixa</label><textarea name="observacoes" rows="2" placeholder="Opcional"></textarea></div>
+          </div>
+          <div class="financeiro-baixa-regra" data-baixa-regra>Multa e mora serão calculadas conforme a data e o principal desta baixa.</div>`;
       }
     }
 
@@ -1046,12 +1325,26 @@
     const movHtml = movimentos.length ? movimentos.map(m => {
       const estorno = String(m.tipo_movimentacao).toLowerCase() === "estorno";
       const podeEstornar = !estorno && !m.estornada;
+      const principal = Number(m.valor_principal || m.valor || 0);
+      const desconto = Number(m.valor_desconto || 0);
+      const multa = Number(m.valor_multa || 0);
+      const mora = Number(m.valor_mora || 0);
+      const comprovante = m.comprovante_url
+        ? `<a class="financeiro-comprovante-link" href="${escapeHtml(m.comprovante_url)}" target="_blank" rel="noopener"><i class="fa-regular fa-file-pdf"></i> ${escapeHtml(m.comprovante_nome || "Abrir comprovante")}</a>`
+        : "";
       return `<div class="financeiro-history-item ${estorno ? "is-estorno" : ""}">
         <div class="financeiro-history-icon"><i class="fa-solid ${estorno ? "fa-rotate-left" : "fa-check"}"></i></div>
         <div class="financeiro-history-main">
           <div class="financeiro-history-title"><strong>${estorno ? "Estorno" : (lancamento.tipo === "pagar" ? "Pagamento" : "Recebimento")}</strong><span>${money(m.valor, lancamento.moeda)}</span></div>
-          <div class="financeiro-history-meta">${dateBR(m.data_movimentacao)} • ${escapeHtml(m.usuario_nome || "Usuário não identificado")} • ${escapeHtml(m.conta_banco_nome || "Sem conta/banco")}</div>
+          <div class="financeiro-history-meta">${dateBR(m.data_movimentacao)} • ${escapeHtml(m.usuario_nome || "Usuário não identificado")} • ${escapeHtml(m.conta_banco_nome || "Sem conta/banco")} • ${Number(m.dias_atraso || 0)} dia(s) de atraso</div>
+          <div class="financeiro-history-breakdown">
+            <span>Principal <strong>${money(principal, lancamento.moeda)}</strong></span>
+            <span>Desconto <strong>${money(desconto, lancamento.moeda)}</strong></span>
+            <span>Multa <strong>${money(multa, lancamento.moeda)}</strong></span>
+            <span>Mora <strong>${money(mora, lancamento.moeda)}</strong></span>
+          </div>
           ${m.observacoes ? `<div class="financeiro-history-note">${escapeHtml(m.observacoes)}</div>` : ""}
+          ${comprovante}
           ${m.estornada ? '<span class="financeiro-history-status">Estornada</span>' : ""}
         </div>
         ${podeEstornar ? `<button class="financeiro-mini-btn warn" type="button" data-action="estornar-movimentacao" data-id="${m.id}" data-lancamento-id="${lancamento.id}"><i class="fa-solid fa-rotate-left"></i> Estornar</button>` : ""}
@@ -1096,10 +1389,12 @@
     const id = payload.id;
     delete payload.id;
     try {
-      if (id) await request(`/api/financeiro/lancamentos/${id}`, { method: "PUT", body: payload });
-      else await request("/api/financeiro/lancamentos", { method: "POST", body: payload });
+      const resultado = id
+        ? await request(`/api/financeiro/lancamentos/${id}`, { method: "PUT", body: payload })
+        : await request("/api/financeiro/lancamentos", { method: "POST", body: payload });
       fecharModais();
-      alertBox("Lançamento salvo com sucesso.", "ok");
+      const quantidade = Number(resultado?.quantidade || 1);
+      alertBox(quantidade > 1 ? `${quantidade} parcelas criadas com sucesso.` : "Lançamento salvo com sucesso.", "ok");
       await recarregar();
     } catch (err) {
       alertBox(`Erro ao salvar: ${err.message}`, "danger");
@@ -1108,17 +1403,48 @@
 
   async function salvarBaixa(ev) {
     ev.preventDefault();
-    const data = getForm(ev.currentTarget);
+    const form = ev.currentTarget;
+    const data = getForm(form);
+    const arquivo = form.querySelector('[name="comprovante"]')?.files?.[0] || null;
+    if (arquivo) {
+      const nome = String(arquivo.name || "").toLowerCase();
+      if (arquivo.type !== "application/pdf" && !nome.endsWith(".pdf")) {
+        return alertBox("O comprovante precisa ser um arquivo PDF.", "danger");
+      }
+      if (arquivo.size > 10 * 1024 * 1024) {
+        return alertBox("O comprovante deve ter no máximo 10 MB.", "danger");
+      }
+    }
     try {
-      await request(`/api/financeiro/lancamentos/${data.id}/baixar`, { method: "PATCH", body: {
-        valor_baixa: moneyToBackend(data.valor_baixa),
+      const resultado = await request(`/api/financeiro/lancamentos/${data.id}/baixar`, { method: "PATCH", body: {
+        valor_principal: moneyToBackend(data.valor_principal),
+        valor_desconto: moneyToBackend(data.valor_desconto || 0),
+        valor_multa: moneyToBackend(data.valor_multa || 0),
+        valor_mora: moneyToBackend(data.valor_mora || 0),
+        usar_calculo_automatico: false,
         data_pagamento: data.data_pagamento,
         forma_pagamento_id: nullNumber(data.forma_pagamento_id),
         conta_banco_id: nullNumber(data.conta_banco_id),
         observacoes: data.observacoes || null,
       }});
+
+      let comprovanteErro = null;
+      if (arquivo && resultado?.movimentacao_id) {
+        const fd = new FormData();
+        fd.append("arquivo", arquivo);
+        try {
+          await request(`/api/financeiro/movimentacoes/${resultado.movimentacao_id}/comprovante`, { method: "POST", body: fd });
+        } catch (err) {
+          comprovanteErro = err;
+        }
+      }
+
       fecharModais();
-      alertBox("Baixa registrada com sucesso.", "ok");
+      state.baixaAtual = null;
+      const recebimento = state.baixaAtual?.tipo === "receber";
+      const nomeAcao = recebimento ? "Recebimento" : "Pagamento";
+      if (comprovanteErro) alertBox(`${nomeAcao} registrado, mas o comprovante não foi anexado: ${comprovanteErro.message}`, "warn");
+      else alertBox(arquivo ? `${nomeAcao} e comprovante registrados com sucesso.` : `${nomeAcao} registrado com sucesso.`, "ok");
       await recarregar();
     } catch (err) {
       alertBox(`Erro ao baixar: ${err.message}`, "danger");
@@ -1230,7 +1556,7 @@
     $("#btn-toggle-filtros")?.addEventListener("click", () => $("#financeiro-filtros")?.classList.toggle("is-open"));
     $("#btn-aplicar-filtros")?.addEventListener("click", recarregar);
     $("#btn-limpar-filtros")?.addEventListener("click", () => {
-      ["#filtro-busca", "#filtro-status", "#filtro-data-inicio", "#filtro-data-fim"].forEach(sel => { const el = $(sel); if (el) el.value = ""; });
+      ["#filtro-busca", "#filtro-status", "#filtro-data-inicio", "#filtro-data-fim", "#filtro-cliente", "#filtro-fornecedor", "#filtro-forma-cobranca", "#filtro-forma-pagamento", "#filtro-categoria"].forEach(sel => { const el = $(sel); if (el) el.value = ""; });
       recarregar();
     });
     $("#btn-exportar-financeiro")?.addEventListener("click", exportarTabela);
@@ -1247,25 +1573,46 @@
         input.value = clean;
         try { input.setSelectionRange(Math.min(cursor, clean.length), Math.min(cursor, clean.length)); } catch (_) {}
       }
+      if (input.closest("#form-baixa") && ["valor_principal", "valor_desconto", "valor_multa", "valor_mora"].includes(input.name)) {
+        recalcularTotalBaixaLocal();
+      }
     });
 
     document.addEventListener("blur", (ev) => {
       const input = ev.target.closest("[data-money-input]");
       if (!input) return;
       const form = input.closest("form");
-      const moeda = form?.querySelector('[name="moeda"]')?.value || "BRL";
+      const moeda = form?.id === "form-baixa" ? (state.baixaAtual?.moeda || "BRL") : (form?.querySelector('[name="moeda"]')?.value || "BRL");
       input.value = formatMoneyForInput(input.value, moeda);
+      if (form?.id === "form-baixa" && input.name === "valor_principal") atualizarCalculoBaixa();
     }, true);
 
     document.addEventListener("change", (ev) => {
       const formLancamento = ev.target.closest("#form-lancamento");
       if (formLancamento && ev.target.matches('[name="tipo"]')) {
         filtrarOpcoesPorTipoLancamento(formLancamento, ev.target.value);
+        configurarFormularioPorTipo(formLancamento, ev.target.value);
         atualizarExigenciaEntidadeEmissora(formLancamento);
         return;
       }
       if (formLancamento && ev.target.matches('[name="tipo_documento_id"]')) {
         atualizarExigenciaEntidadeEmissora(formLancamento);
+        return;
+      }
+      if (formLancamento && ev.target.matches('[name="cliente_id"]')) {
+        atualizarDadosCobrancaCliente(formLancamento, true);
+        return;
+      }
+      if (formLancamento && ev.target.matches('[name="fornecedor_id"]')) {
+        atualizarTipoFornecedor(formLancamento);
+        return;
+      }
+      if (formLancamento && ev.target.matches('[name="parcelado"], [name="parcelas_gerar"], [name="intervalo_parcelas_meses"], [name="modo_parcelamento"]')) {
+        atualizarCamposParcelamento(formLancamento);
+        return;
+      }
+      if (ev.target.closest("#form-baixa") && ev.target.matches('[name="data_pagamento"]')) {
+        atualizarCalculoBaixa();
         return;
       }
       const regra = ev.target.closest('[name="regra_encargos_id"]');

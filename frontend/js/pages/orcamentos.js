@@ -56,6 +56,14 @@
     expirado: ['Expirado', 'status-expirado'],
   };
 
+  const financeiroStatusMeta = {
+    nao_enviado: ['Não enviado ao Financeiro', 'finance-nao-enviado'],
+    pendente: ['Aguardando Financeiro', 'finance-pendente'],
+    devolvido: ['Devolvido pelo Financeiro', 'finance-devolvido'],
+    autenticado: ['Títulos gerados', 'finance-autenticado'],
+    cancelado: ['Envio cancelado', 'finance-cancelado'],
+  };
+
   const DOCUMENT_SCALE_MIN = 70;
   const DOCUMENT_SCALE_MAX = 125;
   const DOCUMENT_SCALE_DEFAULT = 100;
@@ -330,6 +338,30 @@
     });
   }
 
+  function financeiroStatusInfo(status) {
+    const key = String(status || 'nao_enviado').toLowerCase();
+    return financeiroStatusMeta[key] || financeiroStatusMeta.nao_enviado;
+  }
+
+  function syncFinanceiroActions(budget = state.current) {
+    const chip = $('budget-financeiro-status');
+    const enviar = $('btn-enviar-financeiro');
+    const cancelar = $('btn-cancelar-envio-financeiro');
+    const abrir = $('btn-abrir-financeiro-orcamento');
+    const currentStatus = String((state.currentId ? $('orcamento-status')?.value : '') || budget?.status || '').toLowerCase();
+    const finStatus = String(budget?.financeiro_status || 'nao_enviado').toLowerCase();
+    const [label, className] = financeiroStatusInfo(finStatus);
+
+    if (chip) {
+      chip.textContent = label;
+      chip.className = `budget-finance-status ${className}${state.currentId ? '' : ' is-hidden'}`;
+      chip.title = budget?.financeiro_motivo_retorno || label;
+    }
+    if (enviar) enviar.classList.toggle('is-hidden', !(state.currentId && currentStatus === 'aprovado' && ['nao_enviado', 'devolvido', 'cancelado'].includes(finStatus)));
+    if (cancelar) cancelar.classList.toggle('is-hidden', !(state.currentId && finStatus === 'pendente'));
+    if (abrir) abrir.classList.toggle('is-hidden', !(state.currentId && ['pendente', 'autenticado', 'devolvido'].includes(finStatus)));
+  }
+
   function renderBudgets() {
     const list = filteredBudgets();
     const tbody = $('tbody-orcamentos');
@@ -355,7 +387,7 @@
           <td data-label="Emissão">${escapeHtml(localDate(budget.data_emissao))}</td>
           <td data-label="Cliente"><div class="budget-client-cell"><strong>${escapeHtml(budget.cliente_nome || 'Cliente não vinculado')}</strong><small>${escapeHtml(budget.cliente_documento || '')}</small></div></td>
           <td data-label="Descrição"><div class="budget-title-cell"><strong>${escapeHtml(budget.titulo)}</strong><small>${escapeHtml(budget.categoria_nome || budget.nome_documento || '')}</small>${approval}</div></td>
-          <td data-label="Status"><span class="budget-status ${className}">${label}</span></td>
+          <td data-label="Status"><span class="budget-status ${className}">${label}</span>${budget.financeiro_status && budget.financeiro_status !== 'nao_enviado' ? `<small class="budget-finance-list ${financeiroStatusInfo(budget.financeiro_status)[1]}"><i class="fa-solid fa-building-columns"></i> ${escapeHtml(financeiroStatusInfo(budget.financeiro_status)[0])}</small>` : ''}</td>
           <td data-label="Total" class="text-right"><span class="budget-value-cell">${formatMoney(budget.total)}</span></td>
           <td data-label="Ações" class="text-right"><div class="budget-row-actions">
             <button class="budget-action-btn" data-action="edit" data-id="${budget.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
@@ -443,6 +475,10 @@
     $('btn-imprimir-orcamento').classList.add('is-hidden');
     $('btn-whatsapp-orcamento').classList.add('is-hidden');
     $('btn-aprovar-margem').classList.add('is-hidden');
+    $('budget-financeiro-status')?.classList.add('is-hidden');
+    $('btn-enviar-financeiro')?.classList.add('is-hidden');
+    $('btn-cancelar-envio-financeiro')?.classList.add('is-hidden');
+    $('btn-abrir-financeiro-orcamento')?.classList.add('is-hidden');
     $$('.edit-only').forEach((el) => el.classList.add('is-hidden'));
     setTab('dados');
     addDefaultPayment();
@@ -496,6 +532,7 @@
       syncRefreshPricesButton(budget.status);
       const canApprove = state.meta.pode_configurar && budget.aprovacao_necessaria && budget.aprovacao_status !== 'aprovado';
       $('btn-aprovar-margem').classList.toggle('is-hidden', !canApprove);
+      syncFinanceiroActions(budget);
       setTab('dados');
       openOverlay('budget-modal');
     } catch (error) {
@@ -1778,6 +1815,78 @@
     if (payload.itens.some((item) => !String(item.descricao || '').trim())) { setTab('itens'); throw new Error('Preencha a descrição de todos os itens.'); }
   }
 
+  async function enviarVendaFinanceiro() {
+    if (!state.currentId || !state.current) return;
+
+    let payload;
+    try {
+      payload = collectBudgetPayload();
+      validateBudget(payload);
+    } catch (error) {
+      toast(error.message || 'Revise os dados do orçamento antes de enviar.', 'error');
+      return;
+    }
+    if (String(payload.status || '').toLowerCase() !== 'aprovado') {
+      toast('Aprove o orçamento antes de fechar a venda.', 'error');
+      return;
+    }
+
+    const texto = state.current.financeiro_status === 'devolvido'
+      ? `Reenviar a venda ${state.current.codigo} ao Financeiro com os dados atuais?`
+      : `Fechar a venda ${state.current.codigo} e enviar ao Financeiro para conferência?`;
+    if (!confirm(`${texto}\n\nAs alterações abertas serão salvas e o orçamento ficará bloqueado enquanto estiver em conferência.`)) return;
+
+    const button = $('btn-enviar-financeiro');
+    try {
+      setButtonLoading(button, true, 'Salvando e enviando...');
+      state.current = await api(`${API}/${state.currentId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      await api(`${API}/${state.currentId}/enviar-financeiro`, {
+        method: 'POST',
+        body: JSON.stringify({ tipo_venda: 'avulsa', observacao: 'Venda fechada pelo Comercial.' }),
+      });
+      state.current = await api(`${API}/${state.currentId}`);
+      fillBudgetForm(state.current);
+      syncFinanceiroActions(state.current);
+      toast('Venda enviada para autenticação do Financeiro.');
+      await loadBudgets();
+    } catch (error) {
+      toast(error.message || 'Não foi possível enviar a venda.', 'error');
+    } finally {
+      setButtonLoading(button, false);
+      syncFinanceiroActions(state.current);
+    }
+  }
+
+  async function cancelarEnvioFinanceiro() {
+    if (!state.currentId || !state.current) return;
+    const motivo = prompt('Informe o motivo do cancelamento do envio ao Financeiro:');
+    if (!motivo?.trim()) return;
+    const button = $('btn-cancelar-envio-financeiro');
+    try {
+      setButtonLoading(button, true, 'Cancelando...');
+      await api(`${API}/${state.currentId}/cancelar-envio-financeiro`, {
+        method: 'POST', body: JSON.stringify({ observacao: motivo.trim(), tipo_venda: 'avulsa' }),
+      });
+      state.current = await api(`${API}/${state.currentId}`);
+      syncFinanceiroActions(state.current);
+      toast('Envio ao Financeiro cancelado. O orçamento pode ser editado novamente.');
+      await loadBudgets();
+    } catch (error) {
+      toast(error.message || 'Não foi possível cancelar o envio.', 'error');
+    } finally {
+      setButtonLoading(button, false);
+      syncFinanceiroActions(state.current);
+    }
+  }
+
+  function abrirVendaNoFinanceiro() {
+    if (!state.currentId) return;
+    window.location.href = `/vendas-financeiro?orcamento_id=${encodeURIComponent(state.currentId)}`;
+  }
+
   async function saveBudget() {
     const button = $('btn-salvar-orcamento');
     try {
@@ -2527,11 +2636,14 @@
     $('btn-fechar-budget-modal').addEventListener('click', () => closeOverlay('budget-modal'));
     $('btn-cancelar-orcamento').addEventListener('click', () => closeOverlay('budget-modal'));
     $('btn-salvar-orcamento').addEventListener('click', saveBudget);
+    $('btn-enviar-financeiro')?.addEventListener('click', enviarVendaFinanceiro);
+    $('btn-cancelar-envio-financeiro')?.addEventListener('click', cancelarEnvioFinanceiro);
+    $('btn-abrir-financeiro-orcamento')?.addEventListener('click', abrirVendaNoFinanceiro);
     $('btn-imprimir-orcamento').addEventListener('click', printCurrent);
     $('btn-whatsapp-orcamento').addEventListener('click', () => state.currentId && sendWhatsApp(state.currentId));
     $('btn-aprovar-margem').addEventListener('click', approveMargin);
     $$('.budget-tab').forEach((button) => button.addEventListener('click', () => setTab(button.dataset.tab)));
-    $('orcamento-status').addEventListener('change', () => { updateStatusPreview(); syncRefreshPricesButton(); });
+    $('orcamento-status').addEventListener('change', () => { updateStatusPreview(); syncRefreshPricesButton(); syncFinanceiroActions(state.current); });
     $('orcamento-titulo').addEventListener('input', (event) => {
       if ($('budget-sidebar-title')) $('budget-sidebar-title').textContent = event.target.value.trim() || 'Novo orçamento';
     });

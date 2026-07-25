@@ -22,17 +22,17 @@
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260724-escala-documento-v1">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260725-financeiro-fase6-v1">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260720-emitter-save-v2">
 
   <script src="/frontend/js/pages/app.js?v=20260722-agenda-editor-v11" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260724-escala-documento-v1" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260725-financeiro-fase6-v1" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
-    <iframe src="/frontend/partials/sidebar.html?v=20260714-agenda-historico-v1" class="sidebar-frame" title="Menu principal" loading="eager"></iframe>
+    <iframe src="/frontend/partials/sidebar.html?v=20260725-financeiro-fase6-v1" class="sidebar-frame" title="Menu principal" loading="eager"></iframe>
 
     <main class="main budget-page">
       <header class="topbar budget-topbar">
@@ -154,6 +154,7 @@
 
             <div class="budget-modal-top-actions">
               <span id="budget-status-preview" class="budget-status status-rascunho">Em elaboração</span>
+              <span id="budget-financeiro-status" class="budget-finance-status is-hidden">Não enviado ao Financeiro</span>
               <button class="btn btn-secondary is-hidden budget-head-action" id="btn-aprovar-margem" type="button" title="Aprovar margem">
                 <i class="fa-solid fa-user-check"></i><span>Aprovar margem</span>
               </button>
@@ -329,6 +330,9 @@
               <strong id="footer-total">R$ 0,00</strong>
             </div>
             <div class="budget-footer-actions">
+              <button class="btn btn-secondary is-hidden" id="btn-abrir-financeiro-orcamento" type="button"><i class="fa-solid fa-building-columns"></i> Abrir no Financeiro</button>
+              <button class="btn btn-secondary is-hidden" id="btn-cancelar-envio-financeiro" type="button"><i class="fa-solid fa-rotate-left"></i> Cancelar envio</button>
+              <button class="btn btn-primary is-hidden" id="btn-enviar-financeiro" type="button"><i class="fa-solid fa-file-circle-check"></i> Fechar venda e enviar ao Financeiro</button>
               <button class="btn btn-secondary" id="btn-cancelar-orcamento" type="button">Cancelar</button>
               <button class="btn btn-primary" id="btn-salvar-orcamento" type="button">
                 <i class="fa-solid fa-floppy-disk"></i> Salvar orçamento

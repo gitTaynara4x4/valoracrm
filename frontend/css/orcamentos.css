@@ -2896,3 +2896,62 @@ html[data-theme="dark"] .document-scale-fields select {
     width: 100%;
   }
 }
+
+/* Fase 6 — vínculo Comercial → Financeiro */
+.budget-finance-status,
+.budget-finance-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  border: 1px solid var(--border, #dfe6ee);
+  border-radius: 999px;
+  background: var(--surface, #fff);
+  color: var(--text-secondary, #64748b);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 6px 9px;
+}
+
+.budget-finance-list {
+  margin-top: 6px;
+  padding: 4px 7px;
+  font-size: 10px;
+}
+
+.budget-finance-status.finance-pendente,
+.budget-finance-list.finance-pendente {
+  border-color: rgba(245, 158, 11, .34);
+  background: rgba(245, 158, 11, .10);
+  color: #b45309;
+}
+
+.budget-finance-status.finance-autenticado,
+.budget-finance-list.finance-autenticado {
+  border-color: rgba(16, 185, 129, .34);
+  background: rgba(16, 185, 129, .10);
+  color: #047857;
+}
+
+.budget-finance-status.finance-devolvido,
+.budget-finance-list.finance-devolvido,
+.budget-finance-status.finance-cancelado,
+.budget-finance-list.finance-cancelado {
+  border-color: rgba(239, 68, 68, .30);
+  background: rgba(239, 68, 68, .08);
+  color: #b91c1c;
+}
+
+html[data-theme="dark"] .budget-finance-status,
+html[data-theme="dark"] .budget-finance-list {
+  background: rgba(255,255,255,.04);
+  border-color: #3a3a3a;
+  color: #cbd5e1;
+}
+
+@media (max-width: 900px) {
+  .budget-modal-footer .budget-footer-actions {
+    flex-wrap: wrap;
+  }
+}

@@ -818,3 +818,256 @@ html[data-theme="dark"] .anexo-item {
   color: var(--text);
   cursor: not-allowed;
 }
+
+/* =========================================
+   COBRANÇA RECORRENTE DO CONTRATO
+   ========================================= */
+
+.recorrencia-section {
+  background: linear-gradient(180deg, rgba(75, 195, 199, 0.035), transparent 260px);
+}
+
+.recorrencia-title-row {
+  align-items: center;
+}
+
+.recorrencia-status-badge {
+  flex: 0 0 auto;
+}
+
+.recorrencia-status-badge[data-status="ativo"] {
+  background: rgba(34, 197, 94, 0.14);
+  color: #22c55e;
+}
+
+.recorrencia-status-badge[data-status="suspenso"] {
+  background: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
+}
+
+.recorrencia-status-badge[data-status="cancelado"] {
+  background: rgba(239, 68, 68, 0.14);
+  color: #ef4444;
+}
+
+.recorrencia-access,
+.recorrencia-warning,
+.recorrencia-error {
+  margin-bottom: 16px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-soft);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.recorrencia-warning {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: rgba(245, 158, 11, 0.08);
+  color: #d97706;
+}
+
+.recorrencia-error {
+  border-color: rgba(239, 68, 68, 0.32);
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+
+.recorrencia-config[hidden],
+.recorrencia-warning[hidden],
+.recorrencia-error[hidden] {
+  display: none !important;
+}
+
+.recorrencia-grid-top {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.recorrencia-details {
+  margin: 4px 0 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-soft);
+  overflow: hidden;
+}
+
+.recorrencia-details summary {
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.recorrencia-details[open] summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.recorrencia-details > .form-row {
+  padding: 14px 14px 0;
+}
+
+.recorrencia-details > .form-row:last-child {
+  padding-bottom: 14px;
+}
+
+.recorrencia-actions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin: 6px 0 16px;
+}
+
+.recorrencia-actions .btn[hidden] {
+  display: none !important;
+}
+
+.recorrencia-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.recorrencia-summary-card {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-soft);
+}
+
+.recorrencia-summary-card small {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.recorrencia-summary-card strong {
+  display: block;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.recorrencia-titulos-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  margin: 20px 0 10px;
+}
+
+.recorrencia-titulos-head strong,
+.recorrencia-titulos-head span {
+  display: block;
+}
+
+.recorrencia-titulos-head strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.recorrencia-titulos-head span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.recorrencia-titulos {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.recorrencia-titulo-item {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.5fr) 105px 120px 110px;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+}
+
+.recorrencia-titulo-item strong,
+.recorrencia-titulo-item span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.recorrencia-titulo-item strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.recorrencia-titulo-item span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.recorrencia-titulo-status {
+  justify-self: end;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-dark) !important;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.recorrencia-empty {
+  padding: 14px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 1180px) {
+  .recorrencia-grid-top,
+  .recorrencia-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .recorrencia-titulo-item {
+    grid-template-columns: minmax(160px, 1fr) 100px 110px;
+  }
+
+  .recorrencia-titulo-status {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 720px) {
+  .recorrencia-grid-top,
+  .recorrencia-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .recorrencia-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .recorrencia-titulos-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .recorrencia-titulo-item {
+    grid-template-columns: 1fr;
+  }
+
+  .recorrencia-titulo-status {
+    grid-column: auto;
+  }
+}

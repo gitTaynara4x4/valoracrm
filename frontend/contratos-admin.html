@@ -11,11 +11,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260630-dark-chatgpt-v6" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
-  <link rel="stylesheet" href="/frontend/css/contratos-admin.css" />
+  <link rel="stylesheet" href="/frontend/css/contratos-admin.css?v=20260725-financeiro-recorrente-v1" />
 
   <script src="/frontend/js/pages/app.js?v=20260715-agenda-fluxo-nilson-v9" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script type="module" src="/frontend/js/pages/contratos-admin.js"></script>
+  <script type="module" src="/frontend/js/pages/contratos-admin.js?v=20260725-financeiro-recorrente-v1"></script>
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
@@ -279,6 +279,164 @@
                     Fica para uma fase futura.
                   </div>
                 </div>
+              </div>
+            </section>
+
+            <section class="form-section recorrencia-section" id="recorrencia-financeira" hidden>
+              <div class="section-title-row recorrencia-title-row">
+                <div>
+                  <h4>Cobrança recorrente</h4>
+                  <p>Configure as mensalidades do contrato. Títulos já gerados não são alterados quando o valor ou a configuração mudar.</p>
+                </div>
+                <span class="soft-badge recorrencia-status-badge" id="recorrencia-status-badge">Não configurado</span>
+              </div>
+
+              <div class="recorrencia-access" id="recorrencia-access">Selecione um contrato salvo para configurar o financeiro.</div>
+
+              <div class="recorrencia-config" id="recorrencia-config">
+                <div class="form-row four-cols recorrencia-grid-top">
+                  <div class="form-group">
+                    <label for="recorrencia_frequencia">Frequência *</label>
+                    <select id="recorrencia_frequencia">
+                      <option value="mensal">Mensal</option>
+                      <option value="bimestral">Bimestral</option>
+                      <option value="trimestral">Trimestral</option>
+                      <option value="semestral">Semestral</option>
+                      <option value="anual">Anual</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="recorrencia_primeiro_vencimento">Primeiro vencimento *</label>
+                    <input id="recorrencia_primeiro_vencimento" type="date" />
+                  </div>
+                  <div class="form-group">
+                    <label for="recorrencia_dia_vencimento">Dia padrão *</label>
+                    <input id="recorrencia_dia_vencimento" type="number" min="1" max="31" placeholder="10" />
+                  </div>
+                  <div class="form-group">
+                    <label for="recorrencia_antecipacao">Gerar antecipado</label>
+                    <select id="recorrencia_antecipacao">
+                      <option value="0">Somente o mês atual</option>
+                      <option value="1" selected>Atual + próximo mês</option>
+                      <option value="2">Até 2 meses à frente</option>
+                      <option value="3">Até 3 meses à frente</option>
+                      <option value="6">Até 6 meses à frente</option>
+                      <option value="12">Até 12 meses à frente</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-row three-cols">
+                  <div class="form-group">
+                    <label for="recorrencia_forma_cobranca">Forma de cobrança *</label>
+                    <select id="recorrencia_forma_cobranca"></select>
+                  </div>
+                  <div class="form-group">
+                    <label for="recorrencia_forma_pagamento">Forma de recebimento</label>
+                    <select id="recorrencia_forma_pagamento"></select>
+                  </div>
+                  <div class="form-group">
+                    <label for="recorrencia_conta_banco">Conta bancária de entrada *</label>
+                    <select id="recorrencia_conta_banco"></select>
+                  </div>
+                </div>
+
+                <div class="form-row three-cols">
+                  <div class="form-group">
+                    <label for="recorrencia_categoria">Categoria de receita *</label>
+                    <select id="recorrencia_categoria"></select>
+                  </div>
+                  <div class="form-group">
+                    <label for="recorrencia_conta_contabil">Conta contábil *</label>
+                    <select id="recorrencia_conta_contabil"></select>
+                  </div>
+                  <div class="form-group">
+                    <label for="recorrencia_regra_encargos">Multa e mora</label>
+                    <select id="recorrencia_regra_encargos"></select>
+                  </div>
+                </div>
+
+                <details class="recorrencia-details">
+                  <summary>Classificação financeira complementar</summary>
+                  <div class="form-row three-cols">
+                    <div class="form-group">
+                      <label for="recorrencia_tipo_documento">Tipo de documento</label>
+                      <select id="recorrencia_tipo_documento"></select>
+                    </div>
+                    <div class="form-group">
+                      <label for="recorrencia_natureza">Natureza da operação</label>
+                      <select id="recorrencia_natureza"></select>
+                    </div>
+                    <div class="form-group">
+                      <label for="recorrencia_entidade_emissora">Entidade emissora</label>
+                      <select id="recorrencia_entidade_emissora"></select>
+                    </div>
+                  </div>
+                  <div class="form-row two-cols">
+                    <div class="form-group">
+                      <label for="recorrencia_cc_principal">Centro de custo principal</label>
+                      <select id="recorrencia_cc_principal"></select>
+                    </div>
+                    <div class="form-group">
+                      <label for="recorrencia_cc_secundario">Centro de custo secundário</label>
+                      <select id="recorrencia_cc_secundario"></select>
+                    </div>
+                  </div>
+                  <div class="form-row two-cols">
+                    <div class="form-group">
+                      <label for="recorrencia_uc_principal">Unidade de consumo principal</label>
+                      <select id="recorrencia_uc_principal"></select>
+                    </div>
+                    <div class="form-group">
+                      <label for="recorrencia_uc_secundaria">Unidade de consumo secundária</label>
+                      <select id="recorrencia_uc_secundaria"></select>
+                    </div>
+                  </div>
+                </details>
+
+                <div class="form-row single-col">
+                  <div class="form-group">
+                    <label for="recorrencia_observacoes">Observações das cobranças</label>
+                    <textarea id="recorrencia_observacoes" rows="3" placeholder="Texto interno copiado para as próximas mensalidades."></textarea>
+                  </div>
+                </div>
+
+                <div class="recorrencia-actions">
+                  <button class="btn btn-secondary" type="button" id="btn-salvar-recorrencia">
+                    <i class="fa-solid fa-floppy-disk"></i> Salvar configuração
+                  </button>
+                  <button class="btn btn-primary" type="button" id="btn-ativar-recorrencia">
+                    <i class="fa-solid fa-play"></i> Ativar cobrança
+                  </button>
+                  <button class="btn btn-secondary" type="button" id="btn-suspender-recorrencia" hidden>
+                    <i class="fa-solid fa-pause"></i> Suspender
+                  </button>
+                  <button class="btn btn-primary" type="button" id="btn-retomar-recorrencia" hidden>
+                    <i class="fa-solid fa-rotate-right"></i> Retomar
+                  </button>
+                  <button class="btn btn-secondary" type="button" id="btn-gerar-recorrencia" hidden>
+                    <i class="fa-solid fa-calendar-plus"></i> Gerar agora
+                  </button>
+                  <button class="btn btn-danger" type="button" id="btn-cancelar-recorrencia" hidden>
+                    <i class="fa-solid fa-ban"></i> Cancelar recorrência
+                  </button>
+                </div>
+
+                <div class="recorrencia-warning" id="recorrencia-warning" hidden></div>
+                <div class="recorrencia-error" id="recorrencia-error" hidden></div>
+
+                <div class="recorrencia-summary" id="recorrencia-summary"></div>
+
+                <div class="recorrencia-titulos-head">
+                  <div>
+                    <strong>Mensalidades geradas</strong>
+                    <span>Últimos títulos vinculados ao contrato.</span>
+                  </div>
+                  <a class="btn btn-secondary btn-sm" href="/contas-receber" target="_blank">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir Contas a Receber
+                  </a>
+                </div>
+                <div class="recorrencia-titulos" id="recorrencia-titulos"></div>
               </div>
             </section>
 

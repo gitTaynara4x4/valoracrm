@@ -34,6 +34,7 @@ from backend.routers.integracoes_zapschat import router as integracoes_zapschat_
 from backend.routers.exportacoes import router as exportacoes_router
 from backend.routers.agenda import router as agenda_router
 from backend.agenda_push import start_push_dispatcher, stop_push_dispatcher
+from backend.financeiro_recorrencia import start_financeiro_recorrencia_dispatcher, stop_financeiro_recorrencia_dispatcher
 from backend.database import SessionLocal
 from backend import models
 from backend.security.permissions import user_has_permission
@@ -110,10 +111,12 @@ def ensure_each_company_has_owner() -> None:
 async def start_agenda_push_background() -> None:
     ensure_each_company_has_owner()
     await start_push_dispatcher()
+    await start_financeiro_recorrencia_dispatcher()
 
 
 @app.on_event("shutdown")
 async def stop_agenda_push_background() -> None:
+    await stop_financeiro_recorrencia_dispatcher()
     await stop_push_dispatcher()
 
 
@@ -198,6 +201,7 @@ PAGE_PERMISSION_MODULES = {
     "/fluxo-caixa": "financeiro",
     "/contas-pagar": "financeiro",
     "/contas-receber": "financeiro",
+    "/vendas-financeiro": "financeiro",
     "/contas-bancos": "financeiro",
     "/cadastros-financeiros": "financeiro",
     "/categorias-financeiras": "financeiro",

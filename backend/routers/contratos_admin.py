@@ -1762,7 +1762,44 @@ def atualizar_contrato(
             contrato.tipo_contrato = norm_lower(payload.tipo_contrato, set(TIPOS_CONTRATO.keys()), "outro")
 
         if "status" in changed_fields:
-            contrato.status = norm_lower(payload.status, set(STATUS_CONTRATO.keys()), "rascunho")
+            novo_status = norm_lower(payload.status, set(STATUS_CONTRATO.keys()), "rascunho")
+            possui_coluna_financeira = bool(db.execute(text("""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_schema='public'
+                      AND table_name='contratos'
+                      AND column_name='financeiro_status'
+                )
+            """)).scalar())
+            financeiro_status = None
+            if possui_coluna_financeira:
+                financeiro_status = db.execute(text("""
+                    SELECT financeiro_status
+                    FROM public.contratos
+                    WHERE empresa_id=:empresa_id AND id=:contrato_id
+                """), {"empresa_id": empresa_id, "contrato_id": contrato_id}).scalar()
+            if financeiro_status == "ativo" and novo_status not in {"assinado", "cancelado"}:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Suspenda a cobrança recorrente antes de retirar o status Assinado do contrato.",
+                )
+            contrato.status = novo_status
+            if novo_status == "cancelado" and financeiro_status not in {None, "cancelado"}:
+                db.execute(text("""
+                    UPDATE public.contratos
+                    SET financeiro_status='cancelado', financeiro_cancelado_em=NOW(), atualizado_em=NOW()
+                    WHERE empresa_id=:empresa_id AND id=:contrato_id
+                """), {"empresa_id": empresa_id, "contrato_id": contrato_id})
+                criar_historico(
+                    db=db,
+                    contrato=contrato,
+                    usuario=usuario,
+                    descricao="Recorrência financeira cancelada automaticamente porque o contrato foi cancelado. Títulos já gerados foram preservados.",
+                    campo="financeiro_status",
+                    valor_anterior=str(financeiro_status or "nao_configurado"),
+                    valor_novo="cancelado",
+                )
 
         if "valor_mensal" in changed_fields:
             contrato.valor_mensal = parse_decimal(payload.valor_mensal)

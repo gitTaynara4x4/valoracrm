@@ -1,5 +1,6 @@
 const API_CLIENTES = '/api/clientes';
 const API_CONTRATOS = '/api/contratos-admin';
+const API_FINANCEIRO = '/api/financeiro';
 
 const state = {
   clientes: [],
@@ -12,6 +13,10 @@ const state = {
   contratoSelecionado: null,
   anexosTipos: [],
   anexos: [],
+  financeiroOpcoes: null,
+  recorrencia: null,
+  financeiroDisponivel: true,
+  carregandoRecorrencia: false,
   carregando: false,
   salvando: false,
   enviandoAnexo: false,
@@ -89,6 +94,39 @@ function initDom() {
   dom.historicoLista = byId('historico-lista');
   dom.btnRecarregarHistorico = byId('btn-recarregar-historico');
 
+  dom.recorrenciaSection = byId('recorrencia-financeira');
+  dom.recorrenciaAccess = byId('recorrencia-access');
+  dom.recorrenciaConfig = byId('recorrencia-config');
+  dom.recorrenciaStatusBadge = byId('recorrencia-status-badge');
+  dom.recorrenciaWarning = byId('recorrencia-warning');
+  dom.recorrenciaError = byId('recorrencia-error');
+  dom.recorrenciaSummary = byId('recorrencia-summary');
+  dom.recorrenciaTitulos = byId('recorrencia-titulos');
+  dom.recorrenciaFrequencia = byId('recorrencia_frequencia');
+  dom.recorrenciaPrimeiroVencimento = byId('recorrencia_primeiro_vencimento');
+  dom.recorrenciaDiaVencimento = byId('recorrencia_dia_vencimento');
+  dom.recorrenciaAntecipacao = byId('recorrencia_antecipacao');
+  dom.recorrenciaFormaCobranca = byId('recorrencia_forma_cobranca');
+  dom.recorrenciaFormaPagamento = byId('recorrencia_forma_pagamento');
+  dom.recorrenciaContaBanco = byId('recorrencia_conta_banco');
+  dom.recorrenciaCategoria = byId('recorrencia_categoria');
+  dom.recorrenciaContaContabil = byId('recorrencia_conta_contabil');
+  dom.recorrenciaRegraEncargos = byId('recorrencia_regra_encargos');
+  dom.recorrenciaTipoDocumento = byId('recorrencia_tipo_documento');
+  dom.recorrenciaNatureza = byId('recorrencia_natureza');
+  dom.recorrenciaEntidadeEmissora = byId('recorrencia_entidade_emissora');
+  dom.recorrenciaCcPrincipal = byId('recorrencia_cc_principal');
+  dom.recorrenciaCcSecundario = byId('recorrencia_cc_secundario');
+  dom.recorrenciaUcPrincipal = byId('recorrencia_uc_principal');
+  dom.recorrenciaUcSecundaria = byId('recorrencia_uc_secundaria');
+  dom.recorrenciaObservacoes = byId('recorrencia_observacoes');
+  dom.btnSalvarRecorrencia = byId('btn-salvar-recorrencia');
+  dom.btnAtivarRecorrencia = byId('btn-ativar-recorrencia');
+  dom.btnSuspenderRecorrencia = byId('btn-suspender-recorrencia');
+  dom.btnRetomarRecorrencia = byId('btn-retomar-recorrencia');
+  dom.btnGerarRecorrencia = byId('btn-gerar-recorrencia');
+  dom.btnCancelarRecorrencia = byId('btn-cancelar-recorrencia');
+
   if (dom.numeroContrato) {
     dom.numeroContrato.readOnly = true;
     dom.numeroContrato.required = false;
@@ -114,7 +152,9 @@ async function apiJson(url, options = {}) {
   if (!response.ok) {
     const detail = data && typeof data === 'object' ? data.detail : data;
     const message = typeof detail === 'string' ? detail : `Erro HTTP ${response.status}.`;
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
 
   return data;
@@ -269,6 +309,7 @@ async function carregarBase() {
     preencherSelectStatus();
     preencherSelectTiposAnexo();
 
+    await carregarOpcoesFinanceiras();
     await carregarContratos();
 
     if (state.clientes.length === 1 && !dom.clienteId.value) {
@@ -441,8 +482,10 @@ function limparFormulario() {
   state.contratoSelecionado = null;
   state.propostaSelecionada = null;
   state.anexos = [];
+  state.recorrencia = null;
 
   dom.form.reset();
+  limparPainelRecorrencia();
   dom.propostaId.innerHTML = '<option value="">Sem proposta vinculada</option>';
   esconderResumoProposta();
 
@@ -546,6 +589,7 @@ async function preencherFormulario(contrato) {
 
   dom.motivoRow.hidden = false;
   dom.anexosCard.hidden = false;
+  await carregarRecorrencia(contrato.id);
 }
 
 function montarPayload() {
@@ -1020,6 +1064,342 @@ function renderHistorico(rows) {
   }).join('');
 }
 
+
+function preencherSelectFinanceiro(select, items, {
+  placeholder = 'Selecione',
+  valueKey = 'id',
+  labelFn = (item) => item.nome || item.label || `#${item.id}`,
+} = {}) {
+  if (!select) return;
+  const atual = String(select.value || '');
+  select.innerHTML = [
+    `<option value="">${escapeHtml(placeholder)}</option>`,
+    ...items.map((item) => `<option value="${escapeHtml(item[valueKey])}">${escapeHtml(labelFn(item))}</option>`),
+  ].join('');
+  if (atual && [...select.options].some((option) => option.value === atual)) {
+    select.value = atual;
+  }
+}
+
+function filtrarAplicacao(items, tipo = 'receber') {
+  return (items || []).filter((item) => !item.aplicacao || ['ambos', tipo].includes(String(item.aplicacao)));
+}
+
+async function carregarOpcoesFinanceiras() {
+  try {
+    state.financeiroOpcoes = await apiJson(`${API_FINANCEIRO}/opcoes`);
+    state.financeiroDisponivel = true;
+
+    preencherSelectFinanceiro(dom.recorrenciaFormaCobranca, state.financeiroOpcoes.formas_cobranca || []);
+    preencherSelectFinanceiro(dom.recorrenciaFormaPagamento, state.financeiroOpcoes.formas_pagamento || [], { placeholder: 'Não definida' });
+    preencherSelectFinanceiro(dom.recorrenciaContaBanco, state.financeiroOpcoes.contas_bancos || []);
+    preencherSelectFinanceiro(
+      dom.recorrenciaCategoria,
+      (state.financeiroOpcoes.categorias || []).filter((item) => ['receita', 'ambos'].includes(String(item.tipo || ''))),
+    );
+    preencherSelectFinanceiro(
+      dom.recorrenciaContaContabil,
+      (state.financeiroOpcoes.contas_contabeis || []).filter((item) => item.aceita_lancamento !== false),
+      { labelFn: (item) => `${item.codigo ? `${item.codigo} • ` : ''}${item.nome || ''}` },
+    );
+    preencherSelectFinanceiro(dom.recorrenciaRegraEncargos, filtrarAplicacao(state.financeiroOpcoes.regras_encargos), { placeholder: 'Sem multa ou mora' });
+    preencherSelectFinanceiro(dom.recorrenciaTipoDocumento, filtrarAplicacao(state.financeiroOpcoes.tipos_documento), { placeholder: 'Não definido' });
+    preencherSelectFinanceiro(dom.recorrenciaNatureza, filtrarAplicacao(state.financeiroOpcoes.naturezas_operacao), { placeholder: 'Não definida' });
+    preencherSelectFinanceiro(dom.recorrenciaEntidadeEmissora, state.financeiroOpcoes.contas_bancos || [], { placeholder: 'Não definida' });
+    preencherSelectFinanceiro(dom.recorrenciaCcPrincipal, state.financeiroOpcoes.centros_custo || [], {
+      placeholder: 'Não definido',
+      labelFn: (item) => `${item.codigo ? `${item.codigo} • ` : ''}${item.nome || ''}`,
+    });
+    preencherSelectFinanceiro(dom.recorrenciaCcSecundario, state.financeiroOpcoes.centros_custo || [], {
+      placeholder: 'Não definido',
+      labelFn: (item) => `${item.codigo ? `${item.codigo} • ` : ''}${item.nome || ''}`,
+    });
+    preencherSelectFinanceiro(dom.recorrenciaUcPrincipal, state.financeiroOpcoes.unidades_consumo || [], { placeholder: 'Não definida' });
+    preencherSelectFinanceiro(dom.recorrenciaUcSecundaria, state.financeiroOpcoes.unidades_consumo || [], { placeholder: 'Não definida' });
+  } catch (error) {
+    state.financeiroDisponivel = false;
+    state.financeiroOpcoes = null;
+    console.warn('[Contratos Admin] financeiro recorrente indisponível:', error);
+  }
+}
+
+function limparPainelRecorrencia() {
+  state.recorrencia = null;
+  if (!dom.recorrenciaSection) return;
+  dom.recorrenciaSection.hidden = true;
+  dom.recorrenciaConfig.hidden = true;
+  dom.recorrenciaAccess.textContent = 'Salve ou selecione um contrato para configurar a cobrança recorrente.';
+  dom.recorrenciaSummary.innerHTML = '';
+  dom.recorrenciaTitulos.innerHTML = '';
+  dom.recorrenciaWarning.hidden = true;
+  dom.recorrenciaError.hidden = true;
+}
+
+function setRecorrenciaBusy(isBusy) {
+  state.carregandoRecorrencia = isBusy;
+  [
+    dom.btnSalvarRecorrencia,
+    dom.btnAtivarRecorrencia,
+    dom.btnSuspenderRecorrencia,
+    dom.btnRetomarRecorrencia,
+    dom.btnGerarRecorrencia,
+    dom.btnCancelarRecorrencia,
+  ].forEach((button) => {
+    if (button) button.disabled = isBusy;
+  });
+}
+
+function setSelectValue(select, value) {
+  if (!select) return;
+  const target = value === null || value === undefined ? '' : String(value);
+  select.value = [...select.options].some((option) => option.value === target) ? target : '';
+}
+
+async function carregarRecorrencia(contratoId) {
+  if (!dom.recorrenciaSection) return;
+  dom.recorrenciaSection.hidden = false;
+  dom.recorrenciaConfig.hidden = true;
+  dom.recorrenciaAccess.textContent = 'Carregando configuração financeira...';
+  dom.recorrenciaWarning.hidden = true;
+  dom.recorrenciaError.hidden = true;
+
+  if (!state.financeiroDisponivel) {
+    dom.recorrenciaAccess.textContent = 'O módulo Financeiro não está disponível para este usuário ou a migração 006 ainda não foi aplicada.';
+    return;
+  }
+
+  setRecorrenciaBusy(true);
+  try {
+    state.recorrencia = await apiJson(`${API_FINANCEIRO}/contratos-recorrentes/${contratoId}`);
+    aplicarRecorrenciaNoFormulario();
+    renderRecorrencia();
+  } catch (error) {
+    state.recorrencia = null;
+    dom.recorrenciaAccess.textContent = error.message || 'Não foi possível carregar a cobrança recorrente.';
+    dom.recorrenciaConfig.hidden = true;
+  } finally {
+    setRecorrenciaBusy(false);
+  }
+}
+
+function aplicarRecorrenciaNoFormulario() {
+  const item = state.recorrencia;
+  if (!item) return;
+
+  dom.recorrenciaConfig.hidden = false;
+  dom.recorrenciaAccess.textContent = 'A configuração pertence a este contrato e será copiada para cada nova mensalidade.';
+  dom.recorrenciaFrequencia.value = item.financeiro_frequencia || 'mensal';
+  const vencimentoPadrao = item.financeiro_primeiro_vencimento
+    || state.contratoSelecionado?.data_pagamento
+    || state.contratoSelecionado?.data_inicio
+    || '';
+  dom.recorrenciaPrimeiroVencimento.value = vencimentoPadrao;
+  dom.recorrenciaDiaVencimento.value = item.financeiro_dia_vencimento
+    || (vencimentoPadrao ? Number(String(vencimentoPadrao).slice(-2)) : '');
+  dom.recorrenciaAntecipacao.value = String(item.financeiro_meses_antecipacao ?? 1);
+  setSelectValue(dom.recorrenciaFormaCobranca, item.financeiro_forma_cobranca_id);
+  setSelectValue(dom.recorrenciaFormaPagamento, item.financeiro_forma_pagamento_id);
+  setSelectValue(dom.recorrenciaContaBanco, item.financeiro_conta_banco_id);
+  setSelectValue(dom.recorrenciaCategoria, item.financeiro_categoria_id);
+  setSelectValue(dom.recorrenciaContaContabil, item.financeiro_conta_contabil_id);
+  setSelectValue(dom.recorrenciaRegraEncargos, item.financeiro_regra_encargos_id);
+  setSelectValue(dom.recorrenciaTipoDocumento, item.financeiro_tipo_documento_id);
+  setSelectValue(dom.recorrenciaNatureza, item.financeiro_natureza_operacao_id);
+  setSelectValue(dom.recorrenciaEntidadeEmissora, item.financeiro_entidade_emissora_id);
+  setSelectValue(dom.recorrenciaCcPrincipal, item.financeiro_centro_custo_principal_id);
+  setSelectValue(dom.recorrenciaCcSecundario, item.financeiro_centro_custo_secundario_id);
+  setSelectValue(dom.recorrenciaUcPrincipal, item.financeiro_unidade_consumo_principal_id);
+  setSelectValue(dom.recorrenciaUcSecundaria, item.financeiro_unidade_consumo_secundaria_id);
+  dom.recorrenciaObservacoes.value = item.financeiro_observacoes || '';
+}
+
+function formatCompetencia(value) {
+  if (!value) return 'Não gerada';
+  const parts = String(value).slice(0, 10).split('-');
+  return parts.length >= 2 ? `${parts[1]}/${parts[0]}` : String(value);
+}
+
+function renderRecorrencia() {
+  const item = state.recorrencia;
+  if (!item) return;
+
+  const status = item.financeiro_status || 'nao_configurado';
+  dom.recorrenciaStatusBadge.textContent = item.financeiro_status_label || status;
+  dom.recorrenciaStatusBadge.dataset.status = status;
+
+  const assinado = item.status === 'assinado';
+  dom.recorrenciaWarning.hidden = assinado || status === 'cancelado';
+  if (!assinado && status !== 'cancelado') {
+    dom.recorrenciaWarning.textContent = 'A configuração pode ser salva, mas a cobrança só poderá ser ativada quando o contrato estiver com status Assinado.';
+  }
+
+  dom.recorrenciaError.hidden = !item.financeiro_ultimo_erro;
+  dom.recorrenciaError.textContent = item.financeiro_ultimo_erro
+    ? `Última geração falhou: ${item.financeiro_ultimo_erro}`
+    : '';
+
+  dom.btnAtivarRecorrencia.hidden = !['configurado', 'nao_configurado'].includes(status);
+  dom.btnAtivarRecorrencia.disabled = !item.configuracao_completa || !assinado;
+  dom.btnSuspenderRecorrencia.hidden = status !== 'ativo';
+  dom.btnRetomarRecorrencia.hidden = status !== 'suspenso';
+  dom.btnGerarRecorrencia.hidden = status !== 'ativo';
+  dom.btnCancelarRecorrencia.hidden = !['configurado', 'ativo', 'suspenso'].includes(status);
+  dom.btnSalvarRecorrencia.disabled = status === 'cancelado';
+
+  const resumo = item.resumo_financeiro || {};
+  dom.recorrenciaSummary.innerHTML = [
+    ['Títulos gerados', resumo.total_titulos ?? 0],
+    ['Saldo em aberto', formatMoney(resumo.saldo_em_aberto || 0)],
+    ['Última competência', formatCompetencia(item.financeiro_ultima_competencia_gerada)],
+    ['Próxima competência', formatCompetencia(item.financeiro_proxima_competencia)],
+  ].map(([label, value]) => `
+    <article class="recorrencia-summary-card">
+      <small>${escapeHtml(label)}</small>
+      <strong>${escapeHtml(value)}</strong>
+    </article>
+  `).join('');
+
+  const titulos = Array.isArray(item.titulos) ? item.titulos : [];
+  if (!titulos.length) {
+    dom.recorrenciaTitulos.innerHTML = '<div class="recorrencia-empty">Nenhuma cobrança recorrente foi gerada para este contrato.</div>';
+    return;
+  }
+
+  dom.recorrenciaTitulos.innerHTML = titulos.map((titulo) => `
+    <article class="recorrencia-titulo-item">
+      <strong>${escapeHtml(titulo.descricao || `Título #${titulo.id}`)}</strong>
+      <span>Comp. ${escapeHtml(formatCompetencia(titulo.competencia))}</span>
+      <span>${escapeHtml(formatDate(titulo.data_vencimento))} • ${escapeHtml(formatMoney(titulo.valor_total))}</span>
+      <span class="recorrencia-titulo-status">${escapeHtml(titulo.status || 'aberto')}</span>
+    </article>
+  `).join('');
+}
+
+function valorInteiro(select) {
+  const value = String(select?.value || '').trim();
+  return value ? Number(value) : null;
+}
+
+function montarPayloadRecorrencia() {
+  return {
+    frequencia: dom.recorrenciaFrequencia.value || 'mensal',
+    primeiro_vencimento: dom.recorrenciaPrimeiroVencimento.value || null,
+    dia_vencimento: Number(dom.recorrenciaDiaVencimento.value || 0) || null,
+    meses_antecipacao: Number(dom.recorrenciaAntecipacao.value || 0),
+    forma_cobranca_id: valorInteiro(dom.recorrenciaFormaCobranca),
+    forma_pagamento_id: valorInteiro(dom.recorrenciaFormaPagamento),
+    conta_banco_id: valorInteiro(dom.recorrenciaContaBanco),
+    categoria_id: valorInteiro(dom.recorrenciaCategoria),
+    conta_contabil_id: valorInteiro(dom.recorrenciaContaContabil),
+    tipo_documento_id: valorInteiro(dom.recorrenciaTipoDocumento),
+    natureza_operacao_id: valorInteiro(dom.recorrenciaNatureza),
+    centro_custo_principal_id: valorInteiro(dom.recorrenciaCcPrincipal),
+    centro_custo_secundario_id: valorInteiro(dom.recorrenciaCcSecundario),
+    unidade_consumo_principal_id: valorInteiro(dom.recorrenciaUcPrincipal),
+    unidade_consumo_secundaria_id: valorInteiro(dom.recorrenciaUcSecundaria),
+    regra_encargos_id: valorInteiro(dom.recorrenciaRegraEncargos),
+    entidade_emissora_id: valorInteiro(dom.recorrenciaEntidadeEmissora),
+    observacoes: String(dom.recorrenciaObservacoes.value || '').trim() || null,
+  };
+}
+
+async function salvarConfiguracaoRecorrencia() {
+  const contratoId = state.contratoSelecionado?.id;
+  if (!contratoId || state.carregandoRecorrencia) return;
+
+  const valorTela = Number(String(byId('valor_mensal').value || '').replace('.', '').replace(',', '.'));
+  const valorSalvo = Number(state.contratoSelecionado?.valor_mensal || 0);
+  if (Number.isFinite(valorTela) && Math.abs(valorTela - valorSalvo) > 0.009) {
+    toast('Salve primeiro o contrato para aplicar o novo valor mensal.', 'error');
+    return;
+  }
+
+  const payload = montarPayloadRecorrencia();
+  if (!payload.primeiro_vencimento) {
+    toast('Informe o primeiro vencimento.', 'error');
+    dom.recorrenciaPrimeiroVencimento.focus();
+    return;
+  }
+  if (!payload.forma_cobranca_id || !payload.conta_banco_id || !payload.categoria_id || !payload.conta_contabil_id) {
+    toast('Preencha forma de cobrança, conta bancária, categoria e conta contábil.', 'error');
+    return;
+  }
+
+  setRecorrenciaBusy(true);
+  try {
+    state.recorrencia = await apiJson(`${API_FINANCEIRO}/contratos-recorrentes/${contratoId}/configuracao`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    aplicarRecorrenciaNoFormulario();
+    renderRecorrencia();
+    await carregarHistorico();
+    toast('Configuração financeira salva.');
+  } catch (error) {
+    console.error('[Contratos Admin] erro ao salvar recorrência:', error);
+    toast(error.message || 'Erro ao salvar a cobrança recorrente.', 'error');
+  } finally {
+    setRecorrenciaBusy(false);
+  }
+}
+
+async function executarAcaoRecorrencia(acao) {
+  const contratoId = state.contratoSelecionado?.id;
+  if (!contratoId || state.carregandoRecorrencia) return;
+
+  let motivo = null;
+  if (acao === 'suspender') {
+    motivo = window.prompt('Motivo da suspensão (opcional):', '') || null;
+  } else if (acao === 'cancelar') {
+    motivo = window.prompt('Informe o motivo do cancelamento da recorrência:', '') || '';
+    if (!motivo.trim()) return;
+    if (!window.confirm('Cancelar a recorrência? Os títulos já gerados serão preservados.')) return;
+  } else if (acao === 'ativar' && !window.confirm('Ativar a cobrança recorrente e gerar os primeiros títulos?')) {
+    return;
+  }
+
+  setRecorrenciaBusy(true);
+  try {
+    state.recorrencia = await apiJson(`${API_FINANCEIRO}/contratos-recorrentes/${contratoId}/${acao}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ motivo }),
+    });
+    aplicarRecorrenciaNoFormulario();
+    renderRecorrencia();
+    await carregarHistorico();
+    const quantidade = Number(state.recorrencia?.geracao?.quantidade || 0);
+    toast(quantidade ? `${quantidade} cobrança(s) gerada(s).` : 'Recorrência atualizada com sucesso.');
+  } catch (error) {
+    console.error(`[Contratos Admin] erro na ação ${acao}:`, error);
+    toast(error.message || 'Erro ao atualizar a recorrência.', 'error');
+  } finally {
+    setRecorrenciaBusy(false);
+  }
+}
+
+async function gerarRecorrenciaAgora() {
+  const contratoId = state.contratoSelecionado?.id;
+  if (!contratoId || state.carregandoRecorrencia) return;
+  setRecorrenciaBusy(true);
+  try {
+    state.recorrencia = await apiJson(`${API_FINANCEIRO}/contratos-recorrentes/${contratoId}/gerar`, {
+      method: 'POST',
+    });
+    aplicarRecorrenciaNoFormulario();
+    renderRecorrencia();
+    await carregarHistorico();
+    const quantidade = Number(state.recorrencia?.geracao?.quantidade || 0);
+    toast(quantidade ? `${quantidade} novo(s) título(s) gerado(s).` : 'Nenhum título novo precisava ser gerado.');
+  } catch (error) {
+    console.error('[Contratos Admin] erro ao gerar recorrência:', error);
+    toast(error.message || 'Erro ao gerar cobranças recorrentes.', 'error');
+  } finally {
+    setRecorrenciaBusy(false);
+  }
+}
+
 function bindEvents() {
   dom.btnRecarregar.addEventListener('click', async () => {
     await carregarBase();
@@ -1074,6 +1454,18 @@ function bindEvents() {
   });
 
   dom.btnRecarregarHistorico.addEventListener('click', carregarHistorico);
+
+  dom.recorrenciaPrimeiroVencimento?.addEventListener('change', () => {
+    if (dom.recorrenciaPrimeiroVencimento.value && !dom.recorrenciaDiaVencimento.value) {
+      dom.recorrenciaDiaVencimento.value = String(Number(dom.recorrenciaPrimeiroVencimento.value.slice(-2)));
+    }
+  });
+  dom.btnSalvarRecorrencia?.addEventListener('click', salvarConfiguracaoRecorrencia);
+  dom.btnAtivarRecorrencia?.addEventListener('click', () => executarAcaoRecorrencia('ativar'));
+  dom.btnSuspenderRecorrencia?.addEventListener('click', () => executarAcaoRecorrencia('suspender'));
+  dom.btnRetomarRecorrencia?.addEventListener('click', () => executarAcaoRecorrencia('retomar'));
+  dom.btnGerarRecorrencia?.addEventListener('click', gerarRecorrenciaAgora);
+  dom.btnCancelarRecorrencia?.addEventListener('click', () => executarAcaoRecorrencia('cancelar'));
 
   dom.form.addEventListener('submit', salvarContrato);
 }

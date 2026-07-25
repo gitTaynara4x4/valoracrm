@@ -1051,6 +1051,7 @@
 
         <div class="dropdown dropdown-financeiro">
           <button class="dropdown-item" type="button" data-target="financeiro">Visão Geral</button>
+          <button class="dropdown-item" type="button" data-target="vendas-financeiro">Vendas pendentes</button>
           <button class="dropdown-item" type="button" data-target="contas-receber">Contas a Receber</button>
           <button class="dropdown-item" type="button" data-target="contas-pagar">Contas a Pagar</button>
           <button class="dropdown-item" type="button" data-target="fluxo-caixa">Fluxo de Caixa</button>
@@ -1188,6 +1189,7 @@
     <div class="mobile-section">
       <div class="mobile-title">Financeiro</div>
       <button class="mobile-link" type="button" data-target="financeiro"><i class="fa-solid fa-chart-pie"></i> Visão Geral</button>
+      <button class="mobile-link" type="button" data-target="vendas-financeiro"><i class="fa-solid fa-cart-arrow-down"></i> Vendas pendentes</button>
       <button class="mobile-link" type="button" data-target="contas-receber"><i class="fa-solid fa-hand-holding-dollar"></i> Contas a Receber</button>
       <button class="mobile-link" type="button" data-target="contas-pagar"><i class="fa-solid fa-file-invoice-dollar"></i> Contas a Pagar</button>
       <button class="mobile-link" type="button" data-target="fluxo-caixa"><i class="fa-solid fa-money-bill-transfer"></i> Fluxo de Caixa</button>
@@ -1860,6 +1862,10 @@
           goTo('/financeiro');
           break;
 
+        case 'vendas-financeiro':
+          goTo('/vendas-financeiro');
+          break;
+
         case 'contas-receber':
           goTo('/contas-receber');
           break;
@@ -1974,6 +1980,7 @@
       if (path === '/usuarios' || path === '/frontend/usuarios.html') return 'usuarios';
 
       if (path === '/financeiro' || path === '/frontend/financeiro.html') return 'financeiro';
+      if (path === '/vendas-financeiro' || path === '/frontend/vendas-financeiro.html') return 'vendas-financeiro';
       if (path === '/contas-receber' || path === '/frontend/contas-receber.html') return 'contas-receber';
       if (path === '/contas-pagar' || path === '/frontend/contas-pagar.html') return 'contas-pagar';
       if (path === '/fluxo-caixa' || path === '/frontend/fluxo-caixa.html') return 'fluxo-caixa';
