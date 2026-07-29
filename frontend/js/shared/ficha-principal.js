@@ -506,7 +506,8 @@
       const tipoBase = getTipoRelacaoBase(tipo);
       const config = LOOKUP_CONFIG[tipoBase];
       const slug = String(panel.getAttribute('data-multiselect-ui') || '').trim();
-      const hidden = slug ? base.querySelector(`input.custom-relation-hidden[data-custom-field="${cssEscape(slug)}"]`) : null;
+      const instanceRoot = panel.closest('[data-custom-field-wrapper], .custom-field-item, .form-group') || base;
+      const hidden = slug ? instanceRoot.querySelector(`input.custom-relation-hidden[data-custom-field="${cssEscape(slug)}"]`) : null;
       const selecionados = new Set(parseMultiValor(hidden?.value || panel.getAttribute('data-current-value') || ''));
       const disabled = panel.getAttribute('data-disabled') === 'true';
 
@@ -520,7 +521,7 @@
       const valoresIndisponiveis = Array.from(selecionados).filter((value) => !valoresDisponiveis.has(String(value)));
 
       const registrosIndisponiveisHtml = valoresIndisponiveis.map((value, index) => {
-        const optionId = `custom-lookup-${slug}-indisponivel-${index}`;
+        const optionId = `${hidden.id || `custom-lookup-${slug}`}-indisponivel-${index}`;
         const legacyLabel = `Registro salvo #${value}`;
         return `
           <label class="custom-multiselect-option is-legacy-option" for="${escapeHtml(optionId)}" data-option-text="${escapeHtml(legacyLabel)}" data-legacy-option="true">
@@ -542,7 +543,7 @@
         if (!value) return '';
         const label = config.label(item) || value;
         const checked = selecionados.has(String(value)) ? 'checked' : '';
-        const optionId = `custom-lookup-${slug}-${index}`;
+        const optionId = `${hidden.id || `custom-lookup-${slug}`}-opcao-${index}`;
         return `
           <label class="custom-multiselect-option" for="${escapeHtml(optionId)}" data-option-text="${escapeHtml(label)}">
             <input
@@ -567,11 +568,11 @@
       getMultiselectSearchIndex(dropdown);
       const search = dropdown?.querySelector('[data-multiselect-search]');
       if (search?.value) filtrarOpcoesMultiselect(dropdown, search.value, { immediate: true });
-      updateCustomMultiselectValue(base, slug);
+      updateCustomMultiselectValue(base, slug, panel);
       panel.addEventListener('change', (event) => {
         const input = event.target;
         if (!input || !input.matches('[data-multiselect-option]')) return;
-        updateCustomMultiselectValue(base, slug);
+        updateCustomMultiselectValue(base, slug, panel);
       });
     });
   }
@@ -918,6 +919,31 @@
     const slug = campo?.slug;
     if (!slug) return '';
 
+    const origem = String(campo?.origem || '').trim().toLowerCase();
+    const campoSistema = String(campo?.campo_sistema || '').trim();
+    const customValues = values?.__custom_fields && typeof values.__custom_fields === 'object'
+      ? values.__custom_fields
+      : null;
+    const systemValues = values?.__system_fields && typeof values.__system_fields === 'object'
+      ? values.__system_fields
+      : null;
+
+    // Campos personalizados e campos do sistema podem ter a mesma chave (por
+    // exemplo, cpf_cnpj). Mantemos as fontes separadas para um valor nativo
+    // vazio/antigo não esconder o valor realmente salvo no campo personalizado.
+    if (origem === 'personalizado' && customValues) {
+      if (Object.prototype.hasOwnProperty.call(customValues, slug)) {
+        return customValues[slug] ?? '';
+      }
+    }
+
+    if (origem === 'sistema' && systemValues) {
+      const key = campoSistema || slug;
+      if (Object.prototype.hasOwnProperty.call(systemValues, key)) {
+        return systemValues[key] ?? '';
+      }
+    }
+
     if (values[slug] !== undefined && values[slug] !== null) return values[slug];
 
     if (slug === 'data_cadastro') {
@@ -943,9 +969,10 @@
     return text;
   }
 
-  function renderInputCampo(campo, values = {}) {
+  function renderInputCampo(campo, values = {}, context = {}) {
     const slug = campo.slug;
-    const id = `custom-field-${slug}`;
+    const instanceKey = slugify(context?.instanceKey || '') || 'campo';
+    const id = `custom-field-${slug}-${instanceKey}`;
     const label = campo.nome || slug;
     const tipo = normalizarTipo(campo.tipo);
     const valor = getValorCampo(values, campo);
@@ -954,6 +981,10 @@
     const disabled = campo.somente_leitura ? 'disabled' : '';
     const fieldClass = getCampoClass(campo);
     const readonlyAttr = campo.somente_leitura ? 'data-custom-readonly="true"' : '';
+    const origem = String(campo?.origem || '').trim().toLowerCase();
+    const campoSistema = String(campo?.campo_sistema || '').trim();
+    const sectionTitle = String(context?.sectionTitle || '').trim();
+    const wrapperMeta = `data-custom-field-wrapper="true" data-custom-slug="${escapeHtml(slug)}" data-custom-origin="${escapeHtml(origem)}" data-system-field="${escapeHtml(campoSistema)}" data-custom-section="${escapeHtml(sectionTitle)}"`;
 
     if (tipo === 'checkbox') {
       const checked =
@@ -964,7 +995,7 @@
           : '';
 
       return `
-        <div class="form-group custom-field-item ${fieldClass}">
+        <div class="form-group custom-field-item ${fieldClass}" ${wrapperMeta}>
           <label class="custom-checkbox check-card">
             <input
               type="checkbox"
@@ -984,7 +1015,7 @@
       `;
     }
 
-    let html = `<div class="form-group custom-field-item ${fieldClass}">`;
+    let html = `<div class="form-group custom-field-item ${fieldClass}" ${wrapperMeta}>`;
     html += `<label for="${id}">${escapeHtml(label)}${required}</label>`;
 
     if (tipo === 'textarea') {
@@ -1424,11 +1455,13 @@
     return 'fa-layer-group';
   }
 
-  function renderSecao(secao, values = {}) {
+  function renderSecao(secao, values = {}, sectionIndex = 0) {
     const icon = getIconeSecao(secao, 'fa-layer-group');
+    const sectionTitle = secao.titulo || 'Seção';
+    const sectionKey = slugify(String(secao.id ?? sectionTitle ?? sectionIndex)) || `secao-${sectionIndex}`;
 
     return `
-      <article class="custom-section-card custom-section-card-bitrix" data-custom-section-icon="${escapeHtml(icon)}">
+      <article class="custom-section-card custom-section-card-bitrix" data-custom-section-icon="${escapeHtml(icon)}" data-custom-section-title="${escapeHtml(sectionTitle)}">
         <div class="custom-section-head">
           <div class="custom-section-title">
             <span class="custom-section-icon"><i class="fa-solid ${escapeHtml(icon)}"></i></span>
@@ -1440,7 +1473,10 @@
         </div>
 
         <div class="custom-fields-grid">
-          ${(secao.campos || []).map((campo) => renderInputCampo(campo, values)).join('')}
+          ${(secao.campos || []).map((campo, campoIndex) => renderInputCampo(campo, values, {
+            instanceKey: `${sectionKey}-${campoIndex}`,
+            sectionTitle,
+          })).join('')}
         </div>
       </article>
     `;
@@ -1608,14 +1644,21 @@
     return String(dataText || spanText || input?.value || '').trim();
   }
 
-  function renderMultiselectResumo(base, slug, checkedInputs) {
+  function getMultiselectInstanceRoot(base, instance = null) {
+    const fallback = base || document;
+    const element = instance?.nodeType === 1 ? instance : null;
+    return element?.closest?.('[data-custom-field-wrapper], .custom-field-item, .form-group') || fallback;
+  }
+
+  function renderMultiselectResumo(base, slug, checkedInputs, instance = null) {
+    const scope = getMultiselectInstanceRoot(base, instance);
     const safeSlug = cssEscape(slug);
-    const dropdown = base.querySelector(`[data-multiselect-dropdown="${safeSlug}"]`);
-    const selectedEl = base.querySelector(`[data-multiselect-selected="${safeSlug}"]`);
-    const placeholderEl = base.querySelector(`[data-multiselect-placeholder="${safeSlug}"]`);
+    const dropdown = scope.querySelector(`[data-multiselect-dropdown="${safeSlug}"]`);
+    const selectedEl = scope.querySelector(`[data-multiselect-selected="${safeSlug}"]`);
+    const placeholderEl = scope.querySelector(`[data-multiselect-placeholder="${safeSlug}"]`);
     if (!selectedEl || !placeholderEl) return;
 
-    const checked = checkedInputs || Array.from(base.querySelectorAll(`[data-multiselect-option="${safeSlug}"]:checked`));
+    const checked = checkedInputs || Array.from(scope.querySelectorAll(`[data-multiselect-option="${safeSlug}"]:checked`));
     const selectedItems = checked
       .map((input) => ({
         text: getMultiselectOptionLabel(input),
@@ -1678,28 +1721,34 @@
     if (actionClear) actionClear.disabled = !checkedEnabled.length;
   }
 
-  function updateCustomMultiselectValue(root, slug) {
+  function updateCustomMultiselectValue(root, slug, instance = null) {
     const base = root || document;
+    const scope = getMultiselectInstanceRoot(base, instance);
     const safeSlug = cssEscape(slug);
-    const hidden = base.querySelector(`input.custom-multiselect-hidden[data-custom-field="${safeSlug}"]`);
+    const hidden = scope.querySelector(`input.custom-multiselect-hidden[data-custom-field="${safeSlug}"]`);
     if (!hidden) return;
 
-    const checkedInputs = Array.from(base.querySelectorAll(`[data-multiselect-option="${safeSlug}"]:checked`));
+    const checkedInputs = Array.from(scope.querySelectorAll(`[data-multiselect-option="${safeSlug}"]:checked`));
     const checked = checkedInputs
       .map((input) => String(input.value ?? '').trim())
       .filter(Boolean);
 
-    hidden.value = JSON.stringify(checked);
+    const nextValue = JSON.stringify(checked);
+    const previousValue = String(hidden.value || '');
+    hidden.value = nextValue;
+    if (nextValue !== previousValue) {
+      hidden.dispatchEvent(new Event('input', { bubbles: true }));
+    }
 
-    const panel = base.querySelector(`[data-multiselect-ui="${safeSlug}"]`);
+    const panel = scope.querySelector(`[data-multiselect-ui="${safeSlug}"]`);
     if (panel) {
       panel.classList.toggle('has-value', checked.length > 0);
       if (checked.length > 0) panel.classList.remove('is-invalid');
     }
 
-    renderMultiselectResumo(base, slug, checkedInputs);
+    renderMultiselectResumo(base, slug, checkedInputs, scope);
 
-    const dropdown = base.querySelector(`[data-multiselect-dropdown="${safeSlug}"]`);
+    const dropdown = scope.querySelector(`[data-multiselect-dropdown="${safeSlug}"]`);
     if (dropdown) updateMultiselectToolbar(dropdown);
   }
 
@@ -1939,7 +1988,7 @@
       if (willOpen) {
         getMultiselectSearchIndex(dropdown);
         search?.focus({ preventScroll: true });
-        if (slug) updateCustomMultiselectValue(base, slug);
+        if (slug) updateCustomMultiselectValue(base, slug, dropdown);
         if (search?.value) filtrarOpcoesMultiselect(dropdown, search.value, { immediate: true });
         refreshDropdownState();
         posicionarDropdownMultiselect(dropdown);
@@ -1967,7 +2016,7 @@
           dropdown.querySelectorAll('[data-multiselect-option]').forEach((input) => {
             if (!input.disabled) input.checked = false;
           });
-          if (slug) updateCustomMultiselectValue(base, slug);
+          if (slug) updateCustomMultiselectValue(base, slug, dropdown);
           refreshDropdownState();
           return;
         }
@@ -2019,7 +2068,7 @@
       const slug = String(panel.getAttribute('data-multiselect-ui') || '').trim();
       if (!slug) return;
 
-      updateCustomMultiselectValue(base, slug);
+      updateCustomMultiselectValue(base, slug, panel);
 
       if (panel.dataset.multiselectBound === 'true') return;
       panel.dataset.multiselectBound = 'true';
@@ -2027,7 +2076,7 @@
       panel.addEventListener('change', (event) => {
         const input = event.target;
         if (!input || !input.matches('[data-multiselect-option]')) return;
-        updateCustomMultiselectValue(base, slug);
+        updateCustomMultiselectValue(base, slug, panel);
       });
     });
   }
@@ -2073,7 +2122,7 @@
       return [];
     }
 
-    el.innerHTML = secoes.map((secao) => renderSecao(secao, values)).join('');
+    el.innerHTML = secoes.map((secao, sectionIndex) => renderSecao(secao, values, sectionIndex)).join('');
     hydrateCustomMultiselects(el);
     hydrateLookupFields(el);
     animateRenderedSections(el);
@@ -2084,22 +2133,67 @@
     return secoes;
   }
 
+  function renderedFieldVisible(el) {
+    if (!el || el.hidden || el.closest('[hidden]')) return false;
+    return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+  }
+
+  function renderedFieldGroup(el) {
+    const slug = String(el?.getAttribute?.('data-custom-field') || '').trim();
+    const wrapper = el?.closest?.('[data-custom-field-wrapper="true"]');
+    const origin = String(wrapper?.dataset?.customOrigin || '').trim().toLowerCase();
+    const systemField = String(wrapper?.dataset?.systemField || '').trim();
+    const outputKey = origin === 'sistema' && systemField ? systemField : slug;
+    return {
+      key: `${origin === 'sistema' ? 'system' : 'custom'}:${outputKey}`,
+      outputKey,
+    };
+  }
+
+  function selectPreferredRenderedField(elements = []) {
+    const enabled = elements.filter((el) => !el.disabled && el.dataset.customReadonly !== 'true');
+    const candidates = enabled.length ? enabled : elements;
+
+    return [...candidates].sort((a, b) => {
+      const dirtyA = Number(a.dataset.customDirtyOrder || 0);
+      const dirtyB = Number(b.dataset.customDirtyOrder || 0);
+      if (dirtyA !== dirtyB) return dirtyB - dirtyA;
+
+      const visibleA = renderedFieldVisible(a) ? 1 : 0;
+      const visibleB = renderedFieldVisible(b) ? 1 : 0;
+      if (visibleA !== visibleB) return visibleB - visibleA;
+
+      return 0;
+    })[0] || null;
+  }
+
+  function groupRenderedFields(elements = []) {
+    const groups = new Map();
+    elements.forEach((el) => {
+      const group = renderedFieldGroup(el);
+      if (!group.outputKey) return;
+      if (!groups.has(group.key)) groups.set(group.key, { outputKey: group.outputKey, elements: [] });
+      groups.get(group.key).elements.push(el);
+    });
+    return Array.from(groups.values());
+  }
+
   function collectCustomFieldsValues(root = document) {
     const out = {};
+    const fields = Array.from(root.querySelectorAll('[data-custom-field]'));
 
-    root.querySelectorAll('[data-custom-field]').forEach((el) => {
-      const slug = String(el.getAttribute('data-custom-field') || '').trim();
-      if (!slug) return;
-      if (el.disabled || el.dataset.customReadonly === 'true') return;
+    groupRenderedFields(fields).forEach(({ outputKey, elements }) => {
+      const el = selectPreferredRenderedField(elements);
+      if (!el || el.disabled || el.dataset.customReadonly === 'true') return;
 
       if (el.type === 'checkbox') {
-        out[slug] = el.checked ? 'true' : 'false';
+        out[outputKey] = el.checked ? 'true' : 'false';
         return;
       }
 
       if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
         const values = parseMultiValor(el.value);
-        if (values.length) out[slug] = JSON.stringify(values);
+        if (values.length) out[outputKey] = JSON.stringify(values);
         return;
       }
 
@@ -2108,12 +2202,12 @@
           .map((opt) => String(opt.value ?? '').trim())
           .filter(Boolean);
 
-        if (values.length) out[slug] = JSON.stringify(values);
+        if (values.length) out[outputKey] = JSON.stringify(values);
         return;
       }
 
       const value = String(el.value ?? '').trim();
-      if (value !== '') out[slug] = value;
+      if (value !== '') out[outputKey] = value;
     });
 
     return out;
@@ -2121,8 +2215,11 @@
 
   function validateRequiredRenderedFields({ root = document, toast = null, switchToCustomTab = null } = {}) {
     const required = Array.from(root.querySelectorAll('[data-custom-field][data-required="true"]'));
+    const selectedRequired = groupRenderedFields(required)
+      .map(({ elements }) => selectPreferredRenderedField(elements))
+      .filter(Boolean);
 
-    for (const el of required) {
+    for (const el of selectedRequired) {
       const label = el.dataset.customLabel || el.dataset.customField || 'Campo obrigatório';
       let invalid = false;
 
@@ -2142,7 +2239,8 @@
       if (typeof toast === 'function') toast(`Preencha o campo obrigatório: ${label}`, 'error');
 
       if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
-        const panel = root.querySelector(`[data-multiselect-ui="${cssEscape(el.dataset.customField || '')}"]`);
+        const fieldRoot = el.closest('[data-custom-field-wrapper], .custom-field-item, .form-group') || root;
+        const panel = fieldRoot.querySelector(`[data-multiselect-ui="${cssEscape(el.dataset.customField || '')}"]`);
         if (panel) {
           panel.classList.add('is-invalid');
           try { panel.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}

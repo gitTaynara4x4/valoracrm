@@ -1,0 +1,1893 @@
+/* =========================================================
+   VALORA CRM | EXPERIÊNCIA MOBILE 2026
+   Carregado por app.js depois de todos os estilos das páginas.
+   Todas as regras ficam limitadas a tablet/celular para preservar o desktop.
+   ========================================================= */
+
+.valora-mobile-filter-toggle,
+.valora-mobile-row-toggle,
+.valora-mobile-row-toggle-cell {
+  display: none !important;
+}
+
+@media (max-width: 920px) {
+  :root {
+    --valora-mobile-gap: 12px;
+    --valora-mobile-radius: 14px;
+    --valora-mobile-header: 52px;
+    --valora-mobile-touch: 44px;
+  }
+
+  html {
+    scroll-padding-top: 68px;
+  }
+
+  body {
+    font-size: 14px !important;
+    line-height: 1.45 !important;
+    overflow-x: hidden !important;
+    overscroll-behavior-x: none;
+  }
+
+  body .layout,
+  body .main,
+  body main.main {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  body .main,
+  body main.main {
+    padding: calc(var(--valora-mobile-header) + 14px) 12px calc(24px + env(safe-area-inset-bottom)) !important;
+    gap: 0 !important;
+  }
+
+  body .valora-footer {
+    margin-top: 20px !important;
+    padding: 16px 0 calc(10px + env(safe-area-inset-bottom)) !important;
+  }
+
+  body .footer-content,
+  body .footer-left,
+  body .footer-links {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  /* Tipografia legível: remove o padrão antigo de 10/11px no celular. */
+  body h1,
+  body .topbar h1,
+  body .topbar-title h1,
+  body h1.page-title,
+  body .dashboard-header h1 {
+    font-size: clamp(21px, 6vw, 25px) !important;
+    line-height: 1.16 !important;
+    letter-spacing: -0.025em !important;
+    margin: 0 !important;
+  }
+
+  body h2 {
+    font-size: 19px !important;
+    line-height: 1.25 !important;
+  }
+
+  body h3 {
+    font-size: 15px !important;
+    line-height: 1.3 !important;
+  }
+
+  body p,
+  body .topbar-subtitle,
+  body .page-subtitle,
+  body .panel-head p,
+  body .financeiro-muted,
+  body small {
+    font-size: 12.5px !important;
+    line-height: 1.5 !important;
+  }
+
+  body label,
+  body .form-group label,
+  body .financeiro-field label {
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+  }
+
+  body .eyebrow,
+  body .page-eyebrow,
+  body .module-eyebrow,
+  body .page-kicker,
+  body .section-kicker {
+    font-size: 10.5px !important;
+    margin-bottom: 4px !important;
+  }
+
+  /* Cabeçalho da página compacto e ações roláveis, sem mural de botões. */
+  body .topbar,
+  body .dashboard-header,
+  body .formularios-topbar,
+  body .contratos-topbar,
+  body .area-cliente-topbar,
+  body .patrimonio-topbar,
+  body .budget-topbar,
+  body .financeiro-saas-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    margin: 0 0 14px !important;
+    padding: 0 !important;
+  }
+
+  body .topbar-title,
+  body .dashboard-header-left {
+    gap: 2px !important;
+  }
+
+  body .topbar-title p,
+  body .dashboard-header-left p {
+    margin-top: 3px !important;
+    max-width: 100% !important;
+  }
+
+  body .topbar-actions,
+  body .dashboard-header-right,
+  body .toolbar-actions,
+  body .contratos-actions,
+  body .budget-header-actions,
+  body .price-update-header-actions,
+  body .proposal-header-actions {
+    display: flex !important;
+    flex-flow: row nowrap !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    width: calc(100% + 24px) !important;
+    max-width: none !important;
+    margin: 0 -12px !important;
+    padding: 2px 12px 8px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  body .topbar-actions::-webkit-scrollbar,
+  body .dashboard-header-right::-webkit-scrollbar,
+  body .toolbar-actions::-webkit-scrollbar,
+  body .budget-header-actions::-webkit-scrollbar,
+  body .price-update-header-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  body .topbar-actions > *,
+  body .dashboard-header-right > *,
+  body .toolbar-actions > *,
+  body .contratos-actions > *,
+  body .budget-header-actions > *,
+  body .price-update-header-actions > *,
+  body .proposal-header-actions > * {
+    flex: 0 0 auto !important;
+    scroll-snap-align: start;
+  }
+
+  /* Alvos de toque reais. */
+  body button,
+  body .btn,
+  body a.btn,
+  body .tab-btn,
+  body [role="button"] {
+    min-height: var(--valora-mobile-touch) !important;
+  }
+
+  body .btn,
+  body button.btn,
+  body a.btn {
+    width: auto !important;
+    min-width: max-content !important;
+    padding: 0 14px !important;
+    font-size: 12.5px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  body .btn-icon,
+  body .cotacao-icon-btn,
+  body .financeiro-icon-btn,
+  body button[aria-label]:not(.btn) {
+    width: var(--valora-mobile-touch) !important;
+    min-width: var(--valora-mobile-touch) !important;
+    height: var(--valora-mobile-touch) !important;
+    min-height: var(--valora-mobile-touch) !important;
+    padding: 0 !important;
+  }
+
+  body input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+  body select,
+  body textarea,
+  body .multiselect-trigger,
+  body .select2-selection,
+  body .autocomplete-input {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 46px !important;
+    font-size: 16px !important; /* impede zoom automático no iOS */
+    line-height: 1.35 !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  body textarea {
+    min-height: 112px !important;
+    resize: vertical !important;
+  }
+
+  body input[type="checkbox"],
+  body input[type="radio"] {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+  }
+
+  /* Cards e grids. */
+  body .panel-card,
+  body .section-card,
+  body .financeiro-panel,
+  body .financeiro-card,
+  body .dashboard-panel,
+  body .dashboard-kpi-card,
+  body .dashboard-graph-card,
+  body .dashboard-summary-panel,
+  body .config-card,
+  body .settings-card,
+  body .builder-main,
+  body .builder-sidebar,
+  body .hero-card,
+  body .area-intro,
+  body .contratos-intro {
+    border-radius: var(--valora-mobile-radius) !important;
+    max-width: 100% !important;
+  }
+
+  body .panel-card,
+  body .section-card,
+  body .financeiro-panel,
+  body .config-card,
+  body .settings-card,
+  body .builder-main,
+  body .builder-sidebar,
+  body .area-intro,
+  body .contratos-intro {
+    padding: 14px !important;
+  }
+
+  body .stats-grid,
+  body .dashboard-kpi-grid,
+  body .financeiro-grid-4,
+  body .financeiro-grid-3,
+  body .financeiro-metrics-grid,
+  body .budget-kpis,
+  body .hero-mini-grid,
+  body .modules-grid,
+  body .dashboard-actions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  body .content-grid,
+  body .dashboard-main,
+  body .dashboard-graph-grid,
+  body .dashboard-bottom-grid,
+  body .financeiro-dashboard-grid,
+  body .financeiro-bottom-grid,
+  body .financeiro-cadastros-grid,
+  body .settings-layout,
+  body .area-grid,
+  body .contratos-grid,
+  body .help-layout,
+  body .builder-layout,
+  body .config-layout,
+  body .perfil-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  body .stat-card,
+  body .dashboard-kpi-card,
+  body .financeiro-card,
+  body .budget-kpi {
+    min-height: 116px !important;
+    padding: 14px !important;
+  }
+
+  body .stat-value,
+  body .financeiro-value,
+  body .dashboard-kpi-value,
+  body .budget-kpi strong {
+    font-size: clamp(20px, 6vw, 26px) !important;
+    line-height: 1.1 !important;
+    overflow-wrap: anywhere;
+  }
+
+  /* Filtros recolhíveis gerados por mobile-valora.js. */
+  body .valora-mobile-filter-toggle {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 48px !important;
+    margin: 0 0 10px !important;
+    padding: 0 14px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    background: var(--panel) !important;
+    color: var(--text) !important;
+    box-shadow: var(--shadow-sm) !important;
+    font: inherit !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+  }
+
+  body .valora-mobile-filter-toggle .toggle-copy {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+  }
+
+  body .valora-mobile-filter-toggle .toggle-copy i {
+    color: var(--blue);
+  }
+
+  body .valora-mobile-filter-toggle .toggle-chevron {
+    transition: transform .18s ease;
+  }
+
+  body .valora-mobile-filter-toggle[aria-expanded="true"] .toggle-chevron {
+    transform: rotate(180deg);
+  }
+
+  body .valora-mobile-collapsible-filter {
+    display: none !important;
+    margin-bottom: 12px !important;
+  }
+
+  body .valora-mobile-collapsible-filter.is-mobile-open {
+    display: block !important;
+    animation: valora-mobile-reveal .16s ease;
+  }
+
+  @keyframes valora-mobile-reveal {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  body .filters-grid,
+  body .financeiro-filters-grid,
+  body .form-grid,
+  body .form-row,
+  body .campos-grid,
+  body .custom-fields-grid,
+  body .financeiro-form-grid,
+  body .financeiro-form-grid.cols-2,
+  body .financeiro-form-grid.cols-3,
+  body .cotacao-form-grid,
+  body .proposal-extra-grid,
+  body .proposal-totals-grid,
+  body .settings-summary-grid,
+  body .settings-appearance-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  body .filter-actions,
+  body .footer-actions,
+  body .form-actions,
+  body .config-form-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  body .filter-actions .counter-text,
+  body .footer-actions .counter-text {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+  }
+
+  body .filter-actions > .btn,
+  body .footer-actions > .btn,
+  body .form-actions > .btn,
+  body .config-form-actions > .btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+  }
+
+  /* Navegações horizontais. */
+  body .financeiro-toolbar,
+  body .financeiro-toolbar--saas {
+    display: block !important;
+    width: calc(100% + 24px) !important;
+    max-width: none !important;
+    margin: 0 -12px 12px !important;
+    padding: 0 12px 8px !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+  }
+
+  body .financeiro-tabs,
+  body .cliente-tabs,
+  body .fornecedor-tabs,
+  body .produto-tabs,
+  body .patrimonio-tabs,
+  body .proposal-tabs,
+  body .budget-tabs,
+  body .detail-tabs,
+  body .modal-tabs,
+  body .tabs {
+    display: flex !important;
+    flex-flow: row nowrap !important;
+    gap: 7px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body .financeiro-tabs::-webkit-scrollbar,
+  body .cliente-tabs::-webkit-scrollbar,
+  body .fornecedor-tabs::-webkit-scrollbar,
+  body .produto-tabs::-webkit-scrollbar,
+  body .patrimonio-tabs::-webkit-scrollbar,
+  body .proposal-tabs::-webkit-scrollbar,
+  body .budget-tabs::-webkit-scrollbar,
+  body .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  body .financeiro-tabs a,
+  body .cliente-tab-btn,
+  body .fornecedor-tab-btn,
+  body .produto-tab-btn,
+  body .patrimonio-tab-btn,
+  body .proposal-tab-btn,
+  body .budget-tab,
+  body .detail-tab-btn,
+  body .modal-tabs button,
+  body .tabs button {
+    flex: 0 0 auto !important;
+    min-width: max-content !important;
+    min-height: 42px !important;
+    white-space: nowrap !important;
+  }
+
+  body .financeiro-toolbar-status {
+    display: block !important;
+    margin: 8px 2px 0 !important;
+  }
+
+  /* =======================================================
+     TABELAS EM CARTÕES OPERÁVEIS
+     A classe é aplicada por mobile-valora.js.
+     ======================================================= */
+  body .table-scroll-sync {
+    display: none !important;
+  }
+
+  body .valora-table-wrapper,
+  body .table-wrapper,
+  body .financeiro-table-wrap,
+  body .proposal-table-wrap,
+  body .contatos-table-wrapper,
+  body .panel-card-table,
+  body .config-table-panel,
+  body .budget-items-table-wrap,
+  body .price-update-table-wrap {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  body table.valora-mobile-card-table {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    border: 0 !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    background: transparent !important;
+  }
+
+  body table.valora-mobile-card-table > thead {
+    display: none !important;
+  }
+
+  body table.valora-mobile-card-table > tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr {
+    position: relative !important;
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 10px 12px !important;
+    overflow: hidden !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 13px !important;
+    background: var(--panel) !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td {
+    display: grid !important;
+    grid-template-columns: minmax(82px, 34%) minmax(0, 1fr) !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 36px !important;
+    padding: 7px 0 !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--border) !important;
+    background: transparent !important;
+    color: var(--text) !important;
+    text-align: left !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td:last-of-type {
+    border-bottom: 0 !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td::before {
+    content: attr(data-label) !important;
+    display: block !important;
+    min-width: 0 !important;
+    color: var(--muted) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    text-transform: none !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td[data-label=""],
+  body table.valora-mobile-card-table > tbody > tr > td:not([data-label]) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td[data-label=""]::before,
+  body table.valora-mobile-card-table > tbody > tr > td:not([data-label])::before {
+    display: none !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td[colspan] {
+    display: block !important;
+    padding: 20px 8px !important;
+    border: 0 !important;
+    text-align: center !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td[colspan]::before,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-empty-cell,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-empty-cell::before {
+    display: none !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  body table.valora-mobile-card-table .text-right,
+  body table.valora-mobile-card-table td.text-right {
+    text-align: left !important;
+  }
+
+  body table.valora-mobile-card-table .row-actions,
+  body table.valora-mobile-card-table .mini-actions,
+  body table.valora-mobile-card-table .cotacao-actions,
+  body table.valora-mobile-card-table td:last-of-type > div {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+    gap: 7px !important;
+  }
+
+  body table.valora-mobile-card-table .btn-icon,
+  body table.valora-mobile-card-table .cotacao-icon-btn,
+  body table.valora-mobile-card-table td button[aria-label] {
+    width: var(--valora-mobile-touch) !important;
+    min-width: var(--valora-mobile-touch) !important;
+    height: var(--valora-mobile-touch) !important;
+    min-height: var(--valora-mobile-touch) !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-secondary-cell {
+    display: none !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr.valora-mobile-row-expanded > td.valora-mobile-secondary-cell,
+  body table.valora-mobile-card-table.valora-mobile-edit-table > tbody > tr > td.valora-mobile-secondary-cell {
+    display: grid !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-row-toggle-cell {
+    display: block !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-row-toggle-cell::before {
+    display: none !important;
+  }
+
+  body .valora-mobile-row-toggle {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+    width: 100% !important;
+    min-height: 40px !important;
+    margin: 5px 0 0 !important;
+    padding: 0 10px !important;
+    border: 0 !important;
+    border-top: 1px solid var(--border) !important;
+    background: transparent !important;
+    color: var(--blue) !important;
+    font: inherit !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+  }
+
+  body .valora-mobile-row-toggle i {
+    transition: transform .18s ease;
+  }
+
+  body tr.valora-mobile-row-expanded .valora-mobile-row-toggle i {
+    transform: rotate(180deg);
+  }
+
+  /* Tabelas comparativas continuam roláveis, com indicador visual. */
+  body .valora-mobile-scroll-wrap {
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+  }
+
+  body table.valora-mobile-scroll-table {
+    width: max-content !important;
+    min-width: 720px !important;
+  }
+
+  body table.valora-mobile-scroll-table th,
+  body table.valora-mobile-scroll-table td {
+    white-space: nowrap !important;
+  }
+
+  body .table-pagination,
+  body .pagination-actions {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    padding: 10px 0 !important;
+  }
+
+  body .table-pagination .counter-text,
+  body .table-pagination .pagination-info,
+  body .pagination-actions .pagination-info {
+    grid-column: 1 / -1 !important;
+  }
+
+  body .table-pagination button,
+  body .pagination-actions button,
+  body .table-pagination .btn,
+  body .pagination-actions .btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+  }
+
+  /* =======================================================
+     MODAIS EM TELA CHEIA
+     ======================================================= */
+  body.modal-open,
+  body.financeiro-modal-open,
+  body.valora-help-open {
+    width: 100% !important;
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+  }
+
+  body .modal-overlay,
+  body .confirm-modal,
+  body .financeiro-modal-backdrop {
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body .modal-content,
+  body .modal-xl,
+  body .modal-md,
+  body .modal-sm,
+  body .proposal-modal-content,
+  body .cotacao-modal,
+  body .modal-campo-content,
+  body .budget-modal-content,
+  body .settings-modal-content,
+  body .financeiro-modal,
+  body .financeiro-modal.sm,
+  body .financeiro-modal--ficha {
+    width: 100vw !important;
+    min-width: 0 !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body .modal-content,
+  body .proposal-modal-content,
+  body .settings-modal-content,
+  body .financeiro-modal {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  body .modal-content > form,
+  body .modal-content .cliente-modal-shell,
+  body .modal-content .fornecedor-modal-shell,
+  body .modal-content .produto-modal-shell,
+  body .modal-content .patrimonio-modal-shell,
+  body .modal-content .cotacao-modal-shell,
+  body .budget-modal-shell,
+  body .financeiro-modal > form,
+  body .financeiro-ficha-form {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  body .modal-header,
+  body .proposal-modal-header,
+  body .cotacao-modal-header,
+  body .cliente-modal-topbar,
+  body .fornecedor-modal-topbar,
+  body .produto-modal-topbar,
+  body .patrimonio-modal-topbar,
+  body .budget-modal-topbar,
+  body .settings-modal-header,
+  body .financeiro-modal-head {
+    position: relative !important;
+    z-index: 5 !important;
+    flex: 0 0 auto !important;
+    min-height: 62px !important;
+    padding: calc(10px + env(safe-area-inset-top)) 12px 10px !important;
+    border-bottom: 1px solid var(--border) !important;
+    background: var(--panel) !important;
+  }
+
+  body .modal-body,
+  body .proposal-modal-body,
+  body .cotacao-modal .modal-body,
+  body .cliente-modal-scroll,
+  body .fornecedor-modal-scroll,
+  body .produto-modal-scroll,
+  body .patrimonio-modal-scroll,
+  body .budget-modal-scroll,
+  body .settings-body,
+  body .financeiro-modal-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 14px 12px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body .modal-footer,
+  body .proposal-modal-footer,
+  body .cotacao-modal-footer,
+  body .cliente-modal-footer,
+  body .modal-client-footer,
+  body .fornecedor-modal-footer,
+  body .produto-modal-footer,
+  body .patrimonio-modal-footer,
+  body .budget-modal-footer,
+  body .settings-footer,
+  body .financeiro-modal-foot {
+    position: relative !important;
+    z-index: 6 !important;
+    flex: 0 0 auto !important;
+    display: flex !important;
+    flex-flow: row nowrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-height: 64px !important;
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom)) !important;
+    overflow-x: auto !important;
+    border-top: 1px solid var(--border) !important;
+    background: var(--panel) !important;
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, .08) !important;
+  }
+
+  body .modal-footer .btn,
+  body .proposal-modal-footer .btn,
+  body .cotacao-modal-footer .btn,
+  body .cliente-modal-footer .btn,
+  body .modal-client-footer .btn,
+  body .fornecedor-modal-footer .btn,
+  body .produto-modal-footer .btn,
+  body .patrimonio-modal-footer .btn,
+  body .budget-modal-footer .btn,
+  body .settings-footer .btn,
+  body .financeiro-modal-foot .btn {
+    flex: 1 0 max-content !important;
+    width: auto !important;
+    min-width: 120px !important;
+    justify-content: center !important;
+  }
+
+  /* Sidebars internas dos cadastros viram barra de abas horizontal. */
+  body .cliente-modal-shell,
+  body .fornecedor-modal-shell,
+  body .produto-modal-shell,
+  body .patrimonio-modal-shell,
+  body .budget-modal-shell,
+  body .financeiro-ficha-form {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+  }
+
+  body .cliente-modal-sidebar,
+  body .fornecedor-modal-sidebar,
+  body .produto-modal-sidebar,
+  body .patrimonio-modal-sidebar,
+  body .budget-modal-sidebar,
+  body .financeiro-ficha-sidebar {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    padding: 7px 10px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--border) !important;
+    background: var(--panel) !important;
+    scrollbar-width: none;
+  }
+
+  body .cliente-modal-sidebar::-webkit-scrollbar,
+  body .fornecedor-modal-sidebar::-webkit-scrollbar,
+  body .produto-modal-sidebar::-webkit-scrollbar,
+  body .patrimonio-modal-sidebar::-webkit-scrollbar,
+  body .budget-modal-sidebar::-webkit-scrollbar,
+  body .financeiro-ficha-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  body .financeiro-ficha-brand,
+  body .financeiro-ficha-sidebar > .financeiro-ficha-helper,
+  body .cliente-sidebar-top,
+  body .fornecedor-sidebar-top,
+  body .produto-sidebar-top,
+  body .patrimonio-sidebar-top,
+  body .budget-sidebar-top,
+  body .financeiro-sidebar-top,
+  body .cliente-sidebar-bottom,
+  body .fornecedor-sidebar-bottom,
+  body .produto-sidebar-bottom,
+  body .patrimonio-sidebar-bottom,
+  body .budget-sidebar-bottom,
+  body .financeiro-sidebar-bottom {
+    display: none !important;
+  }
+
+  body .cliente-sidebar-nav,
+  body .fornecedor-sidebar-nav,
+  body .produto-sidebar-nav,
+  body .patrimonio-sidebar-nav,
+  body .budget-sidebar-nav,
+  body .financeiro-ficha-nav {
+    display: flex !important;
+    flex-flow: row nowrap !important;
+    gap: 7px !important;
+    width: max-content !important;
+    min-width: 100% !important;
+  }
+
+  body .cliente-sidebar-nav button,
+  body .fornecedor-sidebar-nav button,
+  body .produto-sidebar-nav button,
+  body .patrimonio-sidebar-nav button,
+  body .budget-sidebar-nav button,
+  body .financeiro-ficha-nav button {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: max-content !important;
+    min-height: 42px !important;
+    padding: 0 12px !important;
+    border-radius: 10px !important;
+    white-space: nowrap !important;
+  }
+
+  body .cliente-sidebar-nav button::before,
+  body .fornecedor-sidebar-nav button::before,
+  body .produto-sidebar-nav button::before,
+  body .patrimonio-sidebar-nav button::before,
+  body .budget-sidebar-nav button::before {
+    display: none !important;
+  }
+
+  body .cliente-modal-main,
+  body .fornecedor-modal-main,
+  body .produto-modal-main,
+  body .patrimonio-modal-main,
+  body .budget-modal-main,
+  body .financeiro-ficha-main {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  /* Confirmações continuam como cards centrais, não ocupam a tela toda. */
+  body .confirm-modal .modal-content,
+  body #Valora-confirm-backdrop .modal-content,
+  body .modal-overlay .confirm-content {
+    width: calc(100vw - 28px) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: calc(100dvh - 28px) !important;
+    margin: auto !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 16px !important;
+  }
+
+  /* Dashboard: cards úteis sem alongar excessivamente. */
+  body .dashboard-welcome-strip {
+    padding: 14px !important;
+    border-radius: 14px !important;
+  }
+
+  body .dashboard-graph-card {
+    min-height: 260px !important;
+    padding: 14px !important;
+  }
+
+  body canvas {
+    max-width: 100% !important;
+  }
+
+  /* Produtos: atualização de preço operável no celular. */
+  body .price-update-screen {
+    padding: 0 !important;
+  }
+
+  body .price-update-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 0 0 12px !important;
+  }
+
+  body .price-update-toolbar,
+  body .price-update-controls,
+  body .price-update-summary {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  body .price-update-table input,
+  body .price-update-table select {
+    min-height: 42px !important;
+  }
+
+  body .price-sticky-code,
+  body .price-sticky-name {
+    position: static !important;
+    left: auto !important;
+    box-shadow: none !important;
+  }
+
+  /* Orçamentos: remove largura desktop forçada de tabelas e editor. */
+  body .budget-toolbar,
+  body .budget-table-card {
+    padding: 12px !important;
+  }
+
+  body .budget-toolbar-grid,
+  body .budget-filter-grid,
+  body .budget-form-grid,
+  body .budget-summary-grid,
+  body .settings-workspace {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body #settings-modal .settings-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 8px 10px !important;
+    overflow-x: auto !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+
+  body #settings-modal .settings-tabs {
+    display: flex !important;
+    flex-flow: row nowrap !important;
+    width: max-content !important;
+    min-width: 100% !important;
+  }
+
+  body #settings-modal .settings-tabs button {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: max-content !important;
+  }
+
+  body #settings-modal .settings-tip-card {
+    display: none !important;
+  }
+
+  /* Formulários/configurações: editores desktop viram fluxo vertical. */
+  body .builder-toolbar,
+  body .config-toolbar,
+  body .custom-fields-head,
+  body .panel-head {
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  body .builder-sidebar,
+  body .config-sidebar,
+  body .settings-nav {
+    position: static !important;
+    top: auto !important;
+    max-height: none !important;
+  }
+
+  body .module-card,
+  body .quick-card,
+  body .settings-nav button {
+    min-height: 50px !important;
+  }
+
+  /* Ajuda como painel de tela cheia, sem ficar atrás do menu. */
+  body .valora-help-panel {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+  }
+
+  body .valora-help-head {
+    padding: calc(12px + env(safe-area-inset-top)) 12px 12px !important;
+  }
+
+  body .valora-help-body {
+    padding: 12px 12px calc(20px + env(safe-area-inset-bottom)) !important;
+  }
+
+  body .valora-floating-help-btn {
+    right: 12px !important;
+    bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  /* Listas flutuantes e multiselect não escapam da tela. */
+  body .multiselect-dropdown,
+  body .autocomplete-list,
+  body .localizar-dropdown,
+  body .select-options,
+  body .custom-select-options {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    max-height: min(46dvh, 360px) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    z-index: 10050 !important;
+  }
+
+  /* Toast não cobre menu nem botões. */
+  body #valora-global-toast,
+  body .valora-toast-container {
+    top: calc(var(--valora-mobile-header) + 8px) !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  body .valora-toast {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 640px) {
+  body .main,
+  body main.main {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  body .topbar-actions,
+  body .dashboard-header-right,
+  body .toolbar-actions,
+  body .contratos-actions,
+  body .budget-header-actions,
+  body .price-update-header-actions,
+  body .proposal-header-actions,
+  body .financeiro-toolbar,
+  body .financeiro-toolbar--saas {
+    width: calc(100% + 20px) !important;
+    margin-left: -10px !important;
+    margin-right: -10px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  body .stats-grid,
+  body .dashboard-kpi-grid,
+  body .financeiro-grid-4,
+  body .financeiro-grid-3,
+  body .financeiro-metrics-grid,
+  body .budget-kpis,
+  body .hero-mini-grid,
+  body .modules-grid,
+  body .dashboard-actions-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body .stat-card,
+  body .dashboard-kpi-card,
+  body .financeiro-card,
+  body .budget-kpi {
+    min-height: 104px !important;
+  }
+
+  body .filter-actions,
+  body .footer-actions,
+  body .form-actions,
+  body .config-form-actions {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td {
+    grid-template-columns: minmax(78px, 32%) minmax(0, 1fr) !important;
+  }
+
+  body .modal-footer .btn,
+  body .proposal-modal-footer .btn,
+  body .cotacao-modal-footer .btn,
+  body .cliente-modal-footer .btn,
+  body .modal-client-footer .btn,
+  body .fornecedor-modal-footer .btn,
+  body .produto-modal-footer .btn,
+  body .patrimonio-modal-footer .btn,
+  body .budget-modal-footer .btn,
+  body .settings-footer .btn,
+  body .financeiro-modal-foot .btn {
+    min-width: 130px !important;
+  }
+
+  /* Financeiro: navegação e cards deixam de parecer tabela desktop comprimida. */
+  body.financeiro-theme-valora .financeiro-panel,
+  body.financeiro-theme-valora .financeiro-card {
+    padding: 13px !important;
+  }
+
+  body.financeiro-theme-valora .financeiro-card-top {
+    align-items: flex-start !important;
+  }
+
+  body.financeiro-theme-valora .financeiro-icon {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  body .financeiro-modal-head-actions {
+    gap: 6px !important;
+  }
+
+  body .financeiro-modal-chip {
+    max-width: 110px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+}
+
+@media (max-width: 390px) {
+  body .main,
+  body main.main {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  body .topbar-actions,
+  body .dashboard-header-right,
+  body .toolbar-actions,
+  body .contratos-actions,
+  body .budget-header-actions,
+  body .price-update-header-actions,
+  body .proposal-header-actions,
+  body .financeiro-toolbar,
+  body .financeiro-toolbar--saas {
+    width: calc(100% + 16px) !important;
+    margin-left: -8px !important;
+    margin-right: -8px !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td {
+    grid-template-columns: minmax(72px, 31%) minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  body .btn,
+  body button.btn,
+  body a.btn {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
+
+/* =========================================================
+   ÚLTIMA CAMADA MOBILE
+   Seletores específicos para neutralizar regras antigas com ID
+   sem alcançar o desktop.
+   ========================================================= */
+@media (max-width: 760px) {
+  #budget-modal,
+  #modal-produto-backdrop,
+  #modal-cliente-backdrop,
+  #modal-fornecedor-backdrop,
+  #modal-patrimonio,
+  #modal-cotacao-backdrop,
+  #proposal-modal,
+  #fields-config-modal,
+  #modal-usuario-backdrop,
+  #modal-monitoramento-backdrop,
+  #modal-contato-backdrop,
+  #modal-modelo,
+  #modal-secao,
+  #modal-campo,
+  #modal-campo-backdrop,
+  #kit-picker-modal,
+  #settings-modal,
+  #modal-historico-precos {
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  #budget-modal .budget-modal-content,
+  #modal-produto-backdrop .produto-modal-content,
+  #modal-cliente-backdrop .cliente-modal-content,
+  #modal-fornecedor-backdrop .fornecedor-modal-content,
+  #modal-patrimonio .patrimonio-modal-content,
+  #modal-cotacao-backdrop .cotacao-modal-content,
+  #proposal-modal .proposal-modal-content,
+  #fields-config-modal .fields-config-modal-content,
+  #modal-usuario-backdrop > .modal-content,
+  #modal-monitoramento-backdrop > .modal-content,
+  #modal-contato-backdrop > .modal-content,
+  #modal-modelo > .modal-content,
+  #modal-secao > .modal-content,
+  #modal-campo > .modal-content,
+  #modal-campo-backdrop > .modal-content,
+  #kit-picker-modal .kit-picker-modal-content,
+  #settings-modal .settings-modal-content,
+  #modal-historico-precos .price-history-modal {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100vw !important;
+    min-width: 0 !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+  }
+
+  #budget-modal .budget-modal-footer,
+  #modal-produto-backdrop .produto-modal-footer,
+  #modal-cliente-backdrop .modal-client-footer,
+  #modal-fornecedor-backdrop .modal-client-footer,
+  #modal-patrimonio .patrimonio-modal-footer,
+  #modal-cotacao-backdrop .cotacao-modal-footer,
+  #proposal-modal .proposal-modal-footer,
+  #modal-usuario-backdrop .modal-footer,
+  #modal-modelo .modal-footer,
+  #modal-secao .modal-footer,
+  #modal-campo .modal-footer,
+  #kit-picker-modal .modal-footer,
+  #settings-modal .settings-footer {
+    display: flex !important;
+    flex-flow: row nowrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-height: 64px !important;
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom)) !important;
+    overflow-x: auto !important;
+  }
+
+  #budget-modal .budget-modal-footer .btn,
+  #modal-produto-backdrop .produto-modal-footer .btn,
+  #modal-cliente-backdrop .modal-client-footer .btn,
+  #modal-fornecedor-backdrop .modal-client-footer .btn,
+  #modal-patrimonio .patrimonio-modal-footer .btn,
+  #modal-cotacao-backdrop .cotacao-modal-footer .btn,
+  #proposal-modal .proposal-modal-footer .btn,
+  #modal-usuario-backdrop .modal-footer .btn,
+  #modal-modelo .modal-footer .btn,
+  #modal-secao .modal-footer .btn,
+  #modal-campo .modal-footer .btn,
+  #kit-picker-modal .modal-footer .btn,
+  #settings-modal .settings-footer .btn {
+    flex: 1 0 max-content !important;
+    width: auto !important;
+    min-width: 120px !important;
+  }
+
+  body.financeiro-theme-valora .financeiro-modal-backdrop {
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.financeiro-theme-valora .financeiro-modal,
+  body.financeiro-theme-valora .financeiro-modal.sm,
+  body.financeiro-theme-valora .financeiro-modal--ficha,
+  body.financeiro-theme-valora .financeiro-modal--venda {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100vw !important;
+    min-width: 0 !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.financeiro-theme-valora .financeiro-modal-foot {
+    display: flex !important;
+    flex-flow: row nowrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-height: 64px !important;
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom)) !important;
+    overflow-x: auto !important;
+  }
+
+  body.financeiro-theme-valora .financeiro-modal-foot .btn {
+    flex: 1 0 max-content !important;
+    width: auto !important;
+    min-width: 120px !important;
+  }
+
+  /* Confirmações permanecem compactas mesmo com os seletores acima. */
+  #Valora-confirm-backdrop {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 14px !important;
+  }
+
+  #Valora-confirm-backdrop > .modal-content,
+  #Valora-confirm-backdrop > .confirm-content,
+  #Valora-confirm-backdrop > .confirm-modal {
+    width: min(100%, 430px) !important;
+    min-width: 0 !important;
+    max-width: 430px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: calc(100dvh - 28px) !important;
+    margin: auto !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 16px !important;
+    overflow-y: auto !important;
+  }
+}
+
+
+/* =========================================================
+   VALORA MOBILE V2 | LISTAS COMPACTAS E NAVEGAÇÃO UTILIZÁVEL
+   Corrige o padrão de tabela desmontada da primeira versão.
+   ========================================================= */
+@media (max-width: 760px) {
+  body .panel-card.panel-card-table,
+  body article.panel-card.panel-card-table {
+    padding: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  body .panel-card-table .valora-table-wrapper,
+  body .panel-card-table .table-wrapper,
+  body .panel-card-table .financeiro-table-wrap {
+    overflow: visible !important;
+  }
+
+  body table.valora-mobile-card-table > tbody {
+    gap: 8px !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    column-gap: 10px !important;
+    row-gap: 8px !important;
+    padding: 13px 14px 11px !important;
+    overflow: visible !important;
+    border: 1px solid color-mix(in srgb, var(--border) 86%, transparent) !important;
+    border-radius: 14px !important;
+    background: var(--panel) !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, .045) !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td {
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    font-size: 12.5px !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-title {
+    order: 1 !important;
+    display: block !important;
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    padding-right: 86px !important;
+    color: var(--text) !important;
+    font-size: 14px !important;
+    font-weight: 650 !important;
+    line-height: 1.3 !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-title::before,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-meta::before,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-status::before,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-actions::before {
+    display: none !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-title strong {
+    display: block !important;
+    color: inherit !important;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    line-height: inherit !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-title .subtle {
+    display: block !important;
+    margin-top: 3px !important;
+    color: var(--muted) !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-meta {
+    order: 2 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    justify-self: start !important;
+    width: max-content !important;
+    max-width: 100% !important;
+    min-height: 26px !important;
+    padding: 4px 9px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 999px !important;
+    background: var(--bg-soft) !important;
+    color: var(--text-soft) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-meta:has(.badge-codigo),
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-meta:has(.badge-tipo),
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-meta:has(.badge-tag) {
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-meta .badge-codigo,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-meta .badge-tipo,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-meta .badge-tag {
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 26px !important;
+    padding: 0 10px !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-highlight {
+    order: 3 !important;
+    display: flex !important;
+    grid-column: 1 / -1 !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    width: 100% !important;
+    padding-top: 7px !important;
+    border-top: 1px solid var(--border) !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-status {
+    position: absolute !important;
+    top: 12px !important;
+    right: 12px !important;
+    display: block !important;
+    width: auto !important;
+    max-width: 82px !important;
+    z-index: 1 !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-status .badge-status,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-status .status-badge,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-status > span {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 82px !important;
+    min-height: 25px !important;
+    padding: 0 9px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-secondary-cell {
+    order: 4 !important;
+    grid-column: 1 / -1 !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr.valora-mobile-row-expanded > td.valora-mobile-secondary-cell {
+    display: grid !important;
+    grid-template-columns: minmax(88px, 34%) minmax(0, 1fr) !important;
+    align-items: start !important;
+    gap: 10px !important;
+    width: 100% !important;
+    padding: 8px 0 !important;
+    border-top: 1px solid var(--border) !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-actions {
+    order: 5 !important;
+    display: flex !important;
+    grid-column: 2 !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    justify-self: end !important;
+    width: auto !important;
+    margin-top: 3px !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-actions > div,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-actions .row-actions,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-actions .mini-actions,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-actions .cotacao-actions {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 5px !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-actions .btn-icon,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-actions .cotacao-icon-btn,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-actions button[aria-label] {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    background: var(--bg-soft) !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-actions .btn-icon.danger,
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-actions button.danger {
+    background: var(--danger-soft) !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-row-toggle-cell {
+    order: 5 !important;
+    display: block !important;
+    grid-column: 1 !important;
+    justify-self: start !important;
+    width: auto !important;
+    margin-top: 3px !important;
+  }
+
+  body .valora-mobile-row-toggle {
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 36px !important;
+    margin: 0 !important;
+    padding: 0 4px !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: var(--blue) !important;
+    font-size: 11.5px !important;
+  }
+
+  body .valora-mobile-row-toggle:hover,
+  body .valora-mobile-row-toggle:active {
+    background: transparent !important;
+  }
+
+  /* Paginação: uma única linha compacta. */
+  body .table-pagination.valora-mobile-pagination,
+  body .pagination-actions.valora-mobile-pagination {
+    display: grid !important;
+    grid-template-columns: 38px 38px minmax(72px, 1fr) 38px 38px !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+    min-height: 50px !important;
+    padding: 6px 2px !important;
+  }
+
+  body .table-pagination-top.valora-mobile-pagination {
+    grid-template-columns: 40px minmax(88px, 1fr) 40px !important;
+    min-height: 52px !important;
+    margin-bottom: 8px !important;
+    padding: 4px 0 6px !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  body .table-pagination.valora-mobile-pagination .pagination-info,
+  body .pagination-actions.valora-mobile-pagination .pagination-info {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    margin: 0 !important;
+    color: var(--text-soft) !important;
+    font-size: 11.5px !important;
+    font-weight: 650 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  body .table-pagination-top.valora-mobile-pagination .pagination-info {
+    grid-column: 2 !important;
+  }
+
+  body .table-pagination.valora-mobile-pagination button,
+  body .pagination-actions.valora-mobile-pagination button,
+  body .table-pagination.valora-mobile-pagination .btn,
+  body .pagination-actions.valora-mobile-pagination .btn {
+    position: relative !important;
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
+    font-size: 0 !important;
+  }
+
+  body .table-pagination-top.valora-mobile-pagination button,
+  body .table-pagination-top.valora-mobile-pagination .btn {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+  }
+
+  body .table-pagination.valora-mobile-pagination button::before,
+  body .pagination-actions.valora-mobile-pagination button::before {
+    display: grid !important;
+    place-items: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    color: currentColor !important;
+    font-family: "Font Awesome 6 Free" !important;
+    font-size: 12px !important;
+    font-weight: 900 !important;
+  }
+
+  body .table-pagination.valora-mobile-pagination [data-page-action="first"]::before,
+  body .table-pagination.valora-mobile-pagination [data-price-page="first"]::before,
+  body .pagination-actions.valora-mobile-pagination [data-page-action="first"]::before {
+    content: "\f100" !important;
+  }
+
+  body .table-pagination.valora-mobile-pagination [data-page-action="prev"]::before,
+  body .table-pagination.valora-mobile-pagination [data-price-page="prev"]::before,
+  body .pagination-actions.valora-mobile-pagination [data-page-action="prev"]::before {
+    content: "\f104" !important;
+  }
+
+  body .table-pagination.valora-mobile-pagination [data-page-action="next"]::before,
+  body .table-pagination.valora-mobile-pagination [data-price-page="next"]::before,
+  body .pagination-actions.valora-mobile-pagination [data-page-action="next"]::before {
+    content: "\f105" !important;
+  }
+
+  body .table-pagination.valora-mobile-pagination [data-page-action="last"]::before,
+  body .table-pagination.valora-mobile-pagination [data-price-page="last"]::before,
+  body .pagination-actions.valora-mobile-pagination [data-page-action="last"]::before {
+    content: "\f101" !important;
+  }
+
+  body .table-pagination-top.valora-mobile-pagination [data-page-action="first"],
+  body .table-pagination-top.valora-mobile-pagination [data-price-page="first"],
+  body .table-pagination-top.valora-mobile-pagination [data-page-action="last"],
+  body .table-pagination-top.valora-mobile-pagination [data-price-page="last"] {
+    display: none !important;
+  }
+
+  body .table-pagination-top.valora-mobile-pagination [data-page-action="prev"],
+  body .table-pagination-top.valora-mobile-pagination [data-price-page="prev"] {
+    grid-column: 1 !important;
+  }
+
+  body .table-pagination-top.valora-mobile-pagination [data-page-action="next"],
+  body .table-pagination-top.valora-mobile-pagination [data-price-page="next"] {
+    grid-column: 3 !important;
+  }
+
+  body .valora-mobile-filter-toggle {
+    min-height: 48px !important;
+    margin-bottom: 10px !important;
+    padding: 0 13px !important;
+    border-radius: 12px !important;
+  }
+
+  body .valora-mobile-filter-toggle .toggle-copy {
+    min-width: 0 !important;
+  }
+
+  body .valora-mobile-filter-toggle .toggle-copy span {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+}
+
+@media (max-width: 390px) {
+  body table.valora-mobile-card-table > tbody > tr {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-title {
+    padding-right: 78px !important;
+    font-size: 13.5px !important;
+  }
+
+  body .table-pagination.valora-mobile-pagination,
+  body .pagination-actions.valora-mobile-pagination {
+    grid-template-columns: 36px 36px minmax(68px, 1fr) 36px 36px !important;
+    gap: 5px !important;
+  }
+
+  body .table-pagination.valora-mobile-pagination button,
+  body .pagination-actions.valora-mobile-pagination button,
+  body .table-pagination.valora-mobile-pagination .btn,
+  body .pagination-actions.valora-mobile-pagination .btn {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+  }
+}
+
+/* Ajuste final para aparelhos estreitos: mantém a paginação superior centralizada. */
+@media (max-width: 390px) {
+  body .table-pagination-top.valora-mobile-pagination {
+    grid-template-columns: 36px minmax(88px, 1fr) 36px !important;
+  }
+
+  body .table-pagination-top.valora-mobile-pagination .pagination-info {
+    grid-column: 2 !important;
+  }
+
+  body .table-pagination-top.valora-mobile-pagination [data-page-action="prev"],
+  body .table-pagination-top.valora-mobile-pagination [data-price-page="prev"] {
+    grid-column: 1 !important;
+  }
+
+  body .table-pagination-top.valora-mobile-pagination [data-page-action="next"],
+  body .table-pagination-top.valora-mobile-pagination [data-price-page="next"] {
+    grid-column: 3 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  body table.valora-mobile-card-table > tbody > tr > td.valora-mobile-card-title {
+    padding-right: 0 !important;
+  }
+
+  body table.valora-mobile-card-table > tbody > tr.valora-mobile-card-has-status > td.valora-mobile-card-title {
+    padding-right: 86px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  body table.valora-mobile-card-table > tbody > tr.valora-mobile-card-has-status > td.valora-mobile-card-title {
+    padding-right: 78px !important;
+  }
+}

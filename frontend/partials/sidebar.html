@@ -996,6 +996,189 @@
     }
 
   </style>
+
+  <style id="valora-mobile-menu-ux">
+    @media (max-width: 920px) {
+      .mobile-panel {
+        padding: 10px 10px calc(18px + env(safe-area-inset-bottom));
+        background: #f7f9fc;
+      }
+
+      .mobile-search-wrap {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        display: grid;
+        grid-template-columns: 20px minmax(0, 1fr) 36px;
+        align-items: center;
+        gap: 7px;
+        min-height: 48px;
+        margin: 0 0 9px;
+        padding: 0 8px 0 12px;
+        border: 1px solid #dfe6ee;
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, .06);
+      }
+
+      .mobile-search-wrap > i {
+        color: #65acde;
+        font-size: 13px;
+      }
+
+      .mobile-search-wrap input {
+        width: 100%;
+        min-width: 0;
+        height: 44px;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #172033;
+        font: inherit;
+        font-size: 16px;
+      }
+
+      .mobile-search-wrap button {
+        width: 36px;
+        height: 36px;
+        min-height: 36px;
+        border: 0;
+        border-radius: 9px;
+        background: transparent;
+        color: #64748b;
+      }
+
+      .mobile-section {
+        margin: 0 0 8px;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid #e3e9f0;
+        border-radius: 12px;
+        background: #ffffff;
+      }
+
+      .mobile-title {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        min-height: 48px;
+        padding: 0 42px 0 14px;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: none;
+        letter-spacing: 0;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .mobile-title::after {
+        content: '\f078';
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-family: 'Font Awesome 6 Free';
+        font-size: 11px;
+        font-weight: 900;
+        transition: transform .18s ease;
+      }
+
+      .mobile-section.is-expanded .mobile-title::after {
+        transform: translateY(-50%) rotate(180deg);
+      }
+
+      .mobile-section .mobile-link {
+        display: none;
+        min-height: 46px;
+        padding: 0 14px;
+        border-top: 1px solid #eef2f7;
+        font-size: 13px;
+      }
+
+      .mobile-section.is-expanded .mobile-link,
+      .mobile-panel.is-searching .mobile-link:not([hidden]) {
+        display: flex;
+      }
+
+      .mobile-panel.is-searching .mobile-title {
+        display: none;
+      }
+
+      .mobile-panel.is-searching .mobile-section {
+        display: block;
+        margin-bottom: 6px;
+        border: 0;
+        background: transparent;
+      }
+
+      .mobile-panel.is-searching .mobile-section:not(.has-search-result) {
+        display: none;
+      }
+
+      .mobile-panel-empty {
+        display: none;
+        padding: 30px 12px;
+        color: #64748b;
+        text-align: center;
+        font-size: 13px;
+      }
+
+      .mobile-panel.is-searching.is-search-empty .mobile-panel-empty {
+        display: block;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .new-action,
+      .bell-btn {
+        display: inline-flex !important;
+        width: 36px !important;
+        min-width: 36px !important;
+        height: 36px !important;
+        min-height: 36px !important;
+        padding: 0 !important;
+        justify-content: center !important;
+      }
+
+      .new-action .label {
+        display: none !important;
+      }
+
+      .user-trigger {
+        max-width: 42px !important;
+        padding: 0 5px !important;
+      }
+
+      .user-initials {
+        max-width: 30px !important;
+      }
+    }
+
+    html[data-theme="dark"] .mobile-panel {
+      background: #212121 !important;
+    }
+
+    html[data-theme="dark"] .mobile-search-wrap,
+    html[data-theme="dark"] .mobile-section {
+      border-color: rgba(255,255,255,.11) !important;
+      background: #2f2f2f !important;
+      box-shadow: none !important;
+    }
+
+    html[data-theme="dark"] .mobile-search-wrap input,
+    html[data-theme="dark"] .mobile-title {
+      color: #ececec !important;
+    }
+
+    html[data-theme="dark"] .mobile-section .mobile-link {
+      border-top-color: rgba(255,255,255,.08) !important;
+    }
+  </style>
+
 </head>
 
 <body>
@@ -1167,6 +1350,12 @@
   </header>
 
   <div class="mobile-panel" id="mobilePanel">
+    <div class="mobile-search-wrap">
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <input id="mobileMenuSearch" type="search" placeholder="Buscar no menu" autocomplete="off" aria-label="Buscar no menu" />
+      <button id="mobileMenuSearchClear" type="button" aria-label="Limpar busca" hidden><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
     <div class="mobile-section">
       <div class="mobile-title">Operação</div>
       <button class="mobile-link" type="button" data-target="home"><i class="fa-solid fa-chart-line"></i> Dashboard</button>
@@ -2261,6 +2450,92 @@
       });
     }
 
+
+    function initMobileSections() {
+      const panel = document.getElementById('mobilePanel');
+      const search = document.getElementById('mobileMenuSearch');
+      const clear = document.getElementById('mobileMenuSearchClear');
+      if (!panel) return;
+
+      const sections = Array.from(panel.querySelectorAll('.mobile-section'));
+      const empty = document.createElement('div');
+      empty.className = 'mobile-panel-empty';
+      empty.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i><br>Nenhuma opção encontrada.';
+      panel.appendChild(empty);
+
+      function expandCurrentSection() {
+        const active = panel.querySelector('.mobile-link.is-active');
+        const current = active?.closest('.mobile-section') || sections[0];
+        sections.forEach((section) => section.classList.toggle('is-expanded', section === current));
+      }
+
+      sections.forEach((section) => {
+        const title = section.querySelector('.mobile-title');
+        if (!title) return;
+        title.setAttribute('role', 'button');
+        title.setAttribute('tabindex', '0');
+        title.setAttribute('aria-expanded', 'false');
+
+        const toggle = () => {
+          const open = !section.classList.contains('is-expanded');
+          sections.forEach((other) => {
+            other.classList.remove('is-expanded');
+            other.querySelector('.mobile-title')?.setAttribute('aria-expanded', 'false');
+          });
+          section.classList.toggle('is-expanded', open);
+          title.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+
+        title.addEventListener('click', toggle);
+        title.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggle();
+          }
+        });
+      });
+
+      function applySearch() {
+        const query = String(search?.value || '').trim().toLocaleLowerCase('pt-BR');
+        const searching = query.length > 0;
+        let matches = 0;
+        panel.classList.toggle('is-searching', searching);
+
+        sections.forEach((section) => {
+          let sectionMatches = 0;
+          section.querySelectorAll('.mobile-link').forEach((link) => {
+            const visible = !searching || String(link.textContent || '').toLocaleLowerCase('pt-BR').includes(query);
+            link.hidden = !visible;
+            if (visible && searching) {
+              sectionMatches += 1;
+              matches += 1;
+            }
+          });
+          section.classList.toggle('has-search-result', sectionMatches > 0);
+        });
+
+        panel.classList.toggle('is-search-empty', searching && matches === 0);
+        if (clear) clear.hidden = !searching;
+        if (!searching) expandCurrentSection();
+      }
+
+      search?.addEventListener('input', applySearch);
+      clear?.addEventListener('click', () => {
+        if (!search) return;
+        search.value = '';
+        applySearch();
+        search.focus();
+      });
+
+      expandCurrentSection();
+      sections.forEach((section) => {
+        section.querySelector('.mobile-title')?.setAttribute(
+          'aria-expanded',
+          section.classList.contains('is-expanded') ? 'true' : 'false'
+        );
+      });
+    }
+
     function initResize() {
       window.addEventListener('resize', () => {
         syncActiveMenu();
@@ -2284,6 +2559,7 @@
       initSettingsMenu();
       initUserMenu();
       initMobileMenu();
+      initMobileSections();
       initOutsideClick();
       initResize();
 

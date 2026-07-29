@@ -6,7 +6,7 @@ import {
   renderCustomFieldsInputs,
   normalizeCustomFieldsPayload,
   validateRequiredCustomFields,
-} from './custom-fields.js';
+} from './custom-fields.js?v=20260729-clientes-gravacao-v1';
 
 let _afterSave = async () => {};
 let _bound = false;
@@ -14,6 +14,7 @@ let currentDetail = null;
 let originalClienteTabsHtml = '';
 let fichaClienteController = null;
 let clienteModalSomenteLeitura = false;
+let fichaFieldDirtySequence = 0;
 
 async function syncAgendaCliente(cliente = null, readonly = false) {
   try {
@@ -591,8 +592,159 @@ function setFichaPrincipalMode(enabled) {
   switchTab('tab-cadastro');
 }
 
+const CLIENT_SYSTEM_FIELDS = new Set([
+  'tipo_pessoa', 'situacao', 'nome', 'nome_fantasia', 'cpf_cnpj', 'rg_ie',
+  'inscricao_municipal', 'suframa', 'data_nascimento', 'codigo_referencia',
+  'retencao_percentual', 'telefone', 'whatsapp', 'fax', 'email', 'email_nfe',
+  'email_cobranca', 'email_fiscal', 'site', 'contato', 'parceiro_comercial',
+  'percentual_comissao', 'percentual_desconto', 'regiao', 'segmento',
+  'modalidade_pagamento', 'classificacao', 'cep', 'endereco', 'numero',
+  'complemento', 'bairro', 'cidade', 'estado', 'pais', 'codigo_ibge_cidade',
+  'codigo_ibge_uf', 'observacoes',
+]);
+
+function normalizeFichaKey(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function getRenderedFieldValue(el) {
+  if (!el) return '';
+
+  if (el.type === 'checkbox') {
+    return el.checked ? 'true' : 'false';
+  }
+
+  if (el.matches('select[multiple]')) {
+    const values = Array.from(el.selectedOptions || [])
+      .map((option) => String(option.value ?? '').trim())
+      .filter(Boolean);
+    return values.length ? JSON.stringify(values) : '';
+  }
+
+  return String(el.value ?? '').trim();
+}
+
+function isRenderedFieldVisible(el) {
+  if (!el || el.hidden) return false;
+  if (el.closest('[hidden]')) return false;
+  return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+}
+
+function chooseRenderedField(records = []) {
+  const enabled = records.filter((record) => !record.el.disabled && record.el.dataset.customReadonly !== 'true');
+  const candidates = enabled.length ? enabled : records;
+
+  return [...candidates].sort((a, b) => {
+    const dirtyA = Number(a.el.dataset.customDirtyOrder || 0);
+    const dirtyB = Number(b.el.dataset.customDirtyOrder || 0);
+    if (dirtyA !== dirtyB) return dirtyB - dirtyA;
+
+    const visibleA = isRenderedFieldVisible(a.el) ? 1 : 0;
+    const visibleB = isRenderedFieldVisible(b.el) ? 1 : 0;
+    if (visibleA !== visibleB) return visibleB - visibleA;
+
+    return a.index - b.index;
+  })[0] || null;
+}
+
+function collectFichaValues() {
+  const root = $('custom-fields-container');
+  const elements = root ? Array.from(root.querySelectorAll('[data-custom-field]')) : [];
+
+  if (!elements.length) {
+    return {
+      customFields: normalizeCustomFieldsPayload(),
+      systemFields: {},
+    };
+  }
+
+  const validCustomSlugs = new Set(
+    (state.camposClientes || [])
+      .map((campo) => String(campo?.slug || '').trim())
+      .filter(Boolean)
+  );
+
+  const groups = new Map();
+
+  elements.forEach((el, index) => {
+    const slug = String(el.dataset.customField || '').trim();
+    if (!slug) return;
+
+    const wrapper = el.closest('[data-custom-field-wrapper="true"]');
+    const origin = String(wrapper?.dataset.customOrigin || '').trim().toLowerCase();
+    const declaredSystemField = normalizeFichaKey(wrapper?.dataset.systemField || '');
+    const normalizedSlug = normalizeFichaKey(slug);
+
+    let bucket = 'custom';
+    let key = slug;
+
+    if (declaredSystemField || origin === 'sistema') {
+      bucket = 'system';
+      key = declaredSystemField || normalizedSlug;
+    } else if (!validCustomSlugs.has(slug) && CLIENT_SYSTEM_FIELDS.has(normalizedSlug)) {
+      // Compatibilidade com fichas antigas que não gravavam a origem do campo.
+      bucket = 'system';
+      key = normalizedSlug;
+    }
+
+    if (bucket === 'system' && !CLIENT_SYSTEM_FIELDS.has(key)) return;
+    if (bucket === 'custom' && validCustomSlugs.size && !validCustomSlugs.has(slug)) return;
+
+    const groupKey = `${bucket}:${key}`;
+    const record = { el, index, bucket, key, slug };
+    if (!groups.has(groupKey)) groups.set(groupKey, []);
+    groups.get(groupKey).push(record);
+  });
+
+  const customFields = {};
+  const systemFields = {};
+
+  groups.forEach((records) => {
+    const selected = chooseRenderedField(records);
+    if (!selected) return;
+
+    const value = getRenderedFieldValue(selected.el);
+    if (selected.bucket === 'system') {
+      systemFields[selected.key] = value;
+    } else {
+      // Envia também string vazia. O backend usa a presença da chave para
+      // apagar corretamente um valor que o usuário limpou durante a edição.
+      customFields[selected.key] = value;
+    }
+  });
+
+  return { customFields, systemFields };
+}
+
+function buildFichaRenderValues(data = {}) {
+  const customFields = data?.custom_fields && typeof data.custom_fields === 'object'
+    ? { ...data.custom_fields }
+    : {};
+  const systemFields = {
+    ...data,
+    data_cadastro: data?.data_cadastro || data?.criado_em || data?.created_at || '',
+  };
+
+  return {
+    ...data,
+    ...customFields,
+    data_cadastro: systemFields.data_cadastro,
+    __custom_fields: customFields,
+    __system_fields: systemFields,
+  };
+}
+
 function getCustomValue(custom, keys, fallback = '') {
+  let found = false;
+
   for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(custom || {}, key)) continue;
+    found = true;
     const value = custom?.[key];
 
     if (value !== undefined && value !== null && String(value).trim() !== '') {
@@ -600,19 +752,40 @@ function getCustomValue(custom, keys, fallback = '') {
     }
   }
 
-  return fallback;
+  return found ? '' : fallback;
+}
+
+function normalizeTipoPessoa(value, fallback = 'PF') {
+  const normalized = normalizeFichaKey(value);
+  if (normalized === 'pj' || normalized.includes('juridica')) return 'PJ';
+  if (normalized === 'pf' || normalized.includes('fisica')) return 'PF';
+  return String(fallback || 'PF').toUpperCase() === 'PJ' ? 'PJ' : 'PF';
+}
+
+function applySystemFieldsToPayload(payload, systemFields = {}) {
+  Object.entries(systemFields || {}).forEach(([key, rawValue]) => {
+    if (!CLIENT_SYSTEM_FIELDS.has(key)) return;
+    const value = String(rawValue ?? '').trim();
+
+    if (key === 'tipo_pessoa') {
+      payload.tipo_pessoa = normalizeTipoPessoa(value, payload.tipo_pessoa);
+      return;
+    }
+
+    payload[key] = value;
+  });
 }
 
 function buildBaseFromFichaPrincipal(customFields, fallback = {}) {
   const custom = customFields || {};
 
-  const tipoCliente = getCustomValue(custom, ['tipo_cliente'], fallback.tipo_pessoa || 'PF');
+  const tipoCliente = getCustomValue(
+    custom,
+    ['tipo_pessoa', 'tipo_cliente', 'pessoa_fisica_juridica', 'tipo_de_pessoa'],
+    fallback.tipo_pessoa || 'PF'
+  );
 
-  const tipoPessoa =
-    String(tipoCliente).toLowerCase().includes('jur') ||
-    String(tipoCliente).toLowerCase() === 'pj'
-      ? 'PJ'
-      : 'PF';
+  const tipoPessoa = normalizeTipoPessoa(tipoCliente, fallback.tipo_pessoa || 'PF');
 
   const nome = getCustomValue(
     custom,
@@ -659,14 +832,21 @@ function buildBaseFromFichaPrincipal(customFields, fallback = {}) {
       '',
 
     tipo_pessoa: tipoPessoa,
-    situacao: fallback.situacao || 'ativo',
+    situacao: getCustomValue(custom, ['situacao', 'status'], fallback.situacao || 'ativo'),
 
     nome,
     nome_fantasia: getCustomValue(custom, ['nome_fantasia'], fallback.nome_fantasia || ''),
-    cpf_cnpj: getCustomValue(custom, ['cpf_cnpj', 'cnpj', 'cpf'], fallback.cpf_cnpj || ''),
-    rg_ie: getCustomValue(custom, ['rg', 'inscricao_estadual'], fallback.rg_ie || ''),
+    cpf_cnpj: getCustomValue(custom, tipoPessoa === 'PJ'
+      ? ['cpf_cnpj', 'cnpj', 'cnpj_pessoa_juridica', 'cnpj_pj', 'documento']
+      : ['cpf_cnpj', 'cpf', 'cpf_pessoa_fisica', 'cpf_pf', 'documento'], fallback.cpf_cnpj || ''),
+    rg_ie: getCustomValue(custom, tipoPessoa === 'PJ'
+      ? ['rg_ie', 'inscricao_estadual', 'ie']
+      : ['rg_ie', 'rg', 'registro_geral'], fallback.rg_ie || ''),
     inscricao_municipal: getCustomValue(custom, ['inscricao_municipal'], fallback.inscricao_municipal || ''),
     suframa: getCustomValue(custom, ['suframa'], fallback.suframa || ''),
+    data_nascimento: getCustomValue(custom, ['data_nascimento', 'nascimento'], fallback.data_nascimento || ''),
+    codigo_referencia: getCustomValue(custom, ['codigo_referencia', 'referencia'], fallback.codigo_referencia || ''),
+    retencao_percentual: getCustomValue(custom, ['retencao_percentual', 'percentual_retencao', 'retencao'], fallback.retencao_percentual || ''),
 
     telefone: telefoneContato,
     whatsapp: getCustomValue(
@@ -682,7 +862,7 @@ function buildBaseFromFichaPrincipal(customFields, fallback = {}) {
     email_cobranca: getCustomValue(custom, ['email_cobranca', 'e_mail_cobranca'], fallback.email_cobranca || ''),
     email_fiscal: getCustomValue(custom, ['email_fiscal', 'e_mail_fiscal'], fallback.email_fiscal || ''),
 
-    site: getCustomValue(custom, ['home_page', 'site'], fallback.site || ''),
+    site: getCustomValue(custom, ['home_page', 'homepage', 'site'], fallback.site || ''),
 
     cep: getCustomValue(custom, ['cep'], fallback.cep || ''),
     endereco: getCustomValue(custom, ['endereco', 'logradouro'], fallback.endereco || ''),
@@ -692,6 +872,13 @@ function buildBaseFromFichaPrincipal(customFields, fallback = {}) {
     cidade: getCustomValue(custom, ['cidade'], fallback.cidade || ''),
     estado: getCustomValue(custom, ['uf', 'estado'], fallback.estado || ''),
     pais: getCustomValue(custom, ['pais'], fallback.pais || 'Brasil'),
+    codigo_ibge_cidade: getCustomValue(custom, ['codigo_ibge_cidade', 'ibge_cidade'], fallback.codigo_ibge_cidade || ''),
+    codigo_ibge_uf: getCustomValue(custom, ['codigo_ibge_uf', 'ibge_uf'], fallback.codigo_ibge_uf || ''),
+
+    parceiro_comercial: getCustomValue(custom, ['parceiro_comercial', 'parceiro', 'vendedor'], fallback.parceiro_comercial || ''),
+    percentual_comissao: getCustomValue(custom, ['percentual_comissao', 'comissao_percentual', 'comissao'], fallback.percentual_comissao || ''),
+    percentual_desconto: getCustomValue(custom, ['percentual_desconto', 'desconto_percentual', 'desconto'], fallback.percentual_desconto || ''),
+    modalidade_pagamento: getCustomValue(custom, ['modalidade_pagamento', 'forma_pagamento', 'condicao_pagamento'], fallback.modalidade_pagamento || ''),
 
     regiao: getCustomValue(custom, ['regiao'], fallback.regiao || ''),
     segmento: getCustomValue(custom, ['tipo_de_imovel', 'tipo_imovel', 'segmento'], fallback.segmento || ''),
@@ -748,7 +935,7 @@ async function fillClientForm(cliente = {}) {
   setValue('campo-codigo-ibge-uf', data.codigo_ibge_uf);
   setValue('campo-observacoes', data.observacoes);
 
-  await renderCustomFieldsInputs(state.camposClientes, { ...(data.custom_fields || {}), ...data, data_cadastro: data.data_cadastro || data.criado_em || data.created_at || '' });
+  await renderCustomFieldsInputs(state.camposClientes, buildFichaRenderValues(data));
 
   syncFichaPrincipalCode(data.codigo || getValue('campo-codigo'));
   setFichaPrincipalMode(state.usarFichaPrincipalClientes);
@@ -783,7 +970,9 @@ function getRowsData(containerId) {
 }
 
 function buildPayload() {
-  const customFields = normalizeCustomFieldsPayload();
+  const { customFields, systemFields } = state.usarFichaPrincipalClientes
+    ? collectFichaValues()
+    : { customFields: normalizeCustomFieldsPayload(), systemFields: {} };
 
   const payload = {
     codigo: onlyDigits(getValue('campo-codigo') || getValue('campo-codigo-ficha-principal')),
@@ -834,7 +1023,11 @@ function buildPayload() {
   };
 
   if (state.usarFichaPrincipalClientes) {
+    // Primeiro aplica os aliases de fichas antigas/personalizadas e depois os
+    // campos do sistema identificados de forma exata. Assim, CPF/CNPJ e os
+    // demais dados nativos sempre refletem o campo realmente editado.
     Object.assign(payload, buildBaseFromFichaPrincipal(customFields, payload));
+    applySystemFieldsToPayload(payload, systemFields);
   }
 
   payload.codigo = onlyDigits(payload.codigo);
@@ -1461,7 +1654,7 @@ async function salvarToggleFichaPrincipalCliente(event) {
 
   try {
     if (!state.formularioClientes?.modelo?.id) {
-      await renderCustomFieldsInputs(state.camposClientes, { ...(currentDetail?.custom_fields || {}), ...(currentDetail || {}), data_cadastro: currentDetail?.data_cadastro || currentDetail?.criado_em || currentDetail?.created_at || '' });
+      await renderCustomFieldsInputs(state.camposClientes, buildFichaRenderValues(currentDetail || {}));
     }
 
     const modelo = state.formularioClientes?.modelo;
@@ -1507,7 +1700,7 @@ async function salvarToggleFichaPrincipalCliente(event) {
       },
     };
 
-    await renderCustomFieldsInputs(state.camposClientes, { ...(currentDetail?.custom_fields || {}), ...(currentDetail || {}), data_cadastro: currentDetail?.data_cadastro || currentDetail?.criado_em || currentDetail?.created_at || '' });
+    await renderCustomFieldsInputs(state.camposClientes, buildFichaRenderValues(currentDetail || {}));
     setFichaPrincipalMode(checked);
     bindResumoSidebarCliente();
     agendarResumoSidebarCliente(currentDetail);
@@ -1531,6 +1724,21 @@ export function bindClientModal({ afterSave } = {}) {
 
   if (_bound) return;
   _bound = true;
+
+  const customFieldsContainer = $('custom-fields-container');
+  const markFichaFieldDirty = (event) => {
+    let field = event.target?.closest?.('[data-custom-field]');
+    if (!field && event.type === 'change' && event.target?.matches?.('[data-multiselect-option]')) {
+      const wrapper = event.target.closest('[data-custom-field-wrapper="true"]');
+      field = wrapper?.querySelector?.('[data-custom-field]') || null;
+    }
+    if (!field || !customFieldsContainer?.contains(field)) return;
+    fichaFieldDirtySequence += 1;
+    field.dataset.customDirty = 'true';
+    field.dataset.customDirtyOrder = String(fichaFieldDirtySequence);
+  };
+  customFieldsContainer?.addEventListener('input', markFichaFieldDirty);
+  customFieldsContainer?.addEventListener('change', markFichaFieldDirty);
 
   document.addEventListener('click', (e) => {
     const sectionBtn = e.target.closest('.cliente-tab-btn[data-ficha-section]');

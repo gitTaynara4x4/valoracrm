@@ -353,6 +353,7 @@ function montarCampoFinal(campoCliente, campoFormulario = null) {
 
   const slug =
     campoCliente?.slug ||
+    campoFormulario?.campo_personalizado_slug ||
     campoFormulario?.campo_sistema ||
     slugify(nome);
 
@@ -366,6 +367,8 @@ function montarCampoFinal(campoCliente, campoFormulario = null) {
     obrigatorio: campoCliente?.obrigatorio ?? campoFormulario?.obrigatorio ?? false,
     ativo: campoCliente?.ativo ?? campoFormulario?.ativo ?? true,
     somente_leitura: campoCliente?.somente_leitura ?? campoFormulario?.somente_leitura ?? false,
+    origem: campoFormulario?.origem || campoCliente?.origem || '',
+    campo_sistema: campoFormulario?.campo_sistema || campoCliente?.campo_sistema || '',
     opcoes_json: campoCliente?.opcoes_json || campoFormulario?.opcoes_json || campoFormulario?.opcoes || null,
     ordem: Number(campoCliente?.ordem ?? campoFormulario?.ordem ?? 0),
     largura: campoFormulario?.largura || campoCliente?.largura || '50',
@@ -509,9 +512,10 @@ function getCampoClass(campo) {
   return '';
 }
 
-function renderInputCampo(campo, values = {}) {
+function renderInputCampo(campo, values = {}, context = {}) {
   const slug = campo.slug;
-  const id = `custom-field-${slug}`;
+  const instanceKey = slugify(context?.instanceKey || '') || 'campo';
+  const id = `custom-field-${slug}-${instanceKey}`;
   const label = campo.nome || slug;
   const tipo = normalizarTipo(campo.tipo);
   const valor = values?.[slug] ?? '';
@@ -519,8 +523,12 @@ function renderInputCampo(campo, values = {}) {
   const placeholder = campo.placeholder || '';
   const disabled = campo.somente_leitura ? 'disabled' : '';
   const fieldClass = getCampoClass(campo);
+  const origem = String(campo?.origem || '').trim().toLowerCase();
+  const campoSistema = String(campo?.campo_sistema || '').trim();
+  const sectionTitle = String(context?.sectionTitle || '').trim();
+  const wrapperMeta = `data-custom-field-wrapper="true" data-custom-slug="${escapeHtml(slug)}" data-custom-origin="${escapeHtml(origem)}" data-system-field="${escapeHtml(campoSistema)}" data-custom-section="${escapeHtml(sectionTitle)}"`;
 
-  let html = `<div class="form-group custom-field-item ${fieldClass}">`;
+  let html = `<div class="form-group custom-field-item ${fieldClass}" ${wrapperMeta}>`;
 
   if (tipo === 'checkbox') {
     const checked =
@@ -655,10 +663,11 @@ function renderInputCampo(campo, values = {}) {
   return html;
 }
 
-function renderSecao(secao, values = {}) {
+function renderSecao(secao, values = {}, sectionIndex = 0) {
   const titulo = secao.titulo || 'Seção';
   const icon = getSectionIcon(secao);
   const sectionId = secao.id != null ? String(secao.id) : '';
+  const sectionKey = slugify(sectionId || titulo || String(sectionIndex)) || `secao-${sectionIndex}`;
 
   return `
     <article
@@ -681,7 +690,10 @@ function renderSecao(secao, values = {}) {
       </div>
 
       <div class="custom-fields-grid">
-        ${(secao.campos || []).map((campo) => renderInputCampo(campo, values)).join('')}
+        ${(secao.campos || []).map((campo, campoIndex) => renderInputCampo(campo, values, {
+          instanceKey: `${sectionKey}-${campoIndex}`,
+          sectionTitle: titulo,
+        })).join('')}
       </div>
     </article>
   `;
@@ -899,7 +911,7 @@ export async function renderCustomFieldsInputs(camposClientes, values = {}) {
       return formulario;
     }
 
-    container.innerHTML = secoes.map((secao) => renderSecao(secao, values)).join('');
+    container.innerHTML = secoes.map((secao, sectionIndex) => renderSecao(secao, values, sectionIndex)).join('');
 
     aplicarIconesNasSecoesRenderizadas(container, formulario);
     aplicarIconesSidebarFichaPrincipal(formulario);
@@ -914,7 +926,7 @@ export async function renderCustomFieldsInputs(camposClientes, values = {}) {
     const secoes = montarSecoesFlat(camposClientes);
 
     container.innerHTML = secoes.length
-      ? secoes.map((secao) => renderSecao(secao, values)).join('')
+      ? secoes.map((secao, sectionIndex) => renderSecao(secao, values, sectionIndex)).join('')
       : `
         <div class="empty-state" style="grid-column:1 / -1;">
           Nenhum campo personalizado cadastrado.

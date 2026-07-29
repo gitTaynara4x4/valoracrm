@@ -1,5 +1,30 @@
 
 // ==========================================
+// EXPERIÊNCIA MOBILE GLOBAL
+// Carrega por último para corrigir todas as páginas sem alterar o desktop.
+// ==========================================
+(() => {
+  'use strict';
+
+  if (!document.querySelector('link[data-valora-mobile-css]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/frontend/css/mobile-valora.css?v=20260726-mobile-ux-v2';
+    link.dataset.valoraMobileCss = 'true';
+    document.head.appendChild(link);
+  }
+
+  if (!document.querySelector('script[data-valora-mobile-js]')) {
+    const script = document.createElement('script');
+    script.src = '/frontend/js/shared/mobile-valora.js?v=20260726-mobile-ux-v2';
+    script.defer = true;
+    script.dataset.valoraMobileJs = 'true';
+    document.head.appendChild(script);
+  }
+})();
+
+
+// ==========================================
 // INSTALAÇÃO E NOTIFICAÇÕES DO DISPOSITIVO
 // ==========================================
 (() => {
@@ -213,7 +238,7 @@ window.showToast = function(message, type = 'success') {
         'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
       );
 
-      if (firstFocusable) {
+      if (firstFocusable && !window.matchMedia('(max-width: 760px)').matches) {
         setTimeout(() => {
           try {
             firstFocusable.focus({ preventScroll: true });
