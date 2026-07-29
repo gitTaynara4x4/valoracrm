@@ -4,7 +4,7 @@ import { $, toast } from './utils.js';
 import { renderTabelaClientes } from './table.js?v=20260715-localizar-arrastar-restaurado-v4';
 import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js?v=20260715-filtros-exatos-v2';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
-import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260729-clientes-gravacao-v1';
+import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260729-clientes-gravacao-v2';
 import { bindImportExport, exportarClientesJSON } from './import-export.js';
 
 function renderAll() {

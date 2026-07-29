@@ -40,10 +40,108 @@ STATUS_PRECOS_BLOQUEADOS = {"aprovado", "recusado", "cancelado", "expirado"}
 _SCHEMA_READY = False
 _PREPARED_COMPANIES: set[int] = set()
 
+PRODUCT_COST_ALIASES = (
+    "custo",
+    "valor_custo",
+    "valor_de_custo",
+    "custo_efetivo",
+    "preco_custo",
+    "preco_de_custo",
+    "valor_compra",
+    "valor_de_compra",
+    "preco_compra",
+    "preco_de_compra",
+    "custo_compra",
+    "custo_de_compra",
+)
+PRODUCT_COST_ALIAS_SET = set(PRODUCT_COST_ALIASES)
+
 
 def norm_str(value: Any) -> Optional[str]:
     value = str(value or "").strip()
     return value or None
+
+
+def normalize_product_cost_slug(value: Any) -> str:
+    raw = unicodedata.normalize("NFKD", str(value or ""))
+    raw = "".join(ch for ch in raw if not unicodedata.combining(ch))
+    raw = raw.lower().strip()
+    raw = re.sub(r"[^a-z0-9]+", "_", raw)
+    return re.sub(r"_+", "_", raw).strip("_")
+
+
+def product_cost_field_priority(slug: Any, name: Any = None) -> Optional[int]:
+    identifiers = [normalize_product_cost_slug(slug), normalize_product_cost_slug(name)]
+    for offset, identifier in enumerate(identifiers):
+        if not identifier:
+            continue
+        if identifier in PRODUCT_COST_ALIAS_SET:
+            return PRODUCT_COST_ALIASES.index(identifier) + offset * 20
+
+        without_suffix = re.sub(r"_\d+$", "", identifier)
+        if without_suffix in PRODUCT_COST_ALIAS_SET:
+            return PRODUCT_COST_ALIASES.index(without_suffix) + 40 + offset * 20
+
+        tokens = set(identifier.split("_"))
+        if "custo" in tokens:
+            return 100 + offset
+        if "compra" in tokens and ({"valor", "preco"} & tokens):
+            return 110 + offset
+    return None
+
+
+def apply_product_cost_fallbacks(
+    db: Session,
+    company_id: int,
+    rows: List[Any],
+    *,
+    product_id_key: str = "id",
+) -> List[dict]:
+    """Aplica o custo efetivo cadastrado na Formação de Preços.
+
+    O campo personalizado de compra/custo é autoritativo inclusive quando
+    produtos.custo contém zero antigo. Esse zero era o motivo de itens com
+    Valor Compra preenchido aparecerem como R$ 0,00 na análise financeira.
+    """
+    output = [dict(row) for row in rows]
+    product_ids = sorted({
+        int(row.get(product_id_key) or 0)
+        for row in output
+        if int(row.get(product_id_key) or 0) > 0
+    })
+    if not product_ids:
+        return output
+
+    custom_rows = (
+        db.query(
+            models.ProdutoCampoValor.produto_id,
+            models.CampoProduto.id,
+            models.CampoProduto.slug,
+            models.CampoProduto.nome,
+            models.ProdutoCampoValor.valor,
+        )
+        .join(models.CampoProduto, models.CampoProduto.id == models.ProdutoCampoValor.campo_id)
+        .filter(models.CampoProduto.empresa_id == company_id)
+        .filter(models.ProdutoCampoValor.produto_id.in_(product_ids))
+        .all()
+    )
+
+    best: Dict[int, tuple[int, int, str]] = {}
+    for product_id, field_id, slug, name, raw_value in custom_rows:
+        priority = product_cost_field_priority(slug, name)
+        value = norm_str(raw_value)
+        if priority is None or value is None:
+            continue
+        candidate = (priority, int(field_id), value)
+        current = best.get(int(product_id))
+        if current is None or candidate[:2] < current[:2]:
+            best[int(product_id)] = candidate
+
+    for row in output:
+        selected = best.get(int(row.get(product_id_key) or 0))
+        if selected:
+            row["custo"] = selected[2]
+    return output
 
 
 def natural_sort_key(value: Any) -> tuple:
@@ -1118,10 +1216,13 @@ def serialize_emitter(row: dict) -> dict:
 
 
 def product_for_company(db: Session, product_id: int, company_id: int):
-    return db.execute(text("""
+    row = db.execute(text("""
         SELECT id, codigo, nome, descricao, unidade, preco_venda, custo
         FROM produtos WHERE id=:id AND empresa_id=:e
     """), {"id": product_id, "e": company_id}).mappings().first()
+    if not row:
+        return None
+    return apply_product_cost_fallbacks(db, company_id, [row])[0]
 
 
 def calculate_items(
@@ -1181,10 +1282,20 @@ def calculate_items(
             elif allow_cost and submitted_cost is not None and (submitted_cost > 0 or not product_has_cost):
                 cost_unit = submitted_cost
                 cost_known = True
-            elif previous_cost is not None and previous_cost_known:
+            elif (
+                previous_cost is not None
+                and previous_cost_known
+                and not (
+                    max(previous_cost, Decimal("0")) == 0
+                    and product_has_cost
+                    and product_cost > 0
+                )
+            ):
                 cost_unit = max(previous_cost, Decimal("0"))
                 cost_known = True
             else:
+                # Corrige snapshots antigos gravados com custo zero enquanto o
+                # produto já possuía Valor Compra na Formação de Preços.
                 cost_unit = product_cost
                 cost_known = product_has_cost
         else:
@@ -1305,13 +1416,90 @@ def validate_company_fk(db: Session, table: str, row_id: Optional[int], company_
         raise HTTPException(status_code=422, detail=f"{label} não pertence a esta empresa.")
 
 
-def serialize_items(db: Session, budget_id: int, show_costs: bool) -> List[dict]:
+def _apply_live_product_costs_to_budget_rows(
+    db: Session,
+    company_id: int,
+    rows: List[Any],
+) -> List[dict]:
+    output = [dict(row) for row in rows]
+    product_ids = sorted({
+        int(row.get("produto_id") or 0)
+        for row in output
+        if int(row.get("produto_id") or 0) > 0
+    })
+    if not product_ids:
+        return output
+
+    product_rows = (
+        db.query(models.Produto.id, models.Produto.custo)
+        .filter(models.Produto.empresa_id == company_id)
+        .filter(models.Produto.id.in_(product_ids))
+        .all()
+    )
+    effective_rows = apply_product_cost_fallbacks(
+        db,
+        company_id,
+        [
+            {"produto_id": int(row[0]), "custo": row[1]}
+            for row in product_rows
+        ],
+        product_id_key="produto_id",
+    )
+    effective_costs = {
+        int(row["produto_id"]): row.get("custo")
+        for row in effective_rows
+    }
+
+    for item in output:
+        product_id = int(item.get("produto_id") or 0)
+        if not product_id:
+            continue
+        raw_product_cost = effective_costs.get(product_id)
+        if raw_product_cost is None or str(raw_product_cost).strip() == "":
+            continue
+
+        product_cost = max(money(raw_product_cost), Decimal("0"))
+        stored_cost = max(money(item.get("custo_unitario")), Decimal("0"))
+        stored_known = bool(item.get("custo_informado"))
+
+        # Orçamentos antigos podem ter sido salvos com zero por causa do campo
+        # nativo desatualizado. Quando o produto possui custo real, ele corrige
+        # a análise sem exigir que o usuário remova e inclua o item novamente.
+        if stored_known and not (stored_cost == 0 and product_cost > 0):
+            continue
+
+        qty = max(money(item.get("quantidade"), Decimal("1")), Decimal("0"))
+        sale_total = max(money(item.get("valor_total")), Decimal("0"))
+        cost_total = qty * product_cost
+        profit = sale_total - cost_total
+        margin = (profit / sale_total * Decimal("100")) if sale_total > 0 else Decimal("0")
+
+        item["custo_unitario"] = q4(product_cost)
+        item["custo_informado"] = True
+        item["custo_total"] = q2(cost_total)
+        item["lucro_total"] = q2(profit)
+        item["margem_percentual"] = q2(margin)
+
+    return output
+
+
+def serialize_items(
+    db: Session,
+    budget_id: int,
+    show_costs: bool,
+    company_id: Optional[int] = None,
+) -> List[dict]:
     rows = db.execute(text("""
         SELECT * FROM orcamento_itens WHERE orcamento_id=:o ORDER BY ordem, id
     """), {"o": budget_id}).mappings().all()
+    prepared_rows = (
+        _apply_live_product_costs_to_budget_rows(db, int(company_id), rows)
+        if show_costs and company_id
+        else [dict(row) for row in rows]
+    )
+
     output = []
-    for row in rows:
-        item = dict(row)
+    for item in prepared_rows:
         for key in ("quantidade", "valor_unitario", "desconto", "valor_total"):
             item[key] = dec_out(item.get(key))
         if show_costs:
@@ -1346,7 +1534,26 @@ def serialize_budget(db: Session, row: dict, user: models.Usuario, complete: boo
     out["pagamentos"] = json_load(out.pop("pagamentos_json", None), [])
     out["pode_ver_custos"] = show_costs
     if complete:
-        out["itens"] = serialize_items(db, int(out["id"]), show_costs)
+        items = serialize_items(
+            db,
+            int(out["id"]),
+            show_costs,
+            company_id=int(out.get("empresa_id") or getattr(user, "empresa_id", 0) or 0),
+        )
+        out["itens"] = items
+
+        if show_costs:
+            live_cost_total = sum((money(item.get("custo_total")) for item in items), Decimal("0"))
+            total = max(money(out.get("total")), Decimal("0"))
+            live_profit = total - live_cost_total
+            live_margin = (live_profit / total * Decimal("100")) if total > 0 else Decimal("0")
+            missing = sum(1 for item in items if item.get("custo_informado") is False)
+            out["custo_total"] = dec_out(q2(live_cost_total))
+            out["lucro_total"] = dec_out(q2(live_profit))
+            out["margem_percentual"] = dec_out(q2(live_margin))
+            out["itens_sem_custo"] = missing
+            out["analise_confiavel"] = missing == 0
+
         history = db.execute(text("""
             SELECT id, usuario_id, usuario_nome, acao, status_anterior, status_novo, descricao, dados_json, criado_em
             FROM orcamento_historico WHERE orcamento_id=:o ORDER BY criado_em DESC, id DESC
@@ -1685,7 +1892,11 @@ def search_budget_products(
         key=lambda row: (natural_sort_key(row.get("nome")), int(row.get("id") or 0)),
     )
     total = len(ordered_rows)
-    rows = ordered_rows[offset:offset + limit]
+    rows = apply_product_cost_fallbacks(
+        db,
+        company_id,
+        ordered_rows[offset:offset + limit],
+    )
 
     show_cost = can_view_costs(current_user, db)
     items = []
@@ -1992,6 +2203,12 @@ def kit_to_out(db: Session, row: dict, show_costs: bool, with_items: bool = True
             WHERE ki.kit_id=:kit_id
             ORDER BY ki.ordem, ki.id
         """), {"kit_id": out["id"]}).mappings().all()
+        rows = apply_product_cost_fallbacks(
+            db,
+            int(out.get("empresa_id") or 0),
+            rows,
+            product_id_key="produto_id",
+        )
         items = []
         for item in rows:
             obj = {
@@ -2546,7 +2763,7 @@ def update_budget(
         )
 
     incoming = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload.dict(exclude_unset=True)
-    current_items = serialize_items(db, budget_id, show_costs=True)
+    current_items = serialize_items(db, budget_id, show_costs=True, company_id=company_id)
     base_fields = list(getattr(BudgetBase, "model_fields", {}).keys()) or list(getattr(BudgetBase, "__fields__", {}).keys())
     merged = {**{k: data.get(k) for k in base_fields}, **incoming}
     merged["itens"] = incoming.get("itens", current_items)

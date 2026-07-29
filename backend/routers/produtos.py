@@ -25,6 +25,25 @@ from backend.security.permissions import user_has_permission
 router = APIRouter(prefix="/api/produtos", tags=["Produtos"])
 
 
+# O formulário de Produtos permite que a empresa renomeie o campo de custo.
+# Estes aliases representam o mesmo conceito comercial: custo/valor de compra.
+PRODUCT_COST_ALIASES = (
+    "custo",
+    "valor_custo",
+    "valor_de_custo",
+    "custo_efetivo",
+    "preco_custo",
+    "preco_de_custo",
+    "valor_compra",
+    "valor_de_compra",
+    "preco_compra",
+    "preco_de_compra",
+    "custo_compra",
+    "custo_de_compra",
+)
+PRODUCT_COST_ALIAS_SET = set(PRODUCT_COST_ALIASES)
+
+
 def get_db():
     db = SessionLocal()
     try:
@@ -47,6 +66,96 @@ except Exception:
 def norm_str(s: Optional[str]) -> Optional[str]:
     v = (s or "").strip()
     return v or None
+
+
+def normalizar_slug_custo(value: Any) -> str:
+    raw = unicodedata.normalize("NFKD", str(value or ""))
+    raw = "".join(ch for ch in raw if not unicodedata.combining(ch))
+    raw = raw.lower().strip()
+    raw = re.sub(r"[^a-z0-9]+", "_", raw)
+    return re.sub(r"_+", "_", raw).strip("_")
+
+
+def prioridade_campo_custo(slug: Any, nome: Any = None) -> Optional[int]:
+    identifiers = [normalizar_slug_custo(slug), normalizar_slug_custo(nome)]
+    for offset, identifier in enumerate(identifiers):
+        if not identifier:
+            continue
+        if identifier in PRODUCT_COST_ALIAS_SET:
+            return PRODUCT_COST_ALIASES.index(identifier) + offset * 20
+
+        without_suffix = re.sub(r"_\d+$", "", identifier)
+        if without_suffix in PRODUCT_COST_ALIAS_SET:
+            return PRODUCT_COST_ALIASES.index(without_suffix) + 40 + offset * 20
+
+        tokens = set(identifier.split("_"))
+        if "custo" in tokens:
+            return 100 + offset
+        if "compra" in tokens and ({"valor", "preco"} & tokens):
+            return 110 + offset
+
+    return None
+
+
+def campo_representa_custo(slug: Any, nome: Any = None) -> bool:
+    return prioridade_campo_custo(slug, nome) is not None
+
+
+def extrair_custo_custom_fields(
+    custom_fields: Optional[Dict[str, Any]],
+    field_names: Optional[Dict[str, str]] = None,
+) -> tuple[bool, Optional[str]]:
+    """Retorna (campo_encontrado, valor_normalizado).
+
+    O nome exibido também é considerado. Isso cobre bases antigas em que o
+    campo foi renomeado para "Valor Compra", mas manteve um slug legado.
+    """
+    if not isinstance(custom_fields, dict):
+        return False, None
+
+    candidates: List[tuple[int, int, Optional[str]]] = []
+    found = False
+    for index, (slug, raw_value) in enumerate(custom_fields.items()):
+        priority = prioridade_campo_custo(slug, (field_names or {}).get(str(slug)))
+        if priority is None:
+            continue
+        found = True
+        value = norm_str(None if raw_value is None else str(raw_value))
+        candidates.append((priority, index, value))
+
+    if not candidates:
+        return found, None
+
+    candidates.sort(key=lambda item: (item[0], item[1]))
+    for _, _, value in candidates:
+        if value is not None:
+            return True, value
+    return True, None
+
+
+def extrair_custo_custom_fields_empresa(
+    db: Session,
+    empresa_id: int,
+    custom_fields: Optional[Dict[str, Any]],
+) -> tuple[bool, Optional[str]]:
+    if not isinstance(custom_fields, dict):
+        return False, None
+    campos_map = buscar_campos_empresa_map(db, empresa_id)
+    field_names = {slug: str(getattr(campo, "nome", "") or "") for slug, campo in campos_map.items()}
+    return extrair_custo_custom_fields(custom_fields, field_names)
+
+
+def custo_produto_efetivo(
+    custo_nativo: Any,
+    custom_fields: Optional[Dict[str, Any]],
+    field_names: Optional[Dict[str, str]] = None,
+) -> Optional[str]:
+    found, custom_cost = extrair_custo_custom_fields(custom_fields, field_names)
+    # A tela de Formação de Preços é a fonte principal. Inclusive substitui
+    # custo nativo antigo igual a zero, que era a causa do DAV mostrar R$ 0,00.
+    if found:
+        return custom_cost
+    return norm_str(None if custo_nativo is None else str(custo_nativo))
 
 
 
@@ -903,6 +1012,11 @@ def salvar_custom_fields_produto(
 
 def produto_to_out(db: Session, p: models.Produto, *, include_custom_fields: bool = True) -> ProdutoOut:
     empresa_id = int(p.empresa_id)
+    custom_fields = (
+        buscar_custom_fields_produto(db, empresa_id, int(p.id))
+        if include_custom_fields
+        else {}
+    )
     return ProdutoOut(
         id=int(p.id),
         empresa_id=empresa_id,
@@ -912,18 +1026,23 @@ def produto_to_out(db: Session, p: models.Produto, *, include_custom_fields: boo
         categoria=p.categoria,
         unidade=p.unidade,
         preco_venda=p.preco_venda,
-        custo=p.custo,
+        custo=custo_produto_efetivo(p.custo, custom_fields),
         estoque_atual=p.estoque_atual,
         ativo=bool(p.ativo),
         criado_em=iso_datetime(getattr(p, "criado_em", None)),
         atualizado_em=iso_datetime(getattr(p, "atualizado_em", None)),
-        custom_fields=(buscar_custom_fields_produto(db, empresa_id, int(p.id)) if include_custom_fields else {}),
+        custom_fields=custom_fields,
     )
 
 
 def produto_to_list_out(db: Session, p: models.Produto, *, include_custom_fields: bool = True) -> Dict[str, object]:
     empresa_id = int(getattr(p, "empresa_id", 0) or 0)
     produto_id = int(getattr(p, "id", 0) or 0)
+    custom_fields = (
+        buscar_custom_fields_produto(db, empresa_id, produto_id)
+        if include_custom_fields and empresa_id and produto_id
+        else {}
+    )
 
     return {
         "id": int(p.id),
@@ -939,16 +1058,12 @@ def produto_to_list_out(db: Session, p: models.Produto, *, include_custom_fields
         "categorias": getattr(p, "categoria", None),
         "unidade": getattr(p, "unidade", None),
         "preco_venda": getattr(p, "preco_venda", None),
-        "custo": getattr(p, "custo", None),
+        "custo": custo_produto_efetivo(getattr(p, "custo", None), custom_fields),
         "estoque_atual": getattr(p, "estoque_atual", None),
         "ativo": bool(getattr(p, "ativo", True)),
         "criado_em": iso_datetime(getattr(p, "criado_em", None)),
         "atualizado_em": iso_datetime(getattr(p, "atualizado_em", None)),
-        "custom_fields": (
-            buscar_custom_fields_produto(db, empresa_id, produto_id)
-            if include_custom_fields and empresa_id and produto_id
-            else {}
-        ),
+        "custom_fields": custom_fields,
     }
 
 
@@ -1507,9 +1622,20 @@ def carregar_valores_custom_lote(db: Session, produto_ids: List[int], campo_ids:
     return out
 
 
-def valor_atual_campo_preco(produto, campo_meta: dict, custom_values: Dict[int, str]) -> Optional[str]:
+def valor_atual_campo_preco(
+    produto,
+    campo_meta: dict,
+    custom_values: Dict[int, str],
+    cost_custom_field_ids: Optional[List[int]] = None,
+) -> Optional[str]:
     if campo_meta["kind"] == "native":
-        return getattr(produto, campo_meta["key"], None)
+        value = getattr(produto, campo_meta["key"], None)
+        if campo_meta.get("key") == "custo" and norm_str(value) is None:
+            for field_id in cost_custom_field_ids or []:
+                custom_value = norm_str(custom_values.get(int(field_id)))
+                if custom_value is not None:
+                    return custom_value
+        return value
     return custom_values.get(int(campo_meta["campo_id"]))
 
 @router.get("")
@@ -1725,7 +1851,18 @@ def listar_atualizacao_precos(
     rows = query.offset(offset).limit(limit).all()
 
     produto_ids = [int(row.id) for row in rows]
-    custom_field_ids = [int(item["campo_id"]) for item in campos_preco if item["kind"] == "custom"]
+    cost_custom_fields = sorted(
+        [
+            item for item in todos_campos_preco
+            if item["kind"] == "custom" and campo_representa_custo(item.get("slug"), item.get("label"))
+        ],
+        key=lambda item: PRODUCT_COST_ALIASES.index(normalizar_slug_custo(item.get("slug"))),
+    )
+    cost_custom_field_ids = [int(item["campo_id"]) for item in cost_custom_fields]
+    custom_field_ids = sorted({
+        *[int(item["campo_id"]) for item in campos_preco if item["kind"] == "custom"],
+        *cost_custom_field_ids,
+    })
     custom_values = carregar_valores_custom_lote(db, produto_ids, custom_field_ids)
 
     items = []
@@ -1740,7 +1877,12 @@ def listar_atualizacao_precos(
             "ativo": bool(produto.ativo),
             "atualizado_em": iso_datetime(getattr(produto, "atualizado_em", None)),
             "valores": {
-                campo["key"]: valor_atual_campo_preco(produto, campo, valores_produto)
+                campo["key"]: valor_atual_campo_preco(
+                    produto,
+                    campo,
+                    valores_produto,
+                    cost_custom_field_ids,
+                )
                 for campo in campos_preco
             },
         })
@@ -1775,6 +1917,10 @@ def salvar_atualizacao_precos(
 
     campos_preco = obter_campos_formacao_preco(db, empresa_id)
     campos_map = {str(item["key"]): item for item in campos_preco}
+    cost_custom_fields = [
+        item for item in campos_preco
+        if item["kind"] == "custom" and campo_representa_custo(item.get("slug"), item.get("label"))
+    ]
 
     produtos_rows = (
         db.query(models.Produto)
@@ -1797,6 +1943,34 @@ def salvar_atualizacao_precos(
         else []
     )
     custom_map = {(int(row.produto_id), int(row.campo_id)): row for row in custom_rows}
+
+    def sincronizar_fontes_custo(produto: models.Produto, novo_valor: Optional[str]) -> None:
+        """Mantém o custo nativo e os campos equivalentes com o mesmo valor."""
+        produto.custo = novo_valor
+        produto_id = int(produto.id)
+
+        for cost_field in cost_custom_fields:
+            field_id = int(cost_field["campo_id"])
+            map_key = (produto_id, field_id)
+            row = custom_map.get(map_key)
+
+            if novo_valor is None:
+                if row:
+                    db.delete(row)
+                    custom_map.pop(map_key, None)
+                continue
+
+            if row:
+                row.valor = novo_valor
+                continue
+
+            row = models.ProdutoCampoValor(
+                produto_id=produto_id,
+                campo_id=field_id,
+                valor=novo_valor,
+            )
+            db.add(row)
+            custom_map[map_key] = row
 
     motivo = norm_str(payload.motivo)
     if motivo and len(motivo) > 500:
@@ -1853,6 +2027,12 @@ def salvar_atualizacao_precos(
                         )
                         db.add(row)
                         custom_map[map_key] = row
+
+                if (
+                    (campo["kind"] == "native" and campo.get("key") == "custo")
+                    or (campo["kind"] == "custom" and campo_representa_custo(campo.get("slug"), campo.get("label")))
+                ):
+                    sincronizar_fontes_custo(produto, novo_valor)
 
                 db.add(models.ProdutoPrecoHistorico(
                     empresa_id=empresa_id,
@@ -1949,6 +2129,10 @@ def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depend
     # Código de produto é gerado pelo sistema, único e imutável.
     # Não confiar em payload.codigo vindo do front/importação.
     codigo = gerar_codigo_produto(db, empresa_id)
+    custom_cost_present, custom_cost = extrair_custo_custom_fields_empresa(
+        db, empresa_id, payload.custom_fields
+    )
+    custo = custom_cost if custom_cost_present else norm_str(payload.custo)
 
     p = models.Produto(
         empresa_id=empresa_id,
@@ -1958,7 +2142,7 @@ def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depend
         categoria=norm_str(payload.categoria),
         unidade=norm_str(payload.unidade),
         preco_venda=norm_str(payload.preco_venda),
-        custo=norm_str(payload.custo),
+        custo=custo,
         estoque_atual=norm_str(payload.estoque_atual),
         ativo=bool(payload.ativo if payload.ativo is not None else True),
     )
@@ -2146,7 +2330,14 @@ def atualizar_produto(
     if payload.preco_venda is not None:
         p.preco_venda = norm_str(payload.preco_venda)
 
-    if payload.custo is not None:
+    custom_cost_present, custom_cost = extrair_custo_custom_fields_empresa(
+        db, empresa_id, payload.custom_fields
+    )
+    if custom_cost_present:
+        # O valor visível na Formação de Preços é autoritativo, inclusive para
+        # corrigir produtos antigos cujo custo nativo permaneceu como zero.
+        p.custo = custom_cost
+    elif payload.custo is not None:
         p.custo = norm_str(payload.custo)
 
     if payload.estoque_atual is not None:

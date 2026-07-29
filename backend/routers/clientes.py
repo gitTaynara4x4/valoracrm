@@ -116,6 +116,195 @@ def somente_digitos_sql(column):
     return func.regexp_replace(func.coalesce(cast(column, String), ""), r"\D", "", "g")
 
 
+# Campos do construtor podem ter sido criados como personalizados mesmo quando
+# representam dados nativos do cliente. Mantemos um mapa amplo para que rótulos
+# como "CPF" e "CEP" gravem também em clientes.cpf_cnpj e clientes.cep.
+CLIENT_NATIVE_FIELD_ALIASES: Dict[str, tuple[str, ...]] = {
+    "tipo_pessoa": ("tipo_pessoa", "pessoa_fisica_juridica", "tipo_de_pessoa"),
+    "situacao": ("situacao", "status"),
+    "nome": ("nome", "cliente", "nome_razao_social", "razao_social", "nome_completo"),
+    "nome_fantasia": ("nome_fantasia",),
+    "cpf_cnpj": (
+        "cpf_cnpj", "cpf", "cnpj", "documento", "cpf_pessoa_fisica",
+        "cnpj_pessoa_juridica", "cpf_pf", "cnpj_pj",
+    ),
+    "rg_ie": ("rg_ie", "rg", "registro_geral", "inscricao_estadual", "ie"),
+    "inscricao_municipal": ("inscricao_municipal", "im"),
+    "suframa": ("suframa",),
+    "data_nascimento": ("data_nascimento", "nascimento", "data_de_nascimento"),
+    "codigo_referencia": ("codigo_referencia", "referencia", "codigo_de_referencia"),
+    "retencao_percentual": ("retencao_percentual", "percentual_retencao", "retencao"),
+    "telefone": (
+        "telefone", "telefone_contato", "telefone_principal", "telefone_celular",
+        "telefone_contato_whatsapp",
+    ),
+    "whatsapp": ("whatsapp", "telefone_whatsapp", "celular_whatsapp"),
+    "fax": ("fax",),
+    "email": ("email", "e_mail", "email_principal", "e_mail_principal"),
+    "email_nfe": ("email_nfe", "e_mail_nfe"),
+    "email_cobranca": ("email_cobranca", "e_mail_cobranca"),
+    "email_fiscal": ("email_fiscal", "e_mail_fiscal"),
+    "site": ("site", "home_page", "homepage"),
+    "contato": ("contato", "responsavel", "nome_completo_responsavel"),
+    "parceiro_comercial": ("parceiro_comercial", "parceiro", "vendedor"),
+    "percentual_comissao": ("percentual_comissao", "comissao_percentual", "comissao"),
+    "percentual_desconto": ("percentual_desconto", "desconto_percentual", "desconto"),
+    "regiao": ("regiao",),
+    "segmento": ("segmento", "tipo_de_imovel", "tipo_imovel"),
+    "modalidade_pagamento": ("modalidade_pagamento", "forma_pagamento", "condicao_pagamento"),
+    "classificacao": ("classificacao",),
+    "cep": ("cep", "codigo_postal", "cep_imovel", "cep_do_imovel", "cep_localizacao_imovel"),
+    "endereco": ("endereco", "logradouro", "rua", "avenida"),
+    "numero": ("numero", "numero_endereco"),
+    "complemento": ("complemento", "complemento_endereco"),
+    "bairro": ("bairro",),
+    "cidade": ("cidade", "municipio"),
+    "estado": ("estado", "uf"),
+    "pais": ("pais",),
+    "codigo_ibge_cidade": ("codigo_ibge_cidade", "ibge_cidade", "codigo_ibge_municipio"),
+    "codigo_ibge_uf": ("codigo_ibge_uf", "ibge_uf"),
+    "observacoes": ("observacoes", "observacao", "anotacoes"),
+}
+
+
+def normalizar_chave_cliente(value: Any) -> str:
+    raw = unicodedata.normalize("NFKD", str(value or ""))
+    raw = "".join(ch for ch in raw if not unicodedata.combining(ch))
+    raw = raw.lower().strip()
+    raw = re.sub(r"[^a-z0-9]+", "_", raw)
+    return re.sub(r"_+", "_", raw).strip("_")
+
+
+CLIENT_NATIVE_ALIAS_TO_FIELD: Dict[str, str] = {}
+for _native_field, _aliases in CLIENT_NATIVE_FIELD_ALIASES.items():
+    for _alias in _aliases:
+        CLIENT_NATIVE_ALIAS_TO_FIELD.setdefault(normalizar_chave_cliente(_alias), _native_field)
+
+
+def _inferir_campo_nativo_cliente(slug: Any, nome: Any = None) -> tuple[Optional[str], int]:
+    slug_norm = normalizar_chave_cliente(slug)
+    nome_norm = normalizar_chave_cliente(nome)
+
+    if slug_norm in CLIENT_NATIVE_FIELD_ALIASES:
+        return slug_norm, 0
+    if slug_norm in CLIENT_NATIVE_ALIAS_TO_FIELD:
+        return CLIENT_NATIVE_ALIAS_TO_FIELD[slug_norm], 1
+    if nome_norm in CLIENT_NATIVE_FIELD_ALIASES:
+        return nome_norm, 2
+    if nome_norm in CLIENT_NATIVE_ALIAS_TO_FIELD:
+        return CLIENT_NATIVE_ALIAS_TO_FIELD[nome_norm], 3
+
+    # Compatibilidade com slugs antigos que ganharam sufixo por duplicidade,
+    # como cpf_2, cep_3 ou valor renomeado mantendo o nome exibido correto.
+    for token, priority in ((nome_norm, 4), (slug_norm, 5)):
+        if not token:
+            continue
+        base = re.sub(r"_\d+$", "", token)
+        if base in CLIENT_NATIVE_ALIAS_TO_FIELD:
+            return CLIENT_NATIVE_ALIAS_TO_FIELD[base], priority
+
+    # Alguns formulários usam rótulos descritivos, por exemplo
+    # "CPF (Dados da Pessoa Física)" e "CEP (Localização do Imóvel)".
+    # Nesses casos o nome inteiro não é um alias exato, mas o identificador
+    # inequívoco continua presente como palavra isolada.
+    for token, priority in ((nome_norm, 6), (slug_norm, 7)):
+        words = set(filter(None, token.split("_")))
+        if {"cpf", "cnpj"} & words:
+            return "cpf_cnpj", priority
+        if "cep" in words or ({"codigo", "postal"} <= words):
+            return "cep", priority
+
+    return None, 999
+
+
+def resolver_campos_nativos_custom_cliente(
+    db: Session,
+    empresa_id: int,
+    custom_fields: Optional[Dict[str, Any]],
+    *,
+    sincronizar: bool = False,
+) -> Dict[str, Any]:
+    if not isinstance(custom_fields, dict) or not custom_fields:
+        return {}
+
+    if sincronizar:
+        campos_map = buscar_campos_empresa_map(db, empresa_id)
+    else:
+        campos_map = {
+            str(campo.slug): campo
+            for campo in (
+                db.query(core_models.CampoCliente)
+                .filter(core_models.CampoCliente.empresa_id == empresa_id)
+                .all()
+            )
+        }
+    escolhidos: Dict[str, tuple[int, int, int, Any]] = {}
+
+    for index, (slug, raw_value) in enumerate(custom_fields.items()):
+        campo = campos_map.get(str(slug))
+        native_field, priority = _inferir_campo_nativo_cliente(
+            slug,
+            getattr(campo, "nome", None) if campo is not None else None,
+        )
+        if not native_field:
+            continue
+
+        value_is_empty = raw_value is None or str(raw_value).strip() == ""
+        # Um campo preenchido nunca pode ser vencido por uma cópia escondida
+        # vazia. Entre cópias igualmente preenchidas, a última ocorrência do
+        # payload representa melhor o campo efetivamente editado; a precisão
+        # do alias fica como desempate final.
+        candidate = (1 if value_is_empty else 0, -index, priority, raw_value)
+        current = escolhidos.get(native_field)
+        if current is None or candidate[:3] < current[:3]:
+            escolhidos[native_field] = candidate
+
+    return {field: candidate[3] for field, candidate in escolhidos.items()}
+
+
+def promover_custom_para_campos_nativos_cliente(
+    db: Session,
+    empresa_id: int,
+    payload: Any,
+) -> None:
+    resolved = resolver_campos_nativos_custom_cliente(
+        db,
+        empresa_id,
+        getattr(payload, "custom_fields", None),
+        sincronizar=True,
+    )
+    for field, raw_value in resolved.items():
+        if not hasattr(payload, field):
+            continue
+        value = None if raw_value is None else str(raw_value).strip()
+        if field == "tipo_pessoa":
+            normalized = normalizar_chave_cliente(value)
+            if normalized == "pj" or "juridica" in normalized:
+                value = "PJ"
+            elif normalized == "pf" or "fisica" in normalized:
+                value = "PF"
+        elif field == "situacao" and value:
+            value = value.lower()
+        setattr(payload, field, value or None)
+
+
+def aplicar_fallback_custom_em_cliente_out(
+    db: Session,
+    empresa_id: int,
+    data: Dict[str, Any],
+    custom_fields: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    resolved = resolver_campos_nativos_custom_cliente(db, empresa_id, custom_fields)
+    for field, raw_value in resolved.items():
+        current = data.get(field)
+        if current is not None and str(current).strip() != "":
+            continue
+        value = None if raw_value is None else str(raw_value).strip()
+        if value:
+            data[field] = value
+    return data
+
+
 def bloquear_transacao_clientes(db: Session, empresa_id: int) -> None:
     """Serializa gravações de clientes da mesma empresa durante a transação.
 
@@ -1270,6 +1459,11 @@ def montar_historico_cliente(db: Session, cliente: Cliente) -> Dict[str, Any]:
 
 
 def cliente_to_list_out(db: Session, c: Cliente, *, include_custom_fields: bool = False) -> ClienteListOut:
+    custom_fields = (
+        buscar_custom_fields_cliente(db, int(c.empresa_id), int(c.id))
+        if include_custom_fields
+        else {}
+    )
     return ClienteListOut(
         id=int(c.id),
         empresa_id=int(c.empresa_id),
@@ -1286,51 +1480,106 @@ def cliente_to_list_out(db: Session, c: Cliente, *, include_custom_fields: bool 
         estado=c.estado,
         criado_em=serialize_datetime(c.criado_em),
         atualizado_em=serialize_datetime(c.atualizado_em),
-        custom_fields=(
-            buscar_custom_fields_cliente(db, int(c.empresa_id), int(c.id))
-            if include_custom_fields
-            else {}
-        ),
+        custom_fields=custom_fields,
     )
 
 
 def cliente_to_out(db: Session, c: Cliente) -> ClienteOut:
-    base = pydantic_dump(cliente_to_list_out(db, c, include_custom_fields=False))
-    base["custom_fields"] = safe_optional_fetch(
+    custom_fields = safe_optional_fetch(
         {},
         lambda: buscar_custom_fields_cliente(db, int(c.empresa_id), int(c.id)),
     )
+    native_values = aplicar_fallback_custom_em_cliente_out(
+        db,
+        int(c.empresa_id),
+        {
+            "tipo_pessoa": c.tipo_pessoa or "PF",
+            "situacao": c.situacao or "ativo",
+            "nome": c.nome or "",
+            "nome_fantasia": c.nome_fantasia,
+            "cpf_cnpj": c.cpf_cnpj,
+            "rg_ie": c.rg_ie,
+            "inscricao_municipal": c.inscricao_municipal,
+            "suframa": c.suframa,
+            "data_nascimento": serialize_date(c.data_nascimento),
+            "codigo_referencia": c.codigo_referencia,
+            "retencao_percentual": serialize_decimal(c.retencao_percentual),
+            "telefone": c.telefone,
+            "whatsapp": c.whatsapp,
+            "fax": c.fax,
+            "email": c.email,
+            "email_nfe": c.email_nfe,
+            "email_cobranca": c.email_cobranca,
+            "email_fiscal": c.email_fiscal,
+            "site": c.site,
+            "contato": c.contato,
+            "parceiro_comercial": c.parceiro_comercial,
+            "percentual_comissao": serialize_decimal(c.percentual_comissao),
+            "percentual_desconto": serialize_decimal(c.percentual_desconto),
+            "regiao": c.regiao,
+            "segmento": c.segmento,
+            "modalidade_pagamento": c.modalidade_pagamento,
+            "classificacao": c.classificacao,
+            "cep": c.cep,
+            "endereco": c.endereco,
+            "numero": c.numero,
+            "complemento": c.complemento,
+            "bairro": c.bairro,
+            "cidade": c.cidade,
+            "estado": c.estado,
+            "pais": c.pais,
+            "codigo_ibge_cidade": c.codigo_ibge_cidade,
+            "codigo_ibge_uf": c.codigo_ibge_uf,
+            "observacoes": c.observacoes,
+        },
+        custom_fields,
+    )
 
     return ClienteOut(
-        **base,
-        rg_ie=c.rg_ie,
-        inscricao_municipal=c.inscricao_municipal,
-        suframa=c.suframa,
-        data_nascimento=serialize_date(c.data_nascimento),
-        codigo_referencia=c.codigo_referencia,
-        retencao_percentual=serialize_decimal(c.retencao_percentual),
-        fax=c.fax,
-        email_nfe=c.email_nfe,
-        email_cobranca=c.email_cobranca,
-        email_fiscal=c.email_fiscal,
-        site=c.site,
-        contato=c.contato,
-        parceiro_comercial=c.parceiro_comercial,
-        percentual_comissao=serialize_decimal(c.percentual_comissao),
-        percentual_desconto=serialize_decimal(c.percentual_desconto),
-        regiao=c.regiao,
-        segmento=c.segmento,
-        modalidade_pagamento=c.modalidade_pagamento,
-        classificacao=c.classificacao,
-        cep=c.cep,
-        endereco=c.endereco,
-        numero=c.numero,
-        complemento=c.complemento,
-        bairro=c.bairro,
-        pais=c.pais,
-        codigo_ibge_cidade=c.codigo_ibge_cidade,
-        codigo_ibge_uf=c.codigo_ibge_uf,
-        observacoes=c.observacoes,
+        id=int(c.id),
+        empresa_id=int(c.empresa_id),
+        codigo=normalizar_codigo_cliente(c.codigo) or "",
+        tipo_pessoa=str(native_values.get("tipo_pessoa") or "PF"),
+        situacao=str(native_values.get("situacao") or "ativo"),
+        nome=str(native_values.get("nome") or ""),
+        nome_fantasia=native_values.get("nome_fantasia"),
+        cpf_cnpj=native_values.get("cpf_cnpj"),
+        telefone=native_values.get("telefone"),
+        whatsapp=native_values.get("whatsapp"),
+        email=native_values.get("email"),
+        cidade=native_values.get("cidade"),
+        estado=native_values.get("estado"),
+        criado_em=serialize_datetime(c.criado_em),
+        atualizado_em=serialize_datetime(c.atualizado_em),
+        custom_fields=custom_fields,
+        rg_ie=native_values.get("rg_ie"),
+        inscricao_municipal=native_values.get("inscricao_municipal"),
+        suframa=native_values.get("suframa"),
+        data_nascimento=native_values.get("data_nascimento"),
+        codigo_referencia=native_values.get("codigo_referencia"),
+        retencao_percentual=native_values.get("retencao_percentual"),
+        fax=native_values.get("fax"),
+        email_nfe=native_values.get("email_nfe"),
+        email_cobranca=native_values.get("email_cobranca"),
+        email_fiscal=native_values.get("email_fiscal"),
+        site=native_values.get("site"),
+        contato=native_values.get("contato"),
+        parceiro_comercial=native_values.get("parceiro_comercial"),
+        percentual_comissao=native_values.get("percentual_comissao"),
+        percentual_desconto=native_values.get("percentual_desconto"),
+        regiao=native_values.get("regiao"),
+        segmento=native_values.get("segmento"),
+        modalidade_pagamento=native_values.get("modalidade_pagamento"),
+        classificacao=native_values.get("classificacao"),
+        cep=native_values.get("cep"),
+        endereco=native_values.get("endereco"),
+        numero=native_values.get("numero"),
+        complemento=native_values.get("complemento"),
+        bairro=native_values.get("bairro"),
+        pais=native_values.get("pais"),
+        codigo_ibge_cidade=native_values.get("codigo_ibge_cidade"),
+        codigo_ibge_uf=native_values.get("codigo_ibge_uf"),
+        observacoes=native_values.get("observacoes"),
         enderecos=safe_optional_fetch([], lambda: listar_enderecos(db, int(c.id))),
         referencias_comerciais=safe_optional_fetch([], lambda: listar_refs_comerciais(db, int(c.id))),
         referencias_bancarias=safe_optional_fetch([], lambda: listar_refs_bancarias(db, int(c.id))),
@@ -1975,6 +2224,7 @@ def criar_cliente(
     for _tentativa in range(10):
         try:
             bloquear_transacao_clientes(db, empresa_id)
+            promover_custom_para_campos_nativos_cliente(db, empresa_id, payload)
             validar_duplicidade_cliente(db, empresa_id, payload)
 
             codigo = gerar_codigo_cliente(db, empresa_id)
@@ -2037,6 +2287,7 @@ def atualizar_cliente(
 
     try:
         bloquear_transacao_clientes(db, empresa_id)
+        promover_custom_para_campos_nativos_cliente(db, empresa_id, payload)
         validar_duplicidade_cliente(db, empresa_id, payload, cliente_atual=cliente)
         before_snapshot = snapshot_cliente_auditoria(db, cliente)
 

@@ -6,7 +6,7 @@ import {
   renderCustomFieldsInputs,
   normalizeCustomFieldsPayload,
   validateRequiredCustomFields,
-} from './custom-fields.js?v=20260729-clientes-gravacao-v1';
+} from './custom-fields.js?v=20260729-clientes-gravacao-v2';
 
 let _afterSave = async () => {};
 let _bound = false;

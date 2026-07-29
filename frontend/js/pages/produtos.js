@@ -39,8 +39,17 @@
     'preco_venda',
     'valor_de_venda',
     'custo',
+    'valor_custo',
     'valor_de_custo',
     'custo_efetivo',
+    'preco_custo',
+    'preco_de_custo',
+    'valor_compra',
+    'valor_de_compra',
+    'preco_compra',
+    'preco_de_compra',
+    'custo_compra',
+    'custo_de_compra',
     'estoque_atual',
     'quantidade_atual',
     'qtd_atual',
@@ -403,8 +412,16 @@
       'quantidade_atual',
       'estoque_atual',
       'preco_venda',
+      'valor_custo',
       'valor_de_custo',
       'custo',
+      'preco_de_custo',
+      'valor_compra',
+      'valor_de_compra',
+      'preco_compra',
+      'preco_de_compra',
+      'custo_compra',
+      'custo_de_compra',
     ]);
 
     for (const [key, value] of Object.entries(data)) {
@@ -465,9 +482,17 @@
 
     const custo = getCustomValue(custom, [
       'custo',
+      'valor_custo',
       'valor_de_custo',
       'custo_efetivo',
       'preco_custo',
+      'preco_de_custo',
+      'valor_compra',
+      'valor_de_compra',
+      'preco_compra',
+      'preco_de_compra',
+      'custo_compra',
+      'custo_de_compra',
     ], fallback.custo || '');
 
     const estoqueAtual = getCustomValue(custom, [
@@ -561,9 +586,17 @@
 
     preencherAliasesCustomProduto(custom, [
       'custo',
+      'valor_custo',
       'valor_de_custo',
       'custo_efetivo',
       'preco_custo',
+      'preco_de_custo',
+      'valor_compra',
+      'valor_de_compra',
+      'preco_compra',
+      'preco_de_compra',
+      'custo_compra',
+      'custo_de_compra',
     ], produto.custo);
 
     preencherAliasesCustomProduto(custom, [
