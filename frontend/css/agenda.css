@@ -425,38 +425,48 @@ html[data-theme="dark"] {
   inset: 0;
   z-index: 120000;
   display: none;
-  background: rgba(15, 23, 42, 0.34);
-  backdrop-filter: blur(2px);
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(3px);
 }
 
 .valora-agenda-overlay.is-open {
   display: block;
 }
 
+/* A agenda global agora usa toda a área disponível da tela. */
 .valora-agenda-drawer {
   position: absolute;
-  top: 0;
-  right: 0;
-  width: min(470px, 96vw);
+  inset: 0;
+  width: 100%;
+  max-width: none;
   height: 100%;
-  display: flex;
-  flex-direction: column;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 520px);
+  grid-template-rows: auto auto minmax(0, 1fr);
   background: var(--agenda-surface);
-  border-left: 1px solid var(--agenda-border);
-  box-shadow: -24px 0 55px rgba(15, 23, 42, 0.18);
-  transform: translateX(100%);
-  transition: transform 0.2s ease;
+  border: 0;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+  opacity: 0;
+  transform: scale(0.985);
+  transform-origin: center;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  overflow: hidden;
 }
 
 .valora-agenda-overlay.is-open .valora-agenda-drawer {
-  transform: translateX(0);
+  opacity: 1;
+  transform: scale(1);
 }
 
 .valora-agenda-drawer-head {
+  grid-column: 1 / -1;
+  grid-row: 1;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px;
+  padding: 18px 24px;
   border-bottom: 1px solid var(--agenda-border);
 }
 
@@ -484,10 +494,14 @@ html[data-theme="dark"] {
 }
 
 .valora-agenda-drawer-summary {
+  grid-column: 1;
+  grid-row: 2;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(150px, 220px));
+  align-content: stretch;
+  justify-content: start;
   gap: 10px;
-  padding: 14px 20px;
+  padding: 14px 12px 14px 24px;
   border-bottom: 1px solid var(--agenda-border);
 }
 
@@ -510,11 +524,21 @@ html[data-theme="dark"] {
 }
 
 .valora-agenda-drawer-list {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  min-height: 0;
   overflow: auto;
-  padding: 16px 20px 28px;
+  padding: 18px 24px 30px;
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-content: start;
-  gap: 10px;
+  align-items: start;
+  gap: 12px;
+}
+
+.valora-agenda-drawer-list > .agenda-empty,
+.valora-agenda-drawer-list > .agenda-loading {
+  grid-column: 1 / -1;
 }
 
 .valora-agenda-alerts {
@@ -578,6 +602,31 @@ html[data-theme="dark"] {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@media (max-width: 1179px) {
+  .valora-agenda-drawer {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+  }
+
+  .valora-agenda-drawer-summary {
+    grid-column: 1;
+    grid-row: 2;
+    padding-right: 24px;
+  }
+
+  .agenda-push-card {
+    grid-column: 1;
+    grid-row: 3;
+    margin: 0 24px 14px;
+  }
+
+  .valora-agenda-drawer-list {
+    grid-column: 1;
+    grid-row: 4;
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 760px) {
   .valora-agenda-form {
     grid-template-columns: 1fr;
@@ -616,6 +665,27 @@ html[data-theme="dark"] {
     flex: 1 1 180px;
   }
 
+  .valora-agenda-drawer-head {
+    padding: 15px 16px;
+  }
+
+  .valora-agenda-drawer-head p {
+    display: none;
+  }
+
+  .valora-agenda-drawer-summary {
+    grid-template-columns: 1fr 1fr;
+    padding: 12px 16px;
+  }
+
+  .agenda-push-card {
+    margin: 0 16px 12px;
+  }
+
+  .valora-agenda-drawer-list {
+    padding: 14px 16px 24px;
+  }
+
   .valora-agenda-alerts {
     right: 14px;
     bottom: 14px;
@@ -644,11 +714,14 @@ html[data-theme="dark"] {
 
 /* Notificações do dispositivo */
 .agenda-push-card {
+  grid-column: 2;
+  grid-row: 2;
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto;
   align-items: center;
+  align-self: stretch;
   gap: 11px;
-  margin: 0 20px;
+  margin: 14px 24px 14px 0;
   padding: 13px 14px;
   border: 1px solid var(--agenda-border);
   border-radius: 12px;
@@ -745,6 +818,20 @@ html[data-theme="dark"] {
 .agenda-push-toggle:disabled {
   opacity: 0.58;
   cursor: not-allowed;
+}
+
+@media (max-width: 1179px) {
+  .agenda-push-card {
+    grid-column: 1;
+    grid-row: 3;
+    margin: 0 24px 14px;
+  }
+}
+
+@media (max-width: 760px) {
+  .agenda-push-card {
+    margin: 0 16px 12px;
+  }
 }
 
 @media (max-width: 560px) {

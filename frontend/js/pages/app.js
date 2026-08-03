@@ -56,7 +56,7 @@
   if (!document.querySelector('link[data-valora-agenda-css]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/frontend/css/agenda.css?v=20260722-agenda-editor-v11';
+    link.href = '/frontend/css/agenda.css?v=20260803-agenda-fullscreen-v12';
     link.dataset.valoraAgendaCss = 'true';
     document.head.appendChild(link);
   }
