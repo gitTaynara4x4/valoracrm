@@ -68,7 +68,7 @@
         return;
       }
       const script = document.createElement('script');
-      script.src = '/frontend/js/shared/agenda.js?v=20260722-agenda-editor-v11';
+      script.src = '/frontend/js/shared/agenda.js?v=20260804-agenda-save-refresh-v13';
       script.defer = true;
       script.onload = () => resolve(window.ValoraAgenda);
       script.onerror = () => reject(new Error('Não foi possível carregar a agenda do Valora.'));

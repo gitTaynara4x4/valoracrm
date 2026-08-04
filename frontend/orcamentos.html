@@ -22,13 +22,13 @@
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260725-financeiro-fase6-v1">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260804-itens-ordenacao-v2">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
-  <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260720-emitter-save-v2">
+  <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260804-listas-simples-v3">
 
-  <script src="/frontend/js/pages/app.js?v=20260726-mobile-ux-v2" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260804-agenda-save-refresh-v13" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260725-financeiro-fase6-v1" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260804-kits-modelos-ordem-v4" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -674,7 +674,7 @@
                 <div><h4>Kits cadastrados</h4><p>Os preços são atualizados pelo cadastro dos produtos no momento da inclusão.</p></div>
                 <button class="btn btn-primary btn-small" id="btn-novo-kit" type="button"><i class="fa-solid fa-plus"></i> Novo kit</button>
               </div>
-              <div id="kits-list" class="kit-settings-grid"></div>
+              <div id="kits-list" class="kit-settings-grid settings-simple-list"></div>
             </div>
 
             <div id="kit-editor" class="template-editor kit-editor is-hidden">
@@ -725,7 +725,7 @@
                 <div><h4>Modelos cadastrados</h4><p>Kits, serviços e estruturas prontas para reutilização.</p></div>
                 <button class="btn btn-primary btn-small" id="btn-novo-modelo" type="button"><i class="fa-solid fa-plus"></i> Novo modelo</button>
               </div>
-              <div id="templates-list" class="template-grid"></div>
+              <div id="templates-list" class="template-grid settings-simple-list"></div>
             </div>
             <div id="template-editor" class="template-editor is-hidden">
               <div class="template-editor-header">

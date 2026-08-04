@@ -2955,3 +2955,60 @@ html[data-theme="dark"] .budget-finance-list {
     flex-wrap: wrap;
   }
 }
+
+/* 04/08/2026 — ordem editável dos itens do orçamento. */
+.budget-items-table .item-order {
+  width: 58px;
+}
+
+.item-order-cell {
+  padding-top: 8px !important;
+}
+
+.item-order-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.item-order-control > span {
+  color: #6f7e89;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.item-order-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.item-order-buttons button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #d7e1e7;
+  border-radius: 5px;
+  color: #59707e;
+  background: var(--input-bg, #fff);
+  cursor: pointer;
+  font-size: 8px;
+}
+
+.item-order-buttons button:hover:not(:disabled) {
+  border-color: var(--budget-blue);
+  color: var(--budget-blue);
+  background: rgba(101, 172, 222, .09);
+}
+
+.item-order-buttons button:disabled {
+  opacity: .3;
+  cursor: default;
+}
+
+html[data-theme="dark"] .item-order-buttons button {
+  border-color: #414141;
+  color: #c5cbd0;
+  background: #2b2b2b;
+}

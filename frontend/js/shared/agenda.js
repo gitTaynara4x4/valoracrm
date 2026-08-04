@@ -827,7 +827,15 @@
     if (!context || !list || !context.entidadeId) return [];
 
     if (!force && context.loaded) return context.items || [];
-    if (context.loadingPromise) return context.loadingPromise;
+    if (context.loadingPromise) {
+      if (!force) return context.loadingPromise;
+
+      // Depois de salvar um registro, uma consulta anterior ainda pode estar
+      // em andamento e devolver a lista antiga. Em atualização forçada,
+      // cancela essa consulta para que o item recém-gravado apareça de imediato.
+      context.abortController?.abort?.();
+      context.loadingPromise = null;
+    }
 
     const requestVersion = Number(context.requestVersion || 0) + 1;
     context.requestVersion = requestVersion;

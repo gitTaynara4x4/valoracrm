@@ -277,6 +277,16 @@ def promover_custom_para_campos_nativos_cliente(
         if not hasattr(payload, field):
             continue
         value = None if raw_value is None else str(raw_value).strip()
+        current_value = getattr(payload, field, None)
+
+        # Campos personalizados duplicados ou ocultos podem chegar vazios.
+        # Eles não podem apagar um CEP (ou outro campo nativo) que foi
+        # preenchido diretamente no cadastro principal.
+        if not value and current_value is not None and str(current_value).strip():
+            continue
+        if not value:
+            continue
+
         if field == "tipo_pessoa":
             normalized = normalizar_chave_cliente(value)
             if normalized == "pj" or "juridica" in normalized:
@@ -285,7 +295,7 @@ def promover_custom_para_campos_nativos_cliente(
                 value = "PF"
         elif field == "situacao" and value:
             value = value.lower()
-        setattr(payload, field, value or None)
+        setattr(payload, field, value)
 
 
 def aplicar_fallback_custom_em_cliente_out(

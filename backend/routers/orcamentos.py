@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -2037,9 +2037,44 @@ def template_to_out(db: Session, row: dict, show_costs: bool, with_items: bool =
     out["atualizado_em"] = iso(out.get("atualizado_em"))
     if with_items:
         items = db.execute(text("SELECT * FROM orcamento_modelo_itens WHERE modelo_id=:m ORDER BY ordem, id"), {"m": out["id"]}).mappings().all()
+        product_ids = sorted({
+            int(item.get("produto_id") or 0)
+            for item in items
+            if int(item.get("produto_id") or 0) > 0
+        })
+        live_products: Dict[int, dict] = {}
+        if product_ids:
+            product_rows = db.execute(text("""
+                SELECT id, codigo, nome, descricao, unidade, preco_venda, custo
+                FROM produtos
+                WHERE empresa_id=:empresa_id AND id IN :product_ids
+            """).bindparams(bindparam("product_ids", expanding=True)), {
+                "empresa_id": int(out.get("empresa_id") or 0),
+                "product_ids": product_ids,
+            }).mappings().all()
+            product_rows = apply_product_cost_fallbacks(
+                db,
+                int(out.get("empresa_id") or 0),
+                product_rows,
+            )
+            live_products = {int(product["id"]): product for product in product_rows}
+
         result = []
         for item in items:
             obj = dict(item)
+            product = live_products.get(int(obj.get("produto_id") or 0))
+            if product:
+                # Modelos guardam a composição e a quantidade, mas preços de
+                # produtos devem sempre refletir a Formação de Preços (Tab-01).
+                # Itens manuais continuam usando os valores gravados no modelo.
+                obj["codigo"] = product.get("codigo") or obj.get("codigo")
+                obj["descricao"] = product.get("nome") or obj.get("descricao")
+                obj["referencia"] = product.get("descricao") or obj.get("referencia")
+                obj["unidade"] = product.get("unidade") or obj.get("unidade") or "UN"
+                if product.get("preco_venda") is not None and str(product.get("preco_venda")).strip() != "":
+                    obj["valor_unitario"] = product.get("preco_venda")
+                if product.get("custo") is not None and str(product.get("custo")).strip() != "":
+                    obj["custo_unitario"] = product.get("custo")
             for key in ("quantidade", "valor_unitario"):
                 obj[key] = dec_out(obj.get(key))
             if show_costs:

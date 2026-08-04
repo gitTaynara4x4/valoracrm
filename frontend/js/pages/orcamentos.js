@@ -1189,7 +1189,15 @@
     $('budget-items-empty').style.display = state.items.length ? 'none' : 'flex';
     tbody.innerHTML = state.items.map((item, index) => `
       <tr data-index="${index}">
-        <td class="item-order-cell">${index + 1}</td>
+        <td class="item-order-cell">
+          <div class="item-order-control">
+            <span>${index + 1}</span>
+            <div class="item-order-buttons">
+              <button type="button" data-move-item="${index}" data-move-direction="-1" title="Subir item" aria-label="Subir item ${index + 1}" ${index === 0 ? 'disabled' : ''}><i class="fa-solid fa-chevron-up"></i></button>
+              <button type="button" data-move-item="${index}" data-move-direction="1" title="Descer item" aria-label="Descer item ${index + 1}" ${index === state.items.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-down"></i></button>
+            </div>
+          </div>
+        </td>
         <td><textarea data-field="descricao" placeholder="Descrição do produto ou serviço">${escapeHtml(item.descricao)}</textarea><input data-field="referencia" value="${escapeHtml(item.referencia)}" placeholder="Referência/detalhe (opcional)" /></td>
         <td><input data-field="codigo" value="${escapeHtml(item.codigo)}" /></td>
         <td><input data-field="unidade" value="${escapeHtml(item.unidade)}" /></td>
@@ -1200,6 +1208,24 @@
         <td class="cost-only ${canShowCosts() ? '' : 'is-hidden'}"><input data-field="custo_unitario" value="${item.custo_unitario === null ? '' : inputMoney(item.custo_unitario)}" inputmode="decimal" placeholder="Não informado" /></td>
         <td><button class="item-remove" type="button" data-remove-item="${index}" title="Remover"><i class="fa-solid fa-xmark"></i></button></td>
       </tr>`).join('');
+  }
+
+  function moveBudgetItem(index, direction) {
+    const currentIndex = Number(index);
+    const targetIndex = currentIndex + Number(direction);
+    if (
+      !Number.isInteger(currentIndex)
+      || !Number.isInteger(targetIndex)
+      || currentIndex < 0
+      || targetIndex < 0
+      || currentIndex >= state.items.length
+      || targetIndex >= state.items.length
+    ) return;
+
+    const [item] = state.items.splice(currentIndex, 1);
+    state.items.splice(targetIndex, 0, item);
+    renderItems();
+    updateTotals();
   }
 
   function updateItemField(input) {
@@ -2381,11 +2407,8 @@
 
   function renderKits() {
     $('kits-list').innerHTML = state.kits.map((kit) => `
-      <article class="kit-settings-card ${kit.ativo === false ? 'is-inactive' : ''}">
-        <div class="kit-settings-card-top">
-          <span class="kit-settings-icon"><i class="fa-solid fa-layer-group"></i></span>
-          <span class="settings-status-badge ${kit.ativo === false ? 'inactive' : ''}">${kit.ativo === false ? 'Inativo' : 'Ativo'}</span>
-        </div>
+      <article class="kit-settings-card settings-simple-row ${kit.ativo === false ? 'is-inactive' : ''}">
+        <span class="kit-settings-icon settings-simple-icon"><i class="fa-solid fa-layer-group"></i></span>
         <div class="kit-settings-copy">
           <h5>${escapeHtml(kit.nome)}</h5>
           <p>${escapeHtml(kit.descricao || 'Conjunto de produtos pronto para inserção no orçamento.')}</p>
@@ -2394,6 +2417,7 @@
           <span><i class="fa-solid fa-boxes-stacked"></i> ${Number(kit.itens_quantidade || 0)} ${Number(kit.itens_quantidade || 0) === 1 ? 'produto' : 'produtos'}</span>
           <strong>${formatMoney(kit.valor_estimado)}</strong>
         </div>
+        <span class="settings-status-badge ${kit.ativo === false ? 'inactive' : ''}">${kit.ativo === false ? 'Inativo' : 'Ativo'}</span>
         <div class="kit-settings-actions">
           <button class="budget-action-btn" data-edit-kit="${kit.id}" type="button" title="Editar kit"><i class="fa-solid fa-pen"></i></button>
           <button class="budget-action-btn" data-duplicate-kit="${kit.id}" type="button" title="Duplicar kit"><i class="fa-regular fa-copy"></i></button>
@@ -2514,17 +2538,17 @@
 
   function renderTemplates() {
     $('templates-list').innerHTML = state.templates.map((template) => `
-      <article class="template-card ${template.ativo === false ? 'is-inactive' : ''}">
-        <div class="template-card-top">
-          <span class="template-card-icon"><i class="fa-regular fa-file-lines"></i></span>
-          <span class="settings-status-badge ${template.ativo === false ? 'inactive' : ''}">${template.ativo === false ? 'Inativo' : 'Ativo'}</span>
+      <article class="template-card settings-simple-row ${template.ativo === false ? 'is-inactive' : ''}">
+        <span class="template-card-icon settings-simple-icon"><i class="fa-regular fa-file-lines"></i></span>
+        <div class="template-card-copy">
+          <h5>${escapeHtml(template.nome)}</h5>
+          <p>${escapeHtml(template.descricao || template.titulo || 'Estrutura reutilizável de orçamento.')}</p>
         </div>
-        <h5>${escapeHtml(template.nome)}</h5>
-        <p>${escapeHtml(template.descricao || template.titulo || 'Estrutura reutilizável de orçamento.')}</p>
         <div class="template-card-meta">
           <span><i class="fa-regular fa-folder"></i> ${escapeHtml(template.categoria_nome || 'Sem categoria')}</span>
           ${template.validade_dias ? `<span><i class="fa-regular fa-calendar"></i> ${template.validade_dias} dias</span>` : ''}
         </div>
+        <span class="settings-status-badge ${template.ativo === false ? 'inactive' : ''}">${template.ativo === false ? 'Inativo' : 'Ativo'}</span>
         <div class="template-card-actions">
           <button class="budget-action-btn" data-edit-template="${template.id}" type="button" title="Editar modelo"><i class="fa-solid fa-pen"></i></button>
           <button class="budget-action-btn danger" data-delete-template="${template.id}" type="button" title="Excluir modelo"><i class="fa-solid fa-trash"></i></button>
@@ -2696,7 +2720,19 @@
     $('produto-search-results').addEventListener('click', (event) => { const button = event.target.closest('[data-product-id]'); if (button) addProduct(button.dataset.productId, 'budget'); });
     $('budget-items-body').addEventListener('input', (event) => { if (event.target.dataset.field) updateItemField(event.target); });
     $('budget-items-body').addEventListener('focusout', (event) => { const field = event.target.dataset.field; if (!['quantidade', 'valor_unitario', 'desconto', 'custo_unitario'].includes(field)) return; if (field === 'custo_unitario' && !String(event.target.value || '').trim()) event.target.value = ''; else event.target.value = field === 'quantidade' ? inputQuantity(event.target.value) : inputMoney(event.target.value); updateItemField(event.target); });
-    $('budget-items-body').addEventListener('click', (event) => { const button = event.target.closest('[data-remove-item]'); if (button) { state.items.splice(Number(button.dataset.removeItem), 1); renderItems(); updateTotals(); } });
+    $('budget-items-body').addEventListener('click', (event) => {
+      const moveButton = event.target.closest('[data-move-item]');
+      if (moveButton) {
+        moveBudgetItem(Number(moveButton.dataset.moveItem), Number(moveButton.dataset.moveDirection));
+        return;
+      }
+      const removeButton = event.target.closest('[data-remove-item]');
+      if (removeButton) {
+        state.items.splice(Number(removeButton.dataset.removeItem), 1);
+        renderItems();
+        updateTotals();
+      }
+    });
 
     ['orcamento-desconto-tipo', 'orcamento-desconto-valor', 'orcamento-frete', 'orcamento-acrescimo'].forEach((id) => $(id).addEventListener('input', updateTotals));
     ['orcamento-desconto-valor', 'orcamento-frete', 'orcamento-acrescimo'].forEach((id) => $(id).addEventListener('blur', (event) => { event.target.value = inputMoney(event.target.value); updateTotals(); }));
