@@ -7,8 +7,8 @@ import re
 import unicodedata
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel
-from sqlalchemy import func, or_, text
+from pydantic import BaseModel, Field
+from sqlalchemy import bindparam, func, or_, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -42,6 +42,17 @@ PRODUCT_COST_ALIASES = (
     "custo_de_compra",
 )
 PRODUCT_COST_ALIAS_SET = set(PRODUCT_COST_ALIASES)
+
+PRODUCT_SALE_ALIASES = (
+    "preco_venda",
+    "preco_de_venda",
+    "valor_venda",
+    "valor_de_venda",
+    "preco_final_venda_tabela_01",
+    "preco_final",
+    "venda",
+)
+PRODUCT_SALE_ALIAS_SET = set(PRODUCT_SALE_ALIASES)
 
 
 def get_db():
@@ -99,6 +110,39 @@ def prioridade_campo_custo(slug: Any, nome: Any = None) -> Optional[int]:
 
 def campo_representa_custo(slug: Any, nome: Any = None) -> bool:
     return prioridade_campo_custo(slug, nome) is not None
+
+
+def campo_representa_preco_venda(slug: Any, nome: Any = None) -> bool:
+    identifiers = [normalizar_slug_custo(slug), normalizar_slug_custo(nome)]
+    for identifier in identifiers:
+        if not identifier:
+            continue
+        if identifier in PRODUCT_SALE_ALIAS_SET:
+            return True
+        without_suffix = re.sub(r"_\d+$", "", identifier)
+        if without_suffix in PRODUCT_SALE_ALIAS_SET:
+            return True
+        tokens = set(identifier.split("_"))
+        if "venda" in tokens and ({"preco", "valor", "final"} & tokens):
+            return True
+    return False
+
+
+def preco_venda_produto_efetivo(
+    preco_nativo: Any,
+    custom_fields: Optional[Dict[str, Any]],
+) -> Optional[str]:
+    custom = custom_fields if isinstance(custom_fields, dict) else {}
+    for alias in PRODUCT_SALE_ALIASES:
+        raw = custom.get(alias)
+        if raw is not None and str(raw).strip() != "":
+            return str(raw).strip()
+
+    for slug, raw in custom.items():
+        if campo_representa_preco_venda(slug, slug) and raw is not None and str(raw).strip() != "":
+            return str(raw).strip()
+
+    return norm_str(None if preco_nativo is None else str(preco_nativo))
 
 
 def extrair_custo_custom_fields(
@@ -373,6 +417,331 @@ def gerar_codigo_produto(db: Session, empresa_id: int) -> str:
     return f"{proximo:04d}"
 
 
+def garantir_tabela_produto_kit(db: Session) -> None:
+    """Garante o subcadastro de composição dos produtos do tipo KIT."""
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS produto_kit_itens (
+            id BIGSERIAL PRIMARY KEY,
+            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+            kit_produto_id BIGINT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
+            componente_produto_id BIGINT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
+            quantidade NUMERIC(18,4) NOT NULL DEFAULT 1,
+            perda_percentual NUMERIC(10,4) NOT NULL DEFAULT 0,
+            ordem INTEGER NOT NULL DEFAULT 0,
+            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT uq_produto_kit_item UNIQUE (kit_produto_id, componente_produto_id),
+            CONSTRAINT ck_produto_kit_sem_autorreferencia CHECK (kit_produto_id <> componente_produto_id),
+            CONSTRAINT ck_produto_kit_quantidade_positiva CHECK (quantidade > 0),
+            CONSTRAINT ck_produto_kit_perda_nao_negativa CHECK (perda_percentual >= 0)
+        )
+    """))
+    db.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_produto_kit_itens_empresa_kit
+        ON produto_kit_itens (empresa_id, kit_produto_id, ordem, id)
+    """))
+    db.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_produto_kit_itens_componente
+        ON produto_kit_itens (empresa_id, componente_produto_id)
+    """))
+
+
+def decimal_kit(value: Any, *, default: Decimal = Decimal("0")) -> Decimal:
+    raw = str(value if value is not None else "").strip()
+    if not raw:
+        return default
+    raw = re.sub(r"[^0-9,.-]", "", raw)
+    if "," in raw:
+        raw = raw.replace(".", "").replace(",", ".")
+    try:
+        return Decimal(raw)
+    except (InvalidOperation, ValueError):
+        return default
+
+
+def decimal_kit_str(value: Decimal, casas: int = 2) -> str:
+    quant = Decimal("1").scaleb(-casas)
+    return format(value.quantize(quant), "f")
+
+
+def sincronizar_valores_comerciais_custom_produto(
+    db: Session,
+    empresa_id: int,
+    produto_id: int,
+    *,
+    custo: Optional[str] = None,
+    preco_venda: Optional[str] = None,
+) -> None:
+    campos = (
+        db.query(models.CampoProduto)
+        .filter(models.CampoProduto.empresa_id == empresa_id)
+        .filter(models.CampoProduto.ativo == True)  # noqa: E712
+        .all()
+    )
+    relevantes = [
+        campo for campo in campos
+        if campo_representa_custo(campo.slug, campo.nome)
+        or campo_representa_preco_venda(campo.slug, campo.nome)
+    ]
+    if not relevantes:
+        return
+
+    field_ids = [int(campo.id) for campo in relevantes]
+    existentes = (
+        db.query(models.ProdutoCampoValor)
+        .filter(models.ProdutoCampoValor.produto_id == produto_id)
+        .filter(models.ProdutoCampoValor.campo_id.in_(field_ids))
+        .all()
+    )
+    existentes_map = {int(row.campo_id): row for row in existentes}
+
+    for campo in relevantes:
+        novo_valor: Optional[str] = None
+        if campo_representa_custo(campo.slug, campo.nome):
+            novo_valor = custo
+        elif campo_representa_preco_venda(campo.slug, campo.nome):
+            novo_valor = preco_venda
+
+        if novo_valor is None:
+            continue
+
+        row = existentes_map.get(int(campo.id))
+        if row:
+            row.valor = novo_valor
+        else:
+            db.add(models.ProdutoCampoValor(
+                produto_id=produto_id,
+                campo_id=int(campo.id),
+                valor=novo_valor,
+            ))
+
+
+def carregar_itens_kit_produto(
+    db: Session,
+    empresa_id: int,
+    kit_produto_id: int,
+) -> List[Dict[str, Any]]:
+    rows = db.execute(text("""
+        SELECT
+            ki.componente_produto_id AS produto_id,
+            ki.quantidade,
+            ki.perda_percentual,
+            ki.ordem,
+            p.codigo,
+            p.nome,
+            p.unidade,
+            p.custo,
+            p.preco_venda,
+            p.ativo
+        FROM produto_kit_itens ki
+        JOIN produtos p ON p.id = ki.componente_produto_id
+        WHERE ki.empresa_id = :empresa_id
+          AND ki.kit_produto_id = :kit_produto_id
+          AND p.empresa_id = :empresa_id
+        ORDER BY ki.ordem ASC, ki.id ASC
+    """), {
+        "empresa_id": empresa_id,
+        "kit_produto_id": kit_produto_id,
+    }).mappings().all()
+
+    itens: List[Dict[str, Any]] = []
+    for row in rows:
+        produto_id = int(row["produto_id"])
+        custom = buscar_custom_fields_produto(db, empresa_id, produto_id)
+        custo_unitario = decimal_kit(custo_produto_efetivo(row.get("custo"), custom))
+        venda_unitaria = decimal_kit(preco_venda_produto_efetivo(row.get("preco_venda"), custom))
+        quantidade = decimal_kit(row.get("quantidade"), default=Decimal("1"))
+        perda = decimal_kit(row.get("perda_percentual"))
+        quantidade_calculo = quantidade * (Decimal("1") + (perda / Decimal("100")))
+
+        itens.append({
+            "produto_id": produto_id,
+            "codigo": row.get("codigo") or "",
+            "nome": row.get("nome") or "",
+            "unidade": row.get("unidade") or "",
+            "quantidade": decimal_kit_str(quantidade, 4),
+            "perda_percentual": decimal_kit_str(perda, 4),
+            "ordem": int(row.get("ordem") or 0),
+            "custo_unitario": decimal_kit_str(custo_unitario, 2),
+            "preco_venda_unitario": decimal_kit_str(venda_unitaria, 2),
+            "custo_total": decimal_kit_str(custo_unitario * quantidade_calculo, 2),
+            "preco_venda_total": decimal_kit_str(venda_unitaria * quantidade_calculo, 2),
+            "ativo": bool(row.get("ativo", True)),
+        })
+    return itens
+
+
+def totais_itens_kit(itens: List[Dict[str, Any]]) -> tuple[Decimal, Decimal]:
+    custo_total = sum((decimal_kit(item.get("custo_total")) for item in itens), Decimal("0"))
+    venda_total = sum((decimal_kit(item.get("preco_venda_total")) for item in itens), Decimal("0"))
+    return custo_total, venda_total
+
+
+def composicao_kit_tem_caminho(
+    db: Session,
+    empresa_id: int,
+    origem_id: int,
+    alvo_id: int,
+) -> bool:
+    rows = db.execute(text("""
+        SELECT kit_produto_id, componente_produto_id
+        FROM produto_kit_itens
+        WHERE empresa_id = :empresa_id
+    """), {"empresa_id": empresa_id}).mappings().all()
+
+    adjacency: Dict[int, List[int]] = {}
+    for row in rows:
+        adjacency.setdefault(int(row["kit_produto_id"]), []).append(int(row["componente_produto_id"]))
+
+    stack = [int(origem_id)]
+    visited: set[int] = set()
+    while stack:
+        current = stack.pop()
+        if current == int(alvo_id):
+            return True
+        if current in visited:
+            continue
+        visited.add(current)
+        stack.extend(adjacency.get(current, []))
+    return False
+
+
+def salvar_itens_kit_produto(
+    db: Session,
+    empresa_id: int,
+    kit_produto_id: int,
+    itens: List["ProdutoKitItemIn"],
+) -> None:
+    garantir_tabela_produto_kit(db)
+    if len(itens) > 200:
+        raise HTTPException(status_code=422, detail="Um KIT pode ter no máximo 200 itens.")
+
+    db.execute(text("""
+        DELETE FROM produto_kit_itens
+        WHERE empresa_id = :empresa_id AND kit_produto_id = :kit_produto_id
+    """), {"empresa_id": empresa_id, "kit_produto_id": kit_produto_id})
+
+    ids = [int(item.produto_id) for item in itens]
+    if len(ids) != len(set(ids)):
+        raise HTTPException(status_code=422, detail="O mesmo produto não pode aparecer duas vezes no KIT.")
+    if kit_produto_id in ids:
+        raise HTTPException(status_code=422, detail="O produto não pode compor o próprio KIT.")
+
+    if ids:
+        encontrados = {
+            int(row[0]) for row in (
+                db.query(models.Produto.id)
+                .filter(models.Produto.empresa_id == empresa_id)
+                .filter(models.Produto.id.in_(ids))
+                .all()
+            )
+        }
+        if encontrados != set(ids):
+            raise HTTPException(status_code=404, detail="Um ou mais itens do KIT não pertencem à empresa atual.")
+
+    for ordem, item in enumerate(itens):
+        quantidade = decimal_kit(item.quantidade, default=Decimal("0"))
+        perda = decimal_kit(item.perda_percentual)
+        if quantidade <= 0:
+            raise HTTPException(status_code=422, detail="A quantidade de cada item do KIT deve ser maior que zero.")
+        if perda < 0 or perda > Decimal("10000"):
+            raise HTTPException(status_code=422, detail="A perda do item do KIT deve ficar entre 0% e 10000%.")
+        if composicao_kit_tem_caminho(db, empresa_id, int(item.produto_id), kit_produto_id):
+            raise HTTPException(status_code=422, detail="A composição informada criaria um ciclo entre produtos KIT.")
+
+        db.execute(text("""
+            INSERT INTO produto_kit_itens (
+                empresa_id, kit_produto_id, componente_produto_id,
+                quantidade, perda_percentual, ordem, atualizado_em
+            ) VALUES (
+                :empresa_id, :kit_produto_id, :componente_produto_id,
+                :quantidade, :perda_percentual, :ordem, NOW()
+            )
+        """), {
+            "empresa_id": empresa_id,
+            "kit_produto_id": kit_produto_id,
+            "componente_produto_id": int(item.produto_id),
+            "quantidade": quantidade,
+            "perda_percentual": perda,
+            "ordem": ordem,
+        })
+
+
+def recalcular_produto_kit(db: Session, empresa_id: int, kit_produto_id: int) -> bool:
+    itens = carregar_itens_kit_produto(db, empresa_id, kit_produto_id)
+    if not itens:
+        return False
+
+    produto = buscar_produto_empresa(db, kit_produto_id, empresa_id)
+    if not produto:
+        return False
+
+    custo_total, venda_total = totais_itens_kit(itens)
+    custo_str = decimal_kit_str(custo_total, 2)
+    venda_str = decimal_kit_str(venda_total, 2)
+    produto.custo = custo_str
+    produto.preco_venda = venda_str
+    sincronizar_valores_comerciais_custom_produto(
+        db,
+        empresa_id,
+        kit_produto_id,
+        custo=custo_str,
+        preco_venda=venda_str,
+    )
+    db.flush()
+    return True
+
+
+def recalcular_kits_dependentes(
+    db: Session,
+    empresa_id: int,
+    produto_ids: List[int] | set[int],
+) -> None:
+    garantir_tabela_produto_kit(db)
+    fila = [int(pid) for pid in produto_ids if int(pid) > 0]
+    visitados: set[int] = set()
+
+    while fila:
+        lote = sorted(set(fila))
+        fila = []
+        stmt = text("""
+            SELECT DISTINCT kit_produto_id
+            FROM produto_kit_itens
+            WHERE empresa_id = :empresa_id
+              AND componente_produto_id IN :produto_ids
+        """).bindparams(bindparam("produto_ids", expanding=True))
+        pais = db.execute(stmt, {
+            "empresa_id": empresa_id,
+            "produto_ids": lote,
+        }).scalars().all()
+
+        for parent_id_raw in pais:
+            parent_id = int(parent_id_raw)
+            if parent_id in visitados:
+                continue
+            visitados.add(parent_id)
+            if recalcular_produto_kit(db, empresa_id, parent_id):
+                fila.append(parent_id)
+
+
+class ProdutoKitItemIn(BaseModel):
+    produto_id: int
+    quantidade: str = "1"
+    perda_percentual: str = "0"
+
+
+class ProdutoKitItemOut(ProdutoKitItemIn):
+    codigo: str = ""
+    nome: str = ""
+    unidade: str = ""
+    ordem: int = 0
+    custo_unitario: str = "0.00"
+    preco_venda_unitario: str = "0.00"
+    custo_total: str = "0.00"
+    preco_venda_total: str = "0.00"
+    ativo: bool = True
+
+
 class ProdutoBase(BaseModel):
     codigo: Optional[str] = None
     nome: Optional[str] = None
@@ -384,6 +753,7 @@ class ProdutoBase(BaseModel):
     estoque_atual: Optional[str] = None
     ativo: Optional[bool] = True
     custom_fields: Optional[Dict[str, str]] = None
+    itens_kit: Optional[List[ProdutoKitItemIn]] = None
 
 
 class ProdutoCreate(ProdutoBase):
@@ -399,6 +769,9 @@ class ProdutoOut(ProdutoBase, _Cfg):
     empresa_id: int
     criado_em: Optional[str] = None
     atualizado_em: Optional[str] = None
+    itens_kit: List[ProdutoKitItemOut] = Field(default_factory=list)
+    kit_custo_total: Optional[str] = None
+    kit_preco_venda_total: Optional[str] = None
 
 
 class AtualizacaoPrecoItem(BaseModel):
@@ -1017,6 +1390,8 @@ def produto_to_out(db: Session, p: models.Produto, *, include_custom_fields: boo
         if include_custom_fields
         else {}
     )
+    itens_kit = carregar_itens_kit_produto(db, empresa_id, int(p.id))
+    kit_custo_total, kit_venda_total = totais_itens_kit(itens_kit)
     return ProdutoOut(
         id=int(p.id),
         empresa_id=empresa_id,
@@ -1032,8 +1407,10 @@ def produto_to_out(db: Session, p: models.Produto, *, include_custom_fields: boo
         criado_em=iso_datetime(getattr(p, "criado_em", None)),
         atualizado_em=iso_datetime(getattr(p, "atualizado_em", None)),
         custom_fields=custom_fields,
+        itens_kit=itens_kit,
+        kit_custo_total=decimal_kit_str(kit_custo_total, 2) if itens_kit else None,
+        kit_preco_venda_total=decimal_kit_str(kit_venda_total, 2) if itens_kit else None,
     )
-
 
 def produto_to_list_out(db: Session, p: models.Produto, *, include_custom_fields: bool = True) -> Dict[str, object]:
     empresa_id = int(getattr(p, "empresa_id", 0) or 0)
@@ -2034,6 +2411,12 @@ def salvar_atualizacao_precos(
                 ):
                     sincronizar_fontes_custo(produto, novo_valor)
 
+                if (
+                    (campo["kind"] == "native" and campo.get("key") == "preco_venda")
+                    or (campo["kind"] == "custom" and campo_representa_preco_venda(campo.get("slug"), campo.get("label")))
+                ):
+                    produto.preco_venda = novo_valor
+
                 db.add(models.ProdutoPrecoHistorico(
                     empresa_id=empresa_id,
                     produto_id=int(produto.id),
@@ -2051,6 +2434,8 @@ def salvar_atualizacao_precos(
             db.rollback()
             return {"alteracoes": 0, "produtos_alterados": 0, "message": "Nenhum valor foi modificado."}
 
+        db.flush()
+        recalcular_kits_dependentes(db, empresa_id, produtos_alterados)
         db.commit()
         return {
             "alteracoes": alteracoes,
@@ -2115,6 +2500,52 @@ def listar_historico_atualizacao_precos(
     ]
 
 
+@router.get("/busca-componentes")
+def buscar_componentes_kit(
+    request: Request,
+    q: str = Query(default="", max_length=180),
+    excluir_id: Optional[int] = Query(default=None, ge=1),
+    limit: int = Query(default=30, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    empresa_id = validar_usuario_empresa(request, db)
+    texto_busca = str(q or "").strip()
+    query = (
+        db.query(models.Produto)
+        .filter(models.Produto.empresa_id == empresa_id)
+        .filter(models.Produto.ativo == True)  # noqa: E712
+    )
+    if excluir_id is not None:
+        query = query.filter(models.Produto.id != excluir_id)
+    if texto_busca:
+        like = f"%{texto_busca}%"
+        query = query.filter(or_(
+            models.Produto.codigo.ilike(like),
+            models.Produto.nome.ilike(like),
+            models.Produto.descricao.ilike(like),
+            models.Produto.categoria.ilike(like),
+        ))
+
+    rows = (
+        query
+        .order_by(func.lower(models.Produto.nome).asc(), models.Produto.codigo.asc())
+        .limit(limit)
+        .all()
+    )
+    result = []
+    for produto in rows:
+        custom = buscar_custom_fields_produto(db, empresa_id, int(produto.id))
+        result.append({
+            "produto_id": int(produto.id),
+            "codigo": produto.codigo or "",
+            "nome": produto.nome or "",
+            "unidade": produto.unidade or "",
+            "custo_unitario": decimal_kit_str(decimal_kit(custo_produto_efetivo(produto.custo, custom)), 2),
+            "preco_venda_unitario": decimal_kit_str(decimal_kit(preco_venda_produto_efetivo(produto.preco_venda, custom)), 2),
+        })
+    return result
+
+
 @router.get("/proximo-codigo")
 def obter_proximo_codigo_produto(request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
@@ -2148,6 +2579,7 @@ def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depend
     )
 
     try:
+        garantir_tabela_produto_kit(db)
         db.add(p)
         db.flush()
 
@@ -2157,6 +2589,11 @@ def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depend
             produto_id=int(p.id),
             custom_fields=payload.custom_fields,
         )
+
+        if payload.itens_kit is not None:
+            salvar_itens_kit_produto(db, empresa_id, int(p.id), payload.itens_kit)
+            if payload.itens_kit:
+                recalcular_produto_kit(db, empresa_id, int(p.id))
 
         db.commit()
         db.refresh(p)
@@ -2292,6 +2729,8 @@ def excluir_campo_produto(campo_id: int, request: Request, db: Session = Depends
 @router.get("/{produto_id}", response_model=ProdutoOut)
 def obter_produto(produto_id: int, request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
+    garantir_tabela_produto_kit(db)
+    db.commit()
 
     p = buscar_produto_empresa(db, produto_id, empresa_id)
     if not p:
@@ -2347,6 +2786,7 @@ def atualizar_produto(
         p.ativo = bool(payload.ativo)
 
     try:
+        garantir_tabela_produto_kit(db)
         if payload.custom_fields is not None:
             salvar_custom_fields_produto(
                 db=db,
@@ -2354,6 +2794,14 @@ def atualizar_produto(
                 produto_id=int(p.id),
                 custom_fields=payload.custom_fields,
             )
+
+        if payload.itens_kit is not None:
+            salvar_itens_kit_produto(db, empresa_id, int(p.id), payload.itens_kit)
+
+        db.flush()
+        if payload.itens_kit:
+            recalcular_produto_kit(db, empresa_id, int(p.id))
+        recalcular_kits_dependentes(db, empresa_id, [int(p.id)])
 
         db.commit()
         db.refresh(p)
@@ -2373,11 +2821,28 @@ def atualizar_produto(
 @router.delete("/{produto_id}", status_code=status.HTTP_204_NO_CONTENT)
 def excluir_produto(produto_id: int, request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
+    garantir_tabela_produto_kit(db)
 
     p = buscar_produto_empresa(db, produto_id, empresa_id)
     if not p:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-    db.delete(p)
-    db.commit()
-    return None
+    kits_afetados = [
+        int(value) for value in db.execute(text("""
+            SELECT DISTINCT kit_produto_id
+            FROM produto_kit_itens
+            WHERE empresa_id = :empresa_id AND componente_produto_id = :produto_id
+        """), {"empresa_id": empresa_id, "produto_id": produto_id}).scalars().all()
+    ]
+
+    try:
+        db.delete(p)
+        db.flush()
+        for kit_id in kits_afetados:
+            recalcular_produto_kit(db, empresa_id, kit_id)
+        recalcular_kits_dependentes(db, empresa_id, kits_afetados)
+        db.commit()
+        return None
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao excluir produto: {exc}")

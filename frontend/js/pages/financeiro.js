@@ -17,6 +17,13 @@
     filtros: {},
     historicoLancamentoId: null,
     baixaAtual: null,
+    sacadoLookup: {
+      items: [],
+      selecionado: null,
+      timer: null,
+      controller: null,
+      requestId: 0,
+    },
   };
 
   const ENDPOINTS = {
@@ -464,7 +471,9 @@
     });
     $$('[data-select="fornecedores"]').forEach(sel => {
       const current = sel.value;
-      const vazio = sel.id === "filtro-fornecedor" ? "Todos os fornecedores" : "Selecione...";
+      const vazio = sel.id === "filtro-fornecedor"
+        ? (state.page === "pagar" ? "Todos os sacados" : "Todos os fornecedores")
+        : "Selecione...";
       sel.innerHTML = `<option value="">${vazio}</option>` + (ops.fornecedores || []).map(i => option(`${i.codigo || ""} - ${i.nome}`, i.id)).join("");
       sel.value = current;
     });
@@ -488,6 +497,137 @@
     if (filtroFormaPagamento && !filtroFormaPagamento.value) filtroFormaPagamento.options[0].textContent = "Todas as formas";
     popular('[data-select="regras-encargos"]', ops.regras_encargos, i => `${i.nome}${i.padrao ? " (padrão)" : ""}`);
     popular('[data-select="entidades-emissoras"]', ops.contas_bancos, i => i.nome);
+  }
+
+  function elementosSacado(form = $("#form-lancamento")) {
+    if (!form || state.page !== "pagar") return null;
+    const root = form.querySelector("[data-sacado-lookup]");
+    if (!root) return null;
+    return {
+      form,
+      root,
+      search: root.querySelector("[data-sacado-search]"),
+      hidden: root.querySelector('[name="fornecedor_id"]'),
+      results: root.querySelector("[data-sacado-results]"),
+      clear: root.querySelector("[data-sacado-clear]"),
+    };
+  }
+
+  function nomeSacado(item) {
+    return String(item?.nome || item?.razao_social || item?.nome_fantasia || "").trim();
+  }
+
+  function labelSacado(item) {
+    const nome = nomeSacado(item) || `Fornecedor #${item?.id || "-"}`;
+    const codigo = String(item?.codigo || "").trim();
+    return codigo ? `${codigo} - ${nome}` : nome;
+  }
+
+  function metaSacado(item) {
+    return [item?.cpf_cnpj, item?.telefone || item?.whatsapp, item?.email]
+      .map(v => String(v || "").trim())
+      .filter(Boolean)
+      .join(" • ");
+  }
+
+  function fecharResultadosSacado(form = $("#form-lancamento")) {
+    const els = elementosSacado(form);
+    if (!els) return;
+    els.results.hidden = true;
+    els.results.innerHTML = "";
+    els.search.setAttribute("aria-expanded", "false");
+  }
+
+  function renderResultadosSacado(form, items = [], mensagem = "") {
+    const els = elementosSacado(form);
+    if (!els) return;
+    state.sacadoLookup.items = Array.isArray(items) ? items : [];
+    if (mensagem) {
+      els.results.innerHTML = `<div class="financeiro-lookup-message">${escapeHtml(mensagem)}</div>`;
+    } else if (!state.sacadoLookup.items.length) {
+      els.results.innerHTML = '<div class="financeiro-lookup-message">Nenhum sacado encontrado.</div>';
+    } else {
+      els.results.innerHTML = state.sacadoLookup.items.map((item, index) => {
+        const meta = metaSacado(item);
+        return `<button class="financeiro-lookup-option" type="button" role="option" data-sacado-option="${index}">
+          <strong>${escapeHtml(labelSacado(item))}</strong>
+          ${meta ? `<span>${escapeHtml(meta)}</span>` : '<span>Cadastro de fornecedor</span>'}
+        </button>`;
+      }).join("");
+    }
+    els.results.hidden = false;
+    els.search.setAttribute("aria-expanded", "true");
+  }
+
+  function selecionarSacado(form, item = null, emitir = true) {
+    const els = elementosSacado(form);
+    if (!els) return;
+    clearTimeout(state.sacadoLookup.timer);
+    if (state.sacadoLookup.controller) state.sacadoLookup.controller.abort();
+    state.sacadoLookup.controller = null;
+    state.sacadoLookup.requestId += 1;
+    state.sacadoLookup.selecionado = item || null;
+    els.hidden.value = item?.id ? String(item.id) : "";
+    els.search.value = item ? labelSacado(item) : "";
+    els.search.dataset.selectedLabel = item ? labelSacado(item) : "";
+    els.search.dataset.selectedId = item?.id ? String(item.id) : "";
+    els.clear.hidden = !item;
+    els.search.setCustomValidity("");
+    fecharResultadosSacado(form);
+
+    if (item && !(state.opcoes.fornecedores || []).some(f => String(f.id) === String(item.id))) {
+      state.opcoes.fornecedores = [...(state.opcoes.fornecedores || []), item];
+    }
+    if (emitir) els.hidden.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function sincronizarCampoSacado(form, item = null) {
+    const els = elementosSacado(form);
+    if (!els) return;
+    const id = String(els.hidden.value || item?.fornecedor_id || "");
+    if (!id) return selecionarSacado(form, null, false);
+
+    const encontrado = (state.opcoes.fornecedores || []).find(f => String(f.id) === id);
+    const sintetico = encontrado || {
+      id,
+      codigo: item?.fornecedor_codigo || "",
+      nome: item?.fornecedor_nome || `Fornecedor #${id}`,
+      tipo_fornecedor: item?.fornecedor_tipo || "",
+      cpf_cnpj: item?.fornecedor_cpf_cnpj || "",
+    };
+    selecionarSacado(form, sintetico, false);
+  }
+
+  async function buscarSacados(form, termo) {
+    const els = elementosSacado(form);
+    if (!els) return;
+    const busca = String(termo || "").trim();
+    if (busca.length < 2) {
+      renderResultadosSacado(form, [], "Digite pelo menos 2 caracteres para procurar o sacado.");
+      return;
+    }
+
+    if (state.sacadoLookup.controller) state.sacadoLookup.controller.abort();
+    const controller = new AbortController();
+    state.sacadoLookup.controller = controller;
+    const requestId = ++state.sacadoLookup.requestId;
+    renderResultadosSacado(form, [], "Procurando sacados...");
+
+    try {
+      const data = await request(`/api/financeiro/sacados${qs({ busca, limit: 30 })}`, { signal: controller.signal });
+      if (requestId !== state.sacadoLookup.requestId) return;
+      const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+      renderResultadosSacado(form, items);
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      if (requestId !== state.sacadoLookup.requestId) return;
+      renderResultadosSacado(form, [], `Não foi possível procurar: ${err.message}`);
+    }
+  }
+
+  function agendarBuscaSacado(form, termo) {
+    clearTimeout(state.sacadoLookup.timer);
+    state.sacadoLookup.timer = setTimeout(() => buscarSacados(form, termo), 250);
   }
 
   function filtrarOpcoesPorTipoLancamento(form, tipo) {
@@ -600,8 +740,14 @@
     if (fornecedorTipoField) fornecedorTipoField.hidden = receber;
     const clienteSelect = form.querySelector('[name="cliente_id"]');
     const fornecedorSelect = form.querySelector('[name="fornecedor_id"]');
+    const sacadoSearch = form.querySelector("[data-sacado-search]");
     if (clienteSelect) clienteSelect.required = receber;
-    if (fornecedorSelect) fornecedorSelect.required = !receber;
+    if (fornecedorSelect) fornecedorSelect.required = !receber && !sacadoSearch;
+    if (sacadoSearch) {
+      sacadoSearch.required = !receber;
+      sacadoSearch.setAttribute("aria-required", String(!receber));
+      if (receber) sacadoSearch.setCustomValidity("");
+    }
     const secCobranca = form.querySelector("#fin-sec-cobranca-cliente");
     if (secCobranca) secCobranca.hidden = !receber;
     const formaCobranca = form.querySelector('[name="forma_cobranca_id"]');
@@ -965,6 +1111,7 @@
     }
     filtrarOpcoesPorTipoLancamento(form, base.tipo);
     setForm(form, base);
+    sincronizarCampoSacado(form, item);
     configurarFormularioPorTipo(form, base.tipo);
     atualizarExigenciaEntidadeEmissora(form);
     atualizarTipoFornecedor(form);
@@ -1233,7 +1380,7 @@
 
       const campoFornecedor = formLancamento.querySelector('[name="fornecedor_id"]')?.closest(".financeiro-field");
       if (campoFornecedor && !formLancamento.querySelector('[data-fornecedor-tipo]')) {
-        campoFornecedor.insertAdjacentHTML("afterend", '<div class="financeiro-field"><label>Tipo do fornecedor</label><input type="text" data-fornecedor-tipo readonly value="Não informado no cadastro"></div>');
+        campoFornecedor.insertAdjacentHTML("afterend", `<div class="financeiro-field"><label>${state.page === "pagar" ? "Tipo do sacado" : "Tipo do fornecedor"}</label><input type="text" data-fornecedor-tipo readonly value="Não informado no cadastro"></div>`);
       }
 
       const secParcelamento = formLancamento.querySelector("#fin-sec-parcelamento");
@@ -1385,6 +1532,15 @@
   async function salvarLancamento(ev) {
     ev.preventDefault();
     const form = ev.currentTarget;
+    const tipo = form.querySelector('[name="tipo"]')?.value || "";
+    const sacado = elementosSacado(form);
+    if (tipo === "pagar" && sacado && !String(sacado.hidden.value || "").trim()) {
+      sacado.search.setCustomValidity("Selecione o sacado na lista de resultados.");
+      ativarNavegacaoModalLancamento("fin-sec-envolvidos");
+      sacado.search.reportValidity();
+      sacado.search.focus();
+      return;
+    }
     const payload = limparPayloadLancamento(getForm(form));
     const id = payload.id;
     delete payload.id;
@@ -1565,6 +1721,25 @@
     $("#form-auxiliar")?.addEventListener("submit", salvarAuxiliar);
 
     document.addEventListener("input", (ev) => {
+      const sacadoSearch = ev.target.closest("[data-sacado-search]");
+      if (sacadoSearch) {
+        const form = sacadoSearch.closest("#form-lancamento");
+        const els = elementosSacado(form);
+        if (!els) return;
+        const valorAtual = String(sacadoSearch.value || "");
+        if (sacadoSearch.dataset.selectedId && valorAtual !== String(sacadoSearch.dataset.selectedLabel || "")) {
+          state.sacadoLookup.selecionado = null;
+          els.hidden.value = "";
+          sacadoSearch.dataset.selectedId = "";
+          sacadoSearch.dataset.selectedLabel = "";
+          els.clear.hidden = true;
+          els.hidden.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        sacadoSearch.setCustomValidity("");
+        agendarBuscaSacado(form, valorAtual);
+        return;
+      }
+
       const input = ev.target.closest("[data-money-input]");
       if (!input) return;
       const cursor = input.selectionStart;
@@ -1576,6 +1751,56 @@
       if (input.closest("#form-baixa") && ["valor_principal", "valor_desconto", "valor_multa", "valor_mora"].includes(input.name)) {
         recalcularTotalBaixaLocal();
       }
+    });
+
+    document.addEventListener("focusin", (ev) => {
+      const sacadoSearch = ev.target.closest("[data-sacado-search]");
+      if (!sacadoSearch) return;
+      const form = sacadoSearch.closest("#form-lancamento");
+      if (sacadoSearch.dataset.selectedId) return;
+      const termo = String(sacadoSearch.value || "").trim();
+      if (termo.length >= 2) agendarBuscaSacado(form, termo);
+      else renderResultadosSacado(form, [], "Digite pelo menos 2 caracteres para procurar o sacado.");
+    });
+
+    document.addEventListener("keydown", (ev) => {
+      const sacadoSearch = ev.target.closest("[data-sacado-search]");
+      if (!sacadoSearch) return;
+      const form = sacadoSearch.closest("#form-lancamento");
+      if (ev.key === "Escape") {
+        fecharResultadosSacado(form);
+        return;
+      }
+      if (ev.key === "Enter") {
+        const els = elementosSacado(form);
+        const primeiro = els?.results?.querySelector("[data-sacado-option]");
+        if (!primeiro || els.results.hidden) return;
+        ev.preventDefault();
+        const item = state.sacadoLookup.items[Number(primeiro.dataset.sacadoOption)];
+        if (item) selecionarSacado(form, item, true);
+      }
+    });
+
+    document.addEventListener("click", (ev) => {
+      const optionBtn = ev.target.closest("[data-sacado-option]");
+      if (optionBtn) {
+        const form = optionBtn.closest("#form-lancamento");
+        const item = state.sacadoLookup.items[Number(optionBtn.dataset.sacadoOption)];
+        if (item) selecionarSacado(form, item, true);
+        return;
+      }
+
+      const clearBtn = ev.target.closest("[data-sacado-clear]");
+      if (clearBtn) {
+        const form = clearBtn.closest("#form-lancamento");
+        selecionarSacado(form, null, true);
+        const els = elementosSacado(form);
+        els?.search?.focus();
+        renderResultadosSacado(form, [], "Digite pelo menos 2 caracteres para procurar o sacado.");
+        return;
+      }
+
+      if (!ev.target.closest("[data-sacado-lookup]")) fecharResultadosSacado();
     });
 
     document.addEventListener("blur", (ev) => {

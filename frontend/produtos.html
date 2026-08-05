@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/frontend/css/exportacoes.css?v=20260713-exportacoes-completas-v1" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260717-busca-relacao-v1" />
-  <link rel="stylesheet" href="/frontend/css/produtos.css?v=20260722-atualizacao-precos-performance-v3" />
+  <link rel="stylesheet" href="/frontend/css/produtos.css?v=20260805-kit-composicao-v1" />
   <link rel="stylesheet" href="/frontend/css/localizar-personalizado.css?v=20260715-localizar-arrastar-restaurado-v8" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
@@ -30,13 +30,13 @@
   <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260630-ficha-sidebar-v5" />
 
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="/frontend/js/pages/app.js?v=20260726-mobile-ux-v2" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260804-agenda-save-refresh-v13" defer></script>
   <script src="/frontend/js/shared/exportacoes.js?v=20260715-filtros-exatos-v2" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
   <script src="/frontend/js/shared/ficha-principal.js?v=20260717-busca-relacao-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script src="/frontend/js/shared/localizar-personalizado.js?v=20260723-produtos-multiselect-relacoes-v9" defer></script>
-  <script src="/frontend/js/pages/produtos.js?v=20260729-custo-orcamento-v2" defer></script>
+  <script src="/frontend/js/pages/produtos.js?v=20260805-kit-composicao-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 </head>
 
@@ -310,7 +310,12 @@
               <nav class="cliente-tabs cliente-sidebar-nav produto-tabs produto-sidebar-nav" aria-label="Seções do produto">
                 <button type="button" class="cliente-tab-btn produto-tab-btn active" data-tab="tab-produto-dados">
                   <i class="fa-solid fa-box-open"></i>
-                  <span>Dados nativos</span>
+                  <span>Dados gerais</span>
+                </button>
+
+                <button type="button" class="cliente-tab-btn produto-tab-btn" data-tab="tab-produto-kit">
+                  <i class="fa-solid fa-boxes-stacked"></i>
+                  <span>Composição KIT</span>
                 </button>
 
                 <button type="button" class="cliente-tab-btn produto-tab-btn" data-tab="tab-produto-ficha">
@@ -440,6 +445,74 @@
                           rows="3"
                           placeholder="Descrição, detalhes técnicos ou observações do produto."></textarea>
                       </div>
+                    </div>
+                  </article>
+                </section>
+
+                <section class="cliente-tab produto-tab" id="tab-produto-kit" data-ficha-keep="true">
+                  <article class="section-card cliente-main-card produto-main-card produto-kit-card">
+                    <div class="cliente-section-head produto-section-head produto-kit-head">
+                      <div>
+                        <span class="section-kicker">Subcadastro do produto</span>
+                        <h4>Itens que compõem o KIT</h4>
+                        <p>Inclua produtos do catálogo, informe quantidade e perda. O custo e o preço de venda do KIT são calculados com os valores atuais da Tab-01.</p>
+                      </div>
+                      <span class="produto-kit-badge" id="produto-kit-contagem">0 itens</span>
+                    </div>
+
+                    <div class="produto-kit-search produto-kit-edit-only">
+                      <label for="busca-item-kit-produto">Localizar produto para incluir</label>
+                      <div class="produto-kit-search-control">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input
+                          type="search"
+                          id="busca-item-kit-produto"
+                          placeholder="Digite código, nome, descrição ou categoria"
+                          autocomplete="off"
+                        />
+                        <span class="produto-kit-search-status" id="status-busca-item-kit" aria-live="polite"></span>
+                      </div>
+                      <div class="produto-kit-search-results" id="resultados-busca-item-kit" hidden></div>
+                    </div>
+
+                    <div class="produto-kit-table-wrap">
+                      <table class="produto-kit-table">
+                        <thead>
+                          <tr>
+                            <th>Código</th>
+                            <th>Descrição</th>
+                            <th>UN</th>
+                            <th>Quantidade</th>
+                            <th>Perda (%)</th>
+                            <th>Custo un.</th>
+                            <th>Venda un.</th>
+                            <th>Total custo</th>
+                            <th>Total venda</th>
+                            <th class="produto-kit-edit-only" aria-label="Ações"></th>
+                          </tr>
+                        </thead>
+                        <tbody id="tbody-itens-kit-produto">
+                          <tr>
+                            <td colspan="10" class="empty-state">Nenhum item incluído neste KIT.</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div class="produto-kit-summary">
+                      <div>
+                        <span>Custo calculado do KIT</span>
+                        <strong id="produto-kit-custo-total">R$ 0,00</strong>
+                      </div>
+                      <div>
+                        <span>Venda calculada pela composição</span>
+                        <strong id="produto-kit-venda-total">R$ 0,00</strong>
+                      </div>
+                    </div>
+
+                    <div class="produto-kit-note">
+                      <i class="fa-solid fa-circle-info"></i>
+                      <span>Ao alterar o custo ou a venda de qualquer componente, os produtos KIT relacionados são recalculados automaticamente.</span>
                     </div>
                   </article>
                 </section>

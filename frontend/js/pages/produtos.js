@@ -69,6 +69,10 @@
   let fichaProdutoController = null;
   let produtoAtualDetalhe = null;
   let produtoModalSomenteLeitura = false;
+  let produtoKitItens = [];
+  let produtoKitBuscaResultados = [];
+  let produtoKitBuscaTimer = null;
+  let produtoKitBuscaController = null;
 
   let atualizacaoPrecosMeta = null;
   let atualizacaoPrecosItens = [];
@@ -722,6 +726,10 @@
       'btn-atualizar-formulario-produto',
     ].forEach((id) => setHiddenByReadonly(id, produtoModalSomenteLeitura));
 
+    form?.querySelectorAll('[data-kit-action], .produto-kit-search-item').forEach((button) => {
+      button.disabled = produtoModalSomenteLeitura || button.dataset.originalDisabled === 'true';
+    });
+
     if (cancelBtn) {
       if (produtoModalSomenteLeitura) {
         cancelBtn.dataset.normalText = cancelBtn.dataset.normalText || cancelBtn.textContent || 'Cancelar';
@@ -730,6 +738,251 @@
         cancelBtn.textContent = cancelBtn.dataset.normalText;
       }
     }
+  }
+
+  function parseNumeroKit(value, fallback = 0) {
+    let raw = String(value ?? '').trim();
+    if (!raw) return fallback;
+    raw = raw.replace(/R\$/gi, '').replace(/\s+/g, '').replace(/[^0-9,.-]/g, '');
+    if (raw.includes(',')) raw = raw.replace(/\./g, '').replace(',', '.');
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function numeroKitPayload(value, decimals = 4) {
+    const parsed = Math.max(0, parseNumeroKit(value, 0));
+    return parsed.toFixed(decimals).replace(/0+$/, '').replace(/\.$/, '') || '0';
+  }
+
+  function numeroKitInput(value, decimals = 4) {
+    const parsed = Math.max(0, parseNumeroKit(value, 0));
+    return parsed.toLocaleString('pt-BR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    });
+  }
+
+  function moedaKit(value) {
+    const parsed = parseNumeroKit(value, 0);
+    return parsed.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  function normalizarItemKit(item = {}, index = 0) {
+    return {
+      produto_id: Number(item.produto_id || item.id || 0),
+      codigo: String(item.codigo || ''),
+      nome: String(item.nome || item.descricao || ''),
+      unidade: String(item.unidade || ''),
+      quantidade: Math.max(0.0001, parseNumeroKit(item.quantidade, 1)),
+      perda_percentual: Math.max(0, parseNumeroKit(item.perda_percentual, 0)),
+      ordem: Number.isFinite(Number(item.ordem)) ? Number(item.ordem) : index,
+      custo_unitario: Math.max(0, parseNumeroKit(item.custo_unitario ?? item.custo, 0)),
+      preco_venda_unitario: Math.max(0, parseNumeroKit(item.preco_venda_unitario ?? item.preco_venda, 0)),
+      ativo: item.ativo !== false,
+    };
+  }
+
+  function calcularItemKit(item) {
+    const quantidade = Math.max(0, parseNumeroKit(item?.quantidade, 0));
+    const perda = Math.max(0, parseNumeroKit(item?.perda_percentual, 0));
+    const quantidadeCalculo = quantidade * (1 + perda / 100);
+    const custoUnitario = Math.max(0, parseNumeroKit(item?.custo_unitario, 0));
+    const vendaUnitaria = Math.max(0, parseNumeroKit(item?.preco_venda_unitario, 0));
+    return {
+      quantidadeCalculo,
+      custoTotal: quantidadeCalculo * custoUnitario,
+      vendaTotal: quantidadeCalculo * vendaUnitaria,
+    };
+  }
+
+  function totaisKitProduto() {
+    return produtoKitItens.reduce((totais, item) => {
+      const calc = calcularItemKit(item);
+      totais.custo += calc.custoTotal;
+      totais.venda += calc.vendaTotal;
+      return totais;
+    }, { custo: 0, venda: 0 });
+  }
+
+  function atualizarResumoKitProduto({ sincronizarCampos = true } = {}) {
+    const totais = totaisKitProduto();
+    const custoEl = $('produto-kit-custo-total');
+    const vendaEl = $('produto-kit-venda-total');
+    const countEl = $('produto-kit-contagem');
+
+    if (custoEl) custoEl.textContent = moedaKit(totais.custo);
+    if (vendaEl) vendaEl.textContent = moedaKit(totais.venda);
+    if (countEl) countEl.textContent = produtoKitItens.length === 1 ? '1 item' : `${produtoKitItens.length} itens`;
+
+    if (sincronizarCampos && produtoKitItens.length && !produtoModalSomenteLeitura) {
+      setValue('campo-custo-produto', totais.custo.toFixed(2));
+      setValue('campo-preco-venda-produto', totais.venda.toFixed(2));
+    }
+  }
+
+  function renderItensKitProduto({ sincronizarCampos = true } = {}) {
+    const tbody = $('tbody-itens-kit-produto');
+    if (!tbody) return;
+
+    if (!produtoKitItens.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Nenhum item incluído neste KIT.</td></tr>';
+      atualizarResumoKitProduto({ sincronizarCampos: false });
+      return;
+    }
+
+    tbody.innerHTML = produtoKitItens.map((item, index) => {
+      const calc = calcularItemKit(item);
+      const inactive = item.ativo === false ? '<span class="produto-kit-inativo">Inativo</span>' : '';
+      return `
+        <tr data-kit-index="${index}">
+          <td><span class="produto-kit-code">${escapeHtml(item.codigo || '-')}</span></td>
+          <td>
+            <div class="produto-kit-description">
+              <strong>${escapeHtml(item.nome || 'Produto sem nome')}</strong>
+              ${inactive}
+            </div>
+          </td>
+          <td>${escapeHtml(item.unidade || '-')}</td>
+          <td>
+            <input class="produto-kit-number" type="text" inputmode="decimal" data-kit-field="quantidade" data-kit-index="${index}" value="${escapeHtml(numeroKitInput(item.quantidade))}" aria-label="Quantidade de ${escapeHtml(item.nome)}" />
+          </td>
+          <td>
+            <input class="produto-kit-number" type="text" inputmode="decimal" data-kit-field="perda_percentual" data-kit-index="${index}" value="${escapeHtml(numeroKitInput(item.perda_percentual))}" aria-label="Perda percentual de ${escapeHtml(item.nome)}" />
+          </td>
+          <td>${escapeHtml(moedaKit(item.custo_unitario))}</td>
+          <td>${escapeHtml(moedaKit(item.preco_venda_unitario))}</td>
+          <td class="produto-kit-total" data-kit-total-custo="${index}">${escapeHtml(moedaKit(calc.custoTotal))}</td>
+          <td class="produto-kit-total" data-kit-total-venda="${index}">${escapeHtml(moedaKit(calc.vendaTotal))}</td>
+          <td class="produto-kit-actions produto-kit-edit-only">
+            <button type="button" class="produto-kit-action" data-kit-action="up" data-kit-index="${index}" title="Subir item" ${index === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+            <button type="button" class="produto-kit-action" data-kit-action="down" data-kit-index="${index}" title="Descer item" ${index === produtoKitItens.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+            <button type="button" class="produto-kit-action danger" data-kit-action="remove" data-kit-index="${index}" title="Remover item"><i class="fa-solid fa-trash"></i></button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    atualizarResumoKitProduto({ sincronizarCampos });
+    if (produtoModalSomenteLeitura) setProdutoModalReadonly(true);
+  }
+
+  function definirItensKitProduto(itens = [], options = {}) {
+    produtoKitItens = (Array.isArray(itens) ? itens : [])
+      .map((item, index) => normalizarItemKit(item, index))
+      .filter((item) => item.produto_id > 0);
+    renderItensKitProduto({ sincronizarCampos: options.sincronizarCampos !== false });
+  }
+
+  function esconderResultadosBuscaKit() {
+    const results = $('resultados-busca-item-kit');
+    if (!results) return;
+    results.hidden = true;
+    results.innerHTML = '';
+    produtoKitBuscaResultados = [];
+  }
+
+  function renderResultadosBuscaKit(items = []) {
+    const results = $('resultados-busca-item-kit');
+    if (!results) return;
+
+    produtoKitBuscaResultados = Array.isArray(items) ? items.map(normalizarItemKit) : [];
+    if (!produtoKitBuscaResultados.length) {
+      results.innerHTML = '<div class="produto-kit-search-empty">Nenhum produto encontrado.</div>';
+      results.hidden = false;
+      return;
+    }
+
+    results.innerHTML = produtoKitBuscaResultados.map((item) => `
+      <button type="button" class="produto-kit-search-item" data-kit-search-id="${item.produto_id}">
+        <span class="produto-kit-search-code">${escapeHtml(item.codigo || '-')}</span>
+        <span class="produto-kit-search-name">${escapeHtml(item.nome || 'Produto sem nome')}</span>
+        <span class="produto-kit-search-price">Custo ${escapeHtml(moedaKit(item.custo_unitario))} · Venda ${escapeHtml(moedaKit(item.preco_venda_unitario))}</span>
+      </button>
+    `).join('');
+    results.hidden = false;
+  }
+
+  async function buscarComponentesKitProduto(query) {
+    const statusEl = $('status-busca-item-kit');
+    const termo = String(query || '').trim();
+    if (termo.length < 2) {
+      if (statusEl) statusEl.textContent = termo ? 'Digite mais um caractere' : '';
+      esconderResultadosBuscaKit();
+      return;
+    }
+
+    produtoKitBuscaController?.abort();
+    produtoKitBuscaController = new AbortController();
+    if (statusEl) statusEl.textContent = 'Buscando...';
+
+    const params = new URLSearchParams({ q: termo, limit: '30' });
+    if (produtoEditandoId) params.set('excluir_id', String(produtoEditandoId));
+
+    try {
+      const response = await fetch(`${API_PRODUTOS}/busca-componentes?${params.toString()}`, {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+        signal: produtoKitBuscaController.signal,
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.detail || 'Não foi possível pesquisar os produtos.');
+      renderResultadosBuscaKit(body || []);
+      if (statusEl) statusEl.textContent = `${Array.isArray(body) ? body.length : 0} resultado(s)`;
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      esconderResultadosBuscaKit();
+      if (statusEl) statusEl.textContent = 'Erro na busca';
+      toast(error.message || 'Erro ao pesquisar produtos.', { error: true, ms: 4200 });
+    }
+  }
+
+  function adicionarComponenteKit(produtoId) {
+    const item = produtoKitBuscaResultados.find((row) => Number(row.produto_id) === Number(produtoId));
+    if (!item) return;
+
+    if (produtoKitItens.some((row) => Number(row.produto_id) === Number(item.produto_id))) {
+      toast('Este produto já está na composição do KIT.', { error: true, ms: 3000 });
+      return;
+    }
+
+    produtoKitItens.push(normalizarItemKit({ ...item, quantidade: 1, perda_percentual: 0 }, produtoKitItens.length));
+    renderItensKitProduto();
+    const input = $('busca-item-kit-produto');
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+    const statusEl = $('status-busca-item-kit');
+    if (statusEl) statusEl.textContent = '';
+    esconderResultadosBuscaKit();
+  }
+
+  function atualizarCampoItemKit(index, field, rawValue) {
+    const item = produtoKitItens[index];
+    if (!item) return;
+    const parsed = parseNumeroKit(rawValue, field === 'quantidade' ? 1 : 0);
+    if (field === 'quantidade') item.quantidade = Math.max(0.0001, parsed);
+    if (field === 'perda_percentual') item.perda_percentual = Math.max(0, parsed);
+    renderItensKitProduto();
+  }
+
+  function moverItemKit(index, direction) {
+    const target = index + direction;
+    if (index < 0 || target < 0 || index >= produtoKitItens.length || target >= produtoKitItens.length) return;
+    const [item] = produtoKitItens.splice(index, 1);
+    produtoKitItens.splice(target, 0, item);
+    renderItensKitProduto();
+  }
+
+  function limparBuscaKitProduto() {
+    clearTimeout(produtoKitBuscaTimer);
+    produtoKitBuscaController?.abort();
+    produtoKitBuscaController = null;
+    const input = $('busca-item-kit-produto');
+    const statusEl = $('status-busca-item-kit');
+    if (input) input.value = '';
+    if (statusEl) statusEl.textContent = '';
+    esconderResultadosBuscaKit();
   }
 
   function getProdutoNativeValues() {
@@ -1318,9 +1571,11 @@
 
   function fecharModalProduto() {
     setProdutoModalReadonly(false);
+    limparBuscaKitProduto();
     closeModal('modal-produto-backdrop');
     produtoEditandoId = null;
     produtoAtualDetalhe = null;
+    produtoKitItens = [];
   }
 
   async function abrirModalProdutoNovo() {
@@ -1334,6 +1589,8 @@
 
     const proximoCodigo = await carregarProximoCodigoProduto();
     fillProdutoNativeFields({ codigo: proximoCodigo, ativo: true });
+    definirItensKitProduto([], { sincronizarCampos: false });
+    limparBuscaKitProduto();
 
     const values = buildCustomValuesNovoProduto();
     await renderCustomFieldsInputs(values);
@@ -1363,6 +1620,8 @@
     produtoAtualDetalhe = produto;
 
     fillProdutoNativeFields(produto);
+    definirItensKitProduto(produto.itens_kit || [], { sincronizarCampos: false });
+    limparBuscaKitProduto();
 
     const values = buildCustomValuesFromProduto(produto);
     await renderCustomFieldsInputs(values);
@@ -1388,6 +1647,8 @@
       produtoAtualDetalhe = produto;
 
       fillProdutoNativeFields(produto);
+      definirItensKitProduto(produto.itens_kit || [], { sincronizarCampos: false });
+      limparBuscaKitProduto();
 
       const values = buildCustomValuesFromProduto(produto);
       await renderCustomFieldsInputs(values);
@@ -1432,6 +1693,11 @@
       ...base,
       codigo: onlyDigits(base.codigo),
       custom_fields: filtrarCustomFieldsSistema(customFields, { preservarCamposFormulario: true }),
+      itens_kit: produtoKitItens.map((item) => ({
+        produto_id: Number(item.produto_id),
+        quantidade: numeroKitPayload(item.quantidade, 4),
+        perda_percentual: numeroKitPayload(item.perda_percentual, 4),
+      })),
     };
   }
 
@@ -2621,6 +2887,44 @@
     $('formProduto')?.addEventListener('submit', (event) => {
       event.preventDefault();
       salvarProduto();
+    });
+
+    $('busca-item-kit-produto')?.addEventListener('input', (event) => {
+      clearTimeout(produtoKitBuscaTimer);
+      const value = event.target.value;
+      produtoKitBuscaTimer = setTimeout(() => buscarComponentesKitProduto(value), 280);
+    });
+
+    $('busca-item-kit-produto')?.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') esconderResultadosBuscaKit();
+    });
+
+    $('resultados-busca-item-kit')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-kit-search-id]');
+      if (!button || produtoModalSomenteLeitura) return;
+      adicionarComponenteKit(Number(button.dataset.kitSearchId));
+    });
+
+    $('tbody-itens-kit-produto')?.addEventListener('change', (event) => {
+      const input = event.target.closest('[data-kit-field][data-kit-index]');
+      if (!input || produtoModalSomenteLeitura) return;
+      atualizarCampoItemKit(Number(input.dataset.kitIndex), input.dataset.kitField, input.value);
+    });
+
+    $('tbody-itens-kit-produto')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-kit-action][data-kit-index]');
+      if (!button || produtoModalSomenteLeitura) return;
+      const index = Number(button.dataset.kitIndex);
+      if (button.dataset.kitAction === 'remove') {
+        produtoKitItens.splice(index, 1);
+        renderItensKitProduto();
+      }
+      if (button.dataset.kitAction === 'up') moverItemKit(index, -1);
+      if (button.dataset.kitAction === 'down') moverItemKit(index, 1);
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.produto-kit-search')) esconderResultadosBuscaKit();
     });
 
     modalProdutoBackdrop?.addEventListener('click', (event) => {

@@ -446,9 +446,17 @@ def validar_referencias_lancamento(
         raise HTTPException(status_code=422, detail="Selecione a forma de cobrança da conta a receber.")
     if tipo == "pagar" and cliente_id is not None:
         raise HTTPException(status_code=422, detail="Conta a pagar não pode usar cliente.")
+    if tipo == "pagar" and fornecedor_id is None:
+        raise HTTPException(status_code=422, detail="Selecione o sacado da conta a pagar.")
 
     validar_id_empresa(db, table_name="clientes", item_id=cliente_id, empresa_id=empresa_id, label="Cliente")
-    validar_id_empresa(db, table_name="fornecedores", item_id=fornecedor_id, empresa_id=empresa_id, label="Fornecedor")
+    validar_id_empresa(
+        db,
+        table_name="fornecedores",
+        item_id=fornecedor_id,
+        empresa_id=empresa_id,
+        label="Sacado" if tipo == "pagar" else "Fornecedor",
+    )
     validar_id_empresa(db, table_name="financeiro_categorias", item_id=categoria_id, empresa_id=empresa_id, label="Categoria")
     validar_id_empresa(db, table_name="financeiro_formas_pagamento", item_id=forma_pagamento_id, empresa_id=empresa_id, label="Forma de pagamento")
     validar_id_empresa(db, table_name="financeiro_contas_bancos", item_id=conta_banco_id, empresa_id=empresa_id, label="Conta/Banco")
@@ -969,6 +977,61 @@ def opcoes_financeiro(
         "formas_cobranca": ativos("financeiro_formas_cobranca"),
         "regras_encargos": ativos("financeiro_regras_encargos", "padrao DESC, nome ASC"),
     }
+
+
+@router.get("/sacados")
+def pesquisar_sacados_financeiro(
+    busca: str = Query(default="", max_length=160),
+    limit: int = Query(default=30, ge=1, le=50),
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    """Busca leve de fornecedores usados como sacado em Contas a Pagar."""
+    empresa_id = empresa_do(usuario)
+    termo = (busca or "").strip()
+    if len(termo) < 2:
+        return {"items": []}
+
+    rows = db.execute(text("""
+        SELECT
+            id,
+            codigo,
+            nome,
+            nome_fantasia,
+            cpf_cnpj,
+            email,
+            telefone,
+            whatsapp,
+            tipo_fornecedor
+        FROM public.fornecedores
+        WHERE empresa_id = :empresa_id
+          AND (
+               COALESCE(codigo, '') ILIKE :busca
+            OR COALESCE(nome, '') ILIKE :busca
+            OR COALESCE(nome_fantasia, '') ILIKE :busca
+            OR COALESCE(cpf_cnpj, '') ILIKE :busca
+            OR COALESCE(email, '') ILIKE :busca
+            OR COALESCE(telefone, '') ILIKE :busca
+            OR COALESCE(whatsapp, '') ILIKE :busca
+          )
+        ORDER BY
+            CASE
+                WHEN COALESCE(codigo, '') ILIKE :inicio THEN 0
+                WHEN COALESCE(nome, '') ILIKE :inicio THEN 1
+                WHEN COALESCE(nome_fantasia, '') ILIKE :inicio THEN 2
+                ELSE 3
+            END,
+            nome ASC,
+            id ASC
+        LIMIT :limit
+    """), {
+        "empresa_id": empresa_id,
+        "busca": f"%{termo}%",
+        "inicio": f"{termo}%",
+        "limit": limit,
+    }).fetchall()
+
+    return {"items": [row_to_dict(row) for row in rows]}
 
 
 # =========================================================
