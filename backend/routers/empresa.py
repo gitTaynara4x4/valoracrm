@@ -5,11 +5,12 @@ import os
 import shutil
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Cookie, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
+from backend.security.permissions import get_request_user
 from backend import models
 
 router = APIRouter(prefix="/api/empresa", tags=["Empresa"])
@@ -25,29 +26,10 @@ def get_db():
         db.close()
 
 def get_empresa_id(
-    user_id: Optional[str] = Cookie(default=None),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> int:
-    """Retorna a empresa vinculada ao usuário autenticado."""
-    if not user_id or not str(user_id).strip():
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        user_id_int = int(str(user_id).strip())
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(models.Usuario).filter(models.Usuario.id == user_id_int).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    if hasattr(usuario, "ativo") and usuario.ativo is False:
-        raise HTTPException(status_code=403, detail="Usuário inativo.")
-
-    return int(usuario.empresa_id)
+    return int(get_request_user(request, db).empresa_id)
 
 
 # =========================================================

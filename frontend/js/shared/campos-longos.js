@@ -262,7 +262,10 @@
 
   function enhance(root = document) {
     const base = root && root.querySelectorAll ? root : document;
-    base.querySelectorAll(FIELD_SELECTOR).forEach((field) => {
+    const fields = [];
+    if (base.matches?.(FIELD_SELECTOR)) fields.push(base);
+    fields.push(...base.querySelectorAll(FIELD_SELECTOR));
+    fields.forEach((field) => {
       if (!isIgnored(field) && isLongEnough(field)) {
         const wrapper = getWrapper(field);
         if (wrapper) wrapper.classList.add('valora-campo-longo-wrap', 'has-campo-longo');
@@ -313,17 +316,9 @@
       if (active && active.matches && active.matches(FIELD_SELECTOR)) collapseField(active, { force: true });
     });
 
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        for (const node of mutation.addedNodes || []) {
-          if (node.nodeType === 1) enhance(node);
-        }
-      }
-    });
-
     const startObserver = () => {
-      if (document.body) observer.observe(document.body, { childList: true, subtree: true });
       enhance(document);
+      window.ValoraMutationHub?.subscribe?.((roots) => roots.forEach(enhance));
     };
 
     if (document.readyState === 'loading') {

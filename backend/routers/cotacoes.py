@@ -6,7 +6,7 @@ import re
 import unicodedata
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from backend import models
 from backend.database import SessionLocal
+from backend.security.permissions import get_request_user
 
 router = APIRouter(prefix="/api/cotacoes", tags=["Cotações"])
 
@@ -46,152 +47,14 @@ def get_db():
 
 
 def get_empresa_id(
-    user_id: Optional[str] = Cookie(default=None),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> int:
-    if not user_id or not str(user_id).strip():
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        user_id_int = int(str(user_id).strip())
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(models.Usuario).filter(models.Usuario.id == user_id_int).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    return int(usuario.empresa_id)
+    return int(get_request_user(request, db).empresa_id)
 
 
 def ensure_cotacoes_schema(db: Session) -> None:
-    """Cria/atualiza as tabelas do módulo de Cotações sem depender de Alembic.
-
-    O Valora atual já usa esse estilo mais direto em alguns módulos. Mantive aqui
-    para o usuário conseguir aplicar o patch e abrir a tela sem rodar migração manual.
-    """
-    ddl = """
-    CREATE TABLE IF NOT EXISTS cotacoes (
-        id BIGSERIAL PRIMARY KEY,
-        empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-        codigo VARCHAR(50) NOT NULL,
-        item_nome VARCHAR(180) NOT NULL,
-        descricao TEXT NULL,
-        quantidade VARCHAR(40) NULL,
-        unidade VARCHAR(30) NULL,
-        categoria VARCHAR(120) NULL,
-        status VARCHAR(40) NOT NULL DEFAULT 'rascunho',
-        urgencia VARCHAR(30) NULL,
-        observacoes TEXT NULL,
-        fornecedor_vencedor_id BIGINT NULL REFERENCES fornecedores(id) ON DELETE SET NULL,
-        fornecedor_vencedor_item_id BIGINT NULL,
-        valor_aprovado VARCHAR(40) NULL,
-        data_aprovacao TIMESTAMPTZ NULL,
-        produto_id BIGINT NULL REFERENCES produtos(id) ON DELETE SET NULL,
-        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE;
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS codigo VARCHAR(50) NOT NULL DEFAULT '';
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS item_nome VARCHAR(180) NOT NULL DEFAULT '';
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS descricao TEXT NULL;
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS quantidade VARCHAR(40) NULL;
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS unidade VARCHAR(30) NULL;
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS categoria VARCHAR(120) NULL;
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS status VARCHAR(40) NOT NULL DEFAULT 'rascunho';
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS urgencia VARCHAR(30) NULL;
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS observacoes TEXT NULL;
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS fornecedor_vencedor_id BIGINT NULL REFERENCES fornecedores(id) ON DELETE SET NULL;
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS fornecedor_vencedor_item_id BIGINT NULL;
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS valor_aprovado VARCHAR(40) NULL;
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS data_aprovacao TIMESTAMPTZ NULL;
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS produto_id BIGINT NULL REFERENCES produtos(id) ON DELETE SET NULL;
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW();
-    ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
-    CREATE UNIQUE INDEX IF NOT EXISTS uq_cotacoes_empresa_codigo ON cotacoes(empresa_id, codigo);
-
-    CREATE TABLE IF NOT EXISTS codigos_sequenciais (
-        empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-        modulo VARCHAR(80) NOT NULL,
-        ultimo_codigo BIGINT NOT NULL DEFAULT 0,
-        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        PRIMARY KEY (empresa_id, modulo)
-    );
-
-    CREATE INDEX IF NOT EXISTS ix_cotacoes_empresa ON cotacoes(empresa_id);
-    CREATE INDEX IF NOT EXISTS ix_cotacoes_item_nome ON cotacoes(item_nome);
-    CREATE INDEX IF NOT EXISTS ix_cotacoes_status ON cotacoes(status);
-
-    CREATE TABLE IF NOT EXISTS cotacoes_fornecedores (
-        id BIGSERIAL PRIMARY KEY,
-        cotacao_id BIGINT NOT NULL REFERENCES cotacoes(id) ON DELETE CASCADE,
-        fornecedor_id BIGINT NULL REFERENCES fornecedores(id) ON DELETE SET NULL,
-        fornecedor_nome VARCHAR(180) NULL,
-        valor_unitario VARCHAR(40) NULL,
-        frete VARCHAR(40) NULL,
-        valor_total VARCHAR(40) NULL,
-        prazo_entrega VARCHAR(80) NULL,
-        condicao_pagamento VARCHAR(160) NULL,
-        observacoes TEXT NULL,
-        vencedor BOOLEAN NOT NULL DEFAULT FALSE,
-        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    ALTER TABLE cotacoes_fornecedores ADD COLUMN IF NOT EXISTS cotacao_id BIGINT NOT NULL REFERENCES cotacoes(id) ON DELETE CASCADE;
-    ALTER TABLE cotacoes_fornecedores ADD COLUMN IF NOT EXISTS fornecedor_id BIGINT NULL REFERENCES fornecedores(id) ON DELETE SET NULL;
-    ALTER TABLE cotacoes_fornecedores ADD COLUMN IF NOT EXISTS fornecedor_nome VARCHAR(180) NULL;
-    ALTER TABLE cotacoes_fornecedores ADD COLUMN IF NOT EXISTS valor_unitario VARCHAR(40) NULL;
-    ALTER TABLE cotacoes_fornecedores ADD COLUMN IF NOT EXISTS frete VARCHAR(40) NULL;
-    ALTER TABLE cotacoes_fornecedores ADD COLUMN IF NOT EXISTS valor_total VARCHAR(40) NULL;
-    ALTER TABLE cotacoes_fornecedores ADD COLUMN IF NOT EXISTS prazo_entrega VARCHAR(80) NULL;
-    ALTER TABLE cotacoes_fornecedores ADD COLUMN IF NOT EXISTS condicao_pagamento VARCHAR(160) NULL;
-    ALTER TABLE cotacoes_fornecedores ADD COLUMN IF NOT EXISTS observacoes TEXT NULL;
-    ALTER TABLE cotacoes_fornecedores ADD COLUMN IF NOT EXISTS vencedor BOOLEAN NOT NULL DEFAULT FALSE;
-    ALTER TABLE cotacoes_fornecedores ADD COLUMN IF NOT EXISTS criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW();
-    ALTER TABLE cotacoes_fornecedores ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
-    CREATE INDEX IF NOT EXISTS ix_cotacoes_fornecedores_cotacao ON cotacoes_fornecedores(cotacao_id);
-    CREATE INDEX IF NOT EXISTS ix_cotacoes_fornecedores_fornecedor ON cotacoes_fornecedores(fornecedor_id);
-    CREATE INDEX IF NOT EXISTS ix_cotacoes_fornecedores_vencedor ON cotacoes_fornecedores(vencedor);
-
-    CREATE TABLE IF NOT EXISTS campos_cotacoes (
-        id BIGSERIAL PRIMARY KEY,
-        empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-        nome VARCHAR(120) NOT NULL,
-        slug VARCHAR(120) NOT NULL,
-        tipo VARCHAR(30) NOT NULL,
-        obrigatorio BOOLEAN NOT NULL DEFAULT FALSE,
-        ativo BOOLEAN NOT NULL DEFAULT TRUE,
-        opcoes_json TEXT NULL,
-        ordem BIGINT NOT NULL DEFAULT 0,
-        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    CREATE UNIQUE INDEX IF NOT EXISTS uq_campos_cotacoes_empresa_slug ON campos_cotacoes(empresa_id, slug);
-    CREATE INDEX IF NOT EXISTS ix_campos_cotacoes_empresa ON campos_cotacoes(empresa_id);
-
-    CREATE TABLE IF NOT EXISTS cotacoes_campos_valores (
-        id BIGSERIAL PRIMARY KEY,
-        cotacao_id BIGINT NOT NULL REFERENCES cotacoes(id) ON DELETE CASCADE,
-        campo_id BIGINT NOT NULL REFERENCES campos_cotacoes(id) ON DELETE CASCADE,
-        valor TEXT NULL,
-        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    CREATE INDEX IF NOT EXISTS ix_cotacoes_campos_valores_cotacao ON cotacoes_campos_valores(cotacao_id);
-    CREATE INDEX IF NOT EXISTS ix_cotacoes_campos_valores_campo ON cotacoes_campos_valores(campo_id);
-    """
-    db.execute(text(ddl))
-    db.commit()
+    raise RuntimeError("Estrutura administrada pelo Alembic; execute `alembic upgrade head`.")
 
 
 try:
@@ -674,26 +537,83 @@ def cotacao_fornecedor_to_out(item: CotacaoFornecedor) -> CotacaoFornecedorOut:
     )
 
 
-def listar_fornecedores_cotacao(db: Session, cotacao_id: int) -> List[CotacaoFornecedor]:
-    return (
-        db.query(CotacaoFornecedor)
-        .filter(CotacaoFornecedor.cotacao_id == cotacao_id)
-        .order_by(CotacaoFornecedor.vencedor.desc(), CotacaoFornecedor.id.asc())
-        .all()
-    )
-
-
-def buscar_custom_fields_cotacao(db: Session, empresa_id: int, cotacao_id: int) -> Dict[str, Any]:
-    sincronizar_campos_cotacoes_do_formulario(db, empresa_id, commit=False)
+def listar_fornecedores_cotacoes_em_lote(
+    db: Session,
+    cotacao_ids: List[int],
+) -> Dict[int, List[CotacaoFornecedor]]:
+    ids = sorted({int(cotacao_id) for cotacao_id in cotacao_ids if int(cotacao_id) > 0})
+    out: Dict[int, List[CotacaoFornecedor]] = {cotacao_id: [] for cotacao_id in ids}
+    if not ids:
+        return out
 
     rows = (
-        db.query(CotacaoCampoValor, CampoCotacao)
+        db.query(CotacaoFornecedor)
+        .filter(CotacaoFornecedor.cotacao_id.in_(ids))
+        .order_by(
+            CotacaoFornecedor.cotacao_id.asc(),
+            CotacaoFornecedor.vencedor.desc(),
+            CotacaoFornecedor.id.asc(),
+        )
+        .all()
+    )
+    for item in rows:
+        out.setdefault(int(item.cotacao_id), []).append(item)
+    return out
+
+
+def listar_fornecedores_cotacao(db: Session, cotacao_id: int) -> List[CotacaoFornecedor]:
+    return listar_fornecedores_cotacoes_em_lote(db, [cotacao_id]).get(int(cotacao_id), [])
+
+
+def buscar_custom_fields_cotacoes_em_lote(
+    db: Session,
+    empresa_id: int,
+    cotacao_ids: List[int],
+) -> Dict[int, Dict[str, Any]]:
+    ids = sorted({int(cotacao_id) for cotacao_id in cotacao_ids if int(cotacao_id) > 0})
+    out: Dict[int, Dict[str, Any]] = {cotacao_id: {} for cotacao_id in ids}
+    if not ids:
+        return out
+
+    # A sincronização das definições acontece ao salvar/abrir o formulário e
+    # no endpoint /campos. A listagem deve apenas ler os valores em lote,
+    # mantendo esta etapa em uma única consulta SQL.
+    rows = (
+        db.query(
+            CotacaoCampoValor.cotacao_id,
+            CampoCotacao.slug,
+            CotacaoCampoValor.valor,
+        )
         .join(CampoCotacao, CampoCotacao.id == CotacaoCampoValor.campo_id)
-        .filter(CotacaoCampoValor.cotacao_id == cotacao_id)
+        .filter(CotacaoCampoValor.cotacao_id.in_(ids))
         .filter(CampoCotacao.empresa_id == empresa_id)
         .all()
     )
-    return {str(campo.slug): valor.valor or "" for valor, campo in rows}
+    for cotacao_id, slug, valor in rows:
+        out.setdefault(int(cotacao_id), {})[str(slug)] = valor or ""
+    return out
+
+
+def buscar_custom_fields_cotacao(db: Session, empresa_id: int, cotacao_id: int) -> Dict[str, Any]:
+    return buscar_custom_fields_cotacoes_em_lote(db, empresa_id, [cotacao_id]).get(int(cotacao_id), {})
+
+
+def buscar_nomes_fornecedores_em_lote(
+    db: Session,
+    empresa_id: int,
+    fornecedor_ids: List[int],
+) -> Dict[int, str]:
+    ids = sorted({int(fornecedor_id) for fornecedor_id in fornecedor_ids if int(fornecedor_id) > 0})
+    if not ids:
+        return {}
+
+    rows = (
+        db.query(models.Fornecedor.id, models.Fornecedor.nome)
+        .filter(models.Fornecedor.empresa_id == empresa_id)
+        .filter(models.Fornecedor.id.in_(ids))
+        .all()
+    )
+    return {int(fornecedor_id): nome for fornecedor_id, nome in rows if nome}
 
 
 def salvar_custom_fields_cotacao(
@@ -740,8 +660,17 @@ def salvar_custom_fields_cotacao(
             db.add(CotacaoCampoValor(cotacao_id=cotacao_id, campo_id=campo_id, valor=value))
 
 
-def cotacao_to_out(db: Session, cotacao: Cotacao, *, include_fornecedores: bool = True) -> CotacaoOut:
-    fornecedores = listar_fornecedores_cotacao(db, int(cotacao.id)) if include_fornecedores else []
+def cotacao_to_out(
+    db: Session,
+    cotacao: Cotacao,
+    *,
+    include_fornecedores: bool = True,
+    fornecedores: Optional[List[CotacaoFornecedor]] = None,
+    custom_fields: Optional[Dict[str, Any]] = None,
+    nomes_fornecedores: Optional[Dict[int, str]] = None,
+) -> CotacaoOut:
+    if fornecedores is None:
+        fornecedores = listar_fornecedores_cotacao(db, int(cotacao.id)) if include_fornecedores else []
     vencedor = next((item for item in fornecedores if bool(item.vencedor)), None)
     if not vencedor and cotacao.fornecedor_vencedor_item_id:
         vencedor = next((item for item in fornecedores if int(item.id) == int(cotacao.fornecedor_vencedor_item_id)), None)
@@ -750,7 +679,15 @@ def cotacao_to_out(db: Session, cotacao: Cotacao, *, include_fornecedores: bool 
     if vencedor:
         vencedor_nome = vencedor.fornecedor_nome
     elif cotacao.fornecedor_vencedor_id:
-        vencedor_nome = fornecedor_nome_by_id(db, int(cotacao.fornecedor_vencedor_id), int(cotacao.empresa_id))
+        fornecedor_id = int(cotacao.fornecedor_vencedor_id)
+        vencedor_nome = (
+            nomes_fornecedores.get(fornecedor_id)
+            if nomes_fornecedores is not None
+            else fornecedor_nome_by_id(db, fornecedor_id, int(cotacao.empresa_id))
+        )
+
+    if custom_fields is None:
+        custom_fields = buscar_custom_fields_cotacao(db, int(cotacao.empresa_id), int(cotacao.id))
 
     return CotacaoOut(
         id=int(cotacao.id),
@@ -773,7 +710,7 @@ def cotacao_to_out(db: Session, cotacao: Cotacao, *, include_fornecedores: bool 
         criado_em=iso_datetime(getattr(cotacao, "criado_em", None)),
         atualizado_em=iso_datetime(getattr(cotacao, "atualizado_em", None)),
         fornecedores=[cotacao_fornecedor_to_out(item) for item in fornecedores],
-        custom_fields=buscar_custom_fields_cotacao(db, int(cotacao.empresa_id), int(cotacao.id)),
+        custom_fields=custom_fields,
     )
 
 
@@ -851,7 +788,6 @@ def listar_cotacoes(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
 
     query = db.query(Cotacao).filter(Cotacao.empresa_id == empresa_id)
 
@@ -876,7 +812,25 @@ def listar_cotacoes(
     if paginated:
         total = query.count()
         rows = query.offset(offset).limit(limit).all()
-        items = [cotacao_to_out(db, row, include_fornecedores=True) for row in rows]
+        cotacao_ids = [int(row.id) for row in rows]
+        fornecedores_por_cotacao = listar_fornecedores_cotacoes_em_lote(db, cotacao_ids)
+        custom_fields_por_cotacao = buscar_custom_fields_cotacoes_em_lote(db, empresa_id, cotacao_ids)
+        nomes_fornecedores = buscar_nomes_fornecedores_em_lote(
+            db,
+            empresa_id,
+            [int(row.fornecedor_vencedor_id) for row in rows if row.fornecedor_vencedor_id],
+        )
+        items = [
+            cotacao_to_out(
+                db,
+                row,
+                include_fornecedores=True,
+                fornecedores=fornecedores_por_cotacao.get(int(row.id), []),
+                custom_fields=custom_fields_por_cotacao.get(int(row.id), {}),
+                nomes_fornecedores=nomes_fornecedores,
+            )
+            for row in rows
+        ]
         return {
             "items": items,
             "total": total,
@@ -886,7 +840,25 @@ def listar_cotacoes(
         }
 
     rows = query.all()
-    return [cotacao_to_out(db, row, include_fornecedores=True) for row in rows]
+    cotacao_ids = [int(row.id) for row in rows]
+    fornecedores_por_cotacao = listar_fornecedores_cotacoes_em_lote(db, cotacao_ids)
+    custom_fields_por_cotacao = buscar_custom_fields_cotacoes_em_lote(db, empresa_id, cotacao_ids)
+    nomes_fornecedores = buscar_nomes_fornecedores_em_lote(
+        db,
+        empresa_id,
+        [int(row.fornecedor_vencedor_id) for row in rows if row.fornecedor_vencedor_id],
+    )
+    return [
+        cotacao_to_out(
+            db,
+            row,
+            include_fornecedores=True,
+            fornecedores=fornecedores_por_cotacao.get(int(row.id), []),
+            custom_fields=custom_fields_por_cotacao.get(int(row.id), {}),
+            nomes_fornecedores=nomes_fornecedores,
+        )
+        for row in rows
+    ]
 
 
 @router.get("/proximo-codigo")
@@ -894,7 +866,6 @@ def obter_proximo_codigo_cotacao(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
     return {"codigo": proximo_codigo_cotacao_preview(db, empresa_id)}
 
 
@@ -904,7 +875,6 @@ def criar_cotacao(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
 
     if not norm_str(payload.item_nome):
         raise HTTPException(status_code=400, detail="Informe o item desejado.")
@@ -954,8 +924,6 @@ def listar_campos_cotacao(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
-    sincronizar_campos_cotacoes_do_formulario(db, empresa_id, commit=True)
     return (
         db.query(CampoCotacao)
         .filter(CampoCotacao.empresa_id == empresa_id)
@@ -970,7 +938,6 @@ def criar_campo_cotacao(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
     campo = CampoCotacao(empresa_id=empresa_id, **dump_model(payload))
     try:
         db.add(campo)
@@ -989,7 +956,6 @@ def atualizar_campo_cotacao(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
     campo = db.query(CampoCotacao).filter(CampoCotacao.id == campo_id, CampoCotacao.empresa_id == empresa_id).first()
     if not campo:
         raise HTTPException(status_code=404, detail="Campo não encontrado.")
@@ -1013,7 +979,6 @@ def excluir_campo_cotacao(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
     campo = db.query(CampoCotacao).filter(CampoCotacao.id == campo_id, CampoCotacao.empresa_id == empresa_id).first()
     if not campo:
         raise HTTPException(status_code=404, detail="Campo não encontrado.")
@@ -1029,7 +994,6 @@ def obter_cotacao(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
 
     cotacao = buscar_cotacao_empresa(db, cotacao_id, empresa_id)
     if not cotacao:
@@ -1044,7 +1008,6 @@ def atualizar_cotacao(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
 
     cotacao = buscar_cotacao_empresa(db, cotacao_id, empresa_id)
     if not cotacao:
@@ -1076,7 +1039,6 @@ def excluir_cotacao(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
 
     cotacao = buscar_cotacao_empresa(db, cotacao_id, empresa_id)
     if not cotacao:
@@ -1097,7 +1059,6 @@ def adicionar_fornecedor_cotado(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
 
     cotacao = buscar_cotacao_empresa(db, cotacao_id, empresa_id)
     if not cotacao:
@@ -1134,7 +1095,6 @@ def atualizar_fornecedor_cotado(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
 
     cotacao = buscar_cotacao_empresa(db, cotacao_id, empresa_id)
     if not cotacao:
@@ -1164,7 +1124,6 @@ def remover_fornecedor_cotado(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
 
     cotacao = buscar_cotacao_empresa(db, cotacao_id, empresa_id)
     if not cotacao:
@@ -1191,7 +1150,6 @@ def escolher_fornecedor_vencedor(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
 
     cotacao = buscar_cotacao_empresa(db, cotacao_id, empresa_id)
     if not cotacao:
@@ -1219,7 +1177,6 @@ def aprovar_cotacao(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
 
     cotacao = buscar_cotacao_empresa(db, cotacao_id, empresa_id)
     if not cotacao:
@@ -1256,7 +1213,6 @@ def converter_cotacao_em_produto(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    ensure_cotacoes_schema(db)
 
     cotacao = buscar_cotacao_empresa(db, cotacao_id, empresa_id)
     if not cotacao:

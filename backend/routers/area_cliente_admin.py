@@ -3,13 +3,14 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from backend import models as core_models
 from backend.database import SessionLocal
+from backend.security.permissions import get_request_user
 from backend.models_area_cliente import ClienteDadosComplementares, ClienteHistoricoAlteracao
 
 router = APIRouter(tags=["Área do Cliente - Admin"])
@@ -82,25 +83,10 @@ def serialize_datetime(value: Any) -> Optional[str]:
 
 
 def get_current_user(
-    user_id: Optional[str] = Cookie(default=None),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> core_models.Usuario:
-    if not user_id or not str(user_id).strip():
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        user_id_int = int(str(user_id).strip())
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(core_models.Usuario).filter(core_models.Usuario.id == user_id_int).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    return usuario
+    return get_request_user(request, db)
 
 
 def buscar_cliente_empresa(db: Session, cliente_id: int, empresa_id: int) -> core_models.Cliente:

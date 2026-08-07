@@ -8,14 +8,18 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia somente os arquivos necessarios para executar o sistema.
-# Credenciais devem ser fornecidas pelas variaveis do EasyPanel/Docker.
+# Código da aplicação e migrations versionadas.
 COPY backend ./backend
 COPY frontend ./frontend
+COPY migrations ./migrations
+COPY scripts ./scripts
+COPY alembic.ini ./alembic.ini
+COPY entrypoint.sh ./entrypoint.sh
 
-# Dados enviados por usuarios devem ficar em volume persistente.
-RUN mkdir -p /app/uploads
+RUN mkdir -p /app/uploads \
+    && chmod +x /app/entrypoint.sh
 
 EXPOSE 5888
 
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "5888"]

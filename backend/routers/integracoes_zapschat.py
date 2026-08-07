@@ -6,11 +6,12 @@ import re
 from typing import Any, Optional
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from backend import models
 from backend.database import SessionLocal
+from backend.security.permissions import get_request_user
 
 router = APIRouter(prefix="/api/integracoes/zapschat", tags=["Integrações - ZapChats"])
 
@@ -51,25 +52,10 @@ def _zapschat_base_url() -> str:
 
 
 def _get_current_user(
-    user_id: Optional[str] = Cookie(default=None),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> models.Usuario:
-    if not user_id or not str(user_id).strip():
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        uid = int(str(user_id).strip())
-    except Exception:
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(models.Usuario).filter(models.Usuario.id == uid).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    return usuario
+    return get_request_user(request, db)
 
 
 @router.get("/abrir-cliente/{cliente_id}")

@@ -1081,21 +1081,15 @@
   function updateSidebarBadge(count) {
     const numericCount = Math.max(0, Number(count || 0));
     document.querySelectorAll('.valora-menu-bell').forEach((button) => {
-      let badge = button.querySelector('.valora-menu-agenda-badge');
+      let badge = button.querySelector('.agenda-badge, .valora-menu-agenda-badge');
       if (!badge) {
         badge = document.createElement('span');
-        badge.className = 'valora-menu-agenda-badge';
+        badge.className = 'agenda-badge';
         button.appendChild(badge);
       }
       badge.textContent = numericCount > 99 ? '99+' : String(numericCount);
       badge.classList.toggle('is-visible', numericCount > 0);
       button.setAttribute('aria-label', numericCount > 0 ? `Notificações: ${numericCount} vencida(s)` : 'Notificações');
-    });
-
-    document.querySelectorAll('iframe.sidebar-frame').forEach((frame) => {
-      try {
-        frame.contentWindow?.postMessage({ type: 'valora-agenda-count', count: numericCount }, window.location.origin);
-      } catch (_) {}
     });
   }
 
@@ -1326,8 +1320,8 @@
       if (event.data?.type === 'valora-agenda-open') openPanel();
     });
 
-    document.querySelectorAll('iframe.sidebar-frame').forEach((frame) => {
-      frame.addEventListener('load', () => updateSidebarBadge(state.notifications.total_vencidos || 0));
+    document.addEventListener('valora:menu-ready', () => {
+      updateSidebarBadge(state.notifications.total_vencidos || 0);
     });
 
     const firstRefresh = () => refreshNotifications({ showAlerts: true, force: true });

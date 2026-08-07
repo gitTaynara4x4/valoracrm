@@ -110,7 +110,7 @@ body {
 }
 
 html {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -1553,7 +1553,8 @@ body .modal-overlay {
 
   padding: 14px !important;
   background: rgba(15, 23, 42, 0.62) !important;
-  backdrop-filter: blur(6px) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 
   opacity: 0 !important;
   visibility: hidden !important;
@@ -1597,10 +1598,10 @@ body .confirm-content {
   color: var(--text) !important;
   border: 1px solid var(--border) !important;
   border-radius: 18px !important;
-  box-shadow: 0 28px 90px rgba(15, 23, 42, 0.34) !important;
+  box-shadow: 0 18px 52px rgba(15, 23, 42, 0.26) !important;
 
-  transform: translateY(10px) scale(0.985) !important;
-  transition: transform 0.18s ease !important;
+  transform: none !important;
+  transition: none !important;
 }
 
 body .modal-overlay.show .modal-content,
@@ -1608,7 +1609,7 @@ body .modal-overlay.show .proposal-modal-content,
 body .modal-overlay.show .modal-content-large,
 body .modal-overlay.show .cotacao-modal,
 body .modal-overlay.show .confirm-content {
-  transform: translateY(0) scale(1) !important;
+  transform: none !important;
 }
 
 body .modal-sm,
@@ -2894,7 +2895,8 @@ html[data-theme="dark"] .badge-codigo {
 
 html[data-theme="dark"] body .modal-overlay {
   background: rgba(0, 0, 0, 0.68) !important;
-  backdrop-filter: blur(8px) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 html[data-theme="dark"] body .modal-content,

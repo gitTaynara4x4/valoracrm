@@ -9,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, Request, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import and_, case, func, or_, text
@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from backend import models as core_models
 from backend.database import SessionLocal
+from backend.security.permissions import get_request_user
 from backend.models_contratos import Contrato, ContratoAnexo, ContratoHistoricoAlteracao
 
 router = APIRouter(tags=["Contratos - Admin"])
@@ -116,25 +117,10 @@ def get_db():
 
 
 def get_current_user(
-    user_id: Optional[str] = Cookie(default=None),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> core_models.Usuario:
-    if not user_id or not str(user_id).strip():
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        user_id_int = int(str(user_id).strip())
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(core_models.Usuario).filter(core_models.Usuario.id == user_id_int).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    return usuario
+    return get_request_user(request, db)
 
 
 def norm_str(value: Any) -> Optional[str]:
@@ -604,20 +590,7 @@ def montar_prefixo_numero_contrato(
 
 
 def garantir_tabela_codigos_sequenciais(db: Session) -> None:
-    db.execute(
-        text(
-            """
-            CREATE TABLE IF NOT EXISTS codigos_sequenciais (
-                empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-                modulo VARCHAR(80) NOT NULL,
-                ultimo_codigo BIGINT NOT NULL DEFAULT 0,
-                criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                PRIMARY KEY (empresa_id, modulo)
-            )
-            """
-        )
-    )
+    raise RuntimeError("Estrutura administrada pelo Alembic; execute `alembic upgrade head`.")
 
 
 def maior_numero_contrato_existente(db: Session, empresa_id: int, prefixo: str) -> int:
@@ -646,7 +619,6 @@ def maior_numero_contrato_existente(db: Session, empresa_id: int, prefixo: str) 
 
 
 def garantir_sequencial_contrato(db: Session, empresa_id: int, prefixo: str) -> str:
-    garantir_tabela_codigos_sequenciais(db)
 
     modulo = f"contratos:{prefixo}"
     maior_existente = maior_numero_contrato_existente(db, empresa_id, prefixo)
@@ -687,22 +659,19 @@ def gerar_numero_contrato(
     cliente: core_models.Cliente,
     tipo_contrato: str,
 ) -> str:
-    """Mostra o próximo número provável, sem consumir sequência."""
+    """Mostra o próximo número provável sem criar ou atualizar sequência."""
     prefixo = montar_prefixo_numero_contrato(cliente, tipo_contrato)
-    modulo = garantir_sequencial_contrato(db, empresa_id, prefixo)
-
-    row = db.execute(
-        text(
-            """
+    modulo = f"contratos:{prefixo}"
+    maior_existente = maior_numero_contrato_existente(db, empresa_id, prefixo)
+    ultimo_sequencia = db.execute(
+        text("""
             SELECT ultimo_codigo
             FROM codigos_sequenciais
             WHERE empresa_id = :empresa_id AND modulo = :modulo
-            """
-        ),
+        """),
         {"empresa_id": empresa_id, "modulo": modulo},
-    ).first()
-
-    proximo = int(row[0] if row else 0) + 1
+    ).scalar()
+    proximo = max(maior_existente, int(ultimo_sequencia or 0)) + 1
     return f"{prefixo}-{proximo:03d}"
 
 
@@ -1763,22 +1732,11 @@ def atualizar_contrato(
 
         if "status" in changed_fields:
             novo_status = norm_lower(payload.status, set(STATUS_CONTRATO.keys()), "rascunho")
-            possui_coluna_financeira = bool(db.execute(text("""
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM information_schema.columns
-                    WHERE table_schema='public'
-                      AND table_name='contratos'
-                      AND column_name='financeiro_status'
-                )
-            """)).scalar())
-            financeiro_status = None
-            if possui_coluna_financeira:
-                financeiro_status = db.execute(text("""
-                    SELECT financeiro_status
-                    FROM public.contratos
-                    WHERE empresa_id=:empresa_id AND id=:contrato_id
-                """), {"empresa_id": empresa_id, "contrato_id": contrato_id}).scalar()
+            financeiro_status = db.execute(text("""
+                SELECT financeiro_status
+                FROM public.contratos
+                WHERE empresa_id=:empresa_id AND id=:contrato_id
+            """), {"empresa_id": empresa_id, "contrato_id": contrato_id}).scalar()
             if financeiro_status == "ativo" and novo_status not in {"assinado", "cancelado"}:
                 raise HTTPException(
                     status_code=409,

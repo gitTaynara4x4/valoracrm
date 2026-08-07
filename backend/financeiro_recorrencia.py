@@ -48,37 +48,7 @@ def _row_dict(row: Any) -> Dict[str, Any]:
 
 
 def estrutura_recorrencia_disponivel(db: Session) -> bool:
-    obrigatorias = {
-        "contratos": {
-            "financeiro_status",
-            "financeiro_frequencia",
-            "financeiro_intervalo_meses",
-            "financeiro_primeiro_vencimento",
-            "financeiro_dia_vencimento",
-            "financeiro_meses_antecipacao",
-            "financeiro_forma_cobranca_id",
-            "financeiro_conta_banco_id",
-            "financeiro_categoria_id",
-            "financeiro_conta_contabil_id",
-        },
-        "financeiro_lancamentos": {"contrato_id", "competencia", "origem_tipo", "origem_id"},
-    }
-    for tabela, colunas in obrigatorias.items():
-        existentes = {
-            str(row[0])
-            for row in db.execute(
-                text(
-                    """
-                    SELECT column_name
-                    FROM information_schema.columns
-                    WHERE table_schema='public' AND table_name=:tabela
-                    """
-                ),
-                {"tabela": tabela},
-            ).fetchall()
-        }
-        if not colunas.issubset(existentes):
-            return False
+    """A estrutura obrigatória já foi validada no startup da aplicação."""
     return True
 
 

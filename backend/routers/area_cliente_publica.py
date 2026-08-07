@@ -410,8 +410,6 @@ def validar_acesso_pendente(acesso: ClienteAcessoPortal) -> None:
         raise HTTPException(status_code=403, detail="Este acesso expirou.")
 
     if expira_em and expira_em < now_utc():
-        acesso.status = "expirado"
-        acesso.atualizado_em = now_utc()
         raise HTTPException(status_code=403, detail="Este acesso expirou.")
 
     if status_atual != "pendente":
@@ -437,8 +435,6 @@ def validar_acesso_para_consulta(acesso: ClienteAcessoPortal) -> None:
         raise HTTPException(status_code=403, detail="Este acesso expirou.")
 
     if status_atual == "pendente" and expira_em and expira_em < now_utc():
-        acesso.status = "expirado"
-        acesso.atualizado_em = now_utc()
         raise HTTPException(status_code=403, detail="Este acesso expirou.")
 
     if status_atual not in {"pendente", "usado"}:
@@ -1070,9 +1066,6 @@ def status_link_publico(
         status_atual = str(acesso_row.status or "").strip().lower()
 
         if status_atual == "pendente" and expira_em and expira_em < now_utc():
-            acesso_row.status = "expirado"
-            acesso_row.atualizado_em = now_utc()
-            db.commit()
             status_atual = "expirado"
 
         if status_atual != "pendente":
@@ -1197,14 +1190,12 @@ def obter_dados_portal_cliente(
         acesso = buscar_acesso_por_session(db, session_token)
         cliente = buscar_cliente(db, acesso)
 
-        dados = buscar_ou_criar_dados(
-            db=db,
-            empresa_id=int(acesso.empresa_id),
-            cliente_id=int(acesso.cliente_id),
+        dados = (
+            db.query(ClienteDadosComplementares)
+            .filter(ClienteDadosComplementares.empresa_id == int(acesso.empresa_id))
+            .filter(ClienteDadosComplementares.cliente_id == int(acesso.cliente_id))
+            .first()
         )
-
-        db.commit()
-        db.refresh(dados)
 
         return PortalAutenticadoOut(
             ok=True,

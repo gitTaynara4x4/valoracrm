@@ -20,7 +20,7 @@ try:
     from backend import models_contratos
 except Exception:  # pragma: no cover
     models_contratos = None
-from backend.security.permissions import user_has_permission
+from backend.security.permissions import get_request_user, user_has_permission
 
 router = APIRouter(prefix="/api/produtos", tags=["Produtos"])
 
@@ -244,82 +244,21 @@ def normalizar_codigo_sistema(codigo: Optional[str]) -> str:
     return re.sub(r"\D+", "", str(codigo or "")).strip()
 
 
-def get_empresa_id_from_cookie(request: Request) -> int:
-    empresa_id = request.cookies.get("empresa_id")
-    if not empresa_id:
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-    try:
-        return int(empresa_id)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="empresa_id inválido.")
-
-
-def get_user_id_from_cookie(request: Request) -> int:
-    user_id = request.cookies.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-    try:
-        return int(user_id)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="user_id inválido.")
-
 
 def validar_usuario_empresa(request: Request, db: Session) -> int:
-    # O user_id é a fonte segura da sessão.
-    # Não use o cookie empresa_id para validar o vínculo, pois ele pode ficar
-    # antigo no navegador e derrubar a tela com "Usuário inválido para esta empresa".
-    user_id = get_user_id_from_cookie(request)
-
-    user = (
-        db.query(models.Usuario)
-        .filter(models.Usuario.id == user_id)
-        .first()
-    )
-
-    if not user:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(user, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    if hasattr(user, "ativo") and user.ativo is False:
-        raise HTTPException(status_code=403, detail="Usuário inativo.")
-
-    return int(user.empresa_id)
+    return int(get_request_user(request, db).empresa_id)
 
 
 def validar_permissao_produtos(request: Request, db: Session, acao: str):
-    empresa_id = validar_usuario_empresa(request, db)
-    user_id = get_user_id_from_cookie(request)
-    usuario = (
-        db.query(models.Usuario)
-        .filter(models.Usuario.id == user_id)
-        .filter(models.Usuario.empresa_id == empresa_id)
-        .first()
-    )
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
+    usuario = get_request_user(request, db)
+    empresa_id = int(usuario.empresa_id)
     if not user_has_permission(db, usuario, "produtos", acao):
         raise HTTPException(status_code=403, detail=f"Sem permissão para {acao} em produtos.")
     return empresa_id, usuario
 
 
 def garantir_tabela_sequencias_codigo(db: Session) -> None:
-    """Cria a tabela de sequência se ela ainda não existir.
-
-    Essa tabela evita usar o ID do banco como código do produto.
-    O código passa a seguir uma sequência própria por empresa e por módulo.
-    """
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS cadastro_sequencias (
-            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-            modulo VARCHAR(40) NOT NULL,
-            ultimo_codigo BIGINT NOT NULL DEFAULT 0,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            PRIMARY KEY (empresa_id, modulo)
-        )
-    """))
+    raise RuntimeError("Estrutura administrada pelo Alembic; execute `alembic upgrade head`.")
 
 
 def maior_codigo_produto_existente(db: Session, empresa_id: int) -> int:
@@ -347,7 +286,6 @@ def maior_codigo_produto_existente(db: Session, empresa_id: int) -> int:
 
 
 def preparar_sequencia_produto(db: Session, empresa_id: int) -> int:
-    garantir_tabela_sequencias_codigo(db)
 
     maior_atual = maior_codigo_produto_existente(db, empresa_id)
 
@@ -376,11 +314,17 @@ def preparar_sequencia_produto(db: Session, empresa_id: int) -> int:
 
 
 def prever_proximo_codigo_produto(db: Session, empresa_id: int) -> str:
-    """Mostra uma previsão sem consumir código.
-
-    Abrir o modal não pode pular numeração. O número só é consumido no POST.
-    """
-    ultimo = preparar_sequencia_produto(db, empresa_id)
+    """Mostra uma previsão sem alterar a sequência persistida."""
+    maior_existente = maior_codigo_produto_existente(db, empresa_id)
+    ultimo_sequencia = db.execute(
+        text("""
+            SELECT ultimo_codigo
+            FROM cadastro_sequencias
+            WHERE empresa_id = :empresa_id AND modulo = 'produtos'
+        """),
+        {"empresa_id": empresa_id},
+    ).scalar()
+    ultimo = max(maior_existente, int(ultimo_sequencia or 0))
     return f"{ultimo + 1:04d}"
 
 
@@ -418,32 +362,7 @@ def gerar_codigo_produto(db: Session, empresa_id: int) -> str:
 
 
 def garantir_tabela_produto_kit(db: Session) -> None:
-    """Garante o subcadastro de composição dos produtos do tipo KIT."""
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS produto_kit_itens (
-            id BIGSERIAL PRIMARY KEY,
-            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-            kit_produto_id BIGINT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
-            componente_produto_id BIGINT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
-            quantidade NUMERIC(18,4) NOT NULL DEFAULT 1,
-            perda_percentual NUMERIC(10,4) NOT NULL DEFAULT 0,
-            ordem INTEGER NOT NULL DEFAULT 0,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            CONSTRAINT uq_produto_kit_item UNIQUE (kit_produto_id, componente_produto_id),
-            CONSTRAINT ck_produto_kit_sem_autorreferencia CHECK (kit_produto_id <> componente_produto_id),
-            CONSTRAINT ck_produto_kit_quantidade_positiva CHECK (quantidade > 0),
-            CONSTRAINT ck_produto_kit_perda_nao_negativa CHECK (perda_percentual >= 0)
-        )
-    """))
-    db.execute(text("""
-        CREATE INDEX IF NOT EXISTS idx_produto_kit_itens_empresa_kit
-        ON produto_kit_itens (empresa_id, kit_produto_id, ordem, id)
-    """))
-    db.execute(text("""
-        CREATE INDEX IF NOT EXISTS idx_produto_kit_itens_componente
-        ON produto_kit_itens (empresa_id, componente_produto_id)
-    """))
+    raise RuntimeError("Estrutura administrada pelo Alembic; execute `alembic upgrade head`.")
 
 
 def decimal_kit(value: Any, *, default: Decimal = Decimal("0")) -> Decimal:
@@ -612,7 +531,6 @@ def salvar_itens_kit_produto(
     kit_produto_id: int,
     itens: List["ProdutoKitItemIn"],
 ) -> None:
-    garantir_tabela_produto_kit(db)
     if len(itens) > 200:
         raise HTTPException(status_code=422, detail="Um KIT pode ter no máximo 200 itens.")
 
@@ -697,7 +615,6 @@ def recalcular_kits_dependentes(
     empresa_id: int,
     produto_ids: List[int] | set[int],
 ) -> None:
-    garantir_tabela_produto_kit(db)
     fila = [int(pid) for pid in produto_ids if int(pid) > 0]
     visitados: set[int] = set()
 
@@ -1298,26 +1215,42 @@ def buscar_produto_empresa(db: Session, produto_id: int, empresa_id: int) -> Opt
     )
 
 
+def buscar_custom_fields_produtos_em_lote(
+    db: Session,
+    empresa_id: int,
+    produto_ids: List[int],
+) -> Dict[int, Dict[str, str]]:
+    ids = sorted({int(produto_id) for produto_id in produto_ids if int(produto_id) > 0})
+    out: Dict[int, Dict[str, str]] = {produto_id: {} for produto_id in ids}
+    if not ids:
+        return out
+
+    rows = (
+        db.query(
+            models.ProdutoCampoValor.produto_id,
+            models.CampoProduto.slug,
+            models.ProdutoCampoValor.valor,
+        )
+        .join(
+            models.CampoProduto,
+            models.CampoProduto.id == models.ProdutoCampoValor.campo_id,
+        )
+        .filter(models.ProdutoCampoValor.produto_id.in_(ids))
+        .filter(models.CampoProduto.empresa_id == empresa_id)
+        .all()
+    )
+
+    for produto_id, slug, valor in rows:
+        out.setdefault(int(produto_id), {})[str(slug)] = valor or ""
+    return out
+
+
 def buscar_custom_fields_produto(
     db: Session,
     empresa_id: int,
     produto_id: int,
 ) -> Dict[str, str]:
-    rows = (
-        db.query(models.ProdutoCampoValor, models.CampoProduto)
-        .join(
-            models.CampoProduto,
-            models.CampoProduto.id == models.ProdutoCampoValor.campo_id,
-        )
-        .filter(models.ProdutoCampoValor.produto_id == produto_id)
-        .filter(models.CampoProduto.empresa_id == empresa_id)
-        .all()
-    )
-
-    out: Dict[str, str] = {}
-    for valor_row, campo_row in rows:
-        out[str(campo_row.slug)] = valor_row.valor or ""
-    return out
+    return buscar_custom_fields_produtos_em_lote(db, empresa_id, [produto_id]).get(int(produto_id), {})
 
 
 def salvar_custom_fields_produto(
@@ -1412,14 +1345,21 @@ def produto_to_out(db: Session, p: models.Produto, *, include_custom_fields: boo
         kit_preco_venda_total=decimal_kit_str(kit_venda_total, 2) if itens_kit else None,
     )
 
-def produto_to_list_out(db: Session, p: models.Produto, *, include_custom_fields: bool = True) -> Dict[str, object]:
+def produto_to_list_out(
+    db: Session,
+    p: models.Produto,
+    *,
+    include_custom_fields: bool = True,
+    custom_fields: Optional[Dict[str, str]] = None,
+) -> Dict[str, object]:
     empresa_id = int(getattr(p, "empresa_id", 0) or 0)
     produto_id = int(getattr(p, "id", 0) or 0)
-    custom_fields = (
-        buscar_custom_fields_produto(db, empresa_id, produto_id)
-        if include_custom_fields and empresa_id and produto_id
-        else {}
-    )
+    if custom_fields is None:
+        custom_fields = (
+            buscar_custom_fields_produto(db, empresa_id, produto_id)
+            if include_custom_fields and empresa_id and produto_id
+            else {}
+        )
 
     return {
         "id": int(p.id),
@@ -1656,10 +1596,9 @@ def campos_formulario_produtos_com_secao(db: Session, empresa_id: int) -> Dict[s
 
 
 def obter_campos_formacao_preco(
-    db: Session, empresa_id: int, *, sincronizar: bool = True
+    db: Session, empresa_id: int, *, sincronizar: bool = False
 ) -> List[dict]:
-    if sincronizar:
-        sincronizar_campos_produtos_com_formulario(db, empresa_id)
+    del sincronizar  # compatibilidade; leituras nunca persistem sincronização
     campos_formulario = campos_formulario_produtos_com_secao(db, empresa_id)
 
     result = [
@@ -1759,10 +1698,9 @@ def encontrar_campo_filtro(campos: List[models.CampoProduto], aliases) -> Option
 
 
 def obter_campos_filtro_produtos(
-    db: Session, empresa_id: int, *, sincronizar: bool = True
+    db: Session, empresa_id: int, *, sincronizar: bool = False
 ) -> Dict[str, Optional[models.CampoProduto]]:
-    if sincronizar:
-        sincronizar_campos_produtos_com_formulario(db, empresa_id)
+    del sincronizar  # compatibilidade; leituras nunca persistem sincronização
     rows = (
         db.query(models.CampoProduto)
         .filter(models.CampoProduto.empresa_id == empresa_id)
@@ -2034,12 +1972,6 @@ def listar_produtos(
     """
     empresa_id = validar_usuario_empresa(request, db)
 
-    # Corrige e persiste os metadados dos campos antes de interpretar os
-    # parâmetros filtro_custom_*. Assim, campos antigos marcados como select
-    # passam a ser tratados como multiselect/relação múltipla imediatamente.
-    sincronizar_campos_produtos_com_formulario(db, empresa_id)
-    db.commit()
-
     query = db.query(models.Produto).filter(models.Produto.empresa_id == empresa_id)
 
     if ativo is not None:
@@ -2068,7 +2000,18 @@ def listar_produtos(
     if paginated:
         total = query.count()
         rows = query.offset(offset).limit(limit).all()
-        items = [produto_to_list_out(db, p, include_custom_fields=True) for p in rows]
+        custom_fields_por_produto = buscar_custom_fields_produtos_em_lote(
+            db, empresa_id, [int(p.id) for p in rows]
+        )
+        items = [
+            produto_to_list_out(
+                db,
+                p,
+                include_custom_fields=True,
+                custom_fields=custom_fields_por_produto.get(int(p.id), {}),
+            )
+            for p in rows
+        ]
         return {
             "items": items,
             "total": total,
@@ -2078,19 +2021,26 @@ def listar_produtos(
         }
 
     rows = query.all()
-    return [produto_to_list_out(db, p, include_custom_fields=True) for p in rows]
+    custom_fields_por_produto = buscar_custom_fields_produtos_em_lote(
+        db, empresa_id, [int(p.id) for p in rows]
+    )
+    return [
+        produto_to_list_out(
+            db,
+            p,
+            include_custom_fields=True,
+            custom_fields=custom_fields_por_produto.get(int(p.id), {}),
+        )
+        for p in rows
+    ]
 
 
 @router.get("/atualizacao-precos/meta")
 def obter_meta_atualizacao_precos(request: Request, db: Session = Depends(get_db)):
     empresa_id, _ = validar_permissao_produtos(request, db, "ver")
 
-    # Sincroniza uma única vez ao abrir a tela. Filtros e paginação seguintes
-    # consultam os campos já sincronizados, sem refazer o formulário.
-    sincronizar_campos_produtos_com_formulario(db, empresa_id)
     campos_preco = obter_campos_formacao_preco(db, empresa_id, sincronizar=False)
     campos_filtro = obter_campos_filtro_produtos(db, empresa_id, sincronizar=False)
-    db.commit()
 
     categorias_rows = (
         db.query(models.Produto.categoria)
@@ -2550,7 +2500,6 @@ def buscar_componentes_kit(
 def obter_proximo_codigo_produto(request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
     codigo = prever_proximo_codigo_produto(db, empresa_id)
-    db.commit()
     return {"codigo": codigo}
 
 
@@ -2579,7 +2528,6 @@ def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depend
     )
 
     try:
-        garantir_tabela_produto_kit(db)
         db.add(p)
         db.flush()
 
@@ -2614,10 +2562,6 @@ def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depend
 @router.get("/campos/lista", response_model=List[CampoProdutoOut])
 def listar_campos_produtos(request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
-
-    # Mantém campos_produtos sincronizado com o construtor de Formulários.
-    sincronizar_campos_produtos_com_formulario(db, empresa_id)
-    db.commit()
 
     rows = (
         db.query(models.CampoProduto)
@@ -2729,8 +2673,6 @@ def excluir_campo_produto(campo_id: int, request: Request, db: Session = Depends
 @router.get("/{produto_id}", response_model=ProdutoOut)
 def obter_produto(produto_id: int, request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
-    garantir_tabela_produto_kit(db)
-    db.commit()
 
     p = buscar_produto_empresa(db, produto_id, empresa_id)
     if not p:
@@ -2786,7 +2728,6 @@ def atualizar_produto(
         p.ativo = bool(payload.ativo)
 
     try:
-        garantir_tabela_produto_kit(db)
         if payload.custom_fields is not None:
             salvar_custom_fields_produto(
                 db=db,
@@ -2821,7 +2762,6 @@ def atualizar_produto(
 @router.delete("/{produto_id}", status_code=status.HTTP_204_NO_CONTENT)
 def excluir_produto(produto_id: int, request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
-    garantir_tabela_produto_kit(db)
 
     p = buscar_produto_empresa(db, produto_id, empresa_id)
     if not p:

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from backend import models as core_models
 from backend.database import SessionLocal
+from backend.security.permissions import get_request_user
 from backend.models_area_cliente_acesso import ClienteAcessoPortal
 
 router = APIRouter(tags=["Área do Cliente - Acessos Admin"])
@@ -61,30 +62,24 @@ def get_db():
 
 
 def get_current_user(
-    user_id: Optional[str] = Cookie(default=None),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> core_models.Usuario:
-    if not user_id or not str(user_id).strip():
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        user_id_int = int(str(user_id).strip())
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(core_models.Usuario).filter(core_models.Usuario.id == user_id_int).first()
-
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    return usuario
+    return get_request_user(request, db)
 
 
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def to_aware_utc(value: Any) -> Optional[datetime]:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    return None
 
 
 def norm_str(value: Any) -> Optional[str]:
@@ -288,6 +283,13 @@ def serialize_datetime(value: Any) -> Optional[str]:
     return str(value)
 
 
+def status_acesso_efetivo(row: ClienteAcessoPortal) -> str:
+    status_atual = str(row.status or "").strip().lower()
+    if status_atual == "pendente" and row.expira_em and to_aware_utc(row.expira_em) < now_utc():
+        return "expirado"
+    return status_atual or "pendente"
+
+
 def acesso_to_out(db: Session, row: ClienteAcessoPortal) -> AcessoOut:
     cliente = (
         db.query(core_models.Cliente)
@@ -302,8 +304,8 @@ def acesso_to_out(db: Session, row: ClienteAcessoPortal) -> AcessoOut:
         cliente_nome=cliente_nome(cliente) if cliente else None,
         cliente_codigo=cliente_codigo(cliente) if cliente else row.codigo_cliente,
         token_hint=row.token_hint,
-        status=row.status,
-        status_label=status_label(row.status),
+        status=status_acesso_efetivo(row),
+        status_label=status_label(status_acesso_efetivo(row)),
         expira_em=serialize_datetime(row.expira_em),
         usado_em=serialize_datetime(row.usado_em),
         revogado_em=serialize_datetime(row.revogado_em),
@@ -352,9 +354,6 @@ def listar_acessos_cliente(
     try:
         buscar_cliente_empresa(db, cliente_id, empresa_id)
 
-        atualizar_acessos_expirados(db, empresa_id, cliente_id)
-        db.commit()
-
         rows = (
             db.query(ClienteAcessoPortal)
             .filter(ClienteAcessoPortal.empresa_id == empresa_id)
@@ -388,14 +387,12 @@ def obter_acesso_ativo_cliente(
     try:
         buscar_cliente_empresa(db, cliente_id, empresa_id)
 
-        atualizar_acessos_expirados(db, empresa_id, cliente_id)
-        db.commit()
-
         acesso = (
             db.query(ClienteAcessoPortal)
             .filter(ClienteAcessoPortal.empresa_id == empresa_id)
             .filter(ClienteAcessoPortal.cliente_id == cliente_id)
             .filter(ClienteAcessoPortal.status == "pendente")
+            .filter(ClienteAcessoPortal.expira_em >= now_utc())
             .order_by(ClienteAcessoPortal.criado_em.desc(), ClienteAcessoPortal.id.desc())
             .first()
         )

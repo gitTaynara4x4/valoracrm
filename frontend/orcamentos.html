@@ -22,17 +22,18 @@
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260804-itens-ordenacao-v2">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260807-modal-square-v2">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260804-listas-simples-v3">
 
+  <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260804-agenda-save-refresh-v13" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260804-kits-modelos-ordem-v4" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260806-paginacao-v1" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
-    <iframe src="/frontend/partials/sidebar.html?v=20260725-financeiro-fase6-v1" class="sidebar-frame" title="Menu principal" loading="eager"></iframe>
+    <div id="valora-menu-root" aria-label="Menu Valora"></div>
 
     <main class="main budget-page">
       <header class="topbar budget-topbar">
@@ -93,6 +94,7 @@
             <tbody id="tbody-orcamentos"><tr><td colspan="7" class="empty-state">Carregando orçamentos...</td></tr></tbody>
           </table>
         </div>
+        <div id="paginacao-orcamentos" class="table-pagination budget-list-pagination"></div>
       </article>
     </main>
   </div>
@@ -360,7 +362,35 @@
       <div class="modal-body kit-picker-body">
         <div class="kit-picker-toolbar">
           <div class="input-with-icon kit-picker-search"><i class="fa-solid fa-magnifying-glass"></i><input id="kit-picker-search-input" type="search" placeholder="Buscar kit pelo nome ou descrição" autocomplete="off" /></div>
-          <button class="btn btn-secondary btn-small is-hidden" id="btn-gerenciar-kits" type="button"><i class="fa-solid fa-gear"></i> Gerenciar kits</button>
+          <div class="kit-picker-actions">
+            <div class="kit-layout-dropdown-wrap">
+              <button class="btn btn-secondary btn-small btn-icon-only" id="btn-kit-picker-layout" type="button" aria-label="Configurar visualização dos kits" aria-expanded="false" aria-controls="kit-layout-menu">
+                <i class="fa-solid fa-gear"></i>
+              </button>
+              <div class="kit-layout-menu" id="kit-layout-menu" hidden>
+                <div class="kit-layout-menu-title">Layout</div>
+                <button class="kit-layout-option" type="button" data-kit-layout="row" aria-pressed="false">
+                  <span class="kit-layout-option-choice">
+                    <span class="kit-layout-radio" aria-hidden="true"></span>
+                    <span>Linha</span>
+                  </span>
+                  <span class="kit-layout-preview kit-layout-preview-row" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span>
+                  </span>
+                </button>
+                <button class="kit-layout-option" type="button" data-kit-layout="column" aria-pressed="true">
+                  <span class="kit-layout-option-choice">
+                    <span class="kit-layout-radio" aria-hidden="true"></span>
+                    <span>Coluna</span>
+                  </span>
+                  <span class="kit-layout-preview kit-layout-preview-column" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span>
+                  </span>
+                </button>
+              </div>
+            </div>
+            <button class="btn btn-secondary btn-small is-hidden" id="btn-gerenciar-kits" type="button"><i class="fa-solid fa-gear"></i> Gerenciar kits</button>
+          </div>
         </div>
         <div id="kit-picker-list" class="kit-picker-grid"></div>
       </div>

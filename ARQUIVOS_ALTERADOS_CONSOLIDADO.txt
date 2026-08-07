@@ -1,0 +1,96 @@
+VALORA CRM - TODAS AS CORRECOES CONSOLIDADAS
+Data: 2026-08-06
+
+Este pacote foi montado sobre a base original ValoraCrm(20260806-082930).zip,
+aplicando, na ordem, todas as correcoes entregues nesta conversa.
+
+Total de arquivos novos/alterados do projeto: 80
+
+Migrations finais: 20260806_0001 ate 20260806_0005 (head).
+
+IMPORTANTE:
+- Faça backup do PostgreSQL antes do deploy.
+- Copie os arquivos preservando a estrutura de pastas.
+- Reconstrua/reinicie o container para o entrypoint executar alembic upgrade head.
+
+Arquivos novos/alterados:
+ARQUIVOS_ALTERADOS_MIGRATIONS.txt
+Dockerfile
+README.md
+alembic.ini
+backend/agenda_push.py
+backend/audit.py
+backend/database.py
+backend/financeiro_recorrencia.py
+backend/main.py
+backend/routers/agenda.py
+backend/routers/area_cliente_acessos_admin.py
+backend/routers/area_cliente_admin.py
+backend/routers/area_cliente_publica.py
+backend/routers/campos_propostas.py
+backend/routers/clientes.py
+backend/routers/contratos_admin.py
+backend/routers/cotacoes.py
+backend/routers/empresa.py
+backend/routers/financeiro.py
+backend/routers/formularios.py
+backend/routers/fornecedores.py
+backend/routers/integracoes_zapschat.py
+backend/routers/monitoramento.py
+backend/routers/orcamentos.py
+backend/routers/patrimonio.py
+backend/routers/produtos.py
+backend/routers/propostas.py
+backend/schema_bootstrap.py
+backend/security/permissions.py
+entrypoint.sh
+frontend/ajuda.html
+frontend/app.html
+frontend/area-cliente-admin.html
+frontend/cadastros-financeiros.html
+frontend/categorias-financeiras.html
+frontend/clientes.html
+frontend/configuracoes.html
+frontend/contas-bancos.html
+frontend/contas-pagar.html
+frontend/contas-receber.html
+frontend/contratos-admin.html
+frontend/cotacoes.html
+frontend/css/menu-global.css
+frontend/css/orcamentos.css
+frontend/css/propostas.css
+frontend/dashboard.html
+frontend/empresa.html
+frontend/financeiro.html
+frontend/fluxo-caixa.html
+frontend/formas-pagamento.html
+frontend/formularios.html
+frontend/fornecedores.html
+frontend/js/pages/app.js
+frontend/js/pages/configuracoes.js
+frontend/js/pages/orcamentos.js
+frontend/js/pages/propostas.js
+frontend/js/shared/agenda.js
+frontend/js/shared/campos-longos.js
+frontend/js/shared/menu-global.js
+frontend/js/shared/mobile-valora.js
+frontend/js/shared/validacao.js
+frontend/monitoramento.html
+frontend/orcamentos.html
+frontend/partials/sidebar-content.inc
+frontend/patrimonio.html
+frontend/perfil.html
+frontend/produtos.html
+frontend/propostas.html
+frontend/relatorios-financeiros.html
+frontend/usuarios.html
+frontend/vendas-financeiro.html
+migrations/env.py
+migrations/legacy_schema_snapshot_v1.py
+migrations/script.py.mako
+migrations/versions/20260806_0001_baseline_orm.py
+migrations/versions/20260806_0002_legacy_runtime_schema.py
+migrations/versions/20260806_0003_financeiro_schema.py
+migrations/versions/20260806_0004_read_routes_data.py
+migrations/versions/20260806_0005_performance_indexes.py
+scripts/migrate.py

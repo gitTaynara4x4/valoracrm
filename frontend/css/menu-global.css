@@ -1,14 +1,734 @@
-/* =========================================================
-   VALORA CRM | MENU GLOBAL LEGADO
-   O menu/sidebar global agora fica 100% dentro de sidebar.html.
+/* Valora CRM | menu global direto, sem iframe.
+   Gerado a partir do visual existente do sidebar e isolado em #valora-menu-root. */
+#valora-menu-root{--topbar-h:54px;position:relative;z-index:99999;font-family:'Poppins',system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+#valora-menu-root{--topbar-h: 54px;
+      --dropdown-open-h: 340px;
 
-   Este arquivo foi esvaziado de propósito para não conflitar com
-   o iframe antigo nem duplicar CSS/JS do menu.
+      --navy: #071827;
+      --navy-dark: #04101b;
+      --navy-soft: #0a2235;
 
-   Se nenhum HTML importar este arquivo, ele pode ser apagado.
-   ========================================================= */
+      --logo-blue: #65acde;
+      --logo-aqua: #4bc3c7;
+      --logo-aqua-dark: #35adb1;
 
-:root {
-  --valora-menu-h: 54px;
-  --topbar-h: 54px;
+      --hover-top: rgba(101, 172, 222, 0.16);
+      --orange: #ff7a59;
+
+      --text: #ffffff;
+
+      --drop-bg: #ffffff;
+      --drop-text: #374151;
+      --drop-hover: #eef9fc;
+      --drop-border: #edf2f7;
+      --drop-shadow: 0 14px 32px rgba(7, 24, 39, 0.16);}
+#valora-menu-root *{box-sizing: border-box;}
+#valora-menu-root,
+#valora-menu-root{width: 100%;
+      min-height: var(--topbar-h);
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: visible !important;
+      font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;}
+#valora-menu-root.menu-open{min-height: var(--dropdown-open-h);}
+#valora-menu-root.mobile-menu-open{min-height: 100dvh !important;
+      overflow: visible !important;}
+#valora-menu-root button{font-family: inherit;}
+#valora-menu-root .valora-auvo-topbar{width: 100%;
+      height: var(--topbar-h);
+      background: linear-gradient(90deg, var(--navy-dark) 0%, var(--navy) 58%, var(--navy-soft) 100%);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 0;
+      position: fixed;
+      inset: 0 0 auto 0;
+      z-index: 100;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);}
+#valora-menu-root .brand-btn{width: 54px;
+      height: var(--topbar-h);
+      border: 0;
+      background: var(--navy-dark);
+      padding: 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      color: #ffffff;}
+#valora-menu-root .brand-logo{width: 28px;
+      height: 28px;
+      border-radius: 0;
+      background: transparent;
+      display: block;
+      object-fit: contain;
+      box-shadow: none;}
+#valora-menu-root .brand-fallback{width: 28px;
+      height: 28px;
+      border-radius: 0;
+      background: transparent;
+      color: #ffffff;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.04em;
+      position: relative;}
+#valora-menu-root .brand-fallback::after{content: none;
+      display: none;}
+#valora-menu-root .desktop-nav{height: 100%;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      flex: 1 1 auto;
+      padding-left: 10px;
+      overflow: visible;}
+#valora-menu-root .nav-group{height: 100%;
+      display: flex;
+      align-items: center;
+      position: relative;}
+#valora-menu-root .nav-trigger,
+#valora-menu-root .nav-link{height: 34px;
+      border: 0;
+      background: transparent;
+      color: #ffffff;
+      padding: 0 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 12.5px;
+      font-weight: 500;
+      line-height: 1;
+      white-space: nowrap;
+      transition: background 0.16s ease;}
+#valora-menu-root .nav-trigger i{font-size: 10px;
+      opacity: 0.9;
+      transition: transform 0.16s ease;}
+#valora-menu-root .nav-trigger:hover,
+#valora-menu-root .nav-link:hover,
+#valora-menu-root .nav-group.is-open .nav-trigger{background: var(--hover-top);}
+#valora-menu-root .nav-group.is-open .nav-trigger i{transform: rotate(180deg);}
+#valora-menu-root .nav-link.is-active,
+#valora-menu-root .nav-trigger.is-active{background: rgba(101, 172, 222, 0.18);}
+#valora-menu-root .dropdown{position: absolute;
+      left: 0;
+      top: 100%;
+      width: 220px;
+      background: var(--drop-bg);
+      color: var(--drop-text);
+      border: 0;
+      border-radius: 0 0 6px 6px;
+      padding: 6px 0;
+      box-shadow: var(--drop-shadow);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.12s ease, visibility 0.12s ease;
+      z-index: 999;}
+#valora-menu-root .nav-group.is-open .dropdown{opacity: 1;
+      visibility: visible;
+      pointer-events: auto;}
+#valora-menu-root .dropdown-financeiro{width: 248px;}
+#valora-menu-root .dropdown-item{width: 100%;
+      min-height: 36px;
+      border: 0;
+      background: transparent;
+      color: var(--drop-text);
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.12s ease, color 0.12s ease;
+      font-size: 12.5px;
+      font-weight: 400;
+      line-height: 1;}
+#valora-menu-root .dropdown-item:hover,
+#valora-menu-root .dropdown-item.is-active{background: var(--drop-hover);
+      color: var(--logo-blue);}
+#valora-menu-root .right-actions{margin-left: auto;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 5px;
+      flex: 0 0 auto;
+      padding-right: 10px;
+      min-width: 0;}
+#valora-menu-root .plain-action{height: 34px;
+      border: 0;
+      background: transparent;
+      color: #ffffff;
+      padding: 0 8px;
+      cursor: pointer;
+      font-size: 12.5px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: background 0.16s ease;}
+#valora-menu-root .plain-action:hover{background: var(--hover-top);}
+#valora-menu-root .new-action{height: 34px;
+      border: 0;
+      background: var(--logo-aqua);
+      color: #ffffff;
+      padding: 0 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12.5px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: background 0.16s ease, transform 0.16s ease;}
+#valora-menu-root .new-action:hover{background: var(--logo-aqua-dark);
+      transform: translateY(-1px);}
+#valora-menu-root .new-action .plus{font-size: 18px;
+      font-weight: 500;
+      line-height: 1;}
+#valora-menu-root .bell-btn,
+#valora-menu-root .settings-trigger{width: 34px;
+      height: 34px;
+      border: 0;
+      background: transparent;
+      color: #ffffff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: background 0.16s ease;}
+#valora-menu-root .bell-btn:hover,
+#valora-menu-root .settings-trigger:hover,
+#valora-menu-root .settings-wrap.is-open .settings-trigger{background: var(--hover-top);}
+#valora-menu-root .bell-btn::after{display: none;}
+#valora-menu-root .agenda-badge{position: absolute;
+      right: 1px;
+      top: 1px;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 999px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: #ef4444;
+      color: #ffffff;
+      box-shadow: 0 0 0 2px var(--navy);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1;}
+#valora-menu-root .agenda-badge.is-visible{display: inline-flex;}
+#valora-menu-root .settings-wrap{height: 100%;
+      position: relative;
+      display: inline-flex;
+      align-items: center;}
+#valora-menu-root .settings-menu{position: absolute;
+      right: 0;
+      top: 100%;
+      width: 260px;
+      background: #ffffff;
+      color: #111827;
+      border: 0;
+      border-radius: 0 0 6px 6px;
+      padding: 10px 0;
+      box-shadow: var(--drop-shadow);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.12s ease, visibility 0.12s ease;
+      z-index: 999;}
+#valora-menu-root .settings-wrap.is-open .settings-menu{opacity: 1;
+      visibility: visible;
+      pointer-events: auto;}
+#valora-menu-root .settings-title{padding: 8px 18px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;}
+#valora-menu-root .theme-option,
+#valora-menu-root .settings-link{width: 100%;
+      min-height: 36px;
+      border: 0;
+      background: transparent;
+      color: #111827;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 400;}
+#valora-menu-root .theme-option:hover,
+#valora-menu-root .settings-link:hover{background: var(--drop-hover);
+      color: var(--logo-blue);}
+#valora-menu-root .theme-radio{width: 15px;
+      height: 15px;
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;}
+#valora-menu-root .theme-radio::after{content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: transparent;}
+#valora-menu-root .theme-option.is-active .theme-radio{border-color: var(--logo-aqua);}
+#valora-menu-root .theme-option.is-active .theme-radio::after{background: var(--logo-aqua);}
+#valora-menu-root .settings-divider{height: 1px;
+      background: var(--drop-border);
+      margin: 8px 0;}
+#valora-menu-root .user-wrap{height: 100%;
+      position: relative;
+      display: inline-flex;
+      align-items: center;}
+#valora-menu-root .user-trigger{height: 34px;
+      border: 0;
+      background: transparent;
+      color: #ffffff;
+      padding: 0 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 72px;
+      transition: background 0.16s ease;}
+#valora-menu-root .user-trigger:hover,
+#valora-menu-root .user-wrap.is-open .user-trigger{background: var(--hover-top);}
+#valora-menu-root .user-initials{max-width: 42px;
+      overflow: hidden;
+      white-space: nowrap;
+      color: #ffffff;
+      font-size: 12.5px;
+      font-weight: 500;}
+#valora-menu-root .user-trigger i{font-size: 10px;
+      opacity: 0.9;
+      transition: transform 0.16s ease;}
+#valora-menu-root .user-wrap.is-open .user-trigger i{transform: rotate(180deg);}
+#valora-menu-root .user-menu{position: absolute;
+      right: 0;
+      top: 100%;
+      width: 230px;
+      background: #ffffff;
+      color: #111827;
+      border: 0;
+      border-radius: 0 0 4px 4px;
+      padding: 6px 0;
+      box-shadow: var(--drop-shadow);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.12s ease, visibility 0.12s ease;
+      z-index: 999;}
+#valora-menu-root .user-wrap.is-open .user-menu{opacity: 1;
+      visibility: visible;
+      pointer-events: auto;}
+#valora-menu-root .user-card{padding: 10px 18px 12px;
+      border-bottom: 1px solid #eef2f7;
+      margin-bottom: 4px;}
+#valora-menu-root .user-card strong{display: block;
+      color: #111827;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;}
+#valora-menu-root .user-card span{display: block;
+      color: #64748b;
+      margin-top: 3px;
+      font-size: 10px;
+      font-weight: 400;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;}
+#valora-menu-root .user-menu button{width: 100%;
+      min-height: 40px;
+      border: 0;
+      background: transparent;
+      color: #111827;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 400;}
+#valora-menu-root .user-menu button:hover{background: var(--drop-hover);
+      color: var(--logo-blue);}
+#valora-menu-root .user-menu button.danger{color: #dc2626;}
+#valora-menu-root .user-menu button.danger:hover{background: rgba(220, 38, 38, 0.08);
+      color: #b91c1c;}
+#valora-menu-root .mobile-menu-btn{display: none;
+      width: 42px;
+      height: 34px;
+      border: 0;
+      background: transparent;
+      color: #ffffff;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 15px;}
+#valora-menu-root .mobile-panel{display: none;}
+#valora-menu-root .mobile-menu-btn,
+#valora-menu-root .mobile-panel,
+#valora-menu-root .mobile-link{pointer-events: auto !important;
+      touch-action: manipulation;}
+@media (max-width: 1240px){
+#valora-menu-root .desktop-nav{gap: 1px;
+        padding-left: 8px;}
+#valora-menu-root .nav-trigger,
+#valora-menu-root .nav-link{padding: 0 7px;
+        font-size: 12px;}
+#valora-menu-root .plain-action{display: none;}
+}
+@media (max-width: 1040px){
+#valora-menu-root .new-action .label{display: none;}
+#valora-menu-root .new-action{width: 36px;
+        justify-content: center;
+        padding: 0;}
+#valora-menu-root .desktop-nav{gap: 0;}
+}
+@media (max-width: 920px){
+#valora-menu-root{--topbar-h: 52px;
+        --dropdown-open-h: 100vh;}
+#valora-menu-root,
+#valora-menu-root{min-height: var(--topbar-h);}
+#valora-menu-root .brand-btn{width: 52px;}
+#valora-menu-root .brand-logo,
+#valora-menu-root .brand-fallback{width: 27px;
+        height: 27px;}
+#valora-menu-root .desktop-nav{display: none;}
+#valora-menu-root .mobile-menu-btn{display: inline-flex;}
+#valora-menu-root .right-actions{margin-left: auto;
+        gap: 3px;
+        padding-right: 7px;}
+#valora-menu-root .user-trigger{max-width: 60px;}
+#valora-menu-root .user-initials{max-width: 30px;}
+#valora-menu-root .mobile-panel{position: fixed;
+        left: 0;
+        right: 0;
+        top: var(--topbar-h);
+        max-height: calc(100dvh - var(--topbar-h));
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        display: block;
+        background: #ffffff;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.30);
+        transform: translateY(-8px);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: 0.16s ease;
+        z-index: 999;}
+#valora-menu-root .mobile-panel.is-open{transform: translateY(0);
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;}
+#valora-menu-root .mobile-section{padding: 4px 0;
+        border-bottom: 1px solid #eef2f7;}
+#valora-menu-root .mobile-title{padding: 8px 18px 6px;
+        font-size: 10px;
+        font-weight: 500;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;}
+#valora-menu-root .mobile-link{width: 100%;
+        min-height: 42px;
+        border: 0;
+        background: transparent;
+        color: #111827;
+        padding: 0 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-align: left;
+        font-size: 12.5px;
+        font-weight: 400;
+        cursor: pointer;}
+#valora-menu-root .mobile-link:hover,
+#valora-menu-root .mobile-link.is-active{background: var(--drop-hover);
+        color: var(--logo-blue);}
+#valora-menu-root .mobile-link i{width: 20px;
+        color: var(--logo-blue);}
+#valora-menu-root .settings-menu,
+#valora-menu-root .user-menu{right: 0;
+        max-width: calc(100vw - 12px);}
+}
+@media (max-width: 520px){
+#valora-menu-root .new-action{display: none;}
+#valora-menu-root .bell-btn{display: none;}
+#valora-menu-root .settings-trigger{width: 32px;
+        height: 32px;}
+#valora-menu-root .user-trigger{width: 42px;
+        padding: 0 6px;}
+#valora-menu-root .user-trigger i{display: none;}
+#valora-menu-root .user-initials{max-width: 30px;}
+#valora-menu-root .settings-menu,
+#valora-menu-root .user-menu{width: min(260px, calc(100vw - 12px));}
+}
+/* MENU DARK PRO | V8 */
+html[data-theme="dark"] #valora-menu-root{--navy: #0b1220;
+      --navy-dark: #070d18;
+      --navy-soft: #111827;
+      --hover-top: rgba(75, 195, 199, 0.12);
+      --text: #e5e7eb;
+      --drop-bg: #182235;
+      --drop-text: #e5e7eb;
+      --drop-hover: #243247;
+      --drop-border: rgba(148, 163, 184, 0.18);
+      --drop-shadow: 0 18px 42px rgba(2, 6, 23, 0.42);}
+html[data-theme="dark"] #valora-menu-root,
+html[data-theme="dark"] #valora-menu-root body{background: transparent;
+      color: #e5e7eb;}
+html[data-theme="dark"] #valora-menu-root .valora-auvo-topbar{background: linear-gradient(90deg, #070d18 0%, #0b1220 54%, #111827 100%);
+      color: #e5e7eb;
+      box-shadow: 0 1px 0 rgba(148, 163, 184, 0.16);}
+html[data-theme="dark"] #valora-menu-root .brand-btn{background: #070d18;
+      color: #e5e7eb;
+      box-shadow: inset -1px 0 0 rgba(148, 163, 184, 0.16);}
+html[data-theme="dark"] #valora-menu-root .brand-btn:hover,
+html[data-theme="dark"] #valora-menu-root .nav-item:hover,
+html[data-theme="dark"] #valora-menu-root .new-action:hover,
+html[data-theme="dark"] #valora-menu-root .bell-btn:hover,
+html[data-theme="dark"] #valora-menu-root .settings-trigger:hover,
+html[data-theme="dark"] #valora-menu-root .user-trigger:hover,
+html[data-theme="dark"] #valora-menu-root .mobile-menu-btn:hover{background: rgba(75, 195, 199, 0.12);
+      color: #4bc3c7;}
+html[data-theme="dark"] #valora-menu-root .dropdown,
+html[data-theme="dark"] #valora-menu-root .settings-menu,
+html[data-theme="dark"] #valora-menu-root .user-menu,
+html[data-theme="dark"] #valora-menu-root .mobile-panel{background: #182235;
+      color: #e5e7eb;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-top: 0;
+      box-shadow: var(--drop-shadow);}
+html[data-theme="dark"] #valora-menu-root .dropdown-item,
+html[data-theme="dark"] #valora-menu-root .theme-option,
+html[data-theme="dark"] #valora-menu-root .settings-link,
+html[data-theme="dark"] #valora-menu-root .user-menu button,
+html[data-theme="dark"] #valora-menu-root .mobile-link{color: #cbd5e1;}
+html[data-theme="dark"] #valora-menu-root .dropdown-item:hover,
+html[data-theme="dark"] #valora-menu-root .dropdown-item.is-active,
+html[data-theme="dark"] #valora-menu-root .theme-option:hover,
+html[data-theme="dark"] #valora-menu-root .theme-option.is-active,
+html[data-theme="dark"] #valora-menu-root .settings-link:hover,
+html[data-theme="dark"] #valora-menu-root .user-menu button:hover,
+html[data-theme="dark"] #valora-menu-root .mobile-link:hover,
+html[data-theme="dark"] #valora-menu-root .mobile-link.is-active{background: #243247;
+      color: #4bc3c7;}
+html[data-theme="dark"] #valora-menu-root .settings-title,
+html[data-theme="dark"] #valora-menu-root .mobile-title,
+html[data-theme="dark"] #valora-menu-root .user-card span,
+html[data-theme="dark"] #valora-menu-root .dropdown-hint{color: #94a3b8;}
+html[data-theme="dark"] #valora-menu-root .settings-divider,
+html[data-theme="dark"] #valora-menu-root .user-card,
+html[data-theme="dark"] #valora-menu-root .mobile-section{border-color: rgba(148, 163, 184, 0.18);
+      background: transparent;}
+html[data-theme="dark"] #valora-menu-root .user-card strong,
+html[data-theme="dark"] #valora-menu-root .user-name,
+html[data-theme="dark"] #valora-menu-root .mobile-link strong{color: #e5e7eb;}
+html[data-theme="dark"] #valora-menu-root .theme-radio{border-color: rgba(148, 163, 184, 0.42);
+      background: #0f1b2d;}
+html[data-theme="dark"] #valora-menu-root .theme-option.is-active .theme-radio{border-color: #4bc3c7;
+      box-shadow: 0 0 0 3px rgba(75, 195, 199, 0.14);}
+html[data-theme="dark"] #valora-menu-root .theme-option.is-active .theme-radio::after{background: #4bc3c7;}
+/* MENU DARK PRO | V10 - fundo do iframe aberto */
+html[data-theme="dark"] #valora-menu-root{--navy: #0f1117;
+      --navy-dark: #090b10;
+      --navy-soft: #151821;
+      --hover-top: rgba(75, 195, 199, 0.12);
+      --text: #ececec;
+      --drop-bg: #2b2b2b;
+      --drop-text: #ececec;
+      --drop-hover: #343434;
+      --drop-border: rgba(255, 255, 255, 0.10);
+      --drop-shadow: 0 22px 56px rgba(0, 0, 0, 0.36);}
+html[data-theme="dark"] #valora-menu-root,
+html[data-theme="dark"] #valora-menu-root body{background: transparent !important;
+      color: #ececec !important;}
+html[data-theme="dark"] #valora-menu-root body.menu-open::before{content: "";
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: var(--topbar-h);
+      height: calc(var(--dropdown-open-h) - var(--topbar-h));
+      background:
+        radial-gradient(circle at 14% 0%, rgba(75, 195, 199, 0.055), transparent 24rem),
+        linear-gradient(180deg, rgba(33, 33, 33, 0.985) 0%, rgba(33, 33, 33, 0.965) 100%);
+      pointer-events: none;
+      z-index: 1;}
+html[data-theme="dark"] #valora-menu-root .valora-auvo-topbar{background: linear-gradient(90deg, #090b10 0%, #0f1117 56%, #151821 100%) !important;
+      color: #ececec !important;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.10) !important;}
+html[data-theme="dark"] #valora-menu-root .brand-btn{background: #090b10 !important;
+      color: #ececec !important;
+      box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.10) !important;}
+html[data-theme="dark"] #valora-menu-root .dropdown,
+html[data-theme="dark"] #valora-menu-root .settings-menu,
+html[data-theme="dark"] #valora-menu-root .user-menu,
+html[data-theme="dark"] #valora-menu-root .mobile-panel{background: #2b2b2b !important;
+      color: #ececec !important;
+      border: 1px solid rgba(255, 255, 255, 0.10) !important;
+      border-top: 0 !important;
+      box-shadow: var(--drop-shadow) !important;
+      z-index: 9999 !important;}
+html[data-theme="dark"] #valora-menu-root .dropdown-item,
+html[data-theme="dark"] #valora-menu-root .theme-option,
+html[data-theme="dark"] #valora-menu-root .settings-link,
+html[data-theme="dark"] #valora-menu-root .user-menu button,
+html[data-theme="dark"] #valora-menu-root .mobile-link{color: #d6d6d6 !important;}
+html[data-theme="dark"] #valora-menu-root .dropdown-item:hover,
+html[data-theme="dark"] #valora-menu-root .dropdown-item.is-active,
+html[data-theme="dark"] #valora-menu-root .theme-option:hover,
+html[data-theme="dark"] #valora-menu-root .theme-option.is-active,
+html[data-theme="dark"] #valora-menu-root .settings-link:hover,
+html[data-theme="dark"] #valora-menu-root .user-menu button:hover,
+html[data-theme="dark"] #valora-menu-root .mobile-link:hover,
+html[data-theme="dark"] #valora-menu-root .mobile-link.is-active{background: #343434 !important;
+      color: #4bc3c7 !important;}
+/* MENU DARK PRO | V11 - sem placa gigante no hover/abertura do menu */
+html[data-theme="dark"] #valora-menu-root body.menu-open::before{content: none !important;
+      display: none !important;}
+html[data-theme="dark"] #valora-menu-root .dropdown,
+html[data-theme="dark"] #valora-menu-root .settings-menu,
+html[data-theme="dark"] #valora-menu-root .user-menu,
+html[data-theme="dark"] #valora-menu-root .mobile-panel{background: #2b2b2b !important;
+      color: #ececec !important;
+      border: 1px solid rgba(255, 255, 255, 0.10) !important;
+      border-top: 0 !important;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34) !important;}
+html[data-theme="dark"] #valora-menu-root,
+html[data-theme="dark"] #valora-menu-root body{background: transparent !important;}
+@media (max-width: 920px){
+#valora-menu-root .mobile-panel{padding: 10px 10px calc(18px + env(safe-area-inset-bottom));
+        background: #f7f9fc;}
+#valora-menu-root .mobile-search-wrap{position: sticky;
+        top: 0;
+        z-index: 3;
+        display: grid;
+        grid-template-columns: 20px minmax(0, 1fr) 36px;
+        align-items: center;
+        gap: 7px;
+        min-height: 48px;
+        margin: 0 0 9px;
+        padding: 0 8px 0 12px;
+        border: 1px solid #dfe6ee;
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, .06);}
+#valora-menu-root .mobile-search-wrap > i{color: #65acde;
+        font-size: 13px;}
+#valora-menu-root .mobile-search-wrap input{width: 100%;
+        min-width: 0;
+        height: 44px;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #172033;
+        font: inherit;
+        font-size: 16px;}
+#valora-menu-root .mobile-search-wrap button{width: 36px;
+        height: 36px;
+        min-height: 36px;
+        border: 0;
+        border-radius: 9px;
+        background: transparent;
+        color: #64748b;}
+#valora-menu-root .mobile-section{margin: 0 0 8px;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid #e3e9f0;
+        border-radius: 12px;
+        background: #ffffff;}
+#valora-menu-root .mobile-title{position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        min-height: 48px;
+        padding: 0 42px 0 14px;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: none;
+        letter-spacing: 0;
+        cursor: pointer;
+        user-select: none;}
+#valora-menu-root .mobile-title::after{content: "";
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-family: "Font Awesome 6 Free";
+        font-size: 11px;
+        font-weight: 900;
+        transition: transform .18s ease;}
+#valora-menu-root .mobile-section.is-expanded .mobile-title::after{transform: translateY(-50%) rotate(180deg);}
+#valora-menu-root .mobile-section .mobile-link{display: none;
+        min-height: 46px;
+        padding: 0 14px;
+        border-top: 1px solid #eef2f7;
+        font-size: 13px;}
+#valora-menu-root .mobile-section.is-expanded .mobile-link,
+#valora-menu-root .mobile-panel.is-searching .mobile-link:not([hidden]){display: flex;}
+#valora-menu-root .mobile-panel.is-searching .mobile-title{display: none;}
+#valora-menu-root .mobile-panel.is-searching .mobile-section{display: block;
+        margin-bottom: 6px;
+        border: 0;
+        background: transparent;}
+#valora-menu-root .mobile-panel.is-searching .mobile-section:not(.has-search-result){display: none;}
+#valora-menu-root .mobile-panel-empty{display: none;
+        padding: 30px 12px;
+        color: #64748b;
+        text-align: center;
+        font-size: 13px;}
+#valora-menu-root .mobile-panel.is-searching.is-search-empty .mobile-panel-empty{display: block;}
+}
+@media (max-width: 520px){
+#valora-menu-root .new-action,
+#valora-menu-root .bell-btn{display: inline-flex !important;
+        width: 36px !important;
+        min-width: 36px !important;
+        height: 36px !important;
+        min-height: 36px !important;
+        padding: 0 !important;
+        justify-content: center !important;}
+#valora-menu-root .new-action .label{display: none !important;}
+#valora-menu-root .user-trigger{max-width: 42px !important;
+        padding: 0 5px !important;}
+#valora-menu-root .user-initials{max-width: 30px !important;}
+}
+html[data-theme="dark"] #valora-menu-root .mobile-panel{background: #212121 !important;}
+html[data-theme="dark"] #valora-menu-root .mobile-search-wrap,
+html[data-theme="dark"] #valora-menu-root .mobile-section{border-color: rgba(255,255,255,.11) !important;
+      background: #2f2f2f !important;
+      box-shadow: none !important;}
+html[data-theme="dark"] #valora-menu-root .mobile-search-wrap input,
+html[data-theme="dark"] #valora-menu-root .mobile-title{color: #ececec !important;}
+html[data-theme="dark"] #valora-menu-root .mobile-section .mobile-link{border-top-color: rgba(255,255,255,.08) !important;}
+
+/* O menu é fixed; o host não ocupa uma segunda faixa de 54px no layout. */
+#valora-menu-root{
+  position:relative!important;
+  width:100%!important;
+  height:0!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  overflow:visible!important;
+  z-index:99999!important;
 }

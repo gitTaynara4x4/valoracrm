@@ -221,8 +221,12 @@
     });
   }
 
-  function enhanceFilters() {
-    const panels = FILTER_SELECTORS.flatMap((selector) => Array.from(document.querySelectorAll(selector)));
+  function enhanceFilters(root = document) {
+    const panels = [];
+    FILTER_SELECTORS.forEach((selector) => {
+      if (root.matches?.(selector)) panels.push(root);
+      panels.push(...Array.from(root.querySelectorAll?.(selector) || []));
+    });
     [...new Set(panels)].forEach(makeFilterToggle);
   }
 
@@ -231,14 +235,14 @@
     document.documentElement.classList.toggle('valora-is-phone', CARD_QUERY.matches);
   }
 
-  function scheduleEnhance() {
+  function scheduleEnhance(root = document) {
     if (scheduled) return;
     scheduled = true;
     requestAnimationFrame(() => {
       scheduled = false;
-      enhanceTables(document);
-      enhanceFilters();
-      enhancePagination(document);
+      enhanceTables(root);
+      enhanceFilters(root);
+      enhancePagination(root);
     });
   }
 
@@ -280,15 +284,13 @@
   }
 
   function startObserver() {
-    observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type === 'childList' && mutation.addedNodes.length) {
-          scheduleEnhance();
-          return;
-        }
-      }
+    window.ValoraMutationHub?.subscribe?.((roots) => {
+      roots.forEach((node) => {
+        enhanceTables(node);
+        enhanceFilters(node);
+        enhancePagination(node);
+      });
     });
-    observer.observe(document.body, { childList: true, subtree: true });
   }
 
   function init() {

@@ -12,8 +12,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
 from backend import models
-from backend.security.permissions import user_has_permission
-from backend.security.session import SESSION_COOKIE_NAME, decode_session_token
+from backend.security.permissions import get_request_user, user_has_permission
 
 router = APIRouter(prefix="/api/campos-propostas", tags=["Campos Propostas"])
 
@@ -42,44 +41,7 @@ def validar_usuario_permissao(
     db: Session,
     acao: str,
 ) -> models.Usuario:
-    """Valida sessão, empresa e permissão para campos de propostas.
-
-    A identidade e a empresa são obtidas exclusivamente da sessão assinada.
-    Depois, a ação solicitada é conferida no módulo ``propostas`` antes de
-    qualquer leitura ou alteração no banco.
-    """
-    session = decode_session_token(
-        request.cookies.get(SESSION_COOKIE_NAME, "")
-    )
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Sessão inválida ou expirada.",
-        )
-
-    user_id = int(session["uid"])
-    session_empresa_id = int(session["eid"])
-
-    usuario = (
-        db.query(models.Usuario)
-        .filter(
-            models.Usuario.id == user_id,
-            models.Usuario.empresa_id == session_empresa_id,
-        )
-        .first()
-    )
-
-    if not usuario:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuário não encontrado para a empresa da sessão.",
-        )
-
-    if getattr(usuario, "ativo", True) is False:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuário inativo.",
-        )
+    usuario = get_request_user(request, db)
 
     if not user_has_permission(db, usuario, "propostas", acao):
         raise HTTPException(

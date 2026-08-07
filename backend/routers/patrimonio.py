@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
+from backend.security.permissions import get_request_user
 from backend import models
 
 router = APIRouter(prefix="/api/patrimonio", tags=["Patrimônio"])
@@ -83,190 +84,14 @@ def iso_datetime(value: Any) -> Optional[str]:
     return text or None
 
 
-def get_empresa_id_from_cookie(request: Request) -> int:
-    empresa_id = request.cookies.get("empresa_id")
-    if not empresa_id:
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-    try:
-        return int(empresa_id)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="empresa_id inválido.")
-
-
-def get_user_id_from_cookie(request: Request) -> int:
-    user_id = request.cookies.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-    try:
-        return int(user_id)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="user_id inválido.")
-
-
-def ensure_patrimonio_schema(db: Session) -> None:
-    global _SCHEMA_OK
-    if _SCHEMA_OK:
-        return
-
-    ddl = """
-    CREATE TABLE IF NOT EXISTS patrimonios (
-        id BIGSERIAL PRIMARY KEY,
-        empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-        codigo VARCHAR(50) NOT NULL,
-        nome VARCHAR(180) NOT NULL,
-        descricao TEXT NULL,
-        categoria VARCHAR(120) NULL,
-        marca VARCHAR(120) NULL,
-        modelo VARCHAR(120) NULL,
-        numero_serie VARCHAR(120) NULL,
-        localizacao VARCHAR(180) NULL,
-        responsavel VARCHAR(180) NULL,
-        status VARCHAR(40) NOT NULL DEFAULT 'ativo',
-        valor_aquisicao VARCHAR(40) NULL,
-        data_aquisicao DATE NULL,
-        observacoes TEXT NULL,
-        ativo BOOLEAN NOT NULL DEFAULT TRUE,
-        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE;
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS codigo VARCHAR(50) NOT NULL DEFAULT '';
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS nome VARCHAR(180) NOT NULL DEFAULT '';
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS descricao TEXT NULL;
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS categoria VARCHAR(120) NULL;
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS marca VARCHAR(120) NULL;
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS modelo VARCHAR(120) NULL;
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS numero_serie VARCHAR(120) NULL;
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS localizacao VARCHAR(180) NULL;
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS responsavel VARCHAR(180) NULL;
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS status VARCHAR(40) NOT NULL DEFAULT 'ativo';
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS valor_aquisicao VARCHAR(40) NULL;
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS data_aquisicao DATE NULL;
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS observacoes TEXT NULL;
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS ativo BOOLEAN NOT NULL DEFAULT TRUE;
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW();
-    ALTER TABLE patrimonios ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
-    CREATE TABLE IF NOT EXISTS campos_patrimonios (
-        id BIGSERIAL PRIMARY KEY,
-        empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-        nome VARCHAR(120) NOT NULL,
-        slug VARCHAR(120) NOT NULL,
-        tipo VARCHAR(30) NOT NULL,
-        obrigatorio BOOLEAN NOT NULL DEFAULT FALSE,
-        ativo BOOLEAN NOT NULL DEFAULT TRUE,
-        opcoes_json TEXT NULL,
-        ordem BIGINT NOT NULL DEFAULT 0,
-        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    ALTER TABLE campos_patrimonios ADD COLUMN IF NOT EXISTS empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE;
-    ALTER TABLE campos_patrimonios ADD COLUMN IF NOT EXISTS nome VARCHAR(120) NOT NULL DEFAULT '';
-    ALTER TABLE campos_patrimonios ADD COLUMN IF NOT EXISTS slug VARCHAR(120) NOT NULL DEFAULT '';
-    ALTER TABLE campos_patrimonios ADD COLUMN IF NOT EXISTS tipo VARCHAR(30) NOT NULL DEFAULT 'texto';
-    ALTER TABLE campos_patrimonios ADD COLUMN IF NOT EXISTS obrigatorio BOOLEAN NOT NULL DEFAULT FALSE;
-    ALTER TABLE campos_patrimonios ADD COLUMN IF NOT EXISTS ativo BOOLEAN NOT NULL DEFAULT TRUE;
-    ALTER TABLE campos_patrimonios ADD COLUMN IF NOT EXISTS opcoes_json TEXT NULL;
-    ALTER TABLE campos_patrimonios ADD COLUMN IF NOT EXISTS ordem BIGINT NOT NULL DEFAULT 0;
-    ALTER TABLE campos_patrimonios ADD COLUMN IF NOT EXISTS criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW();
-    ALTER TABLE campos_patrimonios ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
-    CREATE TABLE IF NOT EXISTS patrimonios_campos_valores (
-        id BIGSERIAL PRIMARY KEY,
-        patrimonio_id BIGINT NOT NULL REFERENCES patrimonios(id) ON DELETE CASCADE,
-        campo_id BIGINT NOT NULL REFERENCES campos_patrimonios(id) ON DELETE CASCADE,
-        valor TEXT NULL,
-        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    ALTER TABLE patrimonios_campos_valores ADD COLUMN IF NOT EXISTS patrimonio_id BIGINT NOT NULL REFERENCES patrimonios(id) ON DELETE CASCADE;
-    ALTER TABLE patrimonios_campos_valores ADD COLUMN IF NOT EXISTS campo_id BIGINT NOT NULL REFERENCES campos_patrimonios(id) ON DELETE CASCADE;
-    ALTER TABLE patrimonios_campos_valores ADD COLUMN IF NOT EXISTS valor TEXT NULL;
-    ALTER TABLE patrimonios_campos_valores ADD COLUMN IF NOT EXISTS criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW();
-    ALTER TABLE patrimonios_campos_valores ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
-    CREATE INDEX IF NOT EXISTS ix_patrimonios_empresa_codigo ON patrimonios(empresa_id, codigo);
-    CREATE INDEX IF NOT EXISTS ix_patrimonios_empresa_nome ON patrimonios(empresa_id, nome);
-    CREATE INDEX IF NOT EXISTS ix_patrimonios_empresa_status ON patrimonios(empresa_id, status);
-    CREATE INDEX IF NOT EXISTS ix_campos_patrimonios_empresa_slug ON campos_patrimonios(empresa_id, slug);
-    CREATE INDEX IF NOT EXISTS ix_patrimonios_campos_valores_patrimonio ON patrimonios_campos_valores(patrimonio_id);
-    CREATE INDEX IF NOT EXISTS ix_patrimonios_campos_valores_campo ON patrimonios_campos_valores(campo_id);
-    """
-    db.execute(text(ddl))
-    db.execute(text("""
-    DO $$
-    BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_patrimonios_empresa_codigo') THEN
-            BEGIN
-                ALTER TABLE patrimonios ADD CONSTRAINT uq_patrimonios_empresa_codigo UNIQUE (empresa_id, codigo);
-            EXCEPTION WHEN duplicate_object OR unique_violation THEN
-                NULL;
-            END;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_campos_patrimonios_empresa_slug') THEN
-            BEGIN
-                ALTER TABLE campos_patrimonios ADD CONSTRAINT uq_campos_patrimonios_empresa_slug UNIQUE (empresa_id, slug);
-            EXCEPTION WHEN duplicate_object OR unique_violation THEN
-                NULL;
-            END;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_patrimonios_campos_valores_item_campo') THEN
-            BEGIN
-                ALTER TABLE patrimonios_campos_valores ADD CONSTRAINT uq_patrimonios_campos_valores_item_campo UNIQUE (patrimonio_id, campo_id);
-            EXCEPTION WHEN duplicate_object OR unique_violation THEN
-                NULL;
-            END;
-        END IF;
-    END $$;
-    """))
-    db.commit()
-    _SCHEMA_OK = True
-
 
 def validar_usuario_empresa(request: Request, db: Session) -> int:
-    # O user_id é a fonte segura da sessão.
-    # Não use o cookie empresa_id para validar o vínculo, pois ele pode ficar
-    # antigo no navegador e derrubar a tela com "Usuário inválido para esta empresa".
-    user_id = get_user_id_from_cookie(request)
-
-    user = (
-        db.query(models.Usuario)
-        .filter(models.Usuario.id == user_id)
-        .first()
-    )
-
-    if not user:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(user, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    if hasattr(user, "ativo") and user.ativo is False:
-        raise HTTPException(status_code=403, detail="Usuário inativo.")
-
-    ensure_patrimonio_schema(db)
-    return int(user.empresa_id)
+    usuario = get_request_user(request, db)
+    return int(usuario.empresa_id)
 
 
 def garantir_tabela_sequencias_codigo(db: Session) -> None:
-    """Cria a tabela de sequência própria dos códigos do sistema.
-
-    O código do Patrimônio não pode depender do ID do banco.
-    Abrir modal apenas prevê; salvar consome o próximo número.
-    """
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS cadastro_sequencias (
-            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-            modulo VARCHAR(40) NOT NULL,
-            ultimo_codigo BIGINT NOT NULL DEFAULT 0,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            PRIMARY KEY (empresa_id, modulo)
-        )
-    """))
+    raise RuntimeError("Estrutura administrada pelo Alembic; execute `alembic upgrade head`.")
 
 
 def maior_codigo_patrimonio_existente(db: Session, empresa_id: int) -> int:
@@ -294,7 +119,6 @@ def maior_codigo_patrimonio_existente(db: Session, empresa_id: int) -> int:
 
 
 def preparar_sequencia_patrimonio(db: Session, empresa_id: int) -> int:
-    garantir_tabela_sequencias_codigo(db)
 
     maior_atual = maior_codigo_patrimonio_existente(db, empresa_id)
 
@@ -323,8 +147,17 @@ def preparar_sequencia_patrimonio(db: Session, empresa_id: int) -> int:
 
 
 def prever_proximo_codigo_patrimonio(db: Session, empresa_id: int) -> str:
-    """Mostra uma previsão sem consumir código."""
-    ultimo = preparar_sequencia_patrimonio(db, empresa_id)
+    """Mostra uma previsão sem alterar a sequência persistida."""
+    maior_existente = maior_codigo_patrimonio_existente(db, empresa_id)
+    ultimo_sequencia = db.execute(
+        text("""
+            SELECT ultimo_codigo
+            FROM cadastro_sequencias
+            WHERE empresa_id = :empresa_id AND modulo = 'patrimonio'
+        """),
+        {"empresa_id": empresa_id},
+    ).scalar()
+    ultimo = max(maior_existente, int(ultimo_sequencia or 0))
     return f"{ultimo + 1:04d}"
 
 
@@ -601,7 +434,6 @@ def listar_patrimonios(
 def obter_proximo_codigo_patrimonio(request: Request, db: Session = Depends(get_db)):
     empresa_id = validar_usuario_empresa(request, db)
     codigo = prever_proximo_codigo_patrimonio(db, empresa_id)
-    db.commit()
     return {"codigo": codigo}
 
 

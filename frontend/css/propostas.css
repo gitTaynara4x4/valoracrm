@@ -99,6 +99,12 @@
   transition: var(--transition);
 }
 
+.proposal-list-pagination {
+  min-height: 56px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
 .proposal-table-wrap .valora-table td input:focus {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px var(--brand-soft);

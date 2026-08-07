@@ -49,34 +49,7 @@ def json_load(value: Any, default: Any = None) -> Any:
 
 
 def ensure_audit_schema(db: Session) -> None:
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS auditoria_alteracoes (
-            id BIGSERIAL PRIMARY KEY,
-            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-            modulo VARCHAR(60) NOT NULL,
-            entidade_tipo VARCHAR(80) NOT NULL,
-            entidade_id BIGINT NOT NULL,
-            secao VARCHAR(160),
-            campo VARCHAR(160),
-            campo_nome VARCHAR(200),
-            acao VARCHAR(40) NOT NULL,
-            valor_anterior_json TEXT,
-            valor_novo_json TEXT,
-            usuario_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
-            usuario_nome VARCHAR(160),
-            origem VARCHAR(60) NOT NULL DEFAULT 'sistema',
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    """))
-    db.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_auditoria_entidade
-        ON auditoria_alteracoes (empresa_id, modulo, entidade_tipo, entidade_id, criado_em DESC, id DESC)
-    """))
-    db.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_auditoria_usuario
-        ON auditoria_alteracoes (empresa_id, usuario_id, criado_em DESC)
-    """))
-    db.flush()
+    raise RuntimeError("Estrutura administrada pelo Alembic; execute `alembic upgrade head`.")
 
 
 def _user_values(user: Any) -> tuple[Optional[int], str]:
@@ -149,7 +122,6 @@ def record_change(
     user: Any = None,
     origem: str = "sistema",
 ) -> None:
-    ensure_audit_schema(db)
     _insert_change(
         db,
         empresa_id=empresa_id,
@@ -187,7 +159,6 @@ def record_section_changes(
     são registrados como uma única alteração da seção, preservando o estado
     anterior e o novo para auditoria.
     """
-    ensure_audit_schema(db)
     before_sections = before_sections or {}
     after_sections = after_sections or {}
     labels = labels or {}
@@ -257,7 +228,6 @@ def list_history(
     entidade_id: int,
     limit: int = 200,
 ) -> list[dict]:
-    ensure_audit_schema(db)
     rows = db.execute(text("""
         SELECT id, secao, campo, campo_nome, acao, valor_anterior_json,
                valor_novo_json, usuario_id, usuario_nome, origem, criado_em
@@ -290,7 +260,6 @@ def count_history(
     entidade_tipo: str,
     entidade_id: int,
 ) -> int:
-    ensure_audit_schema(db)
     total = db.execute(text("""
         SELECT COUNT(*)
         FROM auditoria_alteracoes

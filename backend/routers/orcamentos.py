@@ -274,381 +274,10 @@ def assert_settings_access(user: models.Usuario) -> None:
 
 
 def ensure_schema(db: Session) -> None:
-    global _SCHEMA_READY
-    if _SCHEMA_READY:
-        return
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS cadastro_sequencias (
-            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-            modulo VARCHAR(40) NOT NULL,
-            ultimo_codigo BIGINT NOT NULL DEFAULT 0,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            PRIMARY KEY (empresa_id, modulo)
-        )
-    """))
-
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS orcamento_configuracoes (
-            empresa_id BIGINT PRIMARY KEY REFERENCES empresas(id) ON DELETE CASCADE,
-            nome_documento VARCHAR(80) NOT NULL DEFAULT 'Orçamento',
-            prefixo VARCHAR(20) NOT NULL DEFAULT 'ORC',
-            validade_padrao_dias INTEGER NOT NULL DEFAULT 7,
-            prazo_execucao_padrao VARCHAR(160),
-            condicoes_padrao TEXT,
-            observacoes_padrao TEXT,
-            rodape_padrao TEXT,
-            cor_primaria VARCHAR(20) NOT NULL DEFAULT '#65ACDE',
-            titulo_capa VARCHAR(180),
-            subtitulo_capa VARCHAR(220),
-            usar_capa BOOLEAN NOT NULL DEFAULT FALSE,
-            escala_documento_padrao INTEGER NOT NULL DEFAULT 100,
-            mostrar_codigo BOOLEAN NOT NULL DEFAULT TRUE,
-            mostrar_desconto BOOLEAN NOT NULL DEFAULT TRUE,
-            mostrar_imagens BOOLEAN NOT NULL DEFAULT FALSE,
-            controlar_custos BOOLEAN NOT NULL DEFAULT TRUE,
-            margem_minima NUMERIC(14,4) NOT NULL DEFAULT 0,
-            exigir_aprovacao_margem BOOLEAN NOT NULL DEFAULT FALSE,
-            formas_pagamento_json TEXT,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    """))
-
-    for sql in (
-        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS modelo_documento VARCHAR(30) NOT NULL DEFAULT 'padrao'",
-        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS dav_titulo VARCHAR(140) NOT NULL DEFAULT 'DAV - Documento Auxiliar de Venda'",
-        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS cabecalho_razao_social VARCHAR(180)",
-        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS cabecalho_nome_fantasia VARCHAR(180)",
-        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS cabecalho_cnpj VARCHAR(30)",
-        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS cabecalho_email VARCHAR(255)",
-        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS cabecalho_site VARCHAR(255)",
-        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS cabecalho_telefone VARCHAR(60)",
-        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS cabecalho_endereco TEXT",
-        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS cabecalho_rodape TEXT",
-        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS preset_aplicado VARCHAR(80)",
-        "ALTER TABLE orcamento_configuracoes ADD COLUMN IF NOT EXISTS escala_documento_padrao INTEGER NOT NULL DEFAULT 100",
-    ):
-        db.execute(text(sql))
-
-    # Remove somente o cabeçalho gravado pelo preset antigo. Os dados corretos
-    # passam a vir do perfil emitente escolhido, sem alterar o cadastro principal.
-    db.execute(text("""
-        UPDATE orcamento_configuracoes SET
-            cabecalho_razao_social=NULL,
-            cabecalho_nome_fantasia=NULL,
-            cabecalho_cnpj=NULL,
-            cabecalho_email=NULL,
-            cabecalho_site=NULL,
-            cabecalho_telefone=NULL,
-            cabecalho_endereco=NULL,
-            cabecalho_rodape=NULL,
-            preset_aplicado=NULL,
-            atualizado_em=NOW()
-        WHERE preset_aplicado='segsis_dav_v1'
-    """))
-
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS orcamento_emitentes (
-            id BIGSERIAL PRIMARY KEY,
-            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-            nome VARCHAR(160) NOT NULL,
-            razao_social VARCHAR(180) NOT NULL,
-            nome_fantasia VARCHAR(180),
-            cnpj VARCHAR(30),
-            inscricao_estadual VARCHAR(40),
-            email VARCHAR(255),
-            site VARCHAR(255),
-            telefone VARCHAR(60),
-            cep VARCHAR(20),
-            endereco VARCHAR(240),
-            numero VARCHAR(30),
-            complemento VARCHAR(120),
-            bairro VARCHAR(120),
-            cidade VARCHAR(120),
-            estado VARCHAR(20),
-            logo_url TEXT,
-            rodape TEXT,
-            padrao BOOLEAN NOT NULL DEFAULT FALSE,
-            ativo BOOLEAN NOT NULL DEFAULT TRUE,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            CONSTRAINT uq_orcamento_emitente_empresa_nome UNIQUE (empresa_id, nome)
-        )
-    """))
-    db.execute(text("CREATE INDEX IF NOT EXISTS ix_orcamento_emitentes_empresa ON orcamento_emitentes (empresa_id, ativo, nome)"))
-
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS orcamento_categorias (
-            id BIGSERIAL PRIMARY KEY,
-            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-            nome VARCHAR(140) NOT NULL,
-            descricao TEXT,
-            ativo BOOLEAN NOT NULL DEFAULT TRUE,
-            ordem INTEGER NOT NULL DEFAULT 0,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            CONSTRAINT uq_orcamento_categoria_empresa_nome UNIQUE (empresa_id, nome)
-        )
-    """))
-
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS orcamento_modelos (
-            id BIGSERIAL PRIMARY KEY,
-            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-            categoria_id BIGINT REFERENCES orcamento_categorias(id) ON DELETE SET NULL,
-            nome VARCHAR(160) NOT NULL,
-            titulo VARCHAR(180),
-            descricao TEXT,
-            validade_dias INTEGER,
-            prazo_execucao VARCHAR(160),
-            condicoes TEXT,
-            observacoes TEXT,
-            pagamentos_json TEXT,
-            ativo BOOLEAN NOT NULL DEFAULT TRUE,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            CONSTRAINT uq_orcamento_modelo_empresa_nome UNIQUE (empresa_id, nome)
-        )
-    """))
-
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS orcamento_modelo_itens (
-            id BIGSERIAL PRIMARY KEY,
-            modelo_id BIGINT NOT NULL REFERENCES orcamento_modelos(id) ON DELETE CASCADE,
-            produto_id BIGINT REFERENCES produtos(id) ON DELETE SET NULL,
-            codigo VARCHAR(50),
-            descricao TEXT NOT NULL,
-            referencia VARCHAR(160),
-            unidade VARCHAR(30),
-            quantidade NUMERIC(18,4) NOT NULL DEFAULT 1,
-            valor_unitario NUMERIC(18,4) NOT NULL DEFAULT 0,
-            custo_unitario NUMERIC(18,4) NOT NULL DEFAULT 0,
-            observacao TEXT,
-            ordem INTEGER NOT NULL DEFAULT 0,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    """))
-
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS orcamento_kits (
-            id BIGSERIAL PRIMARY KEY,
-            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-            nome VARCHAR(160) NOT NULL,
-            descricao TEXT,
-            ativo BOOLEAN NOT NULL DEFAULT TRUE,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            CONSTRAINT uq_orcamento_kit_empresa_nome UNIQUE (empresa_id, nome)
-        )
-    """))
-
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS orcamento_kit_itens (
-            id BIGSERIAL PRIMARY KEY,
-            kit_id BIGINT NOT NULL REFERENCES orcamento_kits(id) ON DELETE CASCADE,
-            produto_id BIGINT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
-            quantidade NUMERIC(18,4) NOT NULL DEFAULT 1,
-            ordem INTEGER NOT NULL DEFAULT 0,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            CONSTRAINT uq_orcamento_kit_produto UNIQUE (kit_id, produto_id)
-        )
-    """))
-
-    db.execute(text("CREATE INDEX IF NOT EXISTS idx_orcamento_kits_empresa_ativo ON orcamento_kits (empresa_id, ativo, nome)"))
-    db.execute(text("CREATE INDEX IF NOT EXISTS idx_orcamento_kit_itens_kit_ordem ON orcamento_kit_itens (kit_id, ordem, id)"))
-
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS orcamentos (
-            id BIGSERIAL PRIMARY KEY,
-            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-            cliente_id BIGINT REFERENCES clientes(id) ON DELETE SET NULL,
-            usuario_criador_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
-            consultor_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
-            categoria_id BIGINT REFERENCES orcamento_categorias(id) ON DELETE SET NULL,
-            modelo_id BIGINT REFERENCES orcamento_modelos(id) ON DELETE SET NULL,
-            codigo VARCHAR(50) NOT NULL,
-            titulo VARCHAR(180) NOT NULL,
-            nome_documento VARCHAR(80) NOT NULL DEFAULT 'Orçamento',
-            status VARCHAR(40) NOT NULL DEFAULT 'rascunho',
-            versao INTEGER NOT NULL DEFAULT 1,
-            data_solicitacao DATE,
-            data_emissao DATE NOT NULL DEFAULT CURRENT_DATE,
-            data_validade DATE,
-            data_aprovacao TIMESTAMPTZ,
-            responsavel_cliente VARCHAR(160),
-            contato_cliente VARCHAR(100),
-            endereco_cep VARCHAR(20),
-            endereco_logradouro VARCHAR(200),
-            endereco_numero VARCHAR(30),
-            endereco_complemento VARCHAR(120),
-            endereco_bairro VARCHAR(120),
-            endereco_cidade VARCHAR(120),
-            endereco_estado VARCHAR(20),
-            desconto_tipo VARCHAR(20) NOT NULL DEFAULT 'valor',
-            desconto_valor NUMERIC(18,4) NOT NULL DEFAULT 0,
-            desconto_total NUMERIC(18,4) NOT NULL DEFAULT 0,
-            frete NUMERIC(18,4) NOT NULL DEFAULT 0,
-            acrescimo NUMERIC(18,4) NOT NULL DEFAULT 0,
-            subtotal NUMERIC(18,4) NOT NULL DEFAULT 0,
-            total NUMERIC(18,4) NOT NULL DEFAULT 0,
-            custo_total NUMERIC(18,4) NOT NULL DEFAULT 0,
-            lucro_total NUMERIC(18,4) NOT NULL DEFAULT 0,
-            margem_percentual NUMERIC(18,4) NOT NULL DEFAULT 0,
-            prazo_execucao VARCHAR(160),
-            condicoes TEXT,
-            observacoes TEXT,
-            pagamentos_json TEXT,
-            usar_capa BOOLEAN NOT NULL DEFAULT FALSE,
-            titulo_capa VARCHAR(180),
-            subtitulo_capa VARCHAR(220),
-            escala_documento INTEGER NOT NULL DEFAULT 100,
-            aprovacao_necessaria BOOLEAN NOT NULL DEFAULT FALSE,
-            aprovacao_status VARCHAR(30),
-            aprovado_por_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
-            aprovado_em TIMESTAMPTZ,
-            legacy_proposta_id BIGINT,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            CONSTRAINT uq_orcamentos_empresa_codigo UNIQUE (empresa_id, codigo),
-            CONSTRAINT uq_orcamentos_empresa_legacy UNIQUE (empresa_id, legacy_proposta_id)
-        )
-    """))
-
-    for sql in (
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cliente_nome_documento VARCHAR(180)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cliente_nome_fantasia_documento VARCHAR(180)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cliente_cpf_cnpj VARCHAR(30)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cliente_rg_ie VARCHAR(30)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cliente_telefone VARCHAR(30)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cliente_whatsapp_documento VARCHAR(30)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cliente_fax VARCHAR(30)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cliente_email_nfe VARCHAR(255)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cliente_contato_nome VARCHAR(120)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_id BIGINT REFERENCES orcamento_emitentes(id) ON DELETE SET NULL",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_nome_documento VARCHAR(160)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_razao_social_documento VARCHAR(180)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_nome_fantasia_documento VARCHAR(180)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_cnpj_documento VARCHAR(30)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_ie_documento VARCHAR(40)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_email_documento VARCHAR(255)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_site_documento VARCHAR(255)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_telefone_documento VARCHAR(60)",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_endereco_documento TEXT",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_logo_documento TEXT",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS emitente_rodape_documento TEXT",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS itens_sem_custo INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS escala_documento INTEGER NOT NULL DEFAULT 100",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS financeiro_status VARCHAR(30) NOT NULL DEFAULT 'nao_enviado'",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS financeiro_enviado_em TIMESTAMPTZ",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS financeiro_enviado_por_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS financeiro_autenticado_em TIMESTAMPTZ",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS financeiro_autenticado_por_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL",
-        "ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS financeiro_motivo_retorno TEXT",
-    ):
-        db.execute(text(sql))
-
-    db.execute(text("""
-        UPDATE orcamento_configuracoes
-        SET escala_documento_padrao=100
-        WHERE escala_documento_padrao IS NULL OR escala_documento_padrao < 70 OR escala_documento_padrao > 125
-    """))
-    db.execute(text("""
-        UPDATE orcamentos
-        SET escala_documento=100
-        WHERE escala_documento IS NULL OR escala_documento < 70 OR escala_documento > 125
-    """))
-
-    db.execute(text("""
-        UPDATE orcamentos o SET
-            cliente_nome_documento=COALESCE(o.cliente_nome_documento, c.nome),
-            cliente_nome_fantasia_documento=COALESCE(o.cliente_nome_fantasia_documento, c.nome_fantasia),
-            cliente_cpf_cnpj=COALESCE(o.cliente_cpf_cnpj, c.cpf_cnpj),
-            cliente_rg_ie=COALESCE(o.cliente_rg_ie, c.rg_ie),
-            cliente_telefone=COALESCE(o.cliente_telefone, c.telefone),
-            cliente_whatsapp_documento=COALESCE(o.cliente_whatsapp_documento, c.whatsapp),
-            cliente_fax=COALESCE(o.cliente_fax, c.fax),
-            cliente_email_nfe=COALESCE(o.cliente_email_nfe, c.email_nfe),
-            cliente_contato_nome=COALESCE(o.cliente_contato_nome, c.contato)
-        FROM clientes c
-        WHERE o.cliente_id=c.id AND o.empresa_id=c.empresa_id
-          AND (o.cliente_nome_documento IS NULL OR o.cliente_cpf_cnpj IS NULL)
-    """))
-
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS orcamento_itens (
-            id BIGSERIAL PRIMARY KEY,
-            orcamento_id BIGINT NOT NULL REFERENCES orcamentos(id) ON DELETE CASCADE,
-            produto_id BIGINT REFERENCES produtos(id) ON DELETE SET NULL,
-            origem VARCHAR(30) NOT NULL DEFAULT 'manual',
-            codigo VARCHAR(50),
-            descricao TEXT NOT NULL,
-            referencia VARCHAR(160),
-            unidade VARCHAR(30),
-            quantidade NUMERIC(18,4) NOT NULL DEFAULT 1,
-            valor_unitario NUMERIC(18,4) NOT NULL DEFAULT 0,
-            desconto NUMERIC(18,4) NOT NULL DEFAULT 0,
-            valor_total NUMERIC(18,4) NOT NULL DEFAULT 0,
-            custo_unitario NUMERIC(18,4) NOT NULL DEFAULT 0,
-            custo_informado BOOLEAN NOT NULL DEFAULT FALSE,
-            custo_total NUMERIC(18,4) NOT NULL DEFAULT 0,
-            lucro_total NUMERIC(18,4) NOT NULL DEFAULT 0,
-            margem_percentual NUMERIC(18,4) NOT NULL DEFAULT 0,
-            observacao TEXT,
-            ordem INTEGER NOT NULL DEFAULT 0,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    """))
-
-    db.execute(text("ALTER TABLE orcamento_itens ADD COLUMN IF NOT EXISTS custo_informado BOOLEAN NOT NULL DEFAULT FALSE"))
-    db.execute(text("""
-        UPDATE orcamento_itens
-        SET custo_informado=TRUE
-        WHERE custo_informado=FALSE AND COALESCE(custo_unitario, 0) <> 0
-    """))
-
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS orcamento_historico (
-            id BIGSERIAL PRIMARY KEY,
-            orcamento_id BIGINT NOT NULL REFERENCES orcamentos(id) ON DELETE CASCADE,
-            usuario_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
-            usuario_nome VARCHAR(160),
-            acao VARCHAR(60) NOT NULL,
-            status_anterior VARCHAR(40),
-            status_novo VARCHAR(40),
-            descricao TEXT,
-            dados_json TEXT,
-            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    """))
-
-    for sql in (
-        "CREATE INDEX IF NOT EXISTS ix_orcamentos_empresa_status ON orcamentos (empresa_id, status)",
-        "CREATE INDEX IF NOT EXISTS ix_orcamentos_empresa_cliente ON orcamentos (empresa_id, cliente_id)",
-        "CREATE INDEX IF NOT EXISTS ix_orcamentos_data_emissao ON orcamentos (data_emissao DESC)",
-        "CREATE INDEX IF NOT EXISTS ix_orcamento_itens_orcamento ON orcamento_itens (orcamento_id, ordem)",
-        "CREATE INDEX IF NOT EXISTS ix_orcamento_historico_orcamento ON orcamento_historico (orcamento_id, criado_em DESC)",
-    ):
-        db.execute(text(sql))
-
-    # Mantém compatibilidade com as permissões que antes eram usadas pela tela de Propostas.
-    # A cópia só ocorre quando ainda não existe uma permissão específica de Orçamentos.
-    db.execute(text("""
-        INSERT INTO usuarios_permissoes (
-            empresa_id, usuario_id, modulo, pode_ver, pode_criar, pode_editar, pode_excluir
-        )
-        SELECT empresa_id, usuario_id, 'orcamentos', pode_ver, pode_criar, pode_editar, pode_excluir
-        FROM usuarios_permissoes origem
-        WHERE origem.modulo='propostas'
-        ON CONFLICT (usuario_id, modulo) DO NOTHING
-    """))
-
-    db.commit()
-    _SCHEMA_READY = True
+    raise RuntimeError("Estrutura administrada pelo Alembic; execute `alembic upgrade head`.")
 
 
-def ensure_default_config(db: Session, empresa_id: int) -> None:
+def ensure_default_config(db: Session, empresa_id: int, *, commit: bool = True) -> None:
     db.execute(text("""
         INSERT INTO orcamento_configuracoes (
             empresa_id, condicoes_padrao, formas_pagamento_json, titulo_capa, subtitulo_capa
@@ -718,10 +347,11 @@ def ensure_default_config(db: Session, empresa_id: int) -> None:
             WHERE empresa_id=:empresa_id
         """), {"empresa_id": empresa_id, "default_id": int(default_id)})
 
-    db.commit()
+    if commit:
+        db.commit()
 
 
-def maybe_import_legacy(db: Session, empresa_id: int) -> None:
+def maybe_import_legacy(db: Session, empresa_id: int, *, commit: bool = True) -> None:
     """Importa uma única vez os registros do módulo antigo de Propostas.
 
     A conversão é feita em Python para aceitar valores antigos armazenados como
@@ -843,52 +473,55 @@ def maybe_import_legacy(db: Session, empresa_id: int) -> None:
             VALUES (:orcamento_id, 'Sistema', 'importado', 'Importado do módulo antigo de Propostas.', :criado_em)
         """), {"orcamento_id": int(budget_id), "criado_em": created_at})
 
-    db.commit()
+    if commit:
+        db.commit()
 
 
-def prepare(db: Session, empresa_id: int) -> None:
+def prepare_write(db: Session, empresa_id: int) -> None:
+    """Inicializa dados padrão somente dentro de operações de escrita."""
     if empresa_id in _PREPARED_COMPANIES:
         return
-    ensure_schema(db)
     ensure_default_config(db, empresa_id)
-    try:
-        maybe_import_legacy(db, empresa_id)
-    except Exception:
-        db.rollback()
     _PREPARED_COMPANIES.add(empresa_id)
 
 
-def next_code(db: Session, empresa_id: int, consume: bool) -> str:
-    prepare(db, empresa_id)
+def code_prefix(db: Session, empresa_id: int) -> str:
     config = db.execute(text("SELECT prefixo FROM orcamento_configuracoes WHERE empresa_id=:e"), {"e": empresa_id}).mappings().first()
-    prefix = re.sub(r"[^A-Za-z0-9_-]", "", (config or {}).get("prefixo") or "ORC").upper()[:20] or "ORC"
+    return re.sub(r"[^A-Za-z0-9_-]", "", (config or {}).get("prefixo") or "ORC").upper()[:20] or "ORC"
 
-    max_existing = db.execute(text("""
-        SELECT COALESCE(MAX(NULLIF(regexp_replace(codigo, '\\D', '', 'g'), '')::bigint), 0)
+
+def preview_next_code(db: Session, empresa_id: int) -> str:
+    prefix = code_prefix(db, empresa_id)
+    max_existing = int(db.execute(text(r"""
+        SELECT COALESCE(MAX(NULLIF(regexp_replace(codigo, '\D', '', 'g'), '')::bigint), 0)
         FROM orcamentos WHERE empresa_id=:e
-    """), {"e": empresa_id}).scalar() or 0
+    """), {"e": empresa_id}).scalar() or 0)
+    current_sequence = int(db.execute(text("""
+        SELECT ultimo_codigo FROM cadastro_sequencias
+        WHERE empresa_id=:e AND modulo='orcamentos'
+    """), {"e": empresa_id}).scalar() or 0)
+    return f"{prefix}-{max(max_existing, current_sequence) + 1:05d}"
 
+
+def consume_next_code(db: Session, empresa_id: int) -> str:
+    prefix = code_prefix(db, empresa_id)
+    max_existing = int(db.execute(text(r"""
+        SELECT COALESCE(MAX(NULLIF(regexp_replace(codigo, '\D', '', 'g'), '')::bigint), 0)
+        FROM orcamentos WHERE empresa_id=:e
+    """), {"e": empresa_id}).scalar() or 0)
+    prepare_write(db, empresa_id)
     db.execute(text("""
         INSERT INTO cadastro_sequencias (empresa_id, modulo, ultimo_codigo)
         VALUES (:e, 'orcamentos', :m)
         ON CONFLICT (empresa_id, modulo)
         DO UPDATE SET ultimo_codigo=GREATEST(cadastro_sequencias.ultimo_codigo, EXCLUDED.ultimo_codigo), atualizado_em=NOW()
-    """), {"e": empresa_id, "m": int(max_existing)})
-
-    if consume:
-        number = db.execute(text("""
-            UPDATE cadastro_sequencias
-            SET ultimo_codigo=ultimo_codigo+1, atualizado_em=NOW()
-            WHERE empresa_id=:e AND modulo='orcamentos'
-            RETURNING ultimo_codigo
-        """), {"e": empresa_id}).scalar_one()
-        db.commit()
-    else:
-        number = db.execute(text("""
-            SELECT ultimo_codigo+1 FROM cadastro_sequencias
-            WHERE empresa_id=:e AND modulo='orcamentos'
-        """), {"e": empresa_id}).scalar_one()
-        db.rollback()
+    """), {"e": empresa_id, "m": max_existing})
+    number = db.execute(text("""
+        UPDATE cadastro_sequencias
+        SET ultimo_codigo=ultimo_codigo+1, atualizado_em=NOW()
+        WHERE empresa_id=:e AND modulo='orcamentos'
+        RETURNING ultimo_codigo
+    """), {"e": empresa_id}).scalar_one()
     return f"{prefix}-{int(number):05d}"
 
 
@@ -1400,10 +1033,31 @@ def recalculate_payment_options(payments: List[PaymentOption], total: Decimal) -
     return normalized
 
 
+def default_config_row(company_id: int) -> dict:
+    formas = [
+        {"tipo": "avista", "nome": "À vista", "ativo": True},
+        {"tipo": "entrada_parcelas", "nome": "Entrada + parcelas", "ativo": True},
+        {"tipo": "cartao", "nome": "Cartão de crédito", "ativo": True},
+        {"tipo": "pix", "nome": "PIX", "ativo": True},
+        {"tipo": "boleto", "nome": "Boleto", "ativo": True},
+    ]
+    values = SettingsIn().model_dump() if hasattr(SettingsIn(), "model_dump") else SettingsIn().dict()
+    values["empresa_id"] = company_id
+    values["formas_pagamento_json"] = json_dump(formas)
+    values["condicoes_padrao"] = (
+        "1. Este orçamento contempla somente os produtos e serviços descritos.\n"
+        "2. Materiais ou serviços adicionais serão orçados separadamente.\n"
+        "3. Garantias seguem as condições informadas neste documento."
+    )
+    values["titulo_capa"] = "Proposta comercial"
+    values["subtitulo_capa"] = "Soluções preparadas para a necessidade do cliente"
+    values.pop("formas_pagamento", None)
+    return values
+
+
 def get_config_row(db: Session, company_id: int) -> dict:
-    prepare(db, company_id)
     row = db.execute(text("SELECT * FROM orcamento_configuracoes WHERE empresa_id=:e"), {"e": company_id}).mappings().first()
-    return dict(row or {})
+    return dict(row) if row else default_config_row(company_id)
 
 
 def validate_company_fk(db: Session, table: str, row_id: Optional[int], company_id: int, label: str) -> None:
@@ -1516,9 +1170,15 @@ def serialize_items(
     return output
 
 
-def serialize_budget(db: Session, row: dict, user: models.Usuario, complete: bool = True) -> dict:
+def serialize_budget(
+    db: Session,
+    row: dict,
+    user: models.Usuario,
+    complete: bool = True,
+    show_costs_override: Optional[bool] = None,
+) -> dict:
     out = dict(row)
-    show_costs = can_view_costs(user, db)
+    show_costs = can_view_costs(user, db) if show_costs_override is None else bool(show_costs_override)
     for key in ("desconto_valor", "desconto_total", "frete", "acrescimo", "subtotal", "total"):
         out[key] = dec_out(out.get(key))
     if show_costs:
@@ -1621,18 +1281,20 @@ def get_next_code(
     current_user: models.Usuario = Depends(require_permission("orcamentos", "criar")),
     db: Session = Depends(get_db),
 ):
-    return {"codigo": next_code(db, int(current_user.empresa_id), consume=False)}
+    return {"codigo": preview_next_code(db, int(current_user.empresa_id))}
 
 
 @router.get("")
 def list_budgets(
     busca: Optional[str] = Query(default=None),
     status_filter: Optional[str] = Query(default=None, alias="status"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    paginated: bool = Query(default=False),
     current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
     where = ["o.empresa_id=:e"]
     params: Dict[str, Any] = {"e": company_id}
     if norm_str(busca):
@@ -1641,8 +1303,76 @@ def list_budgets(
     if norm_str(status_filter):
         where.append("o.status=:s")
         params["s"] = status_norm(status_filter)
-    rows = db.execute(text(base_select() + " WHERE " + " AND ".join(where) + " ORDER BY o.data_emissao DESC, o.id DESC"), params).mappings().all()
-    return [serialize_budget(db, dict(row), current_user, complete=False) for row in rows]
+
+    where_sql = " WHERE " + " AND ".join(where)
+    show_costs = can_view_costs(current_user, db)
+
+    if paginated:
+        count_sql = """
+            SELECT COUNT(*)
+            FROM orcamentos o
+            LEFT JOIN clientes c ON c.id=o.cliente_id AND c.empresa_id=o.empresa_id
+        """ + where_sql
+        total = int(db.execute(text(count_sql), params).scalar() or 0)
+
+        page_params = {**params, "limit": limit, "offset": offset}
+        rows = db.execute(
+            text(
+                base_select()
+                + where_sql
+                + " ORDER BY o.data_emissao DESC, o.id DESC LIMIT :limit OFFSET :offset"
+            ),
+            page_params,
+        ).mappings().all()
+
+        summary = db.execute(text("""
+            SELECT
+                COUNT(*)::INTEGER AS total,
+                COUNT(*) FILTER (WHERE status='rascunho')::INTEGER AS rascunhos,
+                COUNT(*) FILTER (WHERE status IN ('enviado', 'em_negociacao'))::INTEGER AS negociacao,
+                COALESCE(SUM(CASE WHEN status='aprovado' THEN total ELSE 0 END), 0) AS aprovado_total
+            FROM orcamentos
+            WHERE empresa_id=:empresa_id
+        """), {"empresa_id": company_id}).mappings().one()
+
+        items = [
+            serialize_budget(
+                db,
+                dict(row),
+                current_user,
+                complete=False,
+                show_costs_override=show_costs,
+            )
+            for row in rows
+        ]
+        return {
+            "items": items,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": (offset + len(items)) < total,
+            "summary": {
+                "total": int(summary.get("total") or 0),
+                "rascunhos": int(summary.get("rascunhos") or 0),
+                "negociacao": int(summary.get("negociacao") or 0),
+                "aprovado_total": dec_out(summary.get("aprovado_total")),
+            },
+        }
+
+    rows = db.execute(
+        text(base_select() + where_sql + " ORDER BY o.data_emissao DESC, o.id DESC"),
+        params,
+    ).mappings().all()
+    return [
+        serialize_budget(
+            db,
+            dict(row),
+            current_user,
+            complete=False,
+            show_costs_override=show_costs,
+        )
+        for row in rows
+    ]
 
 
 @router.get("/configuracao")
@@ -1666,7 +1396,7 @@ def update_settings(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     prefix = re.sub(r"[^A-Za-z0-9_-]", "", payload.prefixo.upper())[:20] or "ORC"
     document_model = payload.modelo_documento if payload.modelo_documento in {"padrao", "dav"} else "padrao"
     settings_data = payload.model_dump(exclude={"formas_pagamento", "prefixo", "modelo_documento"}) if hasattr(payload, "model_dump") else payload.dict(exclude={"formas_pagamento", "prefixo", "modelo_documento"})
@@ -1720,7 +1450,6 @@ def list_emitters(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
     where = "empresa_id=:empresa_id"
     if not incluir_inativos:
         where += " AND ativo=TRUE"
@@ -1739,7 +1468,7 @@ def create_emitter(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     name = norm_str(payload.nome)
     legal_name = norm_str(payload.razao_social)
     if not name or not legal_name:
@@ -1793,7 +1522,7 @@ def update_emitter(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     existing = db.execute(text("SELECT id, padrao, ativo FROM orcamento_emitentes WHERE id=:id AND empresa_id=:e"), {"id": emitter_id, "e": company_id}).mappings().first()
     if not existing:
         raise HTTPException(status_code=404, detail="Empresa emitente não encontrada.")
@@ -1844,7 +1573,7 @@ def delete_emitter(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     row = db.execute(text("SELECT id, padrao, ativo FROM orcamento_emitentes WHERE id=:id AND empresa_id=:e"), {"id": emitter_id, "e": company_id}).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Empresa emitente não encontrada.")
@@ -1870,7 +1599,6 @@ def search_budget_products(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
     where = ["empresa_id=:empresa_id", "ativo=TRUE"]
     params: Dict[str, Any] = {"empresa_id": company_id}
     if norm_str(busca):
@@ -1921,7 +1649,6 @@ def calculate_budget_preview(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
     items, partial = calculate_items(db, company_id, current_user, payload.itens)
     totals = calculate_totals(payload, partial["subtotal"], partial["custo_total"])
     result = {key: dec_out(value) if isinstance(value, Decimal) else value for key, value in totals.items()}
@@ -1954,7 +1681,6 @@ def list_categories(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
     sql = "SELECT * FROM orcamento_categorias WHERE empresa_id=:e"
     if not incluir_inativas:
         sql += " AND ativo=TRUE"
@@ -1971,7 +1697,7 @@ def create_category(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     name = norm_str(payload.nome)
     if not name:
         raise HTTPException(status_code=422, detail="Informe o nome da categoria.")
@@ -1996,7 +1722,7 @@ def update_category(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     name = norm_str(payload.nome)
     if not name:
         raise HTTPException(status_code=422, detail="Informe o nome da categoria.")
@@ -2022,7 +1748,7 @@ def delete_category(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     found = db.execute(text("DELETE FROM orcamento_categorias WHERE id=:id AND empresa_id=:e RETURNING id"), {"id": category_id, "e": company_id}).scalar()
     if not found:
         raise HTTPException(status_code=404, detail="Categoria não encontrada.")
@@ -2093,7 +1819,6 @@ def list_templates(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
     sql = """
         SELECT m.*, c.nome AS categoria_nome
         FROM orcamento_modelos m LEFT JOIN orcamento_categorias c ON c.id=m.categoria_id
@@ -2113,7 +1838,6 @@ def get_template(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
     row = db.execute(text("""
         SELECT m.*, c.nome AS categoria_nome
         FROM orcamento_modelos m LEFT JOIN orcamento_categorias c ON c.id=m.categoria_id
@@ -2145,7 +1869,7 @@ def create_template(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     validate_company_fk(db, "orcamento_categorias", payload.categoria_id, company_id, "Categoria")
     name = norm_str(payload.nome)
     if not name:
@@ -2178,7 +1902,7 @@ def update_template(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     validate_company_fk(db, "orcamento_categorias", payload.categoria_id, company_id, "Categoria")
     name = norm_str(payload.nome)
     if not name:
@@ -2213,7 +1937,7 @@ def delete_template(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     found = db.execute(text("DELETE FROM orcamento_modelos WHERE id=:id AND empresa_id=:e RETURNING id"), {"id": template_id, "e": company_id}).scalar()
     if not found:
         raise HTTPException(status_code=404, detail="Modelo não encontrado.")
@@ -2319,7 +2043,6 @@ def list_kits(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
     sql = """
         SELECT k.*,
                COUNT(ki.id)::INTEGER AS itens_quantidade,
@@ -2369,7 +2092,6 @@ def get_kit(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
     row = get_kit_row(db, kit_id, company_id)
     if not row:
         raise HTTPException(status_code=404, detail="Kit de produtos não encontrado.")
@@ -2384,7 +2106,7 @@ def create_kit(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     name = norm_str(payload.nome)
     if not name:
         raise HTTPException(status_code=422, detail="Informe o nome do kit.")
@@ -2418,7 +2140,7 @@ def update_kit(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     name = norm_str(payload.nome)
     if not name:
         raise HTTPException(status_code=422, detail="Informe o nome do kit.")
@@ -2455,7 +2177,7 @@ def duplicate_kit(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     source = get_kit_row(db, kit_id, company_id)
     if not source:
         raise HTTPException(status_code=404, detail="Kit de produtos não encontrado.")
@@ -2498,7 +2220,7 @@ def delete_kit(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     found = db.execute(text("""
         DELETE FROM orcamento_kits
         WHERE id=:id AND empresa_id=:empresa_id
@@ -2521,7 +2243,6 @@ def get_budget(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
     row = budget_row(db, budget_id, company_id)
     if not row:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
@@ -2608,7 +2329,7 @@ def create_budget(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     for table, row_id, label in (
         ("clientes", payload.cliente_id, "Cliente"),
         ("usuarios", payload.consultor_id, "Consultor"),
@@ -2644,7 +2365,7 @@ def create_budget(
             detail="Este orçamento precisa de aprovação gerencial por estar abaixo da margem mínima.",
         )
     approved_now = bool(requested_approved and (not approval_needed or manager_approval))
-    code = next_code(db, company_id, consume=True)
+    code = consume_next_code(db, company_id)
 
     try:
         row = db.execute(text("""
@@ -2780,7 +2501,7 @@ def update_budget(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     old = budget_row(db, budget_id, company_id)
     if not old:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
@@ -2978,15 +2699,6 @@ def update_budget(
     return result
 
 
-def ensure_financeiro_vendas_schema(db: Session) -> None:
-    tabela = db.execute(text("SELECT to_regclass('public.financeiro_vendas_pendentes')")).scalar()
-    if not tabela:
-        raise HTTPException(
-            status_code=500,
-            detail="Estrutura da Fase 6 não instalada. Execute sql/financeiro/005_vendas_valora_para_financeiro.sql.",
-        )
-
-
 def financeiro_status_norm(value: Any) -> str:
     current = str(value or "nao_enviado").strip().lower()
     permitidos = {"nao_enviado", "pendente", "devolvido", "autenticado", "cancelado"}
@@ -3028,8 +2740,7 @@ def enviar_orcamento_financeiro(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
-    ensure_financeiro_vendas_schema(db)
+    prepare_write(db, company_id)
     tipo_venda = str(payload.tipo_venda or "avulsa").strip().lower()
     if tipo_venda not in {"avulsa", "contrato"}:
         raise HTTPException(status_code=422, detail="Tipo de venda inválido.")
@@ -3118,8 +2829,7 @@ def cancelar_envio_financeiro(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
-    ensure_financeiro_vendas_schema(db)
+    prepare_write(db, company_id)
     motivo = norm_str(payload.observacao) or "Envio cancelado pelo Comercial."
     row = db.execute(text("""
         SELECT id, status FROM public.financeiro_vendas_pendentes
@@ -3186,7 +2896,7 @@ def change_status(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     row = db.execute(text("SELECT id, status, aprovacao_necessaria, aprovacao_status, financeiro_status FROM orcamentos WHERE id=:id AND empresa_id=:e"), {"id": budget_id, "e": company_id}).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
@@ -3195,7 +2905,6 @@ def change_status(
     if fin_status == "autenticado" and new_status != "aprovado":
         raise HTTPException(status_code=409, detail="A venda já foi autenticada no Financeiro. Cancele ou renegocie os títulos antes de alterar o status comercial.")
     if fin_status == "pendente" and new_status != "aprovado":
-        ensure_financeiro_vendas_schema(db)
         db.execute(text("""
             UPDATE public.financeiro_vendas_pendentes SET status='cancelado', cancelado_por_usuario_id=:u,
                 cancelado_em=NOW(), motivo_cancelamento=:motivo, atualizado_em=NOW()
@@ -3227,7 +2936,7 @@ def approve_margin(
 ):
     assert_settings_access(current_user)
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     found = db.execute(text("""
         UPDATE orcamentos SET aprovacao_status='aprovado', aprovado_por_id=:u, aprovado_em=NOW(), atualizado_em=NOW()
         WHERE id=:id AND empresa_id=:e AND aprovacao_necessaria=TRUE RETURNING id
@@ -3246,7 +2955,7 @@ def delete_budget(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    prepare(db, company_id)
+    prepare_write(db, company_id)
     row = db.execute(text("SELECT id, financeiro_status FROM orcamentos WHERE id=:id AND empresa_id=:e"), {"id": budget_id, "e": company_id}).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado.")

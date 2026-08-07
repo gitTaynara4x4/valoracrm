@@ -5,13 +5,14 @@ import re
 import unicodedata
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from backend import models
 from backend.database import SessionLocal
+from backend.security.permissions import get_request_user
 from backend.dynamic_filters import apply_dynamic_filters
 
 router = APIRouter(tags=["Fornecedores"])
@@ -30,25 +31,10 @@ def get_db():
 
 
 def get_empresa_id(
-    user_id: Optional[str] = Cookie(default=None),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> int:
-    if not user_id or not str(user_id).strip():
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        user_id_int = int(str(user_id).strip())
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(models.Usuario).filter(models.Usuario.id == user_id_int).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    return int(usuario.empresa_id)
+    return int(get_request_user(request, db).empresa_id)
 
 
 try:
@@ -499,24 +485,39 @@ def gerar_codigo_fornecedor(db: Session, empresa_id: int) -> str:
 
 
 def buscar_campos_empresa_map(db: Session, empresa_id: int) -> Dict[str, CampoFornecedor]:
-    sincronizar_campos_fornecedores_do_formulario(db, empresa_id, commit=False)
     campos = db.query(CampoFornecedor).filter(CampoFornecedor.empresa_id == empresa_id).all()
     return {str(c.slug): c for c in campos}
 
 
-def buscar_custom_fields_fornecedor(db: Session, empresa_id: int, fornecedor_id: int) -> Dict[str, Any]:
+def buscar_custom_fields_fornecedores_em_lote(
+    db: Session,
+    empresa_id: int,
+    fornecedor_ids: List[int],
+) -> Dict[int, Dict[str, Any]]:
+    ids = sorted({int(fornecedor_id) for fornecedor_id in fornecedor_ids if int(fornecedor_id) > 0})
+    out: Dict[int, Dict[str, Any]] = {fornecedor_id: {} for fornecedor_id in ids}
+    if not ids:
+        return out
+
     rows = (
-        db.query(FornecedorCampoValor, CampoFornecedor)
+        db.query(
+            FornecedorCampoValor.fornecedor_id,
+            CampoFornecedor.slug,
+            FornecedorCampoValor.valor,
+        )
         .join(CampoFornecedor, CampoFornecedor.id == FornecedorCampoValor.campo_id)
-        .filter(FornecedorCampoValor.fornecedor_id == fornecedor_id)
+        .filter(FornecedorCampoValor.fornecedor_id.in_(ids))
         .filter(CampoFornecedor.empresa_id == empresa_id)
         .all()
     )
 
-    out: Dict[str, Any] = {}
-    for valor_row, campo_row in rows:
-        out[str(campo_row.slug)] = valor_row.valor
+    for fornecedor_id, slug, valor in rows:
+        out.setdefault(int(fornecedor_id), {})[str(slug)] = valor
     return out
+
+
+def buscar_custom_fields_fornecedor(db: Session, empresa_id: int, fornecedor_id: int) -> Dict[str, Any]:
+    return buscar_custom_fields_fornecedores_em_lote(db, empresa_id, [fornecedor_id]).get(int(fornecedor_id), {})
 
 
 def salvar_custom_fields_fornecedor(
@@ -640,9 +641,21 @@ def apply_fornecedor_payload(f: Fornecedor, payload: FornecedorBaseSchema) -> No
 
 
 
-def fornecedor_to_list_out(db: Session, f: Fornecedor, *, include_custom_fields: bool = True) -> Dict[str, Any]:
+def fornecedor_to_list_out(
+    db: Session,
+    f: Fornecedor,
+    *,
+    include_custom_fields: bool = True,
+    custom_fields: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     empresa_id = int(getattr(f, "empresa_id", 0) or 0)
     fornecedor_id = int(getattr(f, "id", 0) or 0)
+    if custom_fields is None:
+        custom_fields = (
+            buscar_custom_fields_fornecedor(db, empresa_id, fornecedor_id)
+            if include_custom_fields and empresa_id and fornecedor_id
+            else {}
+        )
 
     return {
         "id": int(f.id),
@@ -660,11 +673,7 @@ def fornecedor_to_list_out(db: Session, f: Fornecedor, *, include_custom_fields:
         "estado": getattr(f, "estado", None),
         "criado_em": iso_datetime(getattr(f, "criado_em", None)),
         "atualizado_em": iso_datetime(getattr(f, "atualizado_em", None)),
-        "custom_fields": (
-            buscar_custom_fields_fornecedor(db, empresa_id, fornecedor_id)
-            if include_custom_fields and empresa_id and fornecedor_id
-            else {}
-        ),
+        "custom_fields": custom_fields,
     }
 
 def fornecedor_to_out(db: Session, f: Fornecedor) -> FornecedorOut:
@@ -716,15 +725,6 @@ def listar_campos(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    try:
-        sincronizar_campos_fornecedores_do_formulario(db, empresa_id, commit=True)
-    except OperationalError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="A estrutura de Formulários/Campos de fornecedores ainda não existe no banco.",
-        ) from exc
-
     return (
         db.query(CampoFornecedor)
         .filter(CampoFornecedor.empresa_id == empresa_id)
@@ -870,7 +870,18 @@ def listar_fornecedores(
         if paginated:
             total = query.count()
             rows = query.offset(offset).limit(limit).all()
-            items = [fornecedor_to_list_out(db, f, include_custom_fields=True) for f in rows]
+            custom_fields_por_fornecedor = buscar_custom_fields_fornecedores_em_lote(
+                db, empresa_id, [int(f.id) for f in rows]
+            )
+            items = [
+                fornecedor_to_list_out(
+                    db,
+                    f,
+                    include_custom_fields=True,
+                    custom_fields=custom_fields_por_fornecedor.get(int(f.id), {}),
+                )
+                for f in rows
+            ]
             return {
                 "items": items,
                 "total": total,
@@ -880,7 +891,18 @@ def listar_fornecedores(
             }
 
         rows = query.all()
-        return [fornecedor_to_list_out(db, f, include_custom_fields=True) for f in rows]
+        custom_fields_por_fornecedor = buscar_custom_fields_fornecedores_em_lote(
+            db, empresa_id, [int(f.id) for f in rows]
+        )
+        return [
+            fornecedor_to_list_out(
+                db,
+                f,
+                include_custom_fields=True,
+                custom_fields=custom_fields_por_fornecedor.get(int(f.id), {}),
+            )
+            for f in rows
+        ]
     except OperationalError as exc:
         raise HTTPException(
             status_code=500,

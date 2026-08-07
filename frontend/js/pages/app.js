@@ -1,5 +1,72 @@
 
 // ==========================================
+// HUB ÚNICO DE MUTAÇÕES DO DOM
+// Um único MutationObserver para toda a aplicação. Os módulos recebem apenas
+// os nós adicionados, sem reprocessar document inteiro a cada alteração.
+// ==========================================
+(() => {
+  'use strict';
+  if (window.ValoraMutationHub) return;
+
+  const subscribers = new Set();
+  const pending = new Set();
+  let observer = null;
+  let scheduled = false;
+
+  function compactRoots(nodes) {
+    const list = Array.from(nodes).filter((node) => node?.nodeType === 1 && node.isConnected);
+    return list.filter((node, index) => !list.some((other, otherIndex) => otherIndex !== index && other.contains(node)));
+  }
+
+  function flush() {
+    scheduled = false;
+    const roots = compactRoots(pending);
+    pending.clear();
+    if (!roots.length) return;
+    subscribers.forEach((handler) => {
+      try { handler(roots); } catch (error) { console.warn('[Valora DOM]', error); }
+    });
+  }
+
+  function queue(node) {
+    if (!node || node.nodeType !== 1) return;
+    pending.add(node);
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(flush);
+  }
+
+  function start() {
+    if (observer || !document.body || !window.MutationObserver) return;
+    observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type !== 'childList' || !mutation.addedNodes?.length) continue;
+        mutation.addedNodes.forEach(queue);
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  window.ValoraMutationHub = {
+    subscribe(handler) {
+      if (typeof handler !== 'function') return () => {};
+      subscribers.add(handler);
+      start();
+      return () => subscribers.delete(handler);
+    },
+    disconnect() {
+      observer?.disconnect();
+      observer = null;
+      pending.clear();
+    }
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
+  else start();
+})();
+
+
+// ==========================================
 // EXPERIÊNCIA MOBILE GLOBAL
 // Carrega por último para corrigir todas as páginas sem alterar o desktop.
 // ==========================================
@@ -442,19 +509,10 @@ document.addEventListener('DOMContentLoaded', () => {
     resizeObserver?.observe(wrapper);
     resizeObserver?.observe(content);
 
-    const contentObserver = new MutationObserver(scheduleUpdate);
-    contentObserver.observe(content, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-      attributes: true
-    });
-
     const controller = {
       update: scheduleUpdate,
       destroy() {
         resizeObserver?.disconnect();
-        contentObserver.disconnect();
         topScrollbar.remove();
         controllers.delete(wrapper);
       }
@@ -487,17 +545,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function init() {
     scan(document);
 
-    const pageObserver = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type !== 'childList' || !mutation.addedNodes.length) continue;
-        scheduleScan(document);
-        break;
-      }
-    });
-
-    pageObserver.observe(document.body, {
-      childList: true,
-      subtree: true
+    window.ValoraMutationHub?.subscribe((roots) => {
+      roots.forEach((node) => {
+        scan(node);
+        const wrapper = node.closest?.(WRAPPER_SELECTOR);
+        if (wrapper) controllers.get(wrapper)?.update();
+      });
     });
 
     window.addEventListener('resize', () => {
@@ -552,36 +605,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function enhanceResponsiveTables(root = document) {
-    const tables = root.querySelectorAll ? root.querySelectorAll('table') : [];
+    const tables = [];
+    if (root instanceof HTMLTableElement) tables.push(root);
+    if (root.querySelectorAll) tables.push(...root.querySelectorAll('table'));
     tables.forEach(enhanceTable);
-  }
-
-  let scheduled = false;
-  function scheduleEnhance() {
-    if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
-      enhanceResponsiveTables(document);
-    });
   }
 
   document.addEventListener('DOMContentLoaded', () => {
     enhanceResponsiveTables(document);
-
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type !== 'childList') continue;
-        if (!mutation.addedNodes || !mutation.addedNodes.length) continue;
-        scheduleEnhance();
-        break;
-      }
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+    window.ValoraMutationHub?.subscribe((roots) => roots.forEach(enhanceResponsiveTables));
   });
 })();
 

@@ -28,81 +28,7 @@ def _b64url(data: bytes) -> str:
 
 
 def ensure_push_schema(db: Session) -> None:
-    """Cria as estruturas de Web Push uma única vez por processo.
-
-    A rotina é idempotente e usa advisory lock para funcionar com mais de um worker.
-    """
-
-    global _PUSH_SCHEMA_READY
-    if _PUSH_SCHEMA_READY:
-        return
-
-    db.execute(text("SELECT pg_advisory_xact_lock(hashtext('valora_agenda_push_schema_v1'))"))
-    db.execute(
-        text(
-            """
-            CREATE TABLE IF NOT EXISTS agenda_push_config (
-                id SMALLINT PRIMARY KEY,
-                vapid_private_key TEXT NOT NULL,
-                vapid_public_key VARCHAR(180) NOT NULL,
-                criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                CONSTRAINT ck_agenda_push_config_id CHECK (id = 1)
-            )
-            """
-        )
-    )
-    db.execute(
-        text(
-            """
-            CREATE TABLE IF NOT EXISTS agenda_push_assinaturas (
-                id BIGSERIAL PRIMARY KEY,
-                empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-                usuario_id BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-                endpoint TEXT NOT NULL,
-                p256dh TEXT NOT NULL,
-                auth TEXT NOT NULL,
-                plataforma VARCHAR(80) NULL,
-                user_agent VARCHAR(700) NULL,
-                ativo BOOLEAN NOT NULL DEFAULT TRUE,
-                criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                ultimo_sucesso_em TIMESTAMPTZ NULL,
-                ultimo_erro TEXT NULL,
-                CONSTRAINT uq_agenda_push_endpoint UNIQUE (endpoint)
-            )
-            """
-        )
-    )
-    db.execute(
-        text(
-            """
-            CREATE INDEX IF NOT EXISTS ix_agenda_push_assinaturas_usuario
-            ON agenda_push_assinaturas (empresa_id, usuario_id, ativo)
-            """
-        )
-    )
-    db.execute(
-        text(
-            """
-            CREATE TABLE IF NOT EXISTS agenda_push_entregas (
-                agenda_item_id BIGINT NOT NULL REFERENCES agenda_itens(id) ON DELETE CASCADE,
-                assinatura_id BIGINT NOT NULL REFERENCES agenda_push_assinaturas(id) ON DELETE CASCADE,
-                agendado_para TIMESTAMPTZ NOT NULL,
-                status VARCHAR(20) NOT NULL DEFAULT 'processando',
-                tentativas INTEGER NOT NULL DEFAULT 1,
-                ultimo_erro TEXT NULL,
-                enviado_em TIMESTAMPTZ NULL,
-                atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                PRIMARY KEY (agenda_item_id, assinatura_id, agendado_para),
-                CONSTRAINT ck_agenda_push_entrega_status
-                    CHECK (status IN ('processando', 'enviado', 'erro'))
-            )
-            """
-        )
-    )
-    db.commit()
-    _PUSH_SCHEMA_READY = True
+    raise RuntimeError("Estrutura administrada pelo Alembic; execute `alembic upgrade head`.")
 
 
 def get_vapid_material(db: Session) -> Dict[str, str]:
@@ -113,7 +39,6 @@ def get_vapid_material(db: Session) -> Dict[str, str]:
     if env_private and env_public:
         return {"private_key": env_private, "public_key": env_public, "subject": _VAPID_SUBJECT}
 
-    ensure_push_schema(db)
     row = db.execute(
         text("SELECT vapid_private_key, vapid_public_key FROM agenda_push_config WHERE id = 1")
     ).mappings().first()
@@ -173,7 +98,6 @@ def upsert_subscription(
     plataforma: Optional[str] = None,
     user_agent: Optional[str] = None,
 ) -> Dict[str, Any]:
-    ensure_push_schema(db)
     row = db.execute(
         text(
             """
@@ -213,9 +137,6 @@ def upsert_subscription(
 
 
 def reset_item_deliveries(db: Session, *, item_id: int) -> None:
-    exists = db.execute(text("SELECT to_regclass('public.agenda_push_entregas')")).scalar()
-    if not exists:
-        return
     db.execute(
         text("DELETE FROM agenda_push_entregas WHERE agenda_item_id = :item_id"),
         {"item_id": item_id},
@@ -223,7 +144,6 @@ def reset_item_deliveries(db: Session, *, item_id: int) -> None:
 
 
 def disable_subscription(db: Session, *, empresa_id: int, usuario_id: int, endpoint: str) -> bool:
-    ensure_push_schema(db)
     result = db.execute(
         text(
             """
@@ -276,7 +196,6 @@ def _response_status(error: Exception) -> Optional[int]:
 def send_test_to_user(
     db: Session, *, empresa_id: int, usuario_id: int, endpoint: Optional[str] = None
 ) -> Dict[str, int]:
-    ensure_push_schema(db)
     vapid = get_vapid_material(db)
     subscriptions = db.execute(
         text(
@@ -355,11 +274,6 @@ def dispatch_due_pushes() -> int:
     locked = False
     sent_count = 0
     try:
-        # Import tardio evita ciclo durante a carga dos routers.
-        from backend.routers.agenda import ensure_agenda_table
-
-        ensure_agenda_table(db)
-        ensure_push_schema(db)
         vapid = get_vapid_material(db)
 
         locked = bool(

@@ -1,6 +1,10 @@
 let propostas = [];
 let clientesCache = [];
 let camposConfiguraveis = [];
+let propostasPage = { offset: 0, limit: 50, total: 0, hasMore: false };
+let propostasBuscaTimer = null;
+let clienteBuscaTimer = null;
+let clienteBuscaVersion = 0;
 
 const API_PROPOSTAS = '/api/propostas';
 const API_CLIENTES = '/api/clientes';
@@ -215,13 +219,24 @@ async function apiJson(url, options = {}){
 // ==========================================
 // CLIENTES - BUSCA / AUTOCOMPLETE
 // ==========================================
-async function carregarClientes(){
+async function carregarClientes(busca = ''){
+  const version = ++clienteBuscaVersion;
   try{
-    const data = await apiJson(API_CLIENTES);
-    clientesCache = Array.isArray(data) ? data : [];
+    const params = new URLSearchParams({
+      paginated: 'true',
+      limit: '20',
+      offset: '0',
+    });
+    const termo = String(busca || '').trim();
+    if(termo) params.set('busca', termo);
+    const data = await apiJson(`${API_CLIENTES}?${params.toString()}`);
+    if(version !== clienteBuscaVersion) return clientesCache;
+    clientesCache = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+    return clientesCache;
   }catch(err){
     console.error('[propostas] erro ao carregar clientes:', err);
-    clientesCache = [];
+    if(version === clienteBuscaVersion) clientesCache = [];
+    return clientesCache;
   }
 }
 
@@ -482,13 +497,33 @@ async function enviarPropostaAtualNoWhatsApp(){
 // ==========================================
 // PROPOSTAS - LISTA
 // ==========================================
-async function carregarPropostas(){
+async function carregarPropostas({ offset = propostasPage.offset || 0 } = {}){
   try{
-    const data = await apiJson(API_PROPOSTAS);
-    propostas = Array.isArray(data) ? data : [];
+    const params = new URLSearchParams({
+      paginated: 'true',
+      limit: String(propostasPage.limit || 50),
+      offset: String(Math.max(0, Number(offset || 0))),
+    });
+    const busca = String(qs('busca-propostas')?.value || '').trim();
+    if(busca) params.set('busca', busca);
+
+    const data = await apiJson(`${API_PROPOSTAS}?${params.toString()}`);
+    propostas = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+    propostasPage = {
+      offset: Number(data?.offset ?? offset) || 0,
+      limit: Number(data?.limit ?? propostasPage.limit) || 50,
+      total: Number(data?.total ?? propostas.length) || 0,
+      hasMore: Boolean(data?.has_more),
+    };
+
+    if(!propostas.length && propostasPage.total > 0 && propostasPage.offset > 0){
+      const lastOffset = Math.max(0, (Math.ceil(propostasPage.total / propostasPage.limit) - 1) * propostasPage.limit);
+      if(lastOffset !== propostasPage.offset) return carregarPropostas({ offset: lastOffset });
+    }
   }catch(err){
     console.error('[propostas] erro ao carregar propostas:', err);
     propostas = [];
+    propostasPage = { ...propostasPage, total: 0, hasMore: false };
   }
   renderTabela();
 }
@@ -496,17 +531,8 @@ async function carregarPropostas(){
 function renderTabela(){
   const tbody = qs('tbody-propostas');
   const count = qs('contagem-propostas');
-  const busca = (qs('busca-propostas')?.value || '').toLowerCase().trim();
-
   if(!tbody) return;
-
-  const filtradas = propostas.filter((p) => {
-    const texto = [p.codigo, p.titulo, p.cliente_nome, p.status, p.total]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-    return !busca || texto.includes(busca);
-  });
+  const filtradas = propostas;
 
   tbody.innerHTML = '';
 
@@ -544,8 +570,34 @@ function renderTabela(){
   }
 
   if(count){
-    count.textContent = filtradas.length === 1 ? '1 proposta' : `${filtradas.length} propostas`;
+    const inicio = propostasPage.total ? propostasPage.offset + 1 : 0;
+    const fim = Math.min(propostasPage.offset + filtradas.length, propostasPage.total);
+    count.textContent = propostasPage.total
+      ? `${inicio}–${fim} de ${propostasPage.total} propostas`
+      : '0 propostas';
   }
+
+  renderPaginacaoPropostas();
+}
+
+function renderPaginacaoPropostas(){
+  const box = qs('paginacao-propostas');
+  if(!box) return;
+
+  const total = Number(propostasPage.total || 0);
+  const limit = Number(propostasPage.limit || 50);
+  const offset = Number(propostasPage.offset || 0);
+  const paginas = Math.max(1, Math.ceil(total / limit));
+  const atual = total ? Math.floor(offset / limit) + 1 : 1;
+  const lastOffset = Math.max(0, (paginas - 1) * limit);
+
+  box.innerHTML = `
+    <span class="counter-text pagination-info">Página ${atual} de ${paginas}</span>
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="first" ${offset <= 0 ? 'disabled' : ''}>Primeira</button>
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="prev" ${offset <= 0 ? 'disabled' : ''}>Anterior</button>
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="next" ${offset >= lastOffset ? 'disabled' : ''}>Próxima</button>
+    <button class="btn btn-secondary btn-sm" type="button" data-page-action="last" data-last-offset="${lastOffset}" ${offset >= lastOffset ? 'disabled' : ''}>Última</button>
+  `;
 }
 
 // ==========================================
@@ -1178,25 +1230,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   qs('Valora-confirm-cancel')?.addEventListener('click', () => closeConfirm(false));
   qs('Valora-confirm-ok')?.addEventListener('click', () => closeConfirm(true));
 
-  qs('busca-propostas')?.addEventListener('input', renderTabela);
+  qs('busca-propostas')?.addEventListener('input', () => {
+    clearTimeout(propostasBuscaTimer);
+    propostasBuscaTimer = setTimeout(() => carregarPropostas({ offset: 0 }), 250);
+  });
   qs('btn-nova-proposta')?.addEventListener('click', openNovaProposta);
   qs('btn-fechar-modal')?.addEventListener('click', closeModal);
   qs('btn-whatsapp-proposta')?.addEventListener('click', enviarPropostaAtualNoWhatsApp);
 
   qs('proposta-cliente-busca')?.addEventListener('focus', async () => {
-    if(!clientesCache.length){
-      await carregarClientes();
-    }
-    renderResultadosClientes(qs('proposta-cliente-busca')?.value || '');
+    const termo = qs('proposta-cliente-busca')?.value || '';
+    await carregarClientes(termo);
+    renderResultadosClientes(termo);
   });
 
   qs('proposta-cliente-busca')?.addEventListener('input', async (e) => {
-    if(!clientesCache.length){
-      await carregarClientes();
-    }
-
     limparClienteSelecionado(true);
-    renderResultadosClientes(e.target.value || '');
+    const termo = e.target.value || '';
+    clienteBuscaVersion += 1;
+    clearTimeout(clienteBuscaTimer);
+    clienteBuscaTimer = setTimeout(async () => {
+      await carregarClientes(termo);
+      renderResultadosClientes(termo);
+    }, 220);
   });
 
   qs('proposta-cliente-busca')?.addEventListener('keydown', (e) => {
@@ -1272,6 +1328,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         toast('Proposta excluída.');
       }
     }
+  });
+
+  qs('paginacao-propostas')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-page-action]');
+    if(!btn || btn.disabled) return;
+
+    const limit = Number(propostasPage.limit || 50);
+    const total = Number(propostasPage.total || 0);
+    const lastOffset = Math.max(0, (Math.ceil(total / limit) - 1) * limit);
+    let offset = Number(propostasPage.offset || 0);
+
+    if(btn.dataset.pageAction === 'first') offset = 0;
+    if(btn.dataset.pageAction === 'prev') offset = Math.max(0, offset - limit);
+    if(btn.dataset.pageAction === 'next') offset = Math.min(lastOffset, offset + limit);
+    if(btn.dataset.pageAction === 'last') offset = lastOffset;
+
+    await carregarPropostas({ offset });
   });
 
   qs('fields-config-body')?.addEventListener('click', async (e) => {

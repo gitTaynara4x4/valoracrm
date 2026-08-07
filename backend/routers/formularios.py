@@ -19,6 +19,7 @@ try:
 except Exception:  # pragma: no cover
     models_contratos = None
 from backend.database import SessionLocal
+from backend.security.permissions import get_request_user
 
 router = APIRouter(prefix="/api/formularios", tags=["Formulários"])
 
@@ -47,27 +48,7 @@ def _int_cookie(request: Request, name: str) -> int:
 
 
 def validar_usuario_empresa(request: Request, db: Session) -> int:
-    # O user_id é a fonte segura da sessão.
-    # Não confie no cookie empresa_id para validar a empresa, porque ele pode ficar
-    # antigo no navegador e causar o erro: "Usuário inválido para esta empresa".
-    user_id = _int_cookie(request, "user_id")
-
-    usuario = (
-        db.query(models.Usuario)
-        .filter(models.Usuario.id == user_id)
-        .first()
-    )
-
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    if hasattr(usuario, "ativo") and usuario.ativo is False:
-        raise HTTPException(status_code=403, detail="Usuário inativo.")
-
-    return int(usuario.empresa_id)
+    return int(get_request_user(request, db).empresa_id)
 
 
 # =========================================================
@@ -905,35 +886,36 @@ def garantir_data_cadastro_no_modelo(db: Session, modelo) -> None:
     db.add(campo)
     db.flush()
 
-def formulario_completo(db: Session, modelo) -> Dict[str, Any]:
-    garantir_data_cadastro_no_modelo(db, modelo)
+def sincronizar_modelo_apos_escrita(db: Session, modelo) -> None:
+    """Mantém os vínculos do formulário dentro de rotas de escrita.
 
-    # Clientes e fornecedores precisam de uma chave estável para campos
-    # personalizados. Sem o vínculo, o formulário exibe o campo, mas o valor
-    # pode ser descartado ao salvar ou parecer perdido depois de renomeá-lo.
+    Leituras apenas serializam o estado atual. Criação/edição de modelos e
+    campos é o momento correto para persistir campos auxiliares e vínculos.
+    """
+    garantir_data_cadastro_no_modelo(db, modelo)
     modulo = str(getattr(modelo, "modulo", ""))
     if modulo == "clientes":
         from backend.routers.clientes import sincronizar_campos_clientes_do_formulario
-
         sincronizar_campos_clientes_do_formulario(
             db, int(modelo.empresa_id), modelo_id=int(modelo.id), commit=False
         )
     elif modulo == "fornecedores":
         from backend.routers.fornecedores import sincronizar_campos_fornecedores_do_formulario
-
         sincronizar_campos_fornecedores_do_formulario(
             db, int(modelo.empresa_id), modelo_id=int(modelo.id), commit=False
         )
     elif modulo == "produtos":
         from backend.routers.produtos import sincronizar_campos_produtos_com_formulario
-
         sincronizar_campos_produtos_com_formulario(
             db, int(modelo.empresa_id), modelo_id=int(modelo.id), commit=False
         )
+    elif modulo == "cotacoes":
+        from backend.routers.cotacoes import sincronizar_campos_cotacoes_do_formulario
+        sincronizar_campos_cotacoes_do_formulario(db, int(modelo.empresa_id), commit=False)
 
-    db.commit()
-    db.refresh(modelo)
 
+def formulario_completo(db: Session, modelo) -> Dict[str, Any]:
+    modulo = str(getattr(modelo, "modulo", ""))
     secoes = (
         db.query(models.FormularioSecao)
         .filter(models.FormularioSecao.formulario_id == modelo.id)
@@ -1522,19 +1504,8 @@ def _normalizar_layout_localizar(value: Any) -> Dict[str, List[str]]:
 
 
 def _garantir_tabela_layout_localizar(db: Session) -> None:
-    # A tabela é pequena e independente. CREATE TABLE IF NOT EXISTS permite que
     # a atualização funcione também em instalações que ainda não rodaram o SQL.
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS formularios_layouts_localizar (
-            id BIGSERIAL PRIMARY KEY,
-            empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-            modulo VARCHAR(60) NOT NULL,
-            layout_json TEXT NOT NULL DEFAULT '{}',
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            CONSTRAINT uq_formularios_layouts_localizar_empresa_modulo UNIQUE (empresa_id, modulo)
-        )
-    """))
-    db.commit()
+    raise RuntimeError("Estrutura administrada pelo Alembic; execute `alembic upgrade head`.")
 
 
 @router.get("/layout-localizar/{modulo}")
@@ -1547,7 +1518,6 @@ def obter_layout_localizar(
     modulo = validar_modulo(modulo)
 
     try:
-        _garantir_tabela_layout_localizar(db)
         row = db.execute(
             text("""
                 SELECT layout_json
@@ -1583,7 +1553,6 @@ def salvar_layout_localizar(
     layout = _normalizar_layout_localizar(dump_model(payload))
 
     try:
-        _garantir_tabela_layout_localizar(db)
         db.execute(
             text("""
                 INSERT INTO formularios_layouts_localizar (empresa_id, modulo, layout_json, atualizado_em)
@@ -1683,6 +1652,8 @@ def criar_modelo(
 
     try:
         db.add(row)
+        db.flush()
+        sincronizar_modelo_apos_escrita(db, row)
         db.commit()
         db.refresh(row)
     except IntegrityError:
@@ -1791,6 +1762,7 @@ def atualizar_modelo(
             limpar_ficha_principal_anterior(db, empresa_id, modelo.modulo, exceto_id=modelo.id)
 
     try:
+        sincronizar_modelo_apos_escrita(db, modelo)
         db.commit()
         db.refresh(modelo)
     except IntegrityError:
@@ -1843,6 +1815,8 @@ def criar_secao(
     )
 
     db.add(secao)
+    db.flush()
+    sincronizar_modelo_apos_escrita(db, modelo)
     db.commit()
     db.refresh(secao)
 
@@ -1882,6 +1856,8 @@ def atualizar_secao(
     if "ativo" in dados and dados["ativo"] is not None:
         secao.ativo = bool(dados["ativo"])
 
+    modelo = modelo_ou_404(db, int(secao.formulario_id), empresa_id)
+    sincronizar_modelo_apos_escrita(db, modelo)
     db.commit()
     db.refresh(secao)
 
@@ -1905,7 +1881,10 @@ def excluir_secao(
             .update({"secao_id": None}, synchronize_session=False)
         )
 
+    modelo = modelo_ou_404(db, int(secao.formulario_id), empresa_id)
     db.delete(secao)
+    db.flush()
+    sincronizar_modelo_apos_escrita(db, modelo)
     db.commit()
 
     return {"ok": True, "message": "Seção excluída com sucesso."}
@@ -1933,6 +1912,8 @@ def criar_campo(
     aplicar_campo(campo, dados, db, modelo, criando=True)
 
     db.add(campo)
+    db.flush()
+    sincronizar_modelo_apos_escrita(db, modelo)
     db.commit()
     db.refresh(campo)
 
@@ -1952,6 +1933,7 @@ def atualizar_campo(
     dados = dump_model(payload, exclude_unset=True)
 
     aplicar_campo(campo, dados, db, modelo, criando=False)
+    sincronizar_modelo_apos_escrita(db, modelo)
 
     db.commit()
     db.refresh(campo)
@@ -1967,8 +1949,11 @@ def excluir_campo(
 ):
     empresa_id = validar_usuario_empresa(request, db)
     campo = campo_ou_404(db, campo_id, empresa_id)
+    modelo = modelo_ou_404(db, int(campo.formulario_id), empresa_id)
 
     db.delete(campo)
+    db.flush()
+    sincronizar_modelo_apos_escrita(db, modelo)
     db.commit()
 
     return {"ok": True, "message": "Campo removido do formulário com sucesso."}
@@ -2094,6 +2079,7 @@ def criar_modelo_padrao(
 
     if existente:
         garantir_estrutura_padrao(db, existente, modulo)
+        sincronizar_modelo_apos_escrita(db, existente)
         db.commit()
         db.refresh(existente)
         return formulario_completo(db, existente)
@@ -2115,6 +2101,7 @@ def criar_modelo_padrao(
         db.flush()
 
         garantir_estrutura_padrao(db, modelo, modulo)
+        sincronizar_modelo_apos_escrita(db, modelo)
 
         db.commit()
         db.refresh(modelo)

@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import String, cast, func, or_, text as sql_text
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from backend import models as core_models
 from backend.database import SessionLocal
+from backend.security.permissions import get_request_user
 from backend.dynamic_filters import apply_dynamic_filters
 from backend.audit import count_history as count_audit_history, list_history as list_audit_history, record_section_changes
 
@@ -43,44 +44,17 @@ def get_db():
 
 
 def get_empresa_id(
-    user_id: Optional[str] = Cookie(default=None),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> int:
-    if not user_id or not str(user_id).strip():
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        user_id_int = int(str(user_id).strip())
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(core_models.Usuario).filter(core_models.Usuario.id == user_id_int).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    return int(usuario.empresa_id)
+    return int(get_request_user(request, db).empresa_id)
 
 
 def get_current_user(
-    user_id: Optional[str] = Cookie(default=None),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> core_models.Usuario:
-    if not user_id or not str(user_id).strip():
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        user_id_int = int(str(user_id).strip())
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(core_models.Usuario).filter(core_models.Usuario.id == user_id_int).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    return usuario
+    return get_request_user(request, db)
 
 
 try:
@@ -958,25 +932,39 @@ def gerar_codigo_cliente(db: Session, empresa_id: int) -> str:
 
 
 def buscar_campos_empresa_map(db: Session, empresa_id: int) -> Dict[str, core_models.CampoCliente]:
-    sincronizar_campos_clientes_do_formulario(db, empresa_id, commit=False)
-
     campos = db.query(core_models.CampoCliente).filter(core_models.CampoCliente.empresa_id == empresa_id).all()
     return {str(c.slug): c for c in campos}
 
 
-def buscar_custom_fields_cliente(db: Session, empresa_id: int, cliente_id: int) -> Dict[str, Any]:
+def buscar_custom_fields_clientes_em_lote(
+    db: Session,
+    empresa_id: int,
+    cliente_ids: List[int],
+) -> Dict[int, Dict[str, Any]]:
+    ids = sorted({int(cliente_id) for cliente_id in cliente_ids if int(cliente_id) > 0})
+    out: Dict[int, Dict[str, Any]] = {cliente_id: {} for cliente_id in ids}
+    if not ids:
+        return out
+
     rows = (
-        db.query(core_models.ClienteCampoValor, core_models.CampoCliente)
+        db.query(
+            core_models.ClienteCampoValor.cliente_id,
+            core_models.CampoCliente.slug,
+            core_models.ClienteCampoValor.valor,
+        )
         .join(core_models.CampoCliente, core_models.CampoCliente.id == core_models.ClienteCampoValor.campo_id)
-        .filter(core_models.ClienteCampoValor.cliente_id == cliente_id)
+        .filter(core_models.ClienteCampoValor.cliente_id.in_(ids))
         .filter(core_models.CampoCliente.empresa_id == empresa_id)
         .all()
     )
 
-    out: Dict[str, Any] = {}
-    for valor_row, campo_row in rows:
-        out[str(campo_row.slug)] = valor_row.valor
+    for cliente_id, slug, valor in rows:
+        out.setdefault(int(cliente_id), {})[str(slug)] = valor
     return out
+
+
+def buscar_custom_fields_cliente(db: Session, empresa_id: int, cliente_id: int) -> Dict[str, Any]:
+    return buscar_custom_fields_clientes_em_lote(db, empresa_id, [cliente_id]).get(int(cliente_id), {})
 
 
 def salvar_custom_fields_cliente(
@@ -1468,12 +1456,19 @@ def montar_historico_cliente(db: Session, cliente: Cliente) -> Dict[str, Any]:
     return historico
 
 
-def cliente_to_list_out(db: Session, c: Cliente, *, include_custom_fields: bool = False) -> ClienteListOut:
-    custom_fields = (
-        buscar_custom_fields_cliente(db, int(c.empresa_id), int(c.id))
-        if include_custom_fields
-        else {}
-    )
+def cliente_to_list_out(
+    db: Session,
+    c: Cliente,
+    *,
+    include_custom_fields: bool = False,
+    custom_fields: Optional[Dict[str, Any]] = None,
+) -> ClienteListOut:
+    if custom_fields is None:
+        custom_fields = (
+            buscar_custom_fields_cliente(db, int(c.empresa_id), int(c.id))
+            if include_custom_fields
+            else {}
+        )
     return ClienteListOut(
         id=int(c.id),
         empresa_id=int(c.empresa_id),
@@ -1985,15 +1980,6 @@ def listar_campos(
     db: Session = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    try:
-        sincronizar_campos_clientes_do_formulario(db, empresa_id, commit=True)
-    except OperationalError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="A estrutura de Formulários/Campos ainda não existe no banco. Rode a query SQL/migration antes de abrir Clientes.",
-        ) from exc
-
     rows = (
         db.query(core_models.CampoCliente)
         .filter(core_models.CampoCliente.empresa_id == empresa_id)
@@ -2135,7 +2121,20 @@ def listar_clientes(
         if paginated:
             total = query.count()
             rows = query.offset(offset).limit(limit).all()
-            items = [pydantic_dump(cliente_to_list_out(db, c, include_custom_fields=True)) for c in rows]
+            custom_fields_por_cliente = buscar_custom_fields_clientes_em_lote(
+                db, empresa_id, [int(c.id) for c in rows]
+            )
+            items = [
+                pydantic_dump(
+                    cliente_to_list_out(
+                        db,
+                        c,
+                        include_custom_fields=True,
+                        custom_fields=custom_fields_por_cliente.get(int(c.id), {}),
+                    )
+                )
+                for c in rows
+            ]
             return {
                 "items": items,
                 "total": total,
@@ -2145,7 +2144,18 @@ def listar_clientes(
             }
 
         rows = query.all()
-        return [cliente_to_list_out(db, c, include_custom_fields=True) for c in rows]
+        custom_fields_por_cliente = buscar_custom_fields_clientes_em_lote(
+            db, empresa_id, [int(c.id) for c in rows]
+        )
+        return [
+            cliente_to_list_out(
+                db,
+                c,
+                include_custom_fields=True,
+                custom_fields=custom_fields_por_cliente.get(int(c.id), {}),
+            )
+            for c in rows
+        ]
     except OperationalError as exc:
         raise HTTPException(
             status_code=500,

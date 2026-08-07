@@ -412,20 +412,7 @@
   }
 
   function observeDynamicFields() {
-    if (!global.MutationObserver) return;
-
-    const observer = new MutationObserver((mutations) => {
-      let shouldRefresh = false;
-      for (const mutation of mutations) {
-        if (mutation.addedNodes && mutation.addedNodes.length) {
-          shouldRefresh = true;
-          break;
-        }
-      }
-      if (shouldRefresh) refresh(document);
-    });
-
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    global.ValoraMutationHub?.subscribe?.((roots) => roots.forEach((node) => refresh(node)));
   }
 
   function init() {

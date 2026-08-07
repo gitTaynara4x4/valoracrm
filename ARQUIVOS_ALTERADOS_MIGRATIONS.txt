@@ -1,0 +1,34 @@
+MIGRATIONS ALEMBIC REAIS - VALORA CRM
+
+Novos arquivos:
+- alembic.ini
+- entrypoint.sh
+- scripts/migrate.py
+- migrations/env.py
+- migrations/script.py.mako
+- migrations/legacy_schema_snapshot_v1.py
+- migrations/versions/20260806_0001_baseline_orm.py
+- migrations/versions/20260806_0002_legacy_runtime_schema.py
+- migrations/versions/20260806_0003_financeiro_schema.py
+
+Arquivos atualizados:
+- Dockerfile
+- README.md
+- backend/main.py
+- backend/schema_bootstrap.py
+- backend/agenda_push.py
+- backend/audit.py
+- backend/routers/agenda.py
+- backend/routers/contratos_admin.py
+- backend/routers/cotacoes.py
+- backend/routers/financeiro.py
+- backend/routers/formularios.py
+- backend/routers/orcamentos.py
+- backend/routers/produtos.py
+- backend/routers/patrimonio.py
+
+Aplicação:
+1. Substitua os arquivos mantendo a estrutura das pastas.
+2. Faça o build e o deploy do container.
+3. O entrypoint executará `alembic upgrade head` antes do Uvicorn.
+4. Não execute novamente o antigo schema_bootstrap.

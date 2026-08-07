@@ -3,14 +3,16 @@ from __future__ import annotations
 import json
 import re
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
+from backend.security.permissions import get_request_user
 from backend import models
 
 router = APIRouter(prefix="/api/propostas", tags=["Propostas e Orçamentos"])
@@ -94,26 +96,7 @@ def decimal_to_br(value: Decimal) -> str:
 # AUTENTICAÇÃO E EMPRESA
 # =========================================================
 def validar_usuario_empresa(request: Request, db: Session) -> int:
-    user_id = request.cookies.get("user_id")
-    if not user_id or not str(user_id).strip():
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        user_id_int = int(str(user_id).strip())
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(models.Usuario).filter(models.Usuario.id == user_id_int).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-
-    if hasattr(usuario, "ativo") and usuario.ativo is False:
-        raise HTTPException(status_code=403, detail="Usuário inativo.")
-
-    return int(usuario.empresa_id)
+    return int(get_request_user(request, db).empresa_id)
 
 
 def validar_cliente_empresa(db: Session, cliente_id: Optional[int], empresa_id: int) -> None:
@@ -244,14 +227,32 @@ def buscar_proposta_empresa(db: Session, proposta_id: int, empresa_id: int):
     )
 
 
-def listar_itens_proposta(db: Session, proposta_id: int):
+def listar_itens_propostas_em_lote(
+    db: Session,
+    proposta_ids: List[int],
+) -> Dict[int, List[PropostaItemOut]]:
+    ids = sorted({int(proposta_id) for proposta_id in proposta_ids if int(proposta_id) > 0})
+    out: Dict[int, List[PropostaItemOut]] = {proposta_id: [] for proposta_id in ids}
+    if not ids:
+        return out
+
     rows = (
         db.query(models.PropostaItem)
-        .filter(models.PropostaItem.proposta_id == proposta_id)
-        .order_by(models.PropostaItem.ordem.asc(), models.PropostaItem.id.asc())
+        .filter(models.PropostaItem.proposta_id.in_(ids))
+        .order_by(
+            models.PropostaItem.proposta_id.asc(),
+            models.PropostaItem.ordem.asc(),
+            models.PropostaItem.id.asc(),
+        )
         .all()
     )
-    return [item_to_out(item) for item in rows]
+    for item in rows:
+        out.setdefault(int(item.proposta_id), []).append(item_to_out(item))
+    return out
+
+
+def listar_itens_proposta(db: Session, proposta_id: int):
+    return listar_itens_propostas_em_lote(db, [proposta_id]).get(int(proposta_id), [])
 
 
 def parse_opcoes_json(raw: Optional[str]) -> List[str]:
@@ -266,25 +267,49 @@ def parse_opcoes_json(raw: Optional[str]) -> List[str]:
     return []
 
 
-def listar_campos_extras_proposta(db: Session, proposta_id: int, empresa_id: int):
-    campos = (
-        db.query(models.CampoProposta)
+def listar_campos_extras_propostas_em_lote(
+    db: Session,
+    proposta_ids: List[int],
+    empresa_id: int,
+) -> Dict[int, List[CampoExtraValorOut]]:
+    """Carrega definições e valores dos campos extras em uma única consulta SQL."""
+    ids = sorted({int(proposta_id) for proposta_id in proposta_ids if int(proposta_id) > 0})
+    out: Dict[int, List[CampoExtraValorOut]] = {proposta_id: [] for proposta_id in ids}
+    if not ids:
+        return out
+
+    rows = (
+        db.query(models.CampoProposta, models.PropostaCampoValor)
+        .outerjoin(
+            models.PropostaCampoValor,
+            and_(
+                models.PropostaCampoValor.campo_id == models.CampoProposta.id,
+                models.PropostaCampoValor.proposta_id.in_(ids),
+            ),
+        )
         .filter(models.CampoProposta.empresa_id == empresa_id)
         .filter(models.CampoProposta.ativo == True)  # noqa: E712
-        .order_by(models.CampoProposta.ordem.asc(), models.CampoProposta.id.asc())
+        .order_by(
+            models.CampoProposta.ordem.asc(),
+            models.CampoProposta.id.asc(),
+            models.PropostaCampoValor.proposta_id.asc(),
+        )
         .all()
     )
 
-    valores_rows = (
-        db.query(models.PropostaCampoValor)
-        .filter(models.PropostaCampoValor.proposta_id == proposta_id)
-        .all()
-    )
-    valores_map = {int(value.campo_id): value.valor for value in valores_rows}
+    campos_por_id: Dict[int, models.CampoProposta] = {}
+    valores_por_proposta: Dict[int, Dict[int, Optional[str]]] = {proposta_id: {} for proposta_id in ids}
 
-    saida: List[CampoExtraValorOut] = []
-    for campo in campos:
-        saida.append(
+    for campo, valor_row in rows:
+        campo_id = int(campo.id)
+        campos_por_id.setdefault(campo_id, campo)
+        if valor_row is not None and int(valor_row.proposta_id) in valores_por_proposta:
+            valores_por_proposta[int(valor_row.proposta_id)][campo_id] = valor_row.valor
+
+    campos = list(campos_por_id.values())
+    for proposta_id in ids:
+        valores_map = valores_por_proposta.get(proposta_id, {})
+        out[proposta_id] = [
             CampoExtraValorOut(
                 campo_id=int(campo.id),
                 nome=campo.nome,
@@ -295,8 +320,31 @@ def listar_campos_extras_proposta(db: Session, proposta_id: int, empresa_id: int
                 ordem=int(campo.ordem or 0),
                 valor=valores_map.get(int(campo.id)),
             )
-        )
-    return saida
+            for campo in campos
+        ]
+    return out
+
+
+def listar_campos_extras_proposta(db: Session, proposta_id: int, empresa_id: int):
+    return listar_campos_extras_propostas_em_lote(db, [proposta_id], empresa_id).get(int(proposta_id), [])
+
+
+def buscar_clientes_propostas_em_lote(
+    db: Session,
+    empresa_id: int,
+    cliente_ids: List[int],
+) -> Dict[int, models.Cliente]:
+    ids = sorted({int(cliente_id) for cliente_id in cliente_ids if int(cliente_id) > 0})
+    if not ids:
+        return {}
+
+    rows = (
+        db.query(models.Cliente)
+        .filter(models.Cliente.empresa_id == empresa_id)
+        .filter(models.Cliente.id.in_(ids))
+        .all()
+    )
+    return {int(cliente.id): cliente for cliente in rows}
 
 
 def normalizar_itens(itens: List[PropostaItemIn]) -> tuple[List[dict], Decimal]:
@@ -416,20 +464,36 @@ def aplicar_totais(
     proposta.total = decimal_to_br(total_calculado)
 
 
-def proposta_to_out(db: Session, proposta: models.Proposta) -> PropostaOut:
+def proposta_to_out(
+    db: Session,
+    proposta: models.Proposta,
+    *,
+    clientes_por_id: Optional[Dict[int, models.Cliente]] = None,
+    itens: Optional[List[PropostaItemOut]] = None,
+    campos_extras: Optional[List[CampoExtraValorOut]] = None,
+) -> PropostaOut:
     cliente_nome = None
     cliente_whatsapp = None
 
     if proposta.cliente_id:
-        cliente = (
-            db.query(models.Cliente)
-            .filter(models.Cliente.id == proposta.cliente_id)
-            .filter(models.Cliente.empresa_id == proposta.empresa_id)
-            .first()
-        )
+        cliente_id = int(proposta.cliente_id)
+        if clientes_por_id is None:
+            cliente = (
+                db.query(models.Cliente)
+                .filter(models.Cliente.id == cliente_id)
+                .filter(models.Cliente.empresa_id == proposta.empresa_id)
+                .first()
+            )
+        else:
+            cliente = clientes_por_id.get(cliente_id)
         if cliente:
             cliente_nome = getattr(cliente, "nome", None)
             cliente_whatsapp = getattr(cliente, "whatsapp", None) or getattr(cliente, "telefone", None)
+
+    if itens is None:
+        itens = listar_itens_proposta(db, int(proposta.id))
+    if campos_extras is None:
+        campos_extras = listar_campos_extras_proposta(db, int(proposta.id), int(proposta.empresa_id))
 
     return PropostaOut(
         id=int(proposta.id),
@@ -447,21 +511,86 @@ def proposta_to_out(db: Session, proposta: models.Proposta) -> PropostaOut:
         cliente_whatsapp=cliente_whatsapp,
         criado_em=iso_datetime(getattr(proposta, "criado_em", None)),
         atualizado_em=iso_datetime(getattr(proposta, "atualizado_em", None)),
-        itens=listar_itens_proposta(db, int(proposta.id)),
-        campos_extras=listar_campos_extras_proposta(db, int(proposta.id), int(proposta.empresa_id)),
+        itens=itens,
+        campos_extras=campos_extras,
     )
 
 
-@router.get("", response_model=List[PropostaOut])
-def listar_propostas(request: Request, db: Session = Depends(get_db)):
+@router.get("")
+def listar_propostas(
+    request: Request,
+    busca: Optional[str] = Query(default=None),
+    status_filter: Optional[str] = Query(default=None, alias="status"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    paginated: bool = Query(default=False),
+    db: Session = Depends(get_db),
+):
     empresa_id = validar_usuario_empresa(request, db)
-    rows = (
+
+    query = (
         db.query(models.Proposta)
+        .outerjoin(
+            models.Cliente,
+            and_(
+                models.Cliente.id == models.Proposta.cliente_id,
+                models.Cliente.empresa_id == models.Proposta.empresa_id,
+            ),
+        )
         .filter(models.Proposta.empresa_id == empresa_id)
-        .order_by(models.Proposta.criado_em.desc(), models.Proposta.id.desc())
-        .all()
     )
-    return [proposta_to_out(db, proposta) for proposta in rows]
+
+    texto = norm_str(busca)
+    if texto:
+        like = f"%{texto}%"
+        query = query.filter(
+            or_(
+                models.Proposta.codigo.ilike(like),
+                models.Proposta.titulo.ilike(like),
+                models.Proposta.status.ilike(like),
+                models.Cliente.nome.ilike(like),
+                models.Cliente.nome_fantasia.ilike(like),
+            )
+        )
+
+    status_norm = norm_str(status_filter)
+    if status_norm:
+        query = query.filter(models.Proposta.status == status_norm.lower())
+
+    query = query.order_by(models.Proposta.criado_em.desc(), models.Proposta.id.desc())
+
+    total = query.count() if paginated else None
+    rows = query.offset(offset).limit(limit).all() if paginated else query.all()
+    proposta_ids = [int(proposta.id) for proposta in rows]
+    clientes_por_id = buscar_clientes_propostas_em_lote(
+        db,
+        empresa_id,
+        [int(proposta.cliente_id) for proposta in rows if proposta.cliente_id],
+    )
+    itens_por_proposta = listar_itens_propostas_em_lote(db, proposta_ids)
+    campos_extras_por_proposta = listar_campos_extras_propostas_em_lote(db, proposta_ids, empresa_id)
+    items = [
+        proposta_to_out(
+            db,
+            proposta,
+            clientes_por_id=clientes_por_id,
+            itens=itens_por_proposta.get(int(proposta.id), []),
+            campos_extras=campos_extras_por_proposta.get(int(proposta.id), []),
+        )
+        for proposta in rows
+    ]
+
+    if not paginated:
+        return items
+
+    total_value = int(total or 0)
+    return {
+        "items": [item.model_dump() if hasattr(item, "model_dump") else item.dict() for item in items],
+        "total": total_value,
+        "limit": limit,
+        "offset": offset,
+        "has_more": (offset + len(items)) < total_value,
+    }
 
 
 @router.get("/proximo-codigo")

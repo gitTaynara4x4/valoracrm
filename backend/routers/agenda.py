@@ -102,124 +102,7 @@ class PushTestPayload(BaseModel):
 
 
 def ensure_agenda_table(db: Session) -> None:
-    """Cria/atualiza a estrutura uma única vez por processo.
-
-    O módulo ainda não possui migrations Alembic próprias. Esta rotina é idempotente e
-    mantém bancos já existentes compatíveis com os novos tipos e estados da agenda.
-    """
-
-    global _AGENDA_SCHEMA_READY
-    if _AGENDA_SCHEMA_READY:
-        return
-
-    with _AGENDA_SCHEMA_LOCK:
-        if _AGENDA_SCHEMA_READY:
-            return
-        try:
-            # Evita corrida entre múltiplos workers tentando atualizar a mesma tabela.
-            db.execute(text("SELECT pg_advisory_xact_lock(hashtext('valora_agenda_schema_v9'))"))
-            db.execute(
-                text(
-                    """
-                    CREATE TABLE IF NOT EXISTS agenda_itens (
-                        id BIGSERIAL PRIMARY KEY,
-                        empresa_id BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-                        entidade_tipo VARCHAR(30) NOT NULL,
-                        entidade_id BIGINT NOT NULL,
-                        entidade_nome VARCHAR(180) NOT NULL,
-                        tipo VARCHAR(40) NOT NULL,
-                        assunto VARCHAR(180) NOT NULL,
-                        descricao TEXT NULL,
-                        agendado_para TIMESTAMPTZ NULL,
-                        status VARCHAR(30) NOT NULL DEFAULT 'registrado',
-                        motivo_status VARCHAR(180) NULL,
-                        informacoes_livres TEXT NULL,
-                        departamento_destino VARCHAR(180) NULL,
-                        responsavel_usuario_id BIGINT NULL REFERENCES usuarios(id) ON DELETE SET NULL,
-                        criado_por_usuario_id BIGINT NULL REFERENCES usuarios(id) ON DELETE SET NULL,
-                        criado_por_nome VARCHAR(120) NULL,
-                        notificado_em TIMESTAMPTZ NULL,
-                        concluido_em TIMESTAMPTZ NULL,
-                        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        CONSTRAINT ck_agenda_entidade_tipo
-                            CHECK (entidade_tipo IN ('cliente', 'fornecedor', 'produto')),
-                        CONSTRAINT ck_agenda_tipo
-                            CHECK (tipo IN (
-                                'registro', 'lembrete', 'enviar_proposta',
-                                'abrir_ordem_servico', 'transferir_departamento'
-                            )),
-                        CONSTRAINT ck_agenda_status
-                            CHECK (status IN (
-                                'registrado', 'em_aberto', 'em_andamento',
-                                'em_analise', 'parado', 'finalizado', 'cancelado'
-                            ))
-                    )
-                    """
-                )
-            )
-
-            db.execute(text("ALTER TABLE agenda_itens ADD COLUMN IF NOT EXISTS motivo_status VARCHAR(180) NULL"))
-            db.execute(text("ALTER TABLE agenda_itens ADD COLUMN IF NOT EXISTS informacoes_livres TEXT NULL"))
-            db.execute(text("ALTER TABLE agenda_itens ADD COLUMN IF NOT EXISTS departamento_destino VARCHAR(180) NULL"))
-            db.execute(text("ALTER TABLE agenda_itens ALTER COLUMN tipo TYPE VARCHAR(40)"))
-            db.execute(text("ALTER TABLE agenda_itens ALTER COLUMN status TYPE VARCHAR(30)"))
-
-            # Remove as validações antigas antes de converter os valores legados.
-            db.execute(text("ALTER TABLE agenda_itens DROP CONSTRAINT IF EXISTS ck_agenda_tipo"))
-            db.execute(text("ALTER TABLE agenda_itens DROP CONSTRAINT IF EXISTS ck_agenda_status"))
-            db.execute(text("UPDATE agenda_itens SET status = 'em_aberto' WHERE status = 'pendente'"))
-            db.execute(text("UPDATE agenda_itens SET status = 'finalizado' WHERE status = 'concluido'"))
-
-            db.execute(
-                text(
-                    """
-                    ALTER TABLE agenda_itens
-                    ADD CONSTRAINT ck_agenda_tipo
-                    CHECK (tipo IN (
-                        'registro', 'lembrete', 'enviar_proposta',
-                        'abrir_ordem_servico', 'transferir_departamento'
-                    ))
-                    """
-                )
-            )
-            db.execute(
-                text(
-                    """
-                    ALTER TABLE agenda_itens
-                    ADD CONSTRAINT ck_agenda_status
-                    CHECK (status IN (
-                        'registrado', 'em_aberto', 'em_andamento',
-                        'em_analise', 'parado', 'finalizado', 'cancelado'
-                    ))
-                    """
-                )
-            )
-
-            db.execute(
-                text(
-                    """
-                    CREATE INDEX IF NOT EXISTS ix_agenda_itens_entidade
-                    ON agenda_itens (empresa_id, entidade_tipo, entidade_id, criado_em DESC)
-                    """
-                )
-            )
-            db.execute(text("DROP INDEX IF EXISTS ix_agenda_itens_responsavel_pendentes"))
-            db.execute(
-                text(
-                    """
-                    CREATE INDEX ix_agenda_itens_responsavel_pendentes
-                    ON agenda_itens (empresa_id, responsavel_usuario_id, status, agendado_para)
-                    WHERE tipo <> 'registro'
-                      AND status IN ('em_aberto', 'em_andamento', 'em_analise', 'parado')
-                    """
-                )
-            )
-            db.commit()
-            _AGENDA_SCHEMA_READY = True
-        except Exception:
-            db.rollback()
-            raise
+    raise RuntimeError("Estrutura administrada pelo Alembic; execute `alembic upgrade head`.")
 
 
 def normalize_datetime(value: Optional[datetime]) -> Optional[datetime]:
@@ -290,7 +173,6 @@ def get_entity(db: Session, user: models.Usuario, entidade_tipo: str, entidade_i
 
 
 def get_item(db: Session, user: models.Usuario, item_id: int) -> Dict[str, Any]:
-    ensure_agenda_table(db)
     row = (
         db.execute(
             text(
@@ -329,7 +211,6 @@ def list_entity_items(
 ) -> List[Dict[str, Any]]:
     require_entity_permission(db, current_user, entidade_tipo, "ver")
     get_entity(db, current_user, entidade_tipo, entidade_id)
-    ensure_agenda_table(db)
 
     rows = (
         db.execute(
@@ -372,7 +253,6 @@ def create_item(
 ) -> Dict[str, Any]:
     require_entity_permission(db, current_user, payload.entidade_tipo, "editar")
     entity = get_entity(db, current_user, payload.entidade_tipo, payload.entidade_id)
-    ensure_agenda_table(db)
 
     assunto = payload.assunto.strip()
     descricao = normalize_optional_text(payload.descricao)
@@ -645,7 +525,6 @@ def list_notifications(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    ensure_agenda_table(db)
 
     allowed_types = [
         entidade_tipo
@@ -742,7 +621,6 @@ def mark_notified(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    ensure_agenda_table(db)
     row = (
         db.execute(
             text(
@@ -777,7 +655,6 @@ def get_push_config(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    ensure_agenda_table(db)
     try:
         material = agenda_push.get_vapid_material(db)
     except Exception as error:
@@ -815,7 +692,6 @@ def save_push_subscription(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    ensure_agenda_table(db)
     row = agenda_push.upsert_subscription(
         db,
         empresa_id=int(current_user.empresa_id),
@@ -835,7 +711,6 @@ def remove_push_subscription(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    ensure_agenda_table(db)
     removed = agenda_push.disable_subscription(
         db,
         empresa_id=int(current_user.empresa_id),
@@ -851,7 +726,6 @@ def test_push_notification(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    ensure_agenda_table(db)
     result = agenda_push.send_test_to_user(
         db,
         empresa_id=int(current_user.empresa_id),

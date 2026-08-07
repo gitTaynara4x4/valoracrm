@@ -128,7 +128,8 @@ body[data-page="orcamentos"] .fa-brands {
   --settings-soft-blue: #f3f8fe;
   padding: 16px !important;
   background: rgba(15, 23, 42, .52) !important;
-  backdrop-filter: blur(6px) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 #settings-modal .settings-modal-content {

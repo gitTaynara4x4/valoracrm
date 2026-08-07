@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, Request, status
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from backend import models
 from backend.database import SessionLocal
+from backend.security.permissions import get_request_user
 from backend.financeiro_recorrencia import (
     FREQUENCIAS_INTERVALO,
     estrutura_recorrencia_disponivel,
@@ -44,25 +45,10 @@ def get_db():
 
 
 def get_current_user(
-    user_id: Optional[str] = Cookie(default=None),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> models.Usuario:
-    if not user_id or not str(user_id).strip():
-        raise HTTPException(status_code=401, detail="Não autenticado.")
-
-    try:
-        user_id_int = int(str(user_id).strip())
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(models.Usuario).filter(models.Usuario.id == user_id_int).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-    if getattr(usuario, "empresa_id", None) is None:
-        raise HTTPException(status_code=401, detail="Usuário sem empresa vinculada.")
-    if getattr(usuario, "ativo", True) is False:
-        raise HTTPException(status_code=403, detail="Usuário inativo.")
-    return usuario
+    return get_request_user(request, db)
 
 
 def empresa_do(usuario: models.Usuario) -> int:
@@ -198,6 +184,10 @@ def to_json_value(value: Any) -> Any:
 
 def row_to_dict(row: Any) -> Dict[str, Any]:
     data = dict(row._mapping if hasattr(row, "_mapping") else row)
+    # Leituras financeiras calculam o status em tempo real. Isso evita UPDATE
+    # e COMMIT apenas para marcar um título como vencido ao abrir uma tela.
+    if "status_calculado" in data:
+        data["status"] = data.pop("status_calculado")
     return {k: to_json_value(v) for k, v in data.items()}
 
 
@@ -245,110 +235,7 @@ def status_por_valor(
 
 
 def ensure_tables(db: Session):
-    obrigatorias = (
-        "financeiro_lancamentos",
-        "financeiro_categorias",
-        "financeiro_formas_pagamento",
-        "financeiro_contas_bancos",
-        "financeiro_movimentacoes",
-        "financeiro_auditoria",
-        "financeiro_tipos_documento",
-        "financeiro_naturezas_operacao",
-        "financeiro_centros_custo",
-        "financeiro_unidades_consumo",
-        "financeiro_contas_contabeis",
-        "financeiro_formas_cobranca",
-        "financeiro_regras_encargos",
-        "financeiro_vendas_pendentes",
-    )
-    placeholders = ", ".join(f"'{nome}'" for nome in obrigatorias)
-    existentes = {
-        r[0]
-        for r in db.execute(text(f"""
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = 'public'
-              AND table_name IN ({placeholders})
-        """)).fetchall()
-    }
-    faltantes = [nome for nome in obrigatorias if nome not in existentes]
-    if faltantes:
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Estrutura financeira incompleta. Execute "
-                "sql/financeiro/001_base_financeiro_segura.sql e "
-                "os SQLs 001 a 006 da pasta sql/financeiro em ordem. "
-                f"Tabelas ausentes: {', '.join(faltantes)}."
-            ),
-        )
-
-    colunas_financeiro = {
-        "financeiro_lancamentos": {
-            "grupo_parcelamento",
-            "contato_cobranca", "email_cobranca", "whatsapp_cobranca",
-            "modalidade_pagamento", "nota_fiscal_numero", "nota_fiscal_data_emissao",
-            "venda_pendente_id", "origem_tipo", "origem_id", "origem_codigo",
-            "contrato_id", "competencia",
-        },
-        "contratos": {
-            "financeiro_status", "financeiro_frequencia", "financeiro_intervalo_meses",
-            "financeiro_primeiro_vencimento", "financeiro_dia_vencimento",
-            "financeiro_meses_antecipacao", "financeiro_forma_cobranca_id",
-            "financeiro_conta_banco_id", "financeiro_categoria_id",
-            "financeiro_conta_contabil_id",
-        },
-        "financeiro_movimentacoes": {
-            "valor_principal", "valor_desconto", "valor_multa", "valor_mora",
-            "dias_atraso", "comprovante_url", "comprovante_nome",
-            "comprovante_mime", "comprovante_tamanho",
-        },
-    }
-    for tabela, obrigatorias_colunas in colunas_financeiro.items():
-        existentes_colunas = {
-            r[0] for r in db.execute(text("""
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_schema = 'public' AND table_name = :tabela
-            """), {"tabela": tabela}).fetchall()
-        }
-        faltantes_colunas = sorted(obrigatorias_colunas - existentes_colunas)
-        if faltantes_colunas:
-            raise HTTPException(
-                status_code=500,
-                detail=(
-                    "Estrutura financeira incompleta. Execute os SQLs da pasta sql/financeiro em ordem, "
-                    "incluindo 003, 004, 005 e 006_contratos_recorrentes.sql. "
-                    f"Colunas ausentes em {tabela}: {', '.join(faltantes_colunas)}."
-                ),
-            )
-
-
-def sincronizar_status_lancamentos(db: Session, empresa_id: int) -> None:
-    result = db.execute(text("""
-        UPDATE public.financeiro_lancamentos
-           SET status = CASE
-               WHEN valor_total > 0 AND valor_pago >= valor_total
-                   THEN CASE WHEN tipo = 'receber' THEN 'recebido' ELSE 'pago' END
-               WHEN valor_pago > 0 THEN 'parcial'
-               WHEN data_vencimento < CURRENT_DATE THEN 'vencido'
-               ELSE 'aberto'
-           END,
-           atualizado_em = CASE
-               WHEN status IS DISTINCT FROM CASE
-                   WHEN valor_total > 0 AND valor_pago >= valor_total
-                       THEN CASE WHEN tipo = 'receber' THEN 'recebido' ELSE 'pago' END
-                   WHEN valor_pago > 0 THEN 'parcial'
-                   WHEN data_vencimento < CURRENT_DATE THEN 'vencido'
-                   ELSE 'aberto'
-               END THEN NOW()
-               ELSE atualizado_em
-           END
-         WHERE empresa_id = :empresa_id
-           AND status <> 'cancelado'
-    """), {"empresa_id": empresa_id})
-    if result.rowcount:
-        db.commit()
+    raise RuntimeError("Estrutura administrada pelo Alembic; execute `alembic upgrade head`.")
 
 
 def registrar_auditoria(
@@ -745,12 +632,29 @@ class AcaoRecorrenciaIn(BaseModel):
 # Select base
 # =========================================================
 
-LANCAMENTO_SELECT = """
+STATUS_EFETIVO_SQL = """
+CASE
+    WHEN {alias}.status = 'cancelado' THEN 'cancelado'
+    WHEN {alias}.valor_total > 0 AND {alias}.valor_pago >= {alias}.valor_total
+        THEN CASE WHEN {alias}.tipo = 'receber' THEN 'recebido' ELSE 'pago' END
+    WHEN {alias}.valor_pago > 0 THEN 'parcial'
+    WHEN {alias}.data_vencimento < CURRENT_DATE THEN 'vencido'
+    ELSE 'aberto'
+END
+"""
+
+
+def status_efetivo_sql(alias: str = "l") -> str:
+    return STATUS_EFETIVO_SQL.format(alias=alias)
+
+
+LANCAMENTO_SELECT = f"""
 SELECT
     l.*,
+    {status_efetivo_sql('l')} AS status_calculado,
     GREATEST(l.valor_total - l.valor_pago, 0) AS saldo_aberto,
     CASE
-        WHEN l.status NOT IN ('pago', 'recebido', 'cancelado') AND l.data_vencimento < CURRENT_DATE
+        WHEN ({status_efetivo_sql('l')}) NOT IN ('pago', 'recebido', 'cancelado') AND l.data_vencimento < CURRENT_DATE
         THEN CURRENT_DATE - l.data_vencimento
         ELSE 0
     END AS dias_atraso,
@@ -816,24 +720,28 @@ LEFT JOIN public.usuarios ucan ON ucan.id = l.cancelado_por_usuario_id
 """
 
 
-def obter_lancamento_dict(db: Session, empresa_id: int, lancamento_id: int, *, for_update: bool = False) -> Dict[str, Any]:
-    if for_update:
-        row = db.execute(text("""
-            SELECT * FROM public.financeiro_lancamentos
-            WHERE empresa_id = :empresa_id AND id = :id
-            FOR UPDATE
-        """), {"empresa_id": empresa_id, "id": lancamento_id}).first()
-    else:
-        row = db.execute(text(LANCAMENTO_SELECT + """
-            WHERE l.empresa_id = :empresa_id AND l.id = :id LIMIT 1
-        """), {"empresa_id": empresa_id, "id": lancamento_id}).first()
+def obter_lancamento_dict(db: Session, empresa_id: int, lancamento_id: int) -> Dict[str, Any]:
+    row = db.execute(text(LANCAMENTO_SELECT + """
+        WHERE l.empresa_id = :empresa_id AND l.id = :id LIMIT 1
+    """), {"empresa_id": empresa_id, "id": lancamento_id}).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Lançamento não encontrado.")
+    return row_to_dict(row)
+
+
+def obter_lancamento_para_update(db: Session, empresa_id: int, lancamento_id: int) -> Dict[str, Any]:
+    row = db.execute(text("""
+        SELECT * FROM public.financeiro_lancamentos
+        WHERE empresa_id = :empresa_id AND id = :id
+        FOR UPDATE
+    """), {"empresa_id": empresa_id, "id": lancamento_id}).first()
     if not row:
         raise HTTPException(status_code=404, detail="Lançamento não encontrado.")
     return row_to_dict(row)
 
 
 def recalcular_lancamento(db: Session, empresa_id: int, lancamento_id: int, usuario_id: int) -> Dict[str, Any]:
-    atual = obter_lancamento_dict(db, empresa_id, lancamento_id, for_update=True)
+    atual = obter_lancamento_para_update(db, empresa_id, lancamento_id)
     total_movimentado = db.execute(text("""
         SELECT COALESCE(SUM(
             CASE WHEN tipo_movimentacao = 'baixa'
@@ -904,7 +812,6 @@ def opcoes_financeiro(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     params = {"empresa_id": empresa_id}
 
@@ -1043,9 +950,7 @@ def dashboard_financeiro(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
-    sincronizar_status_lancamentos(db, empresa_id)
     params = {"empresa_id": empresa_id}
 
     resumo = row_to_dict(db.execute(text("""
@@ -1095,9 +1000,9 @@ def dashboard_financeiro(
     resumo["saldo_atual"] = float(saldo_realizado)
     resumo["saldo_previsto"] = float(saldo_realizado + total_receber - total_pagar)
 
-    proximos = db.execute(text(LANCAMENTO_SELECT + """
+    proximos = db.execute(text(LANCAMENTO_SELECT + f"""
         WHERE l.empresa_id = :empresa_id
-          AND l.status NOT IN ('pago', 'recebido', 'cancelado')
+          AND ({status_efetivo_sql('l')}) NOT IN ('pago', 'recebido', 'cancelado')
         ORDER BY l.data_vencimento ASC, l.id DESC
         LIMIT 12
     """), params).fetchall()
@@ -1129,8 +1034,6 @@ def _listar_lancamentos_impl(
     db: Session,
     empresa_id: int,
 ):
-    ensure_tables(db)
-    sincronizar_status_lancamentos(db, empresa_id)
     where = ["l.empresa_id = :empresa_id"]
     params: Dict[str, Any] = {"empresa_id": empresa_id, "limit": limit, "offset": offset}
 
@@ -1142,7 +1045,7 @@ def _listar_lancamentos_impl(
         status_norm = status_filtro.strip().lower()
         if status_norm not in {"aberto", "vencido", "parcial", "recebido", "pago", "cancelado"}:
             raise HTTPException(status_code=422, detail="Status de filtro inválido.")
-        where.append("l.status = :status")
+        where.append(f"({status_efetivo_sql('l')}) = :status")
         params["status"] = status_norm
 
     if data_inicio:
@@ -1285,9 +1188,7 @@ def obter_lancamento(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
-    sincronizar_status_lancamentos(db, empresa_id)
     return obter_lancamento_dict(db, empresa_id, lancamento_id)
 
 
@@ -1445,7 +1346,6 @@ def criar_lancamento(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     if parse_money(payload.valor_pago) != 0:
         raise HTTPException(status_code=422, detail="O valor pago/recebido deve ser registrado pela ação Baixar.")
@@ -1566,7 +1466,6 @@ def listar_vendas_pendentes(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     where = ["v.empresa_id=:empresa_id"]
     params: Dict[str, Any] = {"empresa_id": empresa_id, "limit": limit, "offset": offset}
@@ -1623,7 +1522,6 @@ def obter_venda_pendente(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     row = db.execute(text("""
         SELECT v.*, ue.nome AS enviado_por_nome, ud.nome AS devolvido_por_nome,
@@ -1647,7 +1545,6 @@ def devolver_venda_pendente(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     motivo = norm_str(payload.motivo)
     if not motivo:
@@ -1694,7 +1591,6 @@ def autenticar_venda_pendente(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     venda_row = db.execute(text("""
         SELECT * FROM public.financeiro_vendas_pendentes
@@ -1854,7 +1750,6 @@ def cancelar_autenticacao_venda(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     motivo = norm_str(payload.motivo)
     if not motivo:
@@ -1945,9 +1840,8 @@ def atualizar_lancamento(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
-    anterior = obter_lancamento_dict(db, empresa_id, lancamento_id, for_update=True)
+    anterior = obter_lancamento_para_update(db, empresa_id, lancamento_id)
     if anterior["status"] == "cancelado":
         raise HTTPException(status_code=409, detail="Lançamento cancelado não pode ser editado.")
     params = montar_params_lancamento(payload, empresa_id, db)
@@ -2029,7 +1923,6 @@ def calcular_previa_baixa(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     lancamento = obter_lancamento_dict(db, empresa_id, lancamento_id)
     if lancamento["status"] == "cancelado":
@@ -2073,9 +1966,8 @@ def baixar_lancamento(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
-    anterior = obter_lancamento_dict(db, empresa_id, lancamento_id, for_update=True)
+    anterior = obter_lancamento_para_update(db, empresa_id, lancamento_id)
     if anterior["status"] == "cancelado":
         raise HTTPException(status_code=409, detail="Não é possível baixar um lançamento cancelado.")
 
@@ -2217,7 +2109,6 @@ def historico_lancamento(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     lancamento = obter_lancamento_dict(db, empresa_id, lancamento_id)
     movimentacoes = [row_to_dict(r) for r in db.execute(text("""
@@ -2260,7 +2151,6 @@ async def anexar_comprovante_movimentacao(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     row = db.execute(text("""
         SELECT m.*, l.id AS lancamento_id_validado
@@ -2354,7 +2244,6 @@ def estornar_movimentacao(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     motivo = norm_str(payload.motivo)
     if not motivo:
@@ -2430,12 +2319,11 @@ def cancelar_lancamento(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     motivo = norm_str(payload.motivo)
     if not motivo:
         raise HTTPException(status_code=422, detail="O motivo do cancelamento é obrigatório.")
-    anterior = obter_lancamento_dict(db, empresa_id, lancamento_id, for_update=True)
+    anterior = obter_lancamento_para_update(db, empresa_id, lancamento_id)
     if anterior["status"] == "cancelado":
         raise HTTPException(status_code=409, detail="O lançamento já está cancelado.")
     if parse_money(anterior["valor_pago"]) > 0:
@@ -2470,9 +2358,8 @@ def excluir_lancamento(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
-    anterior = obter_lancamento_dict(db, empresa_id, lancamento_id, for_update=True)
+    anterior = obter_lancamento_para_update(db, empresa_id, lancamento_id)
     if anterior.get("venda_pendente_id") is not None:
         raise HTTPException(status_code=409, detail="Título originado de venda autenticada não pode ser excluído. Use cancelamento para preservar o vínculo e a auditoria.")
     possui_movimentacoes = db.execute(text("""
@@ -2501,9 +2388,7 @@ def fluxo_caixa(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
-    sincronizar_status_lancamentos(db, empresa_id)
     inicio = data_inicio or date.today().replace(day=1)
     fim = data_fim or (date.today() + timedelta(days=60))
     if fim < inicio:
@@ -2613,9 +2498,7 @@ def relatorio_resumo(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
-    sincronizar_status_lancamentos(db, empresa_id)
     params = {
         "empresa_id": empresa_id,
         "data_inicio": data_inicio or date.today().replace(day=1),
@@ -2684,7 +2567,6 @@ def relatorio_resumo(
 # =========================================================
 
 def listar_auxiliar(table_name: str, empresa_id: int, db: Session):
-    ensure_tables(db)
     permitidas = {
         "financeiro_categorias", "financeiro_formas_pagamento",
         "financeiro_tipos_documento", "financeiro_naturezas_operacao",
@@ -2699,7 +2581,6 @@ def listar_auxiliar(table_name: str, empresa_id: int, db: Session):
 
 
 def excluir_auxiliar(table_name: str, item_id: int, empresa_id: int, db: Session, usuario_id: int):
-    ensure_tables(db)
     permitidas = {
         "financeiro_categorias", "financeiro_formas_pagamento", "financeiro_contas_bancos",
         "financeiro_tipos_documento", "financeiro_naturezas_operacao",
@@ -2733,7 +2614,6 @@ def listar_categorias(db: Session = Depends(get_db), usuario: models.Usuario = D
 
 @router.post("/categorias", status_code=status.HTTP_201_CREATED)
 def criar_categoria(payload: CategoriaIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     tipo = (payload.tipo or "ambos").strip().lower()
     if tipo not in {"receita", "despesa", "ambos"}:
@@ -2750,7 +2630,6 @@ def criar_categoria(payload: CategoriaIn, db: Session = Depends(get_db), usuario
 
 @router.put("/categorias/{item_id}")
 def atualizar_categoria(item_id: int, payload: CategoriaIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     anterior_row = db.execute(text("SELECT * FROM public.financeiro_categorias WHERE empresa_id = :empresa_id AND id = :id"), {"empresa_id": empresa_id, "id": item_id}).first()
     if not anterior_row:
@@ -2781,7 +2660,6 @@ def listar_formas(db: Session = Depends(get_db), usuario: models.Usuario = Depen
 
 @router.post("/formas-pagamento", status_code=status.HTTP_201_CREATED)
 def criar_forma(payload: FormaPagamentoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     row = db.execute(text("""
         INSERT INTO public.financeiro_formas_pagamento (empresa_id, nome, tipo, ativo, criado_em, atualizado_em)
@@ -2795,7 +2673,6 @@ def criar_forma(payload: FormaPagamentoIn, db: Session = Depends(get_db), usuari
 
 @router.put("/formas-pagamento/{item_id}")
 def atualizar_forma(item_id: int, payload: FormaPagamentoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     anterior_row = db.execute(text("SELECT * FROM public.financeiro_formas_pagamento WHERE empresa_id = :empresa_id AND id = :id"), {"empresa_id": empresa_id, "id": item_id}).first()
     if not anterior_row:
@@ -2818,7 +2695,6 @@ def deletar_forma(item_id: int, db: Session = Depends(get_db), usuario: models.U
 
 @router.get("/contas-bancos")
 def listar_contas_bancos(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     rows = db.execute(text("""
         SELECT
@@ -2846,7 +2722,6 @@ def listar_contas_bancos(db: Session = Depends(get_db), usuario: models.Usuario 
 
 @router.post("/contas-bancos", status_code=status.HTTP_201_CREATED)
 def criar_conta_banco(payload: ContaBancoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     row = db.execute(text("""
         INSERT INTO public.financeiro_contas_bancos (
@@ -2875,7 +2750,6 @@ def criar_conta_banco(payload: ContaBancoIn, db: Session = Depends(get_db), usua
 
 @router.put("/contas-bancos/{item_id}")
 def atualizar_conta_banco(item_id: int, payload: ContaBancoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     anterior_row = db.execute(text("SELECT * FROM public.financeiro_contas_bancos WHERE empresa_id = :empresa_id AND id = :id"), {"empresa_id": empresa_id, "id": item_id}).first()
     if not anterior_row:
@@ -2992,7 +2866,6 @@ def listar_tipos_documento(db: Session = Depends(get_db), usuario: models.Usuari
 
 @router.post("/tipos-documento", status_code=status.HTTP_201_CREATED)
 def criar_tipo_documento(payload: TipoDocumentoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     row = db.execute(text("""
         INSERT INTO public.financeiro_tipos_documento
@@ -3012,7 +2885,6 @@ def criar_tipo_documento(payload: TipoDocumentoIn, db: Session = Depends(get_db)
 
 @router.put("/tipos-documento/{item_id}")
 def atualizar_tipo_documento(item_id: int, payload: TipoDocumentoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     anterior_row = db.execute(text("SELECT * FROM public.financeiro_tipos_documento WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
     if not anterior_row:
@@ -3044,7 +2916,6 @@ def listar_naturezas_operacao(db: Session = Depends(get_db), usuario: models.Usu
 
 @router.post("/naturezas-operacao", status_code=status.HTTP_201_CREATED)
 def criar_natureza_operacao(payload: NaturezaOperacaoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     row = db.execute(text("""
         INSERT INTO public.financeiro_naturezas_operacao
@@ -3059,7 +2930,6 @@ def criar_natureza_operacao(payload: NaturezaOperacaoIn, db: Session = Depends(g
 
 @router.put("/naturezas-operacao/{item_id}")
 def atualizar_natureza_operacao(item_id: int, payload: NaturezaOperacaoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     anterior_row = db.execute(text("SELECT * FROM public.financeiro_naturezas_operacao WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
     if not anterior_row:
@@ -3081,7 +2951,6 @@ def excluir_natureza_operacao(item_id: int, db: Session = Depends(get_db), usuar
 
 @router.get("/centros-custo")
 def listar_centros_custo(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     rows = db.execute(text("""
         SELECT cc.*, pai.nome AS centro_pai_nome
         FROM public.financeiro_centros_custo cc
@@ -3093,7 +2962,6 @@ def listar_centros_custo(db: Session = Depends(get_db), usuario: models.Usuario 
 
 @router.post("/centros-custo", status_code=status.HTTP_201_CREATED)
 def criar_centro_custo(payload: CentroCustoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     validar_id_empresa(db, table_name="financeiro_centros_custo", item_id=payload.centro_pai_id, empresa_id=empresa_id, label="Centro de custo pai")
     row = db.execute(text("""
@@ -3109,7 +2977,6 @@ def criar_centro_custo(payload: CentroCustoIn, db: Session = Depends(get_db), us
 
 @router.put("/centros-custo/{item_id}")
 def atualizar_centro_custo(item_id: int, payload: CentroCustoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     if payload.centro_pai_id == item_id:
         raise HTTPException(status_code=422, detail="Um centro de custo não pode ser pai de si mesmo.")
@@ -3144,7 +3011,6 @@ def listar_unidades_consumo(db: Session = Depends(get_db), usuario: models.Usuar
 
 @router.post("/unidades-consumo", status_code=status.HTTP_201_CREATED)
 def criar_unidade_consumo(payload: UnidadeConsumoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     row = db.execute(text("""
         INSERT INTO public.financeiro_unidades_consumo
@@ -3159,7 +3025,6 @@ def criar_unidade_consumo(payload: UnidadeConsumoIn, db: Session = Depends(get_d
 
 @router.put("/unidades-consumo/{item_id}")
 def atualizar_unidade_consumo(item_id: int, payload: UnidadeConsumoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     anterior_row = db.execute(text("SELECT * FROM public.financeiro_unidades_consumo WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
     if not anterior_row:
@@ -3182,7 +3047,6 @@ def excluir_unidade_consumo(item_id: int, db: Session = Depends(get_db), usuario
 
 @router.get("/contas-contabeis")
 def listar_contas_contabeis(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     rows = db.execute(text("""
         SELECT cc.*, pai.codigo AS conta_pai_codigo, pai.nome AS conta_pai_nome
         FROM public.financeiro_contas_contabeis cc
@@ -3194,7 +3058,6 @@ def listar_contas_contabeis(db: Session = Depends(get_db), usuario: models.Usuar
 
 @router.post("/contas-contabeis", status_code=status.HTTP_201_CREATED)
 def criar_conta_contabil(payload: ContaContabilIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     validar_id_empresa(db, table_name="financeiro_contas_contabeis", item_id=payload.conta_pai_id, empresa_id=empresa_id, label="Conta contábil pai")
     tipo = (payload.tipo or "outros").strip().lower()
@@ -3213,7 +3076,6 @@ def criar_conta_contabil(payload: ContaContabilIn, db: Session = Depends(get_db)
 
 @router.put("/contas-contabeis/{item_id}")
 def atualizar_conta_contabil(item_id: int, payload: ContaContabilIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     if payload.conta_pai_id == item_id:
         raise HTTPException(status_code=422, detail="Uma conta contábil não pode ser pai de si mesma.")
@@ -3252,7 +3114,6 @@ def listar_formas_cobranca(db: Session = Depends(get_db), usuario: models.Usuari
 
 @router.post("/formas-cobranca", status_code=status.HTTP_201_CREATED)
 def criar_forma_cobranca(payload: FormaCobrancaIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     tipo = (payload.tipo or "outro").strip().lower()
     permitidos = {"carteira", "pix", "promissoria", "boleto", "cartao_credito", "debito_conta", "deposito", "outro"}
@@ -3270,7 +3131,6 @@ def criar_forma_cobranca(payload: FormaCobrancaIn, db: Session = Depends(get_db)
 
 @router.put("/formas-cobranca/{item_id}")
 def atualizar_forma_cobranca(item_id: int, payload: FormaCobrancaIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     anterior_row = db.execute(text("SELECT * FROM public.financeiro_formas_cobranca WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
     if not anterior_row:
@@ -3301,7 +3161,6 @@ def listar_regras_encargos(db: Session = Depends(get_db), usuario: models.Usuari
 
 @router.post("/regras-encargos", status_code=status.HTTP_201_CREATED)
 def criar_regra_encargos(payload: RegraEncargosIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     if payload.padrao:
         db.execute(text("UPDATE public.financeiro_regras_encargos SET padrao=FALSE, atualizado_em=NOW() WHERE empresa_id=:empresa_id AND aplicacao=:aplicacao"), {"empresa_id": empresa_id, "aplicacao": _aplicacao(payload.aplicacao)})
@@ -3324,7 +3183,6 @@ def criar_regra_encargos(payload: RegraEncargosIn, db: Session = Depends(get_db)
 
 @router.put("/regras-encargos/{item_id}")
 def atualizar_regra_encargos(item_id: int, payload: RegraEncargosIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    ensure_tables(db)
     empresa_id = empresa_do(usuario)
     anterior_row = db.execute(text("SELECT * FROM public.financeiro_regras_encargos WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
     if not anterior_row:
@@ -3490,16 +3348,19 @@ def configuracao_recorrencia_completa(contrato: Dict[str, Any]) -> bool:
 def recorrencia_to_out(db: Session, contrato: Dict[str, Any]) -> Dict[str, Any]:
     empresa_id = int(contrato["empresa_id"])
     contrato_id = int(contrato["id"])
-    resumo = row_to_dict(db.execute(text("""
+    resumo = row_to_dict(db.execute(text(f"""
         SELECT
             COUNT(*) AS total_titulos,
-            COUNT(*) FILTER (WHERE status <> 'cancelado') AS titulos_ativos,
-            COUNT(*) FILTER (WHERE status IN ('aberto', 'vencido', 'parcial')) AS titulos_em_aberto,
-            COALESCE(SUM(GREATEST(valor_total - valor_pago, 0)) FILTER (WHERE status <> 'cancelado'), 0) AS saldo_em_aberto,
-            COALESCE(SUM(valor_pago) FILTER (WHERE status <> 'cancelado'), 0) AS total_recebido,
-            MIN(data_vencimento) FILTER (WHERE status IN ('aberto', 'vencido', 'parcial')) AS proximo_titulo_vencimento
-        FROM public.financeiro_lancamentos
-        WHERE empresa_id=:empresa_id AND contrato_id=:contrato_id
+            COUNT(*) FILTER (WHERE ({status_efetivo_sql('l')}) <> 'cancelado') AS titulos_ativos,
+            COUNT(*) FILTER (WHERE ({status_efetivo_sql('l')}) IN ('aberto', 'vencido', 'parcial')) AS titulos_em_aberto,
+            COALESCE(SUM(GREATEST(l.valor_total - l.valor_pago, 0))
+                FILTER (WHERE ({status_efetivo_sql('l')}) <> 'cancelado'), 0) AS saldo_em_aberto,
+            COALESCE(SUM(l.valor_pago)
+                FILTER (WHERE ({status_efetivo_sql('l')}) <> 'cancelado'), 0) AS total_recebido,
+            MIN(l.data_vencimento)
+                FILTER (WHERE ({status_efetivo_sql('l')}) IN ('aberto', 'vencido', 'parcial')) AS proximo_titulo_vencimento
+        FROM public.financeiro_lancamentos l
+        WHERE l.empresa_id=:empresa_id AND l.contrato_id=:contrato_id
     """), {"empresa_id": empresa_id, "contrato_id": contrato_id}).first())
     titulos = [row_to_dict(row) for row in db.execute(text(LANCAMENTO_SELECT + """
         WHERE l.empresa_id=:empresa_id AND l.contrato_id=:contrato_id

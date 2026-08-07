@@ -10,6 +10,9 @@
 
   const state = {
     budgets: [],
+    budgetPage: { offset: 0, limit: 50, total: 0, hasMore: false },
+    budgetSummary: { total: 0, rascunhos: 0, negociacao: 0, aprovado_total: 0 },
+    budgetSearchTimer: null,
     currentId: null,
     current: null,
     items: [],
@@ -44,6 +47,7 @@
     calculationVersion: 0,
     calculationTimer: null,
     initialRouteHandled: false,
+    kitPickerLayout: loadKitPickerLayout(),
   };
 
   const statusMeta = {
@@ -188,6 +192,21 @@
     };
   }
 
+  function loadKitPickerLayout() {
+    try {
+      const saved = localStorage.getItem('valora:orcamentos:kit-picker-layout');
+      return saved === 'row' ? 'row' : 'column';
+    } catch (_) {
+      return 'column';
+    }
+  }
+
+  function saveKitPickerLayout(layout) {
+    try {
+      localStorage.setItem('valora:orcamentos:kit-picker-layout', layout);
+    } catch (_) {}
+  }
+
   function toast(message, type = 'success') {
     if (typeof window.showToast === 'function') window.showToast(message, type);
     else alert(message);
@@ -323,19 +342,42 @@
     if ($('btn-gerenciar-kits')) $('btn-gerenciar-kits').classList.toggle('is-hidden', !state.meta.pode_configurar);
   }
 
-  async function loadBudgets() {
+  async function loadBudgets({ offset = state.budgetPage.offset || 0 } = {}) {
     $('tbody-orcamentos').innerHTML = '<tr><td colspan="7" class="empty-state">Carregando orçamentos...</td></tr>';
-    state.budgets = await api(API);
+    const params = new URLSearchParams({
+      paginated: 'true',
+      limit: String(state.budgetPage.limit || 50),
+      offset: String(Math.max(0, Number(offset || 0))),
+    });
+    const search = $('busca-orcamentos').value.trim();
+    const status = $('filtro-status-orcamentos').value;
+    if (search) params.set('busca', search);
+    if (status) params.set('status', status);
+
+    const response = await api(`${API}?${params.toString()}`);
+    state.budgets = normalizeCollection(response);
+    state.budgetPage = {
+      offset: Number(response?.offset ?? offset) || 0,
+      limit: Number(response?.limit ?? state.budgetPage.limit) || 50,
+      total: Number(response?.total ?? state.budgets.length) || 0,
+      hasMore: Boolean(response?.has_more),
+    };
+    state.budgetSummary = {
+      total: Number(response?.summary?.total ?? state.budgetPage.total) || 0,
+      rascunhos: Number(response?.summary?.rascunhos ?? 0) || 0,
+      negociacao: Number(response?.summary?.negociacao ?? 0) || 0,
+      aprovado_total: response?.summary?.aprovado_total ?? 0,
+    };
+
+    if (!state.budgets.length && state.budgetPage.total > 0 && state.budgetPage.offset > 0) {
+      const lastOffset = Math.max(0, (Math.ceil(state.budgetPage.total / state.budgetPage.limit) - 1) * state.budgetPage.limit);
+      if (lastOffset !== state.budgetPage.offset) return loadBudgets({ offset: lastOffset });
+    }
     renderBudgets();
   }
 
   function filteredBudgets() {
-    const search = $('busca-orcamentos').value.trim().toLowerCase();
-    const status = $('filtro-status-orcamentos').value;
-    return state.budgets.filter((budget) => {
-      const haystack = [budget.codigo, budget.titulo, budget.cliente_nome, budget.categoria_nome].join(' ').toLowerCase();
-      return (!search || haystack.includes(search)) && (!status || budget.status === status);
-    });
+    return state.budgets;
   }
 
   function financeiroStatusInfo(status) {
@@ -365,12 +407,17 @@
   function renderBudgets() {
     const list = filteredBudgets();
     const tbody = $('tbody-orcamentos');
-    $('contagem-orcamentos').textContent = `${list.length} ${list.length === 1 ? 'orçamento' : 'orçamentos'}`;
+    const inicio = state.budgetPage.total ? state.budgetPage.offset + 1 : 0;
+    const fim = Math.min(state.budgetPage.offset + list.length, state.budgetPage.total);
+    $('contagem-orcamentos').textContent = state.budgetPage.total
+      ? `${inicio}–${fim} de ${state.budgetPage.total} orçamentos`
+      : '0 orçamentos';
 
-    $('kpi-total-orcamentos').textContent = state.budgets.length;
-    $('kpi-rascunhos').textContent = state.budgets.filter((b) => b.status === 'rascunho').length;
-    $('kpi-negociacao').textContent = state.budgets.filter((b) => ['enviado', 'em_negociacao'].includes(b.status)).length;
-    $('kpi-aprovado').textContent = formatMoney(state.budgets.filter((b) => b.status === 'aprovado').reduce((sum, b) => sum + parseNumber(b.total), 0));
+    $('kpi-total-orcamentos').textContent = state.budgetSummary.total;
+    $('kpi-rascunhos').textContent = state.budgetSummary.rascunhos;
+    $('kpi-negociacao').textContent = state.budgetSummary.negociacao;
+    $('kpi-aprovado').textContent = formatMoney(state.budgetSummary.aprovado_total);
+    renderBudgetPagination();
 
     if (!list.length) {
       tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Nenhum orçamento encontrado.</td></tr>';
@@ -398,6 +445,27 @@
           </div></td>
         </tr>`;
     }).join('');
+
+  }
+
+  function renderBudgetPagination() {
+    const box = $('paginacao-orcamentos');
+    if (!box) return;
+
+    const total = Number(state.budgetPage.total || 0);
+    const limit = Number(state.budgetPage.limit || 50);
+    const offset = Number(state.budgetPage.offset || 0);
+    const paginas = Math.max(1, Math.ceil(total / limit));
+    const atual = total ? Math.floor(offset / limit) + 1 : 1;
+    const lastOffset = Math.max(0, (paginas - 1) * limit);
+
+    box.innerHTML = `
+      <span class="counter-text pagination-info">Página ${atual} de ${paginas}</span>
+      <button class="btn btn-secondary btn-small" type="button" data-budget-page="first" ${offset <= 0 ? 'disabled' : ''}>Primeira</button>
+      <button class="btn btn-secondary btn-small" type="button" data-budget-page="prev" ${offset <= 0 ? 'disabled' : ''}>Anterior</button>
+      <button class="btn btn-secondary btn-small" type="button" data-budget-page="next" ${offset >= lastOffset ? 'disabled' : ''}>Próxima</button>
+      <button class="btn btn-secondary btn-small" type="button" data-budget-page="last" ${offset >= lastOffset ? 'disabled' : ''}>Última</button>
+    `;
   }
 
   function renderSelects() {
@@ -2040,10 +2108,44 @@
     return (state.kits || []).filter((kit) => kit.ativo !== false);
   }
 
+  function updateKitPickerLayoutUI() {
+    const list = $('kit-picker-list');
+    const layout = state.kitPickerLayout === 'row' ? 'row' : 'column';
+    if (list) list.classList.toggle('is-row-layout', layout === 'row');
+    $$('.kit-layout-option').forEach((option) => {
+      const active = option.dataset.kitLayout === layout;
+      option.classList.toggle('is-active', active);
+      option.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+
+  function closeKitLayoutMenu() {
+    const menu = $('kit-layout-menu');
+    const button = $('btn-kit-picker-layout');
+    if (menu) menu.hidden = true;
+    if (button) button.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleKitLayoutMenu(force) {
+    const menu = $('kit-layout-menu');
+    const button = $('btn-kit-picker-layout');
+    if (!menu || !button) return;
+    const open = typeof force === 'boolean' ? force : menu.hidden;
+    menu.hidden = !open;
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function setKitPickerLayout(layout) {
+    state.kitPickerLayout = layout === 'row' ? 'row' : 'column';
+    saveKitPickerLayout(state.kitPickerLayout);
+    updateKitPickerLayoutUI();
+  }
+
   function renderKitPicker() {
     const query = String($('kit-picker-search-input')?.value || '').trim().toLowerCase();
     const kits = activeKits().filter((kit) => !query || [kit.nome, kit.descricao].join(' ').toLowerCase().includes(query));
     $('kit-picker-count').textContent = `${kits.length} ${kits.length === 1 ? 'kit disponível' : 'kits disponíveis'}`;
+    updateKitPickerLayoutUI();
     $('kit-picker-list').innerHTML = kits.map((kit) => `
       <article class="kit-picker-card">
         <div class="kit-picker-card-icon"><i class="fa-solid fa-layer-group"></i></div>
@@ -2068,6 +2170,7 @@
     try {
       state.kits = await api(`${API}/kits`);
       $('kit-picker-search-input').value = '';
+      closeKitLayoutMenu();
       renderKitPicker();
       openOverlay('kit-picker-modal');
       setTimeout(() => $('kit-picker-search-input')?.focus(), 80);
@@ -2098,6 +2201,7 @@
       renderItems();
       updateTotals();
       setTab('itens');
+      closeKitLayoutMenu();
       closeOverlay('kit-picker-modal');
       const detail = mergedLines ? ` (${mergedLines} quantidades somadas aos produtos já existentes)` : '';
       toast(`Kit “${kit.nome}” adicionado com ${addedLines + mergedLines} produtos${detail}.`);
@@ -2643,11 +2747,35 @@
 
   function bindEvents() {
     $('btn-novo-orcamento').addEventListener('click', openNewBudget);
-    $('btn-atualizar-orcamentos').addEventListener('click', loadBudgets);
+    $('btn-atualizar-orcamentos').addEventListener('click', () => loadBudgets());
     $('btn-configurar-orcamentos').addEventListener('click', openSettings);
-    $('btn-limpar-filtros').addEventListener('click', () => { $('busca-orcamentos').value = ''; $('filtro-status-orcamentos').value = ''; renderBudgets(); });
-    $('busca-orcamentos').addEventListener('input', renderBudgets);
-    $('filtro-status-orcamentos').addEventListener('change', renderBudgets);
+    $('btn-limpar-filtros').addEventListener('click', () => {
+      $('busca-orcamentos').value = '';
+      $('filtro-status-orcamentos').value = '';
+      loadBudgets({ offset: 0 });
+    });
+    $('busca-orcamentos').addEventListener('input', () => {
+      clearTimeout(state.budgetSearchTimer);
+      state.budgetSearchTimer = setTimeout(() => loadBudgets({ offset: 0 }), 250);
+    });
+    $('filtro-status-orcamentos').addEventListener('change', () => loadBudgets({ offset: 0 }));
+
+    $('paginacao-orcamentos')?.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-budget-page]');
+      if (!button || button.disabled) return;
+
+      const limit = Number(state.budgetPage.limit || 50);
+      const total = Number(state.budgetPage.total || 0);
+      const lastOffset = Math.max(0, (Math.ceil(total / limit) - 1) * limit);
+      let offset = Number(state.budgetPage.offset || 0);
+
+      if (button.dataset.budgetPage === 'first') offset = 0;
+      if (button.dataset.budgetPage === 'prev') offset = Math.max(0, offset - limit);
+      if (button.dataset.budgetPage === 'next') offset = Math.min(lastOffset, offset + limit);
+      if (button.dataset.budgetPage === 'last') offset = lastOffset;
+
+      await loadBudgets({ offset });
+    });
 
     $('tbody-orcamentos').addEventListener('click', (event) => {
       const button = event.target.closest('[data-action][data-id]');
@@ -2693,17 +2821,42 @@
 
     $('btn-atualizar-precos-itens')?.addEventListener('click', refreshCurrentBudgetPrices);
     $('btn-adicionar-kit').addEventListener('click', openKitPicker);
-    $('btn-fechar-kit-picker').addEventListener('click', () => closeOverlay('kit-picker-modal'));
-    $('btn-cancelar-kit-picker').addEventListener('click', () => closeOverlay('kit-picker-modal'));
+    $('btn-fechar-kit-picker').addEventListener('click', () => {
+      closeKitLayoutMenu();
+      closeOverlay('kit-picker-modal');
+    });
+    $('btn-cancelar-kit-picker').addEventListener('click', () => {
+      closeKitLayoutMenu();
+      closeOverlay('kit-picker-modal');
+    });
+    $('btn-kit-picker-layout')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleKitLayoutMenu();
+    });
+    $('kit-layout-menu')?.addEventListener('click', (event) => {
+      const option = event.target.closest('[data-kit-layout]');
+      if (!option) return;
+      setKitPickerLayout(option.dataset.kitLayout);
+      closeKitLayoutMenu();
+    });
     $('kit-picker-search-input').addEventListener('input', renderKitPicker);
     $('kit-picker-list').addEventListener('click', (event) => {
       const button = event.target.closest('[data-add-kit]');
       if (button) addKitToBudget(Number(button.dataset.addKit), button);
     });
     $('btn-gerenciar-kits').addEventListener('click', async () => {
+      closeKitLayoutMenu();
       closeOverlay('kit-picker-modal');
       await openSettings();
       setSettingsTab('kits');
+    });
+    document.addEventListener('click', (event) => {
+      const trigger = event.target.closest('#btn-kit-picker-layout');
+      const panel = event.target.closest('#kit-layout-menu');
+      if (!trigger && !panel) closeKitLayoutMenu();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeKitLayoutMenu();
     });
 
     $('btn-buscar-produto').addEventListener('click', () => {

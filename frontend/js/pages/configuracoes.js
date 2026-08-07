@@ -41,11 +41,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // Salva no navegador
       localStorage.setItem('valora_theme', novoTema);
       
-      // Troca o tema do Menu Lateral (Iframe) na hora para não dar "pulo" visual
-      const iframe = document.querySelector('.sidebar-frame');
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.document.documentElement.setAttribute('data-theme', novoTema);
-      }
+      // Sincroniza o menu global direto, sem iframe.
+      window.ValoraMenu?.applyTheme?.(novoTema, { persist: false });
       
       toast("Aparência atualizada!");
     });

@@ -149,6 +149,10 @@ PUBLIC_EXACT_PATHS = {
     "/frontend/js/pages/login.js",
     "/frontend/js/pages/cadastro.js",
     "/frontend/js/shared/validacao.js",
+
+    # partials públicos: conteúdo estático do menu global
+    "/frontend/partials/sidebar.html",
+    "/frontend/partials/sidebar-content.inc",
     "/frontend/img/logo-favicon.jpg",
 }
 
@@ -158,6 +162,8 @@ PUBLIC_PREFIXES = (
     "/frontend/img/",
     "/frontend/fonts/",
     "/frontend/css/",
+    # JavaScript é conteúdo estático e não deve abrir sessão no PostgreSQL.
+    "/frontend/js/",
 )
 
 # Prefixos que recebem a proteção das permissões configuradas em Usuários.
@@ -356,6 +362,10 @@ async def require_auth_globally(request: Request, call_next):
         if not bool(getattr(user, "ativo", True)):
             return _clear_auth_response(request, 403, "Usuário inativo.", api=is_api)
 
+        # Reutilizado pelas dependências das rotas. A sessão deste middleware
+        # será fechada antes de call_next; o objeto ficará detached e será
+        # associado à sessão da rota sem executar um novo SELECT.
+        request.state.current_user = user
         request.state.current_user_id = int(user.id)
         request.state.current_empresa_id = int(user.empresa_id)
 
@@ -390,7 +400,9 @@ class NoCacheHTMLStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope):
         response = await super().get_response(path, scope)
 
-        if response.status_code == 200 and path.lower().endswith(".html"):
+        if response.status_code == 200 and path == "partials/sidebar-content.inc":
+            response.headers["Cache-Control"] = "public, max-age=86400"
+        elif response.status_code == 200 and path.lower().endswith(".html"):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"

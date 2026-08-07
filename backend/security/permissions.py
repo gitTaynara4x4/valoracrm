@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict
 
-from fastapi import Cookie, Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
 from backend import models
+from backend.security.session import SESSION_COOKIE_NAME, decode_session_token
 
 
 PAPEIS_VALIDOS = {"owner", "admin", "colaborador", "visualizador"}
@@ -38,26 +39,46 @@ def get_db():
         db.close()
 
 
-def get_current_user(
-    user_id: Optional[str] = Cookie(default=None),
-    db: Session = Depends(get_db),
-) -> models.Usuario:
-    if not user_id or not str(user_id).strip():
+def get_request_user(request: Request, db: Session) -> models.Usuario:
+    """Retorna o usuário já validado pelo middleware global.
+
+    No fluxo normal, não executa SELECT em ``usuarios``. O middleware guarda o
+    objeto em ``request.state.current_user`` e fecha a própria sessão antes de
+    chamar a rota. ``merge(load=False)`` apenas associa uma cópia à sessão da
+    rota, preservando atualizações feitas por endpoints como o de perfil.
+
+    O fallback pela sessão assinada existe para testes isolados e para usos fora
+    do middleware global; ele não é acionado nas rotas protegidas normais.
+    """
+    cached_user = getattr(request.state, "current_user", None)
+    if cached_user is not None:
+        return db.merge(cached_user, load=False)
+
+    session = decode_session_token(request.cookies.get(SESSION_COOKIE_NAME, ""))
+    if not session:
         raise HTTPException(status_code=401, detail="Não autenticado.")
 
-    try:
-        user_id_int = int(str(user_id).strip())
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Sessão inválida.")
-
-    usuario = db.query(models.Usuario).filter(models.Usuario.id == user_id_int).first()
+    usuario = (
+        db.query(models.Usuario)
+        .filter(
+            models.Usuario.id == int(session["uid"]),
+            models.Usuario.empresa_id == int(session["eid"]),
+        )
+        .first()
+    )
     if not usuario:
         raise HTTPException(status_code=401, detail="Usuário não encontrado.")
-
     if not bool(getattr(usuario, "ativo", True)):
         raise HTTPException(status_code=403, detail="Usuário inativo.")
 
     return usuario
+
+
+def get_current_user(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> models.Usuario:
+    return get_request_user(request, db)
 
 
 def get_current_empresa_id(
