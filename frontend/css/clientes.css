@@ -1698,3 +1698,381 @@ textarea.campo-obrigatorio-pendente {
   .history-audit-values del,
   .history-audit-values ins { max-width: 46%; }
 }
+
+
+/* =========================================================
+   CLIENTE — AÇÕES DO TOPO SOMENTE COM ÍCONES
+   Mantém a barra leve e revela o nome em tooltip no hover/foco.
+   ========================================================= */
+#modal-cliente-backdrop .cliente-modal-topbar,
+#modal-cliente-backdrop .cliente-modal-top-actions {
+  overflow: visible;
+}
+
+#modal-cliente-backdrop .cliente-modal-top-actions {
+  gap: 8px;
+}
+
+#modal-cliente-backdrop .cliente-top-icon-action {
+  position: relative;
+  flex: 0 0 38px;
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 0 !important;
+  border-radius: 10px !important;
+  display: inline-grid !important;
+  place-items: center;
+  gap: 0 !important;
+}
+
+#modal-cliente-backdrop .cliente-top-svg-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+#modal-cliente-backdrop .cliente-top-action-label {
+  display: none !important;
+}
+
+#modal-cliente-backdrop .cliente-top-status {
+  position: relative;
+  flex: 0 0 38px;
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 10px;
+  cursor: default;
+}
+
+#modal-cliente-backdrop .cliente-top-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  display: block;
+  background: currentColor;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.08);
+}
+
+#modal-cliente-backdrop #btn-fechar-modal-cliente .cliente-top-close-icon {
+  width: 17px;
+  height: 17px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#modal-cliente-backdrop .cliente-top-icon-action[data-tooltip]::after,
+#modal-cliente-backdrop .cliente-top-status[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 50%;
+  z-index: 10030;
+  transform: translate(-50%, -3px);
+  padding: 7px 9px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 8px;
+  background: #101828;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .12s ease, transform .12s ease, visibility .12s ease;
+}
+
+#modal-cliente-backdrop .cliente-top-icon-action[data-tooltip]::before,
+#modal-cliente-backdrop .cliente-top-status[data-tooltip]::before {
+  content: "";
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  z-index: 10031;
+  width: 8px;
+  height: 8px;
+  background: #101828;
+  transform: translateX(-50%) rotate(45deg);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .12s ease, visibility .12s ease;
+}
+
+#modal-cliente-backdrop .cliente-top-icon-action[data-tooltip]:hover::after,
+#modal-cliente-backdrop .cliente-top-icon-action[data-tooltip]:focus-visible::after,
+#modal-cliente-backdrop .cliente-top-status[data-tooltip]:hover::after,
+#modal-cliente-backdrop .cliente-top-status[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+#modal-cliente-backdrop .cliente-top-icon-action[data-tooltip]:hover::before,
+#modal-cliente-backdrop .cliente-top-icon-action[data-tooltip]:focus-visible::before,
+#modal-cliente-backdrop .cliente-top-status[data-tooltip]:hover::before,
+#modal-cliente-backdrop .cliente-top-status[data-tooltip]:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (hover: none) {
+  #modal-cliente-backdrop .cliente-top-icon-action[data-tooltip]:active::after,
+  #modal-cliente-backdrop .cliente-top-status[data-tooltip]:active::after,
+  #modal-cliente-backdrop .cliente-top-icon-action[data-tooltip]:active::before,
+  #modal-cliente-backdrop .cliente-top-status[data-tooltip]:active::before {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  #modal-cliente-backdrop .cliente-top-icon-action[data-tooltip]:active::after,
+  #modal-cliente-backdrop .cliente-top-status[data-tooltip]:active::after {
+    transform: translate(-50%, 0);
+  }
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-top-icon-action[data-tooltip]::after,
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-top-status[data-tooltip]::after,
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-top-icon-action[data-tooltip]::before,
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-top-status[data-tooltip]::before {
+  background: #eef4f8;
+  color: #12212b;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Ícones outline leves — evita aparência de ícone em negrito. */
+#modal-cliente-backdrop .cliente-top-icon-action.btn-secondary,
+#modal-cliente-backdrop .agenda-fixed-top-btn {
+  color: #526274 !important;
+}
+
+#modal-cliente-backdrop .cliente-top-icon-action.btn-primary {
+  color: #fff !important;
+}
+
+#modal-cliente-backdrop #btn-fechar-modal-cliente {
+  color: #526274 !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-top-icon-action.btn-secondary,
+html[data-theme="dark"] #modal-cliente-backdrop .agenda-fixed-top-btn,
+html[data-theme="dark"] #modal-cliente-backdrop #btn-fechar-modal-cliente {
+  color: #b8c5d1 !important;
+}
+
+/* =========================================================
+   CLIENTE — ÍCONES CLEAN FINAL
+   Referência aprovada: outline fino, orçamento azul-claro,
+   status com anel suave e fechar minimalista.
+   ========================================================= */
+#modal-cliente-backdrop .cliente-modal-top-actions {
+  gap: 9px;
+}
+
+#modal-cliente-backdrop .cliente-top-icon-action,
+#modal-cliente-backdrop .cliente-top-status,
+#modal-cliente-backdrop #btn-fechar-modal-cliente {
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 11px !important;
+  box-shadow: 0 4px 13px rgba(15, 23, 42, 0.035) !important;
+}
+
+#modal-cliente-backdrop .cliente-top-icon-action.btn-secondary,
+#modal-cliente-backdrop .agenda-fixed-top-btn,
+#modal-cliente-backdrop #btn-fechar-modal-cliente {
+  border: 1px solid #e4eaf0 !important;
+  background: #ffffff !important;
+  color: #65758a !important;
+}
+
+#modal-cliente-backdrop .cliente-top-icon-action.btn-secondary:hover,
+#modal-cliente-backdrop .agenda-fixed-top-btn:hover,
+#modal-cliente-backdrop #btn-fechar-modal-cliente:hover {
+  border-color: #d5dee8 !important;
+  background: #fbfcfd !important;
+  color: #4f6074 !important;
+}
+
+/* Fazer orçamento: azul muito leve, sem bloco forte. */
+#modal-cliente-backdrop .cliente-budget-action.btn-primary {
+  border: 1px solid #a9e6eb !important;
+  background: #e6f8fa !important;
+  color: #17aeb9 !important;
+  box-shadow: 0 5px 16px rgba(23, 174, 185, 0.08) !important;
+}
+
+#modal-cliente-backdrop .cliente-budget-action.btn-primary:hover {
+  border-color: #8edce3 !important;
+  background: #dcf5f7 !important;
+  color: #119eaa !important;
+}
+
+#modal-cliente-backdrop .cliente-top-svg-icon {
+  width: 19px;
+  height: 19px;
+  stroke-width: 1.45;
+}
+
+#modal-cliente-backdrop .cliente-calendar-dot {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* Status: fundo verde quase branco + anel suave ao redor do ponto. */
+#modal-cliente-backdrop .cliente-top-status {
+  border: 1px solid rgba(34, 197, 94, 0.22) !important;
+  background: #f1fbf4 !important;
+  color: #14903b !important;
+  box-shadow: 0 4px 13px rgba(22, 163, 74, 0.035) !important;
+}
+
+#modal-cliente-backdrop .cliente-top-status-dot {
+  width: 8px;
+  height: 8px;
+  background: currentColor;
+  box-shadow: 0 0 0 7px rgba(34, 197, 94, 0.11) !important;
+}
+
+#modal-cliente-backdrop .cliente-top-status.is-inativo .cliente-top-status-dot {
+  box-shadow: 0 0 0 7px rgba(100, 116, 139, 0.10) !important;
+}
+
+#modal-cliente-backdrop .cliente-top-status.is-bloqueado .cliente-top-status-dot {
+  box-shadow: 0 0 0 7px rgba(239, 68, 68, 0.10) !important;
+}
+
+#modal-cliente-backdrop #btn-fechar-modal-cliente .cliente-top-close-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.35;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-top-icon-action.btn-secondary,
+html[data-theme="dark"] #modal-cliente-backdrop .agenda-fixed-top-btn,
+html[data-theme="dark"] #modal-cliente-backdrop #btn-fechar-modal-cliente {
+  border-color: #334554 !important;
+  background: #17232d !important;
+  color: #b8c5d1 !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-budget-action.btn-primary {
+  border-color: rgba(66, 196, 205, 0.38) !important;
+  background: rgba(66, 196, 205, 0.13) !important;
+  color: #69d4dc !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-top-status {
+  border-color: rgba(34, 197, 94, 0.28) !important;
+  background: rgba(34, 197, 94, 0.09) !important;
+}
+
+/* =========================================================
+   LISTA DE CLIENTES — AÇÕES DA TABELA
+   IMPORTANTE: totalmente separado dos ícones do modal/card.
+   Mantém as dimensões originais da tabela: 34x34.
+   ========================================================= */
+#tbody-clientes td.cliente-acoes-cell {
+  text-align: right;
+}
+
+#tbody-clientes .cliente-acoes-grid {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+#tbody-clientes .cliente-action-btn {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  border: 1px solid #e3e8ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #526985;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+
+#tbody-clientes .cliente-action-btn:hover {
+  background: #f8fafc;
+  border-color: #d7dee8;
+  color: #334b69;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#tbody-clientes .cliente-action-btn:focus-visible {
+  outline: none;
+  border-color: #8fd3df;
+  box-shadow: 0 0 0 3px rgba(111, 199, 215, .15) !important;
+}
+
+#tbody-clientes .cliente-action-btn-whatsapp {
+  background: #f7fbf8;
+  border-color: #deebe1;
+  color: #20c763;
+}
+
+#tbody-clientes .cliente-action-btn-whatsapp:hover {
+  background: #f1f9f3;
+  border-color: #cfe4d4;
+  color: #16a34a;
+}
+
+#tbody-clientes .cliente-action-btn .cliente-action-svg {
+  width: 17px !important;
+  height: 17px !important;
+  display: block;
+  color: currentColor;
+}
+
+#tbody-clientes .cliente-action-btn .cliente-action-svg * {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#tbody-clientes .cliente-action-btn-whatsapp .cliente-action-svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+#tbody-clientes .cliente-action-btn-whatsapp .cliente-action-svg * {
+  stroke-width: 1.65;
+}
+
+#tbody-clientes .cliente-action-btn-list .cliente-action-svg {
+  width: 17px !important;
+  height: 17px !important;
+}

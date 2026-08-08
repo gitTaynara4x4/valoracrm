@@ -33,6 +33,7 @@ from backend.routers import campos_propostas
 from backend.routers.integracoes_zapschat import router as integracoes_zapschat_router
 from backend.routers.exportacoes import router as exportacoes_router
 from backend.routers.agenda import router as agenda_router
+from backend.routers.arquivos_tecnicos import router as arquivos_tecnicos_router
 from backend.agenda_push import start_push_dispatcher, stop_push_dispatcher
 from backend.financeiro_recorrencia import start_financeiro_recorrencia_dispatcher, stop_financeiro_recorrencia_dispatcher
 from backend.database import SessionLocal
@@ -127,6 +128,98 @@ FAVICON_TAG = '<link rel="icon" type="image/jpeg" href="/frontend/img/logo-favic
 FAVICON_TAG_ALT = '<link rel="shortcut icon" type="image/jpeg" href="/frontend/img/logo-favicon.jpg">'
 
 
+# Navegação contínua: versão única para evitar que páginas diferentes usem
+# cópias antigas do app.css/menu-global.js armazenadas pelo navegador.
+SEAMLESS_NAV_VERSION = "20260807-shell-v3"
+SEAMLESS_MENU_CSS_TAG = (
+    f'<link rel="stylesheet" href="/frontend/css/menu-global.css?v={SEAMLESS_NAV_VERSION}" '
+    f'data-valora-menu-css="{SEAMLESS_NAV_VERSION}">'
+)
+
+SEAMLESS_NAV_STYLE = """<style id=\"valora-seamless-navigation\">
+@view-transition { navigation: auto; }
+#valora-menu-root { view-transition-name: valora-menu-shell; }
+::view-transition-group(valora-menu-shell),
+::view-transition-old(valora-menu-shell),
+::view-transition-new(valora-menu-shell) {
+  animation-duration: 1ms !important;
+  animation-delay: 0ms !important;
+}
+::view-transition-old(root) {
+  animation: valora-nav-hold 110ms ease-out both !important;
+}
+::view-transition-new(root) {
+  animation: valora-nav-enter 110ms ease-out both !important;
+}
+@keyframes valora-nav-hold { from { opacity: 1; } to { opacity: 1; } }
+@keyframes valora-nav-enter { from { opacity: .985; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation-duration: 1ms !important; }
+}
+</style>"""
+
+try:
+    GLOBAL_MENU_HTML = (FRONTEND_DIR / "partials" / "sidebar-content.inc").read_text(encoding="utf-8")
+except Exception:
+    GLOBAL_MENU_HTML = ""
+
+
+# Páginas internas que usam o shell persistente. Login, cadastro e a landing
+# pública continuam sendo documentos normais.
+APP_SHELL_FILE = FRONTEND_DIR / "app-shell.html"
+SHELL_EXCLUDED_PAGES = {"login", "cadastro", "inicio", "app-shell"}
+SHELL_PAGE_NAMES = {
+    file.stem
+    for file in FRONTEND_DIR.glob("*.html")
+    if file.stem not in SHELL_EXCLUDED_PAGES
+}
+
+
+def _is_embedded_document_request(request: Request) -> bool:
+    if request.query_params.get("__valora_embed") == "1":
+        return True
+    return str(request.headers.get("sec-fetch-dest") or "").strip().lower() == "iframe"
+
+
+def _should_use_app_shell(page_name: str, request: Request) -> bool:
+    return page_name in SHELL_PAGE_NAMES and not _is_embedded_document_request(request)
+
+
+EMBEDDED_PAGE_STYLE = """<style id=\"valora-embedded-page-style\">
+#valora-menu-root { display: none !important; }
+html, body { min-height: 100%; }
+body { margin: 0 !important; }
+.layout { min-height: 100dvh !important; }
+.main {
+  min-height: 100dvh !important;
+  padding-top: 28px !important;
+}
+@media (max-width: 760px) {
+  .main { padding-top: 18px !important; }
+}
+</style>"""
+
+EMBEDDED_PAGE_BRIDGE = """<script id=\"valora-embedded-page-bridge\">
+(() => {
+  window.__VALORA_EMBEDDED__ = true;
+  document.addEventListener('click', (event) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const anchor = event.target.closest && event.target.closest('a[href]');
+    if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download')) return;
+    let url;
+    try { url = new URL(anchor.href, location.href); } catch (_) { return; }
+    if (url.origin !== location.origin) return;
+    const path = url.pathname.toLowerCase();
+    if (path.startsWith('/api/') || path.startsWith('/uploads/') || path === '/login' || path === '/cadastro') return;
+    event.preventDefault();
+    parent.postMessage({ type: 'valora:navigate', url: url.href, replace: false }, location.origin);
+  }, true);
+})();
+</script>"""
+
+
 # ============================================
 # Autenticação e autorização global
 # ============================================
@@ -172,6 +265,7 @@ PERMISSION_PREFIXES = (
     ("/api/dashboard", "dashboard"),
     ("/api/campos-clientes", "clientes"),
     ("/api/clientes", "clientes"),
+    ("/api/arquivos-tecnicos", "arquivos_tecnicos"),
     ("/api/fornecedores", "fornecedores"),
     ("/api/produtos", "produtos"),
     ("/api/patrimonio", "patrimonio"),
@@ -191,6 +285,7 @@ PERMISSION_PREFIXES = (
 PAGE_PERMISSION_MODULES = {
     "/dashboard": "dashboard",
     "/clientes": "clientes",
+    "/arquivos-tecnicos": "arquivos_tecnicos",
     "/fornecedores": "fornecedores",
     "/produtos": "produtos",
     "/patrimonio": "patrimonio",
@@ -438,13 +533,67 @@ async def inject_global_favicon(request: Request, call_next):
                 media_type=response.media_type,
             )
 
-    if 'rel="icon"' not in html and 'rel="shortcut icon"' not in html:
-        inject_html = f"    {FAVICON_TAG}\n    {FAVICON_TAG_ALT}\n"
+    head_injections = []
+    embedded_document = _is_embedded_document_request(request)
+    has_global_menu = 'id="valora-menu-root"' in html
 
+    if 'rel="icon"' not in html and 'rel="shortcut icon"' not in html:
+        head_injections.append(f"    {FAVICON_TAG}\n    {FAVICON_TAG_ALT}")
+
+    if embedded_document:
+        if 'id="valora-embedded-page-style"' not in html:
+            head_injections.append(EMBEDDED_PAGE_STYLE)
+        if 'id="valora-embedded-page-bridge"' not in html:
+            head_injections.append(EMBEDDED_PAGE_BRIDGE)
+
+    # Como o menu agora já vem renderizado no HTML, o CSS dele também precisa
+    # estar no <head> antes do primeiro paint para não existir FOUC.
+    if has_global_menu and not embedded_document and '/frontend/css/menu-global.css' not in html:
+        head_injections.append(SEAMLESS_MENU_CSS_TAG)
+
+    # A transição precisa estar no HTML inicial das duas páginas. Fazendo a
+    # injeção aqui, a navegação continua suave mesmo se algum app.css antigo
+    # ainda estiver no cache do navegador.
+    if has_global_menu and not embedded_document and 'id="valora-seamless-navigation"' not in html:
+        head_injections.append(SEAMLESS_NAV_STYLE)
+
+    # Todos os módulos passam a pedir exatamente a mesma versão dos dois
+    # arquivos globais. Isso elimina o cenário em que apenas algumas páginas
+    # ainda utilizavam uma cópia antiga e "piscavam" ao navegar.
+    html = re.sub(
+        r'(/frontend/css/app\.css)(?:\?[^"\']*)?',
+        rf'\1?v={SEAMLESS_NAV_VERSION}',
+        html,
+    )
+    html = re.sub(
+        r'(/frontend/js/shared/menu-global\.js)(?:\?[^"\']*)?',
+        rf'\1?v={SEAMLESS_NAV_VERSION}',
+        html,
+    )
+
+    if head_injections:
+        inject_html = "\n".join(head_injections) + "\n"
         if "</head>" in html:
             html = html.replace("</head>", f"{inject_html}</head>", 1)
         else:
             html = inject_html + html
+
+    # O menu antes nascia vazio e era preenchido por fetch depois do primeiro
+    # paint. Isso gerava um pequeno sumiço/reaparecimento da barra em páginas
+    # mais pesadas. Agora o mesmo partial já sai dentro do HTML inicial.
+    if GLOBAL_MENU_HTML and has_global_menu and not embedded_document:
+        menu_pattern = re.compile(
+            r'<div(?P<attrs>[^>]*\bid=["\']valora-menu-root["\'][^>]*)>\s*</div>',
+            re.IGNORECASE,
+        )
+
+        def _render_global_menu(match):
+            attrs = match.group("attrs")
+            if "data-valora-ssr-menu" not in attrs:
+                attrs += ' data-valora-ssr-menu="1"'
+            return f"<div{attrs}>{GLOBAL_MENU_HTML}</div>"
+
+        html = menu_pattern.sub(_render_global_menu, html, count=1)
 
     headers = dict(response.headers)
     headers.pop("content-length", None)
@@ -497,6 +646,7 @@ app.include_router(financeiro_router)
 app.include_router(integracoes_zapschat_router)
 app.include_router(exportacoes_router)
 app.include_router(agenda_router)
+app.include_router(arquivos_tecnicos_router)
 
 # Área do Cliente / Contratos
 app.include_router(area_cliente_admin_router)
@@ -534,6 +684,16 @@ def serve_html(page_name: str) -> FileResponse:
 
     return FileResponse(
         str(file_path),
+        media_type="text/html; charset=utf-8",
+        headers=dict(_NO_CACHE_HEADERS),
+    )
+
+
+def serve_app_shell() -> FileResponse:
+    if not APP_SHELL_FILE.exists():
+        raise HTTPException(status_code=500, detail="Shell do Valora não encontrado.")
+    return FileResponse(
+        str(APP_SHELL_FILE),
         media_type="text/html; charset=utf-8",
         headers=dict(_NO_CACHE_HEADERS),
     )
@@ -595,10 +755,14 @@ def inicio():
 #      /usuarios  -> frontend/usuarios.html
 # ============================================
 @app.get("/{page_name}", include_in_schema=False)
-def page(page_name: str):
+def page(page_name: str, request: Request):
+    if _should_use_app_shell(page_name, request):
+        return serve_app_shell()
     return serve_html(page_name)
 
 
 @app.get("/{page_name}/", include_in_schema=False)
-def page_slash(page_name: str):
+def page_slash(page_name: str, request: Request):
+    if _should_use_app_shell(page_name, request):
+        return serve_app_shell()
     return serve_html(page_name)

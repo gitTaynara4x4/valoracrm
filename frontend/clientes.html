@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="/frontend/css/exportacoes.css?v=20260713-exportacoes-completas-v1" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260717-busca-relacao-v1" />
-  <link rel="stylesheet" href="/frontend/css/clientes.css?v=20260722-cliente-orcamento-v1" />
+  <link rel="stylesheet" href="/frontend/css/clientes.css?v=20260807-cliente-icones-separados-v2" />
   <link rel="stylesheet" href="/frontend/css/localizar-personalizado.css?v=20260715-localizar-arrastar-restaurado-v8" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
@@ -44,7 +44,7 @@
   <script src="/frontend/js/shared/ficha-principal.js?v=20260729-clientes-gravacao-v2" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script src="/frontend/js/shared/localizar-personalizado.js?v=20260723-produtos-multiselect-relacoes-v9" defer></script>
-  <script type="module" src="/frontend/js/pages/clientes/index.js?v=20260804-clientes-cep-agenda-v3"></script>
+  <script type="module" src="/frontend/js/pages/clientes/index.js?v=20260807-clientes-icones-separados-v6"></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 </head>
 
@@ -250,31 +250,64 @@
                 <div class="cliente-modal-top-actions">
                   <button
                     type="button"
-                    class="btn btn-primary btn-sm cliente-budget-action"
-                    id="btn-fazer-orcamento-cliente"
-                    title="Criar um orçamento já preenchido com este cliente"
+                    class="btn btn-secondary btn-sm cliente-top-icon-action"
+                    id="btn-arquivos-tecnicos-cliente"
+                    aria-label="Arquivos técnicos"
+                    data-tooltip="Arquivos técnicos"
                     hidden>
-                    <i class="fa-solid fa-file-circle-plus"></i>
-                    <span>Fazer orçamento</span>
+                    <svg class="cliente-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M3.75 7.2h5.2l1.75 2.05h7.55a2 2 0 0 1 2 2v5.95a2 2 0 0 1-2 2H5.75a2 2 0 0 1-2-2v-10Z"></path>
+                      <path d="M3.75 9.25h6.95"></path>
+                    </svg>
+                    <span class="cliente-top-action-label">Arquivos técnicos</span>
                   </button>
 
                   <button
                     type="button"
-                    class="agenda-fixed-top-btn"
+                    class="btn btn-primary btn-sm cliente-budget-action cliente-top-icon-action"
+                    id="btn-fazer-orcamento-cliente"
+                    aria-label="Fazer orçamento"
+                    data-tooltip="Fazer orçamento"
+                    hidden>
+                    <svg class="cliente-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M7.25 4.25h7.1l2.4 2.4v9.1a2 2 0 0 1-2 2h-7.5a2 2 0 0 1-2-2v-9.5a2 2 0 0 1 2-2Z"></path>
+                      <path d="M14.25 4.35v2.4h2.4"></path>
+                      <path d="M10.25 8.25h6.5l2.25 2.25v7.25a2 2 0 0 1-2 2h-6.75a2 2 0 0 1-2-2V10.25a2 2 0 0 1 2-2Z"></path>
+                    </svg>
+                    <span class="cliente-top-action-label">Fazer orçamento</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="agenda-fixed-top-btn cliente-top-icon-action"
                     data-agenda-fixed-open="tab-historico"
                     data-agenda-scope="#formCliente"
                     data-agenda-panel-selector=".cliente-tab"
                     data-agenda-tab-selector=".cliente-tab-btn"
-                    aria-label="Abrir agenda e histórico do cliente"
+                    aria-label="Agenda"
                     aria-pressed="false"
-                    title="Agenda e histórico">
-                    <i class="fa-regular fa-calendar-check"></i>
-                    <span>Agenda</span>
+                    data-tooltip="Agenda">
+                    <svg class="cliente-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <rect x="4" y="5.5" width="16" height="14.25" rx="2.25"></rect>
+                      <path d="M8 3.75v3.5M16 3.75v3.5M4 9.5h16"></path>
+                      <circle class="cliente-calendar-dot" cx="8.25" cy="13.25" r=".7"></circle>
+                      <circle class="cliente-calendar-dot" cx="12" cy="13.25" r=".7"></circle>
+                      <circle class="cliente-calendar-dot" cx="15.75" cy="13.25" r=".7"></circle>
+                      <circle class="cliente-calendar-dot" cx="8.25" cy="16.5" r=".7"></circle>
+                      <circle class="cliente-calendar-dot" cx="12" cy="16.5" r=".7"></circle>
+                      <circle class="cliente-calendar-dot" cx="15.75" cy="16.5" r=".7"></circle>
+                    </svg>
+                    <span class="cliente-top-action-label">Agenda</span>
                   </button>
 
-                  <span class="cliente-status-pill" id="cliente-status-pill">
-                    <i class="fa-solid fa-circle"></i>
-                    Ativo
+                  <span
+                    class="cliente-status-pill cliente-top-status"
+                    id="cliente-status-pill"
+                    aria-label="Status: Ativo"
+                    data-tooltip="Ativo"
+                    tabindex="0">
+                    <span class="cliente-top-status-dot" aria-hidden="true"></span>
+                    <span class="cliente-top-action-label">Ativo</span>
                   </span>
 
                   <button
@@ -282,7 +315,9 @@
                     type="button"
                     id="btn-fechar-modal-cliente"
                     title="Fechar">
-                    <i class="fa-solid fa-xmark"></i>
+                    <svg class="cliente-top-close-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M7.5 7.5 16.5 16.5M16.5 7.5 7.5 16.5"></path>
+                    </svg>
                   </button>
                 </div>
               </header>

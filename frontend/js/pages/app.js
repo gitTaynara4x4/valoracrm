@@ -777,6 +777,20 @@ document.addEventListener('DOMContentLoaded', () => {
         'Use ícones simples: dados básicos, contato, endereço, financeiro, anexos e histórico.'
       ]
     },
+    'arquivos-tecnicos': {
+      title: 'Ajuda de Arquivos Técnicos',
+      subtitle: 'Fotos, documentos e arquivos organizados por cliente.',
+      icon: 'fa-folder-tree',
+      steps: [
+        'Pesquise o cliente pelo nome, código ou endereço.',
+        'Selecione um cliente e crie as pastas necessárias para organizar os arquivos dele.',
+        'Abra uma pasta e envie fotos, documentos ou outros arquivos permitidos.'
+      ],
+      tips: [
+        'Cada cliente começa sem pastas. Crie somente as categorias que fizerem sentido para aquele cadastro.',
+        'Fotos ficam vinculadas ao cliente e à empresa, com registro de quem enviou.'
+      ]
+    },
     usuarios: {
       title: 'Ajuda de Usuários',
       subtitle: 'Acesso, papéis, permissões e segurança.',

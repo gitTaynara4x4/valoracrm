@@ -1398,7 +1398,8 @@
     });
 
     qs('btn-gerenciar-formulario-patrimonio')?.addEventListener('click', () => {
-      window.location.href = '/formularios?modulo=patrimonio';
+      if (window.ValoraNavigate) window.ValoraNavigate('/formularios?modulo=patrimonio');
+      else window.location.href = '/formularios?modulo=patrimonio';
     });
 
     qs('toggle-ficha-principal-patrimonio')?.addEventListener('change', salvarToggleFichaPrincipalPatrimonio);

@@ -1,11 +1,11 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260806-direct-menu-v1';
+  const VERSION = '20260807-shell-v3';
   const PARTIAL_URL = '/frontend/partials/sidebar-content.inc?v=' + VERSION;
   const CSS_URL = '/frontend/css/menu-global.css?v=' + VERSION;
   const ROUTES = {
-    home: '/dashboard', clientes: '/clientes', fornecedores: '/fornecedores', cotacoes: '/cotacoes',
+    home: '/dashboard', clientes: '/clientes', 'arquivos-tecnicos': '/arquivos-tecnicos', fornecedores: '/fornecedores', cotacoes: '/cotacoes',
     produtos: '/produtos', patrimonio: '/patrimonio', orcamentos: '/orcamentos', propostas: '/propostas',
     'area-cliente-admin': '/area-cliente-admin', 'contratos-admin': '/contratos-admin', usuarios: '/usuarios',
     config: '/configuracoes', formularios: '/formularios', ajuda: '/ajuda', perfil: '/perfil', empresa: '/empresa',
@@ -17,6 +17,7 @@
 
   let root = null;
   let initialized = false;
+  const prefetchedRoutes = new Set();
 
   function ensureCss() {
     if (document.querySelector('link[data-valora-menu-css]')) return;
@@ -31,11 +32,44 @@
     return String(path || '/').toLowerCase().split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   }
 
+  function isEmbeddedPage() {
+    try {
+      return window.self !== window.top && new URL(window.location.href).searchParams.get('__valora_embed') === '1';
+    } catch (_) {
+      return window.self !== window.top;
+    }
+  }
+
+  function navigateUrl(url, { replace = false } = {}) {
+    if (!url) return;
+
+    // Dentro do shell, o documento pai permanece vivo e troca somente o
+    // conteúdo. É isso que elimina o pisca de uma navegação MPA tradicional.
+    if (window.ValoraShell?.navigate) {
+      window.ValoraShell.navigate(url, { replace });
+      return;
+    }
+
+    // Módulos renderizados dentro do frame também podem pedir navegação ao
+    // shell sem descarregar o documento atual.
+    if (isEmbeddedPage()) {
+      try {
+        window.parent.postMessage({ type: 'valora:navigate', url, replace }, window.location.origin);
+        return;
+      } catch (_) {}
+    }
+
+    if (replace) window.location.replace(url);
+    else window.location.assign(url);
+  }
+
+  window.ValoraNavigate = navigateUrl;
+
   function currentTarget() {
     const path = normalizePath(window.location.pathname);
     if (['/', '/dashboard', '/home', '/inicio', '/frontend/dashboard.html', '/frontend/inicio.html'].includes(path)) return 'home';
     const aliases = [
-      ['clientes','clientes'], ['fornecedores','fornecedores'], ['cotacoes','cotacoes'], ['produtos','produtos'],
+      ['arquivos-tecnicos','arquivos-tecnicos'], ['clientes','clientes'], ['fornecedores','fornecedores'], ['cotacoes','cotacoes'], ['produtos','produtos'],
       ['patrimonio','patrimonio'], ['orcamentos','orcamentos'], ['propostas','propostas'],
       ['area-cliente-admin','area-cliente-admin'], ['contratos-admin','contratos-admin'], ['usuarios','usuarios'],
       ['vendas-financeiro','vendas-financeiro'], ['contas-receber','contas-receber'], ['contas-pagar','contas-pagar'],
@@ -106,9 +140,27 @@
     root.classList.remove('mobile-menu-open');
   }
 
+  function prefetchRoute(target) {
+    const url = ROUTES[target];
+    if (!url || prefetchedRoutes.has(url) || normalizePath(url) === normalizePath(window.location.pathname)) return;
+    prefetchedRoutes.add(url);
+
+    if (window.ValoraShell?.prefetch) {
+      window.ValoraShell.prefetch(url);
+      return;
+    }
+
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = url;
+    link.as = 'document';
+    link.dataset.valoraPrefetch = url;
+    document.head.appendChild(link);
+  }
+
   function navigate(target) {
     const url = ROUTES[target];
-    if (url) window.location.assign(url);
+    if (url) navigateUrl(url);
   }
 
   async function logout() {
@@ -119,7 +171,7 @@
       localStorage.clear();
       sessionStorage.clear();
       localStorage.setItem('valora_theme', theme);
-      window.location.replace('/login');
+      navigateUrl('/login', { replace: true });
     } catch (error) {
       console.error('[Valora menu] logout:', error);
       alert('Não foi possível encerrar a sessão. Tente novamente.');
@@ -208,6 +260,16 @@
   }
 
   function bindEvents() {
+    root.addEventListener('pointerover', (event) => {
+      const targetBtn = event.target.closest('[data-target]');
+      if (targetBtn) prefetchRoute(targetBtn.dataset.target);
+    });
+
+    root.addEventListener('focusin', (event) => {
+      const targetBtn = event.target.closest('[data-target]');
+      if (targetBtn) prefetchRoute(targetBtn.dataset.target);
+    });
+
     root.addEventListener('click', (event) => {
       const groupTrigger = event.target.closest('.nav-trigger');
       if (groupTrigger) { event.preventDefault(); event.stopPropagation(); toggleExclusive(groupTrigger.closest('[data-menu-group]')); return; }
@@ -258,25 +320,46 @@
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenus(); });
   }
 
+  function activateRenderedMenu() {
+    root.dataset.initialized = VERSION;
+    applyTheme(localStorage.getItem('valora_theme') || 'light', { persist: false });
+    syncUser();
+    syncActive();
+    syncThemeButtons();
+    initMobileSections();
+    bindEvents();
+    document.dispatchEvent(new CustomEvent('valora:menu-ready'));
+    window.ValoraAgenda?.refreshNotifications?.({ showAlerts: false });
+  }
+
   async function init() {
     if (initialized) return;
+
+    // O menu visual pertence ao shell. Dentro do iframe mantemos apenas os
+    // helpers globais, evitando reconstruir a barra superior a cada módulo.
+    if (isEmbeddedPage()) {
+      initialized = true;
+      return;
+    }
+
     root = document.getElementById('valora-menu-root');
     if (!root) return;
     initialized = true;
     ensureCss();
+
+    // O backend já pode entregar o partial dentro do HTML inicial. Nesse caso
+    // não substituímos o menu novamente depois do primeiro paint, evitando o
+    // pequeno sumiço/reaparecimento que ainda ocorria em páginas mais pesadas.
+    if (root.children.length > 0 || root.dataset.valoraSsrMenu === '1') {
+      activateRenderedMenu();
+      return;
+    }
+
     try {
       const response = await fetch(PARTIAL_URL, { credentials: 'include', cache: 'force-cache' });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       root.innerHTML = await response.text();
-      root.dataset.initialized = VERSION;
-      applyTheme(localStorage.getItem('valora_theme') || 'light', { persist: false });
-      syncUser();
-      syncActive();
-      syncThemeButtons();
-      initMobileSections();
-      bindEvents();
-      document.dispatchEvent(new CustomEvent('valora:menu-ready'));
-      window.ValoraAgenda?.refreshNotifications?.({ showAlerts: false });
+      activateRenderedMenu();
     } catch (error) {
       initialized = false;
       console.error('[Valora menu] Falha ao carregar menu:', error);

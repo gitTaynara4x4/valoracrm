@@ -29,7 +29,7 @@
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260804-agenda-save-refresh-v13" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260806-paginacao-v1" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260807-modelos-com-kits-v1" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -234,9 +234,34 @@
                 </div>
               </div>
               <div id="produto-search-box" class="product-search-box" hidden>
-                <div class="input-with-icon"><i class="fa-solid fa-magnifying-glass"></i><input id="produto-search-input" type="search" placeholder="Digite código, nome ou descrição" autocomplete="off" /></div>
-                <div class="product-list-header" aria-hidden="true"><span>Produto / serviço</span><span>Valor</span></div>
-                <div id="produto-search-results" class="product-results"></div>
+                <div class="product-search-toolbar">
+                  <div class="input-with-icon product-search-input-wrap"><i class="fa-solid fa-magnifying-glass"></i><input id="produto-search-input" type="search" placeholder="Digite código, nome ou descrição" autocomplete="off" /></div>
+                  <div class="kit-layout-dropdown-wrap product-layout-dropdown-wrap">
+                    <button class="btn btn-secondary btn-small btn-icon-only" id="btn-product-search-layout" type="button" aria-label="Configurar visualização dos produtos" aria-expanded="false" aria-controls="product-layout-menu">
+                      <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <div class="kit-layout-menu product-layout-menu" id="product-layout-menu" hidden>
+                      <div class="kit-layout-menu-title">Visualização</div>
+                      <button class="kit-layout-option product-layout-option" type="button" data-product-layout="row" aria-pressed="false">
+                        <span class="kit-layout-option-choice">
+                          <span class="kit-layout-radio" aria-hidden="true"></span>
+                          <span>Lista</span>
+                        </span>
+                        <span class="kit-layout-preview kit-layout-preview-row" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+                      </button>
+                      <button class="kit-layout-option product-layout-option" type="button" data-product-layout="column" aria-pressed="true">
+                        <span class="kit-layout-option-choice">
+                          <span class="kit-layout-radio" aria-hidden="true"></span>
+                          <span>Coluna</span>
+                        </span>
+                        <span class="kit-layout-preview kit-layout-preview-column" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div id="produto-search-hint" class="product-search-hint"><i class="fa-solid fa-magnifying-glass"></i><span>Digite um código, nome ou descrição para buscar um produto.</span></div>
+                <div id="produto-search-list-header" class="product-list-header" aria-hidden="true" hidden><span>Produto / serviço</span><span>Valor</span></div>
+                <div id="produto-search-results" class="product-results is-column-layout"></div>
               </div>
               <div class="budget-items-table-wrap">
                 <table class="budget-items-table">

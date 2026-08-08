@@ -1575,3 +1575,77 @@ class FormularioCampo(Base):
             f"<FormularioCampo id={self.id} formulario_id={self.formulario_id} "
             f"origem={self.origem!r} label={self.label!r}>"
         )
+
+# =========================================================
+# ARQUIVOS TÉCNICOS DOS CLIENTES
+# =========================================================
+class ArquivoTecnicoPasta(Base):
+    __tablename__ = "arquivos_tecnicos_pastas"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    cliente_id = Column(
+        BigInteger,
+        ForeignKey("clientes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    nome = Column(String(120), nullable=False)
+    icone = Column(String(80), nullable=True)
+    ordem = Column(Integer, nullable=False, server_default="0")
+    criado_por_id = Column(BigInteger, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    criado_por_nome = Column(String(120), nullable=True)
+    criado_em = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ArquivoTecnicoArquivo(Base):
+    __tablename__ = "arquivos_tecnicos_arquivos"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    cliente_id = Column(
+        BigInteger,
+        ForeignKey("clientes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    pasta_id = Column(
+        BigInteger,
+        ForeignKey("arquivos_tecnicos_pastas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    titulo = Column(String(180), nullable=True)
+    descricao = Column(Text, nullable=True)
+    arquivo_nome = Column(String(255), nullable=False)
+    arquivo_path = Column(Text, nullable=False)
+    mime_type = Column(String(120), nullable=True)
+    extensao = Column(String(20), nullable=True)
+    tamanho_bytes = Column(BigInteger, nullable=False, server_default="0")
+    usuario_id = Column(BigInteger, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    usuario_nome = Column(String(120), nullable=True)
+    criado_em = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )

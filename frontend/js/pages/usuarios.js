@@ -1,6 +1,7 @@
 const MODULOS = [
   { key: "dashboard", label: "Dashboard", desc: "Visão geral do sistema" },
   { key: "clientes", label: "Clientes", desc: "Cadastro e gestão de clientes" },
+  { key: "arquivos_tecnicos", label: "Arquivos Técnicos", desc: "Fotos, documentos e pastas técnicas dos clientes" },
   { key: "fornecedores", label: "Fornecedores", desc: "Cadastro e gestão de fornecedores" },
   { key: "produtos", label: "Produtos", desc: "Catálogo e itens" },
   { key: "patrimonio", label: "Patrimônio", desc: "Bens, equipamentos e localização" },

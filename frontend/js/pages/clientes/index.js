@@ -1,10 +1,10 @@
 import { state } from './state.js';
 import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js?v=20260715-cliente-erro-estruturado-v10';
 import { $, toast } from './utils.js';
-import { renderTabelaClientes } from './table.js?v=20260715-localizar-arrastar-restaurado-v4';
+import { renderTabelaClientes } from './table.js?v=20260807-icones-lista-separados-v6';
 import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js?v=20260715-filtros-exatos-v2';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
-import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260804-clientes-cep-agenda-v3';
+import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260807-clientes-arquivos-tecnicos-v5';
 import { bindImportExport, exportarClientesJSON } from './import-export.js';
 
 function renderAll() {
@@ -74,6 +74,13 @@ function bindTabelaActions() {
 
     const id = Number(btn.dataset.id);
     if (!id) return;
+
+    if (btn.dataset.action === 'arquivos-tecnicos') {
+      const targetUrl = `/arquivos-tecnicos?cliente=${encodeURIComponent(id)}`;
+      if (window.ValoraNavigate) window.ValoraNavigate(targetUrl);
+      else window.location.href = targetUrl;
+      return;
+    }
 
     if (btn.dataset.action === 'zapschat') {
       await abrirClienteNoZapsChat(id, { button: btn });
@@ -148,7 +155,8 @@ function bindTopActions() {
 
 function bindFormularioActions() {
   $('btn-gerenciar-formulario-cliente')?.addEventListener('click', () => {
-    window.location.href = '/frontend/formularios.html?modulo=clientes';
+    if (window.ValoraNavigate) window.ValoraNavigate('/formularios?modulo=clientes');
+    else window.location.href = '/formularios?modulo=clientes';
   });
 }
 

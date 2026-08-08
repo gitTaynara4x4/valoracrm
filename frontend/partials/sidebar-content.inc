@@ -34,6 +34,7 @@
 
         <div class="dropdown">
           <button class="dropdown-item" type="button" data-target="clientes">Clientes</button>
+          <button class="dropdown-item" type="button" data-target="arquivos-tecnicos">Arquivos Técnicos</button>
           <button class="dropdown-item" type="button" data-target="fornecedores">Fornecedores</button>
           <button class="dropdown-item" type="button" data-target="cotacoes">Cotações</button>
           <button class="dropdown-item" type="button" data-target="produtos">Produtos</button>
@@ -183,6 +184,7 @@
     <div class="mobile-section">
       <div class="mobile-title">Cadastros</div>
       <button class="mobile-link" type="button" data-target="clientes"><i class="fa-solid fa-user-group"></i> Clientes</button>
+      <button class="mobile-link" type="button" data-target="arquivos-tecnicos"><i class="fa-solid fa-folder-tree"></i> Arquivos Técnicos</button>
       <button class="mobile-link" type="button" data-target="fornecedores"><i class="fa-solid fa-truck"></i> Fornecedores</button>
       <button class="mobile-link" type="button" data-target="cotacoes"><i class="fa-solid fa-scale-balanced"></i> Cotações</button>
       <button class="mobile-link" type="button" data-target="produtos"><i class="fa-solid fa-box-open"></i> Produtos</button>

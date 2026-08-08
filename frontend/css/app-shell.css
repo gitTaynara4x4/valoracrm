@@ -1,0 +1,117 @@
+:root {
+  --valora-shell-topbar: 54px;
+  --valora-shell-bg: #f6f8fb;
+}
+
+html,
+body.valora-shell-body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--valora-shell-bg);
+}
+
+html[data-theme="dark"] {
+  --valora-shell-bg: #111111;
+}
+
+body.valora-shell-body {
+  font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.valora-shell-stage {
+  position: fixed;
+  z-index: 1;
+  inset: var(--valora-shell-topbar) 0 0 0;
+  overflow: hidden;
+  background: var(--valora-shell-bg);
+  isolation: isolate;
+}
+
+.valora-shell-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: var(--valora-shell-bg);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.valora-shell-frame.is-active {
+  z-index: 2;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.valora-shell-frame.is-preparing {
+  z-index: 3;
+  opacity: 0;
+  visibility: visible;
+  pointer-events: none;
+}
+
+/* O primeiro carregamento acontece uma única vez, ao entrar no sistema.
+   Nas trocas seguintes, o frame anterior continua visível até o novo estar pronto. */
+.valora-shell-first-load {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--valora-shell-bg);
+}
+
+.valora-shell-progress {
+  position: fixed;
+  z-index: 2147483000;
+  top: var(--valora-shell-topbar);
+  left: 0;
+  right: 0;
+  height: 2px;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 80ms linear;
+}
+
+.valora-shell-progress span {
+  display: block;
+  width: 36%;
+  height: 100%;
+  background: #4bc3c7;
+  transform: translateX(-120%);
+}
+
+.valora-shell-progress.is-loading {
+  opacity: 1;
+}
+
+.valora-shell-progress.is-loading span {
+  animation: valora-shell-progress 850ms ease-in-out infinite;
+}
+
+@keyframes valora-shell-progress {
+  0% { transform: translateX(-120%); }
+  55% { transform: translateX(150%); }
+  100% { transform: translateX(340%); }
+}
+
+/* O menu pertence ao documento pai e nunca é recriado entre módulos. */
+#valora-menu-root {
+  position: relative;
+  z-index: 2147482000;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .valora-shell-progress,
+  .valora-shell-progress span {
+    transition: none !important;
+    animation: none !important;
+  }
+}

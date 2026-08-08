@@ -31,6 +31,143 @@ async function syncAgendaCliente(cliente = null, readonly = false) {
   }
 }
 
+const AGENDA_TIPOS_AGENDADOS_CLIENTE = new Set([
+  'lembrete',
+  'enviar_proposta',
+  'abrir_ordem_servico',
+  'transferir_departamento',
+]);
+
+function textoAgendaMascarado(value) {
+  const text = String(value ?? '').trim();
+  return text.length >= 3 && /^[*•●·\s]+$/.test(text);
+}
+
+function abrirAgendaClienteParaCorrecao() {
+  const fixedButton = document.querySelector(
+    '[data-agenda-fixed-open="tab-historico"][data-agenda-scope="#formCliente"]'
+  );
+  if (fixedButton) {
+    fixedButton.click();
+    return;
+  }
+  switchTab('tab-historico');
+}
+
+function prepararAgendaPendenteCliente() {
+  const container = $('agenda-cliente');
+  const form = container?.querySelector('[data-agenda-form]');
+  if (!form || clienteModalSomenteLeitura) return null;
+
+  const value = (name) => String(form.querySelector(`[name="${name}"]`)?.value || '').trim();
+  const tipo = value('tipo') || 'registro';
+  const assunto = value('assunto');
+  const descricao = value('descricao');
+  const localDate = value('agendado_para');
+  const status = value('status') || 'em_aberto';
+  const motivoStatus = value('motivo_status');
+  const informacoesLivres = value('informacoes_livres');
+  const departamentoDestino = value('departamento_destino');
+  const scheduled = AGENDA_TIPOS_AGENDADOS_CLIENTE.has(tipo);
+
+  // O tipo/status padrão não conta como rascunho. Só interceptamos o salvar
+  // do cliente quando a pessoa realmente digitou ou alterou algo na Agenda.
+  const hasDraft = Boolean(
+    assunto ||
+    descricao ||
+    localDate ||
+    motivoStatus ||
+    informacoesLivres ||
+    departamentoDestino ||
+    tipo !== 'registro'
+  );
+
+  if (!hasDraft) return null;
+
+  if (!assunto) {
+    throw new Error('Preencha o assunto da Agenda antes de salvar o cliente.');
+  }
+  if (textoAgendaMascarado(assunto)) {
+    throw new Error('Digite um assunto válido na Agenda em vez de apenas asteriscos.');
+  }
+  if (scheduled && !localDate) {
+    throw new Error('Informe a data e o horário do agendamento antes de salvar o cliente.');
+  }
+  if (tipo === 'transferir_departamento' && !departamentoDestino) {
+    throw new Error('Informe o departamento de destino na Agenda antes de salvar o cliente.');
+  }
+
+  let agendadoPara = null;
+  if (localDate) {
+    const parsed = new Date(localDate);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error('A data e o horário informados na Agenda são inválidos.');
+    }
+    agendadoPara = parsed.toISOString();
+  }
+
+  return {
+    form,
+    tipo,
+    scheduled,
+    payload: {
+      entidade_tipo: 'cliente',
+      entidade_id: Number(state.clienteEditandoId || currentDetail?.id || 0),
+      tipo,
+      assunto,
+      descricao: descricao || null,
+      agendado_para: scheduled ? agendadoPara : null,
+      status: scheduled ? status : null,
+      motivo_status: scheduled ? (motivoStatus || null) : null,
+      informacoes_livres: scheduled ? (informacoesLivres || null) : null,
+      departamento_destino: tipo === 'transferir_departamento' ? departamentoDestino : null,
+    },
+  };
+}
+
+async function salvarAgendaPendenteCliente(agendaDraft, clienteId = null) {
+  if (!agendaDraft?.form || !agendaDraft?.payload) return false;
+
+  const entidadeId = Number(clienteId || agendaDraft.payload.entidade_id || 0);
+  if (!entidadeId) {
+    throw new Error('Não foi possível identificar o cliente para gravar a Agenda.');
+  }
+
+  await apiJson('/api/agenda/itens', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...agendaDraft.payload,
+      entidade_id: entidadeId,
+    }),
+  });
+
+  const form = agendaDraft.form;
+  form.querySelectorAll('input, textarea').forEach((input) => {
+    input.value = '';
+  });
+
+  const typeSelect = form.querySelector('[name="tipo"]');
+  const statusSelect = form.querySelector('[name="status"]');
+  const motiveSelect = form.querySelector('[name="motivo_status"]');
+  if (typeSelect) typeSelect.value = 'registro';
+  if (statusSelect) statusSelect.value = 'em_aberto';
+  if (motiveSelect) motiveSelect.value = '';
+  typeSelect?.dispatchEvent(new Event('change', { bubbles: true }));
+
+  // A gravação principal já foi concluída. Falha ao atualizar a interface
+  // não deve transformar uma gravação bem-sucedida em erro para o usuário.
+  try {
+    const agenda = await window.ValoraAgendaReady;
+    await Promise.allSettled([
+      agenda?.refreshEntity?.('agenda-cliente', { force: true }),
+      agenda?.refreshNotifications?.({ showAlerts: false, force: true }),
+    ]);
+  } catch (_) {}
+
+  return true;
+}
+
 function defaultCliente() {
   return {
     codigo: '',
@@ -1488,6 +1625,12 @@ function syncClienteBudgetActions() {
   const clientId = getClienteAtualId();
   const topButton = $('btn-fazer-orcamento-cliente');
   const historyButton = $('btn-novo-orcamento-cliente');
+  const arquivosButton = $('btn-arquivos-tecnicos-cliente');
+
+  if (arquivosButton) {
+    arquivosButton.hidden = !clientId;
+    arquivosButton.disabled = !clientId;
+  }
 
   if (topButton) {
     topButton.hidden = !clientId;
@@ -1497,6 +1640,17 @@ function syncClienteBudgetActions() {
   if (historyButton) historyButton.disabled = !clientId;
 }
 
+function abrirArquivosTecnicosDoCliente() {
+  const clientId = getClienteAtualId();
+  if (!clientId) {
+    toast('Salve o cliente antes de acessar os arquivos técnicos.', 'error');
+    return;
+  }
+  const targetUrl = `/arquivos-tecnicos?cliente=${encodeURIComponent(clientId)}`;
+  if (window.ValoraNavigate) window.ValoraNavigate(targetUrl);
+  else window.location.href = targetUrl;
+}
+
 function abrirOrcamentoDoCliente() {
   const clientId = getClienteAtualId();
   if (!clientId) {
@@ -1504,7 +1658,9 @@ function abrirOrcamentoDoCliente() {
     return;
   }
 
-  window.location.href = `/orcamentos?novo=1&cliente_id=${encodeURIComponent(clientId)}`;
+  const targetUrl = `/orcamentos?novo=1&cliente_id=${encodeURIComponent(clientId)}`;
+  if (window.ValoraNavigate) window.ValoraNavigate(targetUrl);
+  else window.location.href = targetUrl;
 }
 
 function renderHistorico(data = {}) {
@@ -1764,7 +1920,18 @@ export function bindClientModal({ afterSave } = {}) {
   $('btn-fechar-modal-cliente')?.addEventListener('click', closeClientModal);
   $('btn-cancelar-cliente')?.addEventListener('click', closeClientModal);
   $('formCliente')?.addEventListener('submit', saveCliente);
+
+  // A Agenda fica dentro do <form> principal do cliente. Sem este bloqueio,
+  // Enter em um campo da Agenda pode disparar o submit de "Salvar cliente".
+  // Textareas continuam aceitando Enter normalmente.
+  $('agenda-cliente')?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    if (event.target?.closest?.('textarea')) return;
+    event.preventDefault();
+    event.stopPropagation();
+  });
   $('btn-abrir-zapschat-cliente')?.addEventListener('click', (event) => abrirClienteNoZapsChat(state.clienteEditandoId || currentDetail?.id, { button: event.currentTarget }));
+  $('btn-arquivos-tecnicos-cliente')?.addEventListener('click', abrirArquivosTecnicosDoCliente);
   $('btn-fazer-orcamento-cliente')?.addEventListener('click', abrirOrcamentoDoCliente);
   $('btn-novo-orcamento-cliente')?.addEventListener('click', abrirOrcamentoDoCliente);
   $('toggle-ficha-principal-cliente')?.addEventListener('change', salvarToggleFichaPrincipalCliente);
@@ -2192,22 +2359,68 @@ export async function saveCliente(e) {
 
   const btn = $('btn-salvar-cliente');
   const original = btn?.innerHTML || 'Salvar cliente';
+  let clienteFoiSalvo = false;
+  let agendaDraft = null;
+  let agendaFoiSalva = false;
 
   try {
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
     }
 
-    await salvarClienteComConfirmacaoDeDuplicidade(payload);
+    // Valida o rascunho da Agenda ANTES de gravar o cliente. Assim um
+    // agendamento incompleto nunca é descartado quando o modal é fechado.
+    try {
+      agendaDraft = prepararAgendaPendenteCliente();
+    } catch (agendaError) {
+      abrirAgendaClienteParaCorrecao();
+      throw agendaError;
+    }
+
+    if (btn) {
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando cliente...';
+    }
+
+    const clienteSalvo = await salvarClienteComConfirmacaoDeDuplicidade(payload);
+    clienteFoiSalvo = true;
     await _afterSave();
+
+    if (agendaDraft) {
+      if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando agenda...';
+      }
+
+      const clienteId = Number(clienteSalvo?.id || state.clienteEditandoId || currentDetail?.id || 0);
+      try {
+        agendaFoiSalva = await salvarAgendaPendenteCliente(agendaDraft, clienteId);
+      } catch (agendaError) {
+        abrirAgendaClienteParaCorrecao();
+        const wrapped = new Error(
+          `O cliente foi salvo, mas a Agenda não foi gravada: ${agendaError.message} Os dados da Agenda continuam preenchidos.`
+        );
+        wrapped.code = 'agenda_save_failed_after_client';
+        throw wrapped;
+      }
+    }
 
     closeClientModal();
 
-    toast('Cliente salvo com sucesso.', 'success');
+    toast(
+      agendaFoiSalva
+        ? 'Cliente e informações da Agenda salvos com sucesso.'
+        : 'Cliente salvo com sucesso.',
+      'success'
+    );
   } catch (err) {
     if (err?.code !== 'duplicate_cancelled') {
       toast(err.message || 'Erro ao salvar cliente.', 'error');
+    }
+
+    // Se o cliente já foi persistido, mantemos o modal aberto quando a Agenda
+    // falha para que o usuário possa corrigir/tentar novamente sem perder texto.
+    if (clienteFoiSalvo && err?.code === 'agenda_save_failed_after_client') {
+      abrirAgendaClienteParaCorrecao();
     }
   } finally {
     if (btn) {

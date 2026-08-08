@@ -3074,3 +3074,44 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   z-index: 2147483600 !important;
   isolation: isolate;
 }
+
+/* =========================================================
+   NAVEGAÇÃO CONTÍNUA ENTRE PÁGINAS
+   Mantém a tela anterior visível enquanto a próxima página
+   é preparada, eliminando o "pisca" da navegação MPA.
+   Compatível com navegadores Chromium modernos.
+   ========================================================= */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-group(root) {
+  animation-duration: 140ms;
+  animation-timing-function: ease-out;
+}
+
+::view-transition-old(root) {
+  animation: valora-page-hold 140ms ease-out both;
+}
+
+::view-transition-new(root) {
+  animation: valora-page-enter 140ms ease-out both;
+}
+
+@keyframes valora-page-hold {
+  from { opacity: 1; }
+  to { opacity: 1; }
+}
+
+@keyframes valora-page-enter {
+  from { opacity: 0.96; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 1ms !important;
+  }
+}

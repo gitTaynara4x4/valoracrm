@@ -15,6 +15,7 @@
     budgetSearchTimer: null,
     currentId: null,
     current: null,
+    appliedTemplateId: null,
     items: [],
     payments: [],
     selectedClient: null,
@@ -48,6 +49,7 @@
     calculationTimer: null,
     initialRouteHandled: false,
     kitPickerLayout: loadKitPickerLayout(),
+    productPickerLayout: loadProductPickerLayout(),
   };
 
   const statusMeta = {
@@ -204,6 +206,21 @@
   function saveKitPickerLayout(layout) {
     try {
       localStorage.setItem('valora:orcamentos:kit-picker-layout', layout);
+    } catch (_) {}
+  }
+
+  function loadProductPickerLayout() {
+    try {
+      const saved = localStorage.getItem('valora:orcamentos:product-picker-layout');
+      return saved === 'row' ? 'row' : 'column';
+    } catch (_) {
+      return 'column';
+    }
+  }
+
+  function saveProductPickerLayout(layout) {
+    try {
+      localStorage.setItem('valora:orcamentos:product-picker-layout', layout);
     } catch (_) {}
   }
 
@@ -475,7 +492,14 @@
     const categoryOptions = '<option value="">Sem categoria</option>' + activeCategories.map((category) => `<option value="${category.id}">${escapeHtml(category.nome)}</option>`).join('');
     $('orcamento-categoria').innerHTML = categoryOptions;
     $('template-category').innerHTML = categoryOptions;
-    $('orcamento-modelo').innerHTML = '<option value="">Começar do zero</option>' + activeTemplates.map((template) => `<option value="${template.id}">${escapeHtml(template.nome)}</option>`).join('');
+    const activeKitsForModel = (state.kits || []).filter((kit) => kit.ativo !== false);
+    const modelOptions = activeTemplates.length
+      ? `<optgroup label="Modelos de orçamento">${activeTemplates.map((template) => `<option value="${template.id}">${escapeHtml(template.nome)}</option>`).join('')}</optgroup>`
+      : '';
+    const kitOptions = activeKitsForModel.length
+      ? `<optgroup label="Kits de produtos">${activeKitsForModel.map((kit) => `<option value="kit:${kit.id}">${escapeHtml(kit.nome)}</option>`).join('')}</optgroup>`
+      : '';
+    $('orcamento-modelo').innerHTML = '<option value="">Começar do zero</option>' + modelOptions + kitOptions;
     $('orcamento-consultor').innerHTML = '<option value="">Selecionar</option>' + state.users.map((user) => `<option value="${user.id}">${escapeHtml(user.nome)}</option>`).join('');
     if ($('orcamento-emitente-id')) {
       $('orcamento-emitente-id').innerHTML = '<option value="">Selecionar empresa</option>' + activeEmitters.map((emitter) => `<option value="${emitter.id}">${escapeHtml(emitter.nome)}${emitter.padrao ? ' (padrão)' : ''}</option>`).join('');
@@ -511,6 +535,7 @@
   function resetBudgetForm() {
     state.currentId = null;
     state.current = null;
+    state.appliedTemplateId = null;
     state.items = [];
     state.payments = [];
     state.selectedClient = null;
@@ -675,6 +700,7 @@
   }
 
   function fillBudgetForm(budget) {
+    state.appliedTemplateId = Number(budget?.modelo_id) || null;
     const emitterSelect = $('orcamento-emitente-id');
     const fallbackEmitter = state.emitters.find((emitter) => emitter.padrao && emitter.ativo !== false)
       || state.emitters.find((emitter) => emitter.ativo !== false);
@@ -1022,6 +1048,74 @@
     };
   }
 
+  function updateProductPickerLayoutUI() {
+    const results = $('produto-search-results');
+    const header = $('produto-search-list-header');
+    const layout = state.productPickerLayout === 'row' ? 'row' : 'column';
+    const hasProducts = Boolean(results?.querySelector('[data-product-id]'));
+
+    if (results) {
+      results.classList.toggle('is-list-layout', layout === 'row');
+      results.classList.toggle('is-column-layout', layout === 'column');
+      results.classList.toggle('has-results', hasProducts);
+    }
+    if (header) header.hidden = layout !== 'row' || !hasProducts;
+
+    $$('[data-product-layout]').forEach((option) => {
+      const active = option.dataset.productLayout === layout;
+      option.classList.toggle('is-active', active);
+      option.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+
+  function closeProductLayoutMenu() {
+    const menu = $('product-layout-menu');
+    const button = $('btn-product-search-layout');
+    if (menu) menu.hidden = true;
+    if (button) button.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleProductLayoutMenu(force) {
+    const menu = $('product-layout-menu');
+    const button = $('btn-product-search-layout');
+    if (!menu || !button) return;
+    const open = typeof force === 'boolean' ? force : menu.hidden;
+    menu.hidden = !open;
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function setProductPickerLayout(layout) {
+    state.productPickerLayout = layout === 'row' ? 'row' : 'column';
+    saveProductPickerLayout(state.productPickerLayout);
+    updateProductPickerLayoutUI();
+  }
+
+  function renderBudgetProductSearchPrompt() {
+    const results = $('produto-search-results');
+    const hint = $('produto-search-hint');
+    const header = $('produto-search-list-header');
+    if (results) {
+      results.innerHTML = '';
+      results._items = [];
+      results.classList.remove('has-results');
+    }
+    if (hint) hint.hidden = false;
+    if (header) header.hidden = true;
+    updateProductPickerLayoutUI();
+  }
+
+  function handleBudgetProductSearch(query) {
+    const normalizedQuery = String(query || '').trim();
+    if (!normalizedQuery) {
+      resetProductSearch('budget');
+      renderBudgetProductSearchPrompt();
+      return;
+    }
+    const hint = $('produto-search-hint');
+    if (hint) hint.hidden = true;
+    searchProducts(normalizedQuery, 'budget');
+  }
+
   function productResultMarkup(product, target = 'budget') {
     const details = [
       product.codigo ? `Cód. ${product.codigo}` : '',
@@ -1096,6 +1190,12 @@
     }
 
     results._items = [...searchState.results];
+
+    if (target === 'budget') {
+      const hint = $('produto-search-hint');
+      if (hint) hint.hidden = true;
+      updateProductPickerLayoutUI();
+    }
   }
 
   async function loadProductOptions(query = '', target = 'budget', { append = false } = {}) {
@@ -1122,7 +1222,12 @@
       searchState.total = 0;
       searchState.results = [];
       searchState.loading = true;
+      if (target === 'budget') {
+        const hint = $('produto-search-hint');
+        if (hint) hint.hidden = true;
+      }
       results.innerHTML = '<div class="product-empty"><i class="fa-solid fa-spinner fa-spin"></i> Carregando produtos...</div>';
+      if (target === 'budget') updateProductPickerLayoutUI();
     }
 
     try {
@@ -1244,7 +1349,9 @@
       state.items.push(item);
       renderItems();
       updateTotals();
-      resetProductSearch('budget', { reload: true });
+      resetProductSearch('budget');
+      renderBudgetProductSearchPrompt();
+      $('produto-search-input')?.focus();
     }
   }
 
@@ -1869,7 +1976,7 @@
       emitente_id: Number($('orcamento-emitente-id')?.value) || null,
       consultor_id: Number($('orcamento-consultor').value) || null,
       categoria_id: Number($('orcamento-categoria').value) || null,
-      modelo_id: Number($('orcamento-modelo').value) || null,
+      modelo_id: Number(state.appliedTemplateId) || null,
       titulo: $('orcamento-titulo').value.trim(),
       nome_documento: $('orcamento-nome-documento').value.trim(),
       status: $('orcamento-status').value,
@@ -1978,7 +2085,9 @@
 
   function abrirVendaNoFinanceiro() {
     if (!state.currentId) return;
-    window.location.href = `/vendas-financeiro?orcamento_id=${encodeURIComponent(state.currentId)}`;
+    const targetUrl = `/vendas-financeiro?orcamento_id=${encodeURIComponent(state.currentId)}`;
+    if (window.ValoraNavigate) window.ValoraNavigate(targetUrl);
+    else window.location.href = targetUrl;
   }
 
   async function saveBudget() {
@@ -2003,12 +2112,35 @@
     }
   }
 
-  async function applyTemplate(templateId) {
+  async function applyTemplate(selectionValue) {
+    const select = $('orcamento-modelo');
+    const rawValue = String(selectionValue || '').trim();
+
+    if (!rawValue) {
+      state.appliedTemplateId = null;
+      return;
+    }
+
+    if (rawValue.startsWith('kit:')) {
+      const kitId = Number(rawValue.slice(4));
+      const restoreTemplateId = Number(state.appliedTemplateId) || null;
+      if (!kitId) {
+        if (select) select.value = restoreTemplateId ? String(restoreTemplateId) : '';
+        return;
+      }
+      await addKitToBudget(kitId, null, { closePicker: false });
+      if (select) select.value = restoreTemplateId ? String(restoreTemplateId) : '';
+      return;
+    }
+
+    const templateId = Number(rawValue);
     if (!templateId) return;
+    const previousTemplateId = Number(state.appliedTemplateId) || null;
+
     try {
       const template = await api(`${API}/modelos/${templateId}`);
       if (state.items.length && !confirm('Aplicar o modelo substituirá os itens atuais. Continuar?')) {
-        $('orcamento-modelo').value = '';
+        if (select) select.value = previousTemplateId ? String(previousTemplateId) : '';
         return;
       }
       $('orcamento-titulo').value = template.titulo || $('orcamento-titulo').value;
@@ -2019,12 +2151,15 @@
       $('orcamento-observacoes').value = template.observacoes || $('orcamento-observacoes').value;
       state.items = (template.itens || []).map(normalizeItem);
       state.payments = (template.pagamentos || []).map(normalizePayment);
+      state.appliedTemplateId = templateId;
+      if (select) select.value = String(templateId);
       if (!state.payments.length) addDefaultPayment();
       renderItems();
       renderPayments();
       updateTotals();
       toast('Modelo aplicado ao orçamento.');
     } catch (error) {
+      if (select) select.value = previousTemplateId ? String(previousTemplateId) : '';
       toast(error.message, 'error');
     }
   }
@@ -2112,7 +2247,7 @@
     const list = $('kit-picker-list');
     const layout = state.kitPickerLayout === 'row' ? 'row' : 'column';
     if (list) list.classList.toggle('is-row-layout', layout === 'row');
-    $$('.kit-layout-option').forEach((option) => {
+    $$('[data-kit-layout]').forEach((option) => {
       const active = option.dataset.kitLayout === layout;
       option.classList.toggle('is-active', active);
       option.setAttribute('aria-pressed', active ? 'true' : 'false');
@@ -2179,7 +2314,7 @@
     }
   }
 
-  async function addKitToBudget(kitId, button = null) {
+  async function addKitToBudget(kitId, button = null, { closePicker = true } = {}) {
     try {
       setButtonLoading(button, true, 'Adicionando...');
       const kit = await api(`${API}/kits/${kitId}`);
@@ -2202,7 +2337,7 @@
       updateTotals();
       setTab('itens');
       closeKitLayoutMenu();
-      closeOverlay('kit-picker-modal');
+      if (closePicker) closeOverlay('kit-picker-modal');
       const detail = mergedLines ? ` (${mergedLines} quantidades somadas aos produtos já existentes)` : '';
       toast(`Kit “${kit.nome}” adicionado com ${addedLines + mergedLines} produtos${detail}.`);
     } catch (error) {
@@ -2607,8 +2742,9 @@
       await api(id ? `${API}/kits/${id}` : `${API}/kits`, { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
       state.kits = await api(`${API}/kits?incluir_inativos=true`);
       renderKits();
+      renderSelects();
       closeKitEditor();
-      toast('Kit salvo. Ele já está disponível na etapa Itens do orçamento.');
+      toast('Kit salvo. Ele já está disponível em Modelo e em Adicionar kit.');
     } catch (error) {
       toast(error.message || 'Não foi possível salvar o kit.', 'error');
     } finally {
@@ -2621,6 +2757,7 @@
       await api(`${API}/kits/${id}/duplicar`, { method: 'POST' });
       state.kits = await api(`${API}/kits?incluir_inativos=true`);
       renderKits();
+      renderSelects();
       toast('Kit duplicado.');
     } catch (error) {
       toast(error.message || 'Não foi possível duplicar o kit.', 'error');
@@ -2633,6 +2770,7 @@
       await api(`${API}/kits/${id}`, { method: 'DELETE' });
       state.kits = await api(`${API}/kits?incluir_inativos=true`);
       renderKits();
+      renderSelects();
       closeKitEditor();
       toast('Kit excluído.');
     } catch (error) {
@@ -2851,24 +2989,45 @@
       setSettingsTab('kits');
     });
     document.addEventListener('click', (event) => {
-      const trigger = event.target.closest('#btn-kit-picker-layout');
-      const panel = event.target.closest('#kit-layout-menu');
-      if (!trigger && !panel) closeKitLayoutMenu();
+      const kitTrigger = event.target.closest('#btn-kit-picker-layout');
+      const kitPanel = event.target.closest('#kit-layout-menu');
+      if (!kitTrigger && !kitPanel) closeKitLayoutMenu();
+
+      const productTrigger = event.target.closest('#btn-product-search-layout');
+      const productPanel = event.target.closest('#product-layout-menu');
+      if (!productTrigger && !productPanel) closeProductLayoutMenu();
     });
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeKitLayoutMenu();
+      if (event.key === 'Escape') {
+        closeKitLayoutMenu();
+        closeProductLayoutMenu();
+      }
     });
 
     $('btn-buscar-produto').addEventListener('click', () => {
       const box = $('produto-search-box');
       box.hidden = !box.hidden;
+      closeProductLayoutMenu();
       if (!box.hidden) {
-        $('produto-search-input').focus();
-        showProductOptions('budget');
+        updateProductPickerLayoutUI();
+        const input = $('produto-search-input');
+        input.focus();
+        if (input.value.trim()) showProductOptions('budget');
+        else renderBudgetProductSearchPrompt();
       }
     });
+    $('btn-product-search-layout')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleProductLayoutMenu();
+    });
+    $('product-layout-menu')?.addEventListener('click', (event) => {
+      const option = event.target.closest('[data-product-layout]');
+      if (!option) return;
+      setProductPickerLayout(option.dataset.productLayout);
+      closeProductLayoutMenu();
+    });
     $('btn-adicionar-item').addEventListener('click', () => addManualItem('budget'));
-    $('produto-search-input').addEventListener('input', debounce((event) => searchProducts(event.target.value, 'budget'), 250));
+    $('produto-search-input').addEventListener('input', debounce((event) => handleBudgetProductSearch(event.target.value), 250));
     $('produto-search-results').addEventListener('scroll', () => loadMoreProductsOnScroll('budget'), { passive: true });
     $('produto-search-results').addEventListener('click', (event) => { const button = event.target.closest('[data-product-id]'); if (button) addProduct(button.dataset.productId, 'budget'); });
     $('budget-items-body').addEventListener('input', (event) => { if (event.target.dataset.field) updateItemField(event.target); });

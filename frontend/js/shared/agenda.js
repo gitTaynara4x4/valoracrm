@@ -973,7 +973,9 @@
         try {
           localStorage.setItem('valora_agenda_open_entity', JSON.stringify({ type, entityId, createdAt: Date.now() }));
         } catch (_) {}
-        window.location.href = modulePath(type);
+        const targetUrl = modulePath(type);
+        if (window.ValoraNavigate) window.ValoraNavigate(targetUrl);
+        else window.location.href = targetUrl;
         return;
       }
 

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arquivos Técnicos | Valora CRM</title>
+
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem('valora_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260807-arquivos-tecnicos-v1" />
+  <link rel="stylesheet" href="/frontend/css/arquivos-tecnicos.css?v=20260807-arquivos-tecnicos-v2" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
+  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
+
+  <script src="/frontend/js/shared/menu-global.js?v=20260807-arquivos-tecnicos-v1" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260807-arquivos-tecnicos-v2" defer></script>
+  <script src="/frontend/js/pages/arquivos-tecnicos.js?v=20260807-arquivos-tecnicos-v2" defer></script>
+</head>
+<body>
+  <div class="layout">
+    <div id="valora-menu-root" aria-label="Menu Valora"></div>
+
+    <main class="main arquivos-tecnicos-page">
+      <header class="topbar arquivos-tecnicos-topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Cadastros</span>
+          <h1>Arquivos Técnicos</h1>
+          <p class="topbar-subtitle">Fotos, documentos e arquivos organizados por cliente.</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" id="btn-atualizar-arquivos" type="button">
+            <i class="fa-solid fa-rotate"></i> Atualizar
+          </button>
+        </div>
+      </header>
+
+      <section class="arq-stats" aria-label="Resumo do acervo técnico">
+        <article class="arq-stat-card">
+          <span class="arq-stat-icon"><i class="fa-solid fa-user-group"></i></span>
+          <div><strong id="stat-clientes">0</strong><span>Clientes com arquivos</span></div>
+        </article>
+        <article class="arq-stat-card">
+          <span class="arq-stat-icon"><i class="fa-regular fa-images"></i></span>
+          <div><strong id="stat-arquivos">0</strong><span>Fotos e arquivos</span></div>
+        </article>
+        <article class="arq-stat-card">
+          <span class="arq-stat-icon"><i class="fa-solid fa-folder-tree"></i></span>
+          <div><strong id="stat-pastas">0</strong><span>Pastas criadas</span></div>
+        </article>
+        <article class="arq-stat-card">
+          <span class="arq-stat-icon"><i class="fa-solid fa-hard-drive"></i></span>
+          <div><strong id="stat-espaco">0 MB</strong><span>Espaço utilizado</span></div>
+        </article>
+      </section>
+
+      <section class="arq-workspace panel-card">
+        <aside class="arq-clients-panel">
+          <div class="arq-panel-head">
+            <div>
+              <h3>Clientes</h3>
+              <p>Localize por nome, código ou endereço.</p>
+            </div>
+          </div>
+
+          <label class="arq-search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="arq-busca-cliente" type="search" placeholder="Buscar cliente..." autocomplete="off" />
+          </label>
+
+          <label class="arq-filter-check">
+            <input id="arq-so-com-arquivos" type="checkbox" />
+            <span>Mostrar somente clientes com arquivos</span>
+          </label>
+
+          <div class="arq-client-list" id="arq-client-list">
+            <div class="arq-loading"><i class="fa-solid fa-spinner fa-spin"></i> Carregando clientes...</div>
+          </div>
+
+          <div class="arq-client-pagination">
+            <button class="btn btn-secondary btn-sm" id="arq-client-prev" type="button"><i class="fa-solid fa-chevron-left"></i></button>
+            <span id="arq-client-page">1 / 1</span>
+            <button class="btn btn-secondary btn-sm" id="arq-client-next" type="button"><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+        </aside>
+
+        <section class="arq-main-panel" id="arq-main-panel">
+          <div class="arq-empty-client" id="arq-empty-client">
+            <span class="arq-empty-icon"><i class="fa-solid fa-folder-open"></i></span>
+            <h3>Selecione um cliente</h3>
+            <p>Escolha um cliente ao lado para acessar as pastas, fotos e documentos dele.</p>
+          </div>
+
+          <div class="arq-client-content" id="arq-client-content" hidden>
+            <header class="arq-client-header">
+              <div class="arq-client-identity">
+                <span class="arq-client-avatar"><i class="fa-solid fa-building-shield"></i></span>
+                <div>
+                  <div class="arq-client-code" id="arq-selected-code">CLIENTE</div>
+                  <h2 id="arq-selected-name">Cliente</h2>
+                  <p id="arq-selected-address">Endereço não informado</p>
+                </div>
+              </div>
+              <div class="arq-client-actions">
+                <button class="btn btn-secondary btn-sm" id="btn-nova-pasta-cliente" type="button">
+                  <i class="fa-solid fa-folder-plus"></i> Nova pasta
+                </button>
+              </div>
+            </header>
+
+            <section class="arq-folders-section">
+              <div class="arq-section-head">
+                <div>
+                  <h3>Pastas do cliente</h3>
+                  <p>Crie somente as pastas que fizerem sentido para este cliente.</p>
+                </div>
+                <span id="arq-folder-count" class="counter-text">0 pastas</span>
+              </div>
+              <div class="arq-folder-grid" id="arq-folder-grid"></div>
+            </section>
+
+            <section class="arq-gallery-section" id="arq-gallery-section" hidden>
+              <header class="arq-gallery-head">
+                <div>
+                  <button class="arq-back-folders" id="btn-voltar-pastas" type="button"><i class="fa-solid fa-arrow-left"></i> Todas as pastas</button>
+                  <h3 id="arq-gallery-title">Pasta</h3>
+                  <p id="arq-gallery-meta">0 arquivos</p>
+                </div>
+                <div class="arq-gallery-actions">
+                  <button class="btn btn-secondary btn-sm" id="btn-editar-pasta" type="button" hidden><i class="fa-solid fa-pen"></i> Renomear</button>
+                  <button class="btn btn-secondary btn-sm" id="btn-excluir-pasta" type="button" hidden><i class="fa-regular fa-trash-can"></i> Excluir pasta</button>
+                  <button class="btn btn-primary btn-sm" id="btn-enviar-arquivos" type="button"><i class="fa-solid fa-cloud-arrow-up"></i> Enviar fotos/arquivos</button>
+                  <input id="input-arquivos-tecnicos" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.heic,.heif" hidden />
+                </div>
+              </header>
+
+              <div class="arq-dropzone" id="arq-dropzone">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <div><strong>Arraste fotos aqui</strong><span>ou clique em “Enviar fotos/arquivos”. Até 30 arquivos por envio.</span></div>
+              </div>
+
+              <div class="arq-file-grid" id="arq-file-grid"></div>
+            </section>
+          </div>
+        </section>
+      </section>
+
+      <div class="modal-overlay" id="modal-arq-pasta" hidden>
+        <div class="modal-content modal-sm arq-small-modal" data-close-target="false">
+          <header class="modal-header">
+            <div><h3 id="modal-arq-pasta-title">Nova pasta</h3><p class="modal-subtitle">Crie uma pasta específica para este cliente.</p></div>
+            <button class="btn-close" type="button" data-arq-close="modal-arq-pasta"><i class="fa-solid fa-xmark"></i></button>
+          </header>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="arq-pasta-nome">Nome da pasta</label>
+              <input id="arq-pasta-nome" type="text" maxlength="120" placeholder="Ex.: Rede, Automação, Incêndio..." />
+            </div>
+          </div>
+          <footer class="modal-footer footer-actions">
+            <button class="btn btn-secondary" type="button" data-arq-close="modal-arq-pasta">Cancelar</button>
+            <button class="btn btn-primary" id="btn-salvar-pasta-cliente" type="button">Salvar pasta</button>
+          </footer>
+        </div>
+      </div>
+
+      <div class="modal-overlay" id="modal-arq-preview" hidden>
+        <div class="modal-content modal-xl arq-preview-modal" data-close-target="false">
+          <header class="modal-header arq-preview-header">
+            <div><h3 id="arq-preview-title">Arquivo</h3><p class="modal-subtitle" id="arq-preview-meta"></p></div>
+            <div class="arq-preview-actions">
+              <a class="btn btn-secondary btn-sm" id="arq-preview-download" href="#"><i class="fa-solid fa-download"></i> Baixar</a>
+              <button class="btn-close" type="button" data-arq-close="modal-arq-preview"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </header>
+          <div class="modal-body arq-preview-body" id="arq-preview-body"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

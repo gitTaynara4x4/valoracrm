@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import unicodedata
@@ -2363,6 +2364,17 @@ def excluir_cliente(
 
     db.delete(cliente)
     db.commit()
+
+    # O banco remove metadados do acervo técnico por FK CASCADE; removemos
+    # também os arquivos físicos para não deixar fotos órfãs no servidor.
+    storage_root = Path(os.getenv("ARQUIVOS_TECNICOS_DIR") or (BASE_DIR / "uploads" / "arquivos_tecnicos")).resolve()
+    tech_dir = (storage_root / str(int(empresa_id)) / str(int(cliente_id))).resolve()
+    try:
+        tech_dir.relative_to(storage_root)
+        if tech_dir.exists() and tech_dir.is_dir():
+            shutil.rmtree(tech_dir, ignore_errors=True)
+    except ValueError:
+        pass
     return None
 
 

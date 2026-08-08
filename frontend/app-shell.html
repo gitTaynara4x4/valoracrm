@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Valora CRM</title>
+
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem('valora_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+
+  <link rel="stylesheet" href="/frontend/css/menu-global.css?v=20260807-shell-v3" data-valora-menu-css="20260807-shell-v3">
+  <link rel="stylesheet" href="/frontend/css/agenda.css?v=20260807-shell-v3">
+  <link rel="stylesheet" href="/frontend/css/app-shell.css?v=20260807-shell-v3">
+</head>
+<body class="valora-shell-body">
+  <div id="valora-menu-root" aria-label="Menu Valora"></div>
+
+  <main id="valora-shell-stage" class="valora-shell-stage" aria-live="polite">
+    <div class="valora-shell-first-load" id="valora-shell-first-load" aria-hidden="true"></div>
+  </main>
+
+  <div class="valora-shell-progress" id="valora-shell-progress" aria-hidden="true"><span></span></div>
+
+  <script src="/frontend/js/shared/menu-global.js?v=20260807-shell-v3" defer></script>
+  <script src="/frontend/js/shared/agenda.js?v=20260807-shell-v3" defer></script>
+  <script src="/frontend/js/shared/app-shell.js?v=20260807-shell-v3" defer></script>
+</body>
+</html>

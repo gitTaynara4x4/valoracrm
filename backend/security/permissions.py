@@ -15,6 +15,7 @@ PAPEIS_VALIDOS = {"owner", "admin", "colaborador", "visualizador"}
 MODULOS_VALIDOS = (
     "dashboard",
     "clientes",
+    "arquivos_tecnicos",
     "fornecedores",
     "produtos",
     "patrimonio",
@@ -167,6 +168,12 @@ def build_effective_permissions(
     # uma linha específica para Orçamentos.
     if "orcamentos" not in rows_map and "propostas" in rows_map:
         base["orcamentos"] = dict(base["propostas"])
+
+    # Compatibilidade: o acervo técnico nasceu depois do módulo de Clientes.
+    # Usuários já existentes herdam a mesma permissão de Clientes até que uma
+    # regra própria para Arquivos Técnicos seja salva no cadastro do usuário.
+    if "arquivos_tecnicos" not in rows_map and "clientes" in rows_map:
+        base["arquivos_tecnicos"] = dict(base["clientes"])
 
     return base
 

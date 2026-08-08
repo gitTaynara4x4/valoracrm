@@ -1998,7 +1998,8 @@ function bindTopActions() {
   $('toggle-ficha-principal-fornecedor')?.addEventListener('change', salvarToggleFichaPrincipalFornecedor);
 
   $('btn-gerenciar-formulario-fornecedor')?.addEventListener('click', () => {
-    window.location.href = '/frontend/formularios.html?modulo=fornecedores';
+    if (window.ValoraNavigate) window.ValoraNavigate('/formularios?modulo=fornecedores');
+    else window.location.href = '/formularios?modulo=fornecedores';
   });
 
   $('btn-fechar-modal-campo')?.addEventListener('click', fecharModalCampo);

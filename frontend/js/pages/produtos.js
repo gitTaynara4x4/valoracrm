@@ -2042,7 +2042,8 @@
   }
 
   function abrirGerenciadorFormulario() {
-    window.location.href = '/frontend/formularios.html?modulo=produtos';
+    if (window.ValoraNavigate) window.ValoraNavigate('/formularios?modulo=produtos');
+    else window.location.href = '/formularios?modulo=produtos';
   }
 
   async function atualizarFormularioProduto() {

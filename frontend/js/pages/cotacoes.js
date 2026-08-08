@@ -1756,7 +1756,8 @@
   }
 
   function abrirGerenciarFormularioCotacoes() {
-    window.location.href = '/frontend/formularios.html?modulo=cotacoes';
+    if (window.ValoraNavigate) window.ValoraNavigate('/formularios?modulo=cotacoes');
+    else window.location.href = '/formularios?modulo=cotacoes';
   }
 
   function debounce(fn, wait = 350) {
