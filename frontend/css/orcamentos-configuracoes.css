@@ -1885,3 +1885,321 @@ html[data-theme="dark"] #settings-modal .settings-simple-list > .settings-simple
     justify-content: flex-start;
   }
 }
+
+
+/* =========================================================
+   DARK CHATGPT | CONFIGURAÇÕES DE ORÇAMENTOS | 2026-08-08
+   Somente tema escuro. Neutraliza a paleta azul antiga sem
+   alterar layout, dimensões, HTML, JS ou qualquer regra light.
+   ========================================================= */
+html[data-theme="dark"] #settings-modal,
+[data-theme="dark"] #settings-modal {
+  --settings-blue: #d1d1d1;
+  --settings-blue-2: #ececec;
+  --settings-teal: #d1d1d1;
+  --settings-text: #d1d1d1;
+  --settings-title: #ececec;
+  --settings-muted: #b4b4b4;
+  --settings-soft-muted: #8e8e8e;
+  --settings-border: rgba(255, 255, 255, .10);
+  --settings-border-strong: rgba(255, 255, 255, .16);
+  --settings-surface: #2f2f2f;
+  --settings-bg: #212121;
+  --settings-soft-blue: rgba(255, 255, 255, .07);
+  background: rgba(0, 0, 0, .62) !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-modal-content,
+[data-theme="dark"] #settings-modal .settings-modal-content {
+  border-color: rgba(255, 255, 255, .12) !important;
+  background: #212121 !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .48) !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-modal-header,
+[data-theme="dark"] #settings-modal .settings-modal-header {
+  border-color: rgba(255, 255, 255, .10) !important;
+  background: #171717 !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-modal-eyebrow,
+html[data-theme="dark"] #settings-modal .settings-panel-eyebrow,
+[data-theme="dark"] #settings-modal .settings-modal-eyebrow,
+[data-theme="dark"] #settings-modal .settings-panel-eyebrow {
+  color: #b4b4b4 !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-modal-header h3,
+html[data-theme="dark"] #settings-modal .settings-panel-title h4,
+html[data-theme="dark"] #settings-modal .settings-card-header h4,
+html[data-theme="dark"] #settings-modal .settings-list-header h4,
+html[data-theme="dark"] #settings-modal .settings-editor-heading h4,
+html[data-theme="dark"] #settings-modal .template-editor-header h4,
+html[data-theme="dark"] #settings-modal .kit-settings-card h5,
+html[data-theme="dark"] #settings-modal .template-card h5,
+html[data-theme="dark"] #settings-modal .category-settings-title strong,
+[data-theme="dark"] #settings-modal .settings-modal-header h3,
+[data-theme="dark"] #settings-modal .settings-panel-title h4,
+[data-theme="dark"] #settings-modal .settings-card-header h4,
+[data-theme="dark"] #settings-modal .settings-list-header h4,
+[data-theme="dark"] #settings-modal .settings-editor-heading h4,
+[data-theme="dark"] #settings-modal .template-editor-header h4,
+[data-theme="dark"] #settings-modal .kit-settings-card h5,
+[data-theme="dark"] #settings-modal .template-card h5,
+[data-theme="dark"] #settings-modal .category-settings-title strong {
+  color: #ececec !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-modal-header p,
+html[data-theme="dark"] #settings-modal .settings-panel-title p,
+html[data-theme="dark"] #settings-modal .settings-card-header p,
+html[data-theme="dark"] #settings-modal .settings-list-header p,
+html[data-theme="dark"] #settings-modal .template-editor-header p,
+html[data-theme="dark"] #settings-modal .template-items-header p,
+[data-theme="dark"] #settings-modal .settings-modal-header p,
+[data-theme="dark"] #settings-modal .settings-panel-title p,
+[data-theme="dark"] #settings-modal .settings-card-header p,
+[data-theme="dark"] #settings-modal .settings-list-header p,
+[data-theme="dark"] #settings-modal .template-editor-header p,
+[data-theme="dark"] #settings-modal .template-items-header p {
+  color: #8e8e8e !important;
+}
+
+html[data-theme="dark"] #settings-modal .btn-close,
+[data-theme="dark"] #settings-modal .btn-close {
+  border-color: rgba(255, 255, 255, .12) !important;
+  color: #d1d1d1 !important;
+  background: #2f2f2f !important;
+}
+
+html[data-theme="dark"] #settings-modal .btn-close:hover,
+[data-theme="dark"] #settings-modal .btn-close:hover {
+  border-color: rgba(255, 255, 255, .18) !important;
+  color: #ececec !important;
+  background: #383838 !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-workspace,
+html[data-theme="dark"] #settings-modal .settings-body,
+[data-theme="dark"] #settings-modal .settings-workspace,
+[data-theme="dark"] #settings-modal .settings-body {
+  background: #212121 !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-sidebar,
+[data-theme="dark"] #settings-modal .settings-sidebar {
+  background: transparent !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-tabs,
+[data-theme="dark"] #settings-modal .settings-tabs {
+  border-color: rgba(255, 255, 255, .10) !important;
+  background: #262626 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-tabs button,
+[data-theme="dark"] #settings-modal .settings-tabs button {
+  color: #b4b4b4 !important;
+  background: transparent !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-tabs button:hover,
+[data-theme="dark"] #settings-modal .settings-tabs button:hover {
+  color: #ececec !important;
+  background: rgba(255, 255, 255, .05) !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-tabs button.active,
+[data-theme="dark"] #settings-modal .settings-tabs button.active {
+  color: #ececec !important;
+  background: rgba(255, 255, 255, .08) !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-tabs button.active::after,
+[data-theme="dark"] #settings-modal .settings-tabs button.active::after {
+  background: #d1d1d1 !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-tab-icon,
+html[data-theme="dark"] #settings-modal .settings-tabs button.active .settings-tab-icon,
+[data-theme="dark"] #settings-modal .settings-tab-icon,
+[data-theme="dark"] #settings-modal .settings-tabs button.active .settings-tab-icon {
+  color: currentColor !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-panel-icon,
+html[data-theme="dark"] #settings-modal .settings-step,
+html[data-theme="dark"] #settings-modal .settings-editor-heading > span,
+html[data-theme="dark"] #settings-modal .category-settings-icon,
+html[data-theme="dark"] #settings-modal .kit-settings-icon,
+html[data-theme="dark"] #settings-modal .template-card-icon,
+[data-theme="dark"] #settings-modal .settings-panel-icon,
+[data-theme="dark"] #settings-modal .settings-step,
+[data-theme="dark"] #settings-modal .settings-editor-heading > span,
+[data-theme="dark"] #settings-modal .category-settings-icon,
+[data-theme="dark"] #settings-modal .kit-settings-icon,
+[data-theme="dark"] #settings-modal .template-card-icon {
+  border-color: rgba(255, 255, 255, .10) !important;
+  color: #d1d1d1 !important;
+  background: #383838 !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-card,
+html[data-theme="dark"] #settings-modal .settings-list-card,
+html[data-theme="dark"] #settings-modal .settings-editor,
+html[data-theme="dark"] #settings-modal .template-editor,
+html[data-theme="dark"] #settings-modal .kit-settings-card,
+html[data-theme="dark"] #settings-modal .template-card,
+html[data-theme="dark"] #settings-modal .settings-list-item.category-settings-card,
+[data-theme="dark"] #settings-modal .settings-card,
+[data-theme="dark"] #settings-modal .settings-list-card,
+[data-theme="dark"] #settings-modal .settings-editor,
+[data-theme="dark"] #settings-modal .template-editor,
+[data-theme="dark"] #settings-modal .kit-settings-card,
+[data-theme="dark"] #settings-modal .template-card,
+[data-theme="dark"] #settings-modal .settings-list-item.category-settings-card {
+  border-color: rgba(255, 255, 255, .10) !important;
+  background: #2f2f2f !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-list-item.category-settings-card:hover,
+html[data-theme="dark"] #settings-modal .kit-settings-card:hover,
+html[data-theme="dark"] #settings-modal .template-card:hover,
+[data-theme="dark"] #settings-modal .settings-list-item.category-settings-card:hover,
+[data-theme="dark"] #settings-modal .kit-settings-card:hover,
+[data-theme="dark"] #settings-modal .template-card:hover {
+  border-color: rgba(255, 255, 255, .16) !important;
+  background: #383838 !important;
+}
+
+html[data-theme="dark"] #settings-modal .form-group label,
+[data-theme="dark"] #settings-modal .form-group label {
+  color: #b4b4b4 !important;
+}
+
+html[data-theme="dark"] #settings-modal .form-group input,
+html[data-theme="dark"] #settings-modal .form-group select,
+html[data-theme="dark"] #settings-modal .form-group textarea,
+html[data-theme="dark"] #settings-modal .product-search-box input,
+html[data-theme="dark"] #settings-modal .budget-items-table input,
+html[data-theme="dark"] #settings-modal .budget-items-table textarea,
+html[data-theme="dark"] #settings-modal .settings-color-code,
+[data-theme="dark"] #settings-modal .form-group input,
+[data-theme="dark"] #settings-modal .form-group select,
+[data-theme="dark"] #settings-modal .form-group textarea,
+[data-theme="dark"] #settings-modal .product-search-box input,
+[data-theme="dark"] #settings-modal .budget-items-table input,
+[data-theme="dark"] #settings-modal .budget-items-table textarea,
+[data-theme="dark"] #settings-modal .settings-color-code {
+  border-color: rgba(255, 255, 255, .12) !important;
+  color: #ececec !important;
+  background: #262626 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #settings-modal .form-group input:focus,
+html[data-theme="dark"] #settings-modal .form-group select:focus,
+html[data-theme="dark"] #settings-modal .form-group textarea:focus,
+html[data-theme="dark"] #settings-modal .product-search-box input:focus,
+html[data-theme="dark"] #settings-modal .budget-items-table input:focus,
+html[data-theme="dark"] #settings-modal .budget-items-table textarea:focus,
+[data-theme="dark"] #settings-modal .form-group input:focus,
+[data-theme="dark"] #settings-modal .form-group select:focus,
+[data-theme="dark"] #settings-modal .form-group textarea:focus,
+[data-theme="dark"] #settings-modal .product-search-box input:focus,
+[data-theme="dark"] #settings-modal .budget-items-table input:focus,
+[data-theme="dark"] #settings-modal .budget-items-table textarea:focus {
+  border-color: rgba(255, 255, 255, .30) !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .08) !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-inline-toggle,
+html[data-theme="dark"] #settings-modal .kit-products-card,
+html[data-theme="dark"] #settings-modal .product-search-box,
+html[data-theme="dark"] #settings-modal .settings-empty-state,
+html[data-theme="dark"] #settings-modal .budget-items-table-wrap,
+[data-theme="dark"] #settings-modal .settings-inline-toggle,
+[data-theme="dark"] #settings-modal .kit-products-card,
+[data-theme="dark"] #settings-modal .product-search-box,
+[data-theme="dark"] #settings-modal .settings-empty-state,
+[data-theme="dark"] #settings-modal .budget-items-table-wrap {
+  border-color: rgba(255, 255, 255, .10) !important;
+  background: #262626 !important;
+}
+
+html[data-theme="dark"] #settings-modal .budget-items-table th,
+[data-theme="dark"] #settings-modal .budget-items-table th {
+  color: #b4b4b4 !important;
+  background: #262626 !important;
+  border-color: rgba(255, 255, 255, .10) !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-toggle-row,
+[data-theme="dark"] #settings-modal .settings-toggle-row {
+  border-color: rgba(255, 255, 255, .08) !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-toggle-copy strong,
+html[data-theme="dark"] #settings-modal .settings-inline-toggle strong,
+html[data-theme="dark"] #settings-modal .settings-subsection-title strong,
+[data-theme="dark"] #settings-modal .settings-toggle-copy strong,
+[data-theme="dark"] #settings-modal .settings-inline-toggle strong,
+[data-theme="dark"] #settings-modal .settings-subsection-title strong {
+  color: #d1d1d1 !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-toggle-copy small,
+html[data-theme="dark"] #settings-modal .settings-inline-toggle small,
+html[data-theme="dark"] #settings-modal .settings-subsection-title small,
+html[data-theme="dark"] #settings-modal .settings-help,
+[data-theme="dark"] #settings-modal .settings-toggle-copy small,
+[data-theme="dark"] #settings-modal .settings-inline-toggle small,
+[data-theme="dark"] #settings-modal .settings-subsection-title small,
+[data-theme="dark"] #settings-modal .settings-help {
+  color: #8e8e8e !important;
+}
+
+html[data-theme="dark"] #settings-modal .settings-footer,
+[data-theme="dark"] #settings-modal .settings-footer {
+  border-color: rgba(255, 255, 255, .10) !important;
+  background: #171717 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #settings-modal .btn-secondary,
+html[data-theme="dark"] #settings-modal .budget-action-btn,
+[data-theme="dark"] #settings-modal .btn-secondary,
+[data-theme="dark"] #settings-modal .budget-action-btn {
+  border-color: rgba(255, 255, 255, .12) !important;
+  color: #d1d1d1 !important;
+  background: #2f2f2f !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #settings-modal .btn-secondary:hover,
+html[data-theme="dark"] #settings-modal .budget-action-btn:hover,
+[data-theme="dark"] #settings-modal .btn-secondary:hover,
+[data-theme="dark"] #settings-modal .budget-action-btn:hover {
+  border-color: rgba(255, 255, 255, .18) !important;
+  color: #ececec !important;
+  background: #383838 !important;
+}
+
+html[data-theme="dark"] #settings-modal .btn-primary,
+[data-theme="dark"] #settings-modal .btn-primary {
+  border-color: #f2f2f2 !important;
+  color: #0d0d0d !important;
+  background: #f2f2f2 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #settings-modal .btn-primary:hover,
+[data-theme="dark"] #settings-modal .btn-primary:hover {
+  border-color: #ffffff !important;
+  color: #0d0d0d !important;
+  background: #ffffff !important;
+}

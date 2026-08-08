@@ -3871,3 +3871,39 @@ body #kit-picker-modal .kit-picker-grid.is-row-layout .kit-picker-card > .btn {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Ícones outline próprios do menu lateral de Orçamentos. */
+#budget-modal .budget-sidebar-nav .budget-tab > .budget-tab-svg {
+  position: absolute !important;
+  left: 28px !important;
+  top: 50% !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  transform: translateY(-50%) !important;
+  display: block !important;
+  overflow: visible !important;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 1.7 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  color: inherit !important;
+  opacity: .94;
+  pointer-events: none;
+}
+#budget-modal .budget-sidebar-nav .budget-tab > .budget-tab-svg .pdf-mark {
+  stroke-width: 1.35 !important;
+}
+
+
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab > .budget-tab-svg {
+  color: #d1d5db !important;
+}
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab:hover > .budget-tab-svg {
+  color: #e5e7eb !important;
+}
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab.active > .budget-tab-svg {
+  color: #60a5fa !important;
+}

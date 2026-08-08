@@ -1178,3 +1178,355 @@ html[data-theme="dark"] .modal-sidebar {
   border-color: var(--dark-border) !important;
 }
 
+
+
+/* =========================================================
+   DARK CHATGPT | UNIFICAÇÃO ORÇAMENTOS + LISTAS | 2026-08-08
+   Remove o azul restante do módulo de Orçamentos e deixa os
+   botões de ação das listas consistentes no tema escuro.
+   ========================================================= */
+html[data-theme="dark"] {
+  --budget-blue: #ececec;
+  --budget-aqua: #d1d1d1;
+  --budget-navy: #ececec;
+  --budget-border: rgba(255, 255, 255, 0.10);
+  --budget-soft: #262626;
+  --budget-muted: #b4b4b4;
+}
+
+html[data-theme="dark"] .budget-kpi,
+html[data-theme="dark"] .budget-toolbar,
+html[data-theme="dark"] .budget-table-card,
+html[data-theme="dark"] .budget-list-pagination,
+html[data-theme="dark"] .budget-summary-card,
+html[data-theme="dark"] .budget-section-card,
+html[data-theme="dark"] .settings-list-card,
+html[data-theme="dark"] .settings-editor,
+html[data-theme="dark"] .settings-list-item,
+html[data-theme="dark"] .template-card,
+html[data-theme="dark"] .preview-client-box,
+html[data-theme="dark"] .payment-option,
+html[data-theme="dark"] .analysis-kpis article,
+html[data-theme="dark"] .product-search-box,
+html[data-theme="dark"] #produto-search-results,
+html[data-theme="dark"] .product-result,
+html[data-theme="dark"] .product-empty,
+html[data-theme="dark"] .product-load-status,
+html[data-theme="dark"] .budget-autocomplete,
+html[data-theme="dark"] .autocomplete-load-status,
+html[data-theme="dark"] .budget-modal-content,
+html[data-theme="dark"] .settings-modal-content,
+html[data-theme="dark"] #budget-modal .budget-modal-sidebar,
+html[data-theme="dark"] #budget-modal .budget-modal-topbar,
+html[data-theme="dark"] #budget-modal .budget-modal-footer,
+html[data-theme="dark"] #budget-modal .budget-sidebar-total-card,
+html[data-theme="dark"] #budget-modal .budget-section-card,
+html[data-theme="dark"] #budget-modal .btn-close,
+html[data-theme="dark"] #budget-modal .budget-modal-main,
+html[data-theme="dark"] #settings-modal .settings-sidebar,
+html[data-theme="dark"] #settings-modal .settings-modal-header,
+html[data-theme="dark"] #settings-modal .settings-workspace {
+  background: #2f2f2f !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-modal-main,
+html[data-theme="dark"] #settings-modal .settings-workspace,
+html[data-theme="dark"] .settings-body,
+html[data-theme="dark"] .budget-modal-body {
+  background: #212121 !important;
+}
+
+html[data-theme="dark"] .budget-tabs,
+html[data-theme="dark"] .settings-tabs,
+html[data-theme="dark"] .budget-items-table th,
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav,
+html[data-theme="dark"] #settings-modal .settings-tabs {
+  background: #262626 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+html[data-theme="dark"] .budget-items-table td,
+html[data-theme="dark"] .budget-items-table tr,
+html[data-theme="dark"] .budget-table td,
+html[data-theme="dark"] .budget-table th {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-theme="dark"] .budget-modal-title-wrap h3,
+html[data-theme="dark"] .budget-modal-topbar h3,
+html[data-theme="dark"] .budget-section-heading h4,
+html[data-theme="dark"] .settings-list-header h4,
+html[data-theme="dark"] .settings-editor h4,
+html[data-theme="dark"] .template-editor h4,
+html[data-theme="dark"] .template-card h5,
+html[data-theme="dark"] .budget-sidebar-user strong,
+html[data-theme="dark"] .budget-sidebar-total-card strong,
+html[data-theme="dark"] .budget-kpi strong,
+html[data-theme="dark"] .budget-number,
+html[data-theme="dark"] .budget-client-cell strong,
+html[data-theme="dark"] .budget-title-cell strong,
+html[data-theme="dark"] .budget-value-cell,
+html[data-theme="dark"] .budget-footer-total strong {
+  color: #ececec !important;
+}
+
+html[data-theme="dark"] .budget-modal-title-wrap p,
+html[data-theme="dark"] .budget-modal-topbar p,
+html[data-theme="dark"] .budget-section-heading p,
+html[data-theme="dark"] .settings-list-header p,
+html[data-theme="dark"] .template-editor p,
+html[data-theme="dark"] .template-card p,
+html[data-theme="dark"] .template-card-meta span,
+html[data-theme="dark"] .budget-sidebar-user span,
+html[data-theme="dark"] .budget-sidebar-total-card span,
+html[data-theme="dark"] .budget-sidebar-total-card small,
+html[data-theme="dark"] .budget-client-cell small,
+html[data-theme="dark"] .budget-title-cell small,
+html[data-theme="dark"] .form-group label,
+html[data-theme="dark"] .budget-filter-field label,
+html[data-theme="dark"] .counter-text,
+html[data-theme="dark"] .product-list-header {
+  color: #b4b4b4 !important;
+}
+
+html[data-theme="dark"] .budget-modal-icon,
+html[data-theme="dark"] .budget-kpi-icon,
+html[data-theme="dark"] #budget-modal .budget-sidebar-avatar,
+html[data-theme="dark"] #settings-modal .settings-modal-icon,
+html[data-theme="dark"] #settings-modal .settings-tab-icon,
+html[data-theme="dark"] .budget-tab span,
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab > i {
+  background: #383838 !important;
+  color: #d1d1d1 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+html[data-theme="dark"] .budget-tab,
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab,
+html[data-theme="dark"] #settings-modal .settings-tabs button {
+  color: #b4b4b4 !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .budget-tab:hover,
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab:hover,
+html[data-theme="dark"] #settings-modal .settings-tabs button:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #ececec !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-theme="dark"] .budget-tab.active,
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab.active,
+html[data-theme="dark"] #settings-modal .settings-tabs button.active {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ececec !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+html[data-theme="dark"] .budget-tab.active span,
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab.active > i,
+html[data-theme="dark"] #settings-modal .settings-tabs button.active .settings-tab-icon {
+  background: #ececec !important;
+  color: #171717 !important;
+}
+
+html[data-theme="dark"] .form-group input,
+html[data-theme="dark"] .form-group select,
+html[data-theme="dark"] .form-group textarea,
+html[data-theme="dark"] .budget-toolbar input,
+html[data-theme="dark"] .budget-toolbar select,
+html[data-theme="dark"] .summary-edit-line input,
+html[data-theme="dark"] .summary-edit-line select,
+html[data-theme="dark"] .budget-items-table input,
+html[data-theme="dark"] .budget-items-table textarea,
+html[data-theme="dark"] .product-result,
+html[data-theme="dark"] .autocomplete-item {
+  background: #2f2f2f !important;
+  color: #ececec !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+html[data-theme="dark"] .product-result:hover,
+html[data-theme="dark"] .autocomplete-item:hover,
+html[data-theme="dark"] #produto-search-results .product-result:hover {
+  background: #383838 !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: none !important;
+}
+
+/* Botões de ação das listas: mesmo padrão em todo o dark. */
+html[data-theme="dark"] .budget-action-btn,
+html[data-theme="dark"] #settings-modal .budget-action-btn,
+html[data-theme="dark"] #tbody-clientes .cliente-action-btn,
+html[data-theme="dark"] .row-actions .btn-icon,
+html[data-theme="dark"] td .btn-icon,
+html[data-theme="dark"] .template-card-actions .btn-icon,
+html[data-theme="dark"] .settings-list-actions .btn-icon,
+html[data-theme="dark"] .kit-settings-actions .budget-action-btn,
+html[data-theme="dark"] .emitter-list-actions .budget-action-btn,
+html[data-theme="dark"] .template-card-actions .budget-action-btn {
+  background: #2f2f2f !important;
+  color: #d1d1d1 !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .budget-action-btn:hover,
+html[data-theme="dark"] #settings-modal .budget-action-btn:hover,
+html[data-theme="dark"] #tbody-clientes .cliente-action-btn:hover,
+html[data-theme="dark"] .row-actions .btn-icon:hover,
+html[data-theme="dark"] td .btn-icon:hover,
+html[data-theme="dark"] .template-card-actions .btn-icon:hover,
+html[data-theme="dark"] .settings-list-actions .btn-icon:hover,
+html[data-theme="dark"] .kit-settings-actions .budget-action-btn:hover,
+html[data-theme="dark"] .emitter-list-actions .budget-action-btn:hover,
+html[data-theme="dark"] .template-card-actions .budget-action-btn:hover {
+  background: #383838 !important;
+  color: #ececec !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+html[data-theme="dark"] .budget-action-btn.danger:hover,
+html[data-theme="dark"] #settings-modal .budget-action-btn.danger:hover,
+html[data-theme="dark"] #tbody-clientes .cliente-action-btn[data-action="excluir"]:hover,
+html[data-theme="dark"] .row-actions .btn-icon.danger:hover,
+html[data-theme="dark"] td .btn-icon.danger:hover,
+html[data-theme="dark"] .template-card-actions .btn-icon.danger:hover,
+html[data-theme="dark"] .settings-list-actions .btn-icon.danger:hover,
+html[data-theme="dark"] .kit-settings-actions .budget-action-btn.danger:hover,
+html[data-theme="dark"] .emitter-list-actions .budget-action-btn.danger:hover,
+html[data-theme="dark"] .template-card-actions .budget-action-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.22) !important;
+}
+
+html[data-theme="dark"] #tbody-clientes .cliente-action-btn-whatsapp,
+html[data-theme="dark"] .budget-action-btn[data-action="whatsapp"],
+html[data-theme="dark"] .row-actions .btn-icon[data-action="whatsapp"] {
+  color: #25d366 !important;
+}
+
+html[data-theme="dark"] #tbody-clientes .cliente-action-btn-whatsapp:hover,
+html[data-theme="dark"] .budget-action-btn[data-action="whatsapp"]:hover,
+html[data-theme="dark"] .row-actions .btn-icon[data-action="whatsapp"]:hover {
+  background: rgba(37, 211, 102, 0.12) !important;
+  color: #25d366 !important;
+  border-color: rgba(37, 211, 102, 0.22) !important;
+}
+
+
+/* =========================================================
+   DARK CHATGPT | SIDEBAR DO ORÇAMENTO SEM BLOCOS NOS ÍCONES
+   Somente aparência/cor no tema escuro; dimensões intactas.
+   ========================================================= */
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab > i {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #b4b4b4 !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab:hover > i,
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab.active > i {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #ececec !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab.active::before {
+  background: #d1d1d1 !important;
+}
+
+
+/* =========================================================
+   DARK CHATGPT | SIDEBAR ORÇAMENTO ÍCONES EXATOS REFERÊNCIA
+   Mantém só os ícones/realce do orçamento iguais ao print.
+   ========================================================= */
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab {
+  color: #d1d5db !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab > i {
+  color: #d1d5db !important;
+  font-size: 18px !important;
+  width: 20px !important;
+  min-width: 20px !important;
+  height: 20px !important;
+  opacity: 1 !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab:hover {
+  background: rgba(255,255,255,0.03) !important;
+  color: #e5e7eb !important;
+}
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab:hover > i {
+  color: #e5e7eb !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab.active {
+  background: rgba(96, 165, 250, 0.09) !important;
+  color: #f3f4f6 !important;
+  border-color: rgba(96, 165, 250, 0.10) !important;
+}
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab.active > i {
+  color: #60a5fa !important;
+}
+html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab.active::before {
+  background: #60a5fa !important;
+}
+
+
+/* =========================================================
+   DARK CHATGPT | STATUS DOS ORÇAMENTOS NA LISTA
+   Remove as pills claras no dark e padroniza todos os status.
+   ========================================================= */
+html[data-theme="dark"] .budget-status {
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .budget-status.status-rascunho {
+  color: #d1d5db !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html[data-theme="dark"] .budget-status.status-enviado {
+  color: #93c5fd !important;
+  background: rgba(59, 130, 246, 0.14) !important;
+  border-color: rgba(59, 130, 246, 0.24) !important;
+}
+
+html[data-theme="dark"] .budget-status.status-em_negociacao {
+  color: #fcd34d !important;
+  background: rgba(245, 158, 11, 0.14) !important;
+  border-color: rgba(245, 158, 11, 0.24) !important;
+}
+
+html[data-theme="dark"] .budget-status.status-aprovado {
+  color: #86efac !important;
+  background: rgba(34, 197, 94, 0.14) !important;
+  border-color: rgba(34, 197, 94, 0.24) !important;
+}
+
+html[data-theme="dark"] .budget-status.status-recusado,
+html[data-theme="dark"] .budget-status.status-cancelado {
+  color: #fca5a5 !important;
+  background: rgba(239, 68, 68, 0.14) !important;
+  border-color: rgba(239, 68, 68, 0.24) !important;
+}
+
+html[data-theme="dark"] .budget-status.status-expirado {
+  color: #c4b5fd !important;
+  background: rgba(139, 92, 246, 0.14) !important;
+  border-color: rgba(139, 92, 246, 0.24) !important;
+}

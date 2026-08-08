@@ -732,3 +732,152 @@ html[data-theme="dark"] #valora-menu-root .mobile-section .mobile-link{border-to
   overflow:visible!important;
   z-index:99999!important;
 }
+
+/* =========================================================
+   MENU DARK CHATGPT FINAL | 2026-08-08
+   Somente cores do tema escuro.
+   ========================================================= */
+html[data-theme="dark"] #valora-menu-root {
+  --navy: #171717;
+  --navy-dark: #171717;
+  --navy-soft: #212121;
+  --hover-top: rgba(255, 255, 255, 0.08);
+  --drop-border: rgba(255, 255, 255, 0.10);
+  --drop-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
+}
+
+html[data-theme="dark"] #valora-menu-root .valora-auvo-topbar {
+  background: #171717 !important;
+  color: #ececec !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .brand-btn {
+  background: #171717 !important;
+  color: #ececec !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .dropdown,
+html[data-theme="dark"] #valora-menu-root .settings-menu,
+html[data-theme="dark"] #valora-menu-root .user-menu,
+html[data-theme="dark"] #valora-menu-root .mobile-panel {
+  background: #2f2f2f !important;
+  color: #ececec !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .dropdown-item,
+html[data-theme="dark"] #valora-menu-root .theme-option,
+html[data-theme="dark"] #valora-menu-root .settings-link,
+html[data-theme="dark"] #valora-menu-root .user-menu button,
+html[data-theme="dark"] #valora-menu-root .mobile-link {
+  color: #d1d1d1 !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .brand-btn:hover,
+html[data-theme="dark"] #valora-menu-root .nav-item:hover,
+html[data-theme="dark"] #valora-menu-root .new-action:hover,
+html[data-theme="dark"] #valora-menu-root .bell-btn:hover,
+html[data-theme="dark"] #valora-menu-root .settings-trigger:hover,
+html[data-theme="dark"] #valora-menu-root .user-trigger:hover,
+html[data-theme="dark"] #valora-menu-root .mobile-menu-btn:hover,
+html[data-theme="dark"] #valora-menu-root .dropdown-item:hover,
+html[data-theme="dark"] #valora-menu-root .dropdown-item.is-active,
+html[data-theme="dark"] #valora-menu-root .theme-option:hover,
+html[data-theme="dark"] #valora-menu-root .theme-option.is-active,
+html[data-theme="dark"] #valora-menu-root .settings-link:hover,
+html[data-theme="dark"] #valora-menu-root .user-menu button:hover,
+html[data-theme="dark"] #valora-menu-root .mobile-link:hover,
+html[data-theme="dark"] #valora-menu-root .mobile-link.is-active {
+  background: #383838 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .settings-title,
+html[data-theme="dark"] #valora-menu-root .mobile-title,
+html[data-theme="dark"] #valora-menu-root .user-card span,
+html[data-theme="dark"] #valora-menu-root .dropdown-hint {
+  color: #b4b4b4 !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .user-card strong,
+html[data-theme="dark"] #valora-menu-root .user-name,
+html[data-theme="dark"] #valora-menu-root .mobile-link strong {
+  color: #ececec !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .theme-radio {
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  background: #212121 !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .theme-option.is-active .theme-radio {
+  border-color: #ececec !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .theme-option.is-active .theme-radio::after {
+  background: #ececec !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .mobile-panel {
+  background: #212121 !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .mobile-search-wrap,
+html[data-theme="dark"] #valora-menu-root .mobile-section {
+  background: #2f2f2f !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* =========================================================
+   MENU DARK CHATGPT | SEM AZUL / SEM TURQUESA | 2026-08-08
+   ========================================================= */
+html[data-theme="dark"] #valora-menu-root {
+  --logo-blue: #d1d1d1;
+  --logo-aqua: #d1d1d1;
+  --logo-aqua-dark: #ececec;
+  --hover-top: rgba(255, 255, 255, 0.08);
+  --drop-hover: #383838;
+}
+
+html[data-theme="dark"] #valora-menu-root .nav-link.is-active,
+html[data-theme="dark"] #valora-menu-root .nav-trigger.is-active,
+html[data-theme="dark"] #valora-menu-root .nav-group.is-open .nav-trigger {
+  background: #383838 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .new-action {
+  background: #f2f2f2 !important;
+  color: #0d0d0d !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .new-action:hover {
+  background: #ffffff !important;
+  color: #0d0d0d !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .mobile-menu-btn:hover,
+html[data-theme="dark"] #valora-menu-root .mobile-search-wrap > i,
+html[data-theme="dark"] #valora-menu-root .dropdown-item:hover,
+html[data-theme="dark"] #valora-menu-root .dropdown-item.is-active,
+html[data-theme="dark"] #valora-menu-root .theme-option:hover,
+html[data-theme="dark"] #valora-menu-root .theme-option.is-active,
+html[data-theme="dark"] #valora-menu-root .settings-link:hover,
+html[data-theme="dark"] #valora-menu-root .user-menu button:hover,
+html[data-theme="dark"] #valora-menu-root .mobile-link:hover,
+html[data-theme="dark"] #valora-menu-root .mobile-link.is-active {
+  color: #ececec !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .theme-option.is-active .theme-radio {
+  border-color: #ececec !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-theme="dark"] #valora-menu-root .theme-option.is-active .theme-radio::after {
+  background: #ececec !important;
+}

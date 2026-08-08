@@ -115,3 +115,13 @@ body.valora-shell-body {
     animation: none !important;
   }
 }
+
+/* Tema escuro: fundo neutro no mesmo tom do ChatGPT. */
+html[data-theme="dark"] {
+  --valora-shell-bg: #212121;
+}
+
+/* Tema escuro: progresso neutro, sem azul/turquesa. */
+html[data-theme="dark"] .valora-shell-progress span {
+  background: #d1d1d1;
+}
