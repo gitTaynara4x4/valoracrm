@@ -822,10 +822,11 @@ body .field-large {
   --valora-page-top-gap: 26px;
 }
 
-/* Área principal de todas as páginas */
+/* Área principal de todas as páginas
+   Desktop: respiro equilibrado abaixo do menu global. */
 .main,
 main.main {
-  padding-top: calc(var(--valora-sidebar-height) + var(--valora-page-top-gap)) !important;
+  padding-top: 28px !important;
 }
 
 /* Garante respiro no primeiro bloco da página */

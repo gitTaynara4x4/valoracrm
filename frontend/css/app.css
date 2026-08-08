@@ -170,7 +170,7 @@ svg {
   max-width: none !important;
   min-height: 100vh;
   margin: 0 !important;
-  padding: calc(var(--topbar-h) + 28px) 26px 32px !important;
+  padding: 14px 26px 32px !important;
 
   display: flex;
   flex-direction: column;

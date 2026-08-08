@@ -773,3 +773,124 @@ html[data-theme="dark"] body .arq-preview-body {
   .arq-folder-grid,
   .arq-file-grid { grid-template-columns: 1fr; }
 }
+
+
+/* =========================================================
+   ARQUIVOS TÉCNICOS | DARK CHATGPT NEUTRO | 2026-08-08
+   Somente tema escuro. Remove azul/turquesa e superfícies claras.
+   ========================================================= */
+html[data-theme="dark"] .arquivos-tecnicos-page {
+  --arq-accent: #d1d1d1;
+  --arq-accent-strong: #ececec;
+  --arq-blue: #b4b4b4;
+  --arq-text: #ececec;
+  --arq-muted: #b4b4b4;
+  --arq-border: rgba(255, 255, 255, .10);
+  --arq-soft: #2f2f2f;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .eyebrow,
+html[data-theme="dark"] .arquivos-tecnicos-page .topbar-subtitle {
+  color: #b4b4b4 !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-stat-card,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-workspace,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-clients-panel,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-main-panel {
+  background: #2f2f2f !important;
+  border-color: rgba(255, 255, 255, .10) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-stat-icon,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-folder-icon,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-client-avatar,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-empty-icon,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-client-icon {
+  background: #383838 !important;
+  color: #d1d1d1 !important;
+  border-color: rgba(255, 255, 255, .10) !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-search {
+  background: #262626 !important;
+  border-color: rgba(255, 255, 255, .10) !important;
+  color: #b4b4b4 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-search:focus-within {
+  border-color: rgba(255, 255, 255, .28) !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .07) !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-filter-check input {
+  accent-color: #d1d1d1 !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-client-item {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-client-item:hover {
+  background: #383838 !important;
+  border-color: rgba(255, 255, 255, .08) !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-client-item.is-active {
+  background: rgba(255, 255, 255, .08) !important;
+  border-color: rgba(255, 255, 255, .10) !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-client-item.is-active .arq-client-icon {
+  background: #444 !important;
+  color: #ececec !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-client-badge,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-client-item.is-active .arq-client-badge {
+  background: #383838 !important;
+  color: #d1d1d1 !important;
+  border: 1px solid rgba(255, 255, 255, .08) !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-folder-card,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-file-card,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-dropzone,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-file-preview,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-file-generic {
+  background: #2f2f2f !important;
+  border-color: rgba(255, 255, 255, .10) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-folder-card:hover,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-dropzone.is-dragover,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-icon-btn:hover {
+  background: #383838 !important;
+  border-color: rgba(255, 255, 255, .14) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-icon-btn,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-back-folders {
+  background: #2f2f2f !important;
+  color: #d1d1d1 !important;
+  border-color: rgba(255, 255, 255, .10) !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-client-pagination,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-client-header,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-gallery-section,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-file-actions {
+  border-color: rgba(255, 255, 255, .08) !important;
+}
+
+html[data-theme="dark"] body .arq-preview-body,
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-upload-progress {
+  background: #212121 !important;
+  color: #d1d1d1 !important;
+  border-color: rgba(255, 255, 255, .10) !important;
+}

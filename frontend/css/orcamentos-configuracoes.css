@@ -2203,3 +2203,74 @@ html[data-theme="dark"] #settings-modal .btn-primary:hover,
   color: #0d0d0d !important;
   background: #ffffff !important;
 }
+
+
+/* =========================================================
+   DARK CHATGPT | CONFIGURAÇÕES > MODELOS | 2026-08-08
+   Remove chips e ação principal claros somente nesta aba dark.
+   ========================================================= */
+html[data-theme="dark"] #settings-modal #templates-list.settings-simple-list,
+[data-theme="dark"] #settings-modal #templates-list.settings-simple-list {
+  border-color: rgba(255, 255, 255, .10) !important;
+  background: #212121 !important;
+}
+
+html[data-theme="dark"] #settings-modal #templates-list > .settings-simple-row,
+[data-theme="dark"] #settings-modal #templates-list > .settings-simple-row {
+  border-bottom-color: rgba(255, 255, 255, .08) !important;
+  background: transparent !important;
+}
+
+html[data-theme="dark"] #settings-modal #templates-list > .settings-simple-row:hover,
+[data-theme="dark"] #settings-modal #templates-list > .settings-simple-row:hover {
+  background: rgba(255, 255, 255, .035) !important;
+  border-color: rgba(255, 255, 255, .08) !important;
+}
+
+html[data-theme="dark"] #settings-modal #templates-list > .settings-simple-row.is-inactive,
+[data-theme="dark"] #settings-modal #templates-list > .settings-simple-row.is-inactive {
+  background: rgba(255, 255, 255, .018) !important;
+}
+
+html[data-theme="dark"] #settings-modal #templates-list .template-card-meta span,
+[data-theme="dark"] #settings-modal #templates-list .template-card-meta span {
+  border: 1px solid rgba(255, 255, 255, .10) !important;
+  color: #b4b4b4 !important;
+  background: #2f2f2f !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #settings-modal #templates-list .template-card-meta span i,
+[data-theme="dark"] #settings-modal #templates-list .template-card-meta span i {
+  color: #b4b4b4 !important;
+}
+
+html[data-theme="dark"] #settings-modal #templates-list .settings-status-badge,
+[data-theme="dark"] #settings-modal #templates-list .settings-status-badge {
+  border: 1px solid rgba(34, 197, 94, .22) !important;
+  color: #86efac !important;
+  background: rgba(34, 197, 94, .12) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #settings-modal #templates-list .settings-status-badge.inactive,
+[data-theme="dark"] #settings-modal #templates-list .settings-status-badge.inactive {
+  border-color: rgba(255, 255, 255, .10) !important;
+  color: #8e8e8e !important;
+  background: rgba(255, 255, 255, .06) !important;
+}
+
+html[data-theme="dark"] #settings-modal #btn-novo-modelo,
+[data-theme="dark"] #settings-modal #btn-novo-modelo {
+  border-color: rgba(255, 255, 255, .12) !important;
+  color: #ececec !important;
+  background: #2f2f2f !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #settings-modal #btn-novo-modelo:hover,
+[data-theme="dark"] #settings-modal #btn-novo-modelo:hover {
+  border-color: rgba(255, 255, 255, .18) !important;
+  color: #ffffff !important;
+  background: #383838 !important;
+}

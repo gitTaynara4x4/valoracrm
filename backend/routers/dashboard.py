@@ -5,7 +5,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
 
 from fastapi import APIRouter, Cookie, Depends, Query
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -119,6 +119,48 @@ def _propostas_aprovadas_info(db: Session, empresa_id: int) -> tuple[int, Decima
     return aprovadas, total
 
 
+
+
+def _orcamentos_info(db: Session, empresa_id: int, data_ref: Optional[str] = None) -> dict[str, Any]:
+    try:
+        custom_expr = "COUNT(*) FILTER (WHERE criado_em::date = CAST(:data_ref AS date))::INTEGER" if data_ref else "0::INTEGER"
+        query = text(f"""
+            SELECT
+                COUNT(*)::INTEGER AS total,
+                COUNT(*) FILTER (WHERE criado_em::date = CURRENT_DATE)::INTEGER AS hoje,
+                COUNT(*) FILTER (WHERE criado_em >= date_trunc('week', CURRENT_DATE))::INTEGER AS semana,
+                COUNT(*) FILTER (WHERE criado_em >= date_trunc('month', CURRENT_DATE))::INTEGER AS mes,
+                {custom_expr} AS data_ref,
+                COUNT(*) FILTER (WHERE status = 'aprovado')::INTEGER AS aprovados,
+                COALESCE(SUM(CASE WHEN status = 'aprovado' THEN total ELSE 0 END), 0) AS faturamento_aprovado
+            FROM orcamentos
+            WHERE empresa_id = :empresa_id
+        """)
+        params = {"empresa_id": empresa_id}
+        if data_ref:
+            params["data_ref"] = data_ref
+        row = db.execute(query, params).mappings().one()
+        return {
+            "total": int(row.get("total") or 0),
+            "hoje": int(row.get("hoje") or 0),
+            "semana": int(row.get("semana") or 0),
+            "mes": int(row.get("mes") or 0),
+            "data_ref": int(row.get("data_ref") or 0),
+            "aprovados": int(row.get("aprovados") or 0),
+            "faturamento_aprovado": _money_to_decimal(row.get("faturamento_aprovado")),
+        }
+    except Exception:
+        return {
+            "total": 0,
+            "hoje": 0,
+            "semana": 0,
+            "mes": 0,
+            "data_ref": 0,
+            "aprovados": 0,
+            "faturamento_aprovado": Decimal("0"),
+        }
+
+
 def _empresa_info(db: Session, empresa_id: int) -> dict[str, Any]:
     try:
         empresa = db.query(Empresa).filter(Empresa.id == empresa_id).first()
@@ -138,7 +180,7 @@ def _empresa_info(db: Session, empresa_id: int) -> dict[str, Any]:
     }
 
 
-def _build_resumo(db: Session, empresa_id: int) -> dict[str, Any]:
+def _build_resumo(db: Session, empresa_id: int, data_ref: Optional[str] = None) -> dict[str, Any]:
     clientes_total = _safe_count(db, Cliente, empresa_id)
     fornecedores_total = _safe_count(db, Fornecedor, empresa_id)
     produtos_total = _safe_count(db, Produto, empresa_id)
@@ -148,8 +190,10 @@ def _build_resumo(db: Session, empresa_id: int) -> dict[str, Any]:
     propostas_mes = _count_propostas_mes(db, empresa_id)
     usuarios_total = _safe_count(db, Usuario, empresa_id)
 
-    aprovadas, faturamento_estimado = _propostas_aprovadas_info(db, empresa_id)
-    taxa_aprovacao = round((aprovadas / propostas_total) * 100) if propostas_total else 0
+    orcamentos = _orcamentos_info(db, empresa_id, data_ref)
+    aprovadas, faturamento_estimado_propostas = _propostas_aprovadas_info(db, empresa_id)
+    taxa_aprovacao = round((orcamentos["aprovados"] / orcamentos["total"]) * 100) if orcamentos["total"] else 0
+    faturamento_estimado = orcamentos["faturamento_aprovado"] if orcamentos["total"] else faturamento_estimado_propostas
 
     return {
         "ok": True,
@@ -165,6 +209,12 @@ def _build_resumo(db: Session, empresa_id: int) -> dict[str, Any]:
             "cotacoes_total": cotacoes_total,
             "propostas_total": propostas_total,
             "propostas_mes": propostas_mes,
+            "orcamentos_total": orcamentos["total"],
+            "orcamentos_hoje": orcamentos["hoje"],
+            "orcamentos_semana": orcamentos["semana"],
+            "orcamentos_mes": orcamentos["mes"],
+            "orcamentos_data_ref": orcamentos["data_ref"],
+            "orcamentos_aprovados": orcamentos["aprovados"],
             "usuarios_total": usuarios_total,
             "taxa_aprovacao": taxa_aprovacao,
             "faturamento_estimado": float(faturamento_estimado),
@@ -176,11 +226,12 @@ def _build_resumo(db: Session, empresa_id: int) -> dict[str, Any]:
 @router.get("/resumo")
 def dashboard_resumo(
     empresa_id: Optional[int] = Query(default=None),
+    data_ref: Optional[str] = Query(default=None),
     empresa_id_cookie: Optional[str] = Cookie(default=None, alias="empresa_id"),
     db: Session = Depends(get_db),
 ):
     empresa_id_final = _current_empresa_id(empresa_id_cookie, empresa_id)
-    return _build_resumo(db, empresa_id_final)
+    return _build_resumo(db, empresa_id_final, data_ref)
 
 
 @router.get("")
@@ -219,8 +270,8 @@ def dashboard_consolidado(
         "labels": ["Clientes", "Propostas", "Aprovadas"],
         "data": [
             stats.get("clientes_total", 0),
-            stats.get("propostas_total", 0),
-            round((stats.get("propostas_total", 0) * stats.get("taxa_aprovacao", 0)) / 100),
+            stats.get("orcamentos_total", stats.get("propostas_total", 0)),
+            stats.get("orcamentos_aprovados", round((stats.get("orcamentos_total", stats.get("propostas_total", 0)) * stats.get("taxa_aprovacao", 0)) / 100)),
         ],
     }
 
@@ -278,8 +329,8 @@ def dashboard_funil(
     db: Session = Depends(get_db),
 ):
     stats = _build_resumo(db, _current_empresa_id(empresa_id_cookie, empresa_id))["stats"]
-    propostas_total = stats.get("propostas_total", 0)
-    aprovadas_estimadas = round((propostas_total * stats.get("taxa_aprovacao", 0)) / 100)
+    propostas_total = stats.get("orcamentos_total", stats.get("propostas_total", 0))
+    aprovadas_estimadas = stats.get("orcamentos_aprovados", round((propostas_total * stats.get("taxa_aprovacao", 0)) / 100))
     return {
         "labels": ["Clientes", "Propostas", "Aprovadas"],
         "data": [stats.get("clientes_total", 0), propostas_total, aprovadas_estimadas],

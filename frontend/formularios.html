@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260715-localizar-arrastar-restaurado-v4" />
+  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260808-sidebar-modulos-v1" />
 </head>
 
 <body>
@@ -56,7 +56,8 @@
         </div>
       </header>
 
-      <section class="modules-grid" id="modulos-grid" aria-label="Escolha o módulo">
+      <div class="formularios-workspace">
+        <section class="modules-grid" id="modulos-grid" aria-label="Escolha o módulo">
         <button class="module-card is-active" type="button" data-modulo="clientes">
           <span class="module-icon"><i class="fa-solid fa-user-group"></i></span>
           <strong>Clientes</strong>
@@ -179,20 +180,22 @@
             </div>
           </article>
 
-          <div id="builder-empty" class="builder-empty panel-card">
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
-            <strong>Escolha ou crie um formulário.</strong>
-            <span>Depois crie seções e coloque os campos dentro de cada seção.</span>
-          </div>
-
-          <div id="secoes-container" class="secoes-container"></div>
-
-          <p class="autosave-note">
-            <i class="fa-solid fa-circle-info"></i>
-            As alterações são salvas automaticamente.
-          </p>
         </section>
       </section>
+      </div>
+
+      <div id="builder-empty" class="builder-empty panel-card">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <strong>Escolha ou crie um formulário.</strong>
+        <span>Depois crie seções e coloque os campos dentro de cada seção.</span>
+      </div>
+
+      <div id="secoes-container" class="secoes-container"></div>
+
+      <p class="autosave-note">
+        <i class="fa-solid fa-circle-info"></i>
+        As alterações são salvas automaticamente.
+      </p>
 
       <div id="valora-toast" class="toast-message" aria-live="polite"></div>
     </main>
