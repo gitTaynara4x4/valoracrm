@@ -125,3 +125,14 @@ html[data-theme="dark"] {
 html[data-theme="dark"] .valora-shell-progress span {
   background: #d1d1d1;
 }
+
+
+/* Frames recentes ficam montados para retorno instantâneo, mas completamente
+   fora da pintura/interação enquanto não estão ativos. */
+.valora-shell-frame.is-cached {
+  z-index: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  contain: strict;
+}

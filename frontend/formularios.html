@@ -13,16 +13,16 @@
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260713-visible-table-scroll-v2" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
-  <script src="/frontend/js/pages/app.js?v=20260726-mobile-ux-v2" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/formularios.js?v=20260715-localizar-arrastar-restaurado-v4" defer></script>
+  <script src="/frontend/js/pages/formularios.js?v=20260810-modal-dark-valora-v37" defer></script>
 
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260808-sidebar-modulos-v1" />
+  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260810-modal-campo-neutral-v42" />
 </head>
 
 <body>
@@ -141,10 +141,23 @@
 
           <article class="panel-card localizar-preview-card" id="localizar-preview-card" aria-live="polite">
             <div class="localizar-preview-head">
-              <div>
-                <span class="eyebrow">Prévia do localizar</span>
-                <h3>Como a pesquisa e a tabela vão ficar</h3>
-                <p>Arraste para mudar a posição. Campos nativos usam o olho; campos adicionados podem ser removidos somente desta visualização.</p>
+              <div class="localizar-preview-heading-copy">
+                <div class="localizar-preview-heading-icon" aria-hidden="true">
+                  <i class="fa-solid fa-sliders"></i>
+                </div>
+                <div>
+                  <div class="localizar-preview-title-row">
+                    <h3>Filtros e informações da lista</h3>
+                    <span class="localizar-help" tabindex="0" title="Aqui você escolhe o que a pessoa pode usar para procurar e quais informações vão aparecer na lista.">
+                      <i class="fa-regular fa-circle-question"></i>
+                    </span>
+                  </div>
+                  <p>Deixe claro o que vai aparecer para pesquisar na tela e o que será mostrado na lista.</p>
+                  <div class="localizar-preview-legend" aria-hidden="true">
+                    <span class="localizar-preview-legend-item localizar-preview-legend-search"><b>1</b> Usado para procurar</span>
+                    <span class="localizar-preview-legend-item localizar-preview-legend-columns"><b>2</b> Aparece na lista</span>
+                  </div>
+                </div>
               </div>
 
               <div class="localizar-preview-head-actions">
@@ -154,25 +167,43 @@
                 </button>
 
                 <div class="localizar-preview-summary" id="localizar-preview-summary">
-                  0 campos adicionados
+                  0 filtros na tela • 0 informações na lista
                 </div>
               </div>
             </div>
 
             <div class="localizar-preview-grid">
-              <section class="localizar-preview-box">
+              <section class="localizar-preview-box localizar-preview-search-box">
                 <div class="localizar-preview-box-title">
-                  <span><i class="fa-solid fa-magnifying-glass"></i></span>
-                  <strong>Card Localizar</strong>
+                  <span class="localizar-preview-box-icon"><i class="fa-solid fa-filter"></i></span>
+                  <div class="localizar-preview-box-copy">
+                    <div class="localizar-preview-box-label-row">
+                      <strong>O que a pessoa usa para procurar</strong>
+                      <span class="localizar-help" tabindex="0" title="Esses são os campos que a equipe usa para procurar ou filtrar registros nesta tela.">
+                        <i class="fa-regular fa-circle-question"></i>
+                      </span>
+                    </div>
+                    <small>Ex.: nome, cidade, telefone e status.</small>
+                  </div>
+                  <b class="localizar-preview-count" id="preview-localizar-count">0 filtros</b>
                 </div>
 
                 <div class="localizar-preview-fields" id="preview-localizar-fields"></div>
               </section>
 
-              <section class="localizar-preview-box">
+              <section class="localizar-preview-box localizar-preview-columns-box">
                 <div class="localizar-preview-box-title">
-                  <span><i class="fa-solid fa-table-columns"></i></span>
-                  <strong>Tabela abaixo</strong>
+                  <span class="localizar-preview-box-icon"><i class="fa-solid fa-table-columns"></i></span>
+                  <div class="localizar-preview-box-copy">
+                    <div class="localizar-preview-box-label-row">
+                      <strong>O que aparece na lista</strong>
+                      <span class="localizar-help" tabindex="0" title="Essas são as informações que vão aparecer na lista de registros logo abaixo da busca.">
+                        <i class="fa-regular fa-circle-question"></i>
+                      </span>
+                    </div>
+                    <small>Ex.: nome, código, contato e cidade.</small>
+                  </div>
+                  <b class="localizar-preview-count" id="preview-tabela-count">0 informações</b>
                 </div>
 
                 <div class="localizar-preview-table" id="preview-tabela-fields"></div>
@@ -310,9 +341,9 @@
         <form class="valora-form premium-form-grid" onsubmit="return false;">
           <input type="hidden" id="secao-id" />
 
-          <section class="premium-modal-section">
+          <section class="premium-modal-section premium-section-info">
             <div class="premium-section-title">
-              <span><i class="fa-solid fa-clipboard-list"></i></span>
+              <span><i class="fa-solid fa-circle-info"></i></span>
               <h4>Informações</h4>
             </div>
 
@@ -324,7 +355,7 @@
 
             <div class="form-group premium-control is-wide">
               <label for="secao-descricao">Descrição</label>
-              <textarea id="secao-descricao" rows="4" maxlength="200" placeholder="Texto curto opcional para explicar esta seção."></textarea>
+              <textarea id="secao-descricao" rows="3" maxlength="200" placeholder="Texto curto opcional para explicar esta seção."></textarea>
               <small class="char-hint" data-count-for="secao-descricao">0/200</small>
             </div>
           </section>
@@ -527,114 +558,137 @@
             </div>
           </section>
 
-          <section class="premium-modal-section field-config-section" id="campo-avancado">
-            <div class="premium-section-title premium-section-title-between">
-              <span><i class="fa-solid fa-sliders"></i></span>
-              <h4>Configurações do campo</h4>
-              <i class="fa-solid fa-chevron-up"></i>
+          <section class="premium-modal-section field-config-section field-config-flat" id="campo-avancado">
+            <div class="field-flat-block field-flat-toggles">
+              <div class="field-flat-heading">
+                <div>
+                  <h4>Comportamento e exibição</h4>
+                  <p>Defina como este campo funciona e onde ele aparece.</p>
+                </div>
+              </div>
+
+              <div class="field-toggle-grid-simple">
+                <label class="premium-toggle-card">
+                  <input id="campo-obrigatorio" type="checkbox" />
+                  <span class="toggle-switch" aria-hidden="true"></span>
+                  <span>
+                    <strong>Obrigatório</strong>
+                    <small>Campo obrigatório no cadastro.</small>
+                  </span>
+                </label>
+
+                <label class="premium-toggle-card">
+                  <input id="campo-ativo" type="checkbox" checked />
+                  <span class="toggle-switch" aria-hidden="true"></span>
+                  <span>
+                    <strong>Ativo</strong>
+                    <small>Mostrar no formulário.</small>
+                  </span>
+                </label>
+
+                <label class="premium-toggle-card">
+                  <input id="campo-somente-leitura" type="checkbox" />
+                  <span class="toggle-switch" aria-hidden="true"></span>
+                  <span>
+                    <strong>Somente leitura</strong>
+                    <small>Aparece sem edição.</small>
+                  </span>
+                </label>
+
+                <label class="premium-toggle-card">
+                  <input id="campo-usar-localizar" type="checkbox" />
+                  <span class="toggle-switch" aria-hidden="true"></span>
+                  <span>
+                    <strong>Usar nos filtros</strong>
+                    <small>Permite pesquisar por este campo.</small>
+                  </span>
+                </label>
+
+                <label class="premium-toggle-card">
+                  <input id="campo-mostrar-tabela" type="checkbox" />
+                  <span class="toggle-switch" aria-hidden="true"></span>
+                  <span>
+                    <strong>Mostrar na lista</strong>
+                    <small>Exibe esta informação na listagem.</small>
+                  </span>
+                </label>
+              </div>
             </div>
 
-            <div class="premium-two-columns field-config-grid">
-              <label class="premium-toggle-card">
-                <input id="campo-obrigatorio" type="checkbox" />
-                <span class="toggle-switch" aria-hidden="true"></span>
-                <span>
-                  <strong>Obrigatório</strong>
-                  <small>Campo obrigatório no cadastro.</small>
-                </span>
-              </label>
+            <div class="field-flat-divider" aria-hidden="true"></div>
 
-              <label class="premium-toggle-card">
-                <input id="campo-ativo" type="checkbox" checked />
-                <span class="toggle-switch" aria-hidden="true"></span>
-                <span>
-                  <strong>Ativo</strong>
-                  <small>Mostrar no formulário.</small>
-                </span>
-              </label>
-
-              <label class="premium-toggle-card">
-                <input id="campo-somente-leitura" type="checkbox" />
-                <span class="toggle-switch" aria-hidden="true"></span>
-                <span>
-                  <strong>Somente leitura</strong>
-                  <small>Aparece sem edição.</small>
-                </span>
-              </label>
-
-              <label class="premium-toggle-card">
-                <input id="campo-usar-localizar" type="checkbox" />
-                <span class="toggle-switch" aria-hidden="true"></span>
-                <span>
-                  <strong>Usar no localizar</strong>
-                  <small>Vira filtro no card de pesquisa deste módulo.</small>
-                </span>
-              </label>
-
-              <label class="premium-toggle-card">
-                <input id="campo-mostrar-tabela" type="checkbox" />
-                <span class="toggle-switch" aria-hidden="true"></span>
-                <span>
-                  <strong>Mostrar na tabela</strong>
-                  <small>Vira coluna na listagem abaixo da pesquisa.</small>
-                </span>
-              </label>
-
-              <div class="form-group premium-control">
-                <label for="campo-largura">Largura</label>
-                <select id="campo-largura">
-                  <option value="100">100% (linha inteira)</option>
-                  <option value="75">75%</option>
-                  <option value="66">66%</option>
-                  <option value="50">50% (metade da linha)</option>
-                  <option value="33">33%</option>
-                  <option value="25">25%</option>
-                </select>
+            <div class="field-flat-block field-flat-properties">
+              <div class="field-flat-heading">
+                <div>
+                  <h4>Configuração do campo</h4>
+                  <p>Ajuste a posição e a forma como o campo será exibido.</p>
+                </div>
               </div>
 
-              <div class="form-group premium-control">
-                <label for="campo-ordem">Ordem</label>
-                <input id="campo-ordem" type="number" min="0" value="0" />
-              </div>
+              <div class="field-properties-grid-simple">
+                <div class="form-group premium-control">
+                  <label for="campo-largura">Largura</label>
+                  <select id="campo-largura">
+                    <option value="100">100% (linha inteira)</option>
+                    <option value="75">75%</option>
+                    <option value="66">66%</option>
+                    <option value="50">50% (metade da linha)</option>
+                    <option value="33">33%</option>
+                    <option value="25">25%</option>
+                  </select>
+                </div>
 
-              <div class="form-group premium-control">
-                <label for="campo-placeholder">Placeholder</label>
-                <input id="campo-placeholder" type="text" placeholder="Ex.: (31) 99999-9999" />
-              </div>
+                <div class="form-group premium-control">
+                  <label for="campo-ordem">Ordem</label>
+                  <input id="campo-ordem" type="number" min="0" value="0" />
+                </div>
 
+                <div class="form-group premium-control">
+                  <label for="campo-placeholder">Placeholder</label>
+                  <input id="campo-placeholder" type="text" placeholder="Ex.: (31) 99999-9999" />
+                </div>
+
+                <div class="form-group premium-control">
+                  <label for="campo-visibilidade">Visibilidade</label>
+                  <select id="campo-visibilidade">
+                    <option value="todos">Todos</option>
+                    <option value="pf">Somente PF</option>
+                    <option value="pj">Somente PJ</option>
+                    <option value="interno">Somente interno</option>
+                    <option value="publico">Somente público</option>
+                  </select>
+                </div>
+
+                <div class="form-group premium-control is-wide" id="row-campo-personalizado" style="display:none;">
+                  <label for="campo-personalizado">Campo personalizado antigo</label>
+                  <select id="campo-personalizado">
+                    <option value="">Carregando...</option>
+                  </select>
+                </div>
+
+                <div class="form-group premium-control" id="row-campo-visual" style="display:none;">
+                  <label for="campo-tipo-visual">Tipo visual</label>
+                  <select id="campo-tipo-visual">
+                    <option value="titulo">Título</option>
+                    <option value="subtitulo">Subtítulo</option>
+                    <option value="separador">Separador</option>
+                    <option value="texto">Texto explicativo</option>
+                    <option value="aviso">Aviso</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-flat-divider" aria-hidden="true"></div>
+
+            <div class="field-flat-block field-flat-help">
               <div class="form-group premium-control is-wide">
-                <label for="campo-ajuda">Ajuda (opcional)</label>
-                <textarea id="campo-ajuda" rows="2" maxlength="200" placeholder="Ex.: Informe um número com DDD"></textarea>
-                <small class="char-hint" data-count-for="campo-ajuda">0/200</small>
-              </div>
-
-              <div class="form-group premium-control" id="row-campo-personalizado" style="display:none;">
-                <label for="campo-personalizado">Campo personalizado antigo</label>
-                <select id="campo-personalizado">
-                  <option value="">Carregando...</option>
-                </select>
-              </div>
-
-              <div class="form-group premium-control">
-                <label for="campo-visibilidade">Visibilidade</label>
-                <select id="campo-visibilidade">
-                  <option value="todos">Todos</option>
-                  <option value="pf">Somente PF</option>
-                  <option value="pj">Somente PJ</option>
-                  <option value="interno">Somente interno</option>
-                  <option value="publico">Somente público</option>
-                </select>
-              </div>
-
-              <div class="form-group premium-control" id="row-campo-visual" style="display:none;">
-                <label for="campo-tipo-visual">Tipo visual</label>
-                <select id="campo-tipo-visual">
-                  <option value="titulo">Título</option>
-                  <option value="subtitulo">Subtítulo</option>
-                  <option value="separador">Separador</option>
-                  <option value="texto">Texto explicativo</option>
-                  <option value="aviso">Aviso</option>
-                </select>
+                <label for="campo-ajuda">Ajuda <span class="field-optional">(opcional)</span></label>
+                <small class="field-hint">Escreva uma orientação curta para quem for preencher este campo.</small>
+                <div class="field-help-textarea-wrap">
+                  <textarea id="campo-ajuda" rows="2" maxlength="200" placeholder="Ex.: Informe um número com DDD"></textarea>
+                  <small class="char-hint" data-count-for="campo-ajuda">0/200</small>
+                </div>
               </div>
             </div>
           </section>

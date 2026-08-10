@@ -2529,3 +2529,159 @@ html[data-theme="dark"] .inicio-page,
 html[data-theme="dark"] .home-page {
   background-image: none !important;
 }
+
+/* =========================================================
+   CLIENTE | AGENDA/HISTÓRICO NO DARK DO VALORA | v43
+   Escopo intencional: somente a agenda embutida no modal de cliente.
+   Não altera a Agenda global nem o tema claro.
+   ========================================================= */
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente {
+  --agenda-brand: #1A7EEE;
+  --agenda-aqua: #1A7EEE;
+  --agenda-text: #ececec;
+  --agenda-muted: #a3a3a3;
+  --agenda-border: rgba(255, 255, 255, 0.10);
+  --agenda-surface: #2b2b2b;
+  --agenda-soft: #242424;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .valora-agenda-entity {
+  background: transparent !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .valora-agenda-card {
+  background: #2b2b2b !important;
+  background-image: none !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .valora-agenda-heading h3,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .valora-agenda-heading h4,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-item-main strong,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-item-extra strong,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .valora-agenda-form label,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-item-editor label {
+  color: #ececec !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .valora-agenda-heading p,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-item-main p,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-item-meta,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-item-extra,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-empty,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-loading,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-unsaved {
+  color: #a3a3a3 !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .valora-agenda-form :is(input, select, textarea),
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-item-editor :is(input, select, textarea) {
+  background: #303030 !important;
+  background-image: none !important;
+  color: #ececec !important;
+  -webkit-text-fill-color: #ececec !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .valora-agenda-form :is(input, select, textarea):focus,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-item-editor :is(input, select, textarea):focus {
+  border-color: #1A7EEE !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .valora-agenda-form :is(input, textarea)::placeholder,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-item-editor :is(input, textarea)::placeholder {
+  color: #858585 !important;
+  opacity: 1 !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .valora-agenda-item {
+  background: #242424 !important;
+  background-image: none !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-item-editor {
+  background: #2b2b2b !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-chip {
+  background: #303030 !important;
+  color: #d7d7d7 !important;
+  border-color: rgba(255, 255, 255, 0.11) !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-chip.overdue {
+  background: rgba(239, 68, 68, 0.10) !important;
+  color: #ff8b8b !important;
+  border-color: rgba(239, 68, 68, 0.25) !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-item-icon {
+  background: rgba(26, 126, 238, 0.12) !important;
+  color: #66aaff !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-primary {
+  background: #1A7EEE !important;
+  background-image: none !important;
+  border-color: #1A7EEE !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-primary:hover {
+  background: #1874dc !important;
+  border-color: #1874dc !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-secondary {
+  background: #2f2f2f !important;
+  color: #ececec !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-secondary:hover {
+  background: #353535 !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-link-btn {
+  color: #66aaff !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-empty,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-loading,
+html[data-theme="dark"] #modal-cliente-backdrop #agenda-cliente .agenda-unsaved {
+  background: #242424 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Ação principal do cabeçalho do cliente também segue o azul oficial. */
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-budget-action.btn-primary {
+  background: #1A7EEE !important;
+  background-image: none !important;
+  border-color: #1A7EEE !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-budget-action.btn-primary:hover {
+  background: #1874dc !important;
+  border-color: #1874dc !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}

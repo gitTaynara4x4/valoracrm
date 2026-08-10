@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+import os
+from pathlib import Path
 import re
+import shutil
 import unicodedata
 from typing import Any, Dict, List, Optional
 
@@ -16,6 +19,7 @@ from backend.security.permissions import get_request_user
 from backend.dynamic_filters import apply_dynamic_filters
 
 router = APIRouter(tags=["Fornecedores"])
+BASE_DIR = Path(__file__).resolve().parents[2]
 
 Fornecedor = models.Fornecedor
 CampoFornecedor = models.CampoFornecedor
@@ -1021,4 +1025,15 @@ def excluir_fornecedor(
 
     db.delete(f)
     db.commit()
+
+    # Os metadados do acervo técnico são removidos pelo FK CASCADE. Também
+    # limpamos os arquivos físicos exclusivos deste fornecedor.
+    storage_root = Path(os.getenv("ARQUIVOS_TECNICOS_DIR") or (BASE_DIR / "uploads" / "arquivos_tecnicos")).resolve()
+    tech_dir = (storage_root / str(int(empresa_id)) / "fornecedores" / str(int(fornecedor_id))).resolve()
+    try:
+        tech_dir.relative_to(storage_root)
+        if tech_dir.exists() and tech_dir.is_dir():
+            shutil.rmtree(tech_dir, ignore_errors=True)
+    except ValueError:
+        pass
     return None

@@ -73,21 +73,27 @@
 (() => {
   'use strict';
 
-  if (!document.querySelector('link[data-valora-mobile-css]')) {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = '/frontend/css/mobile-valora.css?v=20260726-mobile-ux-v2';
-    link.dataset.valoraMobileCss = 'true';
-    document.head.appendChild(link);
-  }
+  const media = window.matchMedia?.('(max-width: 900px)');
+  const loadMobileAssets = () => {
+    if (!media?.matches) return;
+    if (!document.querySelector('link[data-valora-mobile-css]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/frontend/css/mobile-valora.css?v=20260726-mobile-ux-v2';
+      link.dataset.valoraMobileCss = 'true';
+      document.head.appendChild(link);
+    }
+    if (!document.querySelector('script[data-valora-mobile-js]')) {
+      const script = document.createElement('script');
+      script.src = '/frontend/js/shared/mobile-valora.js?v=20260726-mobile-ux-v2';
+      script.defer = true;
+      script.dataset.valoraMobileJs = 'true';
+      document.head.appendChild(script);
+    }
+  };
 
-  if (!document.querySelector('script[data-valora-mobile-js]')) {
-    const script = document.createElement('script');
-    script.src = '/frontend/js/shared/mobile-valora.js?v=20260726-mobile-ux-v2';
-    script.defer = true;
-    script.dataset.valoraMobileJs = 'true';
-    document.head.appendChild(script);
-  }
+  loadMobileAssets();
+  media?.addEventListener?.('change', loadMobileAssets);
 })();
 
 
@@ -95,6 +101,10 @@
 // INSTALAÇÃO E NOTIFICAÇÕES DO DISPOSITIVO
 // ==========================================
 (() => {
+  let embedded = false;
+  try { embedded = new URLSearchParams(window.location.search).get('__valora_embed') === '1'; } catch (_) {}
+  if (embedded) return;
+
   if (!document.querySelector('link[rel="manifest"]')) {
     const manifest = document.createElement('link');
     manifest.rel = 'manifest';
@@ -123,7 +133,7 @@
   if (!document.querySelector('link[data-valora-agenda-css]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/frontend/css/agenda.css?v=20260803-agenda-fullscreen-v12';
+    link.href = '/frontend/css/agenda.css?v=20260810-agenda-notification-test-v35';
     link.dataset.valoraAgendaCss = 'true';
     document.head.appendChild(link);
   }
@@ -135,7 +145,7 @@
         return;
       }
       const script = document.createElement('script');
-      script.src = '/frontend/js/shared/agenda.js?v=20260804-agenda-save-refresh-v13';
+      script.src = '/frontend/js/shared/agenda.js?v=20260810-agenda-notification-test-v35';
       script.defer = true;
       script.onload = () => resolve(window.ValoraAgenda);
       script.onerror = () => reject(new Error('Não foi possível carregar a agenda do Valora.'));

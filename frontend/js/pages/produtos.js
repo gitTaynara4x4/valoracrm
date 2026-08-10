@@ -1565,6 +1565,52 @@
     });
   }
 
+  let listaProdutosAdiadaAteFecharModal = false;
+  let refreshProdutosAposModalIniciado = false;
+
+  function agendarListaProdutosParaDepoisDoModal() {
+    const backdrop = $('modal-produto-backdrop');
+    if (!backdrop || refreshProdutosAposModalIniciado) return;
+
+    const iniciarRefresh = () => {
+      if (refreshProdutosAposModalIniciado) return;
+      refreshProdutosAposModalIniciado = true;
+      listaProdutosAdiadaAteFecharModal = false;
+      window.setTimeout(() => {
+        void carregarProdutos({ offset: 0, silent: true })
+          .catch((err) => console.warn('[Produtos] lista após fechar cadastro:', err))
+          .finally(() => { refreshProdutosAposModalIniciado = false; });
+      }, 80);
+    };
+
+    if (backdrop.hidden) {
+      iniciarRefresh();
+      return;
+    }
+
+    const observer = new MutationObserver(() => {
+      if (backdrop.hidden) {
+        observer.disconnect();
+        iniciarRefresh();
+        return;
+      }
+      if (!backdrop.classList.contains('show')) {
+        window.setTimeout(() => {
+          if (backdrop.hidden || !backdrop.classList.contains('show')) {
+            observer.disconnect();
+            iniciarRefresh();
+          }
+        }, 220);
+      }
+    });
+
+    observer.observe(backdrop, {
+      attributes: true,
+      attributeFilter: ['hidden', 'class', 'style'],
+    });
+  }
+
+
   function abrirModalProduto() {
     openModal('modal-produto-backdrop');
   }
@@ -1749,8 +1795,10 @@
       }
 
       await salvarProdutoNoServidor(payload, produtoEditandoId);
-      await carregarProdutos();
-
+      if (!listaProdutosAdiadaAteFecharModal) {
+        listaProdutosAdiadaAteFecharModal = true;
+        agendarListaProdutosParaDepoisDoModal();
+      }
       fecharModalProduto();
       toast('Produto salvo com sucesso.', { ms: 1800 });
     } catch (err) {
@@ -1953,6 +2001,27 @@
     });
   }
 
+  let xlsxLoadPromise = null;
+  function ensureXLSX() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    if (xlsxLoadPromise) return xlsxLoadPromise;
+    xlsxLoadPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-valora-xlsx]');
+      const script = existing || document.createElement('script');
+      if (!existing) {
+        script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        script.defer = true;
+        script.dataset.valoraXlsx = 'true';
+        document.head.appendChild(script);
+      }
+      const done = () => window.XLSX ? resolve(window.XLSX) : reject(new Error('Não foi possível carregar o leitor de Excel.'));
+      if (window.XLSX) return done();
+      script.addEventListener('load', done, { once: true });
+      script.addEventListener('error', () => reject(new Error('Não foi possível carregar o leitor de Excel.')), { once: true });
+    }).catch((error) => { xlsxLoadPromise = null; throw error; });
+    return xlsxLoadPromise;
+  }
+
   function parseXLSX(arrayBuffer) {
     if (!window.XLSX) {
       throw new Error('Biblioteca XLSX não carregada.');
@@ -1980,6 +2049,7 @@
         const data = JSON.parse(text || '{}');
         items = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : []);
       } else if (lower.endsWith('.xlsx')) {
+        await ensureXLSX();
         const buffer = await file.arrayBuffer();
         items = parseXLSX(buffer);
       } else {
@@ -3001,34 +3071,77 @@
     });
   }
 
+
+
+  window.addEventListener('message', async (event) => {
+    if (event.origin !== window.location.origin || event.data?.type !== 'valora:shell-activity' || !event.data?.active || !event.data?.routeUrl) return;
+    try {
+      const url = new URL(event.data.routeUrl, window.location.origin);
+      if (url.pathname !== '/produtos' && url.pathname !== '/frontend/produtos.html') return;
+      const id = Number(url.searchParams.get('editar_produto_id') || 0);
+      if (!id) return;
+      const full = await obterProdutoNoServidor(id);
+      await abrirModalProdutoEditar(full);
+      if (url.searchParams.get('abrir_agenda') === '1') document.querySelector('[data-agenda-fixed-open="tab-produto-agenda"]')?.click();
+    } catch (err) {
+      toast(err.message || 'Não foi possível abrir o produto solicitado.', { error: true, ms: 5000 });
+    }
+  });
+
   document.addEventListener('DOMContentLoaded', async () => {
     bindEventos();
 
+    const routeParams = new URLSearchParams(window.location.search);
+    const directProdutoId = Number(routeParams.get('editar_produto_id') || 0);
+    const openAgendaDirect = routeParams.get('abrir_agenda') === '1';
+    let openedDirectProduto = false;
+
     try {
       await carregarFormularioProdutos({ loadingContainer: '#custom-fields-container' });
+
+      if (directProdutoId) {
+        const full = await obterProdutoNoServidor(directProdutoId);
+        await abrirModalProdutoEditar(full);
+        if (openAgendaDirect) document.querySelector('[data-agenda-fixed-open="tab-produto-agenda"]')?.click();
+        openedDirectProduto = true;
+
+        routeParams.delete('editar_produto_id');
+        routeParams.delete('abrir_agenda');
+        const query = routeParams.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+      }
+
       await window.ValoraLocalizarPersonalizado?.setup?.({
         modulo: 'produtos',
         filtersContainerId: 'localizar-personalizado-produtos',
       });
-      await renderCustomFieldsInputs({});
-      await carregarProdutos();
+
+      if (openedDirectProduto) {
+        listaProdutosAdiadaAteFecharModal = true;
+        agendarListaProdutosParaDepoisDoModal();
+      } else {
+        await renderCustomFieldsInputs({});
+        await carregarProdutos();
+      }
     } catch (err) {
       console.error('[Produtos] erro ao iniciar:', err);
-      await carregarProdutos();
+      if (!openedDirectProduto) await carregarProdutos();
       toast(err.message || 'Erro ao carregar ficha de produtos.', { error: true, ms: 5000 });
       return;
     }
 
-    try {
-      const agenda = await window.ValoraAgendaReady;
-      const pending = agenda?.consumePendingNavigation?.();
-      if (pending?.type === 'produto' && Number(pending.entityId)) {
-        const full = await obterProdutoNoServidor(Number(pending.entityId));
-        await abrirModalProdutoEditar(full);
-        document.querySelector('[data-agenda-fixed-open="tab-produto-agenda"]')?.click();
+    if (!openedDirectProduto) {
+      try {
+        const agenda = await window.ValoraAgendaReady;
+        const pending = agenda?.consumePendingNavigation?.();
+        if (pending?.type === 'produto' && Number(pending.entityId)) {
+          const full = await obterProdutoNoServidor(Number(pending.entityId));
+          await abrirModalProdutoEditar(full);
+          document.querySelector('[data-agenda-fixed-open="tab-produto-agenda"]')?.click();
+        }
+      } catch (err) {
+        console.warn('[Produtos] não foi possível abrir o cadastro pelo lembrete:', err);
       }
-    } catch (err) {
-      console.warn('[Produtos] não foi possível abrir o cadastro pelo lembrete:', err);
     }
   });
 })();

@@ -3,29 +3,48 @@
 
   const API = '/api/arquivos-tecnicos';
   const state = {
-    clients: [],
+    entityType: 'cliente',
+    entities: [],
     page: 1,
     pages: 1,
     total: 0,
-    selectedClientId: null,
-    selectedClient: null,
+    selectedEntityId: null,
+    selectedEntity: null,
     folders: [],
     selectedFolder: null,
     files: [],
     editingFolderId: null,
-    loading: false,
+    loadToken: 0,
   };
 
   const $ = (id) => document.getElementById(id);
 
-  function escapeHtml(value) {
-    return String(value ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
-  }
+  const entityCopy = () => state.entityType === 'fornecedor'
+    ? {
+        singular: 'fornecedor',
+        singularTitle: 'Fornecedor',
+        plural: 'fornecedores',
+        pluralTitle: 'Fornecedores',
+        endpoint: 'fornecedores',
+        query: 'fornecedor',
+        icon: 'fa-truck-field',
+      }
+    : {
+        singular: 'cliente',
+        singularTitle: 'Cliente',
+        plural: 'clientes',
+        pluralTitle: 'Clientes',
+        endpoint: 'clientes',
+        query: 'cliente',
+        icon: 'fa-user-shield',
+      };
+
+  const escapeHtml = (value) => String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 
   function toast(message, type = 'success', ms = 3000) {
     const el = document.createElement('div');
@@ -94,23 +113,49 @@
     if (!document.querySelector('.modal-overlay.show')) document.body.classList.remove('modal-open');
   }
 
-  function selectedQueryId() {
-    const raw = new URLSearchParams(window.location.search).get('cliente');
-    const id = Number(raw);
-    return Number.isInteger(id) && id > 0 ? id : null;
+  function selectedQuery() {
+    const params = new URLSearchParams(window.location.search);
+    for (const type of ['fornecedor', 'cliente']) {
+      const id = Number(params.get(type));
+      if (Number.isInteger(id) && id > 0) return { type, id };
+    }
+    return null;
   }
 
-  function syncUrlClient(id) {
+  function syncUrlEntity(id) {
     const url = new URL(window.location.href);
-    if (id) url.searchParams.set('cliente', String(id));
-    else url.searchParams.delete('cliente');
+    url.searchParams.delete('cliente');
+    url.searchParams.delete('fornecedor');
+    if (id) url.searchParams.set(entityCopy().query, String(id));
     window.history.replaceState({}, '', `${url.pathname}${url.search}`);
+  }
+
+  function updateEntityUi() {
+    const copy = entityCopy();
+    document.querySelectorAll('[data-arq-entity-type]').forEach((button) => {
+      const active = button.dataset.arqEntityType === state.entityType;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+
+    if ($('arq-entity-heading')) $('arq-entity-heading').textContent = copy.pluralTitle;
+    if ($('arq-entity-help')) $('arq-entity-help').textContent = 'Localize por nome, código ou endereço.';
+    if ($('arq-busca-cliente')) $('arq-busca-cliente').placeholder = `Buscar ${copy.singular}...`;
+    if ($('arq-only-files-label')) $('arq-only-files-label').textContent = `Mostrar somente ${copy.plural} com arquivos`;
+    if ($('arq-empty-title')) $('arq-empty-title').textContent = `Selecione um ${copy.singular}`;
+    if ($('arq-empty-text')) $('arq-empty-text').textContent = `Escolha um ${copy.singular} ao lado para acessar as pastas, fotos e documentos dele.`;
+    if ($('stat-entidades-label')) $('stat-entidades-label').textContent = `${copy.pluralTitle} com arquivos`;
+    if ($('stat-entidades-icon')) $('stat-entidades-icon').className = `fa-solid ${state.entityType === 'fornecedor' ? 'fa-truck-field' : 'fa-user-group'}`;
+    if ($('arq-selected-icon')) $('arq-selected-icon').className = `fa-solid ${state.entityType === 'fornecedor' ? 'fa-truck-field' : 'fa-building-shield'}`;
   }
 
   async function loadSummary() {
     try {
       const data = await api(`${API}/resumo`);
-      $('stat-clientes').textContent = Number(data.clientes_com_arquivos || 0).toLocaleString('pt-BR');
+      const count = state.entityType === 'fornecedor'
+        ? data.fornecedores_com_arquivos
+        : data.clientes_com_arquivos;
+      $('stat-clientes').textContent = Number(count || 0).toLocaleString('pt-BR');
       $('stat-arquivos').textContent = Number(data.arquivos || 0).toLocaleString('pt-BR');
       $('stat-pastas').textContent = Number(data.pastas || 0).toLocaleString('pt-BR');
       $('stat-espaco').textContent = formatBytes(data.total_bytes || 0);
@@ -119,23 +164,24 @@
     }
   }
 
-  function renderClients() {
+  function renderEntities() {
     const host = $('arq-client-list');
     if (!host) return;
-    if (!state.clients.length) {
-      host.innerHTML = '<div class="arq-empty-list"><div><i class="fa-regular fa-folder-open"></i><br>Nenhum cliente encontrado.</div></div>';
+    const copy = entityCopy();
+    if (!state.entities.length) {
+      host.innerHTML = `<div class="arq-empty-list"><div><i class="fa-regular fa-folder-open"></i><br>Nenhum ${copy.singular} encontrado.</div></div>`;
     } else {
-      host.innerHTML = state.clients.map((client) => {
-        const active = Number(client.id) === Number(state.selectedClientId);
-        const locality = client.endereco || client.cidade_uf || 'Endereço não informado';
+      host.innerHTML = state.entities.map((entity) => {
+        const active = Number(entity.id) === Number(state.selectedEntityId);
+        const locality = entity.endereco || entity.cidade_uf || 'Endereço não informado';
         return `
-          <button class="arq-client-item ${active ? 'is-active' : ''}" type="button" data-client-id="${client.id}">
-            <span class="arq-client-icon"><i class="fa-solid fa-user-shield"></i></span>
+          <button class="arq-client-item ${active ? 'is-active' : ''}" type="button" data-entity-id="${entity.id}">
+            <span class="arq-client-icon"><i class="fa-solid ${copy.icon}"></i></span>
             <span class="arq-client-copy">
-              <strong>${escapeHtml(client.nome || 'Cliente')}</strong>
-              <span>${escapeHtml(client.codigo ? `#${client.codigo} • ${locality}` : locality)}</span>
+              <strong>${escapeHtml(entity.nome || copy.singularTitle)}</strong>
+              <span>${escapeHtml(entity.codigo ? `#${entity.codigo} • ${locality}` : locality)}</span>
             </span>
-            <span class="arq-client-badge" title="${Number(client.arquivo_count || 0)} arquivos">${Number(client.arquivo_count || 0)}</span>
+            <span class="arq-client-badge" title="${Number(entity.arquivo_count || 0)} arquivos">${Number(entity.arquivo_count || 0)}</span>
           </button>`;
       }).join('');
     }
@@ -144,9 +190,11 @@
     $('arq-client-next').disabled = state.page >= state.pages;
   }
 
-  async function loadClients({ page = state.page, preserveSelection = true } = {}) {
+  async function loadEntities({ page = state.page, preserveSelection = true } = {}) {
     const host = $('arq-client-list');
-    if (host) host.innerHTML = '<div class="arq-loading"><i class="fa-solid fa-spinner fa-spin"></i> Carregando clientes...</div>';
+    const copy = entityCopy();
+    const token = ++state.loadToken;
+    if (host) host.innerHTML = `<div class="arq-loading"><i class="fa-solid fa-spinner fa-spin"></i> Carregando ${copy.plural}...</div>`;
     const params = new URLSearchParams({
       busca: $('arq-busca-cliente')?.value?.trim() || '',
       pagina: String(page),
@@ -154,37 +202,42 @@
       somente_com_arquivos: $('arq-so-com-arquivos')?.checked ? 'true' : 'false',
     });
     try {
-      const data = await api(`${API}/clientes?${params.toString()}`);
-      state.clients = Array.isArray(data.items) ? data.items : [];
+      const data = await api(`${API}/${copy.endpoint}?${params.toString()}`);
+      if (token !== state.loadToken) return;
+      state.entities = Array.isArray(data.items) ? data.items : [];
       state.page = Number(data.pagina || 1);
       state.pages = Number(data.paginas || 1);
       state.total = Number(data.total || 0);
-      renderClients();
-      if (!preserveSelection) clearClientSelection();
+      renderEntities();
+      if (!preserveSelection) clearEntitySelection({ updateUrl: false });
     } catch (error) {
-      if (host) host.innerHTML = `<div class="arq-empty-list">${escapeHtml(error.message || 'Não foi possível carregar os clientes.')}</div>`;
-      toast(error.message || 'Não foi possível carregar os clientes.', 'error');
+      if (token !== state.loadToken) return;
+      const message = error.message || `Não foi possível carregar os ${copy.plural}.`;
+      if (host) host.innerHTML = `<div class="arq-empty-list">${escapeHtml(message)}</div>`;
+      toast(message, 'error');
     }
   }
 
-  function clearClientSelection() {
-    state.selectedClientId = null;
-    state.selectedClient = null;
+  function clearEntitySelection({ updateUrl = true } = {}) {
+    state.selectedEntityId = null;
+    state.selectedEntity = null;
     state.folders = [];
     state.selectedFolder = null;
     state.files = [];
     $('arq-empty-client').hidden = false;
     $('arq-client-content').hidden = true;
-    syncUrlClient(null);
-    renderClients();
+    $('arq-gallery-section').hidden = true;
+    if (updateUrl) syncUrlEntity(null);
+    renderEntities();
   }
 
   function renderFolders() {
     const host = $('arq-folder-grid');
+    const copy = entityCopy();
     const count = state.folders.length;
     $('arq-folder-count').textContent = `${count} ${count === 1 ? 'pasta' : 'pastas'}`;
     if (!count) {
-      host.innerHTML = '<div class="arq-empty-list" style="grid-column:1/-1"><div><i class="fa-regular fa-folder-open"></i><br><strong>Nenhuma pasta criada para este cliente.</strong><br>Clique em “Nova pasta” para começar.</div></div>';
+      host.innerHTML = `<div class="arq-empty-list" style="grid-column:1/-1"><div><i class="fa-regular fa-folder-open"></i><br><strong>Nenhuma pasta criada para este ${copy.singular}.</strong><br>Clique em “Nova pasta” para começar.</div></div>`;
       return;
     }
     host.innerHTML = state.folders.map((folder) => `
@@ -199,30 +252,33 @@
       </button>`).join('');
   }
 
-  async function selectClient(id, { updateUrl = true } = {}) {
+  async function selectEntity(id, { updateUrl = true } = {}) {
     const numericId = Number(id);
     if (!numericId) return;
-    state.selectedClientId = numericId;
-    renderClients();
+    const copy = entityCopy();
+    state.selectedEntityId = numericId;
+    renderEntities();
     $('arq-empty-client').hidden = true;
     $('arq-client-content').hidden = false;
     $('arq-folder-grid').innerHTML = '<div class="arq-loading" style="grid-column:1/-1"><i class="fa-solid fa-spinner fa-spin"></i> Carregando pastas...</div>';
     $('arq-gallery-section').hidden = true;
     try {
-      const data = await api(`${API}/clientes/${numericId}`);
-      state.selectedClient = data.cliente || null;
+      const data = await api(`${API}/${copy.endpoint}/${numericId}`);
+      state.selectedEntity = data[state.entityType] || null;
       state.folders = Array.isArray(data.pastas) ? data.pastas : [];
       state.selectedFolder = null;
       state.files = [];
-      const client = state.selectedClient || {};
-      $('arq-selected-code').textContent = client.codigo ? `CLIENTE #${client.codigo}` : `CLIENTE #${client.id || numericId}`;
-      $('arq-selected-name').textContent = client.nome || 'Cliente';
-      $('arq-selected-address').textContent = [client.endereco, client.cidade_uf, client.cep ? `CEP ${client.cep}` : ''].filter(Boolean).join(' • ') || 'Endereço não informado';
+      const entity = state.selectedEntity || {};
+      $('arq-selected-code').textContent = entity.codigo
+        ? `${copy.singularTitle.toUpperCase()} #${entity.codigo}`
+        : `${copy.singularTitle.toUpperCase()} #${entity.id || numericId}`;
+      $('arq-selected-name').textContent = entity.nome || copy.singularTitle;
+      $('arq-selected-address').textContent = [entity.endereco, entity.cidade_uf, entity.cep ? `CEP ${entity.cep}` : ''].filter(Boolean).join(' • ') || 'Endereço não informado';
       renderFolders();
-      if (updateUrl) syncUrlClient(numericId);
+      if (updateUrl) syncUrlEntity(numericId);
     } catch (error) {
-      toast(error.message || 'Não foi possível carregar o acervo do cliente.', 'error');
-      clearClientSelection();
+      toast(error.message || `Não foi possível carregar o acervo do ${copy.singular}.`, 'error');
+      clearEntitySelection();
     }
   }
 
@@ -281,11 +337,11 @@
     }
   }
 
-  async function refreshSelectedClient({ reopenFolder = false } = {}) {
-    const clientId = state.selectedClientId;
+  async function refreshSelectedEntity({ reopenFolder = false } = {}) {
+    const entityId = state.selectedEntityId;
     const folderId = reopenFolder ? state.selectedFolder?.id : null;
-    if (!clientId) return;
-    await selectClient(clientId, { updateUrl: false });
+    if (!entityId) return;
+    await selectEntity(entityId, { updateUrl: false });
     if (folderId) await openFolder(folderId);
   }
 
@@ -314,9 +370,8 @@
     try {
       const result = await api(`${API}/pastas/${state.selectedFolder.id}/arquivos`, { method: 'POST', body: form });
       toast(`${Number(result.total || files.length)} arquivo(s) enviado(s) com sucesso.`);
-      await refreshSelectedClient({ reopenFolder: true });
-      await loadSummary();
-      await loadClients({ page: state.page, preserveSelection: true });
+      await refreshSelectedEntity({ reopenFolder: true });
+      await Promise.all([loadSummary(), loadEntities({ page: state.page, preserveSelection: true })]);
     } catch (error) {
       toast(error.message || 'Não foi possível enviar os arquivos.', 'error', 4500);
     } finally {
@@ -333,9 +388,8 @@
     try {
       await api(`${API}/arquivos/${id}`, { method: 'DELETE' });
       toast('Arquivo excluído.');
-      await refreshSelectedClient({ reopenFolder: true });
-      await loadSummary();
-      await loadClients({ page: state.page, preserveSelection: true });
+      await refreshSelectedEntity({ reopenFolder: true });
+      await Promise.all([loadSummary(), loadEntities({ page: state.page, preserveSelection: true })]);
     } catch (error) {
       toast(error.message || 'Não foi possível excluir o arquivo.', 'error');
     }
@@ -376,15 +430,15 @@
       state.selectedFolder = null;
       state.files = [];
       $('arq-gallery-section').hidden = true;
-      await refreshSelectedClient();
-      await loadSummary();
+      await refreshSelectedEntity();
+      await Promise.all([loadSummary(), loadEntities({ page: state.page, preserveSelection: true })]);
     } catch (error) {
       toast(error.message || 'Não foi possível excluir a pasta.', 'error');
     }
   }
 
-  async function saveClientFolder() {
-    if (!state.selectedClientId) return;
+  async function saveEntityFolder() {
+    if (!state.selectedEntityId) return;
     const nome = $('arq-pasta-nome').value.trim();
     if (!nome) {
       toast('Informe o nome da pasta.', 'error');
@@ -398,12 +452,15 @@
         await api(`${API}/pastas/${state.editingFolderId}`, { method: 'PATCH', body: JSON.stringify({ nome }) });
         toast('Pasta renomeada.');
       } else {
-        await api(`${API}/clientes/${state.selectedClientId}/pastas`, { method: 'POST', body: JSON.stringify({ nome, icone: 'fa-folder' }) });
+        await api(`${API}/${entityCopy().endpoint}/${state.selectedEntityId}/pastas`, {
+          method: 'POST',
+          body: JSON.stringify({ nome, icone: 'fa-folder' }),
+        });
         toast('Pasta criada.');
       }
       hideModal('modal-arq-pasta');
-      await refreshSelectedClient({ reopenFolder: false });
-      await loadSummary();
+      await refreshSelectedEntity({ reopenFolder: false });
+      await Promise.all([loadSummary(), loadEntities({ page: state.page, preserveSelection: true })]);
     } catch (error) {
       toast(error.message || 'Não foi possível salvar a pasta.', 'error');
     } finally {
@@ -411,19 +468,38 @@
     }
   }
 
+  async function switchEntityType(nextType) {
+    if (!['cliente', 'fornecedor'].includes(nextType) || nextType === state.entityType) return;
+    state.entityType = nextType;
+    state.page = 1;
+    state.pages = 1;
+    state.entities = [];
+    state.loadToken += 1;
+    if ($('arq-busca-cliente')) $('arq-busca-cliente').value = '';
+    if ($('arq-so-com-arquivos')) $('arq-so-com-arquivos').checked = false;
+    clearEntitySelection();
+    updateEntityUi();
+    await Promise.all([loadSummary(), loadEntities({ page: 1, preserveSelection: false })]);
+  }
+
   function bindEvents() {
     let searchTimer = null;
+
+    document.querySelectorAll('[data-arq-entity-type]').forEach((button) => {
+      button.addEventListener('click', () => void switchEntityType(button.dataset.arqEntityType));
+    });
+
     $('arq-busca-cliente')?.addEventListener('input', () => {
       window.clearTimeout(searchTimer);
-      searchTimer = window.setTimeout(() => loadClients({ page: 1, preserveSelection: true }), 260);
+      searchTimer = window.setTimeout(() => loadEntities({ page: 1, preserveSelection: true }), 260);
     });
-    $('arq-so-com-arquivos')?.addEventListener('change', () => loadClients({ page: 1, preserveSelection: true }));
-    $('arq-client-prev')?.addEventListener('click', () => state.page > 1 && loadClients({ page: state.page - 1 }));
-    $('arq-client-next')?.addEventListener('click', () => state.page < state.pages && loadClients({ page: state.page + 1 }));
+    $('arq-so-com-arquivos')?.addEventListener('change', () => loadEntities({ page: 1, preserveSelection: true }));
+    $('arq-client-prev')?.addEventListener('click', () => state.page > 1 && loadEntities({ page: state.page - 1 }));
+    $('arq-client-next')?.addEventListener('click', () => state.page < state.pages && loadEntities({ page: state.page + 1 }));
 
     $('arq-client-list')?.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-client-id]');
-      if (button) void selectClient(button.dataset.clientId);
+      const button = event.target.closest('[data-entity-id]');
+      if (button) void selectEntity(button.dataset.entityId);
     });
     $('arq-folder-grid')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-folder-id]');
@@ -437,17 +513,17 @@
     });
 
     $('btn-atualizar-arquivos')?.addEventListener('click', async () => {
-      await Promise.all([loadSummary(), loadClients({ page: state.page })]);
-      if (state.selectedClientId) await refreshSelectedClient({ reopenFolder: Boolean(state.selectedFolder) });
+      await Promise.all([loadSummary(), loadEntities({ page: state.page })]);
+      if (state.selectedEntityId) await refreshSelectedEntity({ reopenFolder: Boolean(state.selectedFolder) });
       toast('Arquivos técnicos atualizados.');
     });
 
     $('btn-nova-pasta-cliente')?.addEventListener('click', () => openFolderModal());
     $('btn-editar-pasta')?.addEventListener('click', () => state.selectedFolder && openFolderModal(state.selectedFolder));
     $('btn-excluir-pasta')?.addEventListener('click', deleteCurrentFolder);
-    $('btn-salvar-pasta-cliente')?.addEventListener('click', saveClientFolder);
+    $('btn-salvar-pasta-cliente')?.addEventListener('click', saveEntityFolder);
     $('arq-pasta-nome')?.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') { event.preventDefault(); void saveClientFolder(); }
+      if (event.key === 'Enter') { event.preventDefault(); void saveEntityFolder(); }
     });
 
     $('btn-enviar-arquivos')?.addEventListener('click', () => $('input-arquivos-tecnicos')?.click());
@@ -482,14 +558,15 @@
       const open = document.querySelector('.modal-overlay.show');
       if (open) hideModal(open.id);
     });
-
   }
 
   async function init() {
+    const requested = selectedQuery();
+    if (requested) state.entityType = requested.type;
+    updateEntityUi();
     bindEvents();
-    await Promise.all([loadSummary(), loadClients({ page: 1 })]);
-    const requested = selectedQueryId();
-    if (requested) await selectClient(requested, { updateUrl: false });
+    await Promise.all([loadSummary(), loadEntities({ page: 1 })]);
+    if (requested) await selectEntity(requested.id, { updateUrl: false });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });

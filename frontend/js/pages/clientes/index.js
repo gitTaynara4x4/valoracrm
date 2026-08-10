@@ -43,6 +43,51 @@ async function reloadClientes({ offset = 0, silent = false } = {}) {
   }
 }
 
+let listaClientesAdiadaAteFecharModal = false;
+let refreshClientesAposModalIniciado = false;
+
+function agendarListaClientesParaDepoisDoModal() {
+  const backdrop = $('modal-cliente-backdrop');
+  if (!backdrop || refreshClientesAposModalIniciado) return;
+
+  const iniciarRefresh = () => {
+    if (refreshClientesAposModalIniciado) return;
+    refreshClientesAposModalIniciado = true;
+    listaClientesAdiadaAteFecharModal = false;
+    window.setTimeout(() => {
+      void reloadClientes({ offset: 0, silent: true })
+        .catch((err) => console.warn('[Clientes] lista após fechar cadastro:', err))
+        .finally(() => { refreshClientesAposModalIniciado = false; });
+    }, 80);
+  };
+
+  if (backdrop.hidden) {
+    iniciarRefresh();
+    return;
+  }
+
+  const observer = new MutationObserver(() => {
+    if (backdrop.hidden) {
+      observer.disconnect();
+      iniciarRefresh();
+      return;
+    }
+    if (!backdrop.classList.contains('show')) {
+      window.setTimeout(() => {
+        if (backdrop.hidden || !backdrop.classList.contains('show')) {
+          observer.disconnect();
+          iniciarRefresh();
+        }
+      }, 220);
+    }
+  });
+
+  observer.observe(backdrop, {
+    attributes: true,
+    attributeFilter: ['hidden', 'class', 'style'],
+  });
+}
+
 async function reloadTudo() {
   await Promise.all([carregarCamposClientes(), carregarClientes({ offset: 0 })]);
   renderAll();
@@ -165,21 +210,44 @@ async function handleInitialClientRoute() {
   const clientId = Number(params.get('editar_cliente_id') || 0);
   if (!clientId) return false;
 
+  const openAgenda = params.get('abrir_agenda') === '1';
   await openClientModalEdit(clientId);
+  if (openAgenda) document.querySelector('[data-agenda-fixed-open="tab-historico"]')?.click();
 
   params.delete('editar_cliente_id');
+  params.delete('abrir_agenda');
   const query = params.toString();
   const cleanUrl = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
   window.history.replaceState({}, '', cleanUrl);
   return true;
 }
 
+
+
+window.addEventListener('message', async (event) => {
+  if (event.origin !== window.location.origin || event.data?.type !== 'valora:shell-activity' || !event.data?.active || !event.data?.routeUrl) return;
+  try {
+    const url = new URL(event.data.routeUrl, window.location.origin);
+    if (url.pathname !== '/clientes' && url.pathname !== '/frontend/clientes.html') return;
+    const id = Number(url.searchParams.get('editar_cliente_id') || 0);
+    if (!id) return;
+    await openClientModalEdit(id);
+    if (url.searchParams.get('abrir_agenda') === '1') document.querySelector('[data-agenda-fixed-open="tab-historico"]')?.click();
+  } catch (err) {
+    toast(err.message || 'Não foi possível abrir o cliente solicitado.', 'error');
+  }
+});
 document.addEventListener('DOMContentLoaded', async () => {
   bindConfirmDialog();
 
   bindClientModal({
     afterSave: async () => {
-      await reloadClientes({ offset: state.clientesPage?.offset || 0 });
+      // O modal do cliente fecha logo depois deste callback. Não bloqueia esse
+      // fechamento renderizando a lista inteira atrás dele.
+      if (!listaClientesAdiadaAteFecharModal) {
+        listaClientesAdiadaAteFecharModal = true;
+        agendarListaClientesParaDepoisDoModal();
+      }
     },
   });
 
@@ -193,6 +261,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindPagination();
   bindTopActions();
   bindFormularioActions();
+
+  const directClientId = Number(new URLSearchParams(window.location.search).get('editar_cliente_id') || 0);
+  let openedDirectClient = false;
+
+  if (directClientId) {
+    try {
+      await carregarCamposClientes();
+      openedDirectClient = await handleInitialClientRoute();
+    } catch (err) {
+      toast(err.message || 'Não foi possível abrir o cliente solicitado.', 'error');
+    }
+  }
 
   try {
     await window.ValoraLocalizarPersonalizado?.setup?.({
@@ -222,27 +302,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  try {
-    await reloadTudo();
-  } catch (err) {
-    toast(err.message || 'Erro ao carregar dados do servidor.', 'error');
-    return;
-  }
-
-  try {
-    await handleInitialClientRoute();
-  } catch (err) {
-    toast(err.message || 'Não foi possível abrir o cliente solicitado.', 'error');
-  }
-
-  try {
-    const agenda = await window.ValoraAgendaReady;
-    const pending = agenda?.consumePendingNavigation?.();
-    if (pending?.type === 'cliente' && Number(pending.entityId)) {
-      await openClientModalEdit(Number(pending.entityId));
-      document.querySelector('[data-agenda-fixed-open="tab-historico"]')?.click();
+  if (openedDirectClient) {
+    listaClientesAdiadaAteFecharModal = true;
+    agendarListaClientesParaDepoisDoModal();
+  } else {
+    try {
+      await reloadTudo();
+    } catch (err) {
+      toast(err.message || 'Erro ao carregar dados do servidor.', 'error');
+      return;
     }
-  } catch (err) {
-    console.warn('[Clientes] não foi possível abrir o cadastro pelo lembrete:', err);
+
+    try {
+      await handleInitialClientRoute();
+    } catch (err) {
+      toast(err.message || 'Não foi possível abrir o cliente solicitado.', 'error');
+    }
+
+    try {
+      const agenda = await window.ValoraAgendaReady;
+      const pending = agenda?.consumePendingNavigation?.();
+      if (pending?.type === 'cliente' && Number(pending.entityId)) {
+        await openClientModalEdit(Number(pending.entityId));
+        document.querySelector('[data-agenda-fixed-open="tab-historico"]')?.click();
+      }
+    } catch (err) {
+      console.warn('[Clientes] não foi possível abrir o cadastro pelo lembrete:', err);
+    }
   }
 });

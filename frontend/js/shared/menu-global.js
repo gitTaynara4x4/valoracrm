@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260807-shell-v3';
+  const VERSION = '20260810-menu-hover-v29';
   const PARTIAL_URL = '/frontend/partials/sidebar-content.inc?v=' + VERSION;
   const CSS_URL = '/frontend/css/menu-global.css?v=' + VERSION;
   const ROUTES = {
@@ -306,14 +306,49 @@
       if (targetBtn) { event.preventDefault(); const target = targetBtn.dataset.target; closeMenus(); navigate(target); }
     });
 
+    const desktopMenuCloseTimers = new WeakMap();
+
+    const cancelDesktopMenuClose = (group) => {
+      const timer = desktopMenuCloseTimers.get(group);
+      if (timer) {
+        clearTimeout(timer);
+        desktopMenuCloseTimers.delete(group);
+      }
+    };
+
+    const scheduleDesktopMenuClose = (group) => {
+      cancelDesktopMenuClose(group);
+      const timer = window.setTimeout(() => {
+        group.classList.remove('is-open');
+        desktopMenuCloseTimers.delete(group);
+      }, 180);
+      desktopMenuCloseTimers.set(group, timer);
+    };
+
     root.querySelectorAll('[data-menu-group]').forEach((group) => {
       group.addEventListener('mouseenter', () => {
         if (window.innerWidth <= 920) return;
-        root.querySelectorAll('[data-menu-group].is-open').forEach((other) => { if (other !== group) other.classList.remove('is-open'); });
+        cancelDesktopMenuClose(group);
+        root.querySelectorAll('[data-menu-group].is-open').forEach((other) => {
+          if (other !== group) {
+            cancelDesktopMenuClose(other);
+            other.classList.remove('is-open');
+          }
+        });
         root.querySelector('#settingsWrap')?.classList.remove('is-open');
         root.querySelector('#userWrap')?.classList.remove('is-open');
         group.classList.add('is-open');
       });
+
+      group.addEventListener('mouseleave', () => {
+        if (window.innerWidth <= 920) return;
+        scheduleDesktopMenuClose(group);
+      });
+    });
+
+    root.addEventListener('mouseleave', () => {
+      if (window.innerWidth <= 920) return;
+      root.querySelectorAll('[data-menu-group].is-open').forEach((group) => scheduleDesktopMenuClose(group));
     });
 
     document.addEventListener('click', (event) => { if (root && !root.contains(event.target)) closeMenus(); });

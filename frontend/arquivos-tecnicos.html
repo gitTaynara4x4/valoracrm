@@ -18,13 +18,13 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260807-arquivos-tecnicos-v1" />
-  <link rel="stylesheet" href="/frontend/css/arquivos-tecnicos.css?v=20260807-arquivos-tecnicos-v2" />
+  <link rel="stylesheet" href="/frontend/css/arquivos-tecnicos.css?v=20260810-arquivos-tecnicos-fornecedores-v30" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 
   <script src="/frontend/js/shared/menu-global.js?v=20260807-arquivos-tecnicos-v1" defer></script>
-  <script src="/frontend/js/pages/app.js?v=20260807-arquivos-tecnicos-v2" defer></script>
-  <script src="/frontend/js/pages/arquivos-tecnicos.js?v=20260807-arquivos-tecnicos-v2" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260810-arquivos-tecnicos-fornecedores-v30" defer></script>
+  <script src="/frontend/js/pages/arquivos-tecnicos.js?v=20260810-arquivos-tecnicos-fornecedores-v30" defer></script>
 </head>
 <body>
   <div class="layout">
@@ -35,7 +35,7 @@
         <div class="topbar-title">
           <span class="eyebrow">Cadastros</span>
           <h1>Arquivos Técnicos</h1>
-          <p class="topbar-subtitle">Fotos, documentos e arquivos organizados por cliente.</p>
+          <p class="topbar-subtitle">Fotos, documentos e arquivos organizados por cliente ou fornecedor.</p>
         </div>
         <div class="topbar-actions">
           <button class="btn btn-secondary" id="btn-atualizar-arquivos" type="button">
@@ -46,8 +46,8 @@
 
       <section class="arq-stats" aria-label="Resumo do acervo técnico">
         <article class="arq-stat-card">
-          <span class="arq-stat-icon"><i class="fa-solid fa-user-group"></i></span>
-          <div><strong id="stat-clientes">0</strong><span>Clientes com arquivos</span></div>
+          <span class="arq-stat-icon"><i id="stat-entidades-icon" class="fa-solid fa-user-group"></i></span>
+          <div><strong id="stat-clientes">0</strong><span id="stat-entidades-label">Clientes com arquivos</span></div>
         </article>
         <article class="arq-stat-card">
           <span class="arq-stat-icon"><i class="fa-regular fa-images"></i></span>
@@ -67,9 +67,18 @@
         <aside class="arq-clients-panel">
           <div class="arq-panel-head">
             <div>
-              <h3>Clientes</h3>
-              <p>Localize por nome, código ou endereço.</p>
+              <h3 id="arq-entity-heading">Clientes</h3>
+              <p id="arq-entity-help">Localize por nome, código ou endereço.</p>
             </div>
+          </div>
+
+          <div class="arq-entity-tabs" role="tablist" aria-label="Tipo de cadastro">
+            <button class="arq-entity-tab is-active" type="button" role="tab" aria-selected="true" data-arq-entity-type="cliente">
+              <i class="fa-solid fa-user-group"></i> Clientes
+            </button>
+            <button class="arq-entity-tab" type="button" role="tab" aria-selected="false" data-arq-entity-type="fornecedor">
+              <i class="fa-solid fa-truck-field"></i> Fornecedores
+            </button>
           </div>
 
           <label class="arq-search">
@@ -79,7 +88,7 @@
 
           <label class="arq-filter-check">
             <input id="arq-so-com-arquivos" type="checkbox" />
-            <span>Mostrar somente clientes com arquivos</span>
+            <span id="arq-only-files-label">Mostrar somente clientes com arquivos</span>
           </label>
 
           <div class="arq-client-list" id="arq-client-list">
@@ -96,14 +105,14 @@
         <section class="arq-main-panel" id="arq-main-panel">
           <div class="arq-empty-client" id="arq-empty-client">
             <span class="arq-empty-icon"><i class="fa-solid fa-folder-open"></i></span>
-            <h3>Selecione um cliente</h3>
-            <p>Escolha um cliente ao lado para acessar as pastas, fotos e documentos dele.</p>
+            <h3 id="arq-empty-title">Selecione um cliente</h3>
+            <p id="arq-empty-text">Escolha um cliente ao lado para acessar as pastas, fotos e documentos dele.</p>
           </div>
 
           <div class="arq-client-content" id="arq-client-content" hidden>
             <header class="arq-client-header">
               <div class="arq-client-identity">
-                <span class="arq-client-avatar"><i class="fa-solid fa-building-shield"></i></span>
+                <span class="arq-client-avatar"><i id="arq-selected-icon" class="fa-solid fa-building-shield"></i></span>
                 <div>
                   <div class="arq-client-code" id="arq-selected-code">CLIENTE</div>
                   <h2 id="arq-selected-name">Cliente</h2>

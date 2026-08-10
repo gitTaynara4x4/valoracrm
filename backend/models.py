@@ -1577,7 +1577,7 @@ class FormularioCampo(Base):
         )
 
 # =========================================================
-# ARQUIVOS TÉCNICOS DOS CLIENTES
+# ARQUIVOS TÉCNICOS DE CLIENTES E FORNECEDORES
 # =========================================================
 class ArquivoTecnicoPasta(Base):
     __tablename__ = "arquivos_tecnicos_pastas"
@@ -1593,7 +1593,13 @@ class ArquivoTecnicoPasta(Base):
     cliente_id = Column(
         BigInteger,
         ForeignKey("clientes.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    fornecedor_id = Column(
+        BigInteger,
+        ForeignKey("fornecedores.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     nome = Column(String(120), nullable=False)
@@ -1624,7 +1630,13 @@ class ArquivoTecnicoArquivo(Base):
     cliente_id = Column(
         BigInteger,
         ForeignKey("clientes.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    fornecedor_id = Column(
+        BigInteger,
+        ForeignKey("fornecedores.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     pasta_id = Column(

@@ -35,6 +35,7 @@ ALLOWED_EXTENSIONS = {
 Pasta = models.ArquivoTecnicoPasta
 Arquivo = models.ArquivoTecnicoArquivo
 Cliente = models.Cliente
+Fornecedor = models.Fornecedor
 
 
 def _text(value) -> str:
@@ -55,6 +56,25 @@ def _client_for_company(db: Session, cliente_id: int, empresa_id: int) -> Client
     if not row:
         raise HTTPException(status_code=404, detail="Cliente não encontrado.")
     return row
+
+
+def _supplier_for_company(db: Session, fornecedor_id: int, empresa_id: int) -> Fornecedor:
+    row = (
+        db.query(Fornecedor)
+        .filter(Fornecedor.id == int(fornecedor_id), Fornecedor.empresa_id == int(empresa_id))
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Fornecedor não encontrado.")
+    return row
+
+
+def _folder_owner(folder: Pasta) -> tuple[str, int]:
+    if getattr(folder, "fornecedor_id", None) is not None:
+        return "fornecedor", int(folder.fornecedor_id)
+    if getattr(folder, "cliente_id", None) is not None:
+        return "cliente", int(folder.cliente_id)
+    raise HTTPException(status_code=409, detail="Pasta técnica sem vínculo com cliente ou fornecedor.")
 
 
 def _folder_for_company(db: Session, pasta_id: int, empresa_id: int) -> Pasta:
@@ -96,13 +116,39 @@ def _format_client(cliente: Cliente) -> dict:
         "endereco": endereco or None,
         "cidade_uf": cidade_uf or None,
         "cep": cliente.cep,
+        "entidade_tipo": "cliente",
+    }
+
+
+def _format_supplier(fornecedor: Fornecedor) -> dict:
+    endereco_parts = [
+        _text(getattr(fornecedor, "endereco", None)),
+        _text(getattr(fornecedor, "numero", None)),
+        _text(getattr(fornecedor, "bairro", None)),
+    ]
+    endereco = ", ".join(item for item in endereco_parts if item)
+    cidade_uf = " / ".join(item for item in [_text(getattr(fornecedor, "cidade", None)), _text(getattr(fornecedor, "estado", None))] if item)
+    return {
+        "id": int(fornecedor.id),
+        "codigo": fornecedor.codigo,
+        "nome": fornecedor.nome,
+        "nome_fantasia": fornecedor.nome_fantasia,
+        "situacao": fornecedor.situacao,
+        "endereco": endereco or None,
+        "cidade_uf": cidade_uf or None,
+        "cep": fornecedor.cep,
+        "entidade_tipo": "fornecedor",
     }
 
 
 def _format_folder(folder: Pasta, arquivo_count: int = 0, total_bytes: int = 0, ultima_atualizacao=None) -> dict:
+    owner_type, owner_id = _folder_owner(folder)
     return {
         "id": int(folder.id),
-        "cliente_id": int(folder.cliente_id),
+        "cliente_id": int(folder.cliente_id) if folder.cliente_id is not None else None,
+        "fornecedor_id": int(folder.fornecedor_id) if folder.fornecedor_id is not None else None,
+        "entidade_tipo": owner_type,
+        "entidade_id": owner_id,
         "nome": folder.nome,
         "icone": folder.icone or "fa-folder",
         "ordem": int(folder.ordem or 0),
@@ -117,9 +163,14 @@ def _format_file(row: Arquivo) -> dict:
     mime = _text(row.mime_type).lower()
     ext = _text(row.extensao).lower()
     is_image = mime.startswith("image/") or ext in {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    owner_type = "fornecedor" if getattr(row, "fornecedor_id", None) is not None else "cliente"
+    owner_id = int(row.fornecedor_id) if owner_type == "fornecedor" else int(row.cliente_id)
     return {
         "id": int(row.id),
-        "cliente_id": int(row.cliente_id),
+        "cliente_id": int(row.cliente_id) if row.cliente_id is not None else None,
+        "fornecedor_id": int(row.fornecedor_id) if row.fornecedor_id is not None else None,
+        "entidade_tipo": owner_type,
+        "entidade_id": owner_id,
         "pasta_id": int(row.pasta_id),
         "titulo": row.titulo,
         "descricao": row.descricao,
@@ -171,10 +222,13 @@ def resumo(
         func.count(Arquivo.id),
         func.coalesce(func.sum(Arquivo.tamanho_bytes), 0),
         func.count(func.distinct(Arquivo.cliente_id)),
+        func.count(func.distinct(Arquivo.fornecedor_id)),
     ).filter(Arquivo.empresa_id == empresa_id).one()
     pastas = db.query(func.count(Pasta.id)).filter(Pasta.empresa_id == empresa_id).scalar() or 0
     return {
         "clientes_com_arquivos": int(arquivos_q[2] or 0),
+        "fornecedores_com_arquivos": int(arquivos_q[3] or 0),
+        "cadastros_com_arquivos": int(arquivos_q[2] or 0) + int(arquivos_q[3] or 0),
         "arquivos": int(arquivos_q[0] or 0),
         "pastas": int(pastas),
         "total_bytes": int(arquivos_q[1] or 0),
@@ -198,13 +252,13 @@ def listar_clientes(
             func.coalesce(func.sum(Arquivo.tamanho_bytes), 0).label("total_bytes"),
             func.max(Arquivo.criado_em).label("ultima_atualizacao"),
         )
-        .filter(Arquivo.empresa_id == empresa_id)
+        .filter(Arquivo.empresa_id == empresa_id, Arquivo.cliente_id.isnot(None))
         .group_by(Arquivo.cliente_id)
         .subquery()
     )
     folders_sub = (
         db.query(Pasta.cliente_id.label("cliente_id"), func.count(Pasta.id).label("pasta_count"))
-        .filter(Pasta.empresa_id == empresa_id)
+        .filter(Pasta.empresa_id == empresa_id, Pasta.cliente_id.isnot(None))
         .group_by(Pasta.cliente_id)
         .subquery()
     )
@@ -264,6 +318,167 @@ def listar_clientes(
     }
 
 
+@router.get("/fornecedores")
+def listar_fornecedores(
+    busca: str = Query(default="", max_length=180),
+    pagina: int = Query(default=1, ge=1),
+    por_pagina: int = Query(default=40, ge=10, le=100),
+    somente_com_arquivos: bool = Query(default=False),
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    empresa_id = int(current_user.empresa_id)
+    files_sub = (
+        db.query(
+            Arquivo.fornecedor_id.label("fornecedor_id"),
+            func.count(Arquivo.id).label("arquivo_count"),
+            func.coalesce(func.sum(Arquivo.tamanho_bytes), 0).label("total_bytes"),
+            func.max(Arquivo.criado_em).label("ultima_atualizacao"),
+        )
+        .filter(Arquivo.empresa_id == empresa_id, Arquivo.fornecedor_id.isnot(None))
+        .group_by(Arquivo.fornecedor_id)
+        .subquery()
+    )
+    folders_sub = (
+        db.query(Pasta.fornecedor_id.label("fornecedor_id"), func.count(Pasta.id).label("pasta_count"))
+        .filter(Pasta.empresa_id == empresa_id, Pasta.fornecedor_id.isnot(None))
+        .group_by(Pasta.fornecedor_id)
+        .subquery()
+    )
+
+    q = (
+        db.query(
+            Fornecedor,
+            func.coalesce(files_sub.c.arquivo_count, 0),
+            func.coalesce(files_sub.c.total_bytes, 0),
+            files_sub.c.ultima_atualizacao,
+            func.coalesce(folders_sub.c.pasta_count, 0),
+        )
+        .outerjoin(files_sub, files_sub.c.fornecedor_id == Fornecedor.id)
+        .outerjoin(folders_sub, folders_sub.c.fornecedor_id == Fornecedor.id)
+        .filter(Fornecedor.empresa_id == empresa_id)
+    )
+
+    term = _text(busca)
+    if term:
+        like = f"%{term}%"
+        q = q.filter(or_(
+            Fornecedor.nome.ilike(like),
+            Fornecedor.nome_fantasia.ilike(like),
+            Fornecedor.codigo.ilike(like),
+            Fornecedor.cpf_cnpj.ilike(like),
+            Fornecedor.endereco.ilike(like),
+            Fornecedor.bairro.ilike(like),
+            Fornecedor.cidade.ilike(like),
+            Fornecedor.cep.ilike(like),
+        ))
+    if somente_com_arquivos:
+        q = q.filter(func.coalesce(files_sub.c.arquivo_count, 0) > 0)
+
+    total = q.count()
+    rows = (
+        q.order_by(Fornecedor.nome.asc(), Fornecedor.id.asc())
+        .offset((pagina - 1) * por_pagina)
+        .limit(por_pagina)
+        .all()
+    )
+    items = []
+    for fornecedor, file_count, total_bytes, updated, folder_count in rows:
+        item = _format_supplier(fornecedor)
+        item.update({
+            "arquivo_count": int(file_count or 0),
+            "pasta_count": int(folder_count or 0),
+            "total_bytes": int(total_bytes or 0),
+            "ultima_atualizacao": updated,
+        })
+        items.append(item)
+    return {
+        "items": items,
+        "total": int(total),
+        "pagina": pagina,
+        "por_pagina": por_pagina,
+        "paginas": max(1, (int(total) + por_pagina - 1) // por_pagina),
+    }
+
+
+@router.get("/fornecedores/{fornecedor_id}")
+def detalhe_fornecedor(
+    fornecedor_id: int,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    empresa_id = int(current_user.empresa_id)
+    fornecedor = _supplier_for_company(db, fornecedor_id, empresa_id)
+    counts = (
+        db.query(
+            Arquivo.pasta_id,
+            func.count(Arquivo.id),
+            func.coalesce(func.sum(Arquivo.tamanho_bytes), 0),
+            func.max(Arquivo.criado_em),
+        )
+        .filter(Arquivo.empresa_id == empresa_id, Arquivo.fornecedor_id == int(fornecedor.id))
+        .group_by(Arquivo.pasta_id)
+        .all()
+    )
+    count_map = {int(row[0]): row[1:] for row in counts}
+    folders = (
+        db.query(Pasta)
+        .filter(Pasta.empresa_id == empresa_id, Pasta.fornecedor_id == int(fornecedor.id))
+        .order_by(Pasta.ordem.asc(), Pasta.nome.asc(), Pasta.id.asc())
+        .all()
+    )
+    return {
+        "fornecedor": _format_supplier(fornecedor),
+        "pastas": [
+            _format_folder(folder, *count_map.get(int(folder.id), (0, 0, None)))
+            for folder in folders
+        ],
+    }
+
+
+@router.post("/fornecedores/{fornecedor_id}/pastas", status_code=status.HTTP_201_CREATED)
+def criar_pasta_fornecedor(
+    fornecedor_id: int,
+    payload: FolderIn,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    empresa_id = int(current_user.empresa_id)
+    fornecedor = _supplier_for_company(db, fornecedor_id, empresa_id)
+    nome = _text(payload.nome)
+    duplicate = (
+        db.query(Pasta.id)
+        .filter(
+            Pasta.empresa_id == empresa_id,
+            Pasta.fornecedor_id == int(fornecedor.id),
+            func.lower(Pasta.nome) == nome.lower(),
+        )
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(status_code=409, detail="Já existe uma pasta com este nome para o fornecedor.")
+    max_order = (
+        db.query(func.max(Pasta.ordem))
+        .filter(Pasta.empresa_id == empresa_id, Pasta.fornecedor_id == int(fornecedor.id))
+        .scalar()
+        or 0
+    )
+    folder = Pasta(
+        empresa_id=empresa_id,
+        cliente_id=None,
+        fornecedor_id=int(fornecedor.id),
+        nome=nome,
+        icone=_safe_icon(payload.icone),
+        ordem=int(max_order) + 10,
+        criado_por_id=int(current_user.id),
+        criado_por_nome=_text(current_user.nome) or None,
+    )
+    db.add(folder)
+    db.commit()
+    db.refresh(folder)
+    return _format_folder(folder)
+
+
 @router.get("/clientes/{cliente_id}")
 def detalhe_cliente(
     cliente_id: int,
@@ -320,10 +535,16 @@ def criar_pasta_cliente(
     )
     if duplicate:
         raise HTTPException(status_code=409, detail="Já existe uma pasta com este nome para o cliente.")
-    max_order = db.query(func.max(Pasta.ordem)).filter(Pasta.cliente_id == int(cliente.id)).scalar() or 0
+    max_order = (
+        db.query(func.max(Pasta.ordem))
+        .filter(Pasta.empresa_id == empresa_id, Pasta.cliente_id == int(cliente.id))
+        .scalar()
+        or 0
+    )
     folder = Pasta(
         empresa_id=empresa_id,
         cliente_id=int(cliente.id),
+        fornecedor_id=None,
         nome=nome,
         icone=_safe_icon(payload.icone),
         ordem=int(max_order) + 10,
@@ -345,18 +566,21 @@ def editar_pasta_cliente(
 ):
     folder = _folder_for_company(db, pasta_id, int(current_user.empresa_id))
     nome = _text(payload.nome)
+    owner_type, owner_id = _folder_owner(folder)
+    owner_filter = (Pasta.fornecedor_id == owner_id) if owner_type == "fornecedor" else (Pasta.cliente_id == owner_id)
     duplicate = (
         db.query(Pasta.id)
         .filter(
             Pasta.empresa_id == int(current_user.empresa_id),
-            Pasta.cliente_id == int(folder.cliente_id),
+            owner_filter,
             Pasta.id != int(folder.id),
             func.lower(Pasta.nome) == nome.lower(),
         )
         .first()
     )
     if duplicate:
-        raise HTTPException(status_code=409, detail="Já existe uma pasta com este nome para o cliente.")
+        label = "fornecedor" if owner_type == "fornecedor" else "cliente"
+        raise HTTPException(status_code=409, detail=f"Já existe uma pasta com este nome para o {label}.")
     folder.nome = nome
     if payload.icone is not None:
         folder.icone = _safe_icon(payload.icone)
@@ -406,13 +630,22 @@ def enviar_arquivos(
 ):
     empresa_id = int(current_user.empresa_id)
     folder = _folder_for_company(db, pasta_id, empresa_id)
-    _client_for_company(db, int(folder.cliente_id), empresa_id)
+    owner_type, owner_id = _folder_owner(folder)
+    if owner_type == "fornecedor":
+        _supplier_for_company(db, owner_id, empresa_id)
+    else:
+        _client_for_company(db, owner_id, empresa_id)
     if not arquivos:
         raise HTTPException(status_code=400, detail="Selecione pelo menos um arquivo.")
     if len(arquivos) > 30:
         raise HTTPException(status_code=400, detail="Envie no máximo 30 arquivos por vez.")
 
-    relative_dir = Path(str(empresa_id)) / str(int(folder.cliente_id)) / str(int(folder.id))
+    # Mantém o caminho histórico dos clientes e separa fornecedores em um
+    # namespace próprio para evitar qualquer colisão de IDs.
+    if owner_type == "fornecedor":
+        relative_dir = Path(str(empresa_id)) / "fornecedores" / str(owner_id) / str(int(folder.id))
+    else:
+        relative_dir = Path(str(empresa_id)) / str(owner_id) / str(int(folder.id))
     target_dir = (STORAGE_DIR / relative_dir).resolve()
     target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -447,7 +680,8 @@ def enviar_arquivos(
                     buffer.write(chunk)
             row = Arquivo(
                 empresa_id=empresa_id,
-                cliente_id=int(folder.cliente_id),
+                cliente_id=owner_id if owner_type == "cliente" else None,
+                fornecedor_id=owner_id if owner_type == "fornecedor" else None,
                 pasta_id=int(folder.id),
                 titulo=Path(original_name).stem[:180] or None,
                 descricao=_text(descricao)[:2000] or None,

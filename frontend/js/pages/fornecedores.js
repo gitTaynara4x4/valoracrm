@@ -1278,6 +1278,52 @@ function buildFornecedorPayload() {
   return payload;
 }
 
+let listaFornecedoresAdiadaAteFecharModal = false;
+let refreshFornecedoresAposModalIniciado = false;
+
+function agendarListaFornecedoresParaDepoisDoModal() {
+  const backdrop = $('modal-fornecedor-backdrop');
+  if (!backdrop || refreshFornecedoresAposModalIniciado) return;
+
+  const iniciarRefresh = () => {
+    if (refreshFornecedoresAposModalIniciado) return;
+    refreshFornecedoresAposModalIniciado = true;
+    listaFornecedoresAdiadaAteFecharModal = false;
+    window.setTimeout(() => {
+      void carregarFornecedores({ offset: 0, silent: true })
+        .catch((error) => console.warn('[Fornecedores] lista após fechar cadastro:', error))
+        .finally(() => { refreshFornecedoresAposModalIniciado = false; });
+    }, 80);
+  };
+
+  if (backdrop.hidden) {
+    iniciarRefresh();
+    return;
+  }
+
+  const observer = new MutationObserver(() => {
+    if (backdrop.hidden) {
+      observer.disconnect();
+      iniciarRefresh();
+      return;
+    }
+    if (!backdrop.classList.contains('show')) {
+      window.setTimeout(() => {
+        if (backdrop.hidden || !backdrop.classList.contains('show')) {
+          observer.disconnect();
+          iniciarRefresh();
+        }
+      }, 220);
+    }
+  });
+
+  observer.observe(backdrop, {
+    attributes: true,
+    attributeFilter: ['hidden', 'class', 'style'],
+  });
+}
+
+
 async function abrirModalFornecedorNovo() {
   setFornecedorModalReadonly(false);
   fornecedorEditandoId = null;
@@ -1380,8 +1426,10 @@ async function salvarFornecedor(event) {
       body: JSON.stringify(payload),
     });
 
-    await carregarFornecedores();
-
+    if (!listaFornecedoresAdiadaAteFecharModal) {
+      listaFornecedoresAdiadaAteFecharModal = true;
+      agendarListaFornecedoresParaDepoisDoModal();
+    }
     fecharModalFornecedor();
     toast('Fornecedor salvo com sucesso.', 'success');
   } catch (err) {
@@ -1642,6 +1690,27 @@ function parseCSV(text) {
   });
 }
 
+let xlsxLoadPromise = null;
+function ensureXLSX() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (xlsxLoadPromise) return xlsxLoadPromise;
+  xlsxLoadPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-valora-xlsx]');
+    const script = existing || document.createElement('script');
+    if (!existing) {
+      script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      script.defer = true;
+      script.dataset.valoraXlsx = 'true';
+      document.head.appendChild(script);
+    }
+    const done = () => window.XLSX ? resolve(window.XLSX) : reject(new Error('Não foi possível carregar o leitor de Excel.'));
+    if (window.XLSX) return done();
+    script.addEventListener('load', done, { once: true });
+    script.addEventListener('error', () => reject(new Error('Não foi possível carregar o leitor de Excel.')), { once: true });
+  }).catch((error) => { xlsxLoadPromise = null; throw error; });
+  return xlsxLoadPromise;
+}
+
 function parseXLSX(arrayBuffer) {
   if (!window.XLSX) {
     throw new Error('Biblioteca XLSX não carregada.');
@@ -1808,6 +1877,7 @@ async function importarFornecedores(file) {
       const data = JSON.parse(text || '{}');
       items = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : []);
     } else if (lower.endsWith('.xlsx')) {
+      await ensureXLSX();
       const buffer = await file.arrayBuffer();
       items = parseXLSX(buffer);
     } else {
@@ -2023,9 +2093,58 @@ function bindTopActions() {
   });
 }
 
+async function handleInitialFornecedorRoute() {
+  const params = new URLSearchParams(window.location.search);
+  const fornecedorId = Number(params.get('editar_fornecedor_id') || 0);
+  if (!fornecedorId) return false;
+
+  const openAgenda = params.get('abrir_agenda') === '1';
+  await abrirModalFornecedorEditar(fornecedorId);
+  if (openAgenda) document.querySelector('[data-agenda-fixed-open="tab-fornecedor-agenda"]')?.click();
+
+  params.delete('editar_fornecedor_id');
+  params.delete('abrir_agenda');
+  const query = params.toString();
+  window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  return true;
+}
+
+
+
+window.addEventListener('message', async (event) => {
+  if (event.origin !== window.location.origin || event.data?.type !== 'valora:shell-activity' || !event.data?.active || !event.data?.routeUrl) return;
+  try {
+    const url = new URL(event.data.routeUrl, window.location.origin);
+    if (url.pathname !== '/fornecedores' && url.pathname !== '/frontend/fornecedores.html') return;
+    const id = Number(url.searchParams.get('editar_fornecedor_id') || 0);
+    if (!id) return;
+    await abrirModalFornecedorEditar(id);
+    if (url.searchParams.get('abrir_agenda') === '1') document.querySelector('[data-agenda-fixed-open="tab-fornecedor-agenda"]')?.click();
+  } catch (error) {
+    toast(error.message || 'Não foi possível abrir o fornecedor solicitado.', 'error');
+  }
+});
 document.addEventListener('DOMContentLoaded', async () => {
   bindTabs();
   bindModalCloseOnBackdrop();
+  bindFiltros();
+  bindTabelaActions();
+  bindCamposActions();
+  bindTopActions();
+
+  const directFornecedorId = Number(new URLSearchParams(window.location.search).get('editar_fornecedor_id') || 0);
+  let openedDirectFornecedor = false;
+
+  if (directFornecedorId) {
+    try {
+      await carregarCamposFornecedores();
+      await carregarFormularioFornecedores();
+      aplicarModoFichaFornecedor();
+      openedDirectFornecedor = await handleInitialFornecedorRoute();
+    } catch (error) {
+      console.warn('[Fornecedores] não foi possível abrir o cadastro solicitado:', error);
+    }
+  }
 
   try {
     await window.ValoraLocalizarPersonalizado?.setup?.({
@@ -2036,24 +2155,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn('[Fornecedores] localizar personalizado indisponível:', err);
   }
 
-  bindFiltros();
-  bindTabelaActions();
-  bindCamposActions();
-  bindTopActions();
+  if (openedDirectFornecedor) {
+    listaFornecedoresAdiadaAteFecharModal = true;
+    agendarListaFornecedoresParaDepoisDoModal();
+  } else {
+    await carregarCamposFornecedores();
+    await carregarFormularioFornecedores();
+    aplicarModoFichaFornecedor();
+    await carregarFornecedores();
 
-  await carregarCamposFornecedores();
-  await carregarFormularioFornecedores();
-  aplicarModoFichaFornecedor();
-  await carregarFornecedores();
-
-  try {
-    const agenda = await window.ValoraAgendaReady;
-    const pending = agenda?.consumePendingNavigation?.();
-    if (pending?.type === 'fornecedor' && Number(pending.entityId)) {
-      await abrirModalFornecedorEditar(Number(pending.entityId));
-      document.querySelector('[data-agenda-fixed-open="tab-fornecedor-agenda"]')?.click();
+    try {
+      const agenda = await window.ValoraAgendaReady;
+      const pending = agenda?.consumePendingNavigation?.();
+      if (pending?.type === 'fornecedor' && Number(pending.entityId)) {
+        await abrirModalFornecedorEditar(Number(pending.entityId));
+        document.querySelector('[data-agenda-fixed-open="tab-fornecedor-agenda"]')?.click();
+      }
+    } catch (error) {
+      console.warn('[Fornecedores] não foi possível abrir o lembrete:', error);
     }
-  } catch (error) {
-    console.warn('[Fornecedores] não foi possível abrir o lembrete:', error);
   }
 });
+

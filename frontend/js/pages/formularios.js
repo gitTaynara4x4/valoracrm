@@ -312,12 +312,40 @@
     const el = qs('valora-toast');
     if (!el) return;
 
-    el.textContent = message || '';
+    el.replaceChildren(document.createTextNode(message || ''));
     el.classList.toggle('is-error', !!error);
+    el.classList.remove('has-action');
     el.classList.add('show');
 
     clearTimeout(toast._timer);
     toast._timer = setTimeout(() => el.classList.remove('show'), ms);
+  }
+
+  function toastComAcao(message, actionLabel, onAction, ms = 5200) {
+    const el = qs('valora-toast');
+    if (!el) return;
+
+    const messageEl = document.createElement('span');
+    messageEl.textContent = message || '';
+
+    const actionBtn = document.createElement('button');
+    actionBtn.type = 'button';
+    actionBtn.className = 'toast-action-btn';
+    actionBtn.textContent = actionLabel || 'Desfazer';
+    actionBtn.addEventListener('click', () => {
+      clearTimeout(toast._timer);
+      el.classList.remove('show', 'has-action');
+      if (typeof onAction === 'function') onAction();
+    }, { once: true });
+
+    el.replaceChildren(messageEl, actionBtn);
+    el.classList.remove('is-error');
+    el.classList.add('has-action', 'show');
+
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => {
+      el.classList.remove('show', 'has-action');
+    }, ms);
   }
 
   async function apiJson(url, options = {}) {
@@ -1225,20 +1253,23 @@
     setItemPreviewVisivel(area, origin, key, !visible, fixed);
 
     if (visible) {
-      toast(
-        area === 'columns'
-          ? 'Campo removido somente da tabela. O campo e os dados cadastrados continuam intactos.'
-          : 'Campo removido somente do Localizar. O campo e os dados cadastrados continuam intactos.'
-      );
+      const message = area === 'columns'
+        ? 'Informação removida da lista.'
+        : 'Filtro removido da tela.';
+
+      toastComAcao(message, 'Desfazer', () => {
+        setItemPreviewVisivel(area, origin, key, true, fixed);
+        toast(area === 'columns' ? 'Informação restaurada na lista.' : 'Filtro restaurado na tela.');
+      });
     } else {
-      toast(area === 'columns' ? 'Campo adicionado novamente à tabela.' : 'Campo adicionado novamente ao Localizar.');
+      toast(area === 'columns' ? 'Informação restaurada na lista.' : 'Filtro restaurado na tela.');
     }
   }
 
   function formatarLocalizarPadrao() {
     setLayoutLocalizar(normalizarLayoutLocalizar({}));
     renderPreviewLocalizar();
-    toast('Prévia formatada: visibilidade e posições voltaram ao padrão do módulo.');
+    toast('Filtros e informações da lista restaurados ao padrão.');
   }
 
   function labelOrigemPreview(origin) {
@@ -1296,17 +1327,32 @@
     `;
   }
 
+  function iconeCampoPreview({ key = '', label = '', kind = '', area = '' } = {}) {
+    const value = `${key} ${label}`.toLowerCase();
+    if (value.includes('cidade') || value.includes('uf') || value.includes('endereco')) return 'fa-location-dot';
+    if (value.includes('codigo') || value.includes('código')) return 'fa-hashtag';
+    if (value.includes('contato') || value.includes('cliente') || value.includes('fornecedor') || value.includes('monit')) return 'fa-user';
+    if (value.includes('document') || value.includes('cpf') || value.includes('cnpj')) return 'fa-id-card';
+    if (value.includes('tipo') || value.includes('situacao') || value.includes('situação') || kind === 'select') return 'fa-list';
+    if (area === 'columns') return 'fa-table-columns';
+    return 'fa-font';
+  }
+
   function renderPreviewField(field, extraClass = '') {
     const label = field?.label || 'Campo';
     const key = field?.key || slugLocalizar(label);
-    const placeholder = field?.placeholder || (field?.kind === 'select' ? 'Todos' : `Filtrar por ${label}`);
-    const icon = field?.kind === 'select' ? 'fa-chevron-down' : 'fa-magnifying-glass';
     const origin = field?.origin || 'nativo';
     const originLabel = labelOrigemPreview(origin);
     const fixed = !!field?.fixed;
     const visible = isItemPreviewVisivel('filters', origin, key, fixed);
+
+    // Campos personalizados removidos somem da visualização. Campos nativos
+    // ocultos continuam visíveis em estado apagado para poder reativá-los pelo olho.
+    if (!visible && origin !== 'nativo') return '';
+
     const hiddenClass = visible ? '' : 'is-hidden-preview';
-    const statusLabel = visible ? originLabel : (origin === 'nativo' ? 'Oculto' : 'Removido');
+    const statusLabel = visible ? originLabel : 'Oculto';
+    const icon = iconeCampoPreview({ key, label, kind: field?.kind, area: 'filters' });
 
     return `
       <div
@@ -1320,13 +1366,10 @@
       >
         <div class="localizar-preview-filter-top">
           ${renderDragHandlePreview({ fixed })}
+          <span class="localizar-preview-kind" aria-hidden="true"><i class="fa-solid ${escapeHtml(icon)}"></i></span>
           <span class="localizar-preview-item-label">${escapeHtml(label)}</span>
           <em class="localizar-preview-origin">${escapeHtml(statusLabel)}</em>
           ${renderActionPreview({ area: 'filters', origin, key, visible, fixed })}
-        </div>
-        <div class="localizar-preview-input">
-          <i class="fa-solid ${escapeHtml(icon)}"></i>
-          <span>${escapeHtml(placeholder)}</span>
         </div>
       </div>
     `;
@@ -1339,8 +1382,14 @@
     const fixed = !!col?.fixed || key === 'acoes';
     const originLabel = labelOrigemPreview(origin);
     const visible = isItemPreviewVisivel('columns', origin, key, fixed);
+
+    // Ao remover um campo personalizado da lista, ele deixa de ocupar espaço.
+    // Nativos ocultos permanecem visíveis apenas para permitir reativação rápida.
+    if (!visible && origin !== 'nativo') return '';
+
     const hiddenClass = visible ? '' : 'is-hidden-preview';
-    const statusLabel = fixed ? 'Fixo' : (visible ? originLabel : (origin === 'nativo' ? 'Oculto' : 'Removido'));
+    const statusLabel = fixed ? 'Fixo' : (visible ? originLabel : 'Oculto');
+    const icon = iconeCampoPreview({ key, label, area: 'columns' });
 
     return `
       <span
@@ -1353,6 +1402,7 @@
         draggable="${fixed ? 'false' : 'true'}"
       >
         ${renderDragHandlePreview({ fixed })}
+        <span class="localizar-preview-kind" aria-hidden="true"><i class="fa-solid ${escapeHtml(icon)}"></i></span>
         <span class="localizar-preview-item-label">${escapeHtml(label)}</span>
         <em>${escapeHtml(statusLabel)}</em>
         ${renderActionPreview({ area: 'columns', origin, key, visible, fixed })}
@@ -1412,6 +1462,8 @@
     const filtersWrap = qs('preview-localizar-fields');
     const tableWrap = qs('preview-tabela-fields');
     const summary = qs('localizar-preview-summary');
+    const filtersCount = qs('preview-localizar-count');
+    const columnsCount = qs('preview-tabela-count');
     if (!card || !filtersWrap || !tableWrap) return;
 
     const modelo = state.modeloAtual?.modelo || null;
@@ -1421,11 +1473,13 @@
     if (!modelo) {
       filtersWrap.innerHTML = `
         <div class="localizar-preview-empty">
-          Escolha um formulário para ver a prévia do localizar.
+          Escolha um formulário para ver como a busca e a lista vão ficar.
         </div>
       `;
-      tableWrap.innerHTML = '<div class="localizar-preview-empty">A tabela aparece aqui depois que o formulário carregar.</div>';
-      if (summary) summary.textContent = 'Sem formulário selecionado';
+      tableWrap.innerHTML = '<div class="localizar-preview-empty">A lista aparece aqui quando o formulário for carregado.</div>';
+      if (summary) summary.textContent = 'Nenhum formulário selecionado';
+      if (filtersCount) filtersCount.textContent = '0 opções';
+      if (columnsCount) columnsCount.textContent = '0 itens';
       return;
     }
 
@@ -1434,49 +1488,39 @@
     const filtros = itensPreviewFiltros(nativeFilters, camposLocalizar);
     const colunas = itensPreviewTabela(nativeColumns, camposTabela);
 
-    filtersWrap.innerHTML = filtros.map((field) => renderPreviewField(
-      field,
-      field.origin === 'nativo' ? '' : 'is-custom'
-    )).join('') + (camposLocalizar.length ? '' : `
-      <div class="localizar-preview-note">
-        Marque <strong>Mostrar na tabela</strong> ou <strong>Usar no localizar</strong> para o campo aparecer aqui.
+    filtersWrap.innerHTML = `
+      <div class="localizar-preview-items-list">
+        ${filtros.map((field) => renderPreviewField(
+          field,
+          field.origin === 'nativo' ? '' : 'is-custom'
+        )).join('')}
       </div>
-    `);
+      <div class="localizar-preview-drop-hint">
+        <i class="fa-solid fa-plus"></i>
+        <span>Arraste para organizar os filtros</span>
+      </div>
+    `;
 
     tableWrap.innerHTML = `
       <div class="localizar-preview-table-row">
         ${colunas.map((col) => renderPreviewColumn(col, col.origin || 'nativo')).join('')}
       </div>
-      ${camposTabela.length ? '' : `
-        <div class="localizar-preview-note tabela-note">
-          Marque <strong>Mostrar na tabela</strong> para adicionar colunas extras. Depois, arraste para escolher a posição.
-        </div>
-      `}
+      <div class="localizar-preview-drop-hint">
+        <i class="fa-solid fa-plus"></i>
+        <span>Arraste para organizar as informações da lista</span>
+      </div>
     `;
 
-    if (summary) {
-      const layout = getLayoutLocalizar();
-      const camposUnicos = new Set([
-        ...camposLocalizar.map((campo) => `${origemCampoPreview(campo)}:${chaveCampoPreview(campo)}`),
-        ...camposTabela.map((campo) => `${origemCampoPreview(campo)}:${chaveCampoPreview(campo)}`),
-      ]);
-      const adicionados = camposUnicos.size;
-      const chavesNativasFiltros = new Set(nativeFilters.map((field) => itemLayoutKey('nativo', field.key)));
-      const chavesNativasColunas = new Set(nativeColumns.map((col) => itemLayoutKey('nativo', typeof col === 'string' ? slugLocalizar(col) : col.key)));
-      const ocultosNativos = [
-        ...layout.hiddenFilters.filter((key) => chavesNativasFiltros.has(key)),
-        ...layout.hiddenColumns.filter((key) => chavesNativasColunas.has(key)),
-      ].length;
-      const removidosAdicionados = [
-        ...layout.hiddenFilters.filter((key) => !key.startsWith('nativo:')),
-        ...layout.hiddenColumns.filter((key) => !key.startsWith('nativo:')),
-      ].length;
+    const filtrosVisiveis = filtros.filter((field) => isItemPreviewVisivel('filters', field.origin || 'nativo', field.key, !!field.fixed)).length;
+    const colunasVisiveis = colunas.filter((col) => {
+      const origin = col.origin || 'nativo';
+      const fixed = !!col.fixed || col.key === 'acoes';
+      return isItemPreviewVisivel('columns', origin, col.key, fixed);
+    }).length;
 
-      const partes = [`${adicionados} ${adicionados === 1 ? 'campo adicionado' : 'campos adicionados'}`];
-      if (ocultosNativos) partes.push(`${ocultosNativos} ${ocultosNativos === 1 ? 'nativo oculto' : 'nativos ocultos'}`);
-      if (removidosAdicionados) partes.push(`${removidosAdicionados} ${removidosAdicionados === 1 ? 'removido' : 'removidos'}`);
-      summary.textContent = partes.join(' • ');
-    }
+    if (filtersCount) filtersCount.textContent = `${filtrosVisiveis} ${filtrosVisiveis === 1 ? 'opção' : 'opções'}`;
+    if (columnsCount) columnsCount.textContent = `${colunasVisiveis} ${colunasVisiveis === 1 ? 'item' : 'itens'}`;
+    if (summary) summary.textContent = `${filtrosVisiveis} ${filtrosVisiveis === 1 ? 'campo para procurar' : 'campos para procurar'} • ${colunasVisiveis} ${colunasVisiveis === 1 ? 'informação na lista' : 'informações na lista'}`;
   }
 
   let previewDragState = null;
@@ -1537,10 +1581,11 @@
       target.classList.add('is-drag-target');
 
       const rect = target.getBoundingClientRect();
-      const pointerInsideSameRow = event.clientY >= rect.top && event.clientY <= rect.bottom;
-      const before = pointerInsideSameRow
-        ? event.clientX < rect.left + rect.width / 2
-        : event.clientY < rect.top + rect.height / 2;
+      const before = previewDragState.area === 'filters'
+        ? event.clientY < rect.top + rect.height / 2
+        : (event.clientY >= rect.top && event.clientY <= rect.bottom
+          ? event.clientX < rect.left + rect.width / 2
+          : event.clientY < rect.top + rect.height / 2);
 
       parent.insertBefore(previewDragState.item, before ? target : target.nextSibling);
       previewDragState.moved = true;

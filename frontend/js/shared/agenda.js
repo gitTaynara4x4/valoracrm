@@ -1,6 +1,11 @@
 (() => {
   'use strict';
 
+  const IS_EMBEDDED_SHELL = (() => {
+    try { return new URLSearchParams(window.location.search).get('__valora_embed') === '1'; }
+    catch (_) { return false; }
+  })();
+
   if (window.ValoraAgenda) return;
 
   const API = '/api/agenda';
@@ -23,6 +28,10 @@
       enabled: false,
       loading: false,
       detail: '',
+    },
+    panel: {
+      view: 'week',
+      anchorDate: new Date(),
     },
     initialized: false,
   };
@@ -302,6 +311,58 @@
     }
   }
 
+  async function testPushNotifications() {
+    if (state.push.loading) return;
+    state.push.loading = true;
+    renderPushControl();
+
+    try {
+      if (!pushApisAvailable()) {
+        throw new Error('Este navegador não permite notificações neste acesso.');
+      }
+
+      state.push.permission = Notification.permission;
+      if (state.push.permission !== 'granted') {
+        throw new Error(state.push.permission === 'denied'
+          ? 'A permissão de notificações está bloqueada no navegador.'
+          : 'Ative as notificações antes de fazer o teste.');
+      }
+
+      await loadPushConfig();
+      if (!state.push.supported || !state.push.publicKey) {
+        throw new Error(state.push.detail || 'Notificações indisponíveis no servidor.');
+      }
+
+      const registration = await ensureServiceWorker();
+      const subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        state.push.enabled = false;
+        throw new Error('Ative as notificações neste dispositivo antes de testar.');
+      }
+
+      // O clique do usuário libera o áudio do navegador. O push abaixo valida
+      // o caminho real servidor -> navegador/Windows usado pelos lembretes.
+      const soundPlayed = await playReminderSound({ test: true });
+      await apiJson(`${API}/push/teste`, {
+        method: 'POST',
+        body: JSON.stringify({ endpoint: subscription.endpoint }),
+      });
+
+      state.push.subscription = subscription;
+      state.push.enabled = true;
+      state.push.detail = '';
+      showMessage(soundPlayed
+        ? 'Teste enviado: som do Valora e notificação do dispositivo.'
+        : 'Notificação de teste enviada ao dispositivo.');
+    } catch (error) {
+      state.push.detail = error.message || 'Não foi possível testar as notificações.';
+      showMessage(state.push.detail, 'error');
+    } finally {
+      state.push.loading = false;
+      renderPushControl();
+    }
+  }
+
   async function disablePushNotifications() {
     if (state.push.loading) return;
     state.push.loading = true;
@@ -340,6 +401,7 @@
     const description = card.querySelector('[data-agenda-push-description]');
     const status = card.querySelector('[data-agenda-push-status]');
     const button = card.querySelector('[data-agenda-push-toggle]');
+    const testButton = card.querySelector('[data-agenda-push-test]');
     const icon = card.querySelector('[data-agenda-push-icon]');
     if (!title || !description || !status || !button) return;
 
@@ -377,6 +439,13 @@
     button.textContent = buttonText;
     button.disabled = state.push.loading || !state.push.supported || permission === 'denied';
     button.classList.toggle('is-danger', state.push.enabled);
+    if (testButton) {
+      testButton.hidden = !state.push.enabled;
+      testButton.disabled = state.push.loading || !state.push.enabled || permission !== 'granted';
+      testButton.title = state.push.enabled
+        ? 'Tocar o som do Valora e enviar uma notificação real para este dispositivo'
+        : 'Ative as notificações primeiro';
+    }
     card.classList.toggle('is-enabled', state.push.enabled);
     if (icon) icon.className = state.push.enabled ? 'fa-solid fa-bell' : 'fa-regular fa-bell';
   }
@@ -438,8 +507,18 @@
     return ({ cliente: 'Cliente', fornecedor: 'Fornecedor', produto: 'Produto' })[type] || 'Cadastro';
   }
 
-  function modulePath(type) {
-    return ({ cliente: '/clientes', fornecedor: '/fornecedores', produto: '/produtos' })[type] || '/dashboard';
+  function modulePath(type, entityId = null) {
+    const base = ({ cliente: '/clientes', fornecedor: '/fornecedores', produto: '/produtos' })[type] || '/dashboard';
+    const id = Number(entityId || 0);
+    if (!id || base === '/dashboard') return base;
+
+    const param = ({
+      cliente: 'editar_cliente_id',
+      fornecedor: 'editar_fornecedor_id',
+      produto: 'editar_produto_id',
+    })[type];
+
+    return `${base}?${param}=${encodeURIComponent(id)}&abrir_agenda=1`;
   }
 
   const ACTIVE_AGENDA_STATUSES = new Set(['em_aberto', 'em_andamento', 'em_analise', 'parado', 'pendente']);
@@ -599,6 +678,322 @@
         ${editor}
       </article>
     `;
+  }
+
+
+  function startOfDay(value) {
+    const date = value instanceof Date ? new Date(value) : new Date(value || Date.now());
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+
+  function addDays(value, amount) {
+    const date = startOfDay(value);
+    date.setDate(date.getDate() + Number(amount || 0));
+    return date;
+  }
+
+  function startOfWeek(value) {
+    const date = startOfDay(value);
+    const day = date.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    date.setDate(date.getDate() + diff);
+    return date;
+  }
+
+  function isSameDayValue(a, b) {
+    if (!a || !b) return false;
+    const aa = new Date(a);
+    const bb = new Date(b);
+    if (Number.isNaN(aa.getTime()) || Number.isNaN(bb.getTime())) return false;
+    return aa.getFullYear() === bb.getFullYear() && aa.getMonth() === bb.getMonth() && aa.getDate() === bb.getDate();
+  }
+
+  function formatDayShort(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(date).replace('.', '');
+  }
+
+  function formatDayNumber(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit' }).format(date);
+  }
+
+  function formatMonthYear(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const label = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(date);
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
+
+  function formatTimeOnly(value) {
+    if (!value) return 'Sem horário';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Sem horário';
+    return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date);
+  }
+
+  function compareAgendaDates(a, b) {
+    const da = new Date(a?.agendado_para || a?.criado_em || 0).getTime();
+    const db = new Date(b?.agendado_para || b?.criado_em || 0).getTime();
+    return da - db;
+  }
+
+  function uniqueAgendaItems(items = []) {
+    const seen = new Set();
+    return items.filter((item) => {
+      const id = Number(item?.id || 0);
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }
+
+  function agendaPoolFromNotifications(data = state.notifications) {
+    return uniqueAgendaItems([...(data?.vencidos || []), ...(data?.proximos || [])])
+      .filter((item) => item && item.agendado_para)
+      .sort(compareAgendaDates);
+  }
+
+  function plannerItemHtml(item) {
+    const overdue = isOverdue(item);
+    const finalized = ['finalizado', 'concluido'].includes(item?.status);
+    const active = isActiveStatus(item?.status);
+    return `
+      <article class="agenda-planner-item ${overdue ? 'is-overdue' : ''} ${finalized ? 'is-completed' : ''}" data-agenda-item="${item.id}">
+        <div class="agenda-planner-item-top">
+          <span class="agenda-planner-time">${escapeHtml(formatTimeOnly(item.agendado_para))}</span>
+          <span class="agenda-planner-status ${overdue ? 'is-overdue' : finalized ? 'is-completed' : ''}">${escapeHtml(agendaStatusText(item.status, item.tipo))}</span>
+        </div>
+        <strong>${escapeHtml(agendaSubjectText(item))}</strong>
+        <p>${escapeHtml(entityLabel(item.entidade_tipo))}: ${escapeHtml(item.entidade_nome || 'Cadastro')}</p>
+        <div class="agenda-planner-meta">
+          <span class="agenda-chip"><i class="fa-solid ${agendaTypeIcon(item.tipo)}"></i>${escapeHtml(agendaTypeText(item.tipo))}</span>
+          ${active ? `<span class="agenda-chip ${overdue ? 'overdue' : ''}"><i class="fa-regular fa-clock"></i>${escapeHtml(formatRelative(item.agendado_para))}</span>` : ''}
+        </div>
+        <div class="agenda-planner-actions">
+          <button class="agenda-icon-action" type="button" data-agenda-action="go" data-id="${item.id}" data-entity-type="${escapeHtml(item.entidade_tipo)}" data-entity-id="${item.entidade_id}" title="Abrir cadastro" aria-label="Abrir cadastro"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></button>
+          ${active ? `<button class="agenda-icon-action" type="button" data-agenda-action="complete" data-id="${item.id}" title="Finalizar compromisso" aria-label="Finalizar compromisso"><i class="fa-solid fa-check" aria-hidden="true"></i></button>` : ''}
+        </div>
+      </article>
+    `;
+  }
+
+  function sideListItemHtml(item) {
+    const overdue = isOverdue(item);
+    const active = isActiveStatus(item?.status);
+    return `
+      <article class="agenda-side-item ${overdue ? 'is-overdue' : ''}" data-agenda-item="${item.id}">
+        <div class="agenda-side-item-head">
+          <strong>${escapeHtml(agendaSubjectText(item))}</strong>
+          <span>${escapeHtml(formatTimeOnly(item.agendado_para))}</span>
+        </div>
+        <p>${escapeHtml(entityLabel(item.entidade_tipo))}: ${escapeHtml(item.entidade_nome || 'Cadastro')}</p>
+        <div class="agenda-side-item-meta">
+          <span class="agenda-chip"><i class="fa-solid ${agendaTypeIcon(item.tipo)}"></i>${escapeHtml(agendaTypeText(item.tipo))}</span>
+          ${active ? `<span class="agenda-chip ${overdue ? 'overdue' : ''}">${escapeHtml(formatRelative(item.agendado_para))}</span>` : ''}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderWeekBoard(items) {
+    const weekStart = startOfWeek(state.panel.anchorDate);
+    const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+    return `
+      <section class="agenda-board-week">
+        ${days.map((day) => {
+          const dayItems = items.filter((item) => isSameDayValue(item.agendado_para, day));
+          const isToday = isSameDayValue(day, new Date());
+          return `
+            <article class="agenda-day-column ${isToday ? 'is-today' : ''}">
+              <header class="agenda-day-header">
+                <div>
+                  <span>${escapeHtml(formatDayShort(day))}</span>
+                  <strong>${escapeHtml(formatDayNumber(day))}</strong>
+                </div>
+                <small>${dayItems.length} item(ns)</small>
+              </header>
+              <div class="agenda-day-list">
+                ${dayItems.length ? dayItems.map(plannerItemHtml).join('') : '<div class="agenda-day-empty">Sem compromissos</div>'}
+              </div>
+            </article>
+          `;
+        }).join('')}
+      </section>
+    `;
+  }
+
+  function renderTodayBoard(items) {
+    const today = startOfDay(new Date());
+    const dayItems = items.filter((item) => isSameDayValue(item.agendado_para, today));
+    return `
+      <section class="agenda-board-focus">
+        <div class="agenda-board-section-head">
+          <div>
+            <h4>Compromissos de hoje</h4>
+            <p>${escapeHtml(formatDateTime(today))}</p>
+          </div>
+        </div>
+        <div class="agenda-focus-list">
+          ${dayItems.length ? dayItems.map((item) => entityItemHtml(item, { global: true })).join('') : '<div class="agenda-empty">Nenhum compromisso agendado para hoje.</div>'}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderListBoard(data, items) {
+    return `
+      <section class="agenda-board-list-wrap">
+        <div class="agenda-board-list-block">
+          <div class="agenda-board-section-head">
+            <div>
+              <h4>Atrasados</h4>
+              <p>Itens pendentes que já passaram do horário.</p>
+            </div>
+            <span class="agenda-section-counter">${(data?.vencidos || []).length}</span>
+          </div>
+          <div class="agenda-board-list">
+            ${(data?.vencidos || []).length ? data.vencidos.map((item) => entityItemHtml(item, { global: true })).join('') : '<div class="agenda-empty">Nenhum item atrasado.</div>'}
+          </div>
+        </div>
+        <div class="agenda-board-list-block">
+          <div class="agenda-board-section-head">
+            <div>
+              <h4>Próximos</h4>
+              <p>Próximos compromissos em aberto.</p>
+            </div>
+            <span class="agenda-section-counter">${(data?.proximos || []).length}</span>
+          </div>
+          <div class="agenda-board-list">
+            ${(data?.proximos || []).length ? data.proximos.map((item) => entityItemHtml(item, { global: true })).join('') : '<div class="agenda-empty">Nenhum próximo compromisso.</div>'}
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderMiniCalendar(items) {
+    const weekStart = startOfWeek(state.panel.anchorDate);
+    const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+    return `
+      <div class="agenda-mini-calendar">
+        ${days.map((day) => {
+          const count = items.filter((item) => isSameDayValue(item.agendado_para, day)).length;
+          const isToday = isSameDayValue(day, new Date());
+          return `
+            <button type="button" class="agenda-mini-day ${isToday ? 'is-today' : ''}" data-agenda-jump="${day.toISOString()}">
+              <span>${escapeHtml(formatDayShort(day))}</span>
+              <strong>${escapeHtml(formatDayNumber(day))}</strong>
+              <small>${count}</small>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function renderGlobalBoard(data) {
+    const items = agendaPoolFromNotifications(data);
+    const today = startOfDay(new Date());
+    const weekEnd = addDays(today, 7);
+    const todayCount = items.filter((item) => isSameDayValue(item.agendado_para, today)).length;
+    const nextWeekCount = items.filter((item) => {
+      const when = new Date(item.agendado_para || 0);
+      return !Number.isNaN(when.getTime()) && when >= today && when < weekEnd;
+    }).length;
+
+    const summary = document.querySelector('[data-agenda-summary]');
+    const main = document.querySelector('[data-agenda-main]');
+    const aside = document.querySelector('[data-agenda-sidebar]');
+    const label = document.querySelector('[data-agenda-range-label]');
+    const todayBtn = document.querySelector('[data-agenda-today]');
+    const viewButtons = [...document.querySelectorAll('[data-agenda-view]')];
+    const drawerBody = document.querySelector('.valora-agenda-drawer-body');
+
+    if (summary) {
+      summary.innerHTML = `
+        <article class="agenda-summary-box"><strong>${data.total_vencidos || 0}</strong><span>vencidos</span></article>
+        <article class="agenda-summary-box"><strong>${data.total_pendentes || 0}</strong><span>em acompanhamento</span></article>
+        <article class="agenda-summary-box"><strong>${todayCount}</strong><span>para hoje</span></article>
+        <article class="agenda-summary-box"><strong>${nextWeekCount}</strong><span>próximos 7 dias</span></article>
+      `;
+    }
+
+    if (label) label.textContent = formatMonthYear(state.panel.anchorDate);
+    if (todayBtn) todayBtn.classList.toggle('is-muted', !isSameDayValue(state.panel.anchorDate, new Date()));
+    viewButtons.forEach((button) => button.classList.toggle('is-active', button.dataset.agendaView === state.panel.view));
+    drawerBody?.classList.toggle('is-week-layout', state.panel.view === 'week');
+
+    if (main) {
+      if (!items.length) {
+        main.innerHTML = '<div class="agenda-empty">Você não possui agendamentos pendentes.</div>';
+      } else if (state.panel.view === 'today') {
+        main.innerHTML = renderTodayBoard(items);
+      } else if (state.panel.view === 'list') {
+        main.innerHTML = renderListBoard(data, items);
+      } else {
+        main.innerHTML = `
+          ${renderWeekBoard(items)}
+          <section class="agenda-board-list-block agenda-week-support">
+            <div class="agenda-board-section-head">
+              <div>
+                <h4>Atrasados</h4>
+                <p>Priorize estes retornos.</p>
+              </div>
+              <span class="agenda-section-counter">${(data.vencidos || []).length}</span>
+            </div>
+            <div class="agenda-week-overdue-grid">
+              ${(data.vencidos || []).length ? data.vencidos.slice(0, 6).map((item) => entityItemHtml(item, { global: true })).join('') : '<div class="agenda-empty">Nada atrasado.</div>'}
+            </div>
+          </section>
+        `;
+      }
+    }
+
+    if (aside) {
+      if (state.panel.view === 'week') {
+        aside.innerHTML = '';
+      } else {
+        aside.innerHTML = `
+          <section class="agenda-side-card">
+            <div class="agenda-board-section-head">
+              <div>
+                <h4>Semana</h4>
+                <p>Visão rápida dos próximos dias</p>
+              </div>
+            </div>
+            ${renderMiniCalendar(items)}
+          </section>
+          <section class="agenda-side-card">
+            <div class="agenda-board-section-head">
+              <div>
+                <h4>Atrasados</h4>
+                <p>Priorize estes retornos.</p>
+              </div>
+              <span class="agenda-section-counter">${(data.vencidos || []).length}</span>
+            </div>
+            <div class="agenda-side-list">
+              ${(data.vencidos || []).length ? data.vencidos.slice(0, 4).map(sideListItemHtml).join('') : '<div class="agenda-empty">Nada atrasado.</div>'}
+            </div>
+          </section>
+          <section class="agenda-side-card">
+            <div class="agenda-board-section-head">
+              <div>
+                <h4>Próximos</h4>
+                <p>Compromissos em sequência.</p>
+              </div>
+              <span class="agenda-section-counter">${(data.proximos || []).length}</span>
+            </div>
+            <div class="agenda-side-list">
+              ${(data.proximos || []).length ? data.proximos.slice(0, 4).map(sideListItemHtml).join('') : '<div class="agenda-empty">Sem próximos itens.</div>'}
+            </div>
+          </section>
+        `;
+      }
+    }
   }
 
   function renderEntityShell(context) {
@@ -970,10 +1365,14 @@
       } else if (action === 'go') {
         const type = button.dataset.entityType;
         const entityId = Number(button.dataset.entityId || 0);
-        try {
-          localStorage.setItem('valora_agenda_open_entity', JSON.stringify({ type, entityId, createdAt: Date.now() }));
-        } catch (_) {}
-        const targetUrl = modulePath(type);
+        if (!entityId) return;
+
+        // Resposta visual imediata: a Agenda fecha antes da navegação.
+        closePanel();
+
+        // O ID vai na rota e o módulo abre primeiro só esse cadastro. A listagem
+        // completa é carregada depois em segundo plano.
+        const targetUrl = modulePath(type, entityId);
         if (window.ValoraNavigate) window.ValoraNavigate(targetUrl);
         else window.location.href = targetUrl;
         return;
@@ -1000,21 +1399,49 @@
             </div>
             <button class="valora-agenda-close" type="button" data-agenda-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
           </div>
-          <div class="valora-agenda-drawer-summary">
-            <div class="agenda-summary-box"><strong data-agenda-total-overdue>0</strong><span>vencidos</span></div>
-            <div class="agenda-summary-box"><strong data-agenda-total-pending>0</strong><span>em acompanhamento</span></div>
-          </div>
-          <section class="agenda-push-card" data-agenda-push-card>
-            <div class="agenda-push-icon"><i class="fa-regular fa-bell" data-agenda-push-icon></i></div>
-            <div class="agenda-push-copy">
-              <strong data-agenda-push-title>Notificações no dispositivo</strong>
-              <p data-agenda-push-description>Receba lembretes no Windows e no celular.</p>
-              <span data-agenda-push-status>Verificando...</span>
+          <div class="agenda-shell-toolbar">
+            <div class="agenda-view-switch">
+              <button class="agenda-view-btn is-active" type="button" data-agenda-view="today">Hoje</button>
+              <button class="agenda-view-btn" type="button" data-agenda-view="week">Semana</button>
+              <button class="agenda-view-btn" type="button" data-agenda-view="list">Lista</button>
             </div>
-            <button class="agenda-push-toggle" type="button" data-agenda-push-toggle>Ativar notificações</button>
-          </section>
-          <div class="valora-agenda-drawer-list" data-agenda-global-list>
-            <div class="agenda-loading">Carregando agenda...</div>
+            <div class="agenda-range-tools">
+              <button class="agenda-nav-btn" type="button" data-agenda-nav="prev" aria-label="Período anterior"><i class="fa-solid fa-chevron-left"></i></button>
+              <strong data-agenda-range-label>Mês</strong>
+              <button class="agenda-nav-btn" type="button" data-agenda-nav="next" aria-label="Próximo período"><i class="fa-solid fa-chevron-right"></i></button>
+              <button class="agenda-today-btn" type="button" data-agenda-today>Hoje</button>
+            </div>
+          </div>
+          <div class="valora-agenda-drawer-body">
+            <section class="agenda-main-column">
+              <div class="valora-agenda-drawer-summary" data-agenda-summary>
+                <div class="agenda-summary-box"><strong data-agenda-total-overdue>0</strong><span>vencidos</span></div>
+                <div class="agenda-summary-box"><strong data-agenda-total-pending>0</strong><span>em acompanhamento</span></div>
+              </div>
+              <div class="agenda-main-surface" data-agenda-main>
+                <div class="agenda-loading">Carregando agenda...</div>
+              </div>
+            </section>
+            <aside class="agenda-side-column">
+              <section class="agenda-push-card" data-agenda-push-card>
+                <div class="agenda-push-icon"><i class="fa-regular fa-bell" data-agenda-push-icon></i></div>
+                <div class="agenda-push-copy">
+                  <strong data-agenda-push-title>Notificações no dispositivo</strong>
+                  <p data-agenda-push-description>Receba lembretes no Windows e no celular.</p>
+                  <span data-agenda-push-status>Verificando...</span>
+                </div>
+                <div class="agenda-push-actions">
+                  <button class="agenda-push-test" type="button" data-agenda-push-test hidden>
+                    <i class="fa-solid fa-volume-high"></i>
+                    Testar
+                  </button>
+                  <button class="agenda-push-toggle" type="button" data-agenda-push-toggle>Ativar notificações</button>
+                </div>
+              </section>
+              <div class="agenda-sidebar-stack" data-agenda-sidebar>
+                <div class="agenda-loading">Carregando agenda...</div>
+              </div>
+            </aside>
           </div>
         </aside>
       </div>
@@ -1028,9 +1455,41 @@
         closePanel();
         return;
       }
+      if (event.target.closest('[data-agenda-push-test]')) {
+        void testPushNotifications();
+        return;
+      }
       if (event.target.closest('[data-agenda-push-toggle]')) {
         if (state.push.enabled) void disablePushNotifications();
         else void enablePushNotifications();
+        return;
+      }
+      const viewButton = event.target.closest('[data-agenda-view]');
+      if (viewButton) {
+        state.panel.view = String(viewButton.dataset.agendaView || 'week');
+        renderGlobalPanel();
+        return;
+      }
+      const navButton = event.target.closest('[data-agenda-nav]');
+      if (navButton) {
+        const direction = String(navButton.dataset.agendaNav || 'next');
+        const delta = state.panel.view === 'today' ? 1 : 7;
+        state.panel.anchorDate = addDays(state.panel.anchorDate, direction === 'prev' ? -delta : delta);
+        renderGlobalPanel();
+        return;
+      }
+      if (event.target.closest('[data-agenda-today]')) {
+        state.panel.anchorDate = new Date();
+        state.panel.view = 'today';
+        renderGlobalPanel();
+        return;
+      }
+      const jumpButton = event.target.closest('[data-agenda-jump]');
+      if (jumpButton) {
+        state.panel.anchorDate = new Date(String(jumpButton.dataset.agendaJump || Date.now()));
+        state.panel.view = 'today';
+        renderGlobalPanel();
+        return;
       }
     });
     overlay?.addEventListener('click', async (event) => {
@@ -1067,17 +1526,11 @@
   function renderGlobalPanel() {
     ensureGlobalUi();
     const data = state.notifications;
-    const list = document.querySelector('[data-agenda-global-list]');
     const overdueEl = document.querySelector('[data-agenda-total-overdue]');
     const pendingEl = document.querySelector('[data-agenda-total-pending]');
     if (overdueEl) overdueEl.textContent = String(data.total_vencidos || 0);
     if (pendingEl) pendingEl.textContent = String(data.total_pendentes || 0);
-    if (!list) return;
-
-    const items = [...(data.vencidos || []), ...(data.proximos || [])];
-    list.innerHTML = items.length
-      ? items.map((item) => entityItemHtml(item, { global: true })).join('')
-      : '<div class="agenda-empty">Você não possui agendamentos pendentes.</div>';
+    renderGlobalBoard(data);
   }
 
   function updateSidebarBadge(count) {
@@ -1285,8 +1738,13 @@
   function init() {
     if (state.initialized) return;
     state.initialized = true;
-    ensureGlobalUi();
     bindFixedEntityAgendaButtons();
+
+    // Dentro do App Shell, o documento pai já mantém sino, push e polling.
+    // O iframe precisa apenas das funções de Agenda usadas nos cadastros.
+    if (IS_EMBEDDED_SHELL) return;
+
+    ensureGlobalUi();
     void syncPushState({ subscribeWhenGranted: true });
 
     document.addEventListener('pointerdown', () => {
@@ -1353,6 +1811,7 @@
     consumePendingNavigation,
     enablePushNotifications,
     disablePushNotifications,
+    testPushNotifications,
     syncPushState,
   };
 

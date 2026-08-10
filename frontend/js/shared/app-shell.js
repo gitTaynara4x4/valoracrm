@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260807-shell-v3';
+  const VERSION = '20260809-shell-cache-v28';
   const EMBED_PARAM = '__valora_embed';
   const stage = document.getElementById('valora-shell-stage');
   const progress = document.getElementById('valora-shell-progress');
@@ -13,6 +13,9 @@
   let pendingFrame = null;
   let navigationToken = 0;
   let currentCleanUrl = '';
+  const FRAME_CACHE_LIMIT = 2;
+  const FRAME_CACHE_TTL = 5 * 60 * 1000;
+  const frameCache = new Map();
 
   function sameOriginUrl(input) {
     try {
@@ -50,6 +53,97 @@
     if (!url) return String(input || '');
     url.searchParams.set(EMBED_PARAM, '1');
     return url.href;
+  }
+
+
+  function cacheKey(input) {
+    const url = sameOriginUrl(input);
+    if (!url) return cleanUrl(input);
+    url.searchParams.delete(EMBED_PARAM);
+    // Estes parâmetros apenas mandam abrir um cadastro dentro do módulo.
+    // Não precisam criar outra cópia inteira do mesmo iframe.
+    ['editar_cliente_id', 'editar_fornecedor_id', 'editar_produto_id', 'abrir_agenda'].forEach((name) => {
+      url.searchParams.delete(name);
+    });
+    return url.pathname + url.search;
+  }
+
+  function signalFrame(frame, active, routeUrl = '') {
+    try {
+      frame?.contentWindow?.postMessage({
+        type: 'valora:shell-activity',
+        active: !!active,
+        routeUrl: routeUrl || '',
+      }, window.location.origin);
+    } catch (_) {}
+  }
+
+  function frameEntry(frame) {
+    for (const [key, entry] of frameCache.entries()) {
+      if (entry.frame === frame) return [key, entry];
+    }
+    return null;
+  }
+
+  function rememberFrame(frame, input) {
+    if (!frame) return;
+    const existing = frameEntry(frame);
+    if (existing) frameCache.delete(existing[0]);
+    const key = cacheKey(input || frameLocation(frame));
+    frameCache.set(key, { frame, usedAt: Date.now(), createdAt: Date.now() });
+  }
+
+  function findCachedFrame(input) {
+    const wanted = cacheKey(input);
+    const now = Date.now();
+
+    // Reindexa usando a URL real do iframe. Isso é importante porque os módulos
+    // removem editar_* da própria URL depois de abrir o cadastro.
+    for (const [key, entry] of [...frameCache.entries()]) {
+      if (!entry.frame?.isConnected || now - entry.createdAt > FRAME_CACHE_TTL) {
+        frameCache.delete(key);
+        try { entry.frame?.remove(); } catch (_) {}
+        continue;
+      }
+      const actualKey = cacheKey(frameLocation(entry.frame));
+      if (actualKey && actualKey !== key) {
+        frameCache.delete(key);
+        frameCache.set(actualKey, entry);
+      }
+    }
+
+    const entry = frameCache.get(wanted);
+    if (!entry || entry.frame === pendingFrame) return null;
+    entry.usedAt = now;
+    frameCache.delete(wanted);
+    frameCache.set(wanted, entry);
+    return entry.frame;
+  }
+
+  function pruneFrameCache() {
+    while (frameCache.size > FRAME_CACHE_LIMIT) {
+      const oldest = [...frameCache.entries()].find(([, entry]) => entry.frame !== activeFrame && entry.frame !== pendingFrame);
+      if (!oldest) break;
+      frameCache.delete(oldest[0]);
+      signalFrame(oldest[1].frame, false);
+      try { oldest[1].frame.remove(); } catch (_) {}
+    }
+  }
+
+  function deactivateFrame(frame) {
+    if (!frame) return;
+    frame.classList.remove('is-active', 'is-preparing');
+    frame.classList.add('is-cached');
+    frame.setAttribute('aria-hidden', 'true');
+    signalFrame(frame, false);
+  }
+
+  function activateFrame(frame, targetUrl = '') {
+    if (!frame) return;
+    frame.classList.remove('is-preparing', 'is-cached');
+    frame.classList.add('is-active');
+    frame.removeAttribute('aria-hidden');
+    signalFrame(frame, true, targetUrl);
   }
 
   function setLoading(loading) {
@@ -128,6 +222,7 @@
       if (frame !== activeFrame) return;
       syncThemeInto(frame);
       document.title = frameTitle(frame);
+      rememberFrame(frame, frameLocation(frame));
       updateParentFromFrame(frame, 'push');
     });
   }
@@ -154,6 +249,32 @@
     }
 
     const token = ++navigationToken;
+
+    // Reutiliza o módulo já aberto. Para editar_cliente_id/fornecedor/produto,
+    // o próprio iframe recebe routeUrl e abre somente aquele cadastro.
+    if (!options.force) {
+      const cached = findCachedFrame(target.href);
+      if (cached) {
+        const old = activeFrame;
+        if (old && old !== cached) deactivateFrame(old);
+        activeFrame = cached;
+        activateFrame(cached, clean);
+        syncThemeInto(cached);
+        rememberFrame(cached, target.href);
+        pruneFrameCache();
+        firstLoad?.remove();
+        currentCleanUrl = clean;
+
+        if (historyMode === 'push') history.pushState({ valoraShell: true, url: clean }, '', clean);
+        else if (historyMode === 'replace') history.replaceState({ valoraShell: true, url: clean }, '', clean);
+
+        document.title = frameTitle(cached);
+        window.ValoraMenu?.syncActive?.();
+        setLoading(false);
+        return;
+      }
+    }
+
     setLoading(true);
 
     if (pendingFrame) {
@@ -187,13 +308,13 @@
       syncThemeInto(next);
       const old = activeFrame;
 
-      next.classList.remove('is-preparing');
-      next.classList.add('is-active');
+      if (old && old !== next) deactivateFrame(old);
+      activateFrame(next);
       activeFrame = next;
       pendingFrame = null;
       bindActiveFrame(next);
-
-      if (old && old !== next) old.remove();
+      rememberFrame(next, frameLocation(next) || target.href);
+      pruneFrameCache();
       firstLoad?.remove();
 
       const actualClean = cleanUrl(frameLocation(next)) || clean;
@@ -213,9 +334,6 @@
       try { next.remove(); } catch (_) {}
       setLoading(false);
       console.error('[Valora shell] navegação:', error);
-
-      // Se o carregamento preparado falhar, mantém a tela atual visível e só
-      // então usa a navegação tradicional como último recurso.
       window.location.assign(target.href);
     }
   }
@@ -246,6 +364,7 @@
   document.addEventListener('valora:theme-changed', () => {
     syncThemeInto(activeFrame);
     syncThemeInto(pendingFrame);
+    frameCache.forEach((entry) => syncThemeInto(entry.frame));
   });
 
   // Se um módulo aberto dentro do frame solicitar navegação pelo helper global,

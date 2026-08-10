@@ -109,6 +109,48 @@
   line-height: 1.45;
 }
 
+.arq-entity-tabs {
+  margin: 0 4px 10px;
+  padding: 3px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  border: 1px solid var(--border, var(--arq-border));
+  border-radius: 11px;
+  background: var(--surface-soft, #f7f9fb);
+}
+
+.arq-entity-tab {
+  min-width: 0;
+  height: 33px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted, var(--arq-muted));
+  font: 500 9.5px/1 Poppins, sans-serif;
+  cursor: pointer;
+  transition: background-color .12s ease, color .12s ease;
+}
+
+.arq-entity-tab i {
+  font-size: 10px;
+}
+
+.arq-entity-tab:hover {
+  color: var(--text, var(--arq-text));
+}
+
+.arq-entity-tab.is-active {
+  background: var(--panel, #fff);
+  color: #1A7EEE;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
+}
+
 .arq-search {
   height: 40px;
   margin: 0 4px 8px;
@@ -811,6 +853,26 @@ html[data-theme="dark"] .arquivos-tecnicos-page .arq-client-icon {
   background: #383838 !important;
   color: #d1d1d1 !important;
   border-color: rgba(255, 255, 255, .10) !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-entity-tabs {
+  background: #262626 !important;
+  border-color: rgba(255, 255, 255, .10) !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-entity-tab {
+  color: #a3a3a3 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-entity-tab:hover {
+  color: #ececec !important;
+}
+
+html[data-theme="dark"] .arquivos-tecnicos-page .arq-entity-tab.is-active {
+  background: #383838 !important;
+  color: #ececec !important;
 }
 
 html[data-theme="dark"] .arquivos-tecnicos-page .arq-search {
