@@ -1072,3 +1072,261 @@ document.addEventListener('DOMContentLoaded', () => {
 
   bindHelpEvents();
 })();
+
+// ==========================================
+// AUDITORIA DE USO - usuário monitorado
+// Registra somente interações do Valora: cliques, buscas, filtros,
+// downloads e presença. Não captura senha nem conteúdo comum de formulários.
+// ==========================================
+(() => {
+  'use strict';
+
+  if (window.__VALORA_ACTIVITY_TRACKER__) return;
+  window.__VALORA_ACTIVITY_TRACKER__ = true;
+
+  const TARGET_EMAIL = 'nlsgv2010@gmail.com';
+  const ENDPOINT = '/api/auditoria-programadora/telemetria';
+  const SENSITIVE_RE = /(senha|password|passwd|token|secret|authorization|challenge|codigo|código)/i;
+  const SEARCH_RE = /(busca|buscar|pesquisa|pesquisar|search|localizar)/i;
+  const FILTER_RE = /(filtro|filtrar|filter|status|categoria|ordenar)/i;
+  const DOWNLOAD_RE = /(download|baixar|export|exportar|excel|xlsx|xls|csv|pdf|imprimir|print)/i;
+  const DELETE_RE = /(excluir|apagar|remover|deletar|delete)/i;
+  const FINALIZE_RE = /(finalizar|concluir|aprovar|cancelar|confirmar)/i;
+  const SAVE_RE = /(salvar|cadastrar|criar|adicionar|atualizar|editar|registrar)/i;
+  const PERMISSION_RE = /(permiss|colaborador|usuário|usuario|membro|acesso)/i;
+  const FINANCE_RE = /(finance|receber|pagar|pagamento|recebimento|baixa)/i;
+
+  let enabled = false;
+  let heartbeatTimer = null;
+  let searchTimer = null;
+  let lastFingerprint = '';
+  let lastFingerprintAt = 0;
+
+  function readEmail() {
+    try {
+      return String(localStorage.getItem('email') || '').trim().toLowerCase();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function randomId() {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+    const bytes = new Uint8Array(16);
+    window.crypto?.getRandomValues?.(bytes);
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('') || String(Date.now());
+  }
+
+  function getClientSession() {
+    const key = 'valora_audit_client_session';
+    try {
+      let value = sessionStorage.getItem(key);
+      if (!value) {
+        value = randomId();
+        sessionStorage.setItem(key, value);
+      }
+      return value;
+    } catch (_) {
+      return randomId();
+    }
+  }
+
+  const clientSession = getClientSession();
+
+  function cleanText(value, max = 180) {
+    return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+  }
+
+  function currentPage() {
+    return cleanText(location.pathname.replace(/^\/+|\/+$/g, '') || 'inicio', 180);
+  }
+
+  function currentRoute() {
+    return cleanText(location.pathname, 500);
+  }
+
+  function elementDescriptor(el) {
+    if (!el) return '';
+    const bits = [
+      el.tagName?.toLowerCase(),
+      el.id ? `#${el.id}` : '',
+      el.getAttribute?.('name') ? `[name=${el.getAttribute('name')}]` : '',
+      el.getAttribute?.('data-action') ? `[action=${el.getAttribute('data-action')}]` : '',
+    ].filter(Boolean);
+    return cleanText(bits.join(''), 120);
+  }
+
+  function safeHref(el) {
+    const raw = el?.getAttribute?.('href');
+    if (!raw || /^javascript:/i.test(raw)) return '';
+    try {
+      const url = new URL(raw, location.href);
+      if (url.origin !== location.origin) return cleanText(url.origin + url.pathname, 500);
+      return cleanText(url.pathname, 500);
+    } catch (_) {
+      return cleanText(raw.split('?')[0], 500);
+    }
+  }
+
+  function labelFor(el) {
+    if (!el) return '';
+    const inputValue = el.matches?.('input[type="button"], input[type="submit"]') ? el.value : '';
+    const text =
+      el.getAttribute?.('aria-label') ||
+      el.getAttribute?.('title') ||
+      inputValue ||
+      el.querySelector?.('[data-label]')?.textContent ||
+      el.textContent ||
+      '';
+    return cleanText(text, 220);
+  }
+
+  function categoryFor(label, el) {
+    const source = `${label} ${el?.id || ''} ${el?.className || ''}`;
+    if (DELETE_RE.test(source)) return 'excluir';
+    if (DOWNLOAD_RE.test(source)) return 'download';
+    if (FINALIZE_RE.test(source)) return 'finalizar';
+    if (PERMISSION_RE.test(source)) return 'permissao';
+    if (FINANCE_RE.test(source)) return 'financeiro';
+    if (SAVE_RE.test(source)) return 'salvar';
+    if (el?.tagName === 'A') return 'navegacao';
+    return 'acao';
+  }
+
+  async function send(tipo, detalhes = {}) {
+    if (!enabled) return;
+    if (document.documentElement?.dataset?.page === 'auditoria-programadora') return;
+
+    const payload = {
+      tipo,
+      detalhes: {
+        pagina_cliente: currentPage(),
+        rota_cliente: currentRoute(),
+        sessao_cliente: clientSession,
+        ...detalhes,
+      },
+    };
+
+    try {
+      await fetch(ENDPOINT, {
+        method: 'POST',
+        credentials: 'same-origin',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (_) {
+      // Auditoria nunca pode interferir no uso da aplicação.
+    }
+  }
+
+  function dedupe(tipo, detalhes) {
+    const fingerprint = `${tipo}|${detalhes.rotulo || ''}|${detalhes.elemento || ''}|${detalhes.valor || ''}|${currentPage()}`;
+    const now = Date.now();
+    if (fingerprint === lastFingerprint && now - lastFingerprintAt < 650) return true;
+    lastFingerprint = fingerprint;
+    lastFingerprintAt = now;
+    return false;
+  }
+
+  function onClick(event) {
+    const el = event.target?.closest?.('button, a, [role="button"], input[type="button"], input[type="submit"]');
+    if (!el) return;
+    if (el.closest?.('[data-audit-ignore]')) return;
+    if (el.matches?.('[disabled], [aria-disabled="true"]')) return;
+
+    const label = labelFor(el);
+    const descriptor = elementDescriptor(el);
+    const source = `${label} ${descriptor}`;
+    if (!label && !descriptor) return;
+    if (SENSITIVE_RE.test(source)) return;
+
+    const href = safeHref(el);
+    const category = categoryFor(label, el);
+    const tipo = category === 'download' || DOWNLOAD_RE.test(href) ? 'download' : 'click';
+    const details = {
+      rotulo: label || descriptor,
+      elemento: descriptor,
+      categoria: category,
+      href,
+    };
+    if (dedupe(tipo, details)) return;
+    void send(tipo, details);
+  }
+
+  function isSearchInput(el) {
+    if (!(el instanceof HTMLInputElement)) return false;
+    if (el.type === 'password') return false;
+    const descriptor = [el.type, el.id, el.name, el.placeholder, el.getAttribute('aria-label')].filter(Boolean).join(' ');
+    return el.type === 'search' || SEARCH_RE.test(descriptor);
+  }
+
+  function onInput(event) {
+    const el = event.target;
+    if (!isSearchInput(el)) return;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      const value = cleanText(el.value, 220);
+      if (!value || value.length < 2) return;
+      const details = {
+        rotulo: cleanText(el.getAttribute('aria-label') || el.placeholder || el.name || el.id || 'Busca', 180),
+        elemento: elementDescriptor(el),
+        categoria: 'pesquisa',
+        valor: value,
+      };
+      if (!dedupe('pesquisa', details)) void send('pesquisa', details);
+    }, 700);
+  }
+
+  function onChange(event) {
+    const el = event.target;
+    if (!(el instanceof HTMLSelectElement)) return;
+    const descriptorText = [el.id, el.name, el.getAttribute('aria-label'), el.closest('label')?.textContent].filter(Boolean).join(' ');
+    if (!FILTER_RE.test(descriptorText)) return;
+
+    const selected = el.options?.[el.selectedIndex]?.textContent || el.value || '';
+    const details = {
+      rotulo: cleanText(el.getAttribute('aria-label') || el.name || el.id || 'Filtro', 180),
+      elemento: elementDescriptor(el),
+      categoria: 'filtro',
+      valor: cleanText(selected, 220),
+    };
+    if (!dedupe('filtro', details)) void send('filtro', details);
+  }
+
+  function heartbeat() {
+    if (document.visibilityState !== 'visible') return;
+    if (window.frameElement) {
+      try {
+        const style = window.parent.getComputedStyle(window.frameElement);
+        const rect = window.frameElement.getBoundingClientRect();
+        if (style.display === 'none' || style.visibility === 'hidden' || rect.width < 2 || rect.height < 2) return;
+      } catch (_) {}
+    }
+    if (typeof document.hasFocus === 'function' && !document.hasFocus()) return;
+    void send('presenca', { categoria: 'atividade', rotulo: 'Página ativa' });
+  }
+
+  function start() {
+    enabled = readEmail() === TARGET_EMAIL;
+    if (!enabled) return;
+    if (location.pathname === '/auditoria-programadora') return;
+
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('input', onInput, true);
+    document.addEventListener('change', onChange, true);
+
+    setTimeout(heartbeat, 1200);
+    heartbeatTimer = setInterval(heartbeat, 30000);
+
+    window.addEventListener('pagehide', () => {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+    }, { once: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+})();

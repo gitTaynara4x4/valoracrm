@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260724-financeiro-phase4-v2" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260811-financeiro-generalizado-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
   <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260725-financeiro-fase6-v1" />
 </head>
@@ -61,7 +61,7 @@
         </article>
         <article class="financeiro-card">
           <div class="financeiro-card-top"><div><h3>Grupos configuráveis</h3><p>Estruturas financeiras novas</p></div><span class="financeiro-icon warn"><i class="fa-solid fa-layer-group"></i></span></div>
-          <div><div class="financeiro-value" data-kpi="cadastros-grupos">7</div><div class="financeiro-meta">Conforme os documentos do cliente</div></div>
+          <div><div class="financeiro-value" data-kpi="cadastros-grupos">0</div><div class="financeiro-meta">Estruturas configuráveis por empresa</div></div>
         </article>
       </section>
 
@@ -77,13 +77,18 @@
         </article>
 
         <article class="financeiro-panel financeiro-cadastro-panel">
+          <div class="financeiro-panel-head"><div><h3>Tipos de gasto</h3><p>Classifique contas a pagar como custo, despesa, investimento, perda ou outra classificação criada pela empresa.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="tipo-gasto"><i class="fa-solid fa-plus"></i> Novo</button></div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Nome</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-tipos-gasto"><tr><td class="financeiro-empty" colspan="4">Carregando...</td></tr></tbody></table></div>
+        </article>
+
+        <article class="financeiro-panel financeiro-cadastro-panel">
           <div class="financeiro-panel-head"><div><h3>Centros de custo</h3><p>Estrutura principal e secundária para rateio e relatórios.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="centro-custo"><i class="fa-solid fa-plus"></i> Novo</button></div>
           <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Nome</th><th>Centro pai</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-centros-custo"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody></table></div>
         </article>
 
         <article class="financeiro-panel financeiro-cadastro-panel">
-          <div class="financeiro-panel-head"><div><h3>Unidades de consumo</h3><p>Departamentos ou áreas responsáveis pelo consumo.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="unidade-consumo"><i class="fa-solid fa-plus"></i> Nova</button></div>
-          <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Nome</th><th>Departamento</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-unidades-consumo"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody></table></div>
+          <div class="financeiro-panel-head"><div><h3>Unidades de consumo</h3><p>Estruture onde o gasto foi consumido: veículo, patrimônio, colaborador, projeto, contrato, departamento ou outra unidade.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="unidade-consumo"><i class="fa-solid fa-plus"></i> Nova</button></div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Nome</th><th>Tipo</th><th>Unidade pai</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-unidades-consumo"><tr><td class="financeiro-empty" colspan="6">Carregando...</td></tr></tbody></table></div>
         </article>
 
         <article class="financeiro-panel financeiro-cadastro-panel financeiro-cadastro-panel--wide">

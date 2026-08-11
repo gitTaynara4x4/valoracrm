@@ -2104,10 +2104,11 @@ html[data-theme="dark"] #modal-cliente-backdrop .cliente-top-status {
   pointer-events: none !important;
 }
 
-#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn .cliente-native-icon i {
-  width: auto !important;
-  height: auto !important;
-  min-width: 0 !important;
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn .cliente-native-icon i,
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn .cliente-native-icon svg {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
   position: static !important;
   transform: none !important;
   display: block !important;
@@ -2119,9 +2120,17 @@ html[data-theme="dark"] #modal-cliente-backdrop .cliente-top-status {
   background-image: none !important;
   box-shadow: none !important;
   color: currentColor !important;
-  font-size: 17px !important;
   line-height: 1 !important;
   opacity: 1 !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn .cliente-native-icon svg {
+  overflow: visible !important;
+  stroke: currentColor !important;
+  fill: none !important;
+  stroke-width: 1.9 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
 }
 
 #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn:hover .cliente-native-icon {

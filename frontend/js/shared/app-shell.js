@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260809-shell-cache-v28';
+  const VERSION = '20260810-shell-standalone-audit-v29';
   const EMBED_PARAM = '__valora_embed';
   const stage = document.getElementById('valora-shell-stage');
   const progress = document.getElementById('valora-shell-progress');
@@ -32,7 +32,9 @@
     if (path.startsWith('/api/') || path.startsWith('/uploads/')) return false;
     if (path.startsWith('/frontend/css/') || path.startsWith('/frontend/js/') || path.startsWith('/frontend/img/') || path.startsWith('/frontend/fonts/')) return false;
     if (path === '/login' || path === '/cadastro' || path === '/' || path === '/inicio' || path === '/valora') return false;
+    if (path === '/auditoria-programadora' || path === '/auditoria-programadora/') return false;
     if (path === '/frontend/login.html' || path === '/frontend/cadastro.html' || path === '/frontend/inicio.html' || path === '/frontend/app-shell.html') return false;
+    if (path === '/frontend/auditoria-programadora.html') return false;
     return true;
   }
 

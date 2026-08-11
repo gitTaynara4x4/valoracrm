@@ -288,7 +288,9 @@ def validar_id_empresa(
         "financeiro_contas_bancos",
         "financeiro_tipos_documento",
         "financeiro_naturezas_operacao",
+        "financeiro_tipos_gasto",
         "financeiro_centros_custo",
+        "financeiro_reguas_cobranca",
         "financeiro_unidades_consumo",
         "financeiro_contas_contabeis",
         "financeiro_formas_cobranca",
@@ -316,6 +318,7 @@ def validar_referencias_lancamento(
     conta_banco_id: Optional[int],
     tipo_documento_id: Optional[int],
     natureza_operacao_id: Optional[int],
+    tipo_gasto_id: Optional[int],
     centro_custo_principal_id: Optional[int],
     centro_custo_secundario_id: Optional[int],
     unidade_consumo_principal_id: Optional[int],
@@ -323,6 +326,7 @@ def validar_referencias_lancamento(
     conta_contabil_id: Optional[int],
     forma_cobranca_id: Optional[int],
     regra_encargos_id: Optional[int],
+    regua_cobranca_id: Optional[int],
     entidade_emissora_id: Optional[int],
 ) -> None:
     if tipo == "receber" and fornecedor_id is not None:
@@ -335,6 +339,10 @@ def validar_referencias_lancamento(
         raise HTTPException(status_code=422, detail="Conta a pagar não pode usar cliente.")
     if tipo == "pagar" and fornecedor_id is None:
         raise HTTPException(status_code=422, detail="Selecione o sacado da conta a pagar.")
+    if tipo == "receber" and tipo_gasto_id is not None:
+        raise HTTPException(status_code=422, detail="Tipo de gasto é uma classificação de Contas a Pagar.")
+    if tipo == "pagar" and regua_cobranca_id is not None:
+        raise HTTPException(status_code=422, detail="Régua de cobrança é usada somente em Contas a Receber.")
 
     validar_id_empresa(db, table_name="clientes", item_id=cliente_id, empresa_id=empresa_id, label="Cliente")
     validar_id_empresa(
@@ -349,6 +357,7 @@ def validar_referencias_lancamento(
     validar_id_empresa(db, table_name="financeiro_contas_bancos", item_id=conta_banco_id, empresa_id=empresa_id, label="Conta/Banco")
     validar_id_empresa(db, table_name="financeiro_tipos_documento", item_id=tipo_documento_id, empresa_id=empresa_id, label="Tipo de documento")
     validar_id_empresa(db, table_name="financeiro_naturezas_operacao", item_id=natureza_operacao_id, empresa_id=empresa_id, label="Natureza da operação")
+    validar_id_empresa(db, table_name="financeiro_tipos_gasto", item_id=tipo_gasto_id, empresa_id=empresa_id, label="Tipo de gasto")
     validar_id_empresa(db, table_name="financeiro_centros_custo", item_id=centro_custo_principal_id, empresa_id=empresa_id, label="Centro de custo principal")
     validar_id_empresa(db, table_name="financeiro_centros_custo", item_id=centro_custo_secundario_id, empresa_id=empresa_id, label="Centro de custo secundário")
     validar_id_empresa(db, table_name="financeiro_unidades_consumo", item_id=unidade_consumo_principal_id, empresa_id=empresa_id, label="Unidade de consumo principal")
@@ -356,6 +365,7 @@ def validar_referencias_lancamento(
     validar_id_empresa(db, table_name="financeiro_contas_contabeis", item_id=conta_contabil_id, empresa_id=empresa_id, label="Conta contábil")
     validar_id_empresa(db, table_name="financeiro_formas_cobranca", item_id=forma_cobranca_id, empresa_id=empresa_id, label="Forma de cobrança")
     validar_id_empresa(db, table_name="financeiro_regras_encargos", item_id=regra_encargos_id, empresa_id=empresa_id, label="Regra de multa e mora")
+    validar_id_empresa(db, table_name="financeiro_reguas_cobranca", item_id=regua_cobranca_id, empresa_id=empresa_id, label="Régua de cobrança")
     validar_id_empresa(db, table_name="financeiro_contas_bancos", item_id=entidade_emissora_id, empresa_id=empresa_id, label="Entidade emissora")
 
     if centro_custo_principal_id is not None and centro_custo_principal_id == centro_custo_secundario_id:
@@ -460,6 +470,12 @@ class NaturezaOperacaoIn(BaseModel):
     ativo: bool = True
 
 
+class TipoGastoIn(BaseModel):
+    nome: str
+    codigo: Optional[str] = None
+    ativo: bool = True
+
+
 class CentroCustoIn(BaseModel):
     nome: str
     codigo: Optional[str] = None
@@ -470,6 +486,8 @@ class CentroCustoIn(BaseModel):
 class UnidadeConsumoIn(BaseModel):
     nome: str
     codigo: Optional[str] = None
+    tipo_referencia: str = "outro"
+    unidade_pai_id: Optional[int] = None
     departamento_referencia: Optional[str] = None
     ativo: bool = True
 
@@ -520,6 +538,7 @@ class LancamentoIn(BaseModel):
 
     tipo_documento_id: Optional[int] = None
     natureza_operacao_id: Optional[int] = None
+    tipo_gasto_id: Optional[int] = None
     centro_custo_principal_id: Optional[int] = None
     centro_custo_secundario_id: Optional[int] = None
     unidade_consumo_principal_id: Optional[int] = None
@@ -527,6 +546,7 @@ class LancamentoIn(BaseModel):
     conta_contabil_id: Optional[int] = None
     forma_cobranca_id: Optional[int] = None
     regra_encargos_id: Optional[int] = None
+    regua_cobranca_id: Optional[int] = None
     entidade_emissora_id: Optional[int] = None
     possui_multa: Optional[bool] = None
     indice_multa_percent: Optional[Any] = None
@@ -666,6 +686,7 @@ SELECT
     cb.nome AS conta_banco_nome,
     td.nome AS tipo_documento_nome,
     no.nome AS natureza_operacao_nome,
+    tg.nome AS tipo_gasto_nome,
     ccp.nome AS centro_custo_principal_nome,
     ccs.nome AS centro_custo_secundario_nome,
     ucp.nome AS unidade_consumo_principal_nome,
@@ -674,6 +695,7 @@ SELECT
     ccont.nome AS conta_contabil_nome,
     fc.nome AS forma_cobranca_nome,
     re.nome AS regra_encargos_nome,
+    rc.nome AS regua_cobranca_nome,
     ee.nome AS entidade_emissora_nome,
     uc.nome AS criado_por_nome,
     ua.nome AS atualizado_por_nome,
@@ -698,6 +720,8 @@ LEFT JOIN public.financeiro_tipos_documento td
        ON td.id = l.tipo_documento_id AND td.empresa_id = l.empresa_id
 LEFT JOIN public.financeiro_naturezas_operacao no
        ON no.id = l.natureza_operacao_id AND no.empresa_id = l.empresa_id
+LEFT JOIN public.financeiro_tipos_gasto tg
+       ON tg.id = l.tipo_gasto_id AND tg.empresa_id = l.empresa_id
 LEFT JOIN public.financeiro_centros_custo ccp
        ON ccp.id = l.centro_custo_principal_id AND ccp.empresa_id = l.empresa_id
 LEFT JOIN public.financeiro_centros_custo ccs
@@ -712,6 +736,8 @@ LEFT JOIN public.financeiro_formas_cobranca fc
        ON fc.id = l.forma_cobranca_id AND fc.empresa_id = l.empresa_id
 LEFT JOIN public.financeiro_regras_encargos re
        ON re.id = l.regra_encargos_id AND re.empresa_id = l.empresa_id
+LEFT JOIN public.financeiro_reguas_cobranca rc
+       ON rc.id = l.regua_cobranca_id AND rc.empresa_id = l.empresa_id
 LEFT JOIN public.financeiro_contas_bancos ee
        ON ee.id = l.entidade_emissora_id AND ee.empresa_id = l.empresa_id
 LEFT JOIN public.usuarios uc ON uc.id = l.criado_por_usuario_id
@@ -878,11 +904,13 @@ def opcoes_financeiro(
         "fornecedores": fornecedores,
         "tipos_documento": ativos("financeiro_tipos_documento"),
         "naturezas_operacao": ativos("financeiro_naturezas_operacao"),
+        "tipos_gasto": ativos("financeiro_tipos_gasto", "codigo NULLS LAST, nome ASC"),
         "centros_custo": ativos("financeiro_centros_custo", "codigo NULLS LAST, nome ASC"),
         "unidades_consumo": ativos("financeiro_unidades_consumo", "codigo NULLS LAST, nome ASC"),
         "contas_contabeis": ativos("financeiro_contas_contabeis", "codigo ASC, nome ASC"),
         "formas_cobranca": ativos("financeiro_formas_cobranca"),
         "regras_encargos": ativos("financeiro_regras_encargos", "padrao DESC, nome ASC"),
+        "reguas_cobranca": ativos("financeiro_reguas_cobranca", "padrao DESC, nome ASC"),
     }
 
 
@@ -1226,6 +1254,7 @@ def montar_params_lancamento(payload: LancamentoIn, empresa_id: int, db: Session
         conta_banco_id=payload.conta_banco_id,
         tipo_documento_id=payload.tipo_documento_id,
         natureza_operacao_id=payload.natureza_operacao_id,
+        tipo_gasto_id=payload.tipo_gasto_id,
         centro_custo_principal_id=payload.centro_custo_principal_id,
         centro_custo_secundario_id=payload.centro_custo_secundario_id,
         unidade_consumo_principal_id=payload.unidade_consumo_principal_id,
@@ -1233,6 +1262,7 @@ def montar_params_lancamento(payload: LancamentoIn, empresa_id: int, db: Session
         conta_contabil_id=payload.conta_contabil_id,
         forma_cobranca_id=payload.forma_cobranca_id,
         regra_encargos_id=payload.regra_encargos_id,
+        regua_cobranca_id=payload.regua_cobranca_id,
         entidade_emissora_id=payload.entidade_emissora_id,
     )
 
@@ -1262,6 +1292,14 @@ def montar_params_lancamento(payload: LancamentoIn, empresa_id: int, db: Session
     whatsapp_cobranca = norm_str(payload.whatsapp_cobranca) or norm_str(cliente_cobranca.get("whatsapp")) or norm_str(cliente_cobranca.get("telefone"))
     modalidade_pagamento = norm_str(payload.modalidade_pagamento) or norm_str(cliente_cobranca.get("modalidade_pagamento"))
 
+    regua_cobranca_id = payload.regua_cobranca_id
+    if tipo == "receber" and regua_cobranca_id is None:
+        regua_cobranca_id = db.execute(text("""
+            SELECT id FROM public.financeiro_reguas_cobranca
+            WHERE empresa_id = :empresa_id AND ativo = TRUE AND padrao = TRUE
+            ORDER BY id LIMIT 1
+        """), {"empresa_id": empresa_id}).scalar()
+
     return {
         "empresa_id": empresa_id,
         "tipo": tipo,
@@ -1277,6 +1315,7 @@ def montar_params_lancamento(payload: LancamentoIn, empresa_id: int, db: Session
         "conta_banco_id": payload.conta_banco_id,
         "tipo_documento_id": payload.tipo_documento_id,
         "natureza_operacao_id": payload.natureza_operacao_id,
+        "tipo_gasto_id": payload.tipo_gasto_id,
         "centro_custo_principal_id": payload.centro_custo_principal_id,
         "centro_custo_secundario_id": payload.centro_custo_secundario_id,
         "unidade_consumo_principal_id": payload.unidade_consumo_principal_id,
@@ -1284,6 +1323,7 @@ def montar_params_lancamento(payload: LancamentoIn, empresa_id: int, db: Session
         "conta_contabil_id": payload.conta_contabil_id,
         "forma_cobranca_id": payload.forma_cobranca_id,
         "regra_encargos_id": payload.regra_encargos_id,
+        "regua_cobranca_id": regua_cobranca_id,
         "entidade_emissora_id": payload.entidade_emissora_id,
         "possui_multa": possui_multa,
         "indice_multa_percent": indice_multa,
@@ -1312,10 +1352,10 @@ LANCAMENTO_INSERT_SQL = """
         empresa_id, tipo, descricao, moeda, valor_total, valor_pago,
         data_emissao, data_vencimento, data_pagamento, status,
         cliente_id, fornecedor_id, categoria_id, forma_pagamento_id, conta_banco_id,
-        tipo_documento_id, natureza_operacao_id,
+        tipo_documento_id, natureza_operacao_id, tipo_gasto_id,
         centro_custo_principal_id, centro_custo_secundario_id,
         unidade_consumo_principal_id, unidade_consumo_secundaria_id,
-        conta_contabil_id, forma_cobranca_id, regra_encargos_id, entidade_emissora_id,
+        conta_contabil_id, forma_cobranca_id, regra_encargos_id, regua_cobranca_id, entidade_emissora_id,
         possui_multa, indice_multa_percent, possui_mora_diaria, indice_mora_diaria_percent,
         documento, observacoes, anexo_url,
         contato_cobranca, email_cobranca, whatsapp_cobranca, modalidade_pagamento,
@@ -1326,10 +1366,10 @@ LANCAMENTO_INSERT_SQL = """
         :empresa_id, :tipo, :descricao, :moeda, :valor_total, 0,
         :data_emissao, :data_vencimento, NULL, :status,
         :cliente_id, :fornecedor_id, :categoria_id, :forma_pagamento_id, :conta_banco_id,
-        :tipo_documento_id, :natureza_operacao_id,
+        :tipo_documento_id, :natureza_operacao_id, :tipo_gasto_id,
         :centro_custo_principal_id, :centro_custo_secundario_id,
         :unidade_consumo_principal_id, :unidade_consumo_secundaria_id,
-        :conta_contabil_id, :forma_cobranca_id, :regra_encargos_id, :entidade_emissora_id,
+        :conta_contabil_id, :forma_cobranca_id, :regra_encargos_id, :regua_cobranca_id, :entidade_emissora_id,
         :possui_multa, :indice_multa_percent, :possui_mora_diaria, :indice_mora_diaria_percent,
         :documento, :observacoes, :anexo_url,
         :contato_cobranca, :email_cobranca, :whatsapp_cobranca, :modalidade_pagamento,
@@ -1858,6 +1898,14 @@ def atualizar_lancamento(
             params["tipo"], str(anterior["status"]), params["valor_total"],
             valor_pago_atual, params["data_vencimento"],
         ),
+        # Metadados estruturais não pertencem à edição manual de um título.
+        # Preservá-los aqui impede que um PUT antigo/cliente incompleto apague
+        # recorrência ou transforme uma parcela em lançamento avulso.
+        "recorrente": bool(anterior.get("recorrente")),
+        "grupo_recorrencia": norm_str(anterior.get("grupo_recorrencia")),
+        "parcelado": bool(anterior.get("parcelado")),
+        "parcela_numero": anterior.get("parcela_numero"),
+        "parcela_total": anterior.get("parcela_total"),
     })
     db.execute(text("""
         UPDATE public.financeiro_lancamentos
@@ -1875,6 +1923,7 @@ def atualizar_lancamento(
                conta_banco_id = :conta_banco_id,
                tipo_documento_id = :tipo_documento_id,
                natureza_operacao_id = :natureza_operacao_id,
+               tipo_gasto_id = :tipo_gasto_id,
                centro_custo_principal_id = :centro_custo_principal_id,
                centro_custo_secundario_id = :centro_custo_secundario_id,
                unidade_consumo_principal_id = :unidade_consumo_principal_id,
@@ -1882,6 +1931,7 @@ def atualizar_lancamento(
                conta_contabil_id = :conta_contabil_id,
                forma_cobranca_id = :forma_cobranca_id,
                regra_encargos_id = :regra_encargos_id,
+               regua_cobranca_id = :regua_cobranca_id,
                entidade_emissora_id = :entidade_emissora_id,
                possui_multa = :possui_multa,
                indice_multa_percent = :indice_multa_percent,
@@ -2368,6 +2418,12 @@ def excluir_lancamento(
     """), {"empresa_id": empresa_id, "id": lancamento_id}).first()
     if possui_movimentacoes:
         raise HTTPException(status_code=409, detail="Lançamento com movimentações não pode ser excluído. Use estorno e cancelamento.")
+    possui_historico_cobranca = db.execute(text("""
+        SELECT 1 FROM public.financeiro_cobrancas_envios
+        WHERE empresa_id = :empresa_id AND lancamento_id = :id LIMIT 1
+    """), {"empresa_id": empresa_id, "id": lancamento_id}).first()
+    if possui_historico_cobranca:
+        raise HTTPException(status_code=409, detail="Lançamento com histórico de cobrança não pode ser excluído. Use cancelamento para preservar a auditoria.")
     registrar_auditoria(
         db, empresa_id=empresa_id, usuario_id=int(usuario.id), acao="excluir",
         entidade="lancamento", entidade_id=lancamento_id, anteriores=anterior,
@@ -2559,7 +2615,45 @@ def relatorio_resumo(
     recebido = row_to_dict(recebido_row) if recebido_row else {}
     contas_receber["recebido_periodo"] = recebido.get("recebido_periodo", 0)
 
-    return {"por_categoria": por_categoria, "contas_receber": contas_receber}
+    por_tipo_gasto = [row_to_dict(r) for r in db.execute(text("""
+        SELECT COALESCE(tg.nome, 'Sem tipo de gasto') AS tipo_gasto, COUNT(*) AS quantidade,
+               COALESCE(SUM(l.valor_total), 0) AS valor_total,
+               COALESCE(SUM(l.valor_pago), 0) AS valor_pago,
+               COALESCE(SUM(GREATEST(l.valor_total-l.valor_pago, 0)), 0) AS saldo_aberto
+        FROM public.financeiro_lancamentos l
+        LEFT JOIN public.financeiro_tipos_gasto tg
+               ON tg.id=l.tipo_gasto_id AND tg.empresa_id=l.empresa_id
+        WHERE l.empresa_id=:empresa_id AND l.tipo='pagar'
+          AND l.data_vencimento BETWEEN :data_inicio AND :data_fim
+          AND l.status <> 'cancelado'
+        GROUP BY COALESCE(tg.nome, 'Sem tipo de gasto')
+        ORDER BY valor_total DESC
+    """), params).fetchall()]
+
+    por_centro_custo = [row_to_dict(r) for r in db.execute(text("""
+        SELECT COALESCE(ccp.nome, 'Sem centro de custo') AS centro_custo,
+               COALESCE(ccs.nome, '-') AS subcentro, COUNT(*) AS quantidade,
+               COALESCE(SUM(l.valor_total), 0) AS valor_total,
+               COALESCE(SUM(l.valor_pago), 0) AS valor_pago,
+               COALESCE(SUM(GREATEST(l.valor_total-l.valor_pago, 0)), 0) AS saldo_aberto
+        FROM public.financeiro_lancamentos l
+        LEFT JOIN public.financeiro_centros_custo ccp
+               ON ccp.id=l.centro_custo_principal_id AND ccp.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_centros_custo ccs
+               ON ccs.id=l.centro_custo_secundario_id AND ccs.empresa_id=l.empresa_id
+        WHERE l.empresa_id=:empresa_id
+          AND l.data_vencimento BETWEEN :data_inicio AND :data_fim
+          AND l.status <> 'cancelado'
+        GROUP BY COALESCE(ccp.nome, 'Sem centro de custo'), COALESCE(ccs.nome, '-')
+        ORDER BY valor_total DESC
+    """), params).fetchall()]
+
+    return {
+        "por_categoria": por_categoria,
+        "por_tipo_gasto": por_tipo_gasto,
+        "por_centro_custo": por_centro_custo,
+        "contas_receber": contas_receber,
+    }
 
 
 # =========================================================
@@ -2569,7 +2663,7 @@ def relatorio_resumo(
 def listar_auxiliar(table_name: str, empresa_id: int, db: Session):
     permitidas = {
         "financeiro_categorias", "financeiro_formas_pagamento",
-        "financeiro_tipos_documento", "financeiro_naturezas_operacao",
+        "financeiro_tipos_documento", "financeiro_naturezas_operacao", "financeiro_tipos_gasto",
         "financeiro_centros_custo", "financeiro_unidades_consumo",
         "financeiro_contas_contabeis", "financeiro_formas_cobranca",
         "financeiro_regras_encargos",
@@ -2583,7 +2677,7 @@ def listar_auxiliar(table_name: str, empresa_id: int, db: Session):
 def excluir_auxiliar(table_name: str, item_id: int, empresa_id: int, db: Session, usuario_id: int):
     permitidas = {
         "financeiro_categorias", "financeiro_formas_pagamento", "financeiro_contas_bancos",
-        "financeiro_tipos_documento", "financeiro_naturezas_operacao",
+        "financeiro_tipos_documento", "financeiro_naturezas_operacao", "financeiro_tipos_gasto",
         "financeiro_centros_custo", "financeiro_unidades_consumo",
         "financeiro_contas_contabeis", "financeiro_formas_cobranca",
         "financeiro_regras_encargos",
@@ -2834,6 +2928,7 @@ def _validar_hierarquia_sem_ciclo(
         return
     permitidas = {
         ("financeiro_centros_custo", "centro_pai_id"),
+        ("financeiro_unidades_consumo", "unidade_pai_id"),
         ("financeiro_contas_contabeis", "conta_pai_id"),
     }
     if (table_name, parent_column) not in permitidas:
@@ -2949,6 +3044,53 @@ def excluir_natureza_operacao(item_id: int, db: Session = Depends(get_db), usuar
     return excluir_auxiliar("financeiro_naturezas_operacao", item_id, empresa_do(usuario), db, int(usuario.id))
 
 
+@router.get("/tipos-gasto")
+def listar_tipos_gasto(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return listar_auxiliar("financeiro_tipos_gasto", empresa_do(usuario), db)
+
+
+@router.post("/tipos-gasto", status_code=status.HTTP_201_CREATED)
+def criar_tipo_gasto(payload: TipoGastoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    empresa_id = empresa_do(usuario)
+    row = db.execute(text("""
+        INSERT INTO public.financeiro_tipos_gasto
+            (empresa_id, codigo, nome, ativo, criado_em, atualizado_em)
+        VALUES (:empresa_id, :codigo, :nome, :ativo, NOW(), NOW()) RETURNING *
+    """), {
+        "empresa_id": empresa_id, "codigo": norm_str(payload.codigo),
+        "nome": _nome_obrigatorio(payload.nome), "ativo": payload.ativo,
+    }).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_tipos_gasto", int(novo["id"]), None, novo)
+    db.commit()
+    return novo
+
+
+@router.put("/tipos-gasto/{item_id}")
+def atualizar_tipo_gasto(item_id: int, payload: TipoGastoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    empresa_id = empresa_do(usuario)
+    anterior_row = db.execute(text("SELECT * FROM public.financeiro_tipos_gasto WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
+    if not anterior_row:
+        raise HTTPException(status_code=404, detail="Tipo de gasto não encontrado.")
+    row = db.execute(text("""
+        UPDATE public.financeiro_tipos_gasto
+           SET codigo=:codigo, nome=:nome, ativo=:ativo, atualizado_em=NOW()
+         WHERE empresa_id=:empresa_id AND id=:id RETURNING *
+    """), {
+        "empresa_id": empresa_id, "id": item_id, "codigo": norm_str(payload.codigo),
+        "nome": _nome_obrigatorio(payload.nome), "ativo": payload.ativo,
+    }).first()
+    novo = row_to_dict(row)
+    _auditar_salvar_auxiliar(db, usuario, "financeiro_tipos_gasto", item_id, row_to_dict(anterior_row), novo)
+    db.commit()
+    return novo
+
+
+@router.delete("/tipos-gasto/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_tipo_gasto(item_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    return excluir_auxiliar("financeiro_tipos_gasto", item_id, empresa_do(usuario), db, int(usuario.id))
+
+
 @router.get("/centros-custo")
 def listar_centros_custo(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
     rows = db.execute(text("""
@@ -3006,17 +3148,29 @@ def excluir_centro_custo(item_id: int, db: Session = Depends(get_db), usuario: m
 
 @router.get("/unidades-consumo")
 def listar_unidades_consumo(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
-    return listar_auxiliar("financeiro_unidades_consumo", empresa_do(usuario), db)
+    rows = db.execute(text("""
+        SELECT u.*, pai.codigo AS unidade_pai_codigo, pai.nome AS unidade_pai_nome
+        FROM public.financeiro_unidades_consumo u
+        LEFT JOIN public.financeiro_unidades_consumo pai
+               ON pai.id=u.unidade_pai_id AND pai.empresa_id=u.empresa_id
+        WHERE u.empresa_id=:empresa_id
+        ORDER BY u.ativo DESC, COALESCE(pai.nome, u.nome), u.unidade_pai_id NULLS FIRST, u.nome, u.id
+    """), {"empresa_id": empresa_do(usuario)}).fetchall()
+    return [row_to_dict(r) for r in rows]
 
 
 @router.post("/unidades-consumo", status_code=status.HTTP_201_CREATED)
 def criar_unidade_consumo(payload: UnidadeConsumoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
     empresa_id = empresa_do(usuario)
+    validar_id_empresa(db, table_name="financeiro_unidades_consumo", item_id=payload.unidade_pai_id, empresa_id=empresa_id, label="Unidade de consumo pai")
+    tipo_ref = (payload.tipo_referencia or "outro").strip().lower()
+    if tipo_ref not in {"departamento", "colaborador", "veiculo", "patrimonio", "projeto", "contrato", "cargo", "outro"}:
+        raise HTTPException(status_code=422, detail="Tipo de referência da unidade de consumo inválido.")
     row = db.execute(text("""
         INSERT INTO public.financeiro_unidades_consumo
-            (empresa_id, codigo, nome, departamento_referencia, ativo, criado_em, atualizado_em)
-        VALUES (:empresa_id, :codigo, :nome, :departamento, :ativo, NOW(), NOW()) RETURNING *
-    """), {"empresa_id": empresa_id, "codigo": norm_str(payload.codigo), "nome": _nome_obrigatorio(payload.nome), "departamento": norm_str(payload.departamento_referencia), "ativo": payload.ativo}).first()
+            (empresa_id, codigo, nome, tipo_referencia, unidade_pai_id, departamento_referencia, ativo, criado_em, atualizado_em)
+        VALUES (:empresa_id, :codigo, :nome, :tipo_ref, :pai, :departamento, :ativo, NOW(), NOW()) RETURNING *
+    """), {"empresa_id": empresa_id, "codigo": norm_str(payload.codigo), "nome": _nome_obrigatorio(payload.nome), "tipo_ref": tipo_ref, "pai": payload.unidade_pai_id, "departamento": norm_str(payload.departamento_referencia), "ativo": payload.ativo}).first()
     novo = row_to_dict(row)
     _auditar_salvar_auxiliar(db, usuario, "financeiro_unidades_consumo", int(novo["id"]), None, novo)
     db.commit()
@@ -3026,14 +3180,26 @@ def criar_unidade_consumo(payload: UnidadeConsumoIn, db: Session = Depends(get_d
 @router.put("/unidades-consumo/{item_id}")
 def atualizar_unidade_consumo(item_id: int, payload: UnidadeConsumoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
     empresa_id = empresa_do(usuario)
+    if payload.unidade_pai_id == item_id:
+        raise HTTPException(status_code=422, detail="Uma unidade de consumo não pode ser pai de si mesma.")
+    validar_id_empresa(db, table_name="financeiro_unidades_consumo", item_id=payload.unidade_pai_id, empresa_id=empresa_id, label="Unidade de consumo pai")
+    _validar_hierarquia_sem_ciclo(
+        db, table_name="financeiro_unidades_consumo", parent_column="unidade_pai_id",
+        item_id=item_id, parent_id=payload.unidade_pai_id, empresa_id=empresa_id,
+        label="A unidade de consumo pai selecionada",
+    )
+    tipo_ref = (payload.tipo_referencia or "outro").strip().lower()
+    if tipo_ref not in {"departamento", "colaborador", "veiculo", "patrimonio", "projeto", "contrato", "cargo", "outro"}:
+        raise HTTPException(status_code=422, detail="Tipo de referência da unidade de consumo inválido.")
     anterior_row = db.execute(text("SELECT * FROM public.financeiro_unidades_consumo WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
     if not anterior_row:
         raise HTTPException(status_code=404, detail="Unidade de consumo não encontrada.")
     row = db.execute(text("""
         UPDATE public.financeiro_unidades_consumo SET codigo=:codigo, nome=:nome,
+            tipo_referencia=:tipo_ref, unidade_pai_id=:pai,
             departamento_referencia=:departamento, ativo=:ativo, atualizado_em=NOW()
         WHERE empresa_id=:empresa_id AND id=:id RETURNING *
-    """), {"empresa_id": empresa_id, "id": item_id, "codigo": norm_str(payload.codigo), "nome": _nome_obrigatorio(payload.nome), "departamento": norm_str(payload.departamento_referencia), "ativo": payload.ativo}).first()
+    """), {"empresa_id": empresa_id, "id": item_id, "codigo": norm_str(payload.codigo), "nome": _nome_obrigatorio(payload.nome), "tipo_ref": tipo_ref, "pai": payload.unidade_pai_id, "departamento": norm_str(payload.departamento_referencia), "ativo": payload.ativo}).first()
     novo = row_to_dict(row)
     _auditar_salvar_auxiliar(db, usuario, "financeiro_unidades_consumo", item_id, row_to_dict(anterior_row), novo)
     db.commit()

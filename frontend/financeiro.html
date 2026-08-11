@@ -14,9 +14,9 @@
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-valora-saas-financeiro" />
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260724-financeiro-phase4-v2" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260811-financeiro-adulto-v3" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260725-financeiro-fase6-v1" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260811-financeiro-adulto-v3" />
 </head>
 <body class="financeiro-theme-valora">
   <div class="layout">
@@ -25,9 +25,8 @@
     <main class="main financeiro-page financeiro-page--overview financeiro-page--valora" data-financeiro-page="dashboard">
       <header class="topbar financeiro-saas-header">
         <div class="topbar-title financeiro-saas-title">
-          <span class="eyebrow financeiro-kicker">Financeiro</span>
           <h1>Financeiro</h1>
-          <p>Visão geral das contas a receber, contas a pagar, fluxo de caixa e saúde financeira do Valora.</p>
+          <p>Controle de recebimentos, pagamentos e fluxo de caixa.</p>
         </div>
 
         <div class="topbar-actions financeiro-saas-actions">
@@ -41,7 +40,6 @@
             <span>Empresa: Todas</span>
             <i class="fa-solid fa-chevron-down"></i>
           </button>
-          <button class="btn btn-secondary" type="button" id="btn-exportar-financeiro"><i class="fa-solid fa-download"></i> Exportar CSV</button>
           <button class="btn btn-secondary" type="button" id="btn-toggle-filtros"><i class="fa-solid fa-filter"></i> Filtros</button>
           <button class="btn btn-primary btn-novo-registro" type="button" data-new=""><i class="fa-solid fa-plus"></i> Novo lançamento</button>
         </div>
@@ -50,16 +48,13 @@
       <div class="financeiro-toolbar financeiro-toolbar--saas">
         <nav class="financeiro-tabs">
           <a href="/financeiro" class="active"><i class="fa-regular fa-clipboard"></i><span>Visão Geral</span></a>
-          <a href="/vendas-financeiro"><i class="fa-solid fa-cart-arrow-down"></i><span>Vendas pendentes</span></a>
           <a href="/contas-receber"><i class="fa-regular fa-calendar-check"></i><span>Contas a Receber</span></a>
           <a href="/contas-pagar"><i class="fa-regular fa-file-lines"></i><span>Contas a Pagar</span></a>
+          <a href="/cobrancas-financeiro"><i class="fa-regular fa-bell"></i><span>Cobrança</span></a>
           <a href="/fluxo-caixa"><i class="fa-solid fa-wave-square"></i><span>Fluxo de Caixa</span></a>
-          <a href="/categorias-financeiras"><i class="fa-regular fa-folder-open"></i><span>Categorias</span></a>
-          <a href="/formas-pagamento"><i class="fa-regular fa-credit-card"></i><span>Formas</span></a>
-          <a href="/contas-bancos"><i class="fa-solid fa-building-columns"></i><span>Contas/Bancos</span></a>
+          <a href="/cadastros-financeiros"><i class="fa-solid fa-building-columns"></i><span>Cadastros</span></a>
           <a href="/relatorios-financeiros"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a>
         </nav>
-        <span class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando dados reais...</span>
       </div>
 
       <section class="financeiro-panel financeiro-filter-panel" id="financeiro-filtros">
@@ -74,7 +69,7 @@
 
       <section class="financeiro-metrics-grid">
         <article class="financeiro-saas-metric metric-receber">
-          <span class="metric-icon"><i class="fa-regular fa-wallet"></i></span>
+          <span class="metric-icon"><i class="fa-solid fa-arrow-down-long"></i></span>
           <div>
             <p>A receber</p>
             <strong data-kpi="total-receber">R$ 0,00</strong>
@@ -82,7 +77,7 @@
           </div>
         </article>
         <article class="financeiro-saas-metric metric-pagar">
-          <span class="metric-icon"><i class="fa-regular fa-file-lines"></i></span>
+          <span class="metric-icon"><i class="fa-solid fa-arrow-up-long"></i></span>
           <div>
             <p>A pagar</p>
             <strong data-kpi="total-pagar">R$ 0,00</strong>
@@ -90,7 +85,7 @@
           </div>
         </article>
         <article class="financeiro-saas-metric metric-realizado">
-          <span class="metric-icon"><i class="fa-solid fa-money-bill-trend-up"></i></span>
+          <span class="metric-icon"><i class="fa-solid fa-money-bill-wave"></i></span>
           <div>
             <p>Recebido no mês</p>
             <strong data-kpi="total-recebido">R$ 0,00</strong>
@@ -111,21 +106,83 @@
         <article class="financeiro-saas-card financeiro-chart-card">
           <div class="financeiro-card-head">
             <div>
-              <h3>Fluxo financeiro</h3>
-              <p id="financeiro-chart-subtitle">Saldo acumulado por vencimento.</p>
+              <h3>Fluxo de caixa <i class="fa-regular fa-circle-question financeiro-title-help" title="Recebimentos, pagamentos e saldo previsto no período."></i></h3>
             </div>
             <button class="financeiro-select-mini" type="button">Diário <i class="fa-solid fa-chevron-down"></i></button>
+          </div>
+          <div class="financeiro-chart-legend" aria-hidden="true">
+            <span><i class="is-receber"></i> Recebimentos</span>
+            <span><i class="is-pagar"></i> Pagamentos</span>
+            <span><i class="is-saldo"></i> Saldo</span>
           </div>
           <div class="financeiro-chart-wrap" id="financeiro-chart">
             <div class="financeiro-empty-chart">Carregando gráfico...</div>
           </div>
         </article>
 
-        <article class="financeiro-saas-card financeiro-list-card">
+        <article class="financeiro-saas-card financeiro-attention-card">
           <div class="financeiro-card-head">
             <div>
-              <h3>Top clientes</h3>
-              <p>Maiores valores a receber.</p>
+              <h3>Atenção financeira</h3>
+            </div>
+            <a href="/relatorios-financeiros">Ver todas</a>
+          </div>
+          <div class="financeiro-attention-list" id="financeiro-attention-list">
+            <a class="financeiro-attention-item is-danger" href="/contas-receber">
+              <span class="attention-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+              <strong data-attention-count="vencidos">0</strong>
+              <span class="attention-copy"><b>Vencidos</b><small>Contas vencidas</small></span>
+              <em data-attention-value="vencidos">R$ 0,00</em>
+              <i class="fa-solid fa-chevron-right attention-arrow"></i>
+            </a>
+            <a class="financeiro-attention-item is-warning" href="/contas-receber">
+              <span class="attention-icon"><i class="fa-regular fa-calendar"></i></span>
+              <strong data-attention-count="hoje">0</strong>
+              <span class="attention-copy"><b>Vencem hoje</b><small>Contas para vencer hoje</small></span>
+              <em data-attention-value="hoje">R$ 0,00</em>
+              <i class="fa-solid fa-chevron-right attention-arrow"></i>
+            </a>
+            <a class="financeiro-attention-item is-purple" href="/cobrancas-financeiro">
+              <span class="attention-icon"><i class="fa-regular fa-bell"></i></span>
+              <strong data-attention-count="cobrancas">0</strong>
+              <span class="attention-copy"><b>Cobranças pendentes</b><small>Aguardando ação</small></span>
+              <em data-attention-value="cobrancas">—</em>
+              <i class="fa-solid fa-chevron-right attention-arrow"></i>
+            </a>
+            <a class="financeiro-attention-item is-blue" href="/contas-pagar">
+              <span class="attention-icon"><i class="fa-regular fa-credit-card"></i></span>
+              <strong data-attention-count="pagamentos">0</strong>
+              <span class="attention-copy"><b>Pagamentos previstos</b><small>Próximos 7 dias</small></span>
+              <em data-attention-value="pagamentos">R$ 0,00</em>
+              <i class="fa-solid fa-chevron-right attention-arrow"></i>
+            </a>
+          </div>
+        </article>
+      </section>
+
+      <section class="financeiro-bottom-grid">
+        <article class="financeiro-saas-card financeiro-recent-card">
+          <div class="financeiro-card-head compact">
+            <div>
+              <h3>Últimos lançamentos</h3>
+            </div>
+            <div class="financeiro-card-actions">
+              <a href="/contas-receber">Ver todos</a>
+              <button class="btn btn-primary btn-novo-registro financeiro-btn-compact" type="button" data-new=""><i class="fa-solid fa-plus"></i> Novo</button>
+            </div>
+          </div>
+          <div class="financeiro-table-wrap financeiro-table-wrap--compact">
+            <table class="financeiro-table financeiro-table--saas financeiro-dashboard-table" id="financeiro-table">
+              <thead><tr><th>Descrição</th><th>Tipo</th><th>Pessoa</th><th>Vencimento</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="tbody-dashboard"><tr><td class="financeiro-empty" colspan="7">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="financeiro-saas-card financeiro-top-receber-card">
+          <div class="financeiro-card-head compact">
+            <div>
+              <h3>Maiores valores a receber</h3>
             </div>
             <a href="/contas-receber">Ver todos</a>
           </div>
@@ -135,51 +192,10 @@
         </article>
       </section>
 
-      <section class="financeiro-bottom-grid">
-        <article class="financeiro-saas-card">
-          <div class="financeiro-card-head compact">
-            <div>
-              <h3>Últimos lançamentos</h3>
-              <p>Movimentações recentes.</p>
-            </div>
-            <button class="btn btn-primary btn-novo-registro" type="button" data-new=""><i class="fa-solid fa-plus"></i> Novo</button>
-          </div>
-          <div class="financeiro-table-wrap financeiro-table-wrap--compact">
-            <table class="financeiro-table financeiro-table--saas" id="financeiro-table">
-              <thead><tr><th>Descrição</th><th>Tipo</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
-              <tbody id="tbody-dashboard"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody>
-            </table>
-          </div>
-        </article>
-
-        <article class="financeiro-saas-card">
-          <div class="financeiro-card-head compact">
-            <div>
-              <h3>Categorias</h3>
-              <p>Distribuição por tipo.</p>
-            </div>
-            <a href="/categorias-financeiras">Ver todas</a>
-          </div>
-          <div class="financeiro-category-list" id="financeiro-categorias-dashboard">
-            <div class="financeiro-empty-soft">Carregando categorias...</div>
-          </div>
-        </article>
-
-        <article class="financeiro-saas-card">
-          <div class="financeiro-card-head compact">
-            <div>
-              <h3>Status dos lançamentos</h3>
-              <p>Resumo do período.</p>
-            </div>
-            <a href="/relatorios-financeiros">Ver relatório</a>
-          </div>
-          <div class="financeiro-status-dashboard" id="financeiro-status-dashboard">
-            <div class="financeiro-empty-soft">Carregando status...</div>
-          </div>
-        </article>
-      </section>
-
-      <p class="financeiro-saas-note">Os valores exibidos estão em Reais (R$) e podem sofrer alterações conforme filtros e baixas.</p>
+      <div class="financeiro-overview-footer">
+        <span><i class="fa-solid fa-rotate"></i> <span id="financeiro-status-text">Carregando dados reais...</span></span>
+        <span class="financeiro-live"><i></i> Dados atualizados em tempo real</span>
+      </div>
     </main>
   </div>
 

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260725-financeiro-phase5-v1" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260811-financeiro-generalizado-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
   <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260725-financeiro-fase6-v1" />
 </head>
@@ -77,6 +77,16 @@
   <div class="financeiro-panel-head"><div><h3>Resumo por categoria</h3><p>Base gerencial por tipo, categoria, baixas e saldo aberto.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new=""><i class="fa-solid fa-plus"></i> Novo lançamento</button></div>
   <div class="financeiro-table-wrap"><table class="financeiro-table" id="financeiro-table"><thead><tr><th>Tipo</th><th>Categoria</th><th>Quantidade</th><th>Valor total</th><th>Pago/recebido</th><th>Saldo aberto</th></tr></thead><tbody id="tbody-relatorios"><tr><td class="financeiro-empty" colspan="6">Carregando...</td></tr></tbody></table></div>
 </section>
+
+      <section class="financeiro-panel">
+        <div class="financeiro-panel-head"><div><h3>Despesas por tipo de gasto</h3><p>Veja quanto foi classificado como custo, despesa, investimento, perda ou classificações próprias da empresa.</p></div></div>
+        <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Tipo de gasto</th><th>Quantidade</th><th>Valor total</th><th>Pago</th><th>Saldo aberto</th></tr></thead><tbody id="tbody-relatorio-tipos-gasto"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody></table></div>
+      </section>
+
+      <section class="financeiro-panel">
+        <div class="financeiro-panel-head"><div><h3>Movimentação por centro de custo</h3><p>Resumo por centro principal e secundário para análise gerencial.</p></div></div>
+        <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Centro principal</th><th>Subcentro</th><th>Quantidade</th><th>Valor total</th><th>Pago/recebido</th><th>Saldo aberto</th></tr></thead><tbody id="tbody-relatorio-centros-custo"><tr><td class="financeiro-empty" colspan="6">Carregando...</td></tr></tbody></table></div>
+      </section>
     </main>
   </div>
   

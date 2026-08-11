@@ -800,6 +800,18 @@ function aplicarIconesSidebarFichaPrincipal(formulario = null) {
 
     buttons.forEach((btn) => {
       if (btn.classList.contains('icon-btn')) return;
+
+      // Os botoes nativos do sidebar ja possuem o SVG correto no HTML.
+      // Nao injeta um segundo icone Font Awesome por cima deles.
+      const nativeIcon = btn.querySelector('.cliente-native-icon');
+
+      if (nativeIcon) {
+        // Limpa qualquer icone legado que possa ter sido inserido antes.
+        btn.querySelectorAll('.cliente-tab-icon').forEach((legacyIcon) => legacyIcon.remove());
+        btn.dataset.iconReady = 'native';
+        return;
+      }
+
       if (btn.dataset.iconReady === 'true') return;
 
       const rawTab =

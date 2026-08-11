@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cobrança | Valora CRM</title>
+  <script>(() => { const t = localStorage.getItem("valora_theme") || "light"; document.documentElement.setAttribute("data-theme", t); })();</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260630-dark-chatgpt-v6" />
+  <link rel="stylesheet" href="/frontend/css/financeiro.css?v=20260723-financeiro-base-v1" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
+  <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260811-financeiro-generalizado-v1" defer></script>
+  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260725-financeiro-fase6-v1" />
+</head>
+<body class="financeiro-theme-valora">
+  <div class="layout">
+    <div id="valora-menu-root" aria-label="Menu Valora"></div>
+    <main class="main financeiro-page financeiro-page--valora" data-financeiro-page="cobrancas">
+      <header class="topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Financeiro</span>
+          <h1>Cobrança</h1>
+          <p class="topbar-subtitle">Organize a régua de cobrança e acompanhe os contatos de títulos em aberto.</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn btn-secondary" href="/cadastros-financeiros"><i class="fa-solid fa-sliders"></i> Cadastros</a>
+          <button class="btn btn-primary" type="button" id="btn-processar-cobrancas"><i class="fa-solid fa-arrows-rotate"></i> Atualizar fila</button>
+        </div>
+      </header>
+
+      <div class="financeiro-toolbar">
+        <nav class="financeiro-tabs">
+          <a href="/financeiro"><i class="fa-regular fa-clipboard"></i><span>Visão Geral</span></a>
+          <a href="/vendas-financeiro"><i class="fa-solid fa-cart-arrow-down"></i><span>Vendas pendentes</span></a>
+          <a href="/contas-receber"><i class="fa-regular fa-calendar-check"></i><span>Contas a Receber</span></a>
+          <a href="/cobrancas-financeiro" class="active"><i class="fa-regular fa-bell"></i><span>Cobrança</span></a>
+          <a href="/contas-pagar"><i class="fa-regular fa-file-lines"></i><span>Contas a Pagar</span></a>
+          <a href="/fluxo-caixa"><i class="fa-solid fa-wave-square"></i><span>Fluxo de Caixa</span></a>
+          <a href="/categorias-financeiras"><i class="fa-regular fa-folder-open"></i><span>Categorias</span></a>
+          <a href="/formas-pagamento"><i class="fa-regular fa-credit-card"></i><span>Formas</span></a>
+          <a href="/contas-bancos"><i class="fa-solid fa-building-columns"></i><span>Contas/Bancos</span></a>
+          <a href="/cadastros-financeiros"><i class="fa-solid fa-sliders"></i><span>Cadastros</span></a>
+          <a href="/relatorios-financeiros"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a>
+        </nav>
+        <span class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando cobrança...</span>
+      </div>
+
+      <section class="financeiro-grid-4">
+        <article class="financeiro-card">
+          <div class="financeiro-card-top"><div><h3>Fila pendente</h3><p>Etapas que precisam de ação</p></div><span class="financeiro-icon blue"><i class="fa-regular fa-bell"></i></span></div>
+          <div><div class="financeiro-value" data-kpi="cobranca-fila">0</div><div class="financeiro-meta">Geradas pelas réguas ativas</div></div>
+        </article>
+        <article class="financeiro-card">
+          <div class="financeiro-card-top"><div><h3>Títulos vencidos</h3><p>Contas a receber em aberto</p></div><span class="financeiro-icon danger"><i class="fa-solid fa-clock-rotate-left"></i></span></div>
+          <div><div class="financeiro-value" data-kpi="cobranca-vencidos">0</div><div class="financeiro-meta">Títulos distintos em atraso</div></div>
+        </article>
+        <article class="financeiro-card">
+          <div class="financeiro-card-top"><div><h3>Ação de bloqueio</h3><p>Etapas pendentes configuradas</p></div><span class="financeiro-icon warn"><i class="fa-solid fa-ban"></i></span></div>
+          <div><div class="financeiro-value" data-kpi="cobranca-bloqueio">0</div><div class="financeiro-meta">A decisão final continua com a empresa</div></div>
+        </article>
+        <article class="financeiro-card">
+          <div class="financeiro-card-top"><div><h3>Ação de protesto</h3><p>Etapas pendentes configuradas</p></div><span class="financeiro-icon warn"><i class="fa-solid fa-scale-balanced"></i></span></div>
+          <div><div class="financeiro-value" data-kpi="cobranca-protesto">0</div><div class="financeiro-meta">Não envia títulos automaticamente</div></div>
+        </article>
+      </section>
+
+      <section class="financeiro-panel financeiro-filter-panel is-open">
+        <div class="financeiro-panel-head">
+          <div><h3>Fila de cobrança</h3><p>A fila é montada pelas regras da empresa. O Valora não considera uma mensagem enviada até você registrar o envio.</p></div>
+        </div>
+        <div class="financeiro-filters-grid">
+          <div class="financeiro-field"><label>Status</label><select id="filtro-cobranca-status"><option value="pendente" selected>Pendente</option><option value="erro">Com erro</option><option value="enviado">Enviado</option><option value="ignorado">Ignorado</option><option value="">Todos</option></select></div>
+          <div class="financeiro-field"><label>Ação</label><select id="filtro-cobranca-acao"><option value="">Todas</option><option value="lembrete">Lembrete</option><option value="alerta">Alerta</option><option value="bloqueio">Bloqueio</option><option value="protesto">Protesto</option><option value="outro">Outra</option></select></div>
+          <div class="financeiro-field" style="justify-content:flex-end;"><label>&nbsp;</label><button class="btn btn-primary" type="button" id="btn-aplicar-cobranca-filtros"><i class="fa-solid fa-filter"></i> Aplicar filtros</button></div>
+        </div>
+        <div class="financeiro-table-wrap">
+          <table class="financeiro-table">
+            <thead><tr><th>Cliente</th><th>Título</th><th>Vencimento</th><th>Atraso</th><th>Saldo</th><th>Etapa</th><th>Ação</th><th>Canal / contato</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="tbody-cobranca-fila"><tr><td class="financeiro-empty" colspan="10">Carregando fila...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="financeiro-panel">
+        <div class="financeiro-panel-head">
+          <div><h3>Réguas de cobrança</h3><p>Cada empresa pode ter sua própria sequência. Uma régua pode ser definida como padrão para novos títulos a receber.</p></div>
+          <button class="btn btn-primary" type="button" id="btn-nova-regua-cobranca"><i class="fa-solid fa-plus"></i> Nova régua</button>
+        </div>
+        <div class="financeiro-table-wrap">
+          <table class="financeiro-table">
+            <thead><tr><th>Nome</th><th>Etapas ativas</th><th>Padrão</th><th>Status</th><th>Descrição</th><th>Ações</th></tr></thead>
+            <tbody id="tbody-cobranca-reguas"><tr><td class="financeiro-empty" colspan="6">Carregando réguas...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="financeiro-panel" id="painel-cobranca-etapas">
+        <div class="financeiro-panel-head">
+          <div><h3>Etapas da régua</h3><p>Use dias negativos para avisos antes do vencimento e positivos para ações após o vencimento.</p></div>
+          <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
+            <div class="financeiro-field" style="min-width:260px;"><label>Régua</label><select id="cobranca-regua-etapas"><option value="">Selecione uma régua...</option></select></div>
+            <button class="btn btn-primary" type="button" id="btn-nova-etapa-cobranca"><i class="fa-solid fa-plus"></i> Nova etapa</button>
+          </div>
+        </div>
+        <div class="financeiro-table-wrap">
+          <table class="financeiro-table">
+            <thead><tr><th>Etapa</th><th>Momento</th><th>Canal</th><th>Ação</th><th>Mensagem</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="tbody-cobranca-etapas"><tr><td class="financeiro-empty" colspan="7">Selecione uma régua.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="financeiro-modal-backdrop" id="modal-regua-cobranca" aria-hidden="true">
+    <div class="financeiro-modal sm">
+      <form id="form-regua-cobranca">
+        <div class="financeiro-modal-head">
+          <div class="financeiro-modal-title"><h3 id="modal-regua-cobranca-titulo">Nova régua de cobrança</h3><p>Configure uma sequência própria para esta empresa.</p></div>
+          <button class="financeiro-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="financeiro-modal-body">
+          <div class="financeiro-form-grid cols-2">
+            <div class="financeiro-field full"><label>Nome</label><input name="nome" required placeholder="Ex.: Cobrança padrão"></div>
+            <div class="financeiro-field full"><label>Descrição</label><textarea name="descricao" placeholder="Quando esta régua deve ser utilizada"></textarea></div>
+            <div class="financeiro-field"><label>Régua padrão?</label><select name="padrao"><option value="false">Não</option><option value="true">Sim</option></select></div>
+            <div class="financeiro-field"><label>Status</label><select name="ativo"><option value="true">Ativa</option><option value="false">Inativa</option></select></div>
+          </div>
+        </div>
+        <div class="financeiro-modal-foot"><button class="btn btn-secondary" type="button" data-close-modal>Cancelar</button><button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Salvar régua</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="financeiro-modal-backdrop" id="modal-etapa-cobranca" aria-hidden="true">
+    <div class="financeiro-modal sm">
+      <form id="form-etapa-cobranca">
+        <div class="financeiro-modal-head">
+          <div class="financeiro-modal-title"><h3 id="modal-etapa-cobranca-titulo">Nova etapa da régua</h3><p>Defina quando a ação entra na fila e por qual canal.</p></div>
+          <button class="financeiro-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="financeiro-modal-body">
+          <input type="hidden" name="regua_id">
+          <div class="financeiro-form-grid cols-2">
+            <div class="financeiro-field full"><label>Nome da etapa</label><input name="nome" required placeholder="Ex.: Lembrete antes do vencimento"></div>
+            <div class="financeiro-field"><label>Dias em relação ao vencimento</label><input name="deslocamento_dias" type="number" min="-365" max="3650" required value="0"><small>Ex.: -2 = dois dias antes; 5 = cinco dias depois.</small></div>
+            <div class="financeiro-field"><label>Ordem</label><input name="ordem" type="number" min="0" step="1" value="0"></div>
+            <div class="financeiro-field"><label>Canal</label><select name="canal"><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="sms">SMS</option><option value="interno">Interno</option></select></div>
+            <div class="financeiro-field"><label>Ação</label><select name="acao"><option value="lembrete">Lembrete</option><option value="alerta">Alerta</option><option value="bloqueio">Bloqueio</option><option value="protesto">Protesto</option><option value="outro">Outra</option></select></div>
+            <div class="financeiro-field"><label>Status</label><select name="ativo"><option value="true">Ativa</option><option value="false">Inativa</option></select></div>
+            <div class="financeiro-field full"><label>Mensagem</label><textarea name="mensagem" placeholder="Texto opcional usado nesta etapa"></textarea><small>O texto é configurável. A fila não dispara WhatsApp, SMS ou e-mail sozinha sem um integrador de envio.</small></div>
+          </div>
+        </div>
+        <div class="financeiro-modal-foot"><button class="btn btn-secondary" type="button" data-close-modal>Cancelar</button><button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Salvar etapa</button></div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

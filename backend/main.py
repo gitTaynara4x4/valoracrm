@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import os
 import re
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse, Response, JSONResponse
@@ -13,6 +14,7 @@ from backend.routers.area_cliente_admin import router as area_cliente_admin_rout
 from backend.routers.area_cliente_publica import router as area_cliente_publica_router
 from backend.routers.contratos_admin import router as contratos_admin_router
 from backend.routers.monitoramento import router as monitoramento_router
+from backend.routers.auditoria_programadora import router as auditoria_programadora_router
 from backend.routers import cadastro
 from backend.routers.clientes import router as clientes_router
 from backend.routers.fornecedores import router as fornecedores_router
@@ -28,6 +30,7 @@ from backend.routers.usuarios import router as usuarios_router
 from backend.routers.permissoes import router as permissoes_router
 from backend.routers.formularios import router as formularios_router
 from backend.routers.financeiro import router as financeiro_router
+from backend.routers.financeiro_cobranca import router as financeiro_cobranca_router
 from backend.routers import empresa
 from backend.routers import campos_propostas
 from backend.routers.integracoes_zapschat import router as integracoes_zapschat_router
@@ -40,6 +43,7 @@ from backend.database import SessionLocal
 from backend import models
 from backend.security.permissions import user_has_permission
 from backend.security.session import SESSION_COOKIE_NAME, decode_session_token
+from backend.user_activity import new_request_id, record_authenticated_request
 
 
 # ============================================
@@ -169,7 +173,7 @@ except Exception:
 # Páginas internas que usam o shell persistente. Login, cadastro e a landing
 # pública continuam sendo documentos normais.
 APP_SHELL_FILE = FRONTEND_DIR / "app-shell.html"
-SHELL_EXCLUDED_PAGES = {"login", "cadastro", "inicio", "app-shell"}
+SHELL_EXCLUDED_PAGES = {"login", "cadastro", "inicio", "app-shell", "auditoria-programadora"}
 SHELL_PAGE_NAMES = {
     file.stem
     for file in FRONTEND_DIR.glob("*.html")
@@ -303,6 +307,7 @@ PAGE_PERMISSION_MODULES = {
     "/contas-pagar": "financeiro",
     "/contas-receber": "financeiro",
     "/vendas-financeiro": "financeiro",
+    "/cobrancas-financeiro": "financeiro",
     "/contas-bancos": "financeiro",
     "/cadastros-financeiros": "financeiro",
     "/categorias-financeiras": "financeiro",
@@ -384,11 +389,42 @@ def _request_uses_https(request: Request) -> bool:
     return str(request.url.scheme or "").lower() == "https"
 
 
+def _safe_local_next(value: str | None) -> str | None:
+    """Aceita somente destinos internos seguros para retorno após o login."""
+    raw = str(value or "").strip()
+    if not raw or not raw.startswith("/") or raw.startswith("//"):
+        return None
+
+    # Impede loop de login/cadastro e caracteres de controle em Location.
+    if any(char in raw for char in ("\r", "\n", "\x00")):
+        return None
+
+    path_only = raw.split("?", 1)[0].split("#", 1)[0].rstrip("/").lower() or "/"
+    if path_only in {"/login", "/frontend/login.html", "/cadastro", "/frontend/cadastro.html"}:
+        return None
+    return raw
+
+
+def _requested_page_after_login(request: Request) -> str | None:
+    if request.method.upper() not in {"GET", "HEAD"}:
+        return None
+    path = normalize_path(request.url.path or "/")
+    if path.startswith("/api/"):
+        return None
+
+    target = request.url.path or "/"
+    if request.url.query:
+        target += "?" + request.url.query
+    return _safe_local_next(target)
+
+
 def _clear_auth_response(request: Request, status_code: int, detail: str, *, api: bool):
     if api:
         response = JSONResponse(status_code=status_code, content={"detail": detail})
     else:
-        response = RedirectResponse(url="/login", status_code=302)
+        target = _requested_page_after_login(request)
+        login_url = f"/login?next={quote(target, safe='')}" if target else "/login"
+        response = RedirectResponse(url=login_url, status_code=302)
 
     for key, httponly in (
         (SESSION_COOKIE_NAME, True),
@@ -411,6 +447,7 @@ def _clear_auth_response(request: Request, status_code: int, detail: str, *, api
 async def require_auth_globally(request: Request, call_next):
     raw_path = request.url.path or "/"
     path = normalize_path(raw_path)
+    request.state.audit_request_id = new_request_id()
 
     if path in {"/login", "/frontend/login.html"}:
         existing_session = decode_session_token(request.cookies.get(SESSION_COOKIE_NAME, ""))
@@ -421,7 +458,8 @@ async def require_auth_globally(request: Request, call_next):
             except (TypeError, ValueError):
                 same_user = same_company = False
             if same_user and same_company:
-                return RedirectResponse(url="/dashboard", status_code=302)
+                next_page = _safe_local_next(request.query_params.get("next"))
+                return RedirectResponse(url=next_page or "/dashboard", status_code=302)
 
     if is_public_path(raw_path):
         # Login/cadastro são públicos. /api/auth/me faz sua própria validação.
@@ -473,19 +511,43 @@ async def require_auth_globally(request: Request, call_next):
             action = "ver"
 
         if module and not user_has_permission(db, user, module, action):
+            try:
+                record_authenticated_request(user, request, 403)
+            except Exception as exc:
+                print(f"[AUDITORIA USUÁRIO] Falha ao registrar acesso negado: {exc}")
             if is_api:
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=403,
                     content={"detail": f"Sem permissão para {action} em {module}."},
                 )
-            return RedirectResponse(url="/inicio?erro=sem-permissao", status_code=302)
+                response.headers["X-Valora-Request-ID"] = str(request.state.audit_request_id)
+                return response
+            response = RedirectResponse(url="/inicio?erro=sem-permissao", status_code=302)
+            response.headers["X-Valora-Request-ID"] = str(request.state.audit_request_id)
+            return response
     finally:
         db.close()
 
     if path in {"/login", "/frontend/login.html"}:
-        return RedirectResponse(url="/dashboard", status_code=302)
+        next_page = _safe_local_next(request.query_params.get("next"))
+        return RedirectResponse(url=next_page or "/dashboard", status_code=302)
 
-    return await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        try:
+            record_authenticated_request(user, request, 500)
+        except Exception as exc:
+            print(f"[AUDITORIA USUÁRIO] Falha ao registrar erro 500: {exc}")
+        raise
+
+    response.headers["X-Valora-Request-ID"] = str(request.state.audit_request_id)
+    try:
+        record_authenticated_request(user, request, int(response.status_code))
+    except Exception as exc:
+        # Auditoria nunca pode derrubar a navegação principal.
+        print(f"[AUDITORIA USUÁRIO] Falha inesperada no middleware: {exc}")
+    return response
 
 
 # ============================================
@@ -643,6 +705,7 @@ app.include_router(permissoes_router)
 app.include_router(campos_propostas.router)
 app.include_router(formularios_router)
 app.include_router(financeiro_router)
+app.include_router(financeiro_cobranca_router)
 app.include_router(integracoes_zapschat_router)
 app.include_router(exportacoes_router)
 app.include_router(agenda_router)
@@ -654,6 +717,7 @@ app.include_router(contratos_admin_router)
 app.include_router(area_cliente_acessos_admin_router)
 app.include_router(area_cliente_publica_router)
 app.include_router(monitoramento_router)
+app.include_router(auditoria_programadora_router)
 # ============================================
 # Helpers
 # ============================================

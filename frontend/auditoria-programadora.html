@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-page="auditoria-programadora">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <title>Auditoria da Programadora • Valora CRM</title>
+  <script>
+    (() => {
+      const theme = localStorage.getItem('valora_theme') === 'dark' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="/frontend/css/auditoria-programadora.css?v=20260810-audit-dev-v4" />
+</head>
+<body>
+  <main class="audit-page">
+    <section id="lockView" class="lock-view" aria-labelledby="lockTitle">
+      <div class="lock-card">
+        <div class="lock-brand">
+          <img src="/frontend/img/logo-favicon.jpg" alt="Valora" />
+          <span>Valora CRM</span>
+        </div>
+        <div class="lock-icon"><i class="fa-solid fa-shield-halved"></i></div>
+        <p class="eyebrow">Área restrita</p>
+        <h1 id="lockTitle">Auditoria da programadora</h1>
+        <p class="lock-copy">Esta página possui uma segunda proteção além do login do Valora. A senha é exigida novamente a cada abertura.</p>
+
+        <form id="unlockForm" autocomplete="off">
+          <label for="devPassword">Senha de acesso</label>
+          <div class="password-field">
+            <i class="fa-solid fa-lock"></i>
+            <input id="devPassword" type="password" inputmode="numeric" autocomplete="off" maxlength="64" placeholder="Digite a senha" required />
+            <button id="togglePassword" class="icon-button" type="button" aria-label="Mostrar senha">
+              <i class="fa-regular fa-eye"></i>
+            </button>
+          </div>
+          <p id="unlockError" class="form-error" role="alert"></p>
+          <button id="unlockButton" class="primary-button" type="submit">
+            <span>Acessar auditoria</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </form>
+        <a href="/dashboard" class="back-link"><i class="fa-solid fa-arrow-left"></i> Voltar ao Valora</a>
+      </div>
+    </section>
+
+    <section id="dashboardView" class="dashboard-view" hidden>
+      <header class="audit-header">
+        <div>
+          <div class="header-kicker"><span class="secure-dot"></span> Auditoria restrita</div>
+          <h1>Atividade do usuário</h1>
+          <p id="targetEmail" class="target-email">—</p>
+        </div>
+        <div class="header-actions">
+          <button id="refreshButton" class="soft-button" type="button"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+          <button id="lockButton" class="soft-button" type="button"><i class="fa-solid fa-lock"></i> Bloquear</button>
+          <a class="soft-button" href="/dashboard"><i class="fa-solid fa-arrow-left"></i> Valora</a>
+        </div>
+      </header>
+
+      <section class="live-panel">
+        <div class="live-main">
+          <div id="statusOrb" class="status-orb offline"><span></span></div>
+          <div class="live-copy-wrap">
+            <p class="small-label">O que está fazendo agora</p>
+            <div class="live-title-row">
+              <h2 id="liveStatus">Sem atividade recente</h2>
+              <span id="liveBadge" class="status-badge offline">Offline</span>
+            </div>
+            <p id="liveDescription" class="live-description">Aguardando atividade do usuário.</p>
+            <p id="liveAction" class="live-action">Última ação: —</p>
+          </div>
+        </div>
+        <div class="live-meta">
+          <div><span>Última atividade</span><strong id="lastActivity">—</strong></div>
+          <div><span>IP atual</span><strong id="lastIp">—</strong></div>
+          <div><span>Dispositivo</span><strong id="currentDevice">—</strong></div>
+        </div>
+      </section>
+
+      <section class="stats-grid" aria-label="Resumo da auditoria">
+        <article class="stat-card">
+          <div class="stat-icon"><i class="fa-solid fa-right-to-bracket"></i></div>
+          <div><span>Última entrada</span><strong id="lastLogin">—</strong></div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-icon"><i class="fa-regular fa-compass"></i></div>
+          <div><span>Atividades hoje</span><strong id="activitiesToday">0</strong></div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-icon"><i class="fa-solid fa-pen-to-square"></i></div>
+          <div><span>Alterações hoje</span><strong id="changesToday">0</strong></div>
+        </article>
+        <article class="stat-card stat-card-danger">
+          <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div><span>Erros / negados hoje</span><strong id="errorsToday">0</strong></div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-icon"><i class="fa-regular fa-window-maximize"></i></div>
+          <div><span>Página atual</span><strong id="currentPage">—</strong></div>
+        </article>
+      </section>
+
+      <section class="insight-grid">
+        <article class="insight-card">
+          <div class="section-title-row">
+            <div>
+              <p class="section-kicker">Uso de hoje</p>
+              <h2>Tempo ativo por módulo</h2>
+            </div>
+            <i class="fa-regular fa-clock section-icon"></i>
+          </div>
+          <div id="moduleTimeList" class="module-time-list"></div>
+          <div id="moduleTimeEmpty" class="mini-empty" hidden>Ainda não há tempo ativo suficiente para calcular.</div>
+        </article>
+
+        <article class="insight-card">
+          <div class="section-title-row">
+            <div>
+              <p class="section-kicker">Acessos</p>
+              <h2>Sessões e dispositivo</h2>
+            </div>
+            <i class="fa-solid fa-laptop section-icon"></i>
+          </div>
+          <div id="sessionList" class="session-list"></div>
+          <div id="sessionEmpty" class="mini-empty" hidden>Nenhuma entrada ou saída registrada.</div>
+        </article>
+      </section>
+
+      <section id="criticalSection" class="critical-section" hidden>
+        <div class="section-title-row critical-heading">
+          <div>
+            <p class="section-kicker">Atenção</p>
+            <h2>Erros e ações importantes recentes</h2>
+          </div>
+          <span id="criticalCount" class="count-pill">0</span>
+        </div>
+        <div id="criticalList" class="critical-list"></div>
+      </section>
+
+      <section class="audit-content">
+        <div class="content-toolbar">
+          <div class="toolbar-heading">
+            <h2>Linha do tempo detalhada</h2>
+            <p>Cliques, pesquisas, filtros, navegação, alterações, downloads, erros e sessões. Atualiza a cada 3 segundos.</p>
+          </div>
+          <div class="toolbar-controls">
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input id="searchInput" type="search" placeholder="Buscar no histórico" autocomplete="off" />
+            </div>
+            <select id="periodFilter" aria-label="Filtrar período">
+              <option value="all">Todo o retorno</option>
+              <option value="today">Hoje</option>
+              <option value="24h">Últimas 24h</option>
+              <option value="7d">Últimos 7 dias</option>
+            </select>
+            <select id="typeFilter" aria-label="Filtrar tipo">
+              <option value="all">Tudo</option>
+              <option value="changes">Alterações</option>
+              <option value="clicks">Cliques</option>
+              <option value="searches">Pesquisas e filtros</option>
+              <option value="downloads">Downloads / exportações</option>
+              <option value="navigation">Navegação</option>
+              <option value="session">Entrada e saída</option>
+              <option value="errors">Erros / negados</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="userSummary" class="user-summary" hidden></div>
+        <div id="timeline" class="timeline" aria-live="polite"></div>
+        <div id="emptyState" class="empty-state" hidden>
+          <i class="fa-regular fa-clock"></i>
+          <h3>Nenhum evento encontrado</h3>
+          <p>Altere os filtros ou aguarde uma nova atividade do usuário.</p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div id="eventModal" class="event-modal" hidden>
+    <button class="event-modal-backdrop" type="button" data-close-event aria-label="Fechar detalhes"></button>
+    <section class="event-modal-card" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle">
+      <header class="event-modal-header">
+        <div>
+          <p class="section-kicker">Detalhes do evento</p>
+          <h2 id="eventModalTitle">Evento</h2>
+          <p id="eventModalSubtitle">—</p>
+        </div>
+        <button class="modal-close" type="button" data-close-event aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+      <div id="eventModalBody" class="event-modal-body"></div>
+    </section>
+  </div>
+
+  <script src="/frontend/js/pages/auditoria-programadora.js?v=20260810-audit-dev-v3" defer></script>
+</body>
+</html>

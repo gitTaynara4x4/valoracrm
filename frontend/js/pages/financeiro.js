@@ -11,12 +11,13 @@
     auxItems: [],
     opcoes: {
       categorias: [], formas_pagamento: [], contas_bancos: [], clientes: [], fornecedores: [],
-      tipos_documento: [], naturezas_operacao: [], centros_custo: [], unidades_consumo: [],
-      contas_contabeis: [], formas_cobranca: [], regras_encargos: [],
+      tipos_documento: [], naturezas_operacao: [], tipos_gasto: [], centros_custo: [], unidades_consumo: [],
+      contas_contabeis: [], formas_cobranca: [], regras_encargos: [], reguas_cobranca: [],
     },
     filtros: {},
     historicoLancamentoId: null,
     baixaAtual: null,
+    cobranca: { reguas: [], etapas: [], fila: [], reguaSelecionadaId: null },
     sacadoLookup: {
       items: [],
       selecionado: null,
@@ -32,6 +33,7 @@
     conta: "/api/financeiro/contas-bancos",
     "tipo-documento": "/api/financeiro/tipos-documento",
     natureza: "/api/financeiro/naturezas-operacao",
+    "tipo-gasto": "/api/financeiro/tipos-gasto",
     "centro-custo": "/api/financeiro/centros-custo",
     "unidade-consumo": "/api/financeiro/unidades-consumo",
     "conta-contabil": "/api/financeiro/contas-contabeis",
@@ -197,19 +199,24 @@
 
   function rowLancamento(item, modo = "dashboard") {
     if (modo === "dashboard") {
-      const tipoLabel = item.tipo === "pagar" ? "Pagar" : "Receber";
+      const tipoLabel = item.tipo === "pagar" ? "Pagamento" : "Recebimento";
       const tipoClass = item.tipo === "pagar" ? "danger" : "ok";
+      const parceiro = item.tipo === "pagar"
+        ? (item.fornecedor_nome || "Sem fornecedor")
+        : (item.cliente_nome || "Sem cliente");
       return `<tr>
         <td>
           <div class="financeiro-lancamento-cell">
             <span class="financeiro-lancamento-icon ${tipoClass}"><i class="fa-solid ${item.tipo === "pagar" ? "fa-arrow-up" : "fa-arrow-down"}"></i></span>
-            <div><strong>${escapeHtml(item.descricao || "Sem descrição")}</strong><small>${dateBR(item.data_vencimento)} • ${escapeHtml(parceiroNome(item))}</small></div>
+            <div><strong>${escapeHtml(item.descricao || "Sem descrição")}</strong></div>
           </div>
         </td>
         <td>${pill(tipoLabel)}</td>
+        <td>${escapeHtml(parceiro)}</td>
+        <td>${dateBR(item.data_vencimento)}</td>
         <td class="financeiro-amount">${money(item.valor_total, item.moeda)}</td>
         <td>${pill(item.status)}</td>
-        <td>${acoesLancamento(item)}</td>
+        <td><button class="financeiro-dashboard-action" type="button" data-action="editar-lancamento" data-id="${item.id}" title="Abrir lançamento"><i class="fa-solid fa-ellipsis"></i></button></td>
       </tr>`;
     }
     const parceiro = item.tipo === "pagar" ? item.fornecedor_nome : item.cliente_nome;
@@ -266,56 +273,97 @@
 
     const valid = items
       .filter(i => i && i.data)
-      .slice(-18);
+      .slice(-24);
 
     if (!valid.length) {
-      host.innerHTML = `<div class="financeiro-empty-chart">Sem dados suficientes para montar o gráfico.</div>`;
+      host.innerHTML = `<div class="financeiro-empty-chart"><i class="fa-solid fa-chart-column"></i><strong>Ainda não há movimentações neste período</strong><span>Os dados aparecerão conforme os lançamentos forem registrados.</span></div>`;
       return;
     }
 
-    const valores = valid.map(i => Number(i.saldo_previsto_acumulado || 0));
+    const series = {
+      receber: valid.map(i => Number(i.entradas_previstas || 0)),
+      pagar: valid.map(i => -Math.abs(Number(i.saidas_previstas || 0))),
+      saldo: valid.map(i => Number(i.saldo_previsto_acumulado || 0)),
+    };
+    const valores = [...series.receber, ...series.pagar, ...series.saldo];
     const min = Math.min(0, ...valores);
     const max = Math.max(1, ...valores);
     const range = max - min || 1;
-    const width = 760;
-    const height = 260;
-    const padX = 42;
-    const padY = 30;
-    const chartW = width - padX * 2;
-    const chartH = height - padY * 2;
+    const width = 860;
+    const height = 244;
+    const padLeft = 52;
+    const padRight = 18;
+    const padTop = 18;
+    const padBottom = 32;
+    const chartW = width - padLeft - padRight;
+    const chartH = height - padTop - padBottom;
 
-    const points = valid.map((item, idx) => {
-      const x = padX + (idx * chartW) / Math.max(valid.length - 1, 1);
-      const y = padY + chartH - ((Number(item.saldo_previsto_acumulado || 0) - min) / range) * chartH;
-      return { x, y, item };
-    });
+    const xFor = (idx) => padLeft + (idx * chartW) / Math.max(valid.length - 1, 1);
+    const yFor = (value) => padTop + chartH - ((Number(value || 0) - min) / range) * chartH;
+    const pointsFor = (values) => values.map((value, idx) => `${xFor(idx).toFixed(1)},${yFor(value).toFixed(1)}`).join(" ");
+    const compact = (value) => {
+      const n = Number(value || 0);
+      const abs = Math.abs(n);
+      const sign = n < 0 ? "-" : "";
+      if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+      if (abs >= 1_000) return `${sign}${(abs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`;
+      return `${sign}${abs.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+    };
 
-    const polyline = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-    const area = `${padX},${height - padY} ${polyline} ${width - padX},${height - padY}`;
-    const last = points[points.length - 1];
-    const grid = [0, 1, 2, 3].map(i => {
-      const y = padY + (chartH / 3) * i;
-      return `<line x1="${padX}" y1="${y}" x2="${width - padX}" y2="${y}" />`;
+    const gridCount = 4;
+    const grid = Array.from({ length: gridCount + 1 }, (_, idx) => {
+      const ratio = idx / gridCount;
+      const y = padTop + chartH * ratio;
+      const value = max - range * ratio;
+      return `<line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${width - padRight}" y2="${y.toFixed(1)}" />
+        <text class="axis-label" x="${padLeft - 10}" y="${(y + 3).toFixed(1)}" text-anchor="end">${compact(value)}</text>`;
+    }).join("");
+
+    const maxLabels = 6;
+    const step = Math.max(1, Math.ceil(valid.length / maxLabels));
+    const xLabels = valid.map((item, idx) => {
+      if (idx !== valid.length - 1 && idx % step !== 0) return "";
+      return `<text class="axis-label" x="${xFor(idx).toFixed(1)}" y="${height - 8}" text-anchor="middle">${escapeHtml(dateBR(item.data).slice(0, 5))}</text>`;
     }).join("");
 
     host.innerHTML = `
       <svg class="financeiro-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Fluxo financeiro">
-        <defs>
-          <linearGradient id="finChartFill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stop-color="#65ACDE" stop-opacity="0.24" />
-            <stop offset="100%" stop-color="#65ACDE" stop-opacity="0" />
-          </linearGradient>
-        </defs>
         <g class="grid">${grid}</g>
-        <polygon class="area" points="${area}" />
-        <polyline class="line" points="${polyline}" />
-        <circle class="point" cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="5" />
-        <g class="tooltip" transform="translate(${Math.min(last.x + 14, width - 210)}, ${Math.max(last.y - 44, 22)})">
-          <rect width="174" height="54" rx="10"></rect>
-          <text x="14" y="22">${money(last.item.saldo_previsto_acumulado)}</text>
-          <text x="14" y="40" class="muted">${dateBR(last.item.data)}</text>
-        </g>
+        <g class="x-labels">${xLabels}</g>
+        <polyline class="series receber" points="${pointsFor(series.receber)}" />
+        <polyline class="series pagar" points="${pointsFor(series.pagar)}" />
+        <polyline class="series saldo" points="${pointsFor(series.saldo)}" />
       </svg>`;
+  }
+
+  function renderAtencaoFinanceira(lancamentos = [], cobrancaResumo = {}, contasPagar = []) {
+    const hoje = todayISO();
+    const limite = new Date(`${hoje}T12:00:00`);
+    limite.setDate(limite.getDate() + 7);
+    const limiteISO = limite.toISOString().slice(0, 10);
+    const saldo = (item) => Math.max(0, Number(item?.saldo_aberto ?? (Number(item?.valor_total || 0) - Number(item?.valor_pago || 0))));
+    const aberto = (item) => {
+      const status = String(item?.status || "aberto").toLowerCase();
+      return !["pago", "recebido", "cancelado"].includes(status) && saldo(item) > 0;
+    };
+    const vencidos = lancamentos.filter(item => aberto(item) && String(item.data_vencimento || "").slice(0, 10) < hoje);
+    const vencemHoje = lancamentos.filter(item => aberto(item) && String(item.data_vencimento || "").slice(0, 10) === hoje);
+    const pagamentos = contasPagar.filter(item => {
+      const data = String(item.data_vencimento || "").slice(0, 10);
+      return aberto(item) && data >= hoje && data <= limiteISO;
+    });
+
+    const setAttention = (key, count, value = null) => {
+      const countEl = $(`[data-attention-count="${key}"]`);
+      const valueEl = $(`[data-attention-value="${key}"]`);
+      if (countEl) countEl.textContent = String(Number(count || 0));
+      if (valueEl && value !== null) valueEl.textContent = money(value);
+    };
+
+    setAttention("vencidos", vencidos.length, soma(vencidos, saldo));
+    setAttention("hoje", vencemHoje.length, soma(vencemHoje, saldo));
+    setAttention("cobrancas", Number(cobrancaResumo?.fila_pendente || 0), null);
+    setAttention("pagamentos", pagamentos.length, soma(pagamentos, saldo));
   }
 
   function renderTopClientes(items = []) {
@@ -325,7 +373,8 @@
     const map = new Map();
     items.forEach(item => {
       const nome = item.cliente_nome || item.fornecedor_nome || "Sem cliente";
-      const total = Number(item.valor_total || 0);
+      const total = Math.max(0, Number(item.saldo_aberto ?? (Number(item.valor_total || 0) - Number(item.valor_pago || 0))));
+      if (total <= 0) return;
       map.set(nome, (map.get(nome) || 0) + total);
     });
 
@@ -446,6 +495,42 @@
     return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
   }
 
+  function adicionarOpcaoAtual(select, id, label) {
+    if (!select || id === null || id === undefined || String(id).trim() === "") return;
+    const value = String(id);
+    if (Array.from(select.options || []).some(opt => String(opt.value) === value)) return;
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = `${label || `Registro #${value}`} (atual — fora da lista ativa)`;
+    opt.dataset.currentLegacy = "true";
+    select.appendChild(opt);
+  }
+
+  function garantirOpcoesAtuaisLancamento(form, item) {
+    if (!form || !item) return;
+    const contaContabilLabel = [item.conta_contabil_codigo, item.conta_contabil_nome].filter(Boolean).join(" - ");
+    const defs = [
+      ["cliente_id", item.cliente_id, item.cliente_nome],
+      ["fornecedor_id", item.fornecedor_id, item.fornecedor_nome],
+      ["categoria_id", item.categoria_id, item.categoria_nome],
+      ["forma_pagamento_id", item.forma_pagamento_id, item.forma_pagamento_nome],
+      ["conta_banco_id", item.conta_banco_id, item.conta_banco_nome],
+      ["tipo_documento_id", item.tipo_documento_id, item.tipo_documento_nome],
+      ["natureza_operacao_id", item.natureza_operacao_id, item.natureza_operacao_nome],
+      ["tipo_gasto_id", item.tipo_gasto_id, item.tipo_gasto_nome],
+      ["centro_custo_principal_id", item.centro_custo_principal_id, item.centro_custo_principal_nome],
+      ["centro_custo_secundario_id", item.centro_custo_secundario_id, item.centro_custo_secundario_nome],
+      ["unidade_consumo_principal_id", item.unidade_consumo_principal_id, item.unidade_consumo_principal_nome],
+      ["unidade_consumo_secundaria_id", item.unidade_consumo_secundaria_id, item.unidade_consumo_secundaria_nome],
+      ["conta_contabil_id", item.conta_contabil_id, contaContabilLabel],
+      ["forma_cobranca_id", item.forma_cobranca_id, item.forma_cobranca_nome],
+      ["regra_encargos_id", item.regra_encargos_id, item.regra_encargos_nome],
+      ["regua_cobranca_id", item.regua_cobranca_id, item.regua_cobranca_nome],
+      ["entidade_emissora_id", item.entidade_emissora_id, item.entidade_emissora_nome],
+    ];
+    defs.forEach(([name, id, label]) => adicionarOpcaoAtual(form.querySelector(`[name="${name}"]`), id, label));
+  }
+
   function preencherSelects() {
     const ops = state.opcoes || {};
     $$('[data-select="categorias"]').forEach(sel => {
@@ -487,8 +572,9 @@
     };
     popular('[data-select="tipos-documento"]', ops.tipos_documento, i => `${i.nome}${i.aplicacao && i.aplicacao !== "ambos" ? ` (${i.aplicacao})` : ""}`);
     popular('[data-select="naturezas-operacao"]', ops.naturezas_operacao, i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
-    popular('[data-select="centros-custo"]', ops.centros_custo, i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
-    popular('[data-select="unidades-consumo"]', ops.unidades_consumo, i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
+    popular('[data-select="tipos-gasto"]', ops.tipos_gasto, i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
+    popular('[data-select="centros-custo"]', ops.centros_custo, i => `${i.centro_pai_id ? "↳ " : ""}${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
+    popular('[data-select="unidades-consumo"]', ops.unidades_consumo, i => `${i.unidade_pai_id ? "↳ " : ""}${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
     popular('[data-select="contas-contabeis"]', (ops.contas_contabeis || []).filter(i => i.aceita_lancamento !== false), i => `${i.codigo} - ${i.nome}`);
     popular('[data-select="formas-cobranca"]', ops.formas_cobranca, i => i.nome);
     const filtroFormaCobranca = $("#filtro-forma-cobranca");
@@ -496,6 +582,7 @@
     const filtroFormaPagamento = $("#filtro-forma-pagamento");
     if (filtroFormaPagamento && !filtroFormaPagamento.value) filtroFormaPagamento.options[0].textContent = "Todas as formas";
     popular('[data-select="regras-encargos"]', ops.regras_encargos, i => `${i.nome}${i.padrao ? " (padrão)" : ""}`);
+    popular('[data-select="reguas-cobranca"]', ops.reguas_cobranca, i => `${i.nome}${i.padrao ? " (padrão)" : ""}`);
     popular('[data-select="entidades-emissoras"]', ops.contas_bancos, i => i.nome);
   }
 
@@ -758,6 +845,10 @@
     }
     const navCobranca = form.querySelector('[data-financeiro-section="fin-sec-cobranca-cliente"]');
     if (navCobranca) navCobranca.hidden = !receber;
+    const tipoGastoField = form.querySelector('[name="tipo_gasto_id"]')?.closest(".financeiro-field");
+    if (tipoGastoField) tipoGastoField.hidden = receber;
+    const reguaField = form.querySelector('[name="regua_cobranca_id"]')?.closest(".financeiro-field");
+    if (reguaField) reguaField.hidden = !receber;
     const pagamento = form.querySelector("#fin-sec-pagamento");
     if (pagamento) {
       const h4 = pagamento.querySelector("h4");
@@ -773,20 +864,52 @@
     if (tipoSelect) tipoSelect.disabled = ["receber", "pagar"].includes(state.page);
   }
 
+  function statusAutomaticoFormulario(form) {
+    if (!form) return "aberto";
+    const tipo = String(form.querySelector('[name="tipo"]')?.value || "receber").toLowerCase();
+    const statusAtual = String(form.querySelector('[name="status"]')?.value || "").toLowerCase();
+    if (statusAtual === "cancelado") return "cancelado";
+    const total = Number(moneyToBackend(form.querySelector('[name="valor_total"]')?.value || 0));
+    const pago = Number(moneyToBackend(form.querySelector('[name="valor_pago"]')?.value || 0));
+    if (total > 0 && pago >= total) return tipo === "pagar" ? "pago" : "recebido";
+    if (pago > 0) return "parcial";
+    const vencimento = form.querySelector('[name="data_vencimento"]')?.value;
+    if (vencimento && vencimento < todayISO()) return "vencido";
+    return "aberto";
+  }
+
+  function atualizarCampoStatusLancamento(form) {
+    if (!form) return;
+    const status = form.querySelector('[name="status"]');
+    if (!status) return;
+    status.value = statusAutomaticoFormulario(form);
+    status.disabled = true;
+    status.setAttribute("aria-disabled", "true");
+    status.title = "Status calculado automaticamente por vencimento e baixas. Use as ações Baixar ou Cancelar para alterá-lo.";
+    const label = status.closest(".financeiro-field")?.querySelector("label");
+    if (label) label.textContent = "Status (automático)";
+  }
+
   function atualizarCamposParcelamento(form) {
     if (!form) return;
-    const parcelado = form.querySelector('[name="parcelado"]')?.value === "true";
+    const parceladoSelect = form.querySelector('[name="parcelado"]');
+    const parcelado = parceladoSelect?.value === "true";
     const quantidade = form.querySelector('[name="parcelas_gerar"]');
     const intervalo = form.querySelector('[name="intervalo_parcelas_meses"]');
     const modo = form.querySelector('[name="modo_parcelamento"]');
-    [quantidade, intervalo, modo].forEach(el => { if (el) el.disabled = !parcelado || Boolean(form.dataset.editando); });
-    if (!parcelado && quantidade) quantidade.value = "1";
+    const editando = Boolean(form.dataset.editando);
+    if (parceladoSelect) {
+      parceladoSelect.disabled = editando;
+      parceladoSelect.title = editando ? "O parcelamento é definido na criação e não pode ser transformado durante a edição de uma parcela." : "";
+    }
+    [quantidade, intervalo, modo].forEach(el => { if (el) el.disabled = !parcelado || editando; });
+    if (!parcelado && quantidade && !editando) quantidade.value = "1";
     const resumo = form.querySelector('[data-parcelamento-resumo]');
     if (!resumo) return;
-    if (form.dataset.editando) {
+    if (editando) {
       const numero = form.querySelector('[name="parcela_numero"]')?.value;
       const total = form.querySelector('[name="parcela_total"]')?.value;
-      resumo.textContent = total ? `Este registro é a parcela ${numero || 1} de ${total}. A edição altera somente esta parcela.` : "Edição de lançamento único.";
+      resumo.textContent = total ? `Este registro é a parcela ${numero || 1} de ${total}. O parcelamento original é preservado; a edição altera somente esta parcela.` : "Edição de lançamento único. Para gerar novas parcelas, crie um novo lançamento parcelado.";
     } else if (parcelado) {
       const qtd = Math.max(1, Number(quantidade?.value || 1));
       resumo.textContent = `${qtd} lançamento${qtd === 1 ? "" : "s"} serão criados a partir do primeiro vencimento.`;
@@ -836,12 +959,13 @@
 
   async function carregarDashboard() {
     const filtroAtual = filtros();
-    const [data, fluxo, relatorio, lancamentosData, receberData] = await Promise.all([
+    const [data, fluxo, lancamentosData, receberData, pagarData, cobrancaResumo] = await Promise.all([
       request("/api/financeiro/dashboard"),
       request(`/api/financeiro/fluxo-caixa${qs(filtroAtual)}`).catch(() => ({ items: [] })),
-      request(`/api/financeiro/relatorios/resumo${qs(filtroAtual)}`).catch(() => ({ por_categoria: [] })),
       request(`/api/financeiro/lancamentos${qs({ ...filtroAtual, limit: 50 })}`).catch(() => ({ items: [] })),
       request(`/api/financeiro/contas-receber${qs({ ...filtroAtual, limit: 300 })}`).catch(() => ({ items: [] })),
+      request(`/api/financeiro/contas-pagar${qs({ ...filtroAtual, limit: 300 })}`).catch(() => ({ items: [] })),
+      request("/api/financeiro/cobrancas/resumo").catch(() => ({ fila_pendente: 0 })),
     ]);
 
     const r = data.resumo || {};
@@ -860,18 +984,14 @@
     setKPI("trend-saldo", saldoPrevisto >= 0 ? `↑ ${money(saldoPrevisto)}` : `↓ ${money(Math.abs(saldoPrevisto))}`);
 
     const lancamentos = safeItems(lancamentosData);
-    state.items = lancamentos.length ? lancamentos.slice(0, 5) : (data.proximos_vencimentos || []).slice(0, 5);
-    setTable("tbody-dashboard", 5, state.items.map(i => rowLancamento(i, "dashboard")).join(""), "Nenhum lançamento financeiro cadastrado ainda.");
+    state.items = lancamentos.length ? lancamentos.slice(0, 4) : (data.proximos_vencimentos || []).slice(0, 4);
+    setTable("tbody-dashboard", 7, state.items.map(i => rowLancamento(i, "dashboard")).join(""), "Nenhum lançamento financeiro cadastrado ainda.");
 
     renderFluxoChart(safeItems(fluxo));
     renderTopClientes(safeItems(receberData));
-    renderCategoriasDashboard(relatorio.por_categoria || []);
-    renderStatusDashboard(lancamentos.length ? lancamentos : (data.proximos_vencimentos || []));
+    renderAtencaoFinanceira([...safeItems(receberData), ...safeItems(pagarData)], cobrancaResumo, safeItems(pagarData));
 
-    const subtitle = $("#financeiro-chart-subtitle");
-    if (subtitle) subtitle.textContent = `${safeItems(fluxo).length} ponto(s) de fluxo carregados.`;
-
-    setStatusText("Dados atualizados agora.");
+    setStatusText("Atualizado agora há pouco.");
   }
 
   async function carregarReceber() {
@@ -962,8 +1082,9 @@
     const defs = [
       { tipo: "tipo-documento", endpoint: ENDPOINTS["tipo-documento"], tbody: "tbody-tipos-documento", cols: 6, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.aplicacao)}</td><td>${i.exige_entidade_emissora ? "Sim" : "Não"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "tipo-documento")}</td></tr>` },
       { tipo: "natureza", endpoint: ENDPOINTS.natureza, tbody: "tbody-naturezas", cols: 5, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.aplicacao)}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "natureza")}</td></tr>` },
+      { tipo: "tipo-gasto", endpoint: ENDPOINTS["tipo-gasto"], tbody: "tbody-tipos-gasto", cols: 4, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "tipo-gasto")}</td></tr>` },
       { tipo: "centro-custo", endpoint: ENDPOINTS["centro-custo"], tbody: "tbody-centros-custo", cols: 5, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(i.centro_pai_nome || "Principal")}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "centro-custo")}</td></tr>` },
-      { tipo: "unidade-consumo", endpoint: ENDPOINTS["unidade-consumo"], tbody: "tbody-unidades-consumo", cols: 5, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(i.departamento_referencia || "-")}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "unidade-consumo")}</td></tr>` },
+      { tipo: "unidade-consumo", endpoint: ENDPOINTS["unidade-consumo"], tbody: "tbody-unidades-consumo", cols: 6, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(String(i.tipo_referencia || "outro").replaceAll("_", " "))}</td><td>${escapeHtml(i.unidade_pai_nome || "Principal")}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "unidade-consumo")}</td></tr>` },
       { tipo: "conta-contabil", endpoint: ENDPOINTS["conta-contabil"], tbody: "tbody-contas-contabeis", cols: 7, row: i => `<tr><td>${escapeHtml(i.codigo)}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.tipo)}</td><td>${escapeHtml(i.conta_pai_nome || "Raiz")}</td><td>${i.aceita_lancamento ? "Sim" : "Não"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "conta-contabil")}</td></tr>` },
       { tipo: "forma-cobranca", endpoint: ENDPOINTS["forma-cobranca"], tbody: "tbody-formas-cobranca", cols: 4, row: i => `<tr><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(String(i.tipo || "-").replaceAll("_", " "))}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "forma-cobranca")}</td></tr>` },
       { tipo: "regra-encargos", endpoint: ENDPOINTS["regra-encargos"], tbody: "tbody-regras-encargos", cols: 7, row: i => `<tr><td>${escapeHtml(i.nome)}</td><td>${pill(i.aplicacao)}</td><td>${i.possui_multa ? `${Number(i.indice_multa_percent || 0).toLocaleString("pt-BR")}%` : "Não"}</td><td>${i.possui_mora_diaria ? `${Number(i.indice_mora_diaria_percent || 0).toLocaleString("pt-BR")}% ao dia` : "Não"}</td><td>${i.padrao ? pill("Padrão") : "-"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "regra-encargos")}</td></tr>` },
@@ -977,6 +1098,153 @@
     setKPI("cadastros-ativos", String(ativos));
     setKPI("cadastros-grupos", String(defs.length));
     setStatusText(`${total} cadastro(s) financeiro(s).`);
+  }
+
+  function descricaoMomentoEtapa(dias) {
+    const n = Number(dias || 0);
+    if (n < 0) return `${Math.abs(n)} dia${Math.abs(n) === 1 ? "" : "s"} antes`;
+    if (n === 0) return "No vencimento";
+    return `${n} dia${n === 1 ? "" : "s"} depois`;
+  }
+
+  function abrirReguaCobranca(item = null) {
+    const form = $("#form-regua-cobranca");
+    if (!form) return;
+    form.reset();
+    form.dataset.id = item?.id || "";
+    setForm(form, {
+      nome: item?.nome || "",
+      descricao: item?.descricao || "",
+      padrao: String(Boolean(item?.padrao)),
+      ativo: String(item ? item.ativo !== false : true),
+    });
+    const titulo = $("#modal-regua-cobranca-titulo");
+    if (titulo) titulo.textContent = item ? "Editar régua de cobrança" : "Nova régua de cobrança";
+    abrirModal("#modal-regua-cobranca");
+  }
+
+  function abrirEtapaCobranca(item = null, reguaId = null) {
+    const form = $("#form-etapa-cobranca");
+    if (!form) return;
+    const rid = Number(reguaId || item?.regua_id || state.cobranca.reguaSelecionadaId || 0);
+    if (!rid) return alertBox("Selecione uma régua antes de criar uma etapa.", "warn");
+    form.reset();
+    form.dataset.id = item?.id || "";
+    setForm(form, {
+      regua_id: rid,
+      nome: item?.nome || "",
+      deslocamento_dias: item?.deslocamento_dias ?? 0,
+      canal: item?.canal || "whatsapp",
+      acao: item?.acao || "lembrete",
+      mensagem: item?.mensagem || "",
+      ordem: item?.ordem ?? 0,
+      ativo: String(item ? item.ativo !== false : true),
+    });
+    const titulo = $("#modal-etapa-cobranca-titulo");
+    if (titulo) titulo.textContent = item ? "Editar etapa da régua" : "Nova etapa da régua";
+    abrirModal("#modal-etapa-cobranca");
+  }
+
+  async function carregarEtapasCobranca(reguaId) {
+    const rid = Number(reguaId || 0);
+    state.cobranca.reguaSelecionadaId = rid || null;
+    if (!rid) {
+      state.cobranca.etapas = [];
+      setTable("tbody-cobranca-etapas", 7, "", "Selecione uma régua para visualizar as etapas.");
+      return;
+    }
+    const etapas = await request(`/api/financeiro/reguas-cobranca/${rid}/etapas`);
+    state.cobranca.etapas = etapas;
+    setTable("tbody-cobranca-etapas", 7, etapas.map(i => `<tr>
+      <td>${escapeHtml(i.nome)}</td>
+      <td>${escapeHtml(descricaoMomentoEtapa(i.deslocamento_dias))}</td>
+      <td>${escapeHtml(String(i.canal || "-").replaceAll("_", " "))}</td>
+      <td>${pill(String(i.acao || "-").replaceAll("_", " "))}</td>
+      <td>${i.mensagem ? escapeHtml(i.mensagem.length > 80 ? `${i.mensagem.slice(0, 80)}…` : i.mensagem) : '<span class="financeiro-muted">Sem mensagem</span>'}</td>
+      <td>${pill(i.ativo ? "Ativo" : "Inativo")}</td>
+      <td><div class="actions-cell"><button class="financeiro-mini-btn" type="button" data-action="editar-etapa-cobranca" data-id="${i.id}"><i class="fa-regular fa-pen-to-square"></i> Editar</button><button class="financeiro-mini-btn danger" type="button" data-action="excluir-etapa-cobranca" data-id="${i.id}"><i class="fa-regular fa-trash-can"></i></button></div></td>
+    </tr>`).join(""), "Nenhuma etapa cadastrada nesta régua.");
+  }
+
+  async function carregarCobrancas() {
+    await request("/api/financeiro/cobrancas/processar", { method: "POST" }).catch(err => console.warn("[Financeiro] não foi possível processar régua", err));
+    const [resumo, fila, reguas] = await Promise.all([
+      request("/api/financeiro/cobrancas/resumo"),
+      request(`/api/financeiro/cobrancas/fila${qs({ status: $("#filtro-cobranca-status") ? $("#filtro-cobranca-status").value : "pendente", acao: $("#filtro-cobranca-acao")?.value || "" })}`),
+      request("/api/financeiro/reguas-cobranca"),
+    ]);
+    state.cobranca.fila = fila;
+    state.cobranca.reguas = reguas;
+    state.items = fila;
+
+    setKPI("cobranca-fila", String(Number(resumo.fila_pendente || 0)));
+    setKPI("cobranca-vencidos", String(Number(resumo.titulos_vencidos || 0)));
+    setKPI("cobranca-bloqueio", String(Number(resumo.a_bloquear || 0)));
+    setKPI("cobranca-protesto", String(Number(resumo.a_protestar || 0)));
+
+    setTable("tbody-cobranca-fila", 10, fila.map(i => `<tr>
+      <td>${escapeHtml(i.cliente_nome || "Cliente não identificado")}</td>
+      <td>${escapeHtml(i.lancamento_descricao || `Título #${i.lancamento_id}`)}${i.documento ? `<small>${escapeHtml(i.documento)}</small>` : ""}</td>
+      <td>${dateBR(i.data_vencimento)}</td>
+      <td>${Number(i.dias_atraso || 0)} dia(s)</td>
+      <td class="financeiro-amount">${money(i.saldo_aberto)}</td>
+      <td>${escapeHtml(i.etapa_nome || "-")}</td>
+      <td>${pill(String(i.acao || "-").replaceAll("_", " "))}</td>
+      <td>${escapeHtml(String(i.canal || "-").replaceAll("_", " "))}<small>${escapeHtml(i.contato_destino || "Sem contato")}</small></td>
+      <td>${pill(i.status || "pendente")}</td>
+      <td><div class="actions-cell">
+        ${i.canal === "whatsapp" && i.cliente_id ? `<button class="financeiro-mini-btn" type="button" data-action="abrir-cobranca-zapschat" data-id="${i.id}" title="Abrir conversa no ZapsChat"><i class="fa-brands fa-whatsapp"></i></button>` : ""}
+        ${i.mensagem ? `<button class="financeiro-mini-btn" type="button" data-action="copiar-cobranca-mensagem" data-id="${i.id}" title="Copiar mensagem"><i class="fa-regular fa-copy"></i></button>` : ""}
+        ${i.status === "pendente" || i.status === "erro" ? `<button class="financeiro-mini-btn" type="button" data-action="marcar-cobranca-enviada" data-id="${i.id}"><i class="fa-solid fa-check"></i> Enviado</button><button class="financeiro-mini-btn warn" type="button" data-action="ignorar-cobranca" data-id="${i.id}">Ignorar</button>` : ""}
+      </div></td>
+    </tr>`).join(""), "Nenhuma cobrança na fila com estes filtros.");
+
+    setTable("tbody-cobranca-reguas", 6, reguas.map(i => `<tr>
+      <td>${escapeHtml(i.nome)}</td><td>${Number(i.etapas_ativas || 0)}</td><td>${i.padrao ? pill("Padrão") : "-"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${escapeHtml(i.descricao || "-")}</td>
+      <td><div class="actions-cell"><button class="financeiro-mini-btn" type="button" data-action="selecionar-regua-cobranca" data-id="${i.id}"><i class="fa-solid fa-list-check"></i> Etapas</button><button class="financeiro-mini-btn" type="button" data-action="editar-regua-cobranca" data-id="${i.id}"><i class="fa-regular fa-pen-to-square"></i></button><button class="financeiro-mini-btn danger" type="button" data-action="excluir-regua-cobranca" data-id="${i.id}"><i class="fa-regular fa-trash-can"></i></button></div></td>
+    </tr>`).join(""), "Nenhuma régua cadastrada.");
+
+    const select = $("#cobranca-regua-etapas");
+    if (select) {
+      const atual = String(state.cobranca.reguaSelecionadaId || select.value || reguas.find(i => i.padrao)?.id || reguas[0]?.id || "");
+      select.innerHTML = '<option value="">Selecione uma régua...</option>' + reguas.map(i => option(`${i.nome}${i.padrao ? " (padrão)" : ""}`, i.id)).join("");
+      select.value = atual;
+      await carregarEtapasCobranca(select.value);
+    }
+    setStatusText(`${fila.length} item(ns) na fila de cobrança exibida(s).`);
+  }
+
+  async function salvarReguaCobranca(ev) {
+    ev.preventDefault();
+    const form = ev.currentTarget;
+    const data = getForm(form);
+    const id = form.dataset.id;
+    const body = { nome: data.nome, descricao: data.descricao || null, padrao: data.padrao === "true", ativo: data.ativo === "true" };
+    try {
+      await request(id ? `/api/financeiro/reguas-cobranca/${id}` : "/api/financeiro/reguas-cobranca", { method: id ? "PUT" : "POST", body });
+      fecharModais();
+      alertBox("Régua de cobrança salva.", "ok");
+      await recarregar();
+    } catch (err) { alertBox(`Erro ao salvar régua: ${err.message}`, "danger"); }
+  }
+
+  async function salvarEtapaCobranca(ev) {
+    ev.preventDefault();
+    const form = ev.currentTarget;
+    const data = getForm(form);
+    const id = form.dataset.id;
+    const body = {
+      regua_id: Number(data.regua_id), nome: data.nome,
+      deslocamento_dias: Number(data.deslocamento_dias || 0), canal: data.canal,
+      acao: data.acao, mensagem: data.mensagem || null, ordem: Number(data.ordem || 0),
+      ativo: data.ativo === "true",
+    };
+    try {
+      await request(id ? `/api/financeiro/reguas-cobranca/etapas/${id}` : `/api/financeiro/reguas-cobranca/${body.regua_id}/etapas`, { method: id ? "PUT" : "POST", body });
+      fecharModais();
+      alertBox("Etapa da régua salva.", "ok");
+      await recarregar();
+    } catch (err) { alertBox(`Erro ao salvar etapa: ${err.message}`, "danger"); }
   }
 
   async function carregarRelatorios() {
@@ -994,7 +1262,11 @@
     setKPI("rel-receber-vencido", money(receber.vencido_periodo));
     setKPI("rel-clientes-inadimplentes", String(Number(receber.clientes_inadimplentes || 0)));
     setTable("tbody-relatorios", 6, items.map(i => `<tr><td>${i.tipo === "pagar" ? "Despesa" : "Receita"}</td><td>${escapeHtml(i.categoria)}</td><td>${i.quantidade}</td><td class="financeiro-amount">${money(i.valor_total)}</td><td class="financeiro-amount">${money(i.valor_pago)}</td><td class="financeiro-amount">${money(i.saldo_aberto)}</td></tr>`).join(""), "Nenhum dado no período.");
-    setStatusText(`${items.length} linha(s) de relatório por categoria.`);
+    const gastos = data.por_tipo_gasto || [];
+    setTable("tbody-relatorio-tipos-gasto", 5, gastos.map(i => `<tr><td>${escapeHtml(i.tipo_gasto)}</td><td>${i.quantidade}</td><td class="financeiro-amount">${money(i.valor_total)}</td><td class="financeiro-amount">${money(i.valor_pago)}</td><td class="financeiro-amount">${money(i.saldo_aberto)}</td></tr>`).join(""), "Nenhuma despesa classificada no período.");
+    const centros = data.por_centro_custo || [];
+    setTable("tbody-relatorio-centros-custo", 6, centros.map(i => `<tr><td>${escapeHtml(i.centro_custo)}</td><td>${escapeHtml(i.subcentro || "-")}</td><td>${i.quantidade}</td><td class="financeiro-amount">${money(i.valor_total)}</td><td class="financeiro-amount">${money(i.valor_pago)}</td><td class="financeiro-amount">${money(i.saldo_aberto)}</td></tr>`).join(""), "Nenhum centro de custo movimentado no período.");
+    setStatusText(`${items.length} linha(s) por categoria, ${gastos.length} por tipo de gasto e ${centros.length} por centro de custo.`);
   }
 
   function acoesAuxiliar(item, tipo) {
@@ -1013,6 +1285,7 @@
       else if (state.page === "formas") await carregarFormas();
       else if (state.page === "contas") await carregarContas();
       else if (state.page === "cadastros") await carregarCadastrosFinanceiros();
+      else if (state.page === "cobrancas") await carregarCobrancas();
       else if (state.page === "relatorios") await carregarRelatorios();
       setStatusText("Dados atualizados.");
     } catch (err) {
@@ -1110,7 +1383,9 @@
       base.modo_parcelamento = "dividir_total";
     }
     filtrarOpcoesPorTipoLancamento(form, base.tipo);
+    if (item) garantirOpcoesAtuaisLancamento(form, item);
     setForm(form, base);
+    atualizarCampoStatusLancamento(form);
     sincronizarCampoSacado(form, item);
     configurarFormularioPorTipo(form, base.tipo);
     atualizarExigenciaEntidadeEmissora(form);
@@ -1221,6 +1496,7 @@
       conta_banco_id: nullNumber(data.conta_banco_id),
       tipo_documento_id: nullNumber(data.tipo_documento_id),
       natureza_operacao_id: nullNumber(data.natureza_operacao_id),
+      tipo_gasto_id: nullNumber(data.tipo_gasto_id),
       centro_custo_principal_id: nullNumber(data.centro_custo_principal_id),
       centro_custo_secundario_id: nullNumber(data.centro_custo_secundario_id),
       unidade_consumo_principal_id: nullNumber(data.unidade_consumo_principal_id),
@@ -1228,6 +1504,7 @@
       conta_contabil_id: nullNumber(data.conta_contabil_id),
       forma_cobranca_id: nullNumber(data.forma_cobranca_id),
       regra_encargos_id: nullNumber(data.regra_encargos_id),
+      regua_cobranca_id: nullNumber(data.regua_cobranca_id),
       entidade_emissora_id: nullNumber(data.entidade_emissora_id),
       possui_multa: data.possui_multa === "true",
       indice_multa_percent: moneyToBackend(data.indice_multa_percent || 0),
@@ -1259,7 +1536,7 @@
     form.dataset.id = item?.id || "";
     const titulos = {
       categoria: "Categoria financeira", forma: "Forma de pagamento", conta: "Conta/Banco",
-      "tipo-documento": "Tipo de documento", natureza: "Natureza da operação",
+      "tipo-documento": "Tipo de documento", natureza: "Natureza da operação", "tipo-gasto": "Tipo de gasto",
       "centro-custo": "Centro de custo", "unidade-consumo": "Unidade de consumo",
       "conta-contabil": "Conta contábil", "forma-cobranca": "Forma de cobrança",
       "regra-encargos": "Regra de multa e mora",
@@ -1279,12 +1556,16 @@
       body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div>${aplicacao}<div class="financeiro-field"><label>Exige banco/entidade emissora?</label><select name="exige_entidade_emissora"><option value="false">Não</option><option value="true">Sim</option></select></div>${status}</div>`;
     } else if (tipo === "natureza") {
       body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div>${aplicacao}${status}</div>`;
+    } else if (tipo === "tipo-gasto") {
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40" placeholder="Ex.: CUSTO"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required placeholder="Ex.: Custo, Despesa, Investimento"></div>${status}</div>`;
     } else if (tipo === "centro-custo") {
       const centrosCarregados = state.auxItems.filter(i => i._auxType === "centro-custo");
       const pais = (centrosCarregados.length ? centrosCarregados : (state.opcoes.centros_custo || [])).filter(i => Number(i.id) !== Number(item?.id));
       body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Centro principal/pai</label><select name="centro_pai_id"><option value="">Nenhum — centro principal</option>${pais.map(i => option(`${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`, i.id)).join("")}</select></div>${status}</div>`;
     } else if (tipo === "unidade-consumo") {
-      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Departamento de referência</label><input name="departamento_referencia" placeholder="Ex.: Financeiro, Comercial, Técnico"></div>${status}</div>`;
+      const unidadesCarregadas = state.auxItems.filter(i => i._auxType === "unidade-consumo");
+      const pais = (unidadesCarregadas.length ? unidadesCarregadas : (state.opcoes.unidades_consumo || [])).filter(i => Number(i.id) !== Number(item?.id));
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo da unidade</label><select name="tipo_referencia"><option value="departamento">Departamento/área</option><option value="colaborador">Colaborador</option><option value="veiculo">Veículo</option><option value="patrimonio">Patrimônio/ferramenta</option><option value="projeto">Projeto</option><option value="contrato">Contrato</option><option value="cargo">Cargo/função</option><option value="outro">Outro</option></select></div><div class="financeiro-field"><label>Unidade principal/pai</label><select name="unidade_pai_id"><option value="">Nenhuma — unidade principal</option>${pais.map(i => option(`${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`, i.id)).join("")}</select></div><div class="financeiro-field full"><label>Referência/observação</label><input name="departamento_referencia" placeholder="Opcional: detalhe adicional para identificar o consumo"></div>${status}</div>`;
     } else if (tipo === "conta-contabil") {
       const contasCarregadas = state.auxItems.filter(i => i._auxType === "conta-contabil");
       const pais = (contasCarregadas.length ? contasCarregadas : (state.opcoes.contas_contabeis || [])).filter(i => Number(i.id) !== Number(item?.id));
@@ -1303,6 +1584,15 @@
 
   function prepararInterfaceFinanceiro() {
     const tabs = $(".financeiro-tabs");
+    if (tabs && !tabs.querySelector('a[href="/cobrancas-financeiro"]')) {
+      const receber = tabs.querySelector('a[href="/contas-receber"]');
+      const linkCobranca = document.createElement("a");
+      linkCobranca.href = "/cobrancas-financeiro";
+      linkCobranca.className = state.page === "cobrancas" ? "active" : "";
+      linkCobranca.innerHTML = '<i class="fa-regular fa-bell"></i><span>Cobrança</span>';
+      if (receber?.nextSibling) tabs.insertBefore(linkCobranca, receber.nextSibling);
+      else tabs.appendChild(linkCobranca);
+    }
     if (tabs && !tabs.querySelector('a[href="/cadastros-financeiros"]')) {
       const rel = tabs.querySelector('a[href="/relatorios-financeiros"]');
       const link = document.createElement("a");
@@ -1343,6 +1633,7 @@
           <div class="financeiro-form-grid cols-3">
             <div class="financeiro-field"><label>Tipo de documento</label><select name="tipo_documento_id" data-select="tipos-documento"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label>Natureza da operação</label><select name="natureza_operacao_id" data-select="naturezas-operacao"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Tipo de gasto</label><select name="tipo_gasto_id" data-select="tipos-gasto"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label>Entidade emissora</label><select name="entidade_emissora_id" data-select="entidades-emissoras"><option value="">Selecione banco/conta...</option></select></div>
             <div class="financeiro-field"><label>Centro de custo principal</label><select name="centro_custo_principal_id" data-select="centros-custo"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label>Centro de custo secundário</label><select name="centro_custo_secundario_id" data-select="centros-custo"><option value="">Selecione...</option></select></div>
@@ -1350,6 +1641,7 @@
             <div class="financeiro-field"><label>Unidade de consumo principal</label><select name="unidade_consumo_principal_id" data-select="unidades-consumo"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label>Unidade de consumo secundária</label><select name="unidade_consumo_secundaria_id" data-select="unidades-consumo"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label>Forma de cobrança</label><select name="forma_cobranca_id" data-select="formas-cobranca"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Régua de cobrança</label><select name="regua_cobranca_id" data-select="reguas-cobranca"><option value="">Padrão da empresa</option></select></div>
             <div class="financeiro-field"><label>Regra de multa e mora</label><select name="regra_encargos_id" data-select="regras-encargos"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label>Possui multa?</label><select name="possui_multa"><option value="false">Não</option><option value="true">Sim</option></select></div>
             <div class="financeiro-field"><label>Índice de multa (%)</label><input name="indice_multa_percent" type="number" min="0" max="100" step="0.0001" value="0"></div>
@@ -1544,6 +1836,13 @@
     const payload = limparPayloadLancamento(getForm(form));
     const id = payload.id;
     delete payload.id;
+    if (id) {
+      // Em edição, estes campos são metadados estruturais da criação.
+      // O backend também os preserva para impedir perda de recorrência/parcelamento.
+      delete payload.parcelas_gerar;
+      delete payload.intervalo_parcelas_meses;
+      delete payload.modo_parcelamento;
+    }
     try {
       const resultado = id
         ? await request(`/api/financeiro/lancamentos/${id}`, { method: "PUT", body: payload })
@@ -1616,7 +1915,7 @@
     ["ativo", "exige_entidade_emissora", "aceita_lancamento", "possui_multa", "possui_mora_diaria", "padrao"].forEach(k => {
       if (Object.prototype.hasOwnProperty.call(data, k)) data[k] = data[k] === "true";
     });
-    ["centro_pai_id", "conta_pai_id"].forEach(k => {
+    ["centro_pai_id", "conta_pai_id", "unidade_pai_id"].forEach(k => {
       if (Object.prototype.hasOwnProperty.call(data, k)) data[k] = nullNumber(data[k]);
     });
     if (tipo === "conta") {
@@ -1667,6 +1966,54 @@
         await request(`/api/financeiro/lancamentos/${id}`, { method: "DELETE" });
         alertBox("Lançamento excluído.", "ok");
         await recarregar();
+      }
+      if (action === "editar-regua-cobranca") {
+        const regua = state.cobranca.reguas.find(i => Number(i.id) === id);
+        if (regua) abrirReguaCobranca(regua);
+      }
+      if (action === "selecionar-regua-cobranca") {
+        state.cobranca.reguaSelecionadaId = id;
+        const select = $("#cobranca-regua-etapas");
+        if (select) select.value = String(id);
+        await carregarEtapasCobranca(id);
+        $("#painel-cobranca-etapas")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      if (action === "excluir-regua-cobranca") {
+        if (!confirm("Excluir esta régua de cobrança? Os títulos vinculados passarão a usar a régua padrão.")) return;
+        await request(`/api/financeiro/reguas-cobranca/${id}`, { method: "DELETE" });
+        state.cobranca.reguaSelecionadaId = null;
+        await recarregar();
+      }
+      if (action === "editar-etapa-cobranca") {
+        const etapa = state.cobranca.etapas.find(i => Number(i.id) === id);
+        if (etapa) abrirEtapaCobranca(etapa);
+      }
+      if (action === "excluir-etapa-cobranca") {
+        if (!confirm("Excluir esta etapa da régua?")) return;
+        await request(`/api/financeiro/reguas-cobranca/etapas/${id}`, { method: "DELETE" });
+        await recarregar();
+      }
+      if (action === "marcar-cobranca-enviada") {
+        const atualizado = await request(`/api/financeiro/cobrancas/envios/${id}`, { method: "PATCH", body: { status: "enviado" } });
+        if (atualizado?.auto_ignorado) alertBox(atualizado.motivo || "Cobrança ignorada porque o título já foi quitado ou cancelado.", "warn");
+        else alertBox("Cobrança marcada como enviada.", "ok");
+        await recarregar();
+      }
+      if (action === "ignorar-cobranca") {
+        await request(`/api/financeiro/cobrancas/envios/${id}`, { method: "PATCH", body: { status: "ignorado" } });
+        await recarregar();
+      }
+      if (action === "copiar-cobranca-mensagem") {
+        const envio = state.cobranca.fila.find(i => Number(i.id) === id);
+        if (!envio?.mensagem) return alertBox("Esta etapa ainda não possui mensagem configurada.", "warn");
+        await navigator.clipboard.writeText(envio.mensagem);
+        alertBox("Mensagem copiada.", "ok");
+      }
+      if (action === "abrir-cobranca-zapschat") {
+        const envio = state.cobranca.fila.find(i => Number(i.id) === id);
+        if (!envio?.cliente_id) return;
+        const destino = await request(`/api/integracoes/zapschat/abrir-cliente/${envio.cliente_id}`);
+        if (destino?.url) window.open(destino.url, "_blank", "noopener");
       }
       if (action === "editar-aux" && item) abrirAux(btn.dataset.tipo, item);
       if (action === "excluir-aux") {
@@ -1719,6 +2066,19 @@
     $("#form-lancamento")?.addEventListener("submit", salvarLancamento);
     $("#form-baixa")?.addEventListener("submit", salvarBaixa);
     $("#form-auxiliar")?.addEventListener("submit", salvarAuxiliar);
+    $("#form-regua-cobranca")?.addEventListener("submit", salvarReguaCobranca);
+    $("#form-etapa-cobranca")?.addEventListener("submit", salvarEtapaCobranca);
+    $("#btn-nova-regua-cobranca")?.addEventListener("click", () => abrirReguaCobranca());
+    $("#btn-nova-etapa-cobranca")?.addEventListener("click", () => abrirEtapaCobranca(null, $("#cobranca-regua-etapas")?.value));
+    $("#btn-processar-cobrancas")?.addEventListener("click", async () => {
+      try {
+        const r = await request("/api/financeiro/cobrancas/processar", { method: "POST" });
+        alertBox(r?.novos ? `${r.novos} nova(s) cobrança(s) adicionada(s) à fila.` : "Fila já está atualizada.", "ok");
+        await recarregar();
+      } catch (err) { alertBox(`Erro ao processar cobrança: ${err.message}`, "danger"); }
+    });
+    $("#cobranca-regua-etapas")?.addEventListener("change", ev => carregarEtapasCobranca(ev.currentTarget.value));
+    $("#btn-aplicar-cobranca-filtros")?.addEventListener("click", recarregar);
 
     document.addEventListener("input", (ev) => {
       const sacadoSearch = ev.target.closest("[data-sacado-search]");
@@ -1818,6 +2178,11 @@
         filtrarOpcoesPorTipoLancamento(formLancamento, ev.target.value);
         configurarFormularioPorTipo(formLancamento, ev.target.value);
         atualizarExigenciaEntidadeEmissora(formLancamento);
+        atualizarCampoStatusLancamento(formLancamento);
+        return;
+      }
+      if (formLancamento && ev.target.matches('[name="data_vencimento"], [name="valor_total"]')) {
+        atualizarCampoStatusLancamento(formLancamento);
         return;
       }
       if (formLancamento && ev.target.matches('[name="tipo_documento_id"]')) {

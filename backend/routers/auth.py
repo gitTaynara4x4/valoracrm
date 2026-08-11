@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
 from backend.models import Empresa, LoginToken, Usuario
+from backend.user_activity import record_auth_event, record_login_failure
 from backend.security.session import (
     SESSION_COOKIE_NAME,
     create_session_token,
@@ -280,7 +281,27 @@ def _login_token_key(user: Usuario) -> str:
 def login(data: LoginIn, request: Request, db: Session = Depends(get_db)):
     email = normalizar_email_login(data.email)
     senha = normalizar_senha_login(data.senha)
-    user = _find_login_user(db, email, senha, data.empresa_id)
+    try:
+        user = _find_login_user(db, email, senha, data.empresa_id)
+    except HTTPException as exc:
+        # Para o usuário monitorado, registra apenas que a tentativa falhou.
+        # A senha informada nunca é armazenada.
+        target = (
+            db.query(Usuario)
+            .filter(Usuario.email == email)
+            .order_by(Usuario.ativo.desc(), Usuario.id.asc())
+            .first()
+        )
+        if target:
+            detail = exc.detail.get("message") if isinstance(exc.detail, dict) else exc.detail
+            record_login_failure(
+                db,
+                target,
+                request,
+                status_code=int(exc.status_code),
+                reason=str(detail or "Falha no login"),
+            )
+        raise
     _upgrade_legacy_password(db, user, senha)
 
     if bool(getattr(user, "exigir_token_login", False)):
@@ -320,7 +341,9 @@ def login(data: LoginIn, request: Request, db: Session = Depends(get_db)):
             "challenge": challenge,
         }
 
-    return build_login_response(user, data.remember, request)
+    response = build_login_response(user, data.remember, request)
+    record_auth_event(db, user, request, "login")
+    return response
 
 
 @router.post("/login/token")
@@ -381,11 +404,26 @@ def login_token(data: TokenIn, request: Request, db: Session = Depends(get_db)):
 
     db.delete(row)
     db.commit()
-    return build_login_response(user, data.remember, request)
+    response = build_login_response(user, data.remember, request)
+    record_auth_event(db, user, request, "login")
+    return response
 
 
 @router.post("/logout")
-def logout(request: Request):
+def logout(request: Request, db: Session = Depends(get_db)):
+    session = decode_session_token(request.cookies.get(SESSION_COOKIE_NAME, ""))
+    if session:
+        user = (
+            db.query(Usuario)
+            .filter(
+                Usuario.id == int(session["uid"]),
+                Usuario.empresa_id == int(session["eid"]),
+            )
+            .first()
+        )
+        if user:
+            record_auth_event(db, user, request, "logout")
+
     response = JSONResponse(content={"ok": True, "message": "Logout realizado com sucesso."})
     clear_login_cookies(response, request)
     return response

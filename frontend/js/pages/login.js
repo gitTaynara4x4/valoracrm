@@ -178,14 +178,40 @@
     }
   }
 
+  function safeLocalRedirect(value) {
+    const raw = String(value || '').trim();
+    if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return '';
+
+    try {
+      const url = new URL(raw, window.location.origin);
+      if (url.origin !== window.location.origin) return '';
+      const path = url.pathname.replace(/\/+$/, '').toLowerCase() || '/';
+      if (['/login', '/frontend/login.html', '/cadastro', '/frontend/cadastro.html'].includes(path)) return '';
+      return url.pathname + url.search + url.hash;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function requestedDestination() {
+    try {
+      return safeLocalRedirect(new URLSearchParams(window.location.search).get('next'));
+    } catch (_) {
+      return '';
+    }
+  }
+
   function redirectAfterLogin(data = {}) {
+    // O destino que trouxe o usuário ao login tem prioridade. Isso mantém
+    // páginas standalone (como a auditoria) fora do shell após autenticar.
     const url =
-      data.redirect_url ||
-      data.redirect ||
-      data.next ||
+      requestedDestination() ||
+      safeLocalRedirect(data.redirect_url) ||
+      safeLocalRedirect(data.redirect) ||
+      safeLocalRedirect(data.next) ||
       '/dashboard';
 
-    window.location.href = url;
+    window.location.replace(url);
   }
 
   async function postJson(url, payload) {
