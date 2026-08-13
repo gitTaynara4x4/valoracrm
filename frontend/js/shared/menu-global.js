@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260810-menu-hover-v29';
+  const VERSION = '20260812-permissions-v30';
   const PARTIAL_URL = '/frontend/partials/sidebar-content.inc?v=' + VERSION;
   const CSS_URL = '/frontend/css/menu-global.css?v=' + VERSION;
   const ROUTES = {
@@ -15,6 +15,36 @@
     'cadastros-financeiros': '/cadastros-financeiros', 'relatorios-financeiros': '/relatorios-financeiros'
   };
 
+  const TARGET_MODULES = {
+    home: 'dashboard',
+    clientes: 'clientes',
+    'arquivos-tecnicos': 'arquivos_tecnicos',
+    fornecedores: 'fornecedores',
+    cotacoes: 'cotacoes',
+    produtos: 'produtos',
+    patrimonio: 'patrimonio',
+    orcamentos: 'orcamentos',
+    propostas: 'propostas',
+    'area-cliente-admin': 'contratos',
+    'contratos-admin': 'contratos',
+    usuarios: 'usuarios',
+    empresa: 'empresa',
+    config: 'configuracoes',
+    formularios: 'configuracoes',
+    financeiro: 'financeiro',
+    'vendas-financeiro': 'financeiro',
+    'contas-receber': 'financeiro',
+    'contas-pagar': 'financeiro',
+    'fluxo-caixa': 'financeiro',
+    'categorias-financeiras': 'financeiro',
+    'formas-pagamento': 'financeiro',
+    'contas-bancos': 'financeiro',
+    'cadastros-financeiros': 'financeiro',
+    'relatorios-financeiros': 'financeiro'
+  };
+
+  let permissionProfile = null;
+  let permissionsLoaded = false;
   let root = null;
   let initialized = false;
   const prefetchedRoutes = new Set();
@@ -140,7 +170,68 @@
     root.classList.remove('mobile-menu-open');
   }
 
+  function hasModulePermission(module, action = 'ver') {
+    if (!module || !permissionsLoaded) return true;
+    const role = String(permissionProfile?.papel || '').trim().toLowerCase();
+    if (role === 'owner' || role === 'admin') return true;
+    return Boolean(permissionProfile?.permissoes?.[module]?.[`pode_${action}`]);
+  }
+
+  function targetAllowed(target, action = 'ver') {
+    const module = TARGET_MODULES[target];
+    return module ? hasModulePermission(module, action) : true;
+  }
+
+  function applyMenuPermissions() {
+    if (!root || !permissionsLoaded) return;
+
+    root.querySelectorAll('[data-target]').forEach((el) => {
+      const target = el.dataset.target;
+      const action = el.classList.contains('new-action') ? 'criar' : 'ver';
+      const allowed = targetAllowed(target, action);
+      el.dataset.permissionHidden = allowed ? '0' : '1';
+      el.hidden = !allowed;
+      if (!allowed) el.classList.remove('is-active');
+    });
+
+    root.querySelectorAll('[data-menu-group]').forEach((group) => {
+      const items = Array.from(group.querySelectorAll('[data-target]'));
+      group.hidden = items.length > 0 && !items.some((item) => item.dataset.permissionHidden !== '1');
+    });
+
+    root.querySelectorAll('.mobile-section').forEach((section) => {
+      const items = Array.from(section.querySelectorAll('.mobile-link[data-target]'));
+      section.hidden = items.length > 0 && !items.some((item) => item.dataset.permissionHidden !== '1');
+    });
+  }
+
+  async function refreshPermissions() {
+    try {
+      const response = await fetch('/api/permissoes/me', {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      permissionProfile = await response.json();
+      permissionsLoaded = true;
+      applyMenuPermissions();
+      window.ValoraPermissions = {
+        profile: permissionProfile,
+        can: (module, action = 'ver') => hasModulePermission(module, action),
+        canTarget: (target, action = 'ver') => targetAllowed(target, action),
+        refresh: refreshPermissions
+      };
+      document.dispatchEvent(new CustomEvent('valora:permissions-ready', { detail: permissionProfile }));
+    } catch (error) {
+      // Em caso de falha, o menu não bloqueia visualmente. O backend continua
+      // sendo a autoridade e impede qualquer acesso/operação sem permissão.
+      console.warn('[Valora menu] Não foi possível carregar permissões:', error);
+    }
+  }
+
   function prefetchRoute(target) {
+    if (!targetAllowed(target, 'ver')) return;
     const url = ROUTES[target];
     if (!url || prefetchedRoutes.has(url) || normalizePath(url) === normalizePath(window.location.pathname)) return;
     prefetchedRoutes.add(url);
@@ -159,6 +250,7 @@
   }
 
   function navigate(target) {
+    if (!targetAllowed(target, 'ver')) return;
     const url = ROUTES[target];
     if (url) navigateUrl(url);
   }
@@ -244,7 +336,8 @@
       sections.forEach((section) => {
         let sectionMatches = 0;
         section.querySelectorAll('.mobile-link').forEach((link) => {
-          const visible = !q || String(link.textContent || '').toLocaleLowerCase('pt-BR').includes(q);
+          const denied = link.dataset.permissionHidden === '1';
+          const visible = !denied && (!q || String(link.textContent || '').toLocaleLowerCase('pt-BR').includes(q));
           link.hidden = !visible;
           if (visible && q) { matches++; sectionMatches++; }
         });
@@ -364,6 +457,7 @@
     initMobileSections();
     bindEvents();
     document.dispatchEvent(new CustomEvent('valora:menu-ready'));
+    void refreshPermissions();
     window.ValoraAgenda?.refreshNotifications?.({ showAlerts: false });
   }
 
@@ -401,7 +495,7 @@
     }
   }
 
-  window.ValoraMenu = { init, applyTheme, syncUser, syncActive, closeMenus };
+  window.ValoraMenu = { init, applyTheme, syncUser, syncActive, closeMenus, refreshPermissions };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else void init();
 })();

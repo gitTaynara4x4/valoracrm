@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260717-busca-relacao-v1" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
-  <link rel="stylesheet" href="/frontend/css/cotacoes.css?v=20260627-sidebar-icons-v2" />
+  <link rel="stylesheet" href="/frontend/css/cotacoes.css?v=20260813-produtos-integrados-v1" />
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260630-ficha-sidebar-v5" />
@@ -35,7 +35,7 @@
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
   <script src="/frontend/js/shared/ficha-principal.js?v=20260717-busca-relacao-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
-  <script src="/frontend/js/pages/cotacoes.js?v=20260713-pagination-top-v2" defer></script>
+  <script src="/frontend/js/pages/cotacoes.js?v=20260813-produtos-integrados-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 </head>
 
@@ -209,6 +209,59 @@
               </header>
 
               <div class="cliente-modal-scroll cotacao-modal-scroll">
+                <article class="section-card cliente-main-card cotacao-section-card cotacao-produto-vinculo-card">
+                  <div class="cliente-section-head cotacao-section-head">
+                    <div>
+                      <h4>Produto da base</h4>
+                      <p>Vincule um produto já cadastrado para preencher os dados da cotação automaticamente.</p>
+                    </div>
+
+                    <span class="cotacao-produto-link-status" id="cotacao-produto-link-status">
+                      <i class="fa-solid fa-link"></i>
+                      Item livre
+                    </span>
+                  </div>
+
+                  <div class="cotacao-produto-picker-wrap">
+                    <div class="form-group span-all cotacao-produto-picker">
+                      <label for="cotacao-produto-busca">Buscar produto</label>
+
+                      <div class="cotacao-produto-search-shell">
+                        <i class="fa-solid fa-magnifying-glass cotacao-produto-search-icon" aria-hidden="true"></i>
+                        <input
+                          id="cotacao-produto-busca"
+                          type="search"
+                          placeholder="Digite o código ou nome do produto..."
+                          autocomplete="off"
+                          aria-autocomplete="list"
+                          aria-controls="cotacao-produto-resultados"
+                        />
+                        <input id="cotacao-produto-id" type="hidden" />
+
+                        <button
+                          class="cotacao-produto-clear"
+                          type="button"
+                          id="btn-limpar-produto-cotacao"
+                          title="Remover vínculo com o produto"
+                          aria-label="Remover vínculo com o produto"
+                          hidden>
+                          <i class="fa-solid fa-xmark"></i>
+                        </button>
+                      </div>
+
+                      <div
+                        class="cotacao-produto-resultados"
+                        id="cotacao-produto-resultados"
+                        role="listbox"
+                        hidden></div>
+
+                      <small class="cotacao-produto-help" id="cotacao-produto-help">
+                        Opcional. Selecione um produto cadastrado ou mantenha a cotação como item livre.
+                      </small>
+                    </div>
+                  </div>
+                </article>
+
                 <section class="cliente-tab cotacao-tab active" id="tab-cotacao-identificacao">
                   <article class="section-card cliente-main-card cotacao-section-card">
                     <div class="cliente-section-head cotacao-section-head">

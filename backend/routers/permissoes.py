@@ -135,17 +135,32 @@ def salvar_permissoes_usuario(
     if str(target.papel or "").strip().lower() in {"owner", "admin"}:
         permissoes_para_salvar = []
 
+    papel_alvo = str(target.papel or "").strip().lower()
+
     for item in permissoes_para_salvar:
         modulo = str(item.modulo).strip().lower()
+
+        # Defesa no backend: "Somente leitura" nunca recebe escrita, mesmo que
+        # alguém tente enviar pode_criar/pode_editar/pode_excluir manualmente.
+        if papel_alvo == "visualizador":
+            pode_ver = bool(item.pode_ver)
+            pode_criar = False
+            pode_editar = False
+            pode_excluir = False
+        else:
+            pode_criar = bool(item.pode_criar)
+            pode_editar = bool(item.pode_editar)
+            pode_excluir = bool(item.pode_excluir)
+            pode_ver = bool(item.pode_ver or pode_criar or pode_editar or pode_excluir)
 
         row = models.UsuarioPermissao(
             empresa_id=int(target.empresa_id),
             usuario_id=int(target.id),
             modulo=modulo,
-            pode_ver=bool(item.pode_ver),
-            pode_criar=bool(item.pode_criar),
-            pode_editar=bool(item.pode_editar),
-            pode_excluir=bool(item.pode_excluir),
+            pode_ver=pode_ver,
+            pode_criar=pode_criar if pode_ver else False,
+            pode_editar=pode_editar if pode_ver else False,
+            pode_excluir=pode_excluir if pode_ver else False,
         )
         db.add(row)
 
@@ -173,10 +188,10 @@ def transferir_owner(
         raise HTTPException(status_code=404, detail="Usuário alvo não encontrado.")
 
     if int(target.id) == int(current_user.id):
-        raise HTTPException(status_code=400, detail="Escolha outro usuário para transferir o ownership.")
+        raise HTTPException(status_code=400, detail="Escolha outro usuário para transferir a propriedade da conta.")
 
     if not bool(getattr(target, "ativo", True)):
-        raise HTTPException(status_code=400, detail="Não é possível transferir o ownership para um usuário inativo.")
+        raise HTTPException(status_code=400, detail="Não é possível transferir a propriedade da conta para um usuário inativo.")
 
     target.papel = "owner"
     current_user.papel = "admin" if payload.antigo_owner_vira_admin else "colaborador"
@@ -187,7 +202,7 @@ def transferir_owner(
 
     return {
         "ok": True,
-        "message": "Ownership transferido com sucesso.",
+        "message": "Propriedade da conta transferida com sucesso.",
         "owner_atual": {
             "id": int(target.id),
             "nome": target.nome,

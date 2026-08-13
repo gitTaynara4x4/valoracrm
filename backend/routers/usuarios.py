@@ -54,6 +54,14 @@ def norm_str(value: Optional[str]) -> Optional[str]:
     return v or None
 
 
+def campo_foi_enviado(payload: BaseModel, campo: str) -> bool:
+    """Compatível com Pydantic v1/v2: diferencia campo ausente de campo enviado como null."""
+    fields_set = getattr(payload, "model_fields_set", None)
+    if fields_set is None:
+        fields_set = getattr(payload, "__fields_set__", set())
+    return campo in (fields_set or set())
+
+
 def normalize_papel(value: Optional[str], *, default: Optional[str] = "colaborador") -> str:
     raw = value if value is not None else default
     papel = str(raw or "").strip().lower()
@@ -101,34 +109,45 @@ def count_active_owners(db: Session, empresa_id: int) -> int:
 
 
 def ensure_can_assign_role(current_user: models.Usuario, papel_destino: str) -> None:
+    """Confere a hierarquia; a permissão da ação é validada pela dependência da rota."""
     papel = normalize_papel(papel_destino)
 
     if is_owner(current_user):
         return
 
-    if is_admin(current_user) and papel in {"colaborador", "visualizador"}:
+    # Admin/colaborador/visualizador só podem criar papéis operacionais quando
+    # receberam a permissão de Usuários correspondente. Nunca podem elevar
+    # alguém para Admin ou Owner.
+    if papel in {"colaborador", "visualizador"}:
         return
 
-    if is_admin(current_user):
-        raise HTTPException(status_code=403, detail="Admin só pode criar/editar colaborador ou visualizador.")
-
-    raise HTTPException(status_code=403, detail="Sem permissão para gerenciar usuários.")
+    raise HTTPException(
+        status_code=403,
+        detail="Somente o Proprietário pode atribuir os papéis Administrador ou Proprietário.",
+    )
 
 
 def ensure_can_manage_target(current_user: models.Usuario, target_user: models.Usuario) -> None:
+    """Confere quem pode ser alvo; criar/editar/excluir já foi validado na rota."""
     if int(current_user.empresa_id) != int(target_user.empresa_id):
         raise HTTPException(status_code=403, detail="Você não pode gerenciar usuário de outra empresa.")
 
     if is_owner(current_user):
         return
 
-    if is_admin(current_user) and str(target_user.papel) in {"colaborador", "visualizador"}:
-        return
-
     if int(current_user.id) == int(target_user.id):
+        raise HTTPException(
+            status_code=403,
+            detail="Seu próprio acesso deve ser alterado pelo Proprietário ou por um Administrador autorizado.",
+        )
+
+    if str(target_user.papel or "").strip().lower() in {"colaborador", "visualizador"}:
         return
 
-    raise HTTPException(status_code=403, detail="Você não pode gerenciar este usuário.")
+    raise HTTPException(
+        status_code=403,
+        detail="Somente o Proprietário pode gerenciar usuários Administrador ou Proprietário.",
+    )
 
 
 def processar_avatar_base64(foto_base64: Optional[str], empresa_id: int) -> Optional[str]:
@@ -222,14 +241,29 @@ def salvar_permissoes_do_usuario(db: Session, usuario: models.Usuario, permissoe
     db.query(models.UsuarioPermissao).filter(models.UsuarioPermissao.usuario_id == int(usuario.id)).delete()
 
     for item in normalizadas:
+        # "Somente leitura" é uma regra de segurança, não apenas um rótulo da UI.
+        # Esse papel pode escolher quais módulos acessa, mas nunca recebe ações de escrita.
+        if papel == "visualizador":
+            pode_ver = bool(item.pode_ver)
+            pode_criar = False
+            pode_editar = False
+            pode_excluir = False
+        else:
+            # Entrar/acessar o módulo é pré-requisito para cadastrar, editar ou
+            # excluir. Se qualquer ação foi liberada, o acesso também é liberado.
+            pode_criar = bool(item.pode_criar)
+            pode_editar = bool(item.pode_editar)
+            pode_excluir = bool(item.pode_excluir)
+            pode_ver = bool(item.pode_ver or pode_criar or pode_editar or pode_excluir)
+
         row = models.UsuarioPermissao(
             empresa_id=int(usuario.empresa_id),
             usuario_id=int(usuario.id),
             modulo=str(item.modulo).strip().lower(),
-            pode_ver=bool(item.pode_ver),
-            pode_criar=bool(item.pode_criar),
-            pode_editar=bool(item.pode_editar),
-            pode_excluir=bool(item.pode_excluir),
+            pode_ver=pode_ver,
+            pode_criar=pode_criar if pode_ver else False,
+            pode_editar=pode_editar if pode_ver else False,
+            pode_excluir=pode_excluir if pode_ver else False,
         )
         db.add(row)
 
@@ -393,7 +427,7 @@ def atualizar_usuario(
 
     if str(usuario.papel or "").strip().lower() == "owner" and novo_papel != "owner":
         if count_active_owners(db, empresa_id) <= 1:
-            raise HTTPException(status_code=400, detail="Não é possível rebaixar o último owner da empresa.")
+            raise HTTPException(status_code=400, detail="Não é possível alterar o papel do último Proprietário da empresa.")
 
     if (
         str(usuario.papel or "").strip().lower() == "owner"
@@ -401,7 +435,7 @@ def atualizar_usuario(
         and bool(getattr(usuario, "ativo", True))
         and count_active_owners(db, empresa_id) <= 1
     ):
-        raise HTTPException(status_code=400, detail="Não é possível desativar o último owner ativo da empresa.")
+        raise HTTPException(status_code=400, detail="Não é possível desativar o último Proprietário ativo da empresa.")
 
     if payload.nome is not None:
         nome = payload.nome.strip()
@@ -425,10 +459,11 @@ def atualizar_usuario(
             raise HTTPException(status_code=409, detail="Já existe outro usuário com este e-mail nesta empresa.")
         usuario.email = email
 
-    if payload.telefone is not None:
+    # Campo enviado como null/vazio significa "limpar". Campo ausente significa "não alterar".
+    if campo_foi_enviado(payload, "telefone"):
         usuario.telefone = norm_str(payload.telefone)
 
-    if payload.cargo is not None:
+    if campo_foi_enviado(payload, "cargo"):
         usuario.cargo = norm_str(payload.cargo)
 
     if payload.senha is not None and payload.senha.strip():
@@ -476,7 +511,7 @@ def excluir_usuario(
         raise HTTPException(status_code=400, detail="Você não pode excluir seu próprio usuário.")
 
     if str(usuario.papel or "").strip().lower() == "owner" and count_active_owners(db, empresa_id) <= 1:
-        raise HTTPException(status_code=400, detail="Não é possível excluir o último owner da empresa.")
+        raise HTTPException(status_code=400, detail="Não é possível excluir o último Proprietário da empresa.")
 
     db.delete(usuario)
     db.commit()

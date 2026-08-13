@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from backend.database import SessionLocal
 from backend.models import Empresa, LoginToken, Usuario
 from backend.user_activity import record_auth_event, record_login_failure
+from backend.security.permissions import build_effective_permissions
 from backend.security.session import (
     SESSION_COOKIE_NAME,
     create_session_token,
@@ -213,7 +214,40 @@ def clear_login_cookies(response: Response, request: Request) -> None:
     delete_cookie_safe(response, "user_nome", httponly=False, secure=secure)
 
 
-def build_login_response(user: Usuario, remember: bool, request: Request) -> JSONResponse:
+FIRST_ALLOWED_DESTINATIONS = (
+    ("dashboard", "/dashboard"),
+    ("clientes", "/clientes"),
+    ("arquivos_tecnicos", "/arquivos-tecnicos"),
+    ("fornecedores", "/fornecedores"),
+    ("produtos", "/produtos"),
+    ("patrimonio", "/patrimonio"),
+    ("cotacoes", "/cotacoes"),
+    ("orcamentos", "/orcamentos"),
+    ("propostas", "/propostas"),
+    ("contratos", "/contratos-admin"),
+    ("financeiro", "/financeiro"),
+    ("usuarios", "/usuarios"),
+    ("empresa", "/empresa"),
+    ("configuracoes", "/configuracoes"),
+)
+
+
+def first_allowed_redirect(db: Session, user: Usuario) -> str:
+    permissoes = build_effective_permissions(db, user)
+    for modulo, destino in FIRST_ALLOWED_DESTINATIONS:
+        if bool(permissoes.get(modulo, {}).get("pode_ver")):
+            return destino
+    # Mesmo um usuário sem módulos liberados ainda pode acessar o próprio perfil
+    # e sair do sistema. Isso evita jogar a pessoa em uma página sem permissão.
+    return "/perfil"
+
+
+def build_login_response(
+    user: Usuario,
+    remember: bool,
+    request: Request,
+    db: Session,
+) -> JSONResponse:
     response = JSONResponse(
         content={
             "ok": True,
@@ -224,6 +258,7 @@ def build_login_response(user: Usuario, remember: bool, request: Request) -> JSO
             "empresa_id": int(user.empresa_id),
             "empresaId": int(user.empresa_id),
             "user_id": int(user.id),
+            "redirect_url": first_allowed_redirect(db, user),
         }
     )
     issue_login_cookies(response, user, remember, request)
@@ -341,7 +376,7 @@ def login(data: LoginIn, request: Request, db: Session = Depends(get_db)):
             "challenge": challenge,
         }
 
-    response = build_login_response(user, data.remember, request)
+    response = build_login_response(user, data.remember, request, db)
     record_auth_event(db, user, request, "login")
     return response
 
@@ -404,7 +439,7 @@ def login_token(data: TokenIn, request: Request, db: Session = Depends(get_db)):
 
     db.delete(row)
     db.commit()
-    response = build_login_response(user, data.remember, request)
+    response = build_login_response(user, data.remember, request, db)
     record_auth_event(db, user, request, "login")
     return response
 

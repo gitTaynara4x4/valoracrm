@@ -383,17 +383,6 @@ def gerar_codigo_cotacao(db: Session, empresa_id: int) -> str:
 
     return f"{int(row or 1):04d}"
 
-def gerar_codigo_produto(db: Session, empresa_id: int) -> str:
-    ultimo = (
-        db.query(models.Produto)
-        .filter(models.Produto.empresa_id == empresa_id)
-        .order_by(models.Produto.id.desc())
-        .first()
-    )
-    proximo = (int(ultimo.id) if ultimo else 0) + 1
-    return f"{proximo:04d}"
-
-
 def buscar_cotacao_empresa(db: Session, cotacao_id: int, empresa_id: int) -> Optional[Cotacao]:
     return (
         db.query(Cotacao)
@@ -401,6 +390,55 @@ def buscar_cotacao_empresa(db: Session, cotacao_id: int, empresa_id: int) -> Opt
         .filter(Cotacao.empresa_id == empresa_id)
         .first()
     )
+
+
+def buscar_produto_empresa(db: Session, produto_id: int, empresa_id: int) -> Optional[models.Produto]:
+    return (
+        db.query(models.Produto)
+        .filter(models.Produto.id == int(produto_id))
+        .filter(models.Produto.empresa_id == int(empresa_id))
+        .first()
+    )
+
+
+def aplicar_produto_cotacao(
+    cotacao: Cotacao,
+    payload: CotacaoBase,
+    *,
+    db: Session,
+    empresa_id: int,
+) -> None:
+    """Aplica o vínculo nativo Cotação -> Produto com isolamento por empresa.
+
+    Em updates, produto_id ausente preserva o vínculo atual. produto_id=null remove
+    o vínculo enquanto a cotação ainda não tiver sido convertida/aplicada ao produto.
+    """
+    payload_data = dump_model(payload, exclude_unset=True)
+    if "produto_id" not in payload_data:
+        return
+
+    raw_produto_id = payload_data.get("produto_id")
+    novo_produto_id = int(raw_produto_id) if raw_produto_id else None
+
+    if novo_produto_id is not None and novo_produto_id <= 0:
+        raise HTTPException(status_code=422, detail="Produto inválido.")
+
+    produto_id_atual = int(cotacao.produto_id) if cotacao.produto_id else None
+    if normalizar_status(cotacao.status) == "convertida" and novo_produto_id != produto_id_atual:
+        raise HTTPException(
+            status_code=409,
+            detail="A cotação já foi aplicada a um produto e o vínculo não pode mais ser alterado.",
+        )
+
+    if novo_produto_id is None:
+        cotacao.produto_id = None
+        return
+
+    produto = buscar_produto_empresa(db, novo_produto_id, empresa_id)
+    if not produto:
+        raise HTTPException(status_code=404, detail="Produto não encontrado na empresa atual.")
+
+    cotacao.produto_id = int(produto.id)
 
 
 def buscar_fornecedor_item_empresa(
@@ -461,6 +499,7 @@ class CotacaoFornecedorOut(CotacaoFornecedorBase, ORMBaseModel):
 
 class CotacaoBase(BaseModel):
     codigo: Optional[str] = None
+    produto_id: Optional[int] = None
     item_nome: Optional[str] = None
     descricao: Optional[str] = None
     quantidade: Optional[str] = None
@@ -726,7 +765,14 @@ def aplicar_cotacao_payload(cotacao: Cotacao, payload: CotacaoBase) -> None:
     if payload.categoria is not None:
         cotacao.categoria = norm_str(payload.categoria)
     if payload.status is not None:
-        cotacao.status = normalizar_status(payload.status)
+        status_atual = normalizar_status(cotacao.status)
+        status_novo = normalizar_status(payload.status)
+        # "convertida" significa que o resultado já foi aplicado à base de
+        # Produtos. Essa transição só pode ser feita pelo endpoint específico.
+        if status_atual == "convertida":
+            cotacao.status = "convertida"
+        elif status_novo != "convertida":
+            cotacao.status = status_novo
     if payload.urgencia is not None:
         cotacao.urgencia = norm_str(payload.urgencia)
     if payload.observacoes is not None:
@@ -888,8 +934,9 @@ def criar_cotacao(
             empresa_id=empresa_id,
             codigo=codigo,
             item_nome=payload.item_nome.strip(),
-            status=normalizar_status(payload.status),
+            status="rascunho",
         )
+        aplicar_produto_cotacao(cotacao, payload, db=db, empresa_id=empresa_id)
         aplicar_cotacao_payload(cotacao, payload)
 
         try:
@@ -1015,6 +1062,7 @@ def atualizar_cotacao(
 
     # Código é do sistema: único, sequencial e imutável.
     # Mesmo que o front mande payload.codigo, ele não pode alterar a cotação.
+    aplicar_produto_cotacao(cotacao, payload, db=db, empresa_id=empresa_id)
     aplicar_cotacao_payload(cotacao, payload)
 
     try:
@@ -1218,15 +1266,13 @@ def converter_cotacao_em_produto(
     if not cotacao:
         raise HTTPException(status_code=404, detail="Cotação não encontrada.")
 
-    if cotacao.produto_id:
-        produto = (
-            db.query(models.Produto)
-            .filter(models.Produto.id == int(cotacao.produto_id))
-            .filter(models.Produto.empresa_id == empresa_id)
-            .first()
-        )
+    # produto_id também é usado para vincular uma cotação a um produto já
+    # cadastrado. O status "convertida" é o que indica que o resultado da
+    # cotação já foi efetivamente aplicado à base de Produtos.
+    if cotacao.produto_id and normalizar_status(cotacao.status) == "convertida":
+        produto = buscar_produto_empresa(db, int(cotacao.produto_id), empresa_id)
         return {
-            "message": "Cotação já convertida em produto.",
+            "message": "Resultado da cotação já aplicado ao produto.",
             "cotacao": cotacao_to_out(db, cotacao),
             "produto": {
                 "id": int(produto.id),
@@ -1237,45 +1283,86 @@ def converter_cotacao_em_produto(
 
     vencedor = None
     if cotacao.fornecedor_vencedor_item_id:
-        vencedor = buscar_fornecedor_item_empresa(db, int(cotacao.fornecedor_vencedor_item_id), cotacao_id, empresa_id)
+        vencedor = buscar_fornecedor_item_empresa(
+            db,
+            int(cotacao.fornecedor_vencedor_item_id),
+            cotacao_id,
+            empresa_id,
+        )
     if not vencedor:
         vencedor = (
             db.query(CotacaoFornecedor)
             .filter(CotacaoFornecedor.cotacao_id == cotacao_id)
-            .filter(CotacaoFornecedor.vencedor == True)
+            .filter(CotacaoFornecedor.vencedor == True)  # noqa: E712
             .first()
         )
     if not vencedor:
-        raise HTTPException(status_code=400, detail="Escolha e aprove um fornecedor antes de converter em produto.")
+        raise HTTPException(
+            status_code=400,
+            detail="Escolha e aprove um fornecedor antes de aplicar o resultado ao produto.",
+        )
 
-    produto = models.Produto(
-        empresa_id=empresa_id,
-        codigo=gerar_codigo_produto(db, empresa_id),
-        nome=cotacao.item_nome.strip(),
-        descricao=norm_str(cotacao.descricao),
-        categoria=norm_str(cotacao.categoria),
-        unidade=norm_str(cotacao.unidade),
-        custo=norm_str(vencedor.valor_unitario),
-        preco_venda=None,
-        estoque_atual=norm_str(cotacao.quantidade),
-        ativo=True,
-    )
+    # Se a cotação nasceu de um produto já cadastrado, atualiza esse mesmo
+    # produto em vez de criar uma duplicata. A cotação representa preço de
+    # compra, portanto atualizamos o custo; estoque só deve mudar no recebimento.
+    produto = None
+    produto_ja_existente = False
+    if cotacao.produto_id:
+        produto = buscar_produto_empresa(db, int(cotacao.produto_id), empresa_id)
+        produto_ja_existente = produto is not None
 
     try:
-        db.add(produto)
-        db.flush()
-        cotacao.produto_id = int(produto.id)
+        from backend.routers.produtos import (
+            gerar_codigo_produto as gerar_codigo_produto_oficial,
+            sincronizar_valores_comerciais_custom_produto,
+        )
+
+        if produto is None:
+            produto = models.Produto(
+                empresa_id=empresa_id,
+                codigo=gerar_codigo_produto_oficial(db, empresa_id),
+                nome=cotacao.item_nome.strip(),
+                descricao=norm_str(cotacao.descricao),
+                categoria=norm_str(cotacao.categoria),
+                unidade=norm_str(cotacao.unidade),
+                custo=norm_str(vencedor.valor_unitario),
+                preco_venda=None,
+                estoque_atual=None,
+                ativo=True,
+            )
+            db.add(produto)
+            db.flush()
+            cotacao.produto_id = int(produto.id)
+        else:
+            produto.custo = norm_str(vencedor.valor_unitario)
+
+        # Mantém também o campo personalizado de custo (quando existir no
+        # formulário de Produtos) sincronizado com o custo nativo.
+        sincronizar_valores_comerciais_custom_produto(
+            db,
+            empresa_id,
+            int(produto.id),
+            custo=norm_str(vencedor.valor_unitario),
+        )
+
         cotacao.status = "convertida"
         cotacao.fornecedor_vencedor_id = vencedor.fornecedor_id
         cotacao.fornecedor_vencedor_item_id = int(vencedor.id)
         cotacao.valor_aprovado = vencedor.valor_total
         if not cotacao.data_aprovacao:
             cotacao.data_aprovacao = datetime.utcnow()
+
         db.commit()
         db.refresh(cotacao)
         db.refresh(produto)
+
+        if produto_ja_existente:
+            message = "Resultado da cotação aplicado ao produto cadastrado com sucesso."
+        else:
+            message = "Cotação convertida em produto com sucesso."
+
         return {
-            "message": "Cotação convertida em produto com sucesso.",
+            "message": message,
             "cotacao": cotacao_to_out(db, cotacao),
             "produto": {
                 "id": int(produto.id),
@@ -1283,7 +1370,13 @@ def converter_cotacao_em_produto(
                 "nome": produto.nome,
             },
         }
+    except HTTPException:
+        db.rollback()
+        raise
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Não foi possível gerar o produto. Tente novamente.")
+        raise HTTPException(status_code=409, detail="Não foi possível atualizar a base de Produtos. Tente novamente.")
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Não foi possível atualizar a base de Produtos.") from exc
 

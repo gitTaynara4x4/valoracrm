@@ -737,7 +737,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'Revise o documento, salve, imprima em PDF ou envie o resumo pelo WhatsApp.'
       ],
       tips: [
-        'Owner e administrador podem criar categorias, modelos e regras globais do módulo.',
+        'Proprietário e Administrador podem criar categorias, modelos e regras globais do módulo.',
         'Custos e margem ficam restritos a usuários gerenciais e não aparecem no PDF do cliente.'
       ]
     },
@@ -807,12 +807,12 @@ document.addEventListener('DOMContentLoaded', () => {
       icon: 'fa-user-shield',
       steps: [
         'Cadastre usuários da empresa com nome, e-mail e senha inicial.',
-        'Escolha o papel: owner, admin, colaborador ou visualizador.',
+        'Escolha o papel: Proprietário, Administrador, Colaborador ou Somente leitura.',
         'Para colaborador e visualizador, configure permissões por módulo.',
         'E-mail pode existir em outra empresa; dentro da mesma empresa não pode repetir.'
       ],
       tips: [
-        'Não desative o último owner da empresa.',
+        'Não desative o último Proprietário da empresa.',
         'Use somente leitura para usuários que precisam consultar, mas não alterar dados.'
       ]
     },

@@ -1,5 +1,5 @@
 const MODULOS = [
-  { key: "dashboard", label: "Dashboard", desc: "Visão geral do sistema" },
+  { key: "dashboard", label: "Dashboard", desc: "Visão geral do sistema", actions: ["ver"] },
   { key: "clientes", label: "Clientes", desc: "Cadastro e gestão de clientes" },
   { key: "arquivos_tecnicos", label: "Arquivos Técnicos", desc: "Fotos, documentos e pastas técnicas dos clientes" },
   { key: "fornecedores", label: "Fornecedores", desc: "Cadastro e gestão de fornecedores" },
@@ -10,7 +10,7 @@ const MODULOS = [
   { key: "propostas", label: "Propostas (legado)", desc: "Módulo antigo de propostas comerciais" },
   { key: "contratos", label: "Contratos", desc: "Contratos e documentos" },
   { key: "usuarios", label: "Usuários", desc: "Gestão de acessos" },
-  { key: "empresa", label: "Empresa", desc: "Dados da empresa" },
+  { key: "empresa", label: "Empresa", desc: "Dados da empresa", actions: ["ver", "editar"] },
   { key: "configuracoes", label: "Configurações", desc: "Preferências e ajustes" },
   { key: "financeiro", label: "Financeiro", desc: "Contas, fluxo de caixa e relatórios" },
 ];
@@ -69,9 +69,9 @@ function marcarErroCampo(el, msg) {
 
 function roleLabel(role) {
   const r = normalizeText(role);
-  if (r === "owner") return "Owner";
-  if (r === "admin") return "Admin";
-  if (r === "visualizador") return "Visualizador";
+  if (r === "owner") return "Proprietário";
+  if (r === "admin") return "Administrador";
+  if (r === "visualizador") return "Somente leitura";
   return "Colaborador";
 }
 
@@ -88,28 +88,27 @@ function buildPermissionsGrid() {
   const container = $("permissions-grid-body");
   if (!container) return;
 
+  const renderAction = (mod, acao) => {
+    const permitidas = Array.isArray(mod.actions) ? mod.actions : ["ver", "criar", "editar", "excluir"];
+    if (!permitidas.includes(acao)) {
+      return `<span class="perm-na" title="Esta ação não existe neste módulo">—</span>`;
+    }
+    return `
+      <label class="perm-check">
+        <input type="checkbox" data-modulo="${mod.key}" data-acao="${acao}" />
+      </label>`;
+  };
+
   container.innerHTML = MODULOS.map((mod) => `
     <div class="permissions-grid perm-row">
       <div class="perm-module">
         <strong>${escapeHtml(mod.label)}</strong>
         <span>${escapeHtml(mod.desc)}</span>
       </div>
-
-      <label class="perm-check">
-        <input type="checkbox" data-modulo="${mod.key}" data-acao="ver" />
-      </label>
-
-      <label class="perm-check">
-        <input type="checkbox" data-modulo="${mod.key}" data-acao="criar" />
-      </label>
-
-      <label class="perm-check">
-        <input type="checkbox" data-modulo="${mod.key}" data-acao="editar" />
-      </label>
-
-      <label class="perm-check">
-        <input type="checkbox" data-modulo="${mod.key}" data-acao="excluir" />
-      </label>
+      ${renderAction(mod, "ver")}
+      ${renderAction(mod, "criar")}
+      ${renderAction(mod, "editar")}
+      ${renderAction(mod, "excluir")}
     </div>
   `).join("");
 }
@@ -201,20 +200,44 @@ function clearPermissionsForm() {
   });
 }
 
+function aplicarRestricaoSomenteLeitura() {
+  const somenteLeitura = normalizeText($("usuario-papel")?.value) === "visualizador";
+
+  document.querySelectorAll('#permissions-grid-body input[type="checkbox"][data-acao]').forEach((check) => {
+    if (check.dataset.acao === "ver") {
+      check.disabled = false;
+      return;
+    }
+
+    if (somenteLeitura) check.checked = false;
+    check.disabled = somenteLeitura;
+  });
+}
+
 function setPermissionsVisibility() {
   const papel = normalizeText($("usuario-papel")?.value);
   const bloco = $("bloco-permissoes");
   const note = $("permissions-note");
   const btnLeitura = $("btn-marcar-leitura");
+  const btnTudo = $("btn-marcar-tudo");
 
   const hide = papel === "owner" || papel === "admin";
+  const somenteLeitura = papel === "visualizador";
 
   if (bloco) bloco.style.display = hide ? "none" : "";
   if (btnLeitura) btnLeitura.style.display = hide ? "none" : "";
+  if (btnTudo) btnTudo.style.display = hide || somenteLeitura ? "none" : "";
+
+  aplicarRestricaoSomenteLeitura();
+
   if (note) {
-    note.innerHTML = hide
-      ? `Usuários com papel <strong>${roleLabel(papel)}</strong> possuem acesso amplo. As permissões por módulo não precisam ser configuradas manualmente.`
-      : `Usuários com papel <strong>${roleLabel(papel)}</strong> usam as permissões abaixo. Marque exatamente o que este usuário poderá fazer.`;
+    if (hide) {
+      note.innerHTML = `Usuários com papel <strong>${roleLabel(papel)}</strong> possuem acesso amplo. As permissões por módulo não precisam ser configuradas manualmente.`;
+    } else if (somenteLeitura) {
+      note.innerHTML = `<strong>Somente leitura:</strong> escolha apenas os módulos em <strong>Acessar</strong>. Este usuário não poderá cadastrar, editar ou excluir registros.`;
+    } else {
+      note.innerHTML = `<strong>Acessar</strong> controla se a pessoa pode entrar no módulo. <strong>Cadastrar</strong>, <strong>Editar</strong> e <strong>Excluir</strong> controlam as ações dentro dele. Ao liberar uma dessas ações, o acesso ao módulo também é liberado.`;
+    }
   }
 }
 
@@ -238,6 +261,7 @@ function limparFormulario() {
   }
 
   clearPermissionsForm();
+  aplicarOpcoesDePapelPermitidas();
   setPermissionsVisibility();
 }
 
@@ -249,6 +273,7 @@ function preencherFormularioBasico(usuario) {
   $("usuario-email").value = usuario.email || "";
   $("usuario-telefone").value = usuario.telefone || "";
   $("usuario-cargo").value = usuario.cargo || "";
+  aplicarOpcoesDePapelPermitidas();
   $("usuario-papel").value = usuario.papel || "colaborador";
   $("usuario-ativo").value = String(Boolean(usuario.ativo));
   $("usuario-senha").value = "";
@@ -286,10 +311,13 @@ function preencherPermissoes(permissoes = {}) {
     setPermissionCheck(mod.key, "editar", !!p.pode_editar);
     setPermissionCheck(mod.key, "excluir", !!p.pode_excluir);
   });
+
+  aplicarRestricaoSomenteLeitura();
 }
 
 function coletarPermissoes() {
   const mapa = {};
+  const somenteLeitura = normalizeText($("usuario-papel")?.value) === "visualizador";
 
   MODULOS.forEach((mod) => {
     mapa[mod.key] = {
@@ -312,12 +340,65 @@ function coletarPermissoes() {
     if (acao === "excluir") mapa[modulo].pode_excluir = check.checked;
   });
 
+  Object.values(mapa).forEach((permissao) => {
+    if (somenteLeitura) {
+      permissao.pode_criar = false;
+      permissao.pode_editar = false;
+      permissao.pode_excluir = false;
+      return;
+    }
+
+    const temAcao = permissao.pode_criar || permissao.pode_editar || permissao.pode_excluir;
+    if (temAcao) permissao.pode_ver = true;
+    if (!permissao.pode_ver) {
+      permissao.pode_criar = false;
+      permissao.pode_editar = false;
+      permissao.pode_excluir = false;
+    }
+  });
+
   return Object.values(mapa);
 }
 
 function liberarSomenteLeitura() {
   clearPermissionsForm();
   MODULOS.forEach((mod) => setPermissionCheck(mod.key, "ver", true));
+}
+
+function liberarTudo() {
+  if (normalizeText($("usuario-papel")?.value) === "visualizador") {
+    liberarSomenteLeitura();
+    return;
+  }
+
+  document.querySelectorAll('#permissions-grid-body input[type="checkbox"]:not(:disabled)').forEach((el) => {
+    el.checked = true;
+  });
+}
+
+function aplicarDependenciaPermissao(check) {
+  const modulo = check?.dataset?.modulo;
+  const acao = check?.dataset?.acao;
+  if (!modulo || !acao) return;
+
+  const acesso = document.querySelector(
+    `#permissions-grid-body input[data-modulo="${modulo}"][data-acao="ver"]`
+  );
+  if (!acesso) return;
+
+  if (acao !== "ver" && check.checked) {
+    acesso.checked = true;
+    return;
+  }
+
+  if (acao === "ver" && !check.checked) {
+    ["criar", "editar", "excluir"].forEach((outraAcao) => {
+      const item = document.querySelector(
+        `#permissions-grid-body input[data-modulo="${modulo}"][data-acao="${outraAcao}"]`
+      );
+      if (item) item.checked = false;
+    });
+  }
 }
 
 function atualizarContagem() {
@@ -332,9 +413,44 @@ function podeUsuarios(acao) {
   return !!me?.permissoes?.usuarios?.[`pode_${acao}`];
 }
 
+function podeGerenciarUsuario(usuario, acao) {
+  if (!usuario || !podeUsuarios(acao)) return false;
+
+  const me = stateUsuarios.currentUser || {};
+  const meuPapel = normalizeText(me.papel);
+  const papelAlvo = normalizeText(usuario.papel);
+  const mesmoUsuario = Number(me.id) === Number(usuario.id);
+
+  if (meuPapel === "owner") {
+    if (acao === "excluir" && mesmoUsuario) return false;
+    return true;
+  }
+
+  if (mesmoUsuario) return false;
+  return papelAlvo === "colaborador" || papelAlvo === "visualizador";
+}
+
+function aplicarOpcoesDePapelPermitidas() {
+  const select = $("usuario-papel");
+  if (!select) return;
+  const ownerAtual = normalizeText(stateUsuarios.currentUser?.papel) === "owner";
+
+  Array.from(select.options).forEach((option) => {
+    const restrita = option.value === "owner" || option.value === "admin";
+    option.hidden = restrita && !ownerAtual;
+    option.disabled = restrita && !ownerAtual;
+  });
+
+  if (!ownerAtual && (select.value === "owner" || select.value === "admin")) {
+    select.value = "colaborador";
+  }
+}
+
 function aplicarPermissoesDaTela() {
   const btnNovo = $("btn-novo-usuario");
   if (btnNovo) btnNovo.style.display = podeUsuarios("criar") ? "" : "none";
+  aplicarOpcoesDePapelPermitidas();
+  renderTabela();
 }
 
 function renderTabela() {
@@ -365,11 +481,11 @@ function renderTabela() {
       <td><span class="badge-role ${roleClass(usuario.papel)}">${escapeHtml(roleLabel(usuario.papel))}</span></td>
       <td><span class="badge-status ${usuario.ativo ? "ativo" : "inativo"}">${escapeHtml(statusLabel(!!usuario.ativo))}</span></td>
       <td style="text-align:right;">
-        ${podeUsuarios("editar") ? `
+        ${podeGerenciarUsuario(usuario, "editar") ? `
           <button class="btn-icon" type="button" title="Editar" data-edit-id="${usuario.id}">
             <i class="fa-solid fa-pen"></i>
           </button>` : ""}
-        ${podeUsuarios("excluir") ? `
+        ${podeGerenciarUsuario(usuario, "excluir") ? `
           <button class="btn-icon danger" type="button" title="Excluir" data-del-id="${usuario.id}">
             <i class="fa-solid fa-trash"></i>
           </button>` : ""}
@@ -655,15 +771,17 @@ function bindTabelaEventos() {
     const btnDelete = event.target.closest("[data-del-id]");
 
     if (btnEdit) {
-      if (!podeUsuarios("editar")) return;
       const id = Number(btnEdit.dataset.editId);
+      const usuario = stateUsuarios.lista.find((u) => Number(u.id) === id);
+      if (!podeGerenciarUsuario(usuario, "editar")) return;
       carregarUsuarioParaEdicao(id);
       return;
     }
 
     if (btnDelete) {
-      if (!podeUsuarios("excluir")) return;
       const id = Number(btnDelete.dataset.delId);
+      const usuario = stateUsuarios.lista.find((u) => Number(u.id) === id);
+      if (!podeGerenciarUsuario(usuario, "excluir")) return;
       excluirUsuario(id);
     }
   });
@@ -721,7 +839,12 @@ function bindUI() {
   $("btn-fechar-modal")?.addEventListener("click", closeModal);
   $("btn-cancelar-modal")?.addEventListener("click", closeModal);
   $("btn-marcar-leitura")?.addEventListener("click", liberarSomenteLeitura);
+  $("btn-marcar-tudo")?.addEventListener("click", liberarTudo);
   $("usuario-papel")?.addEventListener("change", setPermissionsVisibility);
+  $("permissions-grid-body")?.addEventListener("change", (event) => {
+    const check = event.target.closest('input[type="checkbox"][data-modulo][data-acao]');
+    if (check) aplicarDependenciaPermissao(check);
+  });
 
   $("modal-usuario-backdrop")?.addEventListener("click", (event) => {
     if (event.target === $("modal-usuario-backdrop")) {

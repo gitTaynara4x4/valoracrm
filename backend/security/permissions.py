@@ -156,11 +156,20 @@ def build_effective_permissions(
         if modulo not in base:
             continue
 
+        # Acesso ao módulo é pré-requisito para qualquer ação. Bases antigas
+        # podem ter uma ação marcada sem ``pode_ver``; nesse caso o acesso é
+        # considerado liberado para não transformar uma permissão existente
+        # em um bloqueio inesperado.
+        pode_criar = bool(row.pode_criar)
+        pode_editar = bool(row.pode_editar)
+        pode_excluir = bool(row.pode_excluir)
+        pode_ver = bool(row.pode_ver or pode_criar or pode_editar or pode_excluir)
+
         base[modulo] = {
-            "pode_ver": bool(row.pode_ver),
-            "pode_criar": bool(row.pode_criar),
-            "pode_editar": bool(row.pode_editar),
-            "pode_excluir": bool(row.pode_excluir),
+            "pode_ver": pode_ver,
+            "pode_criar": pode_criar if pode_ver else False,
+            "pode_editar": pode_editar if pode_ver else False,
+            "pode_excluir": pode_excluir if pode_ver else False,
         }
 
     # Compatibilidade: antes da criação do módulo próprio, Orçamentos usava
@@ -202,7 +211,7 @@ def require_owner():
         current_user: models.Usuario = Depends(get_current_user),
     ) -> models.Usuario:
         if not is_owner(current_user):
-            raise HTTPException(status_code=403, detail="Apenas o owner pode executar esta ação.")
+            raise HTTPException(status_code=403, detail="Apenas o Proprietário pode executar esta ação.")
         return current_user
 
     return dependency
@@ -236,31 +245,42 @@ def can_manage_target(
     current_user: models.Usuario,
     target_user: models.Usuario,
 ) -> bool:
+    """Valida a hierarquia do alvo; a ação já é validada por require_permission.
+
+    Owner pode gerenciar qualquer usuário da própria empresa. Os demais papéis
+    só podem gerenciar colaboradores/visualizadores e nunca o próprio acesso.
+    Isso faz as permissões ``usuarios.criar/editar/excluir`` funcionarem de
+    verdade sem permitir elevação para Admin/Owner.
+    """
     if int(current_user.empresa_id) != int(target_user.empresa_id):
         return False
 
     if is_owner(current_user):
         return True
 
-    if is_admin(current_user):
-        return str(target_user.papel) in {"colaborador", "visualizador"}
+    if int(current_user.id) == int(target_user.id):
+        return False
 
-    return False
+    target_role = str(getattr(target_user, "papel", "") or "").strip().lower()
+    return target_role in {"colaborador", "visualizador"}
 
 
 def can_assign_role(
     current_user: models.Usuario,
     papel_destino: str,
 ) -> bool:
+    """Valida somente a hierarquia do papel que pode ser atribuído.
+
+    A permissão da operação é conferida antes pela rota. Assim, um colaborador
+    que recebeu explicitamente ``usuarios.criar`` pode cadastrar outro membro
+    operacional, mas nunca criar Admin/Owner.
+    """
     papel_destino = assert_valid_role(papel_destino)
 
     if is_owner(current_user):
         return True
 
-    if is_admin(current_user):
-        return papel_destino in {"colaborador", "visualizador"}
-
-    return False
+    return papel_destino in {"colaborador", "visualizador"}
 
 
 def prevent_last_owner_change(
@@ -276,7 +296,7 @@ def prevent_last_owner_change(
 
     if deleting:
         if count_owner_users(db, int(target_user.empresa_id)) <= 1:
-            raise HTTPException(status_code=400, detail="Não é possível excluir o último owner da empresa.")
+            raise HTTPException(status_code=400, detail="Não é possível excluir o último Proprietário da empresa.")
         return
 
     if new_role is None:
@@ -285,4 +305,4 @@ def prevent_last_owner_change(
     new_role_norm = assert_valid_role(new_role)
     if new_role_norm != "owner":
         if count_owner_users(db, int(target_user.empresa_id)) <= 1:
-            raise HTTPException(status_code=400, detail="Não é possível rebaixar o último owner da empresa.")
+            raise HTTPException(status_code=400, detail="Não é possível alterar o papel do último Proprietário da empresa.")

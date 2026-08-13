@@ -134,7 +134,7 @@ FAVICON_TAG_ALT = '<link rel="shortcut icon" type="image/jpeg" href="/frontend/i
 
 # Navegação contínua: versão única para evitar que páginas diferentes usem
 # cópias antigas do app.css/menu-global.js armazenadas pelo navegador.
-SEAMLESS_NAV_VERSION = "20260807-shell-v3"
+SEAMLESS_NAV_VERSION = "20260812-permissions-v4"
 SEAMLESS_MENU_CSS_TAG = (
     f'<link rel="stylesheet" href="/frontend/css/menu-global.css?v={SEAMLESS_NAV_VERSION}" '
     f'data-valora-menu-css="{SEAMLESS_NAV_VERSION}">'
@@ -275,6 +275,8 @@ PERMISSION_PREFIXES = (
     ("/api/patrimonio", "patrimonio"),
     ("/api/cotacoes", "cotacoes"),
     ("/api/propostas", "propostas"),
+    ("/api/campos-propostas", "propostas"),
+    ("/api/integracoes/zapschat", "clientes"),
     ("/api/contratos-admin", "contratos"),
     ("/api/area-cliente-admin", "contratos"),
     ("/api/area-cliente-acessos-admin", "contratos"),
@@ -302,6 +304,7 @@ PAGE_PERMISSION_MODULES = {
     "/usuarios": "usuarios",
     "/empresa": "empresa",
     "/configuracoes": "configuracoes",
+    "/formularios": "configuracoes",
     "/financeiro": "financeiro",
     "/fluxo-caixa": "financeiro",
     "/contas-pagar": "financeiro",
@@ -348,6 +351,20 @@ def _permission_module(path: str) -> str | None:
     return None
 
 
+def _page_permission_module(path: str) -> str | None:
+    """Resolve tanto /clientes quanto o acesso direto /frontend/clientes.html."""
+    normalized = normalize_path(path)
+    module = PAGE_PERMISSION_MODULES.get(normalized)
+    if module:
+        return module
+
+    if normalized.startswith("/frontend/") and normalized.endswith(".html"):
+        page_name = normalized.rsplit("/", 1)[-1][:-5]
+        return PAGE_PERMISSION_MODULES.get(f"/{page_name}")
+
+    return None
+
+
 def _permission_action(request: Request, path: str) -> str:
     method = request.method.upper()
     normalized = normalize_path(path)
@@ -376,6 +393,28 @@ def _permission_action(request: Request, path: str) -> str:
     )
     if method == "POST" and any(marker in normalized for marker in edit_markers):
         return "editar"
+
+    # O Financeiro possui várias ações operacionais implementadas como POST.
+    # Elas alteram registros existentes e portanto obedecem a permissão Editar,
+    # não a permissão Cadastrar.
+    finance_edit_markers = (
+        "/devolver",
+        "/autenticar",
+        "/comprovante",
+        "/estornar",
+        "/ativar",
+        "/suspender",
+        "/retomar",
+        "/gerar",
+        "/processar",
+    )
+    if (
+        method == "POST"
+        and normalized.startswith("/api/financeiro/")
+        and any(marker in normalized for marker in finance_edit_markers)
+    ):
+        return "editar"
+
     return "criar"
 
 
@@ -507,7 +546,7 @@ async def require_auth_globally(request: Request, call_next):
         action = _permission_action(request, path)
 
         if not module and request.method.upper() in {"GET", "HEAD"}:
-            module = PAGE_PERMISSION_MODULES.get(path)
+            module = _page_permission_module(path)
             action = "ver"
 
         if module and not user_has_permission(db, user, module, action):

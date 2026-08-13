@@ -7,6 +7,7 @@
 
   const API_COTACOES = '/api/cotacoes';
   const API_FORNECEDORES = '/api/fornecedores';
+  const API_PRODUTOS = '/api/produtos';
 
   const SYSTEM_FIELD_SLUGS = new Set([
     'codigo',
@@ -45,6 +46,9 @@
     fichaCotacaoController: null,
     cotacaoAtualDetalhe: null,
     modalSomenteLeitura: false,
+    produtoSelecionado: null,
+    produtosPesquisa: [],
+    produtoBuscaSeq: 0,
   };
 
   const STATUS_LABELS = {
@@ -277,6 +281,7 @@
       'btn-adicionar-fornecedor-cotacao',
       'btn-aprovar-cotacao',
       'btn-converter-cotacao-produto',
+      'btn-limpar-produto-cotacao',
     ].forEach((id) => setHiddenByReadonly(id, state.modalSomenteLeitura));
 
     document
@@ -349,6 +354,193 @@
       return JSON.parse(text);
     } catch (_) {
       return text;
+    }
+  }
+
+  function produtoCotacaoLabel(produto) {
+    if (!produto) return '';
+    const codigo = normalizeText(produto.codigo || produto.cod_ref_id || '');
+    const nome = normalizeText(produto.nome || produto.nome_produto || '');
+    return [codigo, nome].filter(Boolean).join(' · ');
+  }
+
+  function fecharResultadosProdutosCotacao() {
+    const box = $('cotacao-produto-resultados');
+    if (!box) return;
+    box.hidden = true;
+    box.innerHTML = '';
+  }
+
+  function atualizarProdutoLinkUI(produto = null) {
+    const linked = !!produto?.id;
+    const statusEl = $('cotacao-produto-link-status');
+    const helpEl = $('cotacao-produto-help');
+    const clearBtn = $('btn-limpar-produto-cotacao');
+    const converterBtn = $('btn-converter-cotacao-produto');
+
+    if (statusEl) {
+      statusEl.classList.toggle('is-linked', linked);
+      statusEl.innerHTML = linked
+        ? '<i class="fa-solid fa-link"></i> Produto vinculado'
+        : '<i class="fa-solid fa-link"></i> Item livre';
+    }
+
+    if (helpEl) {
+      helpEl.textContent = linked
+        ? `Vinculado ao produto ${produtoCotacaoLabel(produto)}. Ao aplicar o resultado, o custo deste produto será atualizado.`
+        : 'Opcional. Selecione um produto cadastrado ou mantenha a cotação como item livre.';
+    }
+
+    if (clearBtn && !state.modalSomenteLeitura) {
+      clearBtn.hidden = !linked;
+    }
+
+    if (converterBtn && !converterBtn.hidden) {
+      converterBtn.innerHTML = linked
+        ? '<i class="fa-solid fa-arrows-rotate"></i> Aplicar ao produto'
+        : '<i class="fa-solid fa-box-open"></i> Converter em produto';
+    }
+  }
+
+  function setRenderedCustomField(slugs, value) {
+    for (const slug of slugs) {
+      const el = document.querySelector(`[data-custom-field="${slug}"]`);
+      if (!el) continue;
+      if (el.type === 'checkbox') {
+        el.checked = ['1', 'true', 'sim', 'yes'].includes(String(value || '').toLowerCase());
+      } else {
+        el.value = value ?? '';
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }
+
+  function preencherCamposCotacaoComProduto(produto) {
+    if (!produto) return;
+
+    const nome = produto.nome || produto.nome_produto || '';
+    const descricao = produto.descricao || '';
+    const unidade = produto.unidade || '';
+    const categoria = produto.categoria || produto.categorias || '';
+
+    setValue('cotacao-item-nome', nome);
+    setValue('cotacao-descricao', descricao);
+    setValue('cotacao-unidade', unidade);
+    setValue('cotacao-categoria', categoria);
+
+    // Se Cotações estiver usando uma ficha principal personalizada, mantém os
+    // campos equivalentes visíveis sincronizados com o produto selecionado.
+    setRenderedCustomField(['item_nome', 'item', 'item_desejado', 'nome_item'], nome);
+    setRenderedCustomField(['descricao', 'descricao_item'], descricao);
+    setRenderedCustomField(['unidade'], unidade);
+    setRenderedCustomField(['categoria'], categoria);
+  }
+
+  function selecionarProdutoCotacao(produto, { preencherCampos = true } = {}) {
+    if (!produto?.id) return;
+
+    state.produtoSelecionado = { ...produto, id: Number(produto.id) };
+    setValue('cotacao-produto-id', String(produto.id));
+    setValue('cotacao-produto-busca', produtoCotacaoLabel(produto));
+
+    if (preencherCampos) preencherCamposCotacaoComProduto(produto);
+
+    atualizarProdutoLinkUI(state.produtoSelecionado);
+    fecharResultadosProdutosCotacao();
+  }
+
+  function limparProdutoSelecionadoCotacao({ manterTexto = false } = {}) {
+    state.produtoSelecionado = null;
+    setValue('cotacao-produto-id', '');
+    if (!manterTexto) setValue('cotacao-produto-busca', '');
+    atualizarProdutoLinkUI(null);
+    fecharResultadosProdutosCotacao();
+  }
+
+  function renderResultadosProdutosCotacao(produtos, termo = '') {
+    const box = $('cotacao-produto-resultados');
+    if (!box) return;
+
+    const rows = Array.isArray(produtos) ? produtos : [];
+    state.produtosPesquisa = rows;
+
+    if (!rows.length) {
+      box.innerHTML = `<div class="cotacao-produto-empty">${termo ? 'Nenhum produto encontrado.' : 'Nenhum produto ativo cadastrado.'}</div>`;
+      box.hidden = false;
+      return;
+    }
+
+    box.innerHTML = rows.map((produto) => {
+      const codigo = produto.codigo || produto.cod_ref_id || 'Sem código';
+      const nome = produto.nome || produto.nome_produto || 'Produto';
+      const meta = [produto.categoria || produto.categorias, produto.unidade]
+        .filter(Boolean)
+        .join(' · ') || 'Produto cadastrado';
+
+      return `
+        <button type="button" class="cotacao-produto-option" role="option" data-produto-cotacao-id="${Number(produto.id)}">
+          <strong>${escapeHtml(codigo)} · ${escapeHtml(nome)}</strong>
+          <small>${escapeHtml(meta)}</small>
+        </button>
+      `;
+    }).join('');
+    box.hidden = false;
+  }
+
+  async function buscarProdutosCotacao(termo = '') {
+    const input = $('cotacao-produto-busca');
+    if (!input || state.modalSomenteLeitura) return;
+
+    const seq = ++state.produtoBuscaSeq;
+    const box = $('cotacao-produto-resultados');
+    if (box) {
+      box.innerHTML = '<div class="cotacao-produto-empty"><i class="fa-solid fa-spinner fa-spin"></i> Buscando produtos...</div>';
+      box.hidden = false;
+    }
+
+    try {
+      const params = new URLSearchParams({
+        paginated: 'true',
+        ativo: 'true',
+        limit: '30',
+        offset: '0',
+      });
+      const texto = normalizeText(termo);
+      if (texto) params.set('busca', texto);
+
+      const data = await apiJson(`${API_PRODUTOS}?${params.toString()}`);
+      if (seq !== state.produtoBuscaSeq) return;
+
+      renderResultadosProdutosCotacao(Array.isArray(data) ? data : (data?.items || []), texto);
+    } catch (err) {
+      if (seq !== state.produtoBuscaSeq) return;
+      console.error(err);
+      if (box) {
+        box.innerHTML = '<div class="cotacao-produto-empty">Não foi possível consultar a base de Produtos.</div>';
+        box.hidden = false;
+      }
+    }
+  }
+
+  async function carregarProdutoVinculado(produtoId) {
+    const id = Number(produtoId || 0);
+    if (!id) {
+      limparProdutoSelecionadoCotacao();
+      return null;
+    }
+
+    try {
+      const produto = await apiJson(`${API_PRODUTOS}/${id}`);
+      selecionarProdutoCotacao(produto, { preencherCampos: false });
+      return produto;
+    } catch (err) {
+      console.warn('Produto vinculado à cotação não pôde ser carregado.', err);
+      state.produtoSelecionado = null;
+      setValue('cotacao-produto-id', String(id));
+      setValue('cotacao-produto-busca', `Produto #${id}`);
+      const helpEl = $('cotacao-produto-help');
+      if (helpEl) helpEl.textContent = 'O vínculo está salvo, mas os dados atuais do produto não puderam ser carregados.';
+      return null;
     }
   }
 
@@ -1385,6 +1577,7 @@
     setValue('cotacao-categoria', data.categoria || '');
     setValue('cotacao-descricao', data.descricao || '');
     setValue('cotacao-observacoes', data.observacoes || '');
+    await carregarProdutoVinculado(data.produto_id);
 
     state.fornecedorRows = Array.isArray(data.fornecedores)
       ? data.fornecedores.map((row) => ({ ...row }))
@@ -1402,6 +1595,8 @@
     state.editandoId = null;
     state.fornecedorRows = [];
     state.cotacaoAtualDetalhe = null;
+    state.produtosPesquisa = [];
+    state.produtoBuscaSeq += 1;
 
     const form = $('formCotacao');
     form?.reset();
@@ -1417,6 +1612,7 @@
     setValue('cotacao-categoria', '');
     setValue('cotacao-descricao', '');
     setValue('cotacao-observacoes', '');
+    limparProdutoSelecionadoCotacao();
 
     if ($('modal-cotacao-titulo')) $('modal-cotacao-titulo').textContent = 'Nova cotação';
     if ($('btn-aprovar-cotacao')) $('btn-aprovar-cotacao').hidden = true;
@@ -1438,7 +1634,7 @@
 
     setTimeout(() => {
       switchCotacaoTab(state.usarFichaPrincipalCotacoes ? 'tab-cotacao-campos' : 'tab-cotacao-identificacao');
-      if (!state.usarFichaPrincipalCotacoes) $('cotacao-item-nome')?.focus();
+      $('cotacao-produto-busca')?.focus();
     }, 120);
   }
 
@@ -1459,6 +1655,7 @@
 
       $('btn-aprovar-cotacao').hidden = !state.editandoId || data.status === 'convertida';
       $('btn-converter-cotacao-produto').hidden = !state.editandoId || data.status === 'convertida';
+      atualizarProdutoLinkUI(state.produtoSelecionado);
 
       window.ValoraRequired?.refresh?.(document);
       window.ValoraCamposLongos?.enhance?.(document);
@@ -1489,6 +1686,7 @@
       codigo: onlyDigits($('cotacao-codigo')?.value || $('cotacao-codigo-ficha-principal')?.value),
       status: $('cotacao-status')?.value || 'rascunho',
       urgencia: $('cotacao-urgencia')?.value || null,
+      produto_id: Number($('cotacao-produto-id')?.value || 0) || null,
       item_nome: normalizeText($('cotacao-item-nome')?.value),
       quantidade: normalizeText($('cotacao-quantidade')?.value),
       unidade: normalizeText($('cotacao-unidade')?.value),
@@ -1501,6 +1699,16 @@
     if (state.usarFichaPrincipalCotacoes) {
       Object.assign(payload, buildBaseFromCotacaoFichaPrincipal(customRaw, payload));
       payload.custom_fields = cleanCustomFieldsForSave(customRaw);
+    }
+
+    // O vínculo nativo com Produtos é autoritativo para a identificação do
+    // item. Isso também evita que um campo personalizado de relação com
+    // Produto (que salva ID) seja interpretado como nome do item.
+    if (payload.produto_id && state.produtoSelecionado) {
+      payload.item_nome = normalizeText(state.produtoSelecionado.nome || state.produtoSelecionado.nome_produto) || payload.item_nome;
+      payload.unidade = payload.unidade || normalizeText(state.produtoSelecionado.unidade);
+      payload.categoria = payload.categoria || normalizeText(state.produtoSelecionado.categoria || state.produtoSelecionado.categorias);
+      payload.descricao = payload.descricao || normalizeText(state.produtoSelecionado.descricao);
     }
 
     payload.codigo = onlyDigits(payload.codigo || '');
@@ -1737,7 +1945,12 @@
 
   async function converterCotacaoProduto() {
     if (!state.editandoId) return;
-    if (!confirm('Converter esta cotação em produto?')) return;
+
+    const produtoId = Number($('cotacao-produto-id')?.value || 0);
+    const mensagem = produtoId
+      ? 'Aplicar o resultado desta cotação ao produto vinculado? O custo do produto será atualizado com o valor unitário do fornecedor vencedor.'
+      : 'Converter esta cotação em um novo produto?';
+    if (!confirm(mensagem)) return;
 
     try {
       await salvarCotacaoSemFechar();
@@ -1800,6 +2013,29 @@
     $('toggle-ficha-principal-cotacao')?.addEventListener('change', salvarToggleFichaPrincipalCotacao);
     $('btn-gerenciar-formulario-cotacao')?.addEventListener('click', abrirGerenciarFormularioCotacoes);
     $('btn-gerenciar-formulario-cotacoes-topo')?.addEventListener('click', abrirGerenciarFormularioCotacoes);
+    $('btn-limpar-produto-cotacao')?.addEventListener('click', () => limparProdutoSelecionadoCotacao());
+
+    const produtoBusca = $('cotacao-produto-busca');
+    const buscarProdutosDebounced = debounce(() => buscarProdutosCotacao(produtoBusca?.value || ''), 280);
+
+    produtoBusca?.addEventListener('focus', () => {
+      if (!state.produtoSelecionado) buscarProdutosCotacao(produtoBusca.value || '');
+    });
+    produtoBusca?.addEventListener('input', () => {
+      const labelAtual = produtoCotacaoLabel(state.produtoSelecionado);
+      if (state.produtoSelecionado && normalizeText(produtoBusca.value) !== labelAtual) {
+        limparProdutoSelecionadoCotacao({ manterTexto: true });
+      }
+      buscarProdutosDebounced();
+    });
+
+    $('cotacao-produto-resultados')?.addEventListener('mousedown', (event) => {
+      const option = event.target.closest('[data-produto-cotacao-id]');
+      if (!option) return;
+      event.preventDefault();
+      const produto = state.produtosPesquisa.find((item) => Number(item.id) === Number(option.dataset.produtoCotacaoId));
+      if (produto) selecionarProdutoCotacao(produto);
+    });
 
     $('busca-cotacoes')?.addEventListener('input', debounce(() => carregarCotacoes({ reset: true }), 350));
     $('filtro-status-cotacoes')?.addEventListener('change', () => carregarCotacoes({ reset: true }));
@@ -1811,6 +2047,8 @@
     });
 
     document.addEventListener('click', (event) => {
+      if (!event.target.closest('.cotacao-produto-picker')) fecharResultadosProdutosCotacao();
+
       const actionBtn = event.target.closest('[data-action][data-id]');
 
       if (actionBtn) {
