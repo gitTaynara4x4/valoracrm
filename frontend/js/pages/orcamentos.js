@@ -74,6 +74,7 @@
   const DOCUMENT_SCALE_MAX = 125;
   const DOCUMENT_SCALE_DEFAULT = 100;
   const DOCUMENT_SCALE_PRESETS = new Set([85, 100, 115]);
+  const BUDGET_MAXIMIZED_STORAGE_KEY = 'valora:orcamentos:maximized';
 
   const $ = (id) => document.getElementById(id);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
@@ -255,11 +256,51 @@
     return data;
   }
 
+  function budgetMaximizedPreference() {
+    try {
+      return localStorage.getItem(BUDGET_MAXIMIZED_STORAGE_KEY) === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function setBudgetMaximized(maximized, { persist = true } = {}) {
+    const overlay = $('budget-modal');
+    const content = overlay?.querySelector('.budget-modal-content');
+    const button = $('btn-toggle-budget-maximize');
+    const active = Boolean(maximized);
+
+    overlay?.classList.toggle('is-maximized', active);
+    content?.classList.toggle('is-maximized', active);
+
+    if (button) {
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      button.setAttribute('aria-label', active ? 'Restaurar tamanho do orçamento' : 'Maximizar orçamento');
+      button.title = active ? 'Restaurar tamanho do orçamento' : 'Maximizar orçamento';
+      button.innerHTML = active
+        ? '<i class="fa-solid fa-compress"></i><span>Restaurar</span>'
+        : '<i class="fa-solid fa-expand"></i><span>Maximizar</span>';
+    }
+
+    if (persist) {
+      try { localStorage.setItem(BUDGET_MAXIMIZED_STORAGE_KEY, active ? '1' : '0'); } catch (_) {}
+    }
+  }
+
+  function toggleBudgetMaximized() {
+    const overlay = $('budget-modal');
+    setBudgetMaximized(!overlay?.classList.contains('is-maximized'));
+  }
+
   function openOverlay(id) {
     const overlay = $(id);
     if (!overlay) {
       console.warn('[orcamentos] Modal não encontrado:', id);
       return;
+    }
+
+    if (id === 'budget-modal') {
+      setBudgetMaximized(budgetMaximizedPreference(), { persist: false });
     }
 
     // Usa o controlador global oficial do Valora quando estiver disponível.
@@ -1355,6 +1396,89 @@
     }
   }
 
+  function normalizedProductCode(value) {
+    return String(value ?? '').trim().toLocaleLowerCase('pt-BR');
+  }
+
+  async function productByExactCode(code) {
+    const normalized = String(code ?? '').trim();
+    if (!normalized) return null;
+    const params = new URLSearchParams({ codigo_exato: normalized, limit: '1', offset: '0' });
+    const response = await api(`${API_BUDGET_PRODUCTS}?${params.toString()}`);
+    return normalizeCollection(response)[0] || null;
+  }
+
+  async function replaceBudgetItemByCode(input) {
+    const row = input?.closest('tr[data-index]');
+    const index = Number(row?.dataset.index);
+    const item = state.items[index];
+    if (!row || !item || input.dataset.codeResolving === '1') return;
+
+    const requestedCode = String(input.value || '').trim();
+    const originalCode = String(input.dataset.originalCode ?? item.codigo ?? '').trim();
+    const originalProductId = Number(input.dataset.originalProductId || item.produto_id || 0) || null;
+
+    if (!requestedCode) {
+      input.value = originalCode;
+      item.codigo = originalCode;
+      toast('Informe um código de produto válido para fazer a troca.', 'error');
+      return;
+    }
+
+    if (normalizedProductCode(requestedCode) === normalizedProductCode(originalCode)) {
+      item.codigo = requestedCode;
+      return;
+    }
+
+    input.dataset.codeResolving = '1';
+    input.disabled = true;
+    row.classList.add('is-resolving-product-code');
+
+    try {
+      const product = await productByExactCode(requestedCode);
+      if (state.items[index] !== item) return;
+      if (!product) {
+        throw new Error(`Nenhum produto ativo foi encontrado com o código ${requestedCode}.`);
+      }
+
+      const quantity = item.quantidade;
+      const discount = item.desconto;
+      const observation = item.observacao;
+      const budgetItemId = item.id;
+
+      const replacement = normalizeItem({
+        id: budgetItemId,
+        produto_id: product.id,
+        origem: 'produto',
+        codigo: product.codigo,
+        descricao: product.nome,
+        referencia: product.descricao || '',
+        unidade: product.unidade || 'UN',
+        quantidade: quantity,
+        valor_unitario: product.preco_venda,
+        desconto: discount,
+        custo_unitario: product.custo ?? null,
+        custo_informado: product.custo !== null && product.custo !== undefined && product.custo !== '',
+        observacao: observation,
+        ordem: index,
+      });
+
+      state.items[index] = replacement;
+      renderItems();
+      updateTotals();
+      toast(`Item ${index + 1} alterado para ${product.codigo || requestedCode} — ${product.nome || 'produto'}.`);
+    } catch (error) {
+      if (state.items[index] !== item) return;
+      item.codigo = originalCode;
+      item.produto_id = originalProductId;
+      input.disabled = false;
+      input.value = originalCode;
+      row.classList.remove('is-resolving-product-code');
+      input.dataset.codeResolving = '0';
+      toast(error.message || 'Não foi possível trocar o produto pelo código informado.', 'error');
+    }
+  }
+
   function itemTotal(item) {
     return Math.max(item.quantidade * item.valor_unitario - item.desconto, 0);
   }
@@ -1374,7 +1498,18 @@
           </div>
         </td>
         <td><textarea data-field="descricao" placeholder="Descrição do produto ou serviço">${escapeHtml(item.descricao)}</textarea><input data-field="referencia" value="${escapeHtml(item.referencia)}" placeholder="Referência/detalhe (opcional)" /></td>
-        <td><input data-field="codigo" value="${escapeHtml(item.codigo)}" /></td>
+        <td>
+          <input
+            class="budget-item-code-input"
+            data-field="codigo"
+            value="${escapeHtml(item.codigo)}"
+            autocomplete="off"
+            spellcheck="false"
+            title="Altere o código e saia do campo para trocar este produto"
+            aria-label="Código do item ${index + 1}"
+          />
+          <small class="budget-item-code-help">Digite outro código para trocar</small>
+        </td>
         <td><input data-field="unidade" value="${escapeHtml(item.unidade)}" /></td>
         <td><input data-field="quantidade" value="${inputQuantity(item.quantidade)}" inputmode="decimal" /></td>
         <td><input data-field="valor_unitario" value="${inputMoney(item.valor_unitario)}" inputmode="decimal" /></td>
@@ -1555,14 +1690,18 @@
     scheduleServerCalculation();
   }
 
-  function renderAnalysis() {
-    const tbody = $('analysis-items-body');
-    const items = state.calculation?.itens || state.items.map((item) => {
+  function currentAnalysisItems() {
+    return state.calculation?.itens || state.items.map((item) => {
       const sale = itemTotal(item);
       const cost = item.quantidade * parseNumber(item.custo_unitario);
       const profit = sale - cost;
       return { ...item, valor_total: sale, custo_total: cost, lucro_total: profit, margem_percentual: sale > 0 ? profit / sale * 100 : 0 };
     });
+  }
+
+  function renderAnalysis() {
+    const tbody = $('analysis-items-body');
+    const items = currentAnalysisItems();
     tbody.innerHTML = items.map((item) => {
       const costKnown = item.custo_informado !== false;
       return `<tr><td>${escapeHtml(item.descricao || 'Item sem descrição')}</td><td class="text-right">${formatMoney(item.valor_total)}</td><td class="text-right ${costKnown ? '' : 'analysis-missing-cost'}">${costKnown ? formatMoney(item.custo_total) : 'Não informado'}</td><td class="text-right">${costKnown ? formatMoney(item.lucro_total) : '—'}</td><td class="text-right">${costKnown ? formatPercent(item.margem_percentual) : '—'}</td></tr>`;
@@ -2191,6 +2330,72 @@
       toast('Margem aprovada pelo gestor.');
       await loadBudgets();
     } catch (error) { toast(error.message, 'error'); }
+  }
+
+  function printFinancialAnalysis() {
+    if (!canShowCosts()) {
+      toast('Seu usuário não possui permissão para visualizar custos.', 'error');
+      return;
+    }
+
+    const items = currentAnalysisItems();
+    if (!items.length) {
+      toast('Adicione pelo menos um item antes de imprimir a análise financeira.', 'error');
+      return;
+    }
+
+    const calculation = state.calculation;
+    const fallback = calculateTotals();
+    const sale = calculation ? parseNumber(calculation.total) : fallback.total;
+    const cost = calculation ? parseNumber(calculation.custo_total) : fallback.cost;
+    const profit = calculation ? parseNumber(calculation.lucro_total) : fallback.profit;
+    const margin = calculation ? parseNumber(calculation.margem_percentual) : fallback.margin;
+    const missingCosts = calculation
+      ? Number(calculation.itens_sem_custo || 0)
+      : items.filter((item) => item.custo_informado === false).length;
+
+    const code = $('orcamento-codigo')?.value?.trim() || 'Sem número';
+    const title = $('orcamento-titulo')?.value?.trim() || 'Orçamento';
+    const client = $('orcamento-cliente-busca')?.value?.trim() || 'Cliente não informado';
+    const emission = $('orcamento-data-emissao')?.value ? localDate($('orcamento-data-emissao').value) : localDate(new Date().toISOString());
+    const generatedAt = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date());
+
+    const rows = items.map((item, index) => {
+      const costKnown = item.custo_informado !== false;
+      return `<tr>
+        <td>${index + 1}</td>
+        <td><strong>${escapeHtml(item.descricao || 'Item sem descrição')}</strong>${item.codigo ? `<small>Cód. ${escapeHtml(item.codigo)}</small>` : ''}</td>
+        <td class="num">${formatMoney(item.valor_total)}</td>
+        <td class="num ${costKnown ? '' : 'missing'}">${costKnown ? formatMoney(item.custo_total) : 'Não informado'}</td>
+        <td class="num">${costKnown ? formatMoney(item.lucro_total) : '—'}</td>
+        <td class="num">${costKnown ? formatPercent(item.margem_percentual) : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    const warning = missingCosts > 0
+      ? `<div class="warning"><strong>Atenção:</strong> ${missingCosts} item(ns) sem custo informado. A margem pode não representar o resultado real.</div>`
+      : '';
+
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Análise financeira ${escapeHtml(code)}</title>
+      <style>
+        @page{size:A4 landscape;margin:12mm}*{box-sizing:border-box}body{font-family:Inter,Arial,sans-serif;color:#17212b;margin:0;font-size:11px}.head{display:flex;justify-content:space-between;gap:24px;border-bottom:1px solid #dbe3e8;padding-bottom:14px;margin-bottom:18px}.head h1{font-size:20px;margin:3px 0 5px}.head p{margin:2px 0;color:#61717e}.internal{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#9a6700;background:#fff7d6;border:1px solid #f0d98a;border-radius:6px;padding:6px 8px;align-self:flex-start}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 18px;margin-bottom:16px}.meta div{border-bottom:1px solid #eef2f4;padding:5px 0}.meta span{display:block;color:#74838f;font-size:9px;text-transform:uppercase}.meta strong{display:block;margin-top:3px;font-size:11px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 16px}.kpi{border:1px solid #dbe3e8;border-radius:8px;padding:10px}.kpi span{display:block;color:#74838f;font-size:9px;text-transform:uppercase}.kpi strong{display:block;margin-top:5px;font-size:16px}.warning{margin:0 0 14px;padding:9px 10px;border:1px solid #f1c56c;background:#fff8e8;border-radius:7px;color:#76500a}table{width:100%;border-collapse:collapse}th,td{padding:8px 7px;border-bottom:1px solid #e4e9ed;text-align:left;vertical-align:top}th{font-size:9px;text-transform:uppercase;color:#657681;background:#f6f8f9}.num{text-align:right;white-space:nowrap}.missing{color:#b42318;font-weight:600}td small{display:block;color:#7c8a94;margin-top:2px}.foot{margin-top:14px;color:#7c8a94;font-size:9px;display:flex;justify-content:space-between}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+      </style></head><body>
+      <div class="head"><div><p>Análise financeira do orçamento</p><h1>${escapeHtml(code)} — ${escapeHtml(title)}</h1><p>${escapeHtml(client)}</p></div><div class="internal">Documento interno</div></div>
+      <div class="meta"><div><span>Cliente</span><strong>${escapeHtml(client)}</strong></div><div><span>Data de emissão</span><strong>${escapeHtml(emission)}</strong></div><div><span>Gerado em</span><strong>${escapeHtml(generatedAt)}</strong></div></div>
+      <div class="kpis"><div class="kpi"><span>Valor de venda</span><strong>${formatMoney(sale)}</strong></div><div class="kpi"><span>Custo estimado</span><strong>${formatMoney(cost)}</strong></div><div class="kpi"><span>Lucro bruto</span><strong>${formatMoney(profit)}</strong></div><div class="kpi"><span>Margem</span><strong>${formatPercent(margin)}</strong></div></div>
+      ${warning}
+      <table><thead><tr><th>#</th><th>Item</th><th class="num">Venda</th><th class="num">Custo</th><th class="num">Lucro</th><th class="num">Margem</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="foot"><span>Valora CRM — análise financeira</span><span>Informação de uso interno</span></div>
+      <script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script></body></html>`;
+
+    const win = window.open('', '_blank', 'width=1180,height=820');
+    if (!win) {
+      toast('Permita pop-ups para imprimir a análise financeira.', 'error');
+      return;
+    }
+    try { win.opener = null; } catch (_) {}
+    win.document.write(html);
+    win.document.close();
   }
 
   function printCurrent() {
@@ -2925,6 +3130,8 @@
 
     $('btn-fechar-budget-modal').addEventListener('click', () => closeOverlay('budget-modal'));
     $('btn-cancelar-orcamento').addEventListener('click', () => closeOverlay('budget-modal'));
+    $('btn-toggle-budget-maximize')?.addEventListener('click', toggleBudgetMaximized);
+    $('btn-imprimir-analise-financeira')?.addEventListener('click', printFinancialAnalysis);
     $('btn-salvar-orcamento').addEventListener('click', saveBudget);
     $('btn-enviar-financeiro')?.addEventListener('click', enviarVendaFinanceiro);
     $('btn-cancelar-envio-financeiro')?.addEventListener('click', cancelarEnvioFinanceiro);
@@ -3030,8 +3237,32 @@
     $('produto-search-input').addEventListener('input', debounce((event) => handleBudgetProductSearch(event.target.value), 250));
     $('produto-search-results').addEventListener('scroll', () => loadMoreProductsOnScroll('budget'), { passive: true });
     $('produto-search-results').addEventListener('click', (event) => { const button = event.target.closest('[data-product-id]'); if (button) addProduct(button.dataset.productId, 'budget'); });
+    $('budget-items-body').addEventListener('focusin', (event) => {
+      if (event.target.dataset.field !== 'codigo') return;
+      const row = event.target.closest('tr[data-index]');
+      const item = state.items[Number(row?.dataset.index)];
+      if (!item) return;
+      event.target.dataset.originalCode = item.codigo || '';
+      event.target.dataset.originalProductId = item.produto_id || '';
+    });
     $('budget-items-body').addEventListener('input', (event) => { if (event.target.dataset.field) updateItemField(event.target); });
-    $('budget-items-body').addEventListener('focusout', (event) => { const field = event.target.dataset.field; if (!['quantidade', 'valor_unitario', 'desconto', 'custo_unitario'].includes(field)) return; if (field === 'custo_unitario' && !String(event.target.value || '').trim()) event.target.value = ''; else event.target.value = field === 'quantidade' ? inputQuantity(event.target.value) : inputMoney(event.target.value); updateItemField(event.target); });
+    $('budget-items-body').addEventListener('keydown', (event) => {
+      if (event.target.dataset.field === 'codigo' && event.key === 'Enter') {
+        event.preventDefault();
+        event.target.blur();
+      }
+    });
+    $('budget-items-body').addEventListener('focusout', (event) => {
+      const field = event.target.dataset.field;
+      if (field === 'codigo') {
+        replaceBudgetItemByCode(event.target);
+        return;
+      }
+      if (!['quantidade', 'valor_unitario', 'desconto', 'custo_unitario'].includes(field)) return;
+      if (field === 'custo_unitario' && !String(event.target.value || '').trim()) event.target.value = '';
+      else event.target.value = field === 'quantidade' ? inputQuantity(event.target.value) : inputMoney(event.target.value);
+      updateItemField(event.target);
+    });
     $('budget-items-body').addEventListener('click', (event) => {
       const moveButton = event.target.closest('[data-move-item]');
       if (moveButton) {

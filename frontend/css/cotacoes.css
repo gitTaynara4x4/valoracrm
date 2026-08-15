@@ -1627,3 +1627,284 @@ html[data-theme="dark"] .cotacao-produto-link-status.is-linked {
     padding: 0 15px 16px;
   }
 }
+
+
+/* =========================================
+   COTAÇÃO — MESMO PADRÃO VISUAL DE CLIENTES/PRODUTOS
+   Reaplica aqui somente os aliases específicos de Cotações.
+   ========================================= */
+
+/* Sidebar: mesma leitura visual das fichas principais. */
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn {
+  min-height: 44px !important;
+  padding-left: 62px !important;
+}
+
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn > i {
+  left: 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  border-radius: 10px !important;
+  background: rgba(75, 195, 199, .13) !important;
+  color: #4bc3c7 !important;
+  font-size: 12px !important;
+  opacity: 1 !important;
+}
+
+#modal-cotacao-backdrop .cotacao-sidebar-nav .cotacao-tab-btn.active > i {
+  color: #4bc3c7 !important;
+  background: rgba(75, 195, 199, .16) !important;
+}
+
+/* Código/Data: usa as mesmas medidas de ficha-principal-ajustes.css. */
+#modal-cotacao-backdrop .cotacao-system-code-card {
+  display: grid !important;
+  grid-template-columns: minmax(250px, .82fr) minmax(360px, 1fr) !important;
+  gap: 22px !important;
+  align-items: center !important;
+  margin: 0 0 16px !important;
+  padding: 18px 20px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, .035) !important;
+  overflow: visible !important;
+}
+
+#modal-cotacao-backdrop .cotacao-system-code-card > div:first-child {
+  min-width: 0 !important;
+  display: grid !important;
+  grid-template-columns: 42px minmax(0, 1fr) !important;
+  grid-template-rows: auto auto auto !important;
+  column-gap: 13px !important;
+  align-items: center !important;
+}
+
+#modal-cotacao-backdrop .cotacao-system-code-card > div:first-child::before {
+  content: "\f02a";
+  grid-column: 1;
+  grid-row: 1 / 4;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 15px;
+  color: #4bc3c7;
+  background: rgba(75, 195, 199, .12);
+}
+
+#modal-cotacao-backdrop .cotacao-system-code-card > div:first-child .section-kicker {
+  grid-column: 2;
+  margin: 0 0 4px !important;
+  color: #65acde !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .08em !important;
+}
+
+#modal-cotacao-backdrop .cotacao-system-code-card > div:first-child h4 {
+  grid-column: 2;
+  margin: 0 0 4px !important;
+  color: var(--text, #172033) !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -.02em !important;
+}
+
+#modal-cotacao-backdrop .cotacao-system-code-card > div:first-child p {
+  grid-column: 2;
+  max-width: 430px;
+  margin: 0 !important;
+  color: var(--muted, #64748b) !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+}
+
+#modal-cotacao-backdrop .cotacao-system-code-card .ficha-principal-system-fields {
+  min-width: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(130px, 180px) minmax(190px, 1fr) !important;
+  gap: 12px !important;
+  align-items: end !important;
+}
+
+#modal-cotacao-backdrop .cotacao-system-code-card .ficha-principal-system-fields .form-group {
+  margin: 0 !important;
+  min-width: 0 !important;
+}
+
+#modal-cotacao-backdrop .cotacao-system-code-card .ficha-principal-system-fields label {
+  display: block !important;
+  margin: 0 0 7px !important;
+  color: #475569 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+}
+
+#modal-cotacao-backdrop .cotacao-system-code-card .ficha-principal-system-fields input {
+  width: 100% !important;
+  min-height: 42px !important;
+  height: 42px !important;
+  padding: 0 12px !important;
+  border: 1px solid #dfe7f1 !important;
+  border-radius: 10px !important;
+  background: #f8fafc !important;
+  color: var(--text, #172033) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Cabeçalho interno idêntico às seções da ficha de Clientes/Produtos. */
+#modal-cotacao-backdrop .cotacao-native-section-head {
+  padding: 16px 18px !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+#modal-cotacao-backdrop .cotacao-native-section-head .custom-section-title {
+  display: grid !important;
+  grid-template-columns: 34px minmax(0, 1fr) !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+}
+
+#modal-cotacao-backdrop .cotacao-native-section-head .custom-section-icon {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  border-radius: 11px !important;
+  background: rgba(75, 195, 199, .12) !important;
+  color: var(--brand) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-top: 1px !important;
+  font-size: 13px !important;
+}
+
+#modal-cotacao-backdrop .cotacao-native-section-head h4 {
+  margin: 0 !important;
+  color: var(--text) !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+  letter-spacing: -.02em !important;
+}
+
+#modal-cotacao-backdrop .cotacao-native-section-head p {
+  max-width: 760px;
+  margin: 5px 0 0 !important;
+  color: #52627a !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+}
+
+/* Clientes e Produtos usam duas colunas nos dados principais. */
+#modal-cotacao-backdrop .cotacao-form-grid,
+#modal-cotacao-backdrop .cotacao-add-fornecedor {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 20px 16px !important;
+  padding: 20px 18px 24px !important;
+}
+
+/* Remove o "card dentro do card" que deixava a Cotação diferente dos outros módulos. */
+#modal-cotacao-backdrop .cotacao-add-fornecedor {
+  margin: 0 !important;
+  background: #ffffff !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+#modal-cotacao-backdrop .cotacao-form-grid .span-all,
+#modal-cotacao-backdrop .cotacao-add-fornecedor .span-all,
+#modal-cotacao-backdrop .cotacao-form-grid .span-2,
+#modal-cotacao-backdrop .cotacao-add-fornecedor .span-2 {
+  grid-column: 1 / -1 !important;
+}
+
+/* Produto da base fica como campo da seção Dados Básicos, não como outro card. */
+#modal-cotacao-backdrop .cotacao-produto-picker {
+  position: relative;
+  margin: 0 !important;
+}
+
+#modal-cotacao-backdrop .cotacao-produto-field-head {
+  min-height: 24px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#modal-cotacao-backdrop .cotacao-produto-field-head > label {
+  margin: 0 !important;
+}
+
+#modal-cotacao-backdrop .cotacao-produto-link-status {
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+#modal-cotacao-backdrop .cotacao-produto-search-shell input[type="search"] {
+  min-height: 42px !important;
+}
+
+#modal-cotacao-backdrop .cotacao-produto-help {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* Botão adicionar acompanha os botões secundários comuns do cadastro. */
+#modal-cotacao-backdrop .cotacao-add-btn {
+  width: max-content;
+  min-width: 170px;
+  grid-column: 1 / -1;
+}
+
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-system-code-card,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-native-section-head,
+html[data-theme="dark"] #modal-cotacao-backdrop .cotacao-add-fornecedor {
+  background: #111827 !important;
+  border-color: rgba(148, 163, 184, .22) !important;
+}
+
+@media (max-width: 900px) {
+  #modal-cotacao-backdrop .cotacao-system-code-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  #modal-cotacao-backdrop .cotacao-system-code-card .ficha-principal-system-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 720px) {
+  #modal-cotacao-backdrop .cotacao-form-grid,
+  #modal-cotacao-backdrop .cotacao-add-fornecedor,
+  #modal-cotacao-backdrop .cotacao-system-code-card .ficha-principal-system-fields {
+    grid-template-columns: 1fr !important;
+  }
+
+  #modal-cotacao-backdrop .cotacao-produto-field-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

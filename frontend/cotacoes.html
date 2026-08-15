@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260717-busca-relacao-v1" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
-  <link rel="stylesheet" href="/frontend/css/cotacoes.css?v=20260813-produtos-integrados-v1" />
+  <link rel="stylesheet" href="/frontend/css/cotacoes.css?v=20260815-modal-padrao-v4" />
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260630-ficha-sidebar-v5" />
@@ -35,7 +35,7 @@
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
   <script src="/frontend/js/shared/ficha-principal.js?v=20260717-busca-relacao-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
-  <script src="/frontend/js/pages/cotacoes.js?v=20260813-produtos-integrados-v1" defer></script>
+  <script src="/frontend/js/pages/cotacoes.js?v=20260815-modal-padrao-v2" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 </head>
 
@@ -149,25 +149,25 @@
                 </div>
 
                 <div class="cliente-sidebar-user cotacao-sidebar-user">
-                  <strong>Cotação</strong>
-                  <span>Comparação de compra</span>
+                  <strong id="cotacao-sidebar-nome">Nova cotação</strong>
+                  <span id="cotacao-sidebar-codigo">Código não gerado</span>
                 </div>
               </div>
 
               <nav class="cliente-tabs cliente-sidebar-nav cotacao-tabs cotacao-sidebar-nav" aria-label="Seções da cotação">
                 <button type="button" class="cliente-tab-btn cotacao-tab-btn active" data-tab="tab-cotacao-identificacao">
-                  <i class="fa-solid fa-circle-info"></i>
-                  <span>Identificação</span>
+                  <i class="fa-solid fa-id-card" aria-hidden="true"></i>
+                  <span>Dados básicos</span>
                 </button>
 
                 <button type="button" class="cliente-tab-btn cotacao-tab-btn" data-tab="tab-cotacao-fornecedores">
-                  <i class="fa-solid fa-truck"></i>
+                  <i class="fa-solid fa-truck" aria-hidden="true"></i>
                   <span>Fornecedores</span>
                 </button>
 
                 <button type="button" class="cliente-tab-btn cotacao-tab-btn" data-tab="tab-cotacao-campos">
-                  <i class="fa-solid fa-sliders"></i>
-                  <span>Personalizados</span>
+                  <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+                  <span>Campos personalizados</span>
                 </button>
               </nav>
 
@@ -209,77 +209,94 @@
               </header>
 
               <div class="cliente-modal-scroll cotacao-modal-scroll">
-                <article class="section-card cliente-main-card cotacao-section-card cotacao-produto-vinculo-card">
-                  <div class="cliente-section-head cotacao-section-head">
-                    <div>
-                      <h4>Produto da base</h4>
-                      <p>Vincule um produto já cadastrado para preencher os dados da cotação automaticamente.</p>
-                    </div>
-
-                    <span class="cotacao-produto-link-status" id="cotacao-produto-link-status">
-                      <i class="fa-solid fa-link"></i>
-                      Item livre
-                    </span>
+                <article class="cotacao-ficha-code-card ficha-principal-code-card cotacao-system-code-card">
+                  <div>
+                    <span class="section-kicker">Código do sistema</span>
+                    <h4>Código da cotação</h4>
+                    <p>Este código é gerado pelo próprio sistema e não pode ser removido da ficha.</p>
                   </div>
 
-                  <div class="cotacao-produto-picker-wrap">
-                    <div class="form-group span-all cotacao-produto-picker">
-                      <label for="cotacao-produto-busca">Buscar produto</label>
+                  <div class="ficha-principal-system-fields">
+                    <div class="form-group cotacao-ficha-code-field ficha-principal-code-field">
+                      <label for="cotacao-codigo">Código</label>
+                      <input
+                        id="cotacao-codigo"
+                        type="text"
+                        inputmode="numeric"
+                        pattern="[0-9]*"
+                        readonly
+                        placeholder="Gerado ao salvar"
+                      />
+                    </div>
 
-                      <div class="cotacao-produto-search-shell">
-                        <i class="fa-solid fa-magnifying-glass cotacao-produto-search-icon" aria-hidden="true"></i>
-                        <input
-                          id="cotacao-produto-busca"
-                          type="search"
-                          placeholder="Digite o código ou nome do produto..."
-                          autocomplete="off"
-                          aria-autocomplete="list"
-                          aria-controls="cotacao-produto-resultados"
-                        />
-                        <input id="cotacao-produto-id" type="hidden" />
-
-                        <button
-                          class="cotacao-produto-clear"
-                          type="button"
-                          id="btn-limpar-produto-cotacao"
-                          title="Remover vínculo com o produto"
-                          aria-label="Remover vínculo com o produto"
-                          hidden>
-                          <i class="fa-solid fa-xmark"></i>
-                        </button>
-                      </div>
-
-                      <div
-                        class="cotacao-produto-resultados"
-                        id="cotacao-produto-resultados"
-                        role="listbox"
-                        hidden></div>
-
-                      <small class="cotacao-produto-help" id="cotacao-produto-help">
-                        Opcional. Selecione um produto cadastrado ou mantenha a cotação como item livre.
-                      </small>
+                    <div class="form-group ficha-principal-date-field">
+                      <label for="cotacao-data-cadastro">Data de cadastro</label>
+                      <input
+                        type="text"
+                        id="cotacao-data-cadastro"
+                        readonly
+                        placeholder="Gerada ao salvar"
+                      />
                     </div>
                   </div>
                 </article>
 
+
+
                 <section class="cliente-tab cotacao-tab active" id="tab-cotacao-identificacao">
                   <article class="section-card cliente-main-card cotacao-section-card">
-                    <div class="cliente-section-head cotacao-section-head">
-                      <h4>Identificação da cotação</h4>
-                      <p>Dados principais do item que ainda será comparado entre fornecedores.</p>
+                    <div class="custom-section-head cotacao-native-section-head">
+                      <div class="custom-section-title">
+                        <span class="custom-section-icon" aria-hidden="true"><i class="fa-solid fa-id-card"></i></span>
+                        <div>
+                          <h4>Dados Básicos:</h4>
+                          <p>01 - Campos principais da cotação.</p>
+                        </div>
+                      </div>
                     </div>
 
                     <div class="cotacao-form-grid form-row">
-                      <div class="form-group">
-                        <label for="cotacao-codigo">Código</label>
-                        <input
-                          id="cotacao-codigo"
-                          type="text"
-                          inputmode="numeric"
-                          pattern="[0-9]*"
-                          readonly
-                          placeholder="Gerado ao salvar"
-                        />
+                      <div class="form-group span-all cotacao-produto-picker">
+                        <div class="cotacao-produto-field-head">
+                          <label for="cotacao-produto-busca">Produto da base</label>
+                          <span class="cotacao-produto-link-status" id="cotacao-produto-link-status">
+                            <i class="fa-solid fa-link"></i>
+                            Item livre
+                          </span>
+                        </div>
+
+                        <div class="cotacao-produto-search-shell">
+                          <i class="fa-solid fa-magnifying-glass cotacao-produto-search-icon" aria-hidden="true"></i>
+                          <input
+                            id="cotacao-produto-busca"
+                            type="search"
+                            placeholder="Digite o código ou nome do produto..."
+                            autocomplete="off"
+                            aria-autocomplete="list"
+                            aria-controls="cotacao-produto-resultados"
+                          />
+                          <input id="cotacao-produto-id" type="hidden" />
+
+                          <button
+                            class="cotacao-produto-clear"
+                            type="button"
+                            id="btn-limpar-produto-cotacao"
+                            title="Remover vínculo com o produto"
+                            aria-label="Remover vínculo com o produto"
+                            hidden>
+                            <i class="fa-solid fa-xmark"></i>
+                          </button>
+                        </div>
+
+                        <div
+                          class="cotacao-produto-resultados"
+                          id="cotacao-produto-resultados"
+                          role="listbox"
+                          hidden></div>
+
+                        <small class="cotacao-produto-help" id="cotacao-produto-help">
+                          Opcional. Selecione um produto cadastrado ou mantenha a cotação como item livre.
+                        </small>
                       </div>
 
                       <div class="form-group">
@@ -307,7 +324,7 @@
                         </select>
                       </div>
 
-                      <div class="form-group span-2">
+                      <div class="form-group">
                         <label for="cotacao-item-nome">Item desejado *</label>
                         <input
                           id="cotacao-item-nome"
@@ -362,20 +379,25 @@
 
                 <section class="cliente-tab cotacao-tab" id="tab-cotacao-fornecedores">
                   <article class="section-card cliente-main-card cotacao-section-card fornecedores-cotados-card">
-                    <div class="cliente-section-head cotacao-section-head">
-                      <h4>Fornecedores cotados</h4>
-                      <p>Adicione fornecedores, preços, frete e prazo para comparar.</p>
+                    <div class="custom-section-head cotacao-native-section-head">
+                      <div class="custom-section-title">
+                        <span class="custom-section-icon" aria-hidden="true"><i class="fa-solid fa-truck"></i></span>
+                        <div>
+                          <h4>Fornecedores Cotados:</h4>
+                          <p>02 - Compare preços, frete, prazo e condições de pagamento.</p>
+                        </div>
+                      </div>
                     </div>
 
                     <div class="cotacao-add-fornecedor form-row">
-                      <div class="form-group span-2">
+                      <div class="form-group">
                         <label for="cotacao-fornecedor-id">Fornecedor</label>
                         <select id="cotacao-fornecedor-id">
                           <option value="">Selecione ou digite o nome ao lado</option>
                         </select>
                       </div>
 
-                      <div class="form-group span-2">
+                      <div class="form-group">
                         <label for="cotacao-fornecedor-nome">Nome livre</label>
                         <input
                           id="cotacao-fornecedor-nome"
@@ -469,39 +491,7 @@
                 </section>
 
                 <section class="cliente-tab cotacao-tab" id="tab-cotacao-campos">
-                  <article
-                    class="cliente-ficha-code-card cotacao-ficha-code-card ficha-principal-code-card"
-                    id="cotacao-ficha-principal-code"
-                    hidden>
-                    <div>
-                      <span class="section-kicker">Código do sistema</span>
-                      <h4>Código da cotação</h4>
-                      <p>Este código é gerado pelo próprio sistema e não pode ser removido da ficha.</p>
-                    </div>
 
-                    <div class="ficha-principal-system-fields">
-                      <div class="form-group cliente-ficha-code-field cotacao-ficha-code-field ficha-principal-code-field">
-                        <label for="cotacao-codigo-ficha-principal">Código</label>
-                        <input
-                          type="text"
-                          id="cotacao-codigo-ficha-principal"
-                          inputmode="numeric"
-                          pattern="[0-9]*"
-                          readonly
-                        />
-                      </div>
-
-                      <div class="form-group ficha-principal-date-field">
-                        <label for="cotacao-data-cadastro-ficha-principal">Data de cadastro</label>
-                        <input
-                          type="text"
-                          id="cotacao-data-cadastro-ficha-principal"
-                          readonly
-                          placeholder="Gerada ao salvar"
-                        />
-                      </div>
-                    </div>
-                  </article>
 
                   <article class="section-card custom-fields-card cliente-main-card cotacao-section-card">
                     <div class="custom-fields-head">

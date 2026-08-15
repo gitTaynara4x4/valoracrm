@@ -627,11 +627,32 @@
     });
   }
 
+  function atualizarResumoSidebarCotacao({ titulo, codigo } = {}) {
+    const nomeEl = $('cotacao-sidebar-nome');
+    const codigoEl = $('cotacao-sidebar-codigo');
+
+    if (nomeEl) {
+      nomeEl.textContent = normalizeText(titulo) || (state.editandoId ? 'Cotação em edição' : 'Nova cotação');
+    }
+
+    if (codigoEl) {
+      const codigoLimpo = onlyDigits(codigo || getValue('cotacao-codigo'));
+      codigoEl.textContent = codigoLimpo ? `Código ${codigoLimpo}` : 'Código não gerado';
+    }
+  }
+
+  function atualizarStatusPillCotacao(status) {
+    const pill = document.querySelector('.cotacao-status-pill');
+    if (!pill) return;
+
+    const key = normalizeStatus(status);
+    pill.className = 'cliente-status-pill cotacao-status-pill is-' + key;
+    pill.innerHTML = `<i class="fa-solid fa-circle"></i> ${escapeHtml(STATUS_LABELS[key] || 'Rascunho')}`;
+  }
+
   function syncCotacaoFichaCode(codigo) {
     const value = onlyDigits(codigo) || '';
-
     const normal = $('cotacao-codigo');
-    const ficha = $('cotacao-codigo-ficha-principal');
 
     if (normal) {
       normal.value = value;
@@ -639,11 +660,7 @@
       normal.setAttribute('readonly', 'readonly');
     }
 
-    if (ficha) {
-      ficha.value = value;
-      ficha.readOnly = true;
-      ficha.setAttribute('readonly', 'readonly');
-    }
+    atualizarResumoSidebarCotacao({ codigo: value });
   }
 
 
@@ -670,7 +687,8 @@
 
   function setCotacaoDataCadastro(dataCadastro, usarHoje = false) {
     const raw = dataCadastro || (usarHoje ? new Date().toISOString() : '');
-    setValue('cotacao-data-cadastro-ficha-principal', formatarDataCadastroSistema(raw));
+    const formatado = formatarDataCadastroSistema(raw);
+    setValue('cotacao-data-cadastro', formatado);
   }
 
   function ensureFichaCotacaoController() {
@@ -685,7 +703,7 @@
       tabPanelSelector: '.cotacao-tab',
       customTabId: 'tab-cotacao-campos',
       customContainerSelector: '#custom-fields-container',
-      codeCardSelector: '#cotacao-ficha-principal-code',
+      codeCardSelector: '',
       toggleSelector: '#toggle-ficha-principal-cotacao',
       normalTabId: 'tab-cotacao-identificacao',
       buttonClass: 'cotacao-tab-btn',
@@ -1567,9 +1585,10 @@
     state.cotacaoAtualDetalhe = data;
 
     setValue('cotacao-codigo', onlyDigits(data.codigo || ''));
-    setValue('cotacao-codigo-ficha-principal', onlyDigits(data.codigo || ''));
     setCotacaoDataCadastro(data.criado_em || data.data_cadastro || data.created_at, !data.id);
     setValue('cotacao-status', normalizeStatus(data.status));
+    atualizarStatusPillCotacao(data.status);
+    atualizarResumoSidebarCotacao({ titulo: data.id ? `Cotação ${onlyDigits(data.codigo || '') || ''}`.trim() : 'Nova cotação', codigo: data.codigo || '' });
     setValue('cotacao-urgencia', normalizeUrgencia(data.urgencia));
     setValue('cotacao-item-nome', data.item_nome || '');
     setValue('cotacao-quantidade', data.quantidade || '1');
@@ -1602,7 +1621,6 @@
     form?.reset();
 
     setValue('cotacao-codigo', '');
-    setValue('cotacao-codigo-ficha-principal', '');
     setCotacaoDataCadastro('', true);
     setValue('cotacao-status', 'rascunho');
     setValue('cotacao-urgencia', '');
@@ -1615,6 +1633,8 @@
     limparProdutoSelecionadoCotacao();
 
     if ($('modal-cotacao-titulo')) $('modal-cotacao-titulo').textContent = 'Nova cotação';
+    atualizarStatusPillCotacao('rascunho');
+    atualizarResumoSidebarCotacao({ titulo: 'Nova cotação', codigo: '' });
     if ($('btn-aprovar-cotacao')) $('btn-aprovar-cotacao').hidden = true;
     if ($('btn-converter-cotacao-produto')) $('btn-converter-cotacao-produto').hidden = true;
 
@@ -1652,6 +1672,7 @@
       $('modal-cotacao-titulo').textContent = `Cotação ${data.codigo || ''}`;
 
       await fillCotacaoForm(data);
+      atualizarResumoSidebarCotacao({ titulo: 'Cotação', codigo: data.codigo || '' });
 
       $('btn-aprovar-cotacao').hidden = !state.editandoId || data.status === 'convertida';
       $('btn-converter-cotacao-produto').hidden = !state.editandoId || data.status === 'convertida';
@@ -1672,9 +1693,10 @@
     if (!$('modal-cotacao-backdrop')?.hidden) {
       setCotacaoModalReadonly(true);
       if ($('modal-cotacao-titulo')) {
-        const codigo = getValue('cotacao-codigo') || getValue('cotacao-codigo-ficha-principal') || '';
+        const codigo = getValue('cotacao-codigo') || '';
         $('modal-cotacao-titulo').textContent = `Visualizando cotação ${codigo}`.trim();
         $('modal-cotacao-titulo').setAttribute('data-readonly-title', 'true');
+        atualizarResumoSidebarCotacao({ titulo: 'Visualizando cotação', codigo });
       }
     }
   }
@@ -1683,7 +1705,7 @@
     const customRaw = normalizeCustomFieldsPayloadRaw();
 
     const payload = {
-      codigo: onlyDigits($('cotacao-codigo')?.value || $('cotacao-codigo-ficha-principal')?.value),
+      codigo: onlyDigits($('cotacao-codigo')?.value),
       status: $('cotacao-status')?.value || 'rascunho',
       urgencia: $('cotacao-urgencia')?.value || null,
       produto_id: Number($('cotacao-produto-id')?.value || 0) || null,
@@ -2039,6 +2061,7 @@
 
     $('busca-cotacoes')?.addEventListener('input', debounce(() => carregarCotacoes({ reset: true }), 350));
     $('filtro-status-cotacoes')?.addEventListener('change', () => carregarCotacoes({ reset: true }));
+    $('cotacao-status')?.addEventListener('change', (event) => atualizarStatusPillCotacao(event.target.value));
 
     $('cotacao-quantidade')?.addEventListener('input', () => {
       setFornecedorRowsFromDOM();

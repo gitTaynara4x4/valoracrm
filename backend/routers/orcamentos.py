@@ -858,6 +858,24 @@ def product_for_company(db: Session, product_id: int, company_id: int):
     return apply_product_cost_fallbacks(db, company_id, [row])[0]
 
 
+def product_by_code_for_company(db: Session, code: str, company_id: int):
+    normalized_code = norm_str(code)
+    if not normalized_code:
+        return None
+    row = db.execute(text("""
+        SELECT id, codigo, nome, descricao, unidade, preco_venda, custo
+        FROM produtos
+        WHERE empresa_id=:e
+          AND ativo=TRUE
+          AND LOWER(TRIM(codigo))=LOWER(:codigo)
+        ORDER BY id
+        LIMIT 1
+    """), {"e": company_id, "codigo": normalized_code}).mappings().first()
+    if not row:
+        return None
+    return apply_product_cost_fallbacks(db, company_id, [row])[0]
+
+
 def calculate_items(
     db: Session,
     company_id: int,
@@ -875,6 +893,7 @@ def calculate_items(
 
     for index, item in enumerate(items or []):
         description = norm_str(item.descricao)
+        reference = norm_str(item.referencia)
         if not description:
             continue
 
@@ -882,6 +901,19 @@ def calculate_items(
         unit_value = max(money(item.valor_unitario), Decimal("0"))
         discount = max(money(item.desconto), Decimal("0"))
         product = product_for_company(db, int(item.produto_id), company_id) if item.produto_id else None
+        product_replaced_by_code = False
+        requested_code = norm_str(item.codigo)
+        if product and requested_code and requested_code.casefold() != (norm_str(product.get("codigo")) or "").casefold():
+            replacement_product = product_by_code_for_company(db, requested_code, company_id)
+            if not replacement_product:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Produto com código {requested_code} não foi encontrado ou está inativo.",
+                )
+            product = replacement_product
+            product_replaced_by_code = True
+            description = norm_str(product.get("nome")) or description
+            reference = norm_str(product.get("descricao"))
         previous_entry = existing_costs.get(int(item.id)) if item.id else None
         if isinstance(previous_entry, tuple):
             previous_cost, previous_cost_known = previous_entry
@@ -892,21 +924,28 @@ def calculate_items(
         submitted_cost = None if item.custo_unitario is None else max(money(item.custo_unitario), Decimal("0"))
 
         if product:
-            code = norm_str(item.codigo) or product["codigo"]
-            unit = norm_str(item.unidade) or product["unidade"] or "UN"
+            code = (norm_str(product.get("codigo")) if product_replaced_by_code else norm_str(item.codigo)) or product["codigo"]
+            unit = (norm_str(product.get("unidade")) if product_replaced_by_code else norm_str(item.unidade)) or product["unidade"] or "UN"
             product_sale_raw = product.get("preco_venda")
             product_has_sale = product_sale_raw is not None and str(product_sale_raw).strip() != ""
-            if refresh_product_prices and product_has_sale:
+            if product_replaced_by_code:
+                unit_value = max(money(product_sale_raw), Decimal("0")) if product_has_sale else Decimal("0")
+            elif refresh_product_prices and product_has_sale:
                 unit_value = max(money(product_sale_raw), Decimal("0"))
 
             product_cost_raw = product.get("custo")
             product_cost = max(money(product_cost_raw), Decimal("0"))
             product_has_cost = product_cost_raw is not None and str(product_cost_raw).strip() != ""
 
+            # Ao trocar o item digitando outro código, o novo cadastro de Produto
+            # é a fonte autoritativa para preço, custo, nome e unidade.
+            if product_replaced_by_code:
+                cost_unit = product_cost
+                cost_known = product_has_cost
             # Na atualização explícita de preços, o cadastro do produto é a fonte
             # principal. Campo vazio no cadastro preserva o valor antigo para não
             # apagar preços já negociados por acidente.
-            if refresh_product_prices and product_has_cost:
+            elif refresh_product_prices and product_has_cost:
                 cost_unit = product_cost
                 cost_known = True
             # O custo cadastrado no banco é a fonte padrão. Um zero enviado pelo
@@ -961,7 +1000,7 @@ def calculate_items(
             "origem": "produto" if product else (norm_str(item.origem) or "manual"),
             "codigo": code,
             "descricao": description,
-            "referencia": norm_str(item.referencia),
+            "referencia": reference,
             "unidade": unit,
             "quantidade": q4(qty),
             "valor_unitario": q4(unit_value),
@@ -1593,6 +1632,7 @@ def delete_emitter(
 @router.get("/produtos")
 def search_budget_products(
     busca: Optional[str] = Query(default=None),
+    codigo_exato: Optional[str] = Query(default=None, max_length=120),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
@@ -1601,7 +1641,11 @@ def search_budget_products(
     company_id = int(current_user.empresa_id)
     where = ["empresa_id=:empresa_id", "ativo=TRUE"]
     params: Dict[str, Any] = {"empresa_id": company_id}
-    if norm_str(busca):
+    exact_code = norm_str(codigo_exato)
+    if exact_code:
+        where.append("LOWER(TRIM(codigo))=LOWER(:codigo_exato)")
+        params["codigo_exato"] = exact_code
+    elif norm_str(busca):
         where.append("(codigo ILIKE :q OR nome ILIKE :q OR descricao ILIKE :q OR categoria ILIKE :q)")
         params["q"] = f"%{str(busca).strip()}%"
     clause = " AND ".join(where)

@@ -22,14 +22,14 @@
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260807-modal-square-v2">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260815-nilson-orcamento-v1">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260804-listas-simples-v3">
 
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260807-modelos-com-kits-v1" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260815-nilson-orcamento-v1" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -166,6 +166,9 @@
               <button class="btn btn-secondary is-hidden budget-head-action" id="btn-whatsapp-orcamento" type="button" title="Enviar pelo WhatsApp">
                 <i class="fa-brands fa-whatsapp"></i><span>WhatsApp</span>
               </button>
+              <button class="btn btn-secondary budget-head-action budget-maximize-action" id="btn-toggle-budget-maximize" type="button" title="Maximizar orçamento" aria-label="Maximizar orçamento" aria-pressed="false">
+                <i class="fa-solid fa-expand"></i><span>Maximizar</span>
+              </button>
               <button class="btn-close" id="btn-fechar-budget-modal" type="button" title="Fechar">
                 <i class="fa-solid fa-xmark"></i>
               </button>
@@ -265,7 +268,7 @@
               </div>
               <div class="budget-items-table-wrap">
                 <table class="budget-items-table">
-                  <thead><tr><th class="item-order">#</th><th>Produto/serviço</th><th>Código</th><th>Un.</th><th>Qtd.</th><th>Valor unit.</th><th>Desconto</th><th>Total</th><th class="cost-only">Custo</th><th></th></tr></thead>
+                  <thead><tr><th class="item-order">Ordem</th><th>Produto/serviço</th><th title="Altere o código e saia do campo para trocar o produto selecionado">Código</th><th>Un.</th><th>Qtd.</th><th>Valor unit.</th><th>Desconto</th><th>Total</th><th class="cost-only">Custo</th><th></th></tr></thead>
                   <tbody id="budget-items-body"></tbody>
                 </table>
               </div>
@@ -303,6 +306,16 @@
           </section>
 
           <section class="budget-panel cost-only" data-panel="analise">
+            <div class="analysis-panel-toolbar">
+              <div>
+                <span class="analysis-panel-kicker">Uso interno</span>
+                <h4>Análise financeira do orçamento</h4>
+                <p>Confira venda, custo, lucro e margem. Esta análise não faz parte do documento enviado ao cliente.</p>
+              </div>
+              <button class="btn btn-secondary" id="btn-imprimir-analise-financeira" type="button" title="Imprimir ou salvar a análise financeira em PDF">
+                <i class="fa-solid fa-print"></i> Imprimir análise
+              </button>
+            </div>
             <div class="analysis-kpis">
               <article><span>Valor de venda</span><strong id="analysis-sale">R$ 0,00</strong></article>
               <article><span>Custo estimado</span><strong id="analysis-cost">R$ 0,00</strong></article>
