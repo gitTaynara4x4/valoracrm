@@ -12,35 +12,107 @@
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260630-dark-chatgpt-v6" />
   <link rel="stylesheet" href="/frontend/css/financeiro.css?v=20260723-financeiro-base-v1" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
-  <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
+  <script src="/frontend/js/shared/menu-global.js?v=20260819-financeiro-organizado-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260811-financeiro-generalizado-v1" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260819-busca-envolvidos-v2" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260725-financeiro-fase6-v1" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260819-busca-envolvidos-v1" />
 </head>
 <body class="financeiro-theme-valora">
   <div class="layout">
     <div id="valora-menu-root" aria-label="Menu Valora"></div>
     <main class="main financeiro-page financeiro-page--valora" data-financeiro-page="relatorios">
       <header class="topbar">
-        <div class="topbar-title"><span class="eyebrow">Financeiro</span><h1>Relatórios Financeiros</h1><p class="topbar-subtitle">Resumo gerencial, DRE simples e análise por categoria.</p></div>
+        <div class="topbar-title"><span class="eyebrow">Financeiro</span><h1>Relatórios Financeiros</h1><p class="topbar-subtitle">Relatórios operacionais de cobrança e análise gerencial do período.</p></div>
         <div class="topbar-actions">
           <button class="btn btn-secondary" type="button" id="btn-exportar-financeiro"><i class="fa-solid fa-file-export"></i> Exportar CSV</button>
+          <button class="btn btn-secondary" type="button" id="btn-imprimir-relatorios"><i class="fa-solid fa-print"></i> Imprimir</button>
           <button class="btn btn-secondary" type="button" id="btn-toggle-filtros"><i class="fa-solid fa-filter"></i> Filtros</button>
-          <button class="btn btn-primary btn-novo-registro" type="button" data-new=""><i class="fa-solid fa-plus"></i> Novo lançamento</button>
         </div>
       </header>
-      <div class="financeiro-toolbar"><nav class="financeiro-tabs"><a href="/financeiro" class=""><i class="fa-regular fa-clipboard"></i><span>Visão Geral</span></a>
-          <a href="/vendas-financeiro"><i class="fa-solid fa-cart-arrow-down"></i><span>Vendas pendentes</span></a><a href="/contas-receber" class=""><i class="fa-regular fa-calendar-check"></i><span>Contas a Receber</span></a><a href="/contas-pagar" class=""><i class="fa-regular fa-file-lines"></i><span>Contas a Pagar</span></a><a href="/fluxo-caixa" class=""><i class="fa-solid fa-wave-square"></i><span>Fluxo de Caixa</span></a><a href="/categorias-financeiras" class=""><i class="fa-regular fa-folder-open"></i><span>Categorias</span></a><a href="/formas-pagamento" class=""><i class="fa-regular fa-credit-card"></i><span>Formas</span></a><a href="/contas-bancos" class=""><i class="fa-solid fa-building-columns"></i><span>Contas/Bancos</span></a><a href="/relatorios-financeiros" class="active"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a></nav><span class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando dados reais...</span></div>
-      <section class="financeiro-panel financeiro-filter-panel" id="financeiro-filtros">
-  <div class="financeiro-filters-grid">
-    <div class="financeiro-field"><label>Busca</label><input id="filtro-busca" placeholder="Descrição, documento, cliente ou fornecedor"></div>
-    <div class="financeiro-field"><label>Status</label><select id="filtro-status"><option value="">Todos</option><option value="aberto">Aberto</option><option value="vencido">Vencido</option><option value="parcial">Parcial</option><option value="recebido">Recebido</option><option value="pago">Pago</option><option value="cancelado">Cancelado</option></select></div>
-    <div class="financeiro-field"><label>Data inicial</label><input id="filtro-data-inicio" type="date"></div>
-    <div class="financeiro-field"><label>Data final</label><input id="filtro-data-fim" type="date"></div>
-  </div>
-  <div class="financeiro-toolbar" style="margin:14px 0 0;"><span class="financeiro-muted">Use os filtros para refinar a lista.</span><div><button class="btn btn-secondary" type="button" id="btn-limpar-filtros">Limpar</button> <button class="btn btn-primary" type="button" id="btn-aplicar-filtros">Aplicar</button></div></div>
-</section>
+      <div class="financeiro-toolbar"><nav class="financeiro-tabs financeiro-tabs--primary">
+          <a href="/financeiro"><i class="fa-regular fa-clipboard"></i><span>Visão geral</span></a>
+          <a href="/contas-receber"><i class="fa-regular fa-calendar-check"></i><span>Contas a receber</span></a>
+          <a href="/contas-pagar"><i class="fa-regular fa-file-lines"></i><span>Contas a pagar</span></a>
+          <a href="/cobrancas-financeiro"><i class="fa-regular fa-bell"></i><span>Cobranças</span></a>
+          <a href="/fluxo-caixa"><i class="fa-solid fa-wave-square"></i><span>Fluxo de caixa</span></a>
+          <a href="/relatorios-financeiros" class="active" aria-current="page"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a>
+          <a href="/configuracoes-financeiras"><i class="fa-solid fa-gear"></i><span>Configurações</span></a>
+        </nav><span class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando dados reais...</span></div>
+      <section class="financeiro-panel financeiro-filter-panel is-open" id="financeiro-filtros">
+        <div class="financeiro-filters-grid">
+          <div class="financeiro-field"><label>Data inicial</label><input id="filtro-data-inicio" type="date"></div>
+          <div class="financeiro-field"><label>Data final</label><input id="filtro-data-fim" type="date"></div>
+          <div class="financeiro-field"><label>Cliente</label><select id="filtro-cliente" data-select="clientes"><option value="">Todos os clientes</option></select></div>
+          <div class="financeiro-field"><label>Forma de cobrança</label><select id="filtro-forma-cobranca" data-select="formas-cobranca"><option value="">Todas as formas</option></select></div>
+        </div>
+        <div class="financeiro-toolbar" style="margin:14px 0 0;">
+          <span class="financeiro-muted">O período é aplicado conforme a natureza do relatório: emissão, pagamento ou vencimento.</span>
+          <div><button class="btn btn-secondary" type="button" id="btn-limpar-filtros">Limpar</button> <button class="btn btn-primary" type="button" id="btn-aplicar-filtros">Aplicar</button></div>
+        </div>
+      </section>
+
+      <section class="financeiro-report-docs" aria-labelledby="relatorios-documento-titulo">
+        <div class="financeiro-section-heading">
+          <div>
+            <span class="eyebrow">Relatórios de cobrança</span>
+            <h2 id="relatorios-documento-titulo">Relatórios previstos no documento funcional</h2>
+            <p>Listagens operacionais solicitadas para acompanhamento de emissão, recebimento, atraso, bloqueio e protesto. <strong id="relatorios-periodo-label"></strong></p>
+          </div>
+        </div>
+
+        <section class="financeiro-panel financeiro-report-panel" data-relatorio-pdf="titulos-emitidos">
+          <div class="financeiro-panel-head">
+            <div><h3>Lista de Títulos Emitidos no Período</h3><p>Nome / Vencimento / Valor / Forma Recebimento</p></div>
+            <div class="financeiro-report-summary"><strong data-report-count="titulos_emitidos">0 título(s)</strong><span data-report-total="titulos_emitidos">R$ 0,00</span></div>
+          </div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table" data-relatorio-pdf-table><thead><tr><th>Nome</th><th>Vencimento</th><th>Valor</th><th>Forma Recebimento</th></tr></thead><tbody id="tbody-rel-titulos-emitidos"><tr><td class="financeiro-empty" colspan="4">Carregando...</td></tr></tbody></table></div>
+        </section>
+
+        <section class="financeiro-panel financeiro-report-panel" data-relatorio-pdf="titulos-pagos">
+          <div class="financeiro-panel-head">
+            <div><h3>Lista de Títulos Pagos no Período</h3><p>Nome / Vencimento / Valor / Forma Recebimento</p></div>
+            <div class="financeiro-report-summary"><strong data-report-count="titulos_pagos">0 título(s)</strong><span data-report-total="titulos_pagos">R$ 0,00</span></div>
+          </div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table" data-relatorio-pdf-table><thead><tr><th>Nome</th><th>Vencimento</th><th>Valor</th><th>Forma Recebimento</th></tr></thead><tbody id="tbody-rel-titulos-pagos"><tr><td class="financeiro-empty" colspan="4">Carregando...</td></tr></tbody></table></div>
+        </section>
+
+        <section class="financeiro-panel financeiro-report-panel" data-relatorio-pdf="titulos-pagos-atraso">
+          <div class="financeiro-panel-head">
+            <div><h3>Lista de Títulos Pagos com atraso</h3><p>Nome / Vencimento / Valor / Forma Recebimento / Dias atrasados</p></div>
+            <div class="financeiro-report-summary"><strong data-report-count="titulos_pagos_atraso">0 título(s)</strong><span data-report-total="titulos_pagos_atraso">R$ 0,00</span></div>
+          </div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table" data-relatorio-pdf-table><thead><tr><th>Nome</th><th>Vencimento</th><th>Valor</th><th>Forma Recebimento</th><th>Dias atrasados</th></tr></thead><tbody id="tbody-rel-titulos-pagos-atraso"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody></table></div>
+        </section>
+
+        <section class="financeiro-panel financeiro-report-panel" data-relatorio-pdf="titulos-em-atraso">
+          <div class="financeiro-panel-head">
+            <div><h3>Lista de Títulos em Atraso no Período</h3><p>Nome / Vencimento / Valor / Forma Recebimento / Dias em Atraso</p></div>
+            <div class="financeiro-report-summary"><strong data-report-count="titulos_em_atraso">0 título(s)</strong><span data-report-total="titulos_em_atraso">R$ 0,00</span></div>
+          </div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table" data-relatorio-pdf-table><thead><tr><th>Nome</th><th>Vencimento</th><th>Valor</th><th>Forma Recebimento</th><th>Dias em Atraso</th></tr></thead><tbody id="tbody-rel-titulos-em-atraso"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody></table></div>
+        </section>
+
+        <section class="financeiro-panel financeiro-report-panel" data-relatorio-pdf="titulos-a-bloquear">
+          <div class="financeiro-panel-head">
+            <div><h3>Lista de Títulos a Serem Bloqueados os Serviços</h3><p>Nome / Vencimento / Valor / Forma Recebimento / Dias em Atraso</p></div>
+            <div class="financeiro-report-summary"><strong data-report-count="titulos_a_bloquear">0 título(s)</strong><span data-report-total="titulos_a_bloquear">R$ 0,00</span></div>
+          </div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table" data-relatorio-pdf-table><thead><tr><th>Nome</th><th>Vencimento</th><th>Valor</th><th>Forma Recebimento</th><th>Dias em Atraso</th></tr></thead><tbody id="tbody-rel-titulos-a-bloquear"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody></table></div>
+        </section>
+
+        <section class="financeiro-panel financeiro-report-panel" data-relatorio-pdf="titulos-a-cartorio">
+          <div class="financeiro-panel-head">
+            <div><h3>Lista de Títulos a Serem Enviados a Cartório</h3><p>Nome / Vencimento / Valor / Forma Recebimento / Dias em Atraso</p></div>
+            <div class="financeiro-report-summary"><strong data-report-count="titulos_a_cartorio">0 título(s)</strong><span data-report-total="titulos_a_cartorio">R$ 0,00</span></div>
+          </div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table" data-relatorio-pdf-table><thead><tr><th>Nome</th><th>Vencimento</th><th>Valor</th><th>Forma Recebimento</th><th>Dias em Atraso</th></tr></thead><tbody id="tbody-rel-titulos-a-cartorio"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody></table></div>
+        </section>
+      </section>
+
+      <div class="financeiro-section-heading financeiro-section-heading--secondary">
+        <div><span class="eyebrow">Análise complementar</span><h2>Resumo gerencial</h2><p>Indicadores adicionais já existentes no Valora CRM.</p></div>
+      </div>
       <section class="financeiro-grid-3">
 <article class="financeiro-card">
   <div class="financeiro-card-top"><div><h3>Receitas</h3><p>Total por categoria</p></div><span class="financeiro-icon ok"><i class="fa-solid fa-arrow-trend-up"></i></span></div>
@@ -128,15 +200,6 @@
         </nav>
 
         <div class="financeiro-sidebar-bottom">
-          <div class="financeiro-ficha-helper">
-            <label>
-              <input type="checkbox" data-financeiro-ficha-principal>
-              <div>
-                <strong>Usar ficha principal</strong>
-                <p>Mostrar somente os campos essenciais do lançamento.</p>
-              </div>
-            </label>
-          </div>
         </div>
       </aside>
 

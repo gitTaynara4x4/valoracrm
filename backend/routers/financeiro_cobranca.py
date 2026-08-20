@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -11,6 +12,13 @@ from sqlalchemy.orm import Session
 
 from backend import models
 from backend.database import SessionLocal
+from backend.financeiro_cobranca_automacao import (
+    CobrancaDeliveryError,
+    enviar_envio,
+    executar_automacao_empresa,
+    materializar_fila_cobranca,
+    status_provedores,
+)
 from backend.security.permissions import get_request_user
 
 router = APIRouter(prefix="/api/financeiro", tags=["Financeiro - Cobrança"])
@@ -118,6 +126,38 @@ class EtapaCobrancaIn(BaseModel):
 class StatusEnvioIn(BaseModel):
     status: str
     erro: Optional[str] = None
+
+
+class EmissaoCobrancaLoteIn(BaseModel):
+    data_inicio: date
+    data_fim: date
+    cliente_id: Optional[int] = None
+    forma_cobranca_id: Optional[int] = None
+    lancamento_ids: list[int]
+
+
+def _validar_periodo_emissao(data_inicio: date, data_fim: date) -> None:
+    if data_fim < data_inicio:
+        raise HTTPException(status_code=422, detail="A data final deve ser igual ou posterior à data inicial.")
+    if (data_fim - data_inicio).days > 3660:
+        raise HTTPException(status_code=422, detail="O período de emissão não pode ultrapassar 10 anos.")
+
+
+def _validar_filtros_emissao(
+    db: Session, empresa_id: int, cliente_id: Optional[int], forma_cobranca_id: Optional[int]
+) -> None:
+    if cliente_id is not None:
+        existe = db.execute(text(
+            "SELECT 1 FROM public.clientes WHERE empresa_id=:empresa_id AND id=:id"
+        ), {"empresa_id": empresa_id, "id": cliente_id}).first()
+        if not existe:
+            raise HTTPException(status_code=404, detail="Cliente não encontrado.")
+    if forma_cobranca_id is not None:
+        existe = db.execute(text(
+            "SELECT 1 FROM public.financeiro_formas_cobranca WHERE empresa_id=:empresa_id AND id=:id"
+        ), {"empresa_id": empresa_id, "id": forma_cobranca_id}).first()
+        if not existe:
+            raise HTTPException(status_code=404, detail="Forma de cobrança não encontrada.")
 
 
 # -----------------------------------------------------------------------------
@@ -333,6 +373,268 @@ def excluir_etapa_regua(
 
 
 # -----------------------------------------------------------------------------
+# Emissão de títulos em lote
+# -----------------------------------------------------------------------------
+
+@router.get("/cobrancas/emissao-lote/titulos")
+def listar_titulos_para_emissao_lote(
+    data_inicio: date = Query(...),
+    data_fim: date = Query(...),
+    cliente_id: Optional[int] = Query(default=None),
+    forma_cobranca_id: Optional[int] = Query(default=None),
+    incluir_emitidos: bool = Query(default=False),
+    limit: int = Query(default=500, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    _validar_periodo_emissao(data_inicio, data_fim)
+    _validar_filtros_emissao(db, empresa_id, cliente_id, forma_cobranca_id)
+
+    where = [
+        "l.empresa_id=:empresa_id",
+        "l.tipo='receber'",
+        "l.status<>'cancelado'",
+        "l.valor_total>l.valor_pago",
+        "l.data_vencimento BETWEEN :data_inicio AND :data_fim",
+    ]
+    params: dict[str, Any] = {
+        "empresa_id": empresa_id,
+        "data_inicio": data_inicio,
+        "data_fim": data_fim,
+        "limit": limit,
+    }
+    if cliente_id is not None:
+        where.append("l.cliente_id=:cliente_id")
+        params["cliente_id"] = cliente_id
+    if forma_cobranca_id is not None:
+        where.append("l.forma_cobranca_id=:forma_cobranca_id")
+        params["forma_cobranca_id"] = forma_cobranca_id
+    if not incluir_emitidos:
+        where.append("ei.id IS NULL")
+
+    rows = db.execute(text(f"""
+        SELECT
+            l.id, l.cliente_id, l.forma_cobranca_id, l.descricao, l.documento,
+            l.data_emissao, l.data_vencimento, l.valor_total, l.valor_pago,
+            GREATEST(l.valor_total-l.valor_pago, 0) AS saldo_aberto,
+            COALESCE(c.nome, 'Cliente não identificado') AS cliente_nome,
+            COALESCE(fc.nome, 'Não informada') AS forma_cobranca_nome,
+            (ei.id IS NOT NULL) AS ja_emitido,
+            ee.id AS emissao_id, ee.data_emissao AS emissao_data
+        FROM public.financeiro_lancamentos l
+        LEFT JOIN public.clientes c
+               ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_formas_cobranca fc
+               ON fc.id=l.forma_cobranca_id AND fc.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_cobrancas_emissao_itens ei
+               ON ei.empresa_id=l.empresa_id AND ei.lancamento_id=l.id
+        LEFT JOIN public.financeiro_cobrancas_emissoes ee
+               ON ee.empresa_id=ei.empresa_id AND ee.id=ei.emissao_id
+        WHERE {' AND '.join(where)}
+        ORDER BY l.data_vencimento ASC, cliente_nome ASC, l.id ASC
+        LIMIT :limit
+    """), params).fetchall()
+
+    items = [row_dict(r) for r in rows]
+    return {
+        "periodo": {"data_inicio": data_inicio.isoformat(), "data_fim": data_fim.isoformat()},
+        "items": items,
+        "resumo": {
+            "quantidade": len(items),
+            "valor_total": float(sum(Decimal(str(i.get("valor_total") or 0)) for i in items)),
+            "saldo_total": float(sum(Decimal(str(i.get("saldo_aberto") or 0)) for i in items)),
+        },
+    }
+
+
+@router.post("/cobrancas/emissao-lote", status_code=status.HTTP_201_CREATED)
+def emitir_titulos_em_lote(
+    payload: EmissaoCobrancaLoteIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    _validar_periodo_emissao(payload.data_inicio, payload.data_fim)
+    _validar_filtros_emissao(db, empresa_id, payload.cliente_id, payload.forma_cobranca_id)
+
+    ids = list(dict.fromkeys(int(v) for v in (payload.lancamento_ids or []) if int(v) > 0))
+    if not ids:
+        raise HTTPException(status_code=422, detail="Selecione pelo menos um título para emitir.")
+    if len(ids) > 1000:
+        raise HTTPException(status_code=422, detail="Uma emissão em lote pode conter no máximo 1000 títulos.")
+
+    id_params = {f"id_{idx}": lancamento_id for idx, lancamento_id in enumerate(ids)}
+    placeholders = ", ".join(f":id_{idx}" for idx in range(len(ids)))
+    params: dict[str, Any] = {
+        "empresa_id": empresa_id,
+        "data_inicio": payload.data_inicio,
+        "data_fim": payload.data_fim,
+        **id_params,
+    }
+    where = [
+        "l.empresa_id=:empresa_id",
+        "l.id IN (" + placeholders + ")",
+        "l.tipo='receber'",
+        "l.status<>'cancelado'",
+        "l.valor_total>l.valor_pago",
+        "l.data_vencimento BETWEEN :data_inicio AND :data_fim",
+        "NOT EXISTS (SELECT 1 FROM public.financeiro_cobrancas_emissao_itens ei "
+        "WHERE ei.empresa_id=l.empresa_id AND ei.lancamento_id=l.id)",
+    ]
+    if payload.cliente_id is not None:
+        where.append("l.cliente_id=:cliente_id")
+        params["cliente_id"] = payload.cliente_id
+    if payload.forma_cobranca_id is not None:
+        where.append("l.forma_cobranca_id=:forma_cobranca_id")
+        params["forma_cobranca_id"] = payload.forma_cobranca_id
+
+    rows = db.execute(text(f"""
+        SELECT
+            l.id, l.cliente_id, l.forma_cobranca_id, l.descricao, l.documento,
+            l.data_vencimento, l.valor_total, l.valor_pago,
+            GREATEST(l.valor_total-l.valor_pago, 0) AS saldo_aberto,
+            COALESCE(c.nome, 'Cliente não identificado') AS cliente_nome,
+            COALESCE(fc.nome, 'Não informada') AS forma_cobranca_nome
+        FROM public.financeiro_lancamentos l
+        LEFT JOIN public.clientes c
+               ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_formas_cobranca fc
+               ON fc.id=l.forma_cobranca_id AND fc.empresa_id=l.empresa_id
+        WHERE {' AND '.join(where)}
+        ORDER BY l.data_vencimento ASC, l.id ASC
+        FOR UPDATE OF l
+    """), params).fetchall()
+    titulos = [row_dict(r) for r in rows]
+
+    encontrados = {int(i["id"]) for i in titulos}
+    indisponiveis = [i for i in ids if i not in encontrados]
+    if indisponiveis:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Um ou mais títulos já foram emitidos, foram quitados/cancelados ou deixaram de atender aos filtros. "
+                f"Atualize a seleção antes de continuar. IDs: {', '.join(map(str, indisponiveis[:20]))}"
+            ),
+        )
+
+    valor_total = sum(Decimal(str(i.get("valor_total") or 0)) for i in titulos)
+    saldo_total = sum(Decimal(str(i.get("saldo_aberto") or 0)) for i in titulos)
+
+    try:
+        emissao = db.execute(text("""
+            INSERT INTO public.financeiro_cobrancas_emissoes (
+                empresa_id, data_emissao, periodo_inicio, periodo_fim,
+                cliente_filtro_id, forma_cobranca_filtro_id, total_titulos,
+                valor_total_titulos, saldo_total_emitido, criado_por_usuario_id, criado_em
+            ) VALUES (
+                :empresa_id, CURRENT_DATE, :periodo_inicio, :periodo_fim,
+                :cliente_id, :forma_cobranca_id, :total_titulos,
+                :valor_total, :saldo_total, :usuario_id, NOW()
+            )
+            RETURNING *
+        """), {
+            "empresa_id": empresa_id,
+            "periodo_inicio": payload.data_inicio,
+            "periodo_fim": payload.data_fim,
+            "cliente_id": payload.cliente_id,
+            "forma_cobranca_id": payload.forma_cobranca_id,
+            "total_titulos": len(titulos),
+            "valor_total": valor_total,
+            "saldo_total": saldo_total,
+            "usuario_id": int(usuario.id),
+        }).first()
+        emissao_dict = row_dict(emissao)
+
+        db.execute(text("""
+            INSERT INTO public.financeiro_cobrancas_emissao_itens (
+                empresa_id, emissao_id, lancamento_id, cliente_id, forma_cobranca_id,
+                data_vencimento, valor_titulo, saldo_emitido, cliente_nome,
+                forma_cobranca_nome, documento, descricao, criado_em
+            ) VALUES (
+                :empresa_id, :emissao_id, :lancamento_id, :cliente_id, :forma_cobranca_id,
+                :data_vencimento, :valor_titulo, :saldo_emitido, :cliente_nome,
+                :forma_cobranca_nome, :documento, :descricao, NOW()
+            )
+        """), [{
+            "empresa_id": empresa_id,
+            "emissao_id": int(emissao_dict["id"]),
+            "lancamento_id": int(item["id"]),
+            "cliente_id": item.get("cliente_id"),
+            "forma_cobranca_id": item.get("forma_cobranca_id"),
+            "data_vencimento": item["data_vencimento"],
+            "valor_titulo": item.get("valor_total") or 0,
+            "saldo_emitido": item.get("saldo_aberto") or 0,
+            "cliente_nome": item.get("cliente_nome"),
+            "forma_cobranca_nome": item.get("forma_cobranca_nome"),
+            "documento": item.get("documento"),
+            "descricao": item.get("descricao"),
+        } for item in titulos])
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="A emissão não foi concluída porque um dos títulos já foi emitido em outro processo. Atualize a lista e tente novamente.",
+        ) from exc
+
+    return {
+        "ok": True,
+        "emissao_id": int(emissao_dict["id"]),
+        "data_emissao": emissao_dict.get("data_emissao"),
+        "total_titulos": len(titulos),
+        "valor_total_titulos": float(valor_total),
+        "saldo_total_emitido": float(saldo_total),
+    }
+
+
+@router.get("/cobrancas/emissoes-lotes")
+def listar_emissoes_lotes(
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    rows = db.execute(text("""
+        SELECT
+            e.*, c.nome AS cliente_filtro_nome, fc.nome AS forma_cobranca_filtro_nome,
+            u.nome AS usuario_nome
+        FROM public.financeiro_cobrancas_emissoes e
+        LEFT JOIN public.clientes c
+               ON c.id=e.cliente_filtro_id AND c.empresa_id=e.empresa_id
+        LEFT JOIN public.financeiro_formas_cobranca fc
+               ON fc.id=e.forma_cobranca_filtro_id AND fc.empresa_id=e.empresa_id
+        LEFT JOIN public.usuarios u
+               ON u.id=e.criado_por_usuario_id AND u.empresa_id=e.empresa_id
+        WHERE e.empresa_id=:empresa_id
+        ORDER BY e.data_emissao DESC, e.id DESC
+        LIMIT :limit
+    """), {"empresa_id": empresa_id, "limit": limit}).fetchall()
+    return [row_dict(r) for r in rows]
+
+
+@router.get("/cobrancas/emissoes-lotes/{emissao_id}/itens")
+def listar_itens_emissao_lote(
+    emissao_id: int,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    emissao = db.execute(text("""
+        SELECT * FROM public.financeiro_cobrancas_emissoes
+        WHERE empresa_id=:empresa_id AND id=:id
+    """), {"empresa_id": empresa_id, "id": emissao_id}).first()
+    if not emissao:
+        raise HTTPException(status_code=404, detail="Lote de emissão não encontrado.")
+    rows = db.execute(text("""
+        SELECT * FROM public.financeiro_cobrancas_emissao_itens
+        WHERE empresa_id=:empresa_id AND emissao_id=:emissao_id
+        ORDER BY data_vencimento ASC, cliente_nome ASC, lancamento_id ASC
+    """), {"empresa_id": empresa_id, "emissao_id": emissao_id}).fetchall()
+    return {"emissao": row_dict(emissao), "items": [row_dict(r) for r in rows]}
+
+
+# -----------------------------------------------------------------------------
 # Fila / agenda de cobranças
 # -----------------------------------------------------------------------------
 
@@ -341,87 +643,67 @@ def processar_regua_cobranca(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
-    """Materializa na fila as etapas vencidas das contas a receber ainda abertas.
+    """Executa imediatamente a automação da empresa autenticada.
 
-    Não envia mensagens. Isso separa a regra financeira dos provedores de
-    WhatsApp/SMS/E-mail e deixa a automação segura e multiempresa.
+    Além de materializar etapas vencidas, tenta entregar os canais configurados.
+    O dispatcher de background executa esta mesma lógica sem depender da tela.
     """
     empresa_id = empresa_do(usuario)
+    return executar_automacao_empresa(db, empresa_id, usuario_id=int(usuario.id))
 
-    # Se o pagamento/cancelamento foi identificado depois que a etapa entrou na
-    # fila, ela deixa de ser acionável antes de qualquer novo processamento.
-    db.execute(text("""
-        UPDATE public.financeiro_cobrancas_envios ce
-           SET status='ignorado',
-               ignorado_em=COALESCE(ce.ignorado_em, NOW()),
-               erro=NULL,
-               atualizado_por_usuario_id=:usuario_id,
-               atualizado_em=NOW()
-          FROM public.financeiro_lancamentos l
-         WHERE ce.empresa_id=:empresa_id
-           AND ce.empresa_id=l.empresa_id
-           AND ce.lancamento_id=l.id
-           AND ce.status IN ('pendente', 'erro')
-           AND (l.status='cancelado' OR l.valor_total <= l.valor_pago)
-    """), {"empresa_id": empresa_id, "usuario_id": int(usuario.id)})
 
-    before = int(db.execute(text("""
-        SELECT COUNT(*) FROM public.financeiro_cobrancas_envios
+@router.get("/cobrancas/automacao/status")
+def status_automacao_cobranca(
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    provedores = status_provedores(db, empresa_id)
+    row = db.execute(text("""
+        SELECT
+            COUNT(*) FILTER (WHERE status='pendente') AS pendentes,
+            COUNT(*) FILTER (WHERE status='erro') AS erros,
+            COUNT(*) FILTER (WHERE status='enviado' AND automatico=TRUE) AS enviados_automaticamente,
+            MAX(enviado_em) FILTER (WHERE status='enviado' AND automatico=TRUE) AS ultimo_envio_automatico,
+            MAX(ultima_tentativa_em) AS ultima_tentativa
+        FROM public.financeiro_cobrancas_envios
         WHERE empresa_id=:empresa_id
-    """), {"empresa_id": empresa_id}).scalar() or 0)
+    """), {"empresa_id": empresa_id}).first()
+    return {**provedores, "empresa_id": empresa_id, "fila": row_dict(row)}
 
-    db.execute(text("""
-        WITH regua_padrao AS (
-            SELECT id
-            FROM public.financeiro_reguas_cobranca
-            WHERE empresa_id=:empresa_id AND ativo=TRUE AND padrao=TRUE
-            ORDER BY id
-            LIMIT 1
-        ), elegiveis AS (
-            SELECT
-                l.id AS lancamento_id,
-                e.id AS etapa_id,
-                e.canal,
-                e.mensagem,
-                (l.data_vencimento + e.deslocamento_dias) AS data_prevista,
-                CASE
-                    WHEN e.canal='email' THEN COALESCE(NULLIF(l.email_cobranca,''), NULLIF(c.email_cobranca,''), NULLIF(c.email,''))
-                    WHEN e.canal IN ('whatsapp','sms') THEN COALESCE(NULLIF(l.whatsapp_cobranca,''), NULLIF(c.whatsapp,''), NULLIF(c.telefone,''))
-                    ELSE NULL
-                END AS contato_destino
-            FROM public.financeiro_lancamentos l
-            JOIN public.financeiro_reguas_cobranca r
-              ON r.empresa_id=l.empresa_id
-             AND r.id=COALESCE(l.regua_cobranca_id, (SELECT id FROM regua_padrao))
-             AND r.ativo=TRUE
-            JOIN public.financeiro_reguas_cobranca_etapas e
-              ON e.empresa_id=r.empresa_id AND e.regua_id=r.id AND e.ativo=TRUE
-            LEFT JOIN public.clientes c
-              ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
-            WHERE l.empresa_id=:empresa_id
-              AND l.tipo='receber'
-              AND l.status <> 'cancelado'
-              AND l.valor_total > l.valor_pago
-              AND CURRENT_DATE >= (l.data_vencimento + e.deslocamento_dias)
-        )
-        INSERT INTO public.financeiro_cobrancas_envios (
-            empresa_id, lancamento_id, etapa_id, canal, contato_destino,
-            mensagem, data_prevista, status, criado_por_usuario_id,
-            atualizado_por_usuario_id, criado_em, atualizado_em
-        )
-        SELECT :empresa_id, x.lancamento_id, x.etapa_id, x.canal,
-               x.contato_destino, x.mensagem, x.data_prevista, 'pendente',
-               :usuario_id, :usuario_id, NOW(), NOW()
-        FROM elegiveis x
-        ON CONFLICT (empresa_id, lancamento_id, etapa_id) DO NOTHING
-    """), {"empresa_id": empresa_id, "usuario_id": int(usuario.id)})
-    db.commit()
 
-    after = int(db.execute(text("""
-        SELECT COUNT(*) FROM public.financeiro_cobrancas_envios
-        WHERE empresa_id=:empresa_id
-    """), {"empresa_id": empresa_id}).scalar() or 0)
-    return {"ok": True, "novos": max(0, after - before)}
+@router.post("/cobrancas/envios/{envio_id}/enviar-agora")
+def enviar_cobranca_agora(
+    envio_id: int,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    # Trava por item para evitar clique duplo ou corrida com o dispatcher.
+    key = f"valora_cobranca_envio_{empresa_id}_{envio_id}"
+    locked = bool(db.execute(text("SELECT pg_try_advisory_lock(hashtext(:key))"), {"key": key}).scalar())
+    if not locked:
+        raise HTTPException(status_code=409, detail="Este envio já está sendo processado. Atualize a fila em alguns segundos.")
+    try:
+        anterior = db.execute(text("""
+            SELECT status FROM public.financeiro_cobrancas_envios
+            WHERE empresa_id=:empresa_id AND id=:id
+        """), {"empresa_id": empresa_id, "id": envio_id}).first()
+        if not anterior:
+            raise HTTPException(status_code=404, detail="Item da fila de cobrança não encontrado.")
+        if str(anterior._mapping["status"] or "").lower() in {"enviado", "ignorado"}:
+            raise HTTPException(status_code=409, detail="Este item já foi concluído e não será reenviado automaticamente.")
+        try:
+            resultado = enviar_envio(db, empresa_id, envio_id, usuario_id=int(usuario.id), forcar=True)
+        except CobrancaDeliveryError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return resultado
+    finally:
+        try:
+            db.execute(text("SELECT pg_advisory_unlock(hashtext(:key))"), {"key": key})
+            db.commit()
+        except Exception:
+            db.rollback()
 
 
 @router.get("/cobrancas/resumo")
@@ -536,7 +818,8 @@ def atualizar_status_envio(
             row = db.execute(text("""
                 UPDATE public.financeiro_cobrancas_envios
                    SET status='ignorado', ignorado_em=COALESCE(ignorado_em, NOW()),
-                       erro=NULL, atualizado_por_usuario_id=:usuario_id, atualizado_em=NOW()
+                       erro=NULL, automatico=FALSE,
+                       atualizado_por_usuario_id=:usuario_id, atualizado_em=NOW()
                  WHERE empresa_id=:empresa_id AND id=:id
                  RETURNING *
             """), {"empresa_id": empresa_id, "id": envio_id, "usuario_id": int(usuario.id)}).first()
@@ -552,6 +835,7 @@ def atualizar_status_envio(
                enviado_em=CASE WHEN :status='enviado' THEN NOW() ELSE enviado_em END,
                ignorado_em=CASE WHEN :status='ignorado' THEN NOW() ELSE ignorado_em END,
                erro=:erro,
+               automatico=CASE WHEN :status IN ('enviado','ignorado') THEN FALSE ELSE automatico END,
                atualizado_por_usuario_id=:usuario_id,
                atualizado_em=NOW()
          WHERE empresa_id=:empresa_id AND id=:id

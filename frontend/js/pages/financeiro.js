@@ -17,13 +17,21 @@
     filtros: {},
     historicoLancamentoId: null,
     baixaAtual: null,
-    cobranca: { reguas: [], etapas: [], fila: [], reguaSelecionadaId: null },
+    cobranca: {
+      reguas: [], etapas: [], fila: [], reguaSelecionadaId: null,
+      emissaoTitulos: [], emissaoSelecionados: new Set(), emissoesLotes: [], automacao: null,
+      zapschat: { config: null, instancias: [], busy: false },
+    },
     sacadoLookup: {
       items: [],
       selecionado: null,
       timer: null,
       controller: null,
       requestId: 0,
+    },
+    envolvidoLookups: {
+      cliente: { items: [], timer: null, controller: null, requestId: 0 },
+      fornecedor: { items: [], timer: null, controller: null, requestId: 0 },
     },
   };
 
@@ -49,6 +57,25 @@
     const mes = String(agora.getMonth() + 1).padStart(2, "0");
     const dia = String(agora.getDate()).padStart(2, "0");
     return `${ano}-${mes}-${dia}`;
+  };
+
+  const monthStartISO = () => {
+    const agora = new Date();
+    const ano = agora.getFullYear();
+    const mes = String(agora.getMonth() + 1).padStart(2, "0");
+    return `${ano}-${mes}-01`;
+  };
+
+  const addMonthsISO = (isoDate, months = 1) => {
+    const base = /^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || "")) ? String(isoDate) : todayISO();
+    const [ano, mes, dia] = base.split("-").map(Number);
+    const primeiro = new Date(ano, (mes - 1) + Number(months || 0), 1);
+    const ultimoDia = new Date(primeiro.getFullYear(), primeiro.getMonth() + 1, 0).getDate();
+    const data = new Date(primeiro.getFullYear(), primeiro.getMonth(), Math.min(dia, ultimoDia));
+    const a = data.getFullYear();
+    const m = String(data.getMonth() + 1).padStart(2, "0");
+    const d = String(data.getDate()).padStart(2, "0");
+    return `${a}-${m}-${d}`;
   };
 
   const CURRENCY_CONFIG = {
@@ -117,13 +144,21 @@
     return parsed.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
   };
 
+  const formatPhoneBRDisplay = (value) => {
+    let digits = String(value || "").replace(/\D+/g, "");
+    if (digits.startsWith("55") && digits.length >= 12) digits = digits.slice(2);
+    if (digits.length === 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    if (digits.length === 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    return String(value || "").trim() || "Número não informado";
+  };
+
   const escapeHtml = (v) => String(v ?? "").replace(/[&<>'"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[c]));
 
   const statusClass = (status) => {
     const s = String(status || "").toLowerCase();
-    if (["recebido", "pago", "ativo", "receita"].includes(s)) return "ok";
-    if (["vencido", "cancelado", "inativo", "despesa"].includes(s)) return "danger";
-    if (["parcial", "aberto", "ambos"].includes(s)) return "warn";
+    if (["recebido", "pago", "ativo", "receita", "enviado"].includes(s)) return "ok";
+    if (["vencido", "cancelado", "inativo", "despesa", "erro"].includes(s)) return "danger";
+    if (["parcial", "aberto", "ambos", "ignorado"].includes(s)) return "warn";
     return "blue";
   };
 
@@ -176,7 +211,7 @@
   }
 
   function setTable(tbodyId, cols, html, emptyText) {
-    const tbody = $(`#${tbodyId}`) || $(".financeiro-table tbody");
+    const tbody = tbodyId ? $(`#${tbodyId}`) : $(".financeiro-table tbody");
     if (!tbody) return;
     tbody.innerHTML = html || `<tr><td class="financeiro-empty" colspan="${cols}">${emptyText || "Nenhum registro encontrado."}</td></tr>`;
   }
@@ -188,8 +223,9 @@
   function acoesLancamento(item) {
     const status = String(item.status || "").toLowerCase();
     const finalizado = ["recebido", "pago", "cancelado"].includes(status);
+    const reparcelamentoAtivo = Boolean(item.reparcelamento_ativo);
     return `<div class="actions-cell">
-      <button class="financeiro-mini-btn" type="button" data-action="editar-lancamento" data-id="${item.id}"><i class="fa-regular fa-pen-to-square"></i> Editar</button>
+      <button class="financeiro-mini-btn" type="button" data-action="editar-lancamento" data-id="${item.id}" ${reparcelamentoAtivo ? 'disabled title="Conta original de um reparcelamento ativo"' : ""}><i class="fa-regular fa-pen-to-square"></i> Editar</button>
       <button class="financeiro-mini-btn ok" type="button" data-action="baixar-lancamento" data-id="${item.id}" ${finalizado ? "disabled" : ""}><i class="fa-solid fa-check"></i> Baixar</button>
       <button class="financeiro-mini-btn" type="button" data-action="historico-lancamento" data-id="${item.id}"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</button>
       <button class="financeiro-mini-btn warn" type="button" data-action="cancelar-lancamento" data-id="${item.id}" ${status === "cancelado" ? "disabled" : ""} title="Cancelar"><i class="fa-solid fa-ban"></i></button>
@@ -550,7 +586,7 @@
     });
     $$('[data-select="clientes"]').forEach(sel => {
       const current = sel.value;
-      const vazio = sel.id === "filtro-cliente" ? "Todos os clientes" : "Selecione...";
+      const vazio = ["filtro-cliente", "emissao-cliente"].includes(sel.id) ? "Todos os clientes" : "Selecione...";
       sel.innerHTML = `<option value="">${vazio}</option>` + (ops.clientes || []).map(i => option(`${i.codigo || ""} - ${i.nome}`, i.id)).join("");
       sel.value = current;
     });
@@ -574,16 +610,262 @@
     popular('[data-select="naturezas-operacao"]', ops.naturezas_operacao, i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
     popular('[data-select="tipos-gasto"]', ops.tipos_gasto, i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
     popular('[data-select="centros-custo"]', ops.centros_custo, i => `${i.centro_pai_id ? "↳ " : ""}${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
-    popular('[data-select="unidades-consumo"]', ops.unidades_consumo, i => `${i.unidade_pai_id ? "↳ " : ""}${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
+    popular('[data-select="unidades-consumo"]', ops.unidades_consumo, i => `${i.unidade_pai_id ? "↳ " : ""}${i.codigo ? `${i.codigo} - ` : ""}${i.nome_exibicao || i.nome}`);
     popular('[data-select="contas-contabeis"]', (ops.contas_contabeis || []).filter(i => i.aceita_lancamento !== false), i => `${i.codigo} - ${i.nome}`);
     popular('[data-select="formas-cobranca"]', ops.formas_cobranca, i => i.nome);
-    const filtroFormaCobranca = $("#filtro-forma-cobranca");
-    if (filtroFormaCobranca && !filtroFormaCobranca.value) filtroFormaCobranca.options[0].textContent = "Todas as formas";
+    [$("#filtro-forma-cobranca"), $("#emissao-forma-cobranca")].filter(Boolean).forEach(filtroFormaCobranca => {
+      if (!filtroFormaCobranca.value && filtroFormaCobranca.options.length) filtroFormaCobranca.options[0].textContent = "Todas as formas";
+    });
     const filtroFormaPagamento = $("#filtro-forma-pagamento");
     if (filtroFormaPagamento && !filtroFormaPagamento.value) filtroFormaPagamento.options[0].textContent = "Todas as formas";
     popular('[data-select="regras-encargos"]', ops.regras_encargos, i => `${i.nome}${i.padrao ? " (padrão)" : ""}`);
     popular('[data-select="reguas-cobranca"]', ops.reguas_cobranca, i => `${i.nome}${i.padrao ? " (padrão)" : ""}`);
     popular('[data-select="entidades-emissoras"]', ops.contas_bancos, i => i.nome);
+    prepararLookupsEnvolvidos();
+    sincronizarLookupsEnvolvidos();
+  }
+
+  function estadoLookupEnvolvido(tipo) {
+    return state.envolvidoLookups?.[tipo] || null;
+  }
+
+  function itensLookupEnvolvido(tipo) {
+    return tipo === "cliente" ? (state.opcoes.clientes || []) : (state.opcoes.fornecedores || []);
+  }
+
+  function nomeLookupEnvolvido(item) {
+    return String(item?.nome || item?.razao_social || item?.nome_fantasia || "").trim();
+  }
+
+  function labelLookupEnvolvido(item, tipo) {
+    const nome = nomeLookupEnvolvido(item) || `${tipo === "cliente" ? "Cliente" : "Fornecedor"} #${item?.id || "-"}`;
+    const codigo = String(item?.codigo || "").trim();
+    return codigo ? `${codigo} - ${nome}` : nome;
+  }
+
+  function metaLookupEnvolvido(item) {
+    return [item?.cpf_cnpj, item?.whatsapp || item?.telefone, item?.email_cobranca || item?.email]
+      .map(v => String(v || "").trim())
+      .filter(Boolean)
+      .join(" • ");
+  }
+
+  function montarLookupEnvolvido(form, tipo) {
+    if (!form || !["cliente", "fornecedor"].includes(tipo)) return null;
+    const select = form.querySelector(`select[name="${tipo}_id"]`);
+    if (!select) return null;
+    const field = select.closest(".financeiro-field");
+    if (!field) return null;
+    const existente = field.querySelector(`[data-envolvido-lookup="${tipo}"]`);
+    if (existente) return existente;
+
+    const plural = tipo === "cliente" ? "clientes" : "fornecedores";
+    const singular = tipo === "cliente" ? "cliente" : "fornecedor";
+    const resultId = `financeiro-resultados-${plural}`;
+    const lookup = document.createElement("div");
+    lookup.className = "financeiro-lookup financeiro-envolvido-lookup";
+    lookup.dataset.envolvidoLookup = tipo;
+    lookup.innerHTML = `
+      <i class="fa-solid fa-magnifying-glass financeiro-lookup-icon" aria-hidden="true"></i>
+      <input
+        type="search"
+        data-envolvido-search="${tipo}"
+        placeholder="Pesquisar ${singular}..."
+        autocomplete="off"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded="false"
+        aria-controls="${resultId}"
+      >
+      <button class="financeiro-lookup-clear" type="button" data-envolvido-clear="${tipo}" title="Limpar ${singular}" aria-label="Limpar ${singular}" hidden>
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="financeiro-lookup-results" id="${resultId}" data-envolvido-results="${tipo}" role="listbox" hidden></div>
+    `;
+    select.classList.add("financeiro-native-select-proxy");
+    select.dataset.lookupEnhanced = tipo;
+    select.required = false;
+    select.tabIndex = -1;
+    select.setAttribute("aria-hidden", "true");
+    select.insertAdjacentElement("afterend", lookup);
+
+    const help = document.createElement("small");
+    help.className = "financeiro-lookup-help";
+    help.textContent = `Pesquise por nome, código, CPF/CNPJ, telefone ou e-mail.`;
+    lookup.insertAdjacentElement("afterend", help);
+    return lookup;
+  }
+
+  function prepararLookupsEnvolvidos(form = $("#form-lancamento")) {
+    if (!form) return;
+    montarLookupEnvolvido(form, "cliente");
+    montarLookupEnvolvido(form, "fornecedor");
+  }
+
+  function elementosLookupEnvolvido(form, tipo) {
+    if (!form) return null;
+    const select = form.querySelector(`select[name="${tipo}_id"]`);
+    const root = form.querySelector(`[data-envolvido-lookup="${tipo}"]`);
+    if (!select || !root) return null;
+    return {
+      form,
+      tipo,
+      select,
+      root,
+      search: root.querySelector(`[data-envolvido-search="${tipo}"]`),
+      results: root.querySelector(`[data-envolvido-results="${tipo}"]`),
+      clear: root.querySelector(`[data-envolvido-clear="${tipo}"]`),
+    };
+  }
+
+  function fecharResultadosLookupEnvolvido(form, tipo) {
+    const els = elementosLookupEnvolvido(form, tipo);
+    if (!els) return;
+    els.results.hidden = true;
+    els.results.innerHTML = "";
+    els.search.setAttribute("aria-expanded", "false");
+  }
+
+  function fecharTodosLookupsEnvolvidos(form = $("#form-lancamento")) {
+    fecharResultadosLookupEnvolvido(form, "cliente");
+    fecharResultadosLookupEnvolvido(form, "fornecedor");
+  }
+
+  function renderResultadosLookupEnvolvido(form, tipo, items = [], mensagem = "") {
+    const els = elementosLookupEnvolvido(form, tipo);
+    const lookupState = estadoLookupEnvolvido(tipo);
+    if (!els || !lookupState) return;
+    lookupState.items = Array.isArray(items) ? items : [];
+    if (mensagem) {
+      els.results.innerHTML = `<div class="financeiro-lookup-message">${escapeHtml(mensagem)}</div>`;
+    } else if (!lookupState.items.length) {
+      els.results.innerHTML = `<div class="financeiro-lookup-message">Nenhum ${tipo === "cliente" ? "cliente" : "fornecedor"} encontrado.</div>`;
+    } else {
+      els.results.innerHTML = lookupState.items.map((item, index) => {
+        const meta = metaLookupEnvolvido(item);
+        return `<button class="financeiro-lookup-option" type="button" role="option" data-envolvido-option="${tipo}" data-envolvido-index="${index}">
+          <strong>${escapeHtml(labelLookupEnvolvido(item, tipo))}</strong>
+          ${meta ? `<span>${escapeHtml(meta)}</span>` : `<span>Cadastro de ${tipo === "cliente" ? "cliente" : "fornecedor"}</span>`}
+        </button>`;
+      }).join("");
+    }
+    els.results.hidden = false;
+    els.search.setAttribute("aria-expanded", "true");
+  }
+
+  function garantirOpcaoLookupEnvolvido(select, item, tipo) {
+    if (!select || !item?.id) return;
+    const value = String(item.id);
+    if (Array.from(select.options || []).some(opt => String(opt.value) === value)) return;
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = labelLookupEnvolvido(item, tipo);
+    select.appendChild(opt);
+  }
+
+  function selecionarLookupEnvolvido(form, tipo, item = null, emitir = true) {
+    const els = elementosLookupEnvolvido(form, tipo);
+    const lookupState = estadoLookupEnvolvido(tipo);
+    if (!els || !lookupState) return;
+    clearTimeout(lookupState.timer);
+    if (lookupState.controller) lookupState.controller.abort();
+    lookupState.controller = null;
+    lookupState.requestId += 1;
+
+    if (item) garantirOpcaoLookupEnvolvido(els.select, item, tipo);
+    els.select.value = item?.id ? String(item.id) : "";
+    els.search.value = item ? labelLookupEnvolvido(item, tipo) : "";
+    els.search.dataset.selectedLabel = item ? labelLookupEnvolvido(item, tipo) : "";
+    els.search.dataset.selectedId = item?.id ? String(item.id) : "";
+    els.clear.hidden = !item;
+    els.search.setCustomValidity("");
+    fecharResultadosLookupEnvolvido(form, tipo);
+
+    if (item) {
+      const chave = tipo === "cliente" ? "clientes" : "fornecedores";
+      if (!(state.opcoes[chave] || []).some(i => String(i.id) === String(item.id))) {
+        state.opcoes[chave] = [...(state.opcoes[chave] || []), item];
+      }
+    }
+    if (emitir) els.select.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function sincronizarLookupEnvolvido(form, tipo, item = null) {
+    const els = elementosLookupEnvolvido(form, tipo);
+    if (!els) return;
+    const id = String(els.select.value || "");
+    if (!id) return selecionarLookupEnvolvido(form, tipo, null, false);
+    const atual = itensLookupEnvolvido(tipo).find(i => String(i.id) === id);
+    const sintetico = atual || (tipo === "cliente" ? {
+      id,
+      codigo: item?.cliente_codigo || "",
+      nome: item?.cliente_nome || `Cliente #${id}`,
+      cpf_cnpj: item?.cliente_cpf_cnpj || "",
+      email: item?.email_cobranca || "",
+      telefone: item?.whatsapp_cobranca || "",
+    } : {
+      id,
+      codigo: item?.fornecedor_codigo || "",
+      nome: item?.fornecedor_nome || `Fornecedor #${id}`,
+      cpf_cnpj: item?.fornecedor_cpf_cnpj || "",
+      tipo_fornecedor: item?.fornecedor_tipo || "",
+    });
+    selecionarLookupEnvolvido(form, tipo, sintetico, false);
+  }
+
+  function sincronizarLookupsEnvolvidos(form = $("#form-lancamento"), item = null) {
+    sincronizarLookupEnvolvido(form, "cliente", item);
+    sincronizarLookupEnvolvido(form, "fornecedor", item);
+  }
+
+  function resultadosLocaisLookupEnvolvido(tipo, termo = "") {
+    const busca = String(termo || "").trim().toLocaleLowerCase("pt-BR");
+    const items = itensLookupEnvolvido(tipo);
+    const filtrados = !busca ? items : items.filter(item => {
+      const texto = [item?.codigo, item?.nome, item?.nome_fantasia, item?.cpf_cnpj, item?.email, item?.email_cobranca, item?.telefone, item?.whatsapp]
+        .map(v => String(v || "").toLocaleLowerCase("pt-BR"))
+        .join(" ");
+      return texto.includes(busca);
+    });
+    return filtrados.slice(0, 30);
+  }
+
+  async function buscarLookupEnvolvido(form, tipo, termo) {
+    const els = elementosLookupEnvolvido(form, tipo);
+    const lookupState = estadoLookupEnvolvido(tipo);
+    if (!els || !lookupState) return;
+    const busca = String(termo || "").trim();
+
+    if (busca.length < 2) {
+      const locais = resultadosLocaisLookupEnvolvido(tipo, busca);
+      renderResultadosLookupEnvolvido(form, tipo, locais, locais.length ? "" : (busca ? "Digite mais um caractere para ampliar a busca." : "Nenhum cadastro disponível."));
+      return;
+    }
+
+    if (lookupState.controller) lookupState.controller.abort();
+    const controller = new AbortController();
+    lookupState.controller = controller;
+    const requestId = ++lookupState.requestId;
+    renderResultadosLookupEnvolvido(form, tipo, [], `Procurando ${tipo === "cliente" ? "clientes" : "fornecedores"}...`);
+
+    try {
+      const endpoint = tipo === "cliente" ? "/api/financeiro/clientes-busca" : "/api/financeiro/sacados";
+      const data = await request(`${endpoint}${qs({ busca, limit: 30 })}`, { signal: controller.signal });
+      if (requestId !== lookupState.requestId) return;
+      const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+      renderResultadosLookupEnvolvido(form, tipo, items);
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      if (requestId !== lookupState.requestId) return;
+      renderResultadosLookupEnvolvido(form, tipo, [], `Não foi possível pesquisar: ${err.message}`);
+    }
+  }
+
+  function agendarBuscaLookupEnvolvido(form, tipo, termo) {
+    const lookupState = estadoLookupEnvolvido(tipo);
+    if (!lookupState) return;
+    clearTimeout(lookupState.timer);
+    lookupState.timer = setTimeout(() => buscarLookupEnvolvido(form, tipo, termo), 220);
   }
 
   function elementosSacado(form = $("#form-lancamento")) {
@@ -823,13 +1105,27 @@
     const fornecedorField = form.querySelector('[name="fornecedor_id"]')?.closest(".financeiro-field");
     const fornecedorTipoField = form.querySelector('[data-fornecedor-tipo]')?.closest(".financeiro-field");
     if (clienteField) clienteField.hidden = !receber;
-    if (fornecedorField) fornecedorField.hidden = receber;
-    if (fornecedorTipoField) fornecedorTipoField.hidden = receber;
+    // O fornecedor continua disponível também em Contas a Receber.
+    // O usuário pode relacionar um fornecedor ao título sem perder o cliente/sacado principal.
+    if (fornecedorField) fornecedorField.hidden = false;
+    if (fornecedorTipoField) fornecedorTipoField.hidden = false;
     const clienteSelect = form.querySelector('[name="cliente_id"]');
     const fornecedorSelect = form.querySelector('[name="fornecedor_id"]');
+    const clienteSearch = form.querySelector('[data-envolvido-search="cliente"]');
+    const fornecedorSearch = form.querySelector('[data-envolvido-search="fornecedor"]');
     const sacadoSearch = form.querySelector("[data-sacado-search]");
-    if (clienteSelect) clienteSelect.required = receber;
-    if (fornecedorSelect) fornecedorSelect.required = !receber && !sacadoSearch;
+    if (clienteSelect) clienteSelect.required = false;
+    if (fornecedorSelect) fornecedorSelect.required = false;
+    if (clienteSearch) {
+      clienteSearch.required = receber;
+      clienteSearch.setAttribute("aria-required", String(receber));
+      if (!receber) clienteSearch.setCustomValidity("");
+    }
+    if (fornecedorSearch) {
+      fornecedorSearch.required = !receber && !sacadoSearch;
+      fornecedorSearch.setAttribute("aria-required", String(!receber && !sacadoSearch));
+      if (receber || sacadoSearch) fornecedorSearch.setCustomValidity("");
+    }
     if (sacadoSearch) {
       sacadoSearch.required = !receber;
       sacadoSearch.setAttribute("aria-required", String(!receber));
@@ -928,6 +1224,50 @@
     const total = Math.max(0, principal - desconto + multa + mora);
     const out = form.querySelector('[name="valor_total_baixa"]');
     if (out) out.value = formatMoneyForInput(total, state.baixaAtual?.moeda || "BRL");
+    atualizarReparcelamentoBaixa();
+  }
+
+  function atualizarReparcelamentoBaixa() {
+    const form = $("#form-baixa");
+    const item = state.baixaAtual;
+    if (!form || !item) return;
+    const box = form.querySelector("[data-reparcelamento-box]");
+    const select = form.querySelector('[name="reparcelar_saldo"]');
+    const ehPagamento = String(item.tipo || "") === "pagar";
+    if (box) box.hidden = !ehPagamento;
+    if (!select) return;
+    select.disabled = !ehPagamento;
+    if (!ehPagamento) select.value = "false";
+
+    const principal = Number(moneyToBackend(form.querySelector('[name="valor_principal"]')?.value || 0));
+    const saldoAtual = Math.max(0, Number(item.valor_total || 0) - Number(item.valor_pago || 0));
+    const saldoRestante = Math.max(0, saldoAtual - principal);
+    const saldoInput = form.querySelector('[name="reparcelamento_saldo"]');
+    if (saldoInput) saldoInput.value = formatMoneyForInput(saldoRestante, item.moeda || "BRL");
+
+    const ativo = ehPagamento && select.value === "true";
+    const qtd = form.querySelector('[name="reparcelamento_parcelas"]');
+    const primeiro = form.querySelector('[name="reparcelamento_primeiro_vencimento"]');
+    const intervalo = form.querySelector('[name="reparcelamento_intervalo_meses"]');
+    [qtd, primeiro, intervalo].forEach(el => { if (el) el.disabled = !ativo; });
+    if (qtd) qtd.required = ativo;
+    if (primeiro) primeiro.required = ativo;
+
+    const info = form.querySelector("[data-reparcelamento-info]");
+    if (!info) return;
+    if (!ativo) {
+      info.textContent = "Não. O saldo que não for pago continuará aberto nesta mesma conta.";
+      info.classList.remove("is-danger");
+      return;
+    }
+    if (saldoRestante <= 0) {
+      info.textContent = "Para reparcelar, o principal desta baixa precisa ser menor que o saldo aberto.";
+      info.classList.add("is-danger");
+      return;
+    }
+    info.classList.remove("is-danger");
+    const quantidade = Math.max(2, Number(qtd?.value || 2));
+    info.textContent = `${money(saldoRestante, item.moeda)} serão retirados desta conta e divididos em ${quantidade} novas parcelas. O valor não será duplicado.`;
   }
 
   async function atualizarCalculoBaixa() {
@@ -1084,7 +1424,7 @@
       { tipo: "natureza", endpoint: ENDPOINTS.natureza, tbody: "tbody-naturezas", cols: 5, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.aplicacao)}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "natureza")}</td></tr>` },
       { tipo: "tipo-gasto", endpoint: ENDPOINTS["tipo-gasto"], tbody: "tbody-tipos-gasto", cols: 4, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "tipo-gasto")}</td></tr>` },
       { tipo: "centro-custo", endpoint: ENDPOINTS["centro-custo"], tbody: "tbody-centros-custo", cols: 5, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(i.centro_pai_nome || "Principal")}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "centro-custo")}</td></tr>` },
-      { tipo: "unidade-consumo", endpoint: ENDPOINTS["unidade-consumo"], tbody: "tbody-unidades-consumo", cols: 6, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(String(i.tipo_referencia || "outro").replaceAll("_", " "))}</td><td>${escapeHtml(i.unidade_pai_nome || "Principal")}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "unidade-consumo")}</td></tr>` },
+      { tipo: "unidade-consumo", endpoint: ENDPOINTS["unidade-consumo"], tbody: "tbody-unidades-consumo", cols: 7, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td><strong>${escapeHtml(i.identificacao_uc || i.nome)}</strong>${i.referencia_detalhe ? `<small class="financeiro-table-subtext">${escapeHtml(i.referencia_detalhe)}</small>` : ""}</td><td>${escapeHtml(String(i.tipo_referencia || "outro").replaceAll("_", " "))}</td><td>${escapeHtml(i.referencia_origem || "Cadastro manual")}${i.referencia_ativa === false ? `<small class="financeiro-reference-warning"><i class="fa-solid fa-triangle-exclamation"></i> Vínculo pendente</small>` : ""}</td><td>${escapeHtml(i.unidade_pai_nome || "Principal")}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "unidade-consumo")}</td></tr>` },
       { tipo: "conta-contabil", endpoint: ENDPOINTS["conta-contabil"], tbody: "tbody-contas-contabeis", cols: 7, row: i => `<tr><td>${escapeHtml(i.codigo)}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.tipo)}</td><td>${escapeHtml(i.conta_pai_nome || "Raiz")}</td><td>${i.aceita_lancamento ? "Sim" : "Não"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "conta-contabil")}</td></tr>` },
       { tipo: "forma-cobranca", endpoint: ENDPOINTS["forma-cobranca"], tbody: "tbody-formas-cobranca", cols: 4, row: i => `<tr><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(String(i.tipo || "-").replaceAll("_", " "))}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "forma-cobranca")}</td></tr>` },
       { tipo: "regra-encargos", endpoint: ENDPOINTS["regra-encargos"], tbody: "tbody-regras-encargos", cols: 7, row: i => `<tr><td>${escapeHtml(i.nome)}</td><td>${pill(i.aplicacao)}</td><td>${i.possui_multa ? `${Number(i.indice_multa_percent || 0).toLocaleString("pt-BR")}%` : "Não"}</td><td>${i.possui_mora_diaria ? `${Number(i.indice_mora_diaria_percent || 0).toLocaleString("pt-BR")}% ao dia` : "Não"}</td><td>${i.padrao ? pill("Padrão") : "-"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "regra-encargos")}</td></tr>` },
@@ -1166,15 +1506,462 @@
     </tr>`).join(""), "Nenhuma etapa cadastrada nesta régua.");
   }
 
+  function filtrosEmissaoLote() {
+    return {
+      data_inicio: $("#emissao-data-inicio")?.value || monthStartISO(),
+      data_fim: $("#emissao-data-fim")?.value || todayISO(),
+      cliente_id: $("#emissao-cliente")?.value || "",
+      forma_cobranca_id: $("#emissao-forma-cobranca")?.value || "",
+      limit: 1000,
+    };
+  }
+
+  function atualizarResumoSelecaoEmissao() {
+    const selecionados = state.cobranca.emissaoSelecionados || new Set();
+    const itens = (state.cobranca.emissaoTitulos || []).filter(i => selecionados.has(Number(i.id)));
+    const totalSaldo = soma(itens, i => i.saldo_aberto);
+    const qtd = $("#emissao-selecionados-qtd");
+    const total = $("#emissao-selecionados-total");
+    const botao = $("#btn-emitir-titulos-lote");
+    const todos = $("#emissao-selecionar-todos");
+    if (qtd) qtd.textContent = String(itens.length);
+    if (total) total.textContent = money(totalSaldo);
+    if (botao) botao.disabled = itens.length === 0;
+    if (todos) {
+      const totalItens = state.cobranca.emissaoTitulos.length;
+      todos.checked = totalItens > 0 && itens.length === totalItens;
+      todos.indeterminate = itens.length > 0 && itens.length < totalItens;
+      todos.disabled = totalItens === 0;
+    }
+  }
+
+  function renderTitulosEmissaoLote(items = []) {
+    state.cobranca.emissaoTitulos = items;
+    setTable("tbody-emissao-lote", 7, items.map(i => `<tr>
+      <td class="financeiro-check-col"><input type="checkbox" data-emissao-check value="${i.id}" ${state.cobranca.emissaoSelecionados.has(Number(i.id)) ? "checked" : ""} aria-label="Selecionar título ${i.id}"></td>
+      <td>${escapeHtml(i.cliente_nome || "Cliente não identificado")}</td>
+      <td>${escapeHtml(i.descricao || `Título #${i.id}`)}${i.documento ? `<small>${escapeHtml(i.documento)}</small>` : ""}</td>
+      <td>${dateBR(i.data_vencimento)}</td>
+      <td>${escapeHtml(i.forma_cobranca_nome || "Não informada")}</td>
+      <td class="financeiro-amount">${money(i.valor_total)}</td>
+      <td class="financeiro-amount">${money(i.saldo_aberto)}</td>
+    </tr>`).join(""), "Nenhum título aberto e ainda não emitido atende a estes filtros.");
+    atualizarResumoSelecaoEmissao();
+  }
+
+  async function buscarTitulosEmissaoLote({ selecionarTodos = true } = {}) {
+    const filtros = filtrosEmissaoLote();
+    if (!filtros.data_inicio || !filtros.data_fim) return alertBox("Informe o período de vencimento para buscar os títulos.", "warn");
+    if (filtros.data_fim < filtros.data_inicio) return alertBox("A data final deve ser igual ou posterior à data inicial.", "warn");
+
+    const resumoEl = $("#emissao-resultado-resumo");
+    if (resumoEl) resumoEl.textContent = "Consultando títulos...";
+    const data = await request(`/api/financeiro/cobrancas/emissao-lote/titulos${qs(filtros)}`);
+    const items = data.items || [];
+    state.cobranca.emissaoSelecionados = selecionarTodos
+      ? new Set(items.map(i => Number(i.id)))
+      : new Set(Array.from(state.cobranca.emissaoSelecionados || []).filter(id => items.some(i => Number(i.id) === id)));
+    renderTitulosEmissaoLote(items);
+    if (resumoEl) resumoEl.textContent = `${Number(data.resumo?.quantidade || 0)} título(s) • ${money(data.resumo?.valor_total || 0)} em valor • ${money(data.resumo?.saldo_total || 0)} de saldo aberto`;
+    return data;
+  }
+
+  function renderHistoricoEmissoesLotes(items = []) {
+    state.cobranca.emissoesLotes = items;
+    setTable("tbody-emissoes-lotes", 8, items.map(i => {
+      const filtros = [i.cliente_filtro_nome || "Todos os clientes", i.forma_cobranca_filtro_nome || "Todas as formas"].join(" • ");
+      return `<tr>
+        <td>${dateBR(i.data_emissao)}<small>Lote #${i.id}</small></td>
+        <td>${dateBR(i.periodo_inicio)} a ${dateBR(i.periodo_fim)}</td>
+        <td>${escapeHtml(filtros)}</td>
+        <td>${Number(i.total_titulos || 0)}</td>
+        <td class="financeiro-amount">${money(i.valor_total_titulos || 0)}</td>
+        <td class="financeiro-amount">${money(i.saldo_total_emitido || 0)}</td>
+        <td>${escapeHtml(i.usuario_nome || "Usuário não identificado")}</td>
+        <td><button class="financeiro-mini-btn" type="button" data-action="ver-emissao-lote" data-id="${i.id}"><i class="fa-regular fa-eye"></i> Ver títulos</button></td>
+      </tr>`;
+    }).join(""), "Nenhuma emissão em lote registrada ainda.");
+  }
+
+  async function carregarHistoricoEmissoesLotes() {
+    const items = await request("/api/financeiro/cobrancas/emissoes-lotes?limit=20");
+    renderHistoricoEmissoesLotes(items || []);
+  }
+
+  async function emitirTitulosSelecionados() {
+    const ids = Array.from(state.cobranca.emissaoSelecionados || []);
+    if (!ids.length) return alertBox("Selecione pelo menos um título para emitir.", "warn");
+    const selecionados = state.cobranca.emissaoTitulos.filter(i => state.cobranca.emissaoSelecionados.has(Number(i.id)));
+    const saldo = soma(selecionados, i => i.saldo_aberto);
+    if (!confirm(`Emitir ${ids.length} título(s) com saldo total de ${money(saldo)}?\n\nA emissão ficará registrada e estes títulos não serão emitidos novamente por engano.`)) return;
+
+    const filtros = filtrosEmissaoLote();
+    const botao = $("#btn-emitir-titulos-lote");
+    if (botao) botao.disabled = true;
+    try {
+      const resultado = await request("/api/financeiro/cobrancas/emissao-lote", {
+        method: "POST",
+        body: {
+          data_inicio: filtros.data_inicio,
+          data_fim: filtros.data_fim,
+          cliente_id: filtros.cliente_id ? Number(filtros.cliente_id) : null,
+          forma_cobranca_id: filtros.forma_cobranca_id ? Number(filtros.forma_cobranca_id) : null,
+          lancamento_ids: ids,
+        },
+      });
+      alertBox(`${resultado.total_titulos} título(s) emitido(s) no lote #${resultado.emissao_id}.`, "ok");
+      state.cobranca.emissaoSelecionados = new Set();
+      await Promise.all([buscarTitulosEmissaoLote({ selecionarTodos: true }), carregarHistoricoEmissoesLotes()]);
+    } catch (err) {
+      alertBox(`Erro ao emitir títulos: ${err.message}`, "danger");
+      atualizarResumoSelecaoEmissao();
+    }
+  }
+
+  async function abrirDetalhesEmissaoLote(emissaoId) {
+    const modal = $("#modal-emissao-lote-detalhes");
+    if (!modal) return;
+    setTable("tbody-emissao-lote-detalhes", 6, "", "Carregando títulos...");
+    abrirModal("#modal-emissao-lote-detalhes");
+    try {
+      const data = await request(`/api/financeiro/cobrancas/emissoes-lotes/${emissaoId}/itens`);
+      const emissao = data.emissao || {};
+      const titulo = $("#modal-emissao-lote-titulo");
+      const subtitulo = $("#modal-emissao-lote-subtitulo");
+      if (titulo) titulo.textContent = `Emissão #${emissao.id || emissaoId}`;
+      if (subtitulo) subtitulo.textContent = `${dateBR(emissao.data_emissao)} • vencimentos de ${dateBR(emissao.periodo_inicio)} a ${dateBR(emissao.periodo_fim)} • ${Number(emissao.total_titulos || 0)} título(s)`;
+      const items = data.items || [];
+      setTable("tbody-emissao-lote-detalhes", 6, items.map(i => `<tr>
+        <td>${escapeHtml(i.cliente_nome || "Cliente não identificado")}</td>
+        <td>${escapeHtml(i.descricao || `Título #${i.lancamento_id}`)}${i.documento ? `<small>${escapeHtml(i.documento)}</small>` : ""}</td>
+        <td>${dateBR(i.data_vencimento)}</td>
+        <td>${escapeHtml(i.forma_cobranca_nome || "Não informada")}</td>
+        <td class="financeiro-amount">${money(i.valor_titulo || 0)}</td>
+        <td class="financeiro-amount">${money(i.saldo_emitido || 0)}</td>
+      </tr>`).join(""), "Este lote não possui títulos registrados.");
+    } catch (err) {
+      setTable("tbody-emissao-lote-detalhes", 6, "", `Erro ao carregar o lote: ${err.message}`);
+    }
+  }
+
+  function renderStatusAutomacaoCobranca(data) {
+    state.cobranca.automacao = data || null;
+    const statusEl = $("#cobranca-automacao-status");
+    if (statusEl) {
+      const ativo = Boolean(data?.automacao_ativa);
+      statusEl.textContent = ativo ? `Ativa • a cada ${Math.max(1, Math.round(Number(data?.intervalo_segundos || 300) / 60))} min` : "Desativada";
+      statusEl.classList.toggle("is-active", ativo);
+      statusEl.classList.toggle("is-disabled", !ativo);
+    }
+
+    [["email", data?.email], ["sms", data?.sms]].forEach(([name, provider]) => {
+      const el = $(`#cobranca-provider-${name}`);
+      if (!el) return;
+      const ok = Boolean(provider?.configurado);
+      el.textContent = ok ? "Configurado" : "Não configurado";
+      el.classList.toggle("is-ok", ok);
+      el.classList.toggle("is-missing", !ok);
+    });
+
+    const whatsapp = data?.whatsapp || {};
+    const whatsappEl = $("#cobranca-provider-whatsapp");
+    const whatsappDetail = $("#cobranca-provider-whatsapp-detail");
+    if (whatsappEl) {
+      const configurado = Boolean(whatsapp.configurado);
+      const pareado = Boolean(whatsapp.pareado);
+      const temInstancia = Boolean(whatsapp.instancia_id);
+      const conectada = Boolean(whatsapp.instancia_connected);
+      if (configurado) whatsappEl.textContent = "Pronto para enviar";
+      else if (!pareado) whatsappEl.textContent = "ZapsChat não conectado";
+      else if (!temInstancia) whatsappEl.textContent = "Escolha o WhatsApp";
+      else if (!conectada) whatsappEl.textContent = "WhatsApp desconectado";
+      else whatsappEl.textContent = "Requer atenção";
+      whatsappEl.classList.toggle("is-ok", configurado);
+      whatsappEl.classList.toggle("is-missing", !configurado);
+    }
+    if (whatsappDetail) {
+      const label = whatsapp.instancia_apelido || "WhatsApp de cobrança";
+      const numero = whatsapp.instancia_numero ? formatPhoneBRDisplay(whatsapp.instancia_numero) : "";
+      if (whatsapp.configurado) whatsappDetail.textContent = `${label}${numero ? ` • ${numero}` : ""}`;
+      else if (whatsapp.pareado && whatsapp.instancia_id && !whatsapp.instancia_connected) whatsappDetail.textContent = `${label}${numero ? ` • ${numero}` : ""} • reconecte no ZapsChat`;
+      else if (whatsapp.pareado) whatsappDetail.textContent = "Conectado ao ZapsChat; falta selecionar uma instância";
+      else whatsappDetail.textContent = "Configure o WhatsApp em Configurações do Financeiro";
+    }
+
+    const emailDetail = $("#cobranca-provider-email-detail");
+    if (emailDetail) emailDetail.textContent = data?.email?.configurado ? `${data.email.host || "SMTP"} • ${data.email.remetente || "remetente configurado"}` : "Configure o e-mail de saída no servidor";
+    const ultima = $("#cobranca-ultima-tentativa");
+    if (ultima) ultima.textContent = dateTimeBR(data?.fila?.ultima_tentativa);
+    const ultimoEnvio = $("#cobranca-ultimo-envio");
+    if (ultimoEnvio) ultimoEnvio.textContent = data?.fila?.ultimo_envio_automatico ? `Último envio: ${dateTimeBR(data.fila.ultimo_envio_automatico)}` : "Nenhum envio automático registrado";
+  }
+
+  function setZapsChatModalStatus(message, tone = "") {
+    const el = $("#zapschat-modal-status");
+    if (!el) return;
+    el.textContent = message || "";
+    el.classList.toggle("is-ok", tone === "ok");
+    el.classList.toggle("is-error", tone === "error");
+  }
+
+  function setZapsChatBusy(busy) {
+    state.cobranca.zapschat.busy = Boolean(busy);
+    [
+      "#btn-parear-zapschat", "#btn-atualizar-instancias-zapschat", "#btn-testar-zapschat",
+      "#btn-salvar-instancia-zapschat", "#btn-desconectar-zapschat", "#zapschat-instancia-select",
+    ].forEach(sel => {
+      const el = $(sel);
+      if (!el) return;
+      if (busy) el.disabled = true;
+      else if (!el.dataset.forceDisabled) el.disabled = false;
+    });
+  }
+
+  function instanciaLabelZapsChat(item) {
+    const nome = item?.apelido || item?.instance_name || "WhatsApp";
+    const numero = item?.numero_instancia ? formatPhoneBRDisplay(item.numero_instancia) : "número não informado";
+    return `${nome} — ${numero}`;
+  }
+
+  function atualizarPreviewInstanciaZapsChat() {
+    const select = $("#zapschat-instancia-select");
+    const preview = $("#zapschat-instancia-preview");
+    const save = $("#btn-salvar-instancia-zapschat");
+    if (!select || !preview) return;
+    const id = Number(select.value || 0);
+    const item = state.cobranca.zapschat.instancias.find(i => Number(i.id) === id);
+    const pode = Boolean(state.cobranca.zapschat.config?.pode_configurar);
+    if (!item) {
+      preview.innerHTML = `<i class="fa-brands fa-whatsapp"></i><div><span>Selecione um WhatsApp acima</span><strong>Nenhuma instância escolhida</strong><small>O Valora não fará disparos até uma instância conectada ser salva.</small></div>`;
+      if (save) save.disabled = true;
+      return;
+    }
+    const connected = Boolean(item.connected);
+    preview.innerHTML = `<i class="fa-brands fa-whatsapp"></i><div><span>${connected ? "Instância conectada" : "Instância desconectada"}</span><strong>${escapeHtml(item.apelido || item.instance_name || "WhatsApp")}</strong><small>${escapeHtml(formatPhoneBRDisplay(item.numero_instancia))}${connected ? " • pronta para uso" : " • conecte este número no ZapsChat antes de salvar"}</small></div><span class="zapschat-status-pill ${connected ? "is-ok" : "is-error"}">${connected ? "Conectada" : "Desconectada"}</span>`;
+    if (save) save.disabled = !pode || !connected || state.cobranca.zapschat.busy;
+  }
+
+  function renderConfiguracaoZapsChat(config = {}, instancias = null) {
+    state.cobranca.zapschat.config = config || {};
+    if (Array.isArray(instancias)) state.cobranca.zapschat.instancias = instancias;
+
+    const loading = $("#zapschat-config-loading");
+    const disconnected = $("#zapschat-pane-desconectado");
+    const connected = $("#zapschat-pane-conectado");
+    const readonly = $("#zapschat-config-readonly");
+    const warning = $("#zapschat-servidor-warning");
+    if (loading) loading.hidden = true;
+    if (readonly) readonly.hidden = Boolean(config?.pode_configurar);
+    if (warning) warning.hidden = Boolean(config?.configurado_servidor);
+
+    const pareado = Boolean(config?.pareado);
+    if (disconnected) disconnected.hidden = pareado;
+    if (connected) connected.hidden = !pareado;
+
+    const pairInput = $("#zapschat-pairing-code");
+    const pairBtn = $("#btn-parear-zapschat");
+    const manager = Boolean(config?.pode_configurar);
+    const pairAllowed = manager && Boolean(config?.configurado_servidor);
+    if (pairInput) pairInput.disabled = !pairAllowed;
+    if (pairBtn) pairBtn.disabled = !pairAllowed;
+
+    const configureBtn = $("#btn-configurar-zapschat-cobranca");
+    if (configureBtn) configureBtn.innerHTML = `<i class="fa-brands fa-whatsapp"></i> ${manager ? "Configurar WhatsApp" : "Ver WhatsApp"}`;
+
+    if (!pareado) {
+      setZapsChatModalStatus(config?.configurado_servidor ? "Aguardando o código de conexão do ZapsChat." : "Integração com ZapsChat ainda não habilitada neste servidor.", config?.configurado_servidor ? "" : "error");
+      return;
+    }
+
+    const company = $("#zapschat-empresa-conectada");
+    const detail = $("#zapschat-conexao-detalhe");
+    if (company) company.textContent = config?.zapschat_empresa_nome || "Empresa conectada";
+    if (detail) detail.textContent = config?.pareado_em ? `Conectado em ${dateTimeBR(config.pareado_em)}` : "Conexão protegida ativa";
+
+    const select = $("#zapschat-instancia-select");
+    if (select) {
+      const items = state.cobranca.zapschat.instancias || [];
+      if (!manager && items.length === 0 && config?.instancia_id) {
+        select.innerHTML = `<option value="${Number(config.instancia_id)}" selected>${escapeHtml(`${config.instancia_apelido || config.instancia_nome || "WhatsApp"} — ${formatPhoneBRDisplay(config.instancia_numero)}`)}</option>`;
+      } else if (items.length === 0) {
+        select.innerHTML = `<option value="">Nenhuma instância encontrada</option>`;
+      } else {
+        select.innerHTML = `<option value="">Selecione o WhatsApp de cobrança</option>` + items.map(item => {
+          const selected = Number(item.id) === Number(config?.instancia_id) ? " selected" : "";
+          const disabled = item.connected ? "" : " disabled";
+          const suffix = item.connected ? "Conectada" : "Desconectada";
+          return `<option value="${Number(item.id)}"${selected}${disabled}>${escapeHtml(instanciaLabelZapsChat(item))} — ${suffix}</option>`;
+        }).join("");
+        if (!config?.instancia_id) {
+          const connectedItems = items.filter(i => i.connected);
+          if (connectedItems.length === 1) select.value = String(connectedItems[0].id);
+        }
+      }
+      select.disabled = !manager || state.cobranca.zapschat.busy;
+    }
+
+    ["#btn-atualizar-instancias-zapschat", "#btn-testar-zapschat", "#btn-desconectar-zapschat"].forEach(sel => {
+      const el = $(sel);
+      if (el) el.disabled = !manager || state.cobranca.zapschat.busy;
+    });
+    const danger = $("#zapschat-danger-zone");
+    if (danger) danger.hidden = !manager;
+    atualizarPreviewInstanciaZapsChat();
+
+    if (config?.ultimo_erro) setZapsChatModalStatus(`Atenção: ${config.ultimo_erro}`, "error");
+    else if (config?.instancia_id && config?.instancia_connected) setZapsChatModalStatus("Integração pronta. As cobranças usarão somente o WhatsApp selecionado.", "ok");
+    else if (config?.instancia_id) setZapsChatModalStatus("A instância salva está desconectada. Reconecte-a no ZapsChat e teste novamente.", "error");
+    else setZapsChatModalStatus("Conexão concluída. Escolha agora qual WhatsApp será usado nas cobranças.");
+  }
+
+  async function carregarConfiguracaoZapsChat({ carregarInstancias = false } = {}) {
+    const config = await request("/api/integracoes/zapschat/configuracao");
+    state.cobranca.zapschat.config = config;
+    let items = state.cobranca.zapschat.instancias;
+    if (config?.pareado && config?.pode_configurar && carregarInstancias) {
+      const data = await request("/api/integracoes/zapschat/instancias");
+      items = data?.instancias || [];
+      state.cobranca.zapschat.instancias = items;
+      const refreshed = await request("/api/integracoes/zapschat/configuracao");
+      state.cobranca.zapschat.config = refreshed;
+      renderConfiguracaoZapsChat(refreshed, items);
+      return refreshed;
+    }
+    renderConfiguracaoZapsChat(config, items);
+    return config;
+  }
+
+  async function abrirConfiguracaoZapsChat() {
+    abrirModal("#modal-zapschat-cobranca");
+    const loading = $("#zapschat-config-loading");
+    if (loading) loading.hidden = false;
+    setZapsChatModalStatus("Verificando conexão...");
+    try {
+      await carregarConfiguracaoZapsChat({ carregarInstancias: true });
+    } catch (err) {
+      if (loading) loading.hidden = true;
+      setZapsChatModalStatus(`Não foi possível carregar a integração: ${err.message}`, "error");
+    }
+  }
+
+  async function parearZapsChat() {
+    const input = $("#zapschat-pairing-code");
+    const codigo = String(input?.value || "").replace(/\D+/g, "");
+    if (codigo.length !== 8) {
+      setZapsChatModalStatus("Digite os 8 números mostrados em Configurações → Valora CRM no ZapsChat.", "error");
+      input?.focus();
+      return;
+    }
+    setZapsChatBusy(true);
+    setZapsChatModalStatus("Conectando com segurança ao ZapsChat...");
+    try {
+      const config = await request("/api/integracoes/zapschat/parear", { method: "POST", body: { codigo } });
+      state.cobranca.zapschat.config = config;
+      if (input) input.value = "";
+      const data = await request("/api/integracoes/zapschat/instancias");
+      state.cobranca.zapschat.instancias = data?.instancias || [];
+      const refreshed = await request("/api/integracoes/zapschat/configuracao");
+      renderConfiguracaoZapsChat(refreshed, state.cobranca.zapschat.instancias);
+      setZapsChatModalStatus("ZapsChat conectado. Agora escolha o WhatsApp que será usado para cobranças e clique em Salvar.", "ok");
+      await recarregar();
+    } catch (err) {
+      setZapsChatModalStatus(`Não foi possível conectar: ${err.message}`, "error");
+    } finally {
+      setZapsChatBusy(false);
+      atualizarPreviewInstanciaZapsChat();
+    }
+  }
+
+  async function atualizarInstanciasZapsChat() {
+    setZapsChatBusy(true);
+    setZapsChatModalStatus("Atualizando números do ZapsChat...");
+    try {
+      const data = await request("/api/integracoes/zapschat/instancias");
+      state.cobranca.zapschat.instancias = data?.instancias || [];
+      const config = await request("/api/integracoes/zapschat/configuracao");
+      renderConfiguracaoZapsChat(config, state.cobranca.zapschat.instancias);
+      setZapsChatModalStatus("Lista atualizada.", "ok");
+    } catch (err) {
+      setZapsChatModalStatus(`Erro ao atualizar instâncias: ${err.message}`, "error");
+    } finally {
+      setZapsChatBusy(false);
+      atualizarPreviewInstanciaZapsChat();
+    }
+  }
+
+  async function salvarInstanciaZapsChat() {
+    const id = Number($("#zapschat-instancia-select")?.value || 0);
+    const item = state.cobranca.zapschat.instancias.find(i => Number(i.id) === id);
+    if (!item) {
+      setZapsChatModalStatus("Selecione o WhatsApp que será usado para cobranças.", "error");
+      return;
+    }
+    if (!item.connected) {
+      setZapsChatModalStatus("Este WhatsApp está desconectado. Conecte-o no ZapsChat antes de salvar.", "error");
+      return;
+    }
+    setZapsChatBusy(true);
+    setZapsChatModalStatus("Salvando WhatsApp de cobrança...");
+    try {
+      const config = await request("/api/integracoes/zapschat/instancia", { method: "PUT", body: { instancia_id: id } });
+      state.cobranca.zapschat.config = config;
+      renderConfiguracaoZapsChat(config, state.cobranca.zapschat.instancias);
+      setZapsChatModalStatus(`${instanciaLabelZapsChat(item)} definido como WhatsApp de cobrança.`, "ok");
+      alertBox("WhatsApp de cobrança configurado com segurança.", "ok");
+      await recarregar();
+    } catch (err) {
+      setZapsChatModalStatus(`Não foi possível salvar: ${err.message}`, "error");
+    } finally {
+      setZapsChatBusy(false);
+      atualizarPreviewInstanciaZapsChat();
+    }
+  }
+
+  async function testarZapsChat() {
+    setZapsChatBusy(true);
+    setZapsChatModalStatus("Testando a conexão sem enviar mensagem...");
+    try {
+      const data = await request("/api/integracoes/zapschat/testar", { method: "POST" });
+      state.cobranca.zapschat.instancias = data?.instancias || state.cobranca.zapschat.instancias;
+      const config = await request("/api/integracoes/zapschat/configuracao");
+      renderConfiguracaoZapsChat(config, state.cobranca.zapschat.instancias);
+      if (config?.instancia_id && config?.instancia_connected) setZapsChatModalStatus("Conexão testada. O WhatsApp selecionado está conectado e pronto para cobrança.", "ok");
+      else if (config?.instancia_id) setZapsChatModalStatus("O ZapsChat respondeu, mas o WhatsApp selecionado está desconectado.", "error");
+      else setZapsChatModalStatus("ZapsChat conectado. Falta escolher o WhatsApp de cobrança.");
+      await recarregar();
+    } catch (err) {
+      setZapsChatModalStatus(`Falha no teste: ${err.message}`, "error");
+    } finally {
+      setZapsChatBusy(false);
+      atualizarPreviewInstanciaZapsChat();
+    }
+  }
+
+  async function desconectarZapsChat() {
+    const ok = window.confirm("Desconectar o ZapsChat desta empresa?\n\nAs cobranças automáticas por WhatsApp serão interrompidas. O Valora não escolherá outro número automaticamente.");
+    if (!ok) return;
+    setZapsChatBusy(true);
+    setZapsChatModalStatus("Revogando a conexão também no ZapsChat...");
+    try {
+      const config = await request("/api/integracoes/zapschat/configuracao", { method: "DELETE" });
+      state.cobranca.zapschat.instancias = [];
+      renderConfiguracaoZapsChat(config, []);
+      setZapsChatModalStatus("ZapsChat desconectado. Nenhuma cobrança será enviada por WhatsApp até uma nova conexão.", "ok");
+      alertBox("ZapsChat desconectado do Financeiro.", "ok");
+      await recarregar();
+    } catch (err) {
+      setZapsChatModalStatus(`Não foi possível desconectar com segurança: ${err.message}`, "error");
+    } finally {
+      setZapsChatBusy(false);
+    }
+  }
+
   async function carregarCobrancas() {
-    await request("/api/financeiro/cobrancas/processar", { method: "POST" }).catch(err => console.warn("[Financeiro] não foi possível processar régua", err));
-    const [resumo, fila, reguas] = await Promise.all([
+    const [resumo, fila] = await Promise.all([
       request("/api/financeiro/cobrancas/resumo"),
       request(`/api/financeiro/cobrancas/fila${qs({ status: $("#filtro-cobranca-status") ? $("#filtro-cobranca-status").value : "pendente", acao: $("#filtro-cobranca-acao")?.value || "" })}`),
-      request("/api/financeiro/reguas-cobranca"),
     ]);
     state.cobranca.fila = fila;
-    state.cobranca.reguas = reguas;
     state.items = fila;
 
     setKPI("cobranca-fila", String(Number(resumo.fila_pendente || 0)));
@@ -1182,36 +1969,121 @@
     setKPI("cobranca-bloqueio", String(Number(resumo.a_bloquear || 0)));
     setKPI("cobranca-protesto", String(Number(resumo.a_protestar || 0)));
 
-    setTable("tbody-cobranca-fila", 10, fila.map(i => `<tr>
-      <td>${escapeHtml(i.cliente_nome || "Cliente não identificado")}</td>
-      <td>${escapeHtml(i.lancamento_descricao || `Título #${i.lancamento_id}`)}${i.documento ? `<small>${escapeHtml(i.documento)}</small>` : ""}</td>
-      <td>${dateBR(i.data_vencimento)}</td>
-      <td>${Number(i.dias_atraso || 0)} dia(s)</td>
-      <td class="financeiro-amount">${money(i.saldo_aberto)}</td>
-      <td>${escapeHtml(i.etapa_nome || "-")}</td>
-      <td>${pill(String(i.acao || "-").replaceAll("_", " "))}</td>
-      <td>${escapeHtml(String(i.canal || "-").replaceAll("_", " "))}<small>${escapeHtml(i.contato_destino || "Sem contato")}</small></td>
-      <td>${pill(i.status || "pendente")}</td>
-      <td><div class="actions-cell">
-        ${i.canal === "whatsapp" && i.cliente_id ? `<button class="financeiro-mini-btn" type="button" data-action="abrir-cobranca-zapschat" data-id="${i.id}" title="Abrir conversa no ZapsChat"><i class="fa-brands fa-whatsapp"></i></button>` : ""}
-        ${i.mensagem ? `<button class="financeiro-mini-btn" type="button" data-action="copiar-cobranca-mensagem" data-id="${i.id}" title="Copiar mensagem"><i class="fa-regular fa-copy"></i></button>` : ""}
-        ${i.status === "pendente" || i.status === "erro" ? `<button class="financeiro-mini-btn" type="button" data-action="marcar-cobranca-enviada" data-id="${i.id}"><i class="fa-solid fa-check"></i> Enviado</button><button class="financeiro-mini-btn warn" type="button" data-action="ignorar-cobranca" data-id="${i.id}">Ignorar</button>` : ""}
-      </div></td>
-    </tr>`).join(""), "Nenhuma cobrança na fila com estes filtros.");
+    setTable("tbody-cobranca-fila", 6, fila.map(i => {
+      const status = String(i.status || "pendente").toLowerCase();
+      const diasAtraso = Number(i.dias_atraso || 0);
+      const canal = String(i.canal || "").toLowerCase();
+      const contato = String(i.contato_destino || "").trim();
+      const titulo = i.lancamento_descricao || `Título #${i.lancamento_id}`;
+      const erro = String(i.erro || "").trim();
+      const tentativas = Number(i.tentativas || 0);
 
-    setTable("tbody-cobranca-reguas", 6, reguas.map(i => `<tr>
+      const statusMeta = status === "enviado"
+        ? { cls: "is-ok", icon: "fa-circle-check", label: "Enviado" }
+        : status === "erro"
+          ? { cls: "is-error", icon: "fa-circle-exclamation", label: "Precisa corrigir" }
+          : status === "ignorado"
+            ? { cls: "is-muted", icon: "fa-circle-minus", label: "Ignorado" }
+            : { cls: "is-wait", icon: "fa-clock", label: "Aguardando envio" };
+
+      const canalIcon = canal === "whatsapp"
+        ? "fa-brands fa-whatsapp"
+        : canal === "email"
+          ? "fa-regular fa-envelope"
+          : "fa-regular fa-message";
+
+      const canalNome = canal === "whatsapp"
+        ? "WhatsApp"
+        : canal === "email"
+          ? "E-mail"
+          : canal === "sms"
+            ? "SMS"
+            : (canal ? canal.replaceAll("_", " ") : "Não definido");
+
+      const atrasoHtml = diasAtraso > 0
+        ? `<small class="financeiro-cobranca-atraso">${diasAtraso} dia${diasAtraso === 1 ? "" : "s"} em atraso</small>`
+        : `<small class="financeiro-cobranca-em-dia">Dentro do prazo</small>`;
+
+      const erroHtml = erro
+        ? `<div class="financeiro-cobranca-error-detail"><i class="fa-solid fa-circle-info"></i><span>${escapeHtml(erro)}</span></div>`
+        : "";
+
+      const contatoHtml = contato
+        ? `<small>${escapeHtml(contato)}</small>`
+        : `<small class="is-missing">Contato não cadastrado</small>`;
+
+      return `<tr class="financeiro-cobranca-row ${statusMeta.cls}">
+        <td>
+          <div class="financeiro-cobranca-cliente">
+            <strong>${escapeHtml(i.cliente_nome || "Cliente não identificado")}</strong>
+            <span>${escapeHtml(titulo)}</span>
+            ${i.documento ? `<small>Documento: ${escapeHtml(i.documento)}</small>` : ""}
+          </div>
+        </td>
+        <td>
+          <div class="financeiro-cobranca-vencimento">
+            <strong>${dateBR(i.data_vencimento)}</strong>
+            ${atrasoHtml}
+          </div>
+        </td>
+        <td class="financeiro-amount"><strong>${money(i.saldo_aberto)}</strong></td>
+        <td>
+          <div class="financeiro-cobranca-etapa">
+            <strong>${escapeHtml(i.etapa_nome || "Etapa não identificada")}</strong>
+            <span>${escapeHtml(String(i.acao || "outro").replaceAll("_", " "))}</span>
+          </div>
+        </td>
+        <td>
+          <div class="financeiro-cobranca-canal">
+            <span class="financeiro-cobranca-canal-icon"><i class="${canalIcon}"></i></span>
+            <div><strong>${escapeHtml(canalNome)}</strong>${contatoHtml}</div>
+          </div>
+        </td>
+        <td>
+          <div class="financeiro-cobranca-status-box">
+            <span class="financeiro-cobranca-status ${statusMeta.cls}"><i class="fa-solid ${statusMeta.icon}"></i>${statusMeta.label}</span>
+            ${tentativas ? `<small>${tentativas} tentativa${tentativas === 1 ? "" : "s"}${i.provider ? ` • ${escapeHtml(i.provider)}` : ""}</small>` : ""}
+            ${erroHtml}
+            <div class="financeiro-cobranca-actions">
+              ${status === "pendente" || status === "erro" ? `<button class="btn btn-secondary btn-sm" type="button" data-action="enviar-cobranca-agora" data-id="${i.id}"><i class="fa-solid fa-paper-plane"></i> ${status === "erro" ? "Tentar novamente" : "Enviar agora"}</button>` : ""}
+              ${canal === "whatsapp" && i.cliente_id ? `<button class="financeiro-icon-action" type="button" data-action="abrir-cobranca-zapschat" data-id="${i.id}" title="Abrir conversa no ZapsChat" aria-label="Abrir conversa no ZapsChat"><i class="fa-brands fa-whatsapp"></i></button>` : ""}
+              ${i.mensagem ? `<button class="financeiro-icon-action" type="button" data-action="copiar-cobranca-mensagem" data-id="${i.id}" title="Copiar mensagem" aria-label="Copiar mensagem"><i class="fa-regular fa-copy"></i></button>` : ""}
+              ${status === "pendente" || status === "erro" ? `<button class="financeiro-link-action" type="button" data-action="ignorar-cobranca" data-id="${i.id}">Ignorar</button>` : ""}
+            </div>
+          </div>
+        </td>
+      </tr>`;
+    }).join(""), "Nenhuma cobrança encontrada com estes filtros.");
+    await Promise.all([
+      carregarHistoricoEmissoesLotes(),
+      buscarTitulosEmissaoLote({ selecionarTodos: state.cobranca.emissaoTitulos.length === 0 }),
+    ]);
+    setStatusText(`${fila.length} item(ns) na fila de cobrança • ${state.cobranca.emissaoTitulos.length} título(s) disponível(is) para emissão.`);
+  }
+
+  async function carregarAutomacaoCobranca() {
+    const [reguas, automacao, zapschatConfig] = await Promise.all([
+      request("/api/financeiro/reguas-cobranca"),
+      request("/api/financeiro/cobrancas/automacao/status"),
+      request("/api/integracoes/zapschat/configuracao"),
+    ]);
+    state.cobranca.reguas = reguas || [];
+    state.cobranca.zapschat.config = zapschatConfig || {};
+    renderStatusAutomacaoCobranca(automacao);
+
+    setTable("tbody-cobranca-reguas", 6, (reguas || []).map(i => `<tr>
       <td>${escapeHtml(i.nome)}</td><td>${Number(i.etapas_ativas || 0)}</td><td>${i.padrao ? pill("Padrão") : "-"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${escapeHtml(i.descricao || "-")}</td>
       <td><div class="actions-cell"><button class="financeiro-mini-btn" type="button" data-action="selecionar-regua-cobranca" data-id="${i.id}"><i class="fa-solid fa-list-check"></i> Etapas</button><button class="financeiro-mini-btn" type="button" data-action="editar-regua-cobranca" data-id="${i.id}"><i class="fa-regular fa-pen-to-square"></i></button><button class="financeiro-mini-btn danger" type="button" data-action="excluir-regua-cobranca" data-id="${i.id}"><i class="fa-regular fa-trash-can"></i></button></div></td>
     </tr>`).join(""), "Nenhuma régua cadastrada.");
 
     const select = $("#cobranca-regua-etapas");
     if (select) {
-      const atual = String(state.cobranca.reguaSelecionadaId || select.value || reguas.find(i => i.padrao)?.id || reguas[0]?.id || "");
-      select.innerHTML = '<option value="">Selecione uma régua...</option>' + reguas.map(i => option(`${i.nome}${i.padrao ? " (padrão)" : ""}`, i.id)).join("");
+      const atual = String(state.cobranca.reguaSelecionadaId || select.value || (reguas || []).find(i => i.padrao)?.id || (reguas || [])[0]?.id || "");
+      select.innerHTML = '<option value="">Selecione uma régua...</option>' + (reguas || []).map(i => option(`${i.nome}${i.padrao ? " (padrão)" : ""}`, i.id)).join("");
       select.value = atual;
       await carregarEtapasCobranca(select.value);
     }
-    setStatusText(`${fila.length} item(ns) na fila de cobrança exibida(s).`);
+    setStatusText(`${(reguas || []).length} régua(s) configurada(s).`);
   }
 
   async function salvarReguaCobranca(ev) {
@@ -1247,8 +2119,53 @@
     } catch (err) { alertBox(`Erro ao salvar etapa: ${err.message}`, "danger"); }
   }
 
+  function atualizarResumoRelatorioDocumento(chave, bloco = {}) {
+    const resumo = bloco.resumo || {};
+    const count = document.querySelector(`[data-report-count="${chave}"]`);
+    const total = document.querySelector(`[data-report-total="${chave}"]`);
+    if (count) count.textContent = `${Number(resumo.quantidade || 0)} título(s)`;
+    if (total) total.textContent = money(resumo.valor_total || 0);
+  }
+
+  function linhaRelatorioDocumento(item, comAtraso = false) {
+    return `<tr>
+      <td>${escapeHtml(item.nome || "Cliente não identificado")}</td>
+      <td>${dateBR(item.data_vencimento)}</td>
+      <td class="financeiro-amount">${money(item.valor)}</td>
+      <td>${escapeHtml(item.forma_recebimento || "Não informada")}</td>
+      ${comAtraso ? `<td>${Number(item.dias_atraso || 0)} dia(s)</td>` : ""}
+    </tr>`;
+  }
+
   async function carregarRelatorios() {
-    const data = await request(`/api/financeiro/relatorios/resumo${qs(filtros())}`);
+    const query = qs(filtros());
+    const [data, documento] = await Promise.all([
+      request(`/api/financeiro/relatorios/resumo${query}`),
+      request(`/api/financeiro/relatorios/cobranca${query}`),
+    ]);
+
+    const periodoLabel = $("#relatorios-periodo-label");
+    if (periodoLabel && documento?.periodo) {
+      periodoLabel.textContent = `Período: ${dateBR(documento.periodo.data_inicio)} a ${dateBR(documento.periodo.data_fim)}.`;
+    }
+
+    const relDefs = [
+      ["titulos_emitidos", "tbody-rel-titulos-emitidos", false, "Nenhum título emitido no período."],
+      ["titulos_pagos", "tbody-rel-titulos-pagos", false, "Nenhum título pago no período."],
+      ["titulos_pagos_atraso", "tbody-rel-titulos-pagos-atraso", true, "Nenhum título pago com atraso no período."],
+      ["titulos_em_atraso", "tbody-rel-titulos-em-atraso", true, "Nenhum título em atraso no período."],
+      ["titulos_a_bloquear", "tbody-rel-titulos-a-bloquear", true, "Nenhum título aguardando bloqueio no período."],
+      ["titulos_a_cartorio", "tbody-rel-titulos-a-cartorio", true, "Nenhum título aguardando envio a cartório no período."],
+    ];
+    let totalLinhasDocumento = 0;
+    relDefs.forEach(([chave, tbody, comAtraso, vazio]) => {
+      const bloco = documento?.[chave] || {};
+      const lista = bloco.items || [];
+      totalLinhasDocumento += lista.length;
+      setTable(tbody, comAtraso ? 5 : 4, lista.map(i => linhaRelatorioDocumento(i, comAtraso)).join(""), vazio);
+      atualizarResumoRelatorioDocumento(chave, bloco);
+    });
+
     const items = data.por_categoria || [];
     state.items = items;
     const receitas = soma(items.filter(i => i.tipo === "receber"), i => i.valor_total);
@@ -1266,7 +2183,7 @@
     setTable("tbody-relatorio-tipos-gasto", 5, gastos.map(i => `<tr><td>${escapeHtml(i.tipo_gasto)}</td><td>${i.quantidade}</td><td class="financeiro-amount">${money(i.valor_total)}</td><td class="financeiro-amount">${money(i.valor_pago)}</td><td class="financeiro-amount">${money(i.saldo_aberto)}</td></tr>`).join(""), "Nenhuma despesa classificada no período.");
     const centros = data.por_centro_custo || [];
     setTable("tbody-relatorio-centros-custo", 6, centros.map(i => `<tr><td>${escapeHtml(i.centro_custo)}</td><td>${escapeHtml(i.subcentro || "-")}</td><td>${i.quantidade}</td><td class="financeiro-amount">${money(i.valor_total)}</td><td class="financeiro-amount">${money(i.valor_pago)}</td><td class="financeiro-amount">${money(i.saldo_aberto)}</td></tr>`).join(""), "Nenhum centro de custo movimentado no período.");
-    setStatusText(`${items.length} linha(s) por categoria, ${gastos.length} por tipo de gasto e ${centros.length} por centro de custo.`);
+    setStatusText(`${totalLinhasDocumento} linha(s) nos relatórios de cobrança do documento.`);
   }
 
   function acoesAuxiliar(item, tipo) {
@@ -1276,7 +2193,7 @@
   async function recarregar() {
     setStatusText("Carregando...");
     try {
-      await carregarOpcoes();
+      if (!new Set(["configuracoes", "automacao"]).has(state.page)) await carregarOpcoes();
       if (state.page === "dashboard") await carregarDashboard();
       else if (state.page === "receber") await carregarReceber();
       else if (state.page === "pagar") await carregarPagar();
@@ -1287,6 +2204,8 @@
       else if (state.page === "cadastros") await carregarCadastrosFinanceiros();
       else if (state.page === "cobrancas") await carregarCobrancas();
       else if (state.page === "relatorios") await carregarRelatorios();
+      else if (state.page === "automacao") await carregarAutomacaoCobranca();
+      else if (state.page === "configuracoes") setStatusText("Configurações prontas.");
       setStatusText("Dados atualizados.");
     } catch (err) {
       console.error("[Financeiro] erro", err);
@@ -1358,6 +2277,7 @@
   function abrirLancamento(tipo = "", item = null) {
     const form = $("#form-lancamento");
     if (!form) return;
+    prepararLookupsEnvolvidos(form);
     form.reset();
     form.dataset.editando = item ? "true" : "";
     preencherSelects();
@@ -1386,6 +2306,7 @@
     if (item) garantirOpcoesAtuaisLancamento(form, item);
     setForm(form, base);
     atualizarCampoStatusLancamento(form);
+    sincronizarLookupsEnvolvidos(form, item);
     sincronizarCampoSacado(form, item);
     configurarFormularioPorTipo(form, base.tipo);
     atualizarExigenciaEntidadeEmissora(form);
@@ -1443,6 +2364,11 @@
       data_pagamento: todayISO(),
       forma_pagamento_id: item.forma_pagamento_id || "",
       conta_banco_id: item.conta_banco_id || "",
+      reparcelar_saldo: "false",
+      reparcelamento_saldo: formatMoneyForInput(0, item.moeda || "BRL"),
+      reparcelamento_parcelas: "2",
+      reparcelamento_primeiro_vencimento: addMonthsISO(todayISO(), 1),
+      reparcelamento_intervalo_meses: "1",
       observacoes: "",
     });
     const resumo = $("#financeiro-baixa-resumo", form);
@@ -1474,6 +2400,7 @@
     if (totalLabel) totalLabel.textContent = ehPagamento ? "Total a debitar" : "Total a creditar";
     if (comprovanteLabel) comprovanteLabel.textContent = ehPagamento ? "Comprovante de pagamento (PDF, até 10 MB)" : "Comprovante de recebimento (PDF, até 10 MB)";
     abrirModal("#modal-baixa");
+    atualizarReparcelamentoBaixa();
     atualizarCalculoBaixa();
   }
 
@@ -1527,6 +2454,97 @@
     };
   }
 
+  const UC_TIPOS_INTEGRADOS = new Set(["cargo", "colaborador", "patrimonio", "veiculo"]);
+
+  function metaReferenciaUnidadeConsumo(tipo) {
+    const t = String(tipo || "outro").toLowerCase();
+    if (t === "cargo") return { label: "Identificação da U.C. (Subgrupo) — RH/Funções", placeholder: "Selecione uma função cadastrada no RH...", help: "A lista vem dos cargos/funções dos colaboradores cadastrados no RH." };
+    if (t === "colaborador") return { label: "Identificação da U.C. (Subgrupo) — RH/Colaborador", placeholder: "Selecione um colaborador do RH...", help: "A lista vem diretamente dos colaboradores ativos da empresa." };
+    if (t === "patrimonio") return { label: "Identificação da U.C. (Subgrupo) — Patrimônio", placeholder: "Selecione um patrimônio cadastrado...", help: "A lista vem diretamente do cadastro de Patrimônio." };
+    if (t === "veiculo") return { label: "Identificação da U.C. (Subgrupo) — Patrimônio/Veículo", placeholder: "Selecione o veículo/patrimônio cadastrado...", help: "Veículos são vinculados ao cadastro real de Patrimônio." };
+    return null;
+  }
+
+  function valorReferenciaUnidadeConsumo(item, tipo) {
+    if (!item) return "";
+    if (tipo === "cargo") return item.referencia_cargo || "";
+    if (tipo === "colaborador") return item.referencia_usuario_id || "";
+    if (tipo === "patrimonio" || tipo === "veiculo") return item.referencia_patrimonio_id || "";
+    return "";
+  }
+
+  function aplicarReferenciaSelecionadaUnidadeConsumo(form) {
+    if (!form) return;
+    const tipo = form.querySelector('[name="tipo_referencia"]')?.value || "outro";
+    const select = form.querySelector('[name="referencia_source"]');
+    const nome = form.querySelector('[name="nome"]');
+    const codigo = form.querySelector('[name="codigo"]');
+    if (!UC_TIPOS_INTEGRADOS.has(tipo) || !select) return;
+    const opt = select.selectedOptions?.[0];
+    if (!opt || !select.value) {
+      if (nome) nome.value = "";
+      return;
+    }
+    if (nome) nome.value = opt.dataset.nome || opt.textContent || "";
+    if (codigo && opt.dataset.codigo) codigo.value = opt.dataset.codigo;
+  }
+
+  async function configurarReferenciaUnidadeConsumo(form, item = null) {
+    if (!form) return;
+    const tipo = form.querySelector('[name="tipo_referencia"]')?.value || "outro";
+    const wrapper = form.querySelector('[data-uc-reference-wrap]');
+    const select = form.querySelector('[name="referencia_source"]');
+    const label = form.querySelector('[data-uc-reference-label]');
+    const help = form.querySelector('[data-uc-reference-help]');
+    const nome = form.querySelector('[name="nome"]');
+    const meta = metaReferenciaUnidadeConsumo(tipo);
+
+    if (!wrapper || !select || !nome) return;
+    if (!meta) {
+      wrapper.hidden = true;
+      select.required = false;
+      select.innerHTML = '<option value="">Não se aplica</option>';
+      nome.readOnly = false;
+      nome.required = true;
+      nome.closest('.financeiro-field')?.classList.remove('is-source-linked');
+      return;
+    }
+
+    wrapper.hidden = false;
+    select.required = true;
+    nome.readOnly = true;
+    nome.required = true;
+    nome.closest('.financeiro-field')?.classList.add('is-source-linked');
+    if (label) label.textContent = meta.label;
+    if (help) help.textContent = meta.help;
+    select.innerHTML = `<option value="">${escapeHtml(meta.placeholder)}</option><option value="" disabled>Carregando base...</option>`;
+
+    try {
+      const refs = await request(`/api/financeiro/unidades-consumo/referencias?tipo_referencia=${encodeURIComponent(tipo)}&limit=500`);
+      const atual = String(valorReferenciaUnidadeConsumo(item, tipo) || "");
+      const options = (refs || []).map(ref => {
+        const value = tipo === "cargo" ? String(ref.chave || ref.nome || "") : String(ref.id || "");
+        const desc = ref.descricao ? ` — ${ref.descricao}` : "";
+        return `<option value="${escapeHtml(value)}" data-nome="${escapeHtml(ref.nome || "")}" data-codigo="${escapeHtml(ref.codigo || "")}">${escapeHtml(`${ref.codigo ? `${ref.codigo} - ` : ""}${ref.nome || ""}${desc}`)}</option>`;
+      }).join("");
+      select.innerHTML = `<option value="">${escapeHtml(meta.placeholder)}</option>${options}`;
+
+      if (atual) {
+        select.value = atual;
+        if (select.value !== atual) {
+          const fallbackNome = item?.identificacao_uc || item?.nome || atual;
+          const fallbackCodigo = item?.referencia_codigo || item?.codigo || "";
+          select.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(atual)}" data-nome="${escapeHtml(fallbackNome)}" data-codigo="${escapeHtml(fallbackCodigo)}">${escapeHtml(fallbackNome)} — vínculo atual</option>`);
+          select.value = atual;
+        }
+      }
+      aplicarReferenciaSelecionadaUnidadeConsumo(form);
+    } catch (err) {
+      select.innerHTML = '<option value="">Não foi possível carregar a base de origem</option>';
+      if (help) help.textContent = `Erro ao consultar a base integrada: ${err.message}`;
+    }
+  }
+
   function abrirAux(tipo, item = null) {
     const form = $("#form-auxiliar");
     const body = $("#modal-auxiliar-body");
@@ -1565,7 +2583,15 @@
     } else if (tipo === "unidade-consumo") {
       const unidadesCarregadas = state.auxItems.filter(i => i._auxType === "unidade-consumo");
       const pais = (unidadesCarregadas.length ? unidadesCarregadas : (state.opcoes.unidades_consumo || [])).filter(i => Number(i.id) !== Number(item?.id));
-      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo da unidade</label><select name="tipo_referencia"><option value="departamento">Departamento/área</option><option value="colaborador">Colaborador</option><option value="veiculo">Veículo</option><option value="patrimonio">Patrimônio/ferramenta</option><option value="projeto">Projeto</option><option value="contrato">Contrato</option><option value="cargo">Cargo/função</option><option value="outro">Outro</option></select></div><div class="financeiro-field"><label>Unidade principal/pai</label><select name="unidade_pai_id"><option value="">Nenhuma — unidade principal</option>${pais.map(i => option(`${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`, i.id)).join("")}</select></div><div class="financeiro-field full"><label>Referência/observação</label><input name="departamento_referencia" placeholder="Opcional: detalhe adicional para identificar o consumo"></div>${status}</div>`;
+      body.innerHTML = `<div class="financeiro-form-grid cols-2">
+        <div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40" placeholder="Pode vir automaticamente da origem"></div>
+        <div class="financeiro-field"><label>Nome / identificação</label><input name="nome" required placeholder="Selecione a origem ou informe manualmente"></div>
+        <div class="financeiro-field"><label>Tipo da Unidade de Consumo (Grupo)</label><select name="tipo_referencia"><option value="cargo">Cargo / Função (RH)</option><option value="patrimonio">Patrimônio</option><option value="colaborador">Colaborador (RH)</option><option value="veiculo">Veículo (Patrimônio)</option><option value="departamento">Departamento/área</option><option value="projeto">Projeto</option><option value="contrato">Contrato</option><option value="outro">Outro</option></select></div>
+        <div class="financeiro-field"><label>Unidade principal/pai</label><select name="unidade_pai_id"><option value="">Nenhuma — unidade principal</option>${pais.map(i => option(`${i.codigo ? `${i.codigo} - ` : ""}${i.identificacao_uc || i.nome}`, i.id)).join("")}</select></div>
+        <div class="financeiro-field full financeiro-reference-source" data-uc-reference-wrap hidden><label data-uc-reference-label>Identificação da U.C.</label><select name="referencia_source"><option value="">Selecione...</option></select><small data-uc-reference-help>Busca na base integrada.</small></div>
+        <div class="financeiro-field full"><label>Observação complementar</label><input name="departamento_referencia" placeholder="Opcional. A identificação principal vem da base selecionada quando houver integração."></div>
+        ${status}
+      </div>`;
     } else if (tipo === "conta-contabil") {
       const contasCarregadas = state.auxItems.filter(i => i._auxType === "conta-contabil");
       const pais = (contasCarregadas.length ? contasCarregadas : (state.opcoes.contas_contabeis || [])).filter(i => Number(i.id) !== Number(item?.id));
@@ -1580,26 +2606,27 @@
     if (item) setForm(form, { ...item, ativo: String(Boolean(item.ativo)), exige_entidade_emissora: String(Boolean(item.exige_entidade_emissora)), aceita_lancamento: String(item.aceita_lancamento !== false), possui_multa: String(Boolean(item.possui_multa)), possui_mora_diaria: String(Boolean(item.possui_mora_diaria)), padrao: String(Boolean(item.padrao)) });
     atualizarCamposEncargos(form);
     abrirModal("#modal-auxiliar");
+    if (tipo === "unidade-consumo") configurarReferenciaUnidadeConsumo(form, item);
   }
 
   function prepararInterfaceFinanceiro() {
     const tabs = $(".financeiro-tabs");
-    if (tabs && !tabs.querySelector('a[href="/cobrancas-financeiro"]')) {
-      const receber = tabs.querySelector('a[href="/contas-receber"]');
-      const linkCobranca = document.createElement("a");
-      linkCobranca.href = "/cobrancas-financeiro";
-      linkCobranca.className = state.page === "cobrancas" ? "active" : "";
-      linkCobranca.innerHTML = '<i class="fa-regular fa-bell"></i><span>Cobrança</span>';
-      if (receber?.nextSibling) tabs.insertBefore(linkCobranca, receber.nextSibling);
-      else tabs.appendChild(linkCobranca);
-    }
-    if (tabs && !tabs.querySelector('a[href="/cadastros-financeiros"]')) {
-      const rel = tabs.querySelector('a[href="/relatorios-financeiros"]');
-      const link = document.createElement("a");
-      link.href = "/cadastros-financeiros";
-      link.className = state.page === "cadastros" ? "active" : "";
-      link.innerHTML = '<i class="fa-solid fa-sliders"></i><span>Cadastros</span>';
-      tabs.insertBefore(link, rel || null);
+    if (tabs) {
+      const configuracaoPages = new Set(["categorias", "formas", "contas", "cadastros", "configuracoes", "automacao"]);
+      const activeKey = configuracaoPages.has(state.page) ? "configuracoes" : state.page;
+      const items = [
+        ["dashboard", "/financeiro", "fa-regular fa-clipboard", "Visão geral"],
+        ["receber", "/contas-receber", "fa-regular fa-calendar-check", "Contas a receber"],
+        ["pagar", "/contas-pagar", "fa-regular fa-file-lines", "Contas a pagar"],
+        ["cobrancas", "/cobrancas-financeiro", "fa-regular fa-bell", "Cobranças"],
+        ["fluxo", "/fluxo-caixa", "fa-solid fa-wave-square", "Fluxo de caixa"],
+        ["relatorios", "/relatorios-financeiros", "fa-regular fa-chart-bar", "Relatórios"],
+        ["configuracoes", "/configuracoes-financeiras", "fa-solid fa-gear", "Configurações"],
+      ];
+      tabs.classList.add("financeiro-tabs--primary");
+      tabs.innerHTML = items.map(([key, href, icon, label]) =>
+        `<a href="${href}" class="${activeKey === key ? "active" : ""}"${activeKey === key ? ' aria-current="page"' : ""}><i class="${icon}"></i><span>${label}</span></a>`
+      ).join("");
     }
 
     const formLancamento = $("#form-lancamento");
@@ -1629,7 +2656,7 @@
         section.className = "financeiro-editor-card";
         section.id = "fin-sec-classificacao";
         section.innerHTML = `
-          <div class="financeiro-editor-card-head"><div><h4>Classificação financeira</h4><p>Cadastros padronizados do financeiro. A multa e a mora são calculadas automaticamente no momento da baixa.</p></div><a class="financeiro-inline-link" href="/cadastros-financeiros">Gerenciar cadastros</a></div>
+          <div class="financeiro-editor-card-head"><div><h4>Classificação financeira</h4><p>Cadastros padronizados do financeiro. A multa e a mora são calculadas automaticamente no momento da baixa.</p></div><a class="financeiro-inline-link" href="/configuracoes-financeiras">Gerenciar cadastros</a></div>
           <div class="financeiro-form-grid cols-3">
             <div class="financeiro-field"><label>Tipo de documento</label><select name="tipo_documento_id" data-select="tipos-documento"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label>Natureza da operação</label><select name="natureza_operacao_id" data-select="naturezas-operacao"><option value="">Selecione...</option></select></div>
@@ -1726,6 +2753,19 @@
             <div class="financeiro-field financeiro-total-baixa"><label>Total a debitar</label><input name="valor_total_baixa" class="financeiro-money-input" readonly aria-readonly="true"></div>
             <div class="financeiro-field"><label>Forma de pagamento</label><select name="forma_pagamento_id" data-select="formas"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label data-baixa-conta-label>Conta a debitar</label><select name="conta_banco_id" data-select="contas"><option value="">Selecione...</option></select></div>
+            <section class="financeiro-reparcelamento-box full" data-reparcelamento-box hidden>
+              <div class="financeiro-reparcelamento-head">
+                <div><strong>Parcelar o saldo restante?</strong><span>Use quando parte da conta for paga agora e o saldo precisar virar novas parcelas.</span></div>
+                <select name="reparcelar_saldo"><option value="false">Não</option><option value="true">Sim</option></select>
+              </div>
+              <div class="financeiro-form-grid cols-2 financeiro-reparcelamento-grid">
+                <div class="financeiro-field"><label>Valor saldo em aberto</label><input name="reparcelamento_saldo" class="financeiro-money-input" readonly aria-readonly="true"></div>
+                <div class="financeiro-field"><label>Quantidade de novas parcelas</label><input name="reparcelamento_parcelas" type="number" min="2" max="120" value="2" disabled></div>
+                <div class="financeiro-field"><label>Primeiro vencimento</label><input name="reparcelamento_primeiro_vencimento" type="date" disabled></div>
+                <div class="financeiro-field"><label>Intervalo</label><select name="reparcelamento_intervalo_meses" disabled><option value="1">Mensal</option><option value="2">A cada 2 meses</option><option value="3">A cada 3 meses</option><option value="6">Semestral</option><option value="12">Anual</option></select></div>
+              </div>
+              <div class="financeiro-reparcelamento-info" data-reparcelamento-info>Não. O saldo que não for pago continuará aberto nesta mesma conta.</div>
+            </section>
             <div class="financeiro-field full"><label>Comprovante de pagamento (PDF, até 10 MB)</label><input name="comprovante" type="file" accept="application/pdf,.pdf"><small>O pagamento é salvo primeiro e o comprovante fica vinculado à movimentação.</small></div>
             <div class="financeiro-field full"><label>Observação da baixa</label><textarea name="observacoes" rows="2" placeholder="Opcional"></textarea></div>
           </div>
@@ -1758,12 +2798,14 @@
     const lancamento = data.lancamento || {};
     const movimentos = Array.isArray(data.movimentacoes) ? data.movimentacoes : [];
     const auditoria = Array.isArray(data.auditoria) ? data.auditoria : [];
+    const reparcelamentos = Array.isArray(data.reparcelamentos) ? data.reparcelamentos : [];
+    const reparcelamentoOrigem = data.reparcelamento_origem || null;
     const saldo = Number(lancamento.valor_total || 0) - Number(lancamento.valor_pago || 0);
     $("#historico-financeiro-titulo").textContent = `Histórico do lançamento #${lancamento.id || "-"}`;
 
     const movHtml = movimentos.length ? movimentos.map(m => {
       const estorno = String(m.tipo_movimentacao).toLowerCase() === "estorno";
-      const podeEstornar = !estorno && !m.estornada;
+      const podeEstornar = !estorno && !m.estornada && !m.reparcelamento_ativo;
       const principal = Number(m.valor_principal || m.valor || 0);
       const desconto = Number(m.valor_desconto || 0);
       const multa = Number(m.valor_multa || 0);
@@ -1785,6 +2827,7 @@
           ${m.observacoes ? `<div class="financeiro-history-note">${escapeHtml(m.observacoes)}</div>` : ""}
           ${comprovante}
           ${m.estornada ? '<span class="financeiro-history-status">Estornada</span>' : ""}
+          ${m.reparcelamento_ativo ? '<span class="financeiro-history-status">Baixa vinculada a reparcelamento</span>' : ""}
         </div>
         ${podeEstornar ? `<button class="financeiro-mini-btn warn" type="button" data-action="estornar-movimentacao" data-id="${m.id}" data-lancamento-id="${lancamento.id}"><i class="fa-solid fa-rotate-left"></i> Estornar</button>` : ""}
       </div>`;
@@ -1796,6 +2839,29 @@
       ${a.motivo ? `<small>${escapeHtml(a.motivo)}</small>` : ""}
     </div>`).join("") : '<div class="financeiro-empty-soft">Nenhuma alteração registrada.</div>';
 
+    const repCards = reparcelamentos.map(r => {
+      let ids = r.lancamentos_gerados_ids;
+      if (typeof ids === "string") { try { ids = JSON.parse(ids); } catch (_) { ids = []; } }
+      if (!Array.isArray(ids)) ids = [];
+      return `<div class="financeiro-reparcelamento-history">
+        <div><strong>Reparcelamento #${Number(r.id || 0)}</strong><span>${dateTimeBR(r.criado_em)} • ${escapeHtml(r.usuario_nome || "Usuário não identificado")}</span></div>
+        <div class="financeiro-history-breakdown">
+          <span>Valor original <strong>${money(r.valor_original, lancamento.moeda)}</strong></span>
+          <span>Saldo transferido <strong>${money(r.saldo_reparcelado, lancamento.moeda)}</strong></span>
+          <span>Novas parcelas <strong>${Number(r.quantidade_parcelas || 0)}</strong></span>
+          <span>1º vencimento <strong>${dateBR(r.data_primeiro_vencimento)}</strong></span>
+        </div>
+        ${ids.length ? `<small>Títulos gerados: ${ids.map(id => `#${Number(id)}`).join(", ")}</small>` : ""}
+      </div>`;
+    });
+    if (reparcelamentoOrigem) {
+      repCards.unshift(`<div class="financeiro-reparcelamento-history is-origin">
+        <div><strong>Parcela originada do reparcelamento #${Number(reparcelamentoOrigem.id || 0)}</strong><span>Conta original #${Number(reparcelamentoOrigem.lancamento_origem_id || 0)}</span></div>
+        <small>Saldo original reparcelado: ${money(reparcelamentoOrigem.saldo_reparcelado, lancamento.moeda)} em ${Number(reparcelamentoOrigem.quantidade_parcelas || 0)} parcelas.</small>
+      </div>`);
+    }
+    const repHtml = repCards.length ? `<section class="financeiro-history-section"><h4>Reparcelamento</h4>${repCards.join("")}</section>` : "";
+
     host.innerHTML = `
       <div class="financeiro-history-summary">
         <div><span>Total</span><strong>${money(lancamento.valor_total, lancamento.moeda)}</strong></div>
@@ -1803,6 +2869,7 @@
         <div><span>Saldo aberto</span><strong>${money(Math.max(0, saldo), lancamento.moeda)}</strong></div>
         <div><span>Status</span><strong>${escapeHtml(lancamento.status || "-")}</strong></div>
       </div>
+      ${repHtml}
       <section class="financeiro-history-section"><h4>Movimentações</h4>${movHtml}</section>
       <section class="financeiro-history-section"><h4>Auditoria</h4><div class="financeiro-audit-list">${auditHtml}</div></section>`;
   }
@@ -1825,7 +2892,24 @@
     ev.preventDefault();
     const form = ev.currentTarget;
     const tipo = form.querySelector('[name="tipo"]')?.value || "";
+    const receber = String(tipo).toLowerCase() === "receber";
+    const clienteLookup = elementosLookupEnvolvido(form, "cliente");
+    if (receber && clienteLookup && !String(clienteLookup.select.value || "").trim()) {
+      clienteLookup.search.setCustomValidity("Selecione o cliente na lista de resultados.");
+      ativarNavegacaoModalLancamento("fin-sec-envolvidos");
+      clienteLookup.search.reportValidity();
+      clienteLookup.search.focus();
+      return;
+    }
+    const fornecedorLookup = elementosLookupEnvolvido(form, "fornecedor");
     const sacado = elementosSacado(form);
+    if (!receber && fornecedorLookup && !sacado && !String(fornecedorLookup.select.value || "").trim()) {
+      fornecedorLookup.search.setCustomValidity("Selecione o fornecedor na lista de resultados.");
+      ativarNavegacaoModalLancamento("fin-sec-envolvidos");
+      fornecedorLookup.search.reportValidity();
+      fornecedorLookup.search.focus();
+      return;
+    }
     if (tipo === "pagar" && sacado && !String(sacado.hidden.value || "").trim()) {
       sacado.search.setCustomValidity("Selecione o sacado na lista de resultados.");
       ativarNavegacaoModalLancamento("fin-sec-envolvidos");
@@ -1881,6 +2965,10 @@
         forma_pagamento_id: nullNumber(data.forma_pagamento_id),
         conta_banco_id: nullNumber(data.conta_banco_id),
         observacoes: data.observacoes || null,
+        reparcelar_saldo: data.reparcelar_saldo === "true",
+        reparcelamento_parcelas: data.reparcelar_saldo === "true" ? nullNumber(data.reparcelamento_parcelas) : null,
+        reparcelamento_primeiro_vencimento: data.reparcelar_saldo === "true" ? (data.reparcelamento_primeiro_vencimento || null) : null,
+        reparcelamento_intervalo_meses: data.reparcelar_saldo === "true" ? nullNumber(data.reparcelamento_intervalo_meses) : null,
       }});
 
       let comprovanteErro = null;
@@ -1894,12 +2982,22 @@
         }
       }
 
+      const recebimento = state.baixaAtual?.tipo === "receber";
+      const moedaBaixa = state.baixaAtual?.moeda || "BRL";
+      const nomeAcao = recebimento ? "Recebimento" : "Pagamento";
+      const rep = resultado?.reparcelamento;
       fecharModais();
       state.baixaAtual = null;
-      const recebimento = state.baixaAtual?.tipo === "receber";
-      const nomeAcao = recebimento ? "Recebimento" : "Pagamento";
-      if (comprovanteErro) alertBox(`${nomeAcao} registrado, mas o comprovante não foi anexado: ${comprovanteErro.message}`, "warn");
-      else alertBox(arquivo ? `${nomeAcao} e comprovante registrados com sucesso.` : `${nomeAcao} registrado com sucesso.`, "ok");
+      if (comprovanteErro) {
+        const base = rep
+          ? `${nomeAcao} registrado e saldo de ${money(rep.saldo_reparcelado, moedaBaixa)} reparcelado em ${rep.quantidade_parcelas} parcelas, mas o comprovante não foi anexado`
+          : `${nomeAcao} registrado, mas o comprovante não foi anexado`;
+        alertBox(`${base}: ${comprovanteErro.message}`, "warn");
+      } else if (rep) {
+        alertBox(`${nomeAcao} registrado. Saldo de ${money(rep.saldo_reparcelado, moedaBaixa)} reparcelado em ${rep.quantidade_parcelas} novas parcelas.`, "ok");
+      } else {
+        alertBox(arquivo ? `${nomeAcao} e comprovante registrados com sucesso.` : `${nomeAcao} registrado com sucesso.`, "ok");
+      }
       await recarregar();
     } catch (err) {
       alertBox(`Erro ao baixar: ${err.message}`, "danger");
@@ -1918,6 +3016,17 @@
     ["centro_pai_id", "conta_pai_id", "unidade_pai_id"].forEach(k => {
       if (Object.prototype.hasOwnProperty.call(data, k)) data[k] = nullNumber(data[k]);
     });
+    if (tipo === "unidade-consumo") {
+      const tipoRef = String(data.tipo_referencia || "outro").toLowerCase();
+      const source = data.referencia_source || "";
+      data.referencia_usuario_id = null;
+      data.referencia_patrimonio_id = null;
+      data.referencia_cargo = null;
+      if (tipoRef === "cargo") data.referencia_cargo = source || null;
+      if (tipoRef === "colaborador") data.referencia_usuario_id = nullNumber(source);
+      if (tipoRef === "patrimonio" || tipoRef === "veiculo") data.referencia_patrimonio_id = nullNumber(source);
+      delete data.referencia_source;
+    }
     if (tipo === "conta") {
       data.saldo_inicial = moneyToBackend(data.saldo_inicial || 0);
       data.data_saldo_inicial = data.data_saldo_inicial || todayISO();
@@ -1967,6 +3076,9 @@
         alertBox("Lançamento excluído.", "ok");
         await recarregar();
       }
+      if (action === "ver-emissao-lote") {
+        await abrirDetalhesEmissaoLote(id);
+      }
       if (action === "editar-regua-cobranca") {
         const regua = state.cobranca.reguas.find(i => Number(i.id) === id);
         if (regua) abrirReguaCobranca(regua);
@@ -1993,10 +3105,11 @@
         await request(`/api/financeiro/reguas-cobranca/etapas/${id}`, { method: "DELETE" });
         await recarregar();
       }
-      if (action === "marcar-cobranca-enviada") {
-        const atualizado = await request(`/api/financeiro/cobrancas/envios/${id}`, { method: "PATCH", body: { status: "enviado" } });
-        if (atualizado?.auto_ignorado) alertBox(atualizado.motivo || "Cobrança ignorada porque o título já foi quitado ou cancelado.", "warn");
-        else alertBox("Cobrança marcada como enviada.", "ok");
+      if (action === "enviar-cobranca-agora") {
+        const resultado = await request(`/api/financeiro/cobrancas/envios/${id}/enviar-agora`, { method: "POST" });
+        if (resultado?.status === "enviado") alertBox(`Cobrança enviada por ${resultado.canal || "canal configurado"}.`, "ok");
+        else if (resultado?.status === "ignorado") alertBox("Título já foi quitado/cancelado e a cobrança foi ignorada.", "warn");
+        else alertBox(resultado?.erro ? `Falha no envio: ${resultado.erro}` : "Envio não concluído.", "danger");
         await recarregar();
       }
       if (action === "ignorar-cobranca") {
@@ -2029,9 +3142,22 @@
   }
 
   function exportarTabela() {
-    const table = $("#financeiro-table");
-    if (!table) return;
-    const rows = $$('tr', table).map(tr => $$('th,td', tr).map(td => `"${td.innerText.replace(/"/g, '""').trim()}"`).join(";"));
+    let rows = [];
+    if (state.page === "relatorios") {
+      const periodo = `${dateBR($("#filtro-data-inicio")?.value || monthStartISO())} a ${dateBR($("#filtro-data-fim")?.value || todayISO())}`;
+      rows.push('"Relatórios Financeiros - Cobrança"', `"Período: ${periodo}"`, "");
+      $$('[data-relatorio-pdf]').forEach(panel => {
+        const titulo = panel.querySelector("h3")?.innerText?.trim() || "Relatório";
+        const table = panel.querySelector("table");
+        rows.push(`"${titulo.replace(/"/g, '""')}"`);
+        if (table) rows.push(...$$("tr", table).map(tr => $$("th,td", tr).map(td => `"${td.innerText.replace(/"/g, '""').trim()}"`).join(";")));
+        rows.push("");
+      });
+    } else {
+      const table = $("#financeiro-table");
+      if (!table) return;
+      rows = $$("tr", table).map(tr => $$("th,td", tr).map(td => `"${td.innerText.replace(/"/g, '""').trim()}"`).join(";"));
+    }
     const blob = new Blob(["\ufeff" + rows.join("\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -2044,6 +3170,19 @@
 
   function bind() {
     prepararInterfaceFinanceiro();
+    prepararLookupsEnvolvidos();
+    if (state.page === "relatorios") {
+      const inicio = $("#filtro-data-inicio");
+      const fim = $("#filtro-data-fim");
+      if (inicio && !inicio.value) inicio.value = monthStartISO();
+      if (fim && !fim.value) fim.value = todayISO();
+    }
+    if (state.page === "cobrancas") {
+      const inicio = $("#emissao-data-inicio");
+      const fim = $("#emissao-data-fim");
+      if (inicio && !inicio.value) inicio.value = monthStartISO();
+      if (fim && !fim.value) fim.value = todayISO();
+    }
     document.addEventListener("click", actionClick);
     $$('[data-close-modal]').forEach(btn => btn.addEventListener("click", fecharModais));
     $$(".financeiro-modal-backdrop").forEach(back => back.addEventListener("click", ev => { if (ev.target === back) fecharModais(); }));
@@ -2060,9 +3199,16 @@
     $("#btn-aplicar-filtros")?.addEventListener("click", recarregar);
     $("#btn-limpar-filtros")?.addEventListener("click", () => {
       ["#filtro-busca", "#filtro-status", "#filtro-data-inicio", "#filtro-data-fim", "#filtro-cliente", "#filtro-fornecedor", "#filtro-forma-cobranca", "#filtro-forma-pagamento", "#filtro-categoria"].forEach(sel => { const el = $(sel); if (el) el.value = ""; });
+      if (state.page === "relatorios") {
+        const inicio = $("#filtro-data-inicio");
+        const fim = $("#filtro-data-fim");
+        if (inicio) inicio.value = monthStartISO();
+        if (fim) fim.value = todayISO();
+      }
       recarregar();
     });
     $("#btn-exportar-financeiro")?.addEventListener("click", exportarTabela);
+    $("#btn-imprimir-relatorios")?.addEventListener("click", () => window.print());
     $("#form-lancamento")?.addEventListener("submit", salvarLancamento);
     $("#form-baixa")?.addEventListener("submit", salvarBaixa);
     $("#form-auxiliar")?.addEventListener("submit", salvarAuxiliar);
@@ -2073,14 +3219,62 @@
     $("#btn-processar-cobrancas")?.addEventListener("click", async () => {
       try {
         const r = await request("/api/financeiro/cobrancas/processar", { method: "POST" });
-        alertBox(r?.novos ? `${r.novos} nova(s) cobrança(s) adicionada(s) à fila.` : "Fila já está atualizada.", "ok");
+        if (r?.ocupado) alertBox("A automação já está sendo executada por outro processo.", "warn");
+        else if (Number(r?.erros || 0) > 0) alertBox(`Automação executada: ${Number(r?.enviados || 0)} enviado(s) e ${Number(r?.erros || 0)} com erro. Confira a fila.`, "warn");
+        else alertBox(`Automação executada: ${Number(r?.enviados || 0)} enviado(s), ${Number(r?.novos || 0)} nova(s) etapa(s).`, "ok");
         await recarregar();
-      } catch (err) { alertBox(`Erro ao processar cobrança: ${err.message}`, "danger"); }
+      } catch (err) { alertBox(`Erro ao executar automação: ${err.message}`, "danger"); }
     });
     $("#cobranca-regua-etapas")?.addEventListener("change", ev => carregarEtapasCobranca(ev.currentTarget.value));
     $("#btn-aplicar-cobranca-filtros")?.addEventListener("click", recarregar);
+    $("#btn-configurar-zapschat-cobranca")?.addEventListener("click", abrirConfiguracaoZapsChat);
+    $("#btn-parear-zapschat")?.addEventListener("click", parearZapsChat);
+    $("#btn-atualizar-instancias-zapschat")?.addEventListener("click", atualizarInstanciasZapsChat);
+    $("#btn-salvar-instancia-zapschat")?.addEventListener("click", salvarInstanciaZapsChat);
+    $("#btn-testar-zapschat")?.addEventListener("click", testarZapsChat);
+    $("#btn-desconectar-zapschat")?.addEventListener("click", desconectarZapsChat);
+    $("#zapschat-instancia-select")?.addEventListener("change", atualizarPreviewInstanciaZapsChat);
+    $("#zapschat-pairing-code")?.addEventListener("input", ev => {
+      const clean = String(ev.currentTarget.value || "").replace(/\D+/g, "").slice(0, 8);
+      if (ev.currentTarget.value !== clean) ev.currentTarget.value = clean;
+    });
+    $("#zapschat-pairing-code")?.addEventListener("keydown", ev => {
+      if (ev.key === "Enter") { ev.preventDefault(); parearZapsChat(); }
+    });
+    $("#btn-buscar-titulos-emissao")?.addEventListener("click", () => buscarTitulosEmissaoLote({ selecionarTodos: true }).catch(err => alertBox(`Erro ao buscar títulos: ${err.message}`, "danger")));
+    $("#btn-emitir-titulos-lote")?.addEventListener("click", emitirTitulosSelecionados);
+    $("#emissao-selecionar-todos")?.addEventListener("change", (ev) => {
+      state.cobranca.emissaoSelecionados = ev.currentTarget.checked
+        ? new Set(state.cobranca.emissaoTitulos.map(i => Number(i.id)))
+        : new Set();
+      $$("[data-emissao-check]").forEach(check => { check.checked = ev.currentTarget.checked; });
+      atualizarResumoSelecaoEmissao();
+    });
 
     document.addEventListener("input", (ev) => {
+      const envolvidoSearch = ev.target.closest("[data-envolvido-search]");
+      if (envolvidoSearch) {
+        const form = envolvidoSearch.closest("#form-lancamento");
+        const tipoLookup = envolvidoSearch.dataset.envolvidoSearch;
+        const els = elementosLookupEnvolvido(form, tipoLookup);
+        if (!els) return;
+        const valorAtual = String(envolvidoSearch.value || "");
+        if (envolvidoSearch.dataset.selectedId && valorAtual !== String(envolvidoSearch.dataset.selectedLabel || "")) {
+          els.select.value = "";
+          envolvidoSearch.dataset.selectedId = "";
+          envolvidoSearch.dataset.selectedLabel = "";
+          els.clear.hidden = true;
+          els.select.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        if (valorAtual.trim() && !envolvidoSearch.dataset.selectedId) {
+          envolvidoSearch.setCustomValidity(`Selecione ${tipoLookup === "cliente" ? "um cliente" : "um fornecedor"} na lista de resultados.`);
+        } else {
+          envolvidoSearch.setCustomValidity("");
+        }
+        agendarBuscaLookupEnvolvido(form, tipoLookup, valorAtual);
+        return;
+      }
+
       const sacadoSearch = ev.target.closest("[data-sacado-search]");
       if (sacadoSearch) {
         const form = sacadoSearch.closest("#form-lancamento");
@@ -2114,6 +3308,17 @@
     });
 
     document.addEventListener("focusin", (ev) => {
+      const envolvidoSearch = ev.target.closest("[data-envolvido-search]");
+      if (envolvidoSearch) {
+        const form = envolvidoSearch.closest("#form-lancamento");
+        const tipoLookup = envolvidoSearch.dataset.envolvidoSearch;
+        if (envolvidoSearch.dataset.selectedId) return;
+        const termo = String(envolvidoSearch.value || "").trim();
+        if (termo.length >= 2) agendarBuscaLookupEnvolvido(form, tipoLookup, termo);
+        else renderResultadosLookupEnvolvido(form, tipoLookup, resultadosLocaisLookupEnvolvido(tipoLookup, termo));
+        return;
+      }
+
       const sacadoSearch = ev.target.closest("[data-sacado-search]");
       if (!sacadoSearch) return;
       const form = sacadoSearch.closest("#form-lancamento");
@@ -2124,6 +3329,26 @@
     });
 
     document.addEventListener("keydown", (ev) => {
+      const envolvidoSearch = ev.target.closest("[data-envolvido-search]");
+      if (envolvidoSearch) {
+        const form = envolvidoSearch.closest("#form-lancamento");
+        const tipoLookup = envolvidoSearch.dataset.envolvidoSearch;
+        if (ev.key === "Escape") {
+          fecharResultadosLookupEnvolvido(form, tipoLookup);
+          return;
+        }
+        if (ev.key === "Enter") {
+          const els = elementosLookupEnvolvido(form, tipoLookup);
+          const primeiro = els?.results?.querySelector(`[data-envolvido-option="${tipoLookup}"]`);
+          if (!primeiro || els.results.hidden) return;
+          ev.preventDefault();
+          const lookupState = estadoLookupEnvolvido(tipoLookup);
+          const item = lookupState?.items?.[Number(primeiro.dataset.envolvidoIndex)];
+          if (item) selecionarLookupEnvolvido(form, tipoLookup, item, true);
+        }
+        return;
+      }
+
       const sacadoSearch = ev.target.closest("[data-sacado-search]");
       if (!sacadoSearch) return;
       const form = sacadoSearch.closest("#form-lancamento");
@@ -2142,6 +3367,27 @@
     });
 
     document.addEventListener("click", (ev) => {
+      const envolvidoOption = ev.target.closest("[data-envolvido-option]");
+      if (envolvidoOption) {
+        const form = envolvidoOption.closest("#form-lancamento");
+        const tipoLookup = envolvidoOption.dataset.envolvidoOption;
+        const lookupState = estadoLookupEnvolvido(tipoLookup);
+        const item = lookupState?.items?.[Number(envolvidoOption.dataset.envolvidoIndex)];
+        if (item) selecionarLookupEnvolvido(form, tipoLookup, item, true);
+        return;
+      }
+
+      const envolvidoClear = ev.target.closest("[data-envolvido-clear]");
+      if (envolvidoClear) {
+        const form = envolvidoClear.closest("#form-lancamento");
+        const tipoLookup = envolvidoClear.dataset.envolvidoClear;
+        selecionarLookupEnvolvido(form, tipoLookup, null, true);
+        const els = elementosLookupEnvolvido(form, tipoLookup);
+        els?.search?.focus();
+        renderResultadosLookupEnvolvido(form, tipoLookup, resultadosLocaisLookupEnvolvido(tipoLookup));
+        return;
+      }
+
       const optionBtn = ev.target.closest("[data-sacado-option]");
       if (optionBtn) {
         const form = optionBtn.closest("#form-lancamento");
@@ -2160,6 +3406,7 @@
         return;
       }
 
+      if (!ev.target.closest("[data-envolvido-lookup]")) fecharTodosLookupsEnvolvidos();
       if (!ev.target.closest("[data-sacado-lookup]")) fecharResultadosSacado();
     });
 
@@ -2173,6 +3420,25 @@
     }, true);
 
     document.addEventListener("change", (ev) => {
+      const emissaoCheck = ev.target.closest("[data-emissao-check]");
+      if (emissaoCheck) {
+        const id = Number(emissaoCheck.value || 0);
+        if (id) {
+          if (emissaoCheck.checked) state.cobranca.emissaoSelecionados.add(id);
+          else state.cobranca.emissaoSelecionados.delete(id);
+          atualizarResumoSelecaoEmissao();
+        }
+        return;
+      }
+      const formAuxiliar = ev.target.closest("#form-auxiliar");
+      if (formAuxiliar?.dataset.tipo === "unidade-consumo" && ev.target.matches('[name="tipo_referencia"]')) {
+        configurarReferenciaUnidadeConsumo(formAuxiliar, null);
+        return;
+      }
+      if (formAuxiliar?.dataset.tipo === "unidade-consumo" && ev.target.matches('[name="referencia_source"]')) {
+        aplicarReferenciaSelecionadaUnidadeConsumo(formAuxiliar);
+        return;
+      }
       const formLancamento = ev.target.closest("#form-lancamento");
       if (formLancamento && ev.target.matches('[name="tipo"]')) {
         filtrarOpcoesPorTipoLancamento(formLancamento, ev.target.value);
@@ -2203,6 +3469,11 @@
       }
       if (ev.target.closest("#form-baixa") && ev.target.matches('[name="data_pagamento"]')) {
         atualizarCalculoBaixa();
+        atualizarReparcelamentoBaixa();
+        return;
+      }
+      if (ev.target.closest("#form-baixa") && ev.target.matches('[name="reparcelar_saldo"], [name="reparcelamento_parcelas"], [name="reparcelamento_primeiro_vencimento"], [name="reparcelamento_intervalo_meses"]')) {
+        atualizarReparcelamentoBaixa();
         return;
       }
       const regra = ev.target.closest('[name="regra_encargos_id"]');

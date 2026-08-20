@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Automação de cobrança | Valora CRM</title>
+  <script>(() => { const t = localStorage.getItem("valora_theme") || "light"; document.documentElement.setAttribute("data-theme", t); })();</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260630-dark-chatgpt-v6" />
+  <link rel="stylesheet" href="/frontend/css/financeiro.css?v=20260723-financeiro-base-v1" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
+  <script src="/frontend/js/shared/menu-global.js?v=20260819-automacao-cobranca-v1" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260819-automacao-cobranca-v1" defer></script>
+  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260819-automacao-cobranca-v1" />
+</head>
+<body class="financeiro-theme-valora">
+  <div class="layout">
+    <div id="valora-menu-root" aria-label="Menu Valora"></div>
+    <main class="main financeiro-page financeiro-page--valora financeiro-page--settings financeiro-page--automation" data-financeiro-page="automacao">
+      <header class="topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Financeiro · Configurações</span>
+          <h1>Automação de cobrança</h1>
+          <p class="topbar-subtitle">Configure uma vez como o Valora deve avisar clientes. A operação diária continua na tela Cobranças.</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn btn-secondary" href="/cobrancas-financeiro"><i class="fa-regular fa-bell"></i> Ver cobranças</a>
+          <a class="btn btn-secondary" href="/configuracoes-financeiras"><i class="fa-solid fa-arrow-left"></i> Configurações</a>
+        </div>
+      </header>
+
+      <div class="financeiro-toolbar">
+        <nav class="financeiro-tabs financeiro-tabs--primary">
+          <a href="/financeiro"><i class="fa-regular fa-clipboard"></i><span>Visão geral</span></a>
+          <a href="/contas-receber"><i class="fa-regular fa-calendar-check"></i><span>Contas a receber</span></a>
+          <a href="/contas-pagar"><i class="fa-regular fa-file-lines"></i><span>Contas a pagar</span></a>
+          <a href="/cobrancas-financeiro"><i class="fa-regular fa-bell"></i><span>Cobranças</span></a>
+          <a href="/fluxo-caixa"><i class="fa-solid fa-wave-square"></i><span>Fluxo de caixa</span></a>
+          <a href="/relatorios-financeiros"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a>
+          <a href="/configuracoes-financeiras" class="active" aria-current="page"><i class="fa-solid fa-gear"></i><span>Configurações</span></a>
+        </nav>
+        <span class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Verificando automação...</span>
+      </div>
+
+      <section class="financeiro-automation-hero">
+        <div class="financeiro-automation-hero-copy">
+          <span class="financeiro-section-kicker">Configuração protegida</span>
+          <h2>Uma página para tudo que envia cobrança sozinho</h2>
+          <p>Aqui ficam canais, WhatsApp, régua e mensagens. Nada desta configuração precisa ser alterado para dar baixa, emitir títulos ou acompanhar cobranças.</p>
+        </div>
+        <div class="financeiro-automation-hero-status">
+          <span>Execução automática</span>
+          <strong class="financeiro-automation-state" id="cobranca-automacao-status">Verificando...</strong>
+          <small id="cobranca-ultimo-envio">Nenhum envio automático registrado</small>
+        </div>
+      </section>
+
+      <section class="financeiro-settings-section" id="canais-cobranca">
+        <div class="financeiro-settings-section-head financeiro-settings-section-head--actions">
+          <div>
+            <span class="financeiro-section-kicker">1 · Canais de envio</span>
+            <h2>Por onde a cobrança será enviada</h2>
+            <p>O canal utilizado em cada momento é definido na régua. O WhatsApp é enviado pelo número escolhido no ZapsChat.</p>
+          </div>
+          <button class="btn btn-primary" type="button" id="btn-configurar-zapschat-cobranca"><i class="fa-brands fa-whatsapp"></i> Configurar WhatsApp</button>
+        </div>
+
+        <div class="financeiro-automation-grid financeiro-automation-grid--settings">
+          <div class="financeiro-automation-item financeiro-automation-item--whatsapp">
+            <span><i class="fa-brands fa-whatsapp"></i> WhatsApp</span>
+            <strong id="cobranca-provider-whatsapp">Verificando</strong>
+            <small id="cobranca-provider-whatsapp-detail">Verificando conexão com ZapsChat</small>
+          </div>
+          <div class="financeiro-automation-item">
+            <span><i class="fa-regular fa-envelope"></i> E-mail</span>
+            <strong id="cobranca-provider-email">Verificando</strong>
+            <small id="cobranca-provider-email-detail">SMTP</small>
+          </div>
+          <div class="financeiro-automation-item">
+            <span><i class="fa-regular fa-message"></i> SMS</span>
+            <strong id="cobranca-provider-sms">Verificando</strong>
+            <small>Canal opcional</small>
+          </div>
+          <div class="financeiro-automation-item">
+            <span><i class="fa-solid fa-clock-rotate-left"></i> Última tentativa</span>
+            <strong id="cobranca-ultima-tentativa">—</strong>
+            <small>Último ciclo que tentou processar uma cobrança</small>
+          </div>
+        </div>
+
+        <div class="financeiro-settings-note">
+          <i class="fa-solid fa-shield-halved"></i>
+          <span>Se o WhatsApp escolhido desconectar, o Valora <strong>não troca de número sozinho</strong>. O envio para até a instância correta voltar.</span>
+        </div>
+      </section>
+
+      <section class="financeiro-settings-section" id="regras-cobranca">
+        <div class="financeiro-settings-section-head financeiro-settings-section-head--actions">
+          <div>
+            <span class="financeiro-section-kicker">2 · Quando cobrar</span>
+            <h2>Régua de cobrança</h2>
+            <p>Defina os momentos da cobrança e a mensagem de cada etapa. Dias negativos avisam antes do vencimento; dias positivos avisam depois.</p>
+          </div>
+          <button class="btn btn-primary" type="button" id="btn-nova-regua-cobranca"><i class="fa-solid fa-plus"></i> Nova régua</button>
+        </div>
+
+        <div class="financeiro-panel financeiro-settings-panel-embedded">
+          <div class="financeiro-table-wrap">
+            <table class="financeiro-table">
+              <thead><tr><th>Régua</th><th>Etapas</th><th>Padrão</th><th>Situação</th><th>Descrição</th><th>Ações</th></tr></thead>
+              <tbody id="tbody-cobranca-reguas"><tr><td class="financeiro-empty" colspan="6">Carregando réguas...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="financeiro-panel financeiro-settings-panel-embedded" id="painel-cobranca-etapas">
+          <div class="financeiro-panel-head">
+            <div><h3>Etapas da régua selecionada</h3><p>Selecione uma régua e confira exatamente quando, por qual canal e com qual mensagem o cliente será avisado.</p></div>
+            <div class="financeiro-settings-rule-actions">
+              <div class="financeiro-field"><label>Régua</label><select id="cobranca-regua-etapas"><option value="">Selecione uma régua...</option></select></div>
+              <button class="btn btn-primary" type="button" id="btn-nova-etapa-cobranca"><i class="fa-solid fa-plus"></i> Nova etapa</button>
+            </div>
+          </div>
+          <div class="financeiro-table-wrap">
+            <table class="financeiro-table">
+              <thead><tr><th>Etapa</th><th>Momento</th><th>Canal</th><th>Tipo</th><th>Mensagem</th><th>Situação</th><th>Ações</th></tr></thead>
+              <tbody id="tbody-cobranca-etapas"><tr><td class="financeiro-empty" colspan="7">Selecione uma régua.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="financeiro-settings-section" id="seguranca-automacao">
+        <div class="financeiro-settings-section-head">
+          <div>
+            <span class="financeiro-section-kicker">3 · Proteções</span>
+            <h2>Regras que evitam envio errado</h2>
+            <p>Estas proteções são automáticas e não precisam ser operadas no dia a dia.</p>
+          </div>
+        </div>
+        <div class="financeiro-automation-safety-grid">
+          <article><i class="fa-solid fa-circle-check"></i><div><strong>Confere o pagamento antes de enviar</strong><p>Se o título já estiver quitado, a cobrança não é disparada.</p></div></article>
+          <article><i class="fa-solid fa-ban"></i><div><strong>Não troca o WhatsApp</strong><p>Instância desconectada gera erro; outro número nunca é escolhido automaticamente.</p></div></article>
+          <article><i class="fa-solid fa-copy"></i><div><strong>Evita envio duplicado</strong><p>Repetições de rede usam a mesma chave de envio para não cobrar duas vezes.</p></div></article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="financeiro-modal-backdrop" id="modal-regua-cobranca" aria-hidden="true">
+    <div class="financeiro-modal sm">
+      <form id="form-regua-cobranca">
+        <div class="financeiro-modal-head">
+          <div class="financeiro-modal-title"><h3 id="modal-regua-cobranca-titulo">Nova régua de cobrança</h3><p>Configure uma sequência própria para esta empresa.</p></div>
+          <button class="financeiro-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="financeiro-modal-body">
+          <div class="financeiro-form-grid cols-2">
+            <div class="financeiro-field full"><label>Nome</label><input name="nome" required placeholder="Ex.: Cobrança padrão"></div>
+            <div class="financeiro-field full"><label>Descrição</label><textarea name="descricao" placeholder="Quando esta régua deve ser utilizada"></textarea></div>
+            <div class="financeiro-field"><label>Régua padrão?</label><select name="padrao"><option value="false">Não</option><option value="true">Sim</option></select></div>
+            <div class="financeiro-field"><label>Status</label><select name="ativo"><option value="true">Ativa</option><option value="false">Inativa</option></select></div>
+          </div>
+        </div>
+        <div class="financeiro-modal-foot"><button class="btn btn-secondary" type="button" data-close-modal>Cancelar</button><button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Salvar régua</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="financeiro-modal-backdrop" id="modal-etapa-cobranca" aria-hidden="true">
+    <div class="financeiro-modal sm">
+      <form id="form-etapa-cobranca">
+        <div class="financeiro-modal-head">
+          <div class="financeiro-modal-title"><h3 id="modal-etapa-cobranca-titulo">Nova etapa da régua</h3><p>Defina quando a notificação será enviada e por qual canal.</p></div>
+          <button class="financeiro-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="financeiro-modal-body">
+          <input type="hidden" name="regua_id">
+          <div class="financeiro-form-grid cols-2">
+            <div class="financeiro-field full"><label>Nome da etapa</label><input name="nome" required placeholder="Ex.: Lembrete antes do vencimento"></div>
+            <div class="financeiro-field"><label>Dias em relação ao vencimento</label><input name="deslocamento_dias" type="number" min="-365" max="3650" required value="0"><small>Ex.: -2 = dois dias antes; 5 = cinco dias depois.</small></div>
+            <div class="financeiro-field"><label>Ordem</label><input name="ordem" type="number" min="0" step="1" value="0"></div>
+            <div class="financeiro-field"><label>Canal</label><select name="canal"><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="sms">SMS</option><option value="interno">Interno</option></select></div>
+            <div class="financeiro-field"><label>Ação</label><select name="acao"><option value="lembrete">Lembrete</option><option value="alerta">Alerta</option><option value="bloqueio">Bloqueio</option><option value="protesto">Protesto</option><option value="outro">Outra</option></select></div>
+            <div class="financeiro-field"><label>Status</label><select name="ativo"><option value="true">Ativa</option><option value="false">Inativa</option></select></div>
+            <div class="financeiro-field full"><label>Mensagem</label><textarea name="mensagem" placeholder="Texto da notificação automática"></textarea><small>Envio automático. Variáveis disponíveis: {cliente}, {documento}, {valor}, {saldo}, {vencimento}, {dias_atraso}, {empresa} e {etapa}. Se ficar vazio, o Valora usa um texto padrão seguro para a etapa.</small></div>
+          </div>
+        </div>
+        <div class="financeiro-modal-foot"><button class="btn btn-secondary" type="button" data-close-modal>Cancelar</button><button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Salvar etapa</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="financeiro-modal-backdrop" id="modal-zapschat-cobranca" aria-hidden="true">
+    <div class="financeiro-modal zapschat-cobranca-modal">
+      <div class="financeiro-modal-head">
+        <div class="financeiro-modal-title">
+          <h3>WhatsApp para cobranças</h3>
+          <p>Conecte o Valora ao ZapsChat e escolha qual WhatsApp da sua empresa poderá enviar cobranças automáticas.</p>
+        </div>
+        <button class="financeiro-close" type="button" data-close-modal aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="financeiro-modal-body">
+        <div class="zapschat-security-note">
+          <i class="fa-solid fa-shield-halved"></i>
+          <div><strong>Configuração protegida</strong><p>O Valora nunca escolhe um número sozinho. Somente instâncias pertencentes à empresa conectada no ZapsChat aparecem aqui.</p></div>
+        </div>
+
+        <div id="zapschat-config-loading" class="zapschat-loading">
+          <i class="fa-solid fa-circle-notch fa-spin"></i> Verificando integração...
+        </div>
+
+        <div id="zapschat-config-readonly" class="zapschat-readonly-note" hidden>
+          <i class="fa-solid fa-lock"></i> Somente o proprietário ou administrador pode alterar esta integração. Você pode visualizar o status atual.
+        </div>
+
+        <section id="zapschat-pane-desconectado" class="zapschat-setup" hidden>
+          <div id="zapschat-servidor-warning" class="zapschat-warning" hidden>
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div><strong>Integração indisponível neste servidor</strong><p>Peça ao responsável técnico para habilitar a conexão do Valora com o ZapsChat. Nenhuma cobrança será enviada por WhatsApp até isso ser feito.</p></div>
+          </div>
+
+          <div class="zapschat-steps">
+            <div class="zapschat-step"><span>1</span><div><strong>Abra o ZapsChat</strong><p>Vá em <b>Configurações → Valora CRM</b>.</p></div></div>
+            <div class="zapschat-step"><span>2</span><div><strong>Gere um código</strong><p>Clique em <b>Gerar código de conexão</b>. O código dura 10 minutos e só funciona uma vez.</p></div></div>
+            <div class="zapschat-step"><span>3</span><div><strong>Cole o código abaixo</strong><p>O Valora identificará a empresa automaticamente. Você não precisa informar IDs ou tokens.</p></div></div>
+          </div>
+
+          <div class="zapschat-pair-box">
+            <label for="zapschat-pairing-code">Código de conexão</label>
+            <div class="zapschat-pair-row">
+              <input id="zapschat-pairing-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="00000000" aria-describedby="zapschat-pair-help">
+              <button class="btn btn-primary" type="button" id="btn-parear-zapschat"><i class="fa-solid fa-link"></i> Conectar ZapsChat</button>
+            </div>
+            <small id="zapschat-pair-help">Use somente o código mostrado dentro do ZapsChat da mesma empresa.</small>
+          </div>
+        </section>
+
+        <section id="zapschat-pane-conectado" class="zapschat-connected" hidden>
+          <div class="zapschat-connection-summary">
+            <div class="zapschat-connection-icon"><i class="fa-solid fa-circle-check"></i></div>
+            <div><span>Empresa conectada no ZapsChat</span><strong id="zapschat-empresa-conectada">—</strong><small id="zapschat-conexao-detalhe">Conexão protegida ativa</small></div>
+            <span class="zapschat-status-pill is-ok" id="zapschat-conexao-status">Conectado</span>
+          </div>
+
+          <div class="zapschat-instance-card">
+            <div class="zapschat-instance-heading">
+              <div><span class="financeiro-section-kicker">WhatsApp de saída</span><h4>Instância para cobranças</h4><p>Escolha o número que seus clientes devem reconhecer como o WhatsApp de cobrança da empresa.</p></div>
+              <button class="financeiro-mini-btn" type="button" id="btn-atualizar-instancias-zapschat"><i class="fa-solid fa-rotate"></i> Atualizar lista</button>
+            </div>
+            <div class="financeiro-field">
+              <label for="zapschat-instancia-select">WhatsApp para cobranças</label>
+              <select id="zapschat-instancia-select">
+                <option value="">Carregando instâncias...</option>
+              </select>
+              <small id="zapschat-instancia-help">Somente números conectados podem ser salvos.</small>
+            </div>
+            <div class="zapschat-instance-preview" id="zapschat-instancia-preview">
+              <i class="fa-brands fa-whatsapp"></i>
+              <div><span>Selecione um WhatsApp acima</span><strong>Nenhuma instância escolhida</strong><small>O Valora não fará disparos até uma instância conectada ser salva.</small></div>
+            </div>
+          </div>
+
+          <div class="zapschat-safe-rules">
+            <div><i class="fa-solid fa-building-shield"></i><span><strong>Empresa isolada</strong>O Valora só recebe instâncias da empresa pareada.</span></div>
+            <div><i class="fa-solid fa-ban"></i><span><strong>Sem troca automática</strong>Se o WhatsApp desconectar, o Valora para o envio em vez de usar outro número.</span></div>
+            <div><i class="fa-solid fa-clock-rotate-left"></i><span><strong>Sem cobrança duplicada</strong>Repetições por timeout usam a mesma chave e não geram outro disparo.</span></div>
+          </div>
+
+          <div class="zapschat-modal-actions">
+            <button class="btn btn-secondary" type="button" id="btn-testar-zapschat"><i class="fa-solid fa-stethoscope"></i> Testar conexão</button>
+            <button class="btn btn-primary" type="button" id="btn-salvar-instancia-zapschat"><i class="fa-solid fa-floppy-disk"></i> Salvar WhatsApp de cobrança</button>
+          </div>
+          <div class="zapschat-danger-zone" id="zapschat-danger-zone">
+            <div><strong>Desconectar ZapsChat</strong><p>Use somente se esta empresa não deve mais enviar cobranças pelo ZapsChat.</p></div>
+            <button class="btn btn-secondary" type="button" id="btn-desconectar-zapschat"><i class="fa-solid fa-link-slash"></i> Desconectar</button>
+          </div>
+        </section>
+      </div>
+      <div class="financeiro-modal-foot">
+        <span class="zapschat-foot-status" id="zapschat-modal-status">Nenhuma alteração foi feita.</span>
+        <button class="btn btn-secondary" type="button" data-close-modal>Fechar</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

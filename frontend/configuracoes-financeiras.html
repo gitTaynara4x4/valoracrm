@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Configurações do Financeiro | Valora CRM</title>
+  <script>(() => { const t = localStorage.getItem("valora_theme") || "light"; document.documentElement.setAttribute("data-theme", t); })();</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260630-dark-chatgpt-v6" />
+  <link rel="stylesheet" href="/frontend/css/financeiro.css?v=20260723-financeiro-base-v1" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
+  <script src="/frontend/js/shared/menu-global.js?v=20260819-automacao-cobranca-v1" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260819-automacao-cobranca-v1" defer></script>
+  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260819-automacao-cobranca-v1" />
+</head>
+<body class="financeiro-theme-valora">
+  <div class="layout">
+    <div id="valora-menu-root" aria-label="Menu Valora"></div>
+    <main class="main financeiro-page financeiro-page--valora financeiro-page--settings" data-financeiro-page="configuracoes">
+      <header class="topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Financeiro</span>
+          <h1>Configurações do Financeiro</h1>
+          <p class="topbar-subtitle">Cadastros, regras e integrações ficam separados da operação diária para reduzir erros.</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn btn-secondary" href="/financeiro"><i class="fa-solid fa-arrow-left"></i> Voltar ao Financeiro</a>
+        </div>
+      </header>
+
+      <div class="financeiro-toolbar">
+        <nav class="financeiro-tabs financeiro-tabs--primary">
+          <a href="/financeiro"><i class="fa-regular fa-clipboard"></i><span>Visão geral</span></a>
+          <a href="/contas-receber"><i class="fa-regular fa-calendar-check"></i><span>Contas a receber</span></a>
+          <a href="/contas-pagar"><i class="fa-regular fa-file-lines"></i><span>Contas a pagar</span></a>
+          <a href="/cobrancas-financeiro"><i class="fa-regular fa-bell"></i><span>Cobranças</span></a>
+          <a href="/fluxo-caixa"><i class="fa-solid fa-wave-square"></i><span>Fluxo de caixa</span></a>
+          <a href="/relatorios-financeiros"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a>
+          <a href="/configuracoes-financeiras" class="active" aria-current="page"><i class="fa-solid fa-gear"></i><span>Configurações</span></a>
+        </nav>
+        <span class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando configurações...</span>
+      </div>
+
+      <section class="financeiro-settings-intro">
+        <div class="financeiro-settings-intro-icon"><i class="fa-solid fa-shield-halved"></i></div>
+        <div>
+          <strong>Área de configuração</strong>
+          <p>Use esta tela para preparar o Financeiro. Contas, baixas, cobranças e relatórios continuam nas telas operacionais.</p>
+        </div>
+      </section>
+
+      <section class="financeiro-settings-section financeiro-settings-section--automation-index" id="automacoes-integracoes">
+        <div class="financeiro-settings-section-head">
+          <div>
+            <span class="financeiro-section-kicker">Automações e integrações</span>
+            <h2>Processos automáticos</h2>
+            <p>Configurações que alteram envios e rotinas automáticas ficam separadas dos cadastros do Financeiro.</p>
+          </div>
+        </div>
+        <div class="financeiro-settings-grid">
+          <a class="financeiro-settings-card financeiro-settings-card--featured" href="/automacao-cobranca">
+            <span class="settings-card-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <div>
+              <h3>Automação de cobrança</h3>
+              <p>Configure régua, mensagens, canais, WhatsApp do ZapsChat e proteções dos envios automáticos.</p>
+            </div>
+            <i class="fa-solid fa-chevron-right settings-card-arrow"></i>
+          </a>
+        </div>
+      </section>
+
+      <section class="financeiro-settings-section" id="cadastros-basicos">
+        <div class="financeiro-settings-section-head">
+          <div><span class="financeiro-section-kicker">Cadastros básicos</span><h2>Dados usados nos lançamentos</h2><p>Itens simples e frequentes ficam agrupados aqui.</p></div>
+        </div>
+        <div class="financeiro-settings-grid">
+          <a class="financeiro-settings-card" href="/categorias-financeiras">
+            <span class="settings-card-icon"><i class="fa-regular fa-folder-open"></i></span>
+            <div><h3>Categorias financeiras</h3><p>Organize receitas e despesas para análise e relatórios.</p></div><i class="fa-solid fa-chevron-right settings-card-arrow"></i>
+          </a>
+          <a class="financeiro-settings-card" href="/formas-pagamento">
+            <span class="settings-card-icon"><i class="fa-regular fa-credit-card"></i></span>
+            <div><h3>Formas de pagamento</h3><p>PIX, boleto, dinheiro, cartão, transferência e outras formas.</p></div><i class="fa-solid fa-chevron-right settings-card-arrow"></i>
+          </a>
+          <a class="financeiro-settings-card" href="/contas-bancos">
+            <span class="settings-card-icon"><i class="fa-solid fa-building-columns"></i></span>
+            <div><h3>Contas e bancos</h3><p>Caixa, bancos, cartões e contas usadas nas baixas.</p></div><i class="fa-solid fa-chevron-right settings-card-arrow"></i>
+          </a>
+          <a class="financeiro-settings-card" href="/cadastros-financeiros">
+            <span class="settings-card-icon"><i class="fa-solid fa-sitemap"></i></span>
+            <div><h3>Estrutura financeira</h3><p>Documentos, naturezas, tipos de gasto, centros de custo, unidades de consumo, plano de contas e encargos.</p></div><i class="fa-solid fa-chevron-right settings-card-arrow"></i>
+          </a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+</body>
+</html>

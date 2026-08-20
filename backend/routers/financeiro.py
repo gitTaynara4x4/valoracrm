@@ -32,6 +32,22 @@ MAX_COMPROVANTE_BYTES = 10 * 1024 * 1024
 CENTAVO = Decimal("0.01")
 
 
+# Estrutura de Centros de Custo entregue pelo cliente. O documento possui dois
+# grupos chamados "Serviços"; os dois são preservados como grupos distintos.
+# Os códigos são identificadores técnicos hierárquicos usados para ordenação.
+CENTROS_CUSTO_PADRAO_CLIENTE = (
+    ("01", "Empresa Geral", (("01.01", "Sócios"), ("01.02", "Diretorias"), ("01.03", "Gerencias Departamento"), ("01.04", "Relação Publicas"), ("01.05", "Comunicação Interna"))),
+    ("02", "Jurídico", (("02.01", "Contratos"), ("02.02", "Compliance"))),
+    ("03", "Financeiro", (("03.01", "Planejamento"), ("03.02", "Contabilidade"), ("03.03", "Faturamento"), ("03.04", "Compras"), ("03.05", "Contas a Pagar"))),
+    ("04", "Recursos Humanos", (("04.01", "Departamento de Pessoal"), ("04.02", "Recrutamento / Seleção"), ("04.03", "Treinamento"), ("04.04", "Segurança do Trabalho"), ("04.05", "Benefícios"))),
+    ("05", "Suprimentos", (("05.01", "Entrada/Expedição"), ("05.02", "Estoque"), ("05.03", "Almoxarifado"), ("05.04", "Logística"), ("05.05", "Conservação Patrimonial"))),
+    ("06", "Serviços", (("06.01", "Administrativo"), ("06.02", "Equipes de Instalação"), ("06.03", "Equipes de Manutenção"), ("06.04", "Equipes de Preventiva"))),
+    ("07", "Serviços", (("07.01", "T.I. Desenvolvimento"), ("07.02", "T.I. Infraestrutura /Nuvem"), ("07.03", "T.I. Segurança da Informação"), ("07.04", "T.I. Suporte Interno"), ("07.05", "T.I. Suporte de Campo"))),
+    ("08", "Comercial", (("08.01", "Comercial Administrativo"), ("08.02", "Comercial Marketing"), ("08.03", "Comercial Prospecção (Busca)"), ("08.04", "Comercial Analista de Vendas (SDR)"), ("08.05", "Comercial Vendas – Fechamento (Consultor)"), ("08.06", "Comercial – Mídias Sociais"), ("08.07", "Comercial – E-Commerce"), ("08.08", "Help Desk - Atendimento"))),
+    ("09", "Monitoramento", (("09.01", "Supervisão Operacional"), ("09.02", "Operação de Monitoramento (CCO)"), ("09.03", "Gestão de Riscos"), ("09.04", "Pronta Resposta INLOCO"), ("09.05", "Pronta Resposta Especializada"))),
+)
+
+
 # =========================================================
 # Dependências
 # =========================================================
@@ -484,11 +500,14 @@ class CentroCustoIn(BaseModel):
 
 
 class UnidadeConsumoIn(BaseModel):
-    nome: str
+    nome: Optional[str] = None
     codigo: Optional[str] = None
     tipo_referencia: str = "outro"
     unidade_pai_id: Optional[int] = None
     departamento_referencia: Optional[str] = None
+    referencia_usuario_id: Optional[int] = None
+    referencia_patrimonio_id: Optional[int] = None
+    referencia_cargo: Optional[str] = None
     ativo: bool = True
 
 
@@ -587,6 +606,12 @@ class BaixaIn(BaseModel):
     forma_pagamento_id: Optional[int] = None
     conta_banco_id: Optional[int] = None
     observacoes: Optional[str] = None
+
+    # Reparcelamento do saldo remanescente durante a baixa de Conta a Pagar.
+    reparcelar_saldo: bool = False
+    reparcelamento_parcelas: Optional[int] = None
+    reparcelamento_primeiro_vencimento: Optional[date] = None
+    reparcelamento_intervalo_meses: Optional[int] = 1
 
 
 class CancelamentoIn(BaseModel):
@@ -699,7 +724,14 @@ SELECT
     ee.nome AS entidade_emissora_nome,
     uc.nome AS criado_por_nome,
     ua.nome AS atualizado_por_nome,
-    ucan.nome AS cancelado_por_nome
+    ucan.nome AS cancelado_por_nome,
+    EXISTS (
+        SELECT 1
+        FROM public.financeiro_reparcelamentos rr
+        WHERE rr.empresa_id = l.empresa_id
+          AND rr.lancamento_origem_id = l.id
+          AND rr.status = 'ativo'
+    ) AS reparcelamento_ativo
 FROM public.financeiro_lancamentos l
 LEFT JOIN public.clientes c
        ON c.id = l.cliente_id
@@ -827,6 +859,43 @@ def recalcular_lancamento(db: Session, empresa_id: int, lancamento_id: int, usua
     }
 
 
+def garantir_centros_custo_iniciais(db: Session, empresa_id: int) -> bool:
+    """Cria a árvore inicial somente quando a empresa ainda não possui centros.
+
+    A migration completa empresas já existentes. Este fallback cobre empresas
+    criadas depois da migration sem reintroduzir itens apagados pelo usuário.
+    """
+    total = db.execute(
+        text("SELECT COUNT(*) FROM public.financeiro_centros_custo WHERE empresa_id=:empresa_id"),
+        {"empresa_id": empresa_id},
+    ).scalar() or 0
+    if int(total) > 0:
+        return False
+
+    for codigo_raiz, nome_raiz, filhos in CENTROS_CUSTO_PADRAO_CLIENTE:
+        raiz_id = db.execute(text("""
+            INSERT INTO public.financeiro_centros_custo
+                (empresa_id, codigo, nome, centro_pai_id, ativo, criado_em, atualizado_em)
+            VALUES (:empresa_id, :codigo, :nome, NULL, TRUE, NOW(), NOW())
+            RETURNING id
+        """), {
+            "empresa_id": empresa_id, "codigo": codigo_raiz, "nome": nome_raiz,
+        }).scalar_one()
+
+        for codigo_filho, nome_filho in filhos:
+            db.execute(text("""
+                INSERT INTO public.financeiro_centros_custo
+                    (empresa_id, codigo, nome, centro_pai_id, ativo, criado_em, atualizado_em)
+                VALUES (:empresa_id, :codigo, :nome, :pai_id, TRUE, NOW(), NOW())
+            """), {
+                "empresa_id": empresa_id, "codigo": codigo_filho,
+                "nome": nome_filho, "pai_id": int(raiz_id),
+            })
+
+    db.commit()
+    return True
+
+
 # =========================================================
 # Opções para selects
 # =========================================================
@@ -839,6 +908,7 @@ def opcoes_financeiro(
     usuario: models.Usuario = Depends(get_current_user),
 ):
     empresa_id = empresa_do(usuario)
+    garantir_centros_custo_iniciais(db, empresa_id)
     params = {"empresa_id": empresa_id}
 
     categorias = [row_to_dict(r) for r in db.execute(text("""
@@ -896,6 +966,23 @@ def opcoes_financeiro(
         """), params).fetchall()
         return [row_to_dict(r) for r in rows]
 
+    unidades_consumo = [row_to_dict(r) for r in db.execute(text("""
+        SELECT u.*,
+               CASE
+                 WHEN u.tipo_referencia IN ('patrimonio', 'veiculo') THEN COALESCE(p.nome, u.nome)
+                 WHEN u.tipo_referencia = 'colaborador' THEN COALESCE(ru.nome, u.nome)
+                 WHEN u.tipo_referencia = 'cargo' THEN COALESCE(u.referencia_cargo, u.nome)
+                 ELSE u.nome
+               END AS nome_exibicao
+        FROM public.financeiro_unidades_consumo u
+        LEFT JOIN public.patrimonios p
+               ON p.id=u.referencia_patrimonio_id AND p.empresa_id=u.empresa_id
+        LEFT JOIN public.usuarios ru
+               ON ru.id=u.referencia_usuario_id AND ru.empresa_id=u.empresa_id
+        WHERE u.empresa_id=:empresa_id AND u.ativo=TRUE
+        ORDER BY u.codigo NULLS LAST, nome_exibicao ASC, u.id ASC
+    """), params).fetchall()]
+
     return {
         "categorias": categorias,
         "formas_pagamento": formas,
@@ -906,12 +993,71 @@ def opcoes_financeiro(
         "naturezas_operacao": ativos("financeiro_naturezas_operacao"),
         "tipos_gasto": ativos("financeiro_tipos_gasto", "codigo NULLS LAST, nome ASC"),
         "centros_custo": ativos("financeiro_centros_custo", "codigo NULLS LAST, nome ASC"),
-        "unidades_consumo": ativos("financeiro_unidades_consumo", "codigo NULLS LAST, nome ASC"),
+        "unidades_consumo": unidades_consumo,
         "contas_contabeis": ativos("financeiro_contas_contabeis", "codigo ASC, nome ASC"),
         "formas_cobranca": ativos("financeiro_formas_cobranca"),
         "regras_encargos": ativos("financeiro_regras_encargos", "padrao DESC, nome ASC"),
         "reguas_cobranca": ativos("financeiro_reguas_cobranca", "padrao DESC, nome ASC"),
     }
+
+
+@router.get("/clientes-busca")
+def pesquisar_clientes_financeiro(
+    busca: str = Query(default="", max_length=160),
+    limit: int = Query(default=30, ge=1, le=50),
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    """Busca leve de clientes para o seletor pesquisável dos lançamentos financeiros."""
+    empresa_id = empresa_do(usuario)
+    termo = (busca or "").strip()
+    if len(termo) < 2:
+        return {"items": []}
+
+    rows = db.execute(text("""
+        SELECT
+            id,
+            codigo,
+            nome,
+            nome_fantasia,
+            cpf_cnpj,
+            email,
+            email_cobranca,
+            telefone,
+            whatsapp,
+            contato,
+            modalidade_pagamento
+        FROM public.clientes
+        WHERE empresa_id = :empresa_id
+          AND (
+               COALESCE(codigo, '') ILIKE :busca
+            OR COALESCE(nome, '') ILIKE :busca
+            OR COALESCE(nome_fantasia, '') ILIKE :busca
+            OR COALESCE(cpf_cnpj, '') ILIKE :busca
+            OR COALESCE(email, '') ILIKE :busca
+            OR COALESCE(email_cobranca, '') ILIKE :busca
+            OR COALESCE(telefone, '') ILIKE :busca
+            OR COALESCE(whatsapp, '') ILIKE :busca
+            OR COALESCE(contato, '') ILIKE :busca
+          )
+        ORDER BY
+            CASE
+                WHEN COALESCE(codigo, '') ILIKE :inicio THEN 0
+                WHEN COALESCE(nome, '') ILIKE :inicio THEN 1
+                WHEN COALESCE(nome_fantasia, '') ILIKE :inicio THEN 2
+                ELSE 3
+            END,
+            nome ASC,
+            id ASC
+        LIMIT :limit
+    """), {
+        "empresa_id": empresa_id,
+        "busca": f"%{termo}%",
+        "inicio": f"{termo}%",
+        "limit": limit,
+    }).fetchall()
+
+    return {"items": [row_to_dict(row) for row in rows]}
 
 
 @router.get("/sacados")
@@ -1378,6 +1524,228 @@ LANCAMENTO_INSERT_SQL = """
         :usuario_id, :usuario_id, NOW(), NOW()
     ) RETURNING id
 """
+
+
+
+def criar_reparcelamento_saldo(
+    *,
+    db: Session,
+    empresa_id: int,
+    usuario_id: int,
+    lancamento_origem: Dict[str, Any],
+    movimentacao_baixa_id: int,
+    valor_pago_acumulado: Decimal,
+    valor_principal_baixa: Decimal,
+    data_baixa: date,
+    quantidade_parcelas: int,
+    primeiro_vencimento: date,
+    intervalo_meses: int,
+) -> Dict[str, Any]:
+    """Transfere o saldo de uma Conta a Pagar para novos títulos, sem duplicá-lo.
+
+    A conta original mantém o histórico do valor inicialmente contratado na
+    tabela financeiro_reparcelamentos. No lançamento principal, valor_total é
+    reduzido ao principal efetivamente liquidado até o reparcelamento; o saldo
+    restante passa a existir somente nos novos títulos.
+    """
+    if str(lancamento_origem.get("tipo") or "").lower() != "pagar":
+        raise HTTPException(status_code=422, detail="O reparcelamento durante a baixa está disponível somente para Contas a Pagar.")
+
+    valor_original = parse_money(lancamento_origem.get("valor_total"))
+    pago_antes = parse_money(lancamento_origem.get("valor_pago"))
+    pago_apos = arredondar_moeda(parse_money(valor_pago_acumulado))
+    saldo_reparcelado = arredondar_moeda(max(Decimal("0"), valor_original - pago_apos))
+
+    if saldo_reparcelado <= 0:
+        raise HTTPException(status_code=422, detail="Não existe saldo em aberto para reparcelar após esta baixa.")
+    if quantidade_parcelas < 2 or quantidade_parcelas > 120:
+        raise HTTPException(status_code=422, detail="A quantidade do reparcelamento deve ficar entre 2 e 120 parcelas.")
+    if intervalo_meses < 1 or intervalo_meses > 24:
+        raise HTTPException(status_code=422, detail="O intervalo do reparcelamento deve ficar entre 1 e 24 meses.")
+    if primeiro_vencimento < data_baixa:
+        raise HTTPException(status_code=422, detail="O primeiro vencimento do reparcelamento não pode ser anterior à data da baixa.")
+
+    total_centavos = int((saldo_reparcelado * 100).to_integral_value())
+    if total_centavos < quantidade_parcelas:
+        raise HTTPException(
+            status_code=422,
+            detail="O saldo em aberto é insuficiente para essa quantidade de parcelas sem gerar parcela zerada.",
+        )
+
+    grupo_parcelamento = uuid4().hex
+    reparcelamento_row = db.execute(text("""
+        INSERT INTO public.financeiro_reparcelamentos (
+            empresa_id, lancamento_origem_id, movimentacao_baixa_id,
+            grupo_parcelamento, valor_original, valor_pago_acumulado_antes,
+            valor_principal_baixa, saldo_reparcelado, quantidade_parcelas,
+            data_primeiro_vencimento, intervalo_meses, usuario_id,
+            lancamentos_gerados_ids, status, criado_em, atualizado_em
+        ) VALUES (
+            :empresa_id, :lancamento_origem_id, :movimentacao_baixa_id,
+            :grupo_parcelamento, :valor_original, :valor_pago_acumulado_antes,
+            :valor_principal_baixa, :saldo_reparcelado, :quantidade_parcelas,
+            :data_primeiro_vencimento, :intervalo_meses, :usuario_id,
+            '[]'::jsonb, 'ativo', NOW(), NOW()
+        ) RETURNING id
+    """), {
+        "empresa_id": empresa_id,
+        "lancamento_origem_id": int(lancamento_origem["id"]),
+        "movimentacao_baixa_id": movimentacao_baixa_id,
+        "grupo_parcelamento": grupo_parcelamento,
+        "valor_original": valor_original,
+        "valor_pago_acumulado_antes": pago_antes,
+        "valor_principal_baixa": valor_principal_baixa,
+        "saldo_reparcelado": saldo_reparcelado,
+        "quantidade_parcelas": quantidade_parcelas,
+        "data_primeiro_vencimento": primeiro_vencimento,
+        "intervalo_meses": intervalo_meses,
+        "usuario_id": usuario_id,
+    }).first()
+    reparcelamento_id = int(reparcelamento_row[0])
+
+    valores = dividir_valor_em_parcelas(saldo_reparcelado, quantidade_parcelas)
+    ids_gerados: list[int] = []
+    for indice, valor_parcela in enumerate(valores, start=1):
+        vencimento = adicionar_meses(primeiro_vencimento, (indice - 1) * intervalo_meses)
+        params = {
+            "empresa_id": empresa_id,
+            "tipo": "pagar",
+            "descricao": str(lancamento_origem.get("descricao") or "Conta reparcelada"),
+            "moeda": str(lancamento_origem.get("moeda") or "BRL"),
+            "valor_total": valor_parcela,
+            "data_emissao": data_baixa,
+            "data_vencimento": vencimento,
+            "status": status_por_valor("pagar", "aberto", valor_parcela, Decimal("0"), vencimento),
+            "cliente_id": lancamento_origem.get("cliente_id"),
+            "fornecedor_id": lancamento_origem.get("fornecedor_id"),
+            "categoria_id": lancamento_origem.get("categoria_id"),
+            "forma_pagamento_id": lancamento_origem.get("forma_pagamento_id"),
+            "conta_banco_id": lancamento_origem.get("conta_banco_id"),
+            "tipo_documento_id": lancamento_origem.get("tipo_documento_id"),
+            "natureza_operacao_id": lancamento_origem.get("natureza_operacao_id"),
+            "tipo_gasto_id": lancamento_origem.get("tipo_gasto_id"),
+            "centro_custo_principal_id": lancamento_origem.get("centro_custo_principal_id"),
+            "centro_custo_secundario_id": lancamento_origem.get("centro_custo_secundario_id"),
+            "unidade_consumo_principal_id": lancamento_origem.get("unidade_consumo_principal_id"),
+            "unidade_consumo_secundaria_id": lancamento_origem.get("unidade_consumo_secundaria_id"),
+            "conta_contabil_id": lancamento_origem.get("conta_contabil_id"),
+            "forma_cobranca_id": lancamento_origem.get("forma_cobranca_id"),
+            "regra_encargos_id": lancamento_origem.get("regra_encargos_id"),
+            "regua_cobranca_id": lancamento_origem.get("regua_cobranca_id"),
+            "entidade_emissora_id": lancamento_origem.get("entidade_emissora_id"),
+            "possui_multa": bool(lancamento_origem.get("possui_multa")),
+            "indice_multa_percent": parse_percentage(lancamento_origem.get("indice_multa_percent")),
+            "possui_mora_diaria": bool(lancamento_origem.get("possui_mora_diaria")),
+            "indice_mora_diaria_percent": parse_percentage(lancamento_origem.get("indice_mora_diaria_percent")),
+            "documento": norm_str(lancamento_origem.get("documento")),
+            "observacoes": norm_str(lancamento_origem.get("observacoes")),
+            "anexo_url": norm_str(lancamento_origem.get("anexo_url")),
+            "contato_cobranca": norm_str(lancamento_origem.get("contato_cobranca")),
+            "email_cobranca": norm_str(lancamento_origem.get("email_cobranca")),
+            "whatsapp_cobranca": norm_str(lancamento_origem.get("whatsapp_cobranca")),
+            "modalidade_pagamento": norm_str(lancamento_origem.get("modalidade_pagamento")),
+            "nota_fiscal_numero": norm_str(lancamento_origem.get("nota_fiscal_numero")),
+            "nota_fiscal_data_emissao": lancamento_origem.get("nota_fiscal_data_emissao"),
+            # As novas parcelas são resultado de uma renegociação financeira,
+            # não uma nova ocorrência da recorrência original.
+            "recorrente": False,
+            "parcelado": True,
+            "parcela_numero": indice,
+            "parcela_total": quantidade_parcelas,
+            "grupo_recorrencia": None,
+            "grupo_parcelamento": grupo_parcelamento,
+            "usuario_id": usuario_id,
+        }
+        row = db.execute(text(LANCAMENTO_INSERT_SQL), params).first()
+        novo_id = int(row[0])
+        ids_gerados.append(novo_id)
+        db.execute(text("""
+            UPDATE public.financeiro_lancamentos
+               SET origem_tipo = 'reparcelamento',
+                   origem_id = :reparcelamento_id,
+                   origem_codigo = :origem_codigo,
+                   atualizado_em = NOW()
+             WHERE empresa_id = :empresa_id AND id = :id
+        """), {
+            "reparcelamento_id": reparcelamento_id,
+            "origem_codigo": f"REP-{reparcelamento_id}",
+            "empresa_id": empresa_id,
+            "id": novo_id,
+        })
+        novo = obter_lancamento_dict(db, empresa_id, novo_id)
+        registrar_auditoria(
+            db,
+            empresa_id=empresa_id,
+            usuario_id=usuario_id,
+            acao="criar_parcela_reparcelamento",
+            entidade="lancamento",
+            entidade_id=novo_id,
+            novos=novo,
+            motivo=f"Reparcelamento #{reparcelamento_id} da conta #{lancamento_origem['id']}; parcela {indice}/{quantidade_parcelas}.",
+        )
+
+    db.execute(text("""
+        UPDATE public.financeiro_reparcelamentos
+           SET lancamentos_gerados_ids = CAST(:ids AS jsonb), atualizado_em = NOW()
+         WHERE empresa_id = :empresa_id AND id = :id
+    """), {
+        "ids": json.dumps(ids_gerados),
+        "empresa_id": empresa_id,
+        "id": reparcelamento_id,
+    })
+
+    # Retira o saldo transferido da conta original. O valor principal já pago
+    # permanece no título; o restante passa a existir exclusivamente nas novas
+    # parcelas, impedindo duplicação no contas a pagar e nos relatórios.
+    db.execute(text("""
+        UPDATE public.financeiro_lancamentos
+           SET valor_total = :novo_valor_total,
+               atualizado_por_usuario_id = :usuario_id,
+               atualizado_em = NOW()
+         WHERE empresa_id = :empresa_id AND id = :id
+    """), {
+        "novo_valor_total": pago_apos,
+        "usuario_id": usuario_id,
+        "empresa_id": empresa_id,
+        "id": int(lancamento_origem["id"]),
+    })
+    calculado_origem = recalcular_lancamento(db, empresa_id, int(lancamento_origem["id"]), usuario_id)
+
+    registrar_auditoria(
+        db,
+        empresa_id=empresa_id,
+        usuario_id=usuario_id,
+        acao="reparcelar_saldo",
+        entidade="lancamento",
+        entidade_id=int(lancamento_origem["id"]),
+        anteriores={
+            "valor_total": float(valor_original),
+            "valor_pago": float(pago_antes),
+            "saldo_aberto": float(max(Decimal("0"), valor_original - pago_antes)),
+        },
+        novos={
+            "reparcelamento_id": reparcelamento_id,
+            "movimentacao_baixa_id": movimentacao_baixa_id,
+            "valor_total_apos_transferencia": float(pago_apos),
+            "saldo_reparcelado": float(saldo_reparcelado),
+            "quantidade_parcelas": quantidade_parcelas,
+            "primeiro_vencimento": primeiro_vencimento.isoformat(),
+            "intervalo_meses": intervalo_meses,
+            "lancamentos_gerados_ids": ids_gerados,
+            **calculado_origem,
+        },
+        motivo=f"Saldo de R$ {saldo_reparcelado:.2f} transferido para {quantidade_parcelas} nova(s) parcela(s).",
+    )
+
+    return {
+        "id": reparcelamento_id,
+        "saldo_reparcelado": float(saldo_reparcelado),
+        "quantidade_parcelas": quantidade_parcelas,
+        "primeiro_vencimento": primeiro_vencimento.isoformat(),
+        "intervalo_meses": intervalo_meses,
+        "grupo_parcelamento": grupo_parcelamento,
+        "lancamentos_gerados_ids": ids_gerados,
+    }
 
 
 @router.post("/lancamentos", status_code=status.HTTP_201_CREATED)
@@ -1884,6 +2252,19 @@ def atualizar_lancamento(
     anterior = obter_lancamento_para_update(db, empresa_id, lancamento_id)
     if anterior["status"] == "cancelado":
         raise HTTPException(status_code=409, detail="Lançamento cancelado não pode ser editado.")
+    reparcelamento_ativo = db.execute(text("""
+        SELECT 1
+        FROM public.financeiro_reparcelamentos
+        WHERE empresa_id = :empresa_id
+          AND lancamento_origem_id = :lancamento_id
+          AND status = 'ativo'
+        LIMIT 1
+    """), {"empresa_id": empresa_id, "lancamento_id": lancamento_id}).first()
+    if reparcelamento_ativo:
+        raise HTTPException(
+            status_code=409,
+            detail="Esta conta originou um reparcelamento ativo e não pode ser editada para evitar duplicação do saldo. Edite as novas parcelas individualmente.",
+        )
     params = montar_params_lancamento(payload, empresa_id, db)
     valor_pago_atual = parse_money(anterior["valor_pago"])
     if params["valor_total"] < valor_pago_atual:
@@ -2034,6 +2415,28 @@ def baixar_lancamento(
         raise HTTPException(status_code=422, detail=f"O principal não pode superar o saldo aberto de R$ {saldo_aberto:.2f}.")
 
     data_baixa = payload.data_pagamento or date.today()
+
+    reparcelar_saldo = bool(payload.reparcelar_saldo)
+    quantidade_reparcelamento = int(payload.reparcelamento_parcelas or 0) if reparcelar_saldo else 0
+    intervalo_reparcelamento = int(payload.reparcelamento_intervalo_meses or 1) if reparcelar_saldo else 1
+    primeiro_vencimento_reparcelamento = payload.reparcelamento_primeiro_vencimento
+    saldo_apos_principal = arredondar_moeda(max(Decimal("0"), saldo_aberto - valor_principal))
+    if reparcelar_saldo:
+        if str(anterior.get("tipo") or "").lower() != "pagar":
+            raise HTTPException(status_code=422, detail="O reparcelamento durante a baixa está disponível somente para Contas a Pagar.")
+        if saldo_apos_principal <= 0:
+            raise HTTPException(status_code=422, detail="Para reparcelar, informe um principal menor que o saldo aberto da conta.")
+        if quantidade_reparcelamento < 2 or quantidade_reparcelamento > 120:
+            raise HTTPException(status_code=422, detail="Informe entre 2 e 120 parcelas para o reparcelamento.")
+        if intervalo_reparcelamento < 1 or intervalo_reparcelamento > 24:
+            raise HTTPException(status_code=422, detail="O intervalo do reparcelamento deve ficar entre 1 e 24 meses.")
+        if primeiro_vencimento_reparcelamento is None:
+            raise HTTPException(status_code=422, detail="Informe o primeiro vencimento das novas parcelas.")
+        if primeiro_vencimento_reparcelamento < data_baixa:
+            raise HTTPException(status_code=422, detail="O primeiro vencimento das novas parcelas não pode ser anterior à data da baixa.")
+        if int((saldo_apos_principal * 100).to_integral_value()) < quantidade_reparcelamento:
+            raise HTTPException(status_code=422, detail="O saldo em aberto é insuficiente para essa quantidade de parcelas.")
+
     multa_aplicada = multa_ja_aplicada_no_lancamento(db, empresa_id, lancamento_id)
     encargos = calcular_encargos(
         lancamento=anterior,
@@ -2146,10 +2549,29 @@ def baixar_lancamento(
         },
         motivo=payload.observacoes,
     )
+
+    reparcelamento = None
+    if reparcelar_saldo:
+        reparcelamento = criar_reparcelamento_saldo(
+            db=db,
+            empresa_id=empresa_id,
+            usuario_id=int(usuario.id),
+            lancamento_origem=anterior,
+            movimentacao_baixa_id=movimento_id,
+            valor_pago_acumulado=parse_money(calculado.get("valor_pago")),
+            valor_principal_baixa=valor_principal,
+            data_baixa=data_baixa,
+            quantidade_parcelas=quantidade_reparcelamento,
+            primeiro_vencimento=primeiro_vencimento_reparcelamento,
+            intervalo_meses=intervalo_reparcelamento,
+        )
+
     db.commit()
     resultado = obter_lancamento_dict(db, empresa_id, lancamento_id)
     resultado["movimentacao_id"] = movimento_id
     resultado["valor_total_baixa"] = float(valor_caixa)
+    if reparcelamento:
+        resultado["reparcelamento"] = reparcelamento
     return resultado
 
 
@@ -2172,7 +2594,13 @@ def historico_lancamento(
                 WHERE e.empresa_id = m.empresa_id
                   AND e.movimentacao_origem_id = m.id
                   AND e.tipo_movimentacao = 'estorno'
-            ) AS estornada
+            ) AS estornada,
+            EXISTS (
+                SELECT 1 FROM public.financeiro_reparcelamentos rr
+                WHERE rr.empresa_id = m.empresa_id
+                  AND rr.movimentacao_baixa_id = m.id
+                  AND rr.status = 'ativo'
+            ) AS reparcelamento_ativo
         FROM public.financeiro_movimentacoes m
         LEFT JOIN public.usuarios u ON u.id = m.usuario_id
         LEFT JOIN public.financeiro_formas_pagamento fp
@@ -2191,7 +2619,31 @@ def historico_lancamento(
           AND a.entidade_id = :lancamento_id
         ORDER BY a.criado_em DESC, a.id DESC
     """), {"empresa_id": empresa_id, "lancamento_id": lancamento_id}).fetchall()]
-    return {"lancamento": lancamento, "movimentacoes": movimentacoes, "auditoria": auditoria}
+    reparcelamentos = [row_to_dict(r) for r in db.execute(text("""
+        SELECT rr.*, u.nome AS usuario_nome
+        FROM public.financeiro_reparcelamentos rr
+        LEFT JOIN public.usuarios u ON u.id = rr.usuario_id
+        WHERE rr.empresa_id = :empresa_id
+          AND rr.lancamento_origem_id = :lancamento_id
+        ORDER BY rr.criado_em DESC, rr.id DESC
+    """), {"empresa_id": empresa_id, "lancamento_id": lancamento_id}).fetchall()]
+    reparcelamento_origem = None
+    if str(lancamento.get("origem_tipo") or "").lower() == "reparcelamento" and lancamento.get("origem_id"):
+        rr = db.execute(text("""
+            SELECT rr.*, u.nome AS usuario_nome
+            FROM public.financeiro_reparcelamentos rr
+            LEFT JOIN public.usuarios u ON u.id = rr.usuario_id
+            WHERE rr.empresa_id = :empresa_id AND rr.id = :id
+            LIMIT 1
+        """), {"empresa_id": empresa_id, "id": int(lancamento["origem_id"])}).first()
+        reparcelamento_origem = row_to_dict(rr) if rr else None
+    return {
+        "lancamento": lancamento,
+        "movimentacoes": movimentacoes,
+        "auditoria": auditoria,
+        "reparcelamentos": reparcelamentos,
+        "reparcelamento_origem": reparcelamento_origem,
+    }
 
 
 @router.post("/movimentacoes/{movimentacao_id}/comprovante")
@@ -2321,6 +2773,19 @@ def estornar_movimentacao(
     """), {"empresa_id": empresa_id, "origem_id": movimentacao_id}).first()
     if ja_estornada:
         raise HTTPException(status_code=409, detail="Esta movimentação já foi estornada.")
+    reparcelamento_ativo = db.execute(text("""
+        SELECT id
+        FROM public.financeiro_reparcelamentos
+        WHERE empresa_id = :empresa_id
+          AND movimentacao_baixa_id = :movimentacao_id
+          AND status = 'ativo'
+        LIMIT 1
+    """), {"empresa_id": empresa_id, "movimentacao_id": movimentacao_id}).first()
+    if reparcelamento_ativo:
+        raise HTTPException(
+            status_code=409,
+            detail="Esta baixa originou um reparcelamento ativo. O estorno direto foi bloqueado para não duplicar ou perder o saldo das novas parcelas.",
+        )
 
     estorno = db.execute(text("""
         INSERT INTO public.financeiro_movimentacoes (
@@ -2653,6 +3118,203 @@ def relatorio_resumo(
         "por_tipo_gasto": por_tipo_gasto,
         "por_centro_custo": por_centro_custo,
         "contas_receber": contas_receber,
+    }
+
+
+@router.get("/relatorios/cobranca")
+def relatorios_cobranca_documento(
+    data_inicio: Optional[date] = Query(default=None),
+    data_fim: Optional[date] = Query(default=None),
+    cliente_id: Optional[int] = Query(default=None),
+    forma_cobranca_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    """Relatórios operacionais de cobrança previstos no documento funcional.
+
+    Entrega exatamente os seis grupos solicitados pelo cliente:
+    títulos emitidos, pagos, pagos com atraso, em atraso, a bloquear e a
+    enviar a cartório. O período usa a data própria de cada relatório
+    (emissão, pagamento ou vencimento), evitando misturar conceitos.
+    """
+    empresa_id = empresa_do(usuario)
+    inicio = data_inicio or date.today().replace(day=1)
+    fim = data_fim or date.today()
+    if fim < inicio:
+        raise HTTPException(status_code=422, detail="A data final deve ser igual ou posterior à data inicial.")
+
+    if cliente_id is not None:
+        validar_id_empresa(db, table_name="clientes", item_id=cliente_id, empresa_id=empresa_id, label="Cliente")
+    if forma_cobranca_id is not None:
+        validar_id_empresa(
+            db, table_name="financeiro_formas_cobranca", item_id=forma_cobranca_id,
+            empresa_id=empresa_id, label="Forma de cobrança",
+        )
+
+    params: Dict[str, Any] = {
+        "empresa_id": empresa_id,
+        "data_inicio": inicio,
+        "data_fim": fim,
+    }
+    filtros = [
+        "l.empresa_id = :empresa_id",
+        "l.tipo = 'receber'",
+        "l.status <> 'cancelado'",
+    ]
+    if cliente_id is not None:
+        filtros.append("l.cliente_id = :cliente_id")
+        params["cliente_id"] = cliente_id
+    if forma_cobranca_id is not None:
+        filtros.append("l.forma_cobranca_id = :forma_cobranca_id")
+        params["forma_cobranca_id"] = forma_cobranca_id
+    base_where = " AND ".join(filtros)
+
+    # "Títulos emitidos" usa o processo real de emissão em lote, e não a
+    # data em que o lançamento financeiro foi originalmente criado. Os nomes,
+    # forma de cobrança e valores são snapshots do momento da emissão para que
+    # o relatório continue auditável mesmo se o cadastro for alterado depois.
+    filtros_emitidos = [
+        "ee.empresa_id=:empresa_id",
+        "ee.data_emissao BETWEEN :data_inicio AND :data_fim",
+    ]
+    if cliente_id is not None:
+        filtros_emitidos.append("ei.cliente_id=:cliente_id")
+    if forma_cobranca_id is not None:
+        filtros_emitidos.append("ei.forma_cobranca_id=:forma_cobranca_id")
+    emitidos_where = " AND ".join(filtros_emitidos)
+
+    emitidos = [row_to_dict(r) for r in db.execute(text(f"""
+        SELECT
+            l.id, ee.id AS emissao_lote_id, ee.data_emissao,
+            COALESCE(ei.cliente_nome, c.nome, 'Cliente não identificado') AS nome,
+            ei.data_vencimento, ei.valor_titulo AS valor, ei.saldo_emitido,
+            COALESCE(ei.forma_cobranca_nome, fc.nome, 'Não informada') AS forma_recebimento,
+            COALESCE(ei.documento, l.documento) AS documento
+        FROM public.financeiro_cobrancas_emissao_itens ei
+        JOIN public.financeiro_cobrancas_emissoes ee
+          ON ee.id=ei.emissao_id AND ee.empresa_id=ei.empresa_id
+        JOIN public.financeiro_lancamentos l
+          ON l.id=ei.lancamento_id AND l.empresa_id=ei.empresa_id
+        LEFT JOIN public.clientes c
+               ON c.id=ei.cliente_id AND c.empresa_id=ei.empresa_id
+        LEFT JOIN public.financeiro_formas_cobranca fc
+               ON fc.id=ei.forma_cobranca_id AND fc.empresa_id=ei.empresa_id
+        WHERE {emitidos_where}
+        ORDER BY ee.data_emissao ASC, ei.data_vencimento ASC, ei.id ASC
+    """), params).fetchall()]
+
+    # Para títulos quitados, usamos a forma de pagamento/recebimento efetivamente
+    # registrada; nos títulos em aberto, a forma prevista de cobrança.
+
+    quitados_select = f"""
+        SELECT
+            l.id, COALESCE(c.nome, 'Cliente não identificado') AS nome,
+            l.data_vencimento, l.data_pagamento, l.valor_total AS valor,
+            COALESCE(fp.nome, fc.nome, 'Não informada') AS forma_recebimento,
+            GREATEST(l.data_pagamento - l.data_vencimento, 0) AS dias_atraso,
+            l.documento
+        FROM public.financeiro_lancamentos l
+        LEFT JOIN public.clientes c
+               ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_formas_pagamento fp
+               ON fp.id=l.forma_pagamento_id AND fp.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_formas_cobranca fc
+               ON fc.id=l.forma_cobranca_id AND fc.empresa_id=l.empresa_id
+        WHERE {base_where}
+          AND l.valor_total > 0
+          AND l.valor_pago >= l.valor_total
+          AND l.data_pagamento IS NOT NULL
+          AND l.data_pagamento BETWEEN :data_inicio AND :data_fim
+    """
+    pagos = [row_to_dict(r) for r in db.execute(text(quitados_select + " ORDER BY l.data_pagamento ASC, l.id ASC"), params).fetchall()]
+    pagos_atraso = [row_to_dict(r) for r in db.execute(text(quitados_select + " AND l.data_pagamento > l.data_vencimento ORDER BY l.data_pagamento ASC, l.id ASC"), params).fetchall()]
+
+    em_atraso = [row_to_dict(r) for r in db.execute(text(f"""
+        SELECT
+            l.id, COALESCE(c.nome, 'Cliente não identificado') AS nome,
+            l.data_vencimento, l.valor_total AS valor,
+            GREATEST(l.valor_total-l.valor_pago, 0) AS saldo_aberto,
+            COALESCE(fc.nome, fp.nome, 'Não informada') AS forma_recebimento,
+            GREATEST(CURRENT_DATE-l.data_vencimento, 0) AS dias_atraso,
+            l.documento
+        FROM public.financeiro_lancamentos l
+        LEFT JOIN public.clientes c
+               ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_formas_cobranca fc
+               ON fc.id=l.forma_cobranca_id AND fc.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_formas_pagamento fp
+               ON fp.id=l.forma_pagamento_id AND fp.empresa_id=l.empresa_id
+        WHERE {base_where}
+          AND l.valor_total > l.valor_pago
+          AND l.data_vencimento < CURRENT_DATE
+          AND l.data_vencimento BETWEEN :data_inicio AND :data_fim
+        ORDER BY l.data_vencimento ASC, l.id ASC
+    """), params).fetchall()]
+
+    def relatorio_acao_cobranca(acao: str) -> list[Dict[str, Any]]:
+        acao_params = {**params, "acao": acao}
+        return [row_to_dict(r) for r in db.execute(text(f"""
+            WITH regua_padrao AS (
+                SELECT id
+                FROM public.financeiro_reguas_cobranca
+                WHERE empresa_id=:empresa_id AND ativo=TRUE AND padrao=TRUE
+                ORDER BY id LIMIT 1
+            )
+            SELECT
+                l.id, COALESCE(c.nome, 'Cliente não identificado') AS nome,
+                l.data_vencimento, l.valor_total AS valor,
+                GREATEST(l.valor_total-l.valor_pago, 0) AS saldo_aberto,
+                COALESCE(fc.nome, fp.nome, 'Não informada') AS forma_recebimento,
+                GREATEST(CURRENT_DATE-l.data_vencimento, 0) AS dias_atraso,
+                l.documento
+            FROM public.financeiro_lancamentos l
+            LEFT JOIN public.clientes c
+                   ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
+            LEFT JOIN public.financeiro_formas_cobranca fc
+                   ON fc.id=l.forma_cobranca_id AND fc.empresa_id=l.empresa_id
+            LEFT JOIN public.financeiro_formas_pagamento fp
+                   ON fp.id=l.forma_pagamento_id AND fp.empresa_id=l.empresa_id
+            WHERE {base_where}
+              AND l.valor_total > l.valor_pago
+              AND l.data_vencimento < CURRENT_DATE
+              AND l.data_vencimento BETWEEN :data_inicio AND :data_fim
+              AND EXISTS (
+                  SELECT 1
+                  FROM public.financeiro_reguas_cobranca r
+                  JOIN public.financeiro_reguas_cobranca_etapas e
+                    ON e.empresa_id=r.empresa_id AND e.regua_id=r.id
+                   AND e.ativo=TRUE AND e.acao=:acao
+                  WHERE r.empresa_id=l.empresa_id
+                    AND r.id=COALESCE(l.regua_cobranca_id, (SELECT id FROM regua_padrao))
+                    AND r.ativo=TRUE
+                    AND CURRENT_DATE >= (l.data_vencimento + e.deslocamento_dias)
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM public.financeiro_cobrancas_envios ce
+                        WHERE ce.empresa_id=l.empresa_id
+                          AND ce.lancamento_id=l.id
+                          AND ce.etapa_id=e.id
+                          AND ce.status IN ('enviado', 'ignorado')
+                    )
+              )
+            ORDER BY l.data_vencimento ASC, l.id ASC
+        """), acao_params).fetchall()]
+
+    a_bloquear = relatorio_acao_cobranca("bloqueio")
+    a_cartorio = relatorio_acao_cobranca("protesto")
+
+    def resumo(items: list[Dict[str, Any]], campo_valor: str = "valor") -> Dict[str, Any]:
+        total = sum(Decimal(str(item.get(campo_valor) or 0)) for item in items)
+        return {"quantidade": len(items), "valor_total": float(total)}
+
+    return {
+        "periodo": {"data_inicio": inicio.isoformat(), "data_fim": fim.isoformat()},
+        "titulos_emitidos": {"items": emitidos, "resumo": resumo(emitidos)},
+        "titulos_pagos": {"items": pagos, "resumo": resumo(pagos)},
+        "titulos_pagos_atraso": {"items": pagos_atraso, "resumo": resumo(pagos_atraso)},
+        "titulos_em_atraso": {"items": em_atraso, "resumo": resumo(em_atraso, "saldo_aberto")},
+        "titulos_a_bloquear": {"items": a_bloquear, "resumo": resumo(a_bloquear, "saldo_aberto")},
+        "titulos_a_cartorio": {"items": a_cartorio, "resumo": resumo(a_cartorio, "saldo_aberto")},
     }
 
 
@@ -3093,12 +3755,14 @@ def excluir_tipo_gasto(item_id: int, db: Session = Depends(get_db), usuario: mod
 
 @router.get("/centros-custo")
 def listar_centros_custo(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
+    empresa_id = empresa_do(usuario)
+    garantir_centros_custo_iniciais(db, empresa_id)
     rows = db.execute(text("""
         SELECT cc.*, pai.nome AS centro_pai_nome
         FROM public.financeiro_centros_custo cc
         LEFT JOIN public.financeiro_centros_custo pai ON pai.id=cc.centro_pai_id AND pai.empresa_id=cc.empresa_id
         WHERE cc.empresa_id=:empresa_id ORDER BY cc.ativo DESC, cc.codigo NULLS LAST, cc.nome, cc.id
-    """), {"empresa_id": empresa_do(usuario)}).fetchall()
+    """), {"empresa_id": empresa_id}).fetchall()
     return [row_to_dict(r) for r in rows]
 
 
@@ -3146,31 +3810,300 @@ def excluir_centro_custo(item_id: int, db: Session = Depends(get_db), usuario: m
     return excluir_auxiliar("financeiro_centros_custo", item_id, empresa_do(usuario), db, int(usuario.id))
 
 
+UNIDADE_CONSUMO_TIPOS = {
+    "departamento", "colaborador", "veiculo", "patrimonio",
+    "projeto", "contrato", "cargo", "outro",
+}
+
+
+def _resolver_referencia_unidade_consumo(
+    payload: UnidadeConsumoIn,
+    db: Session,
+    empresa_id: int,
+) -> Dict[str, Any]:
+    """Valida a origem da U.C. e devolve os valores canônicos para persistência.
+
+    O documento do cliente define a identificação da Unidade de Consumo como
+    busca na base de RH/Funções ou Patrimônio. No schema atual do Valora, a
+    função do RH é o campo ``usuarios.cargo``; patrimônio possui tabela própria.
+    """
+    tipo_ref = (payload.tipo_referencia or "outro").strip().lower()
+    if tipo_ref not in UNIDADE_CONSUMO_TIPOS:
+        raise HTTPException(status_code=422, detail="Tipo de referência da unidade de consumo inválido.")
+
+    nome = norm_str(payload.nome)
+    codigo = norm_str(payload.codigo)
+    departamento = norm_str(payload.departamento_referencia)
+    referencia_usuario_id: Optional[int] = None
+    referencia_patrimonio_id: Optional[int] = None
+    referencia_cargo: Optional[str] = None
+
+    if tipo_ref in {"patrimonio", "veiculo"}:
+        if payload.referencia_patrimonio_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Selecione a identificação da Unidade de Consumo na base de Patrimônio.",
+            )
+        row = db.execute(text("""
+            SELECT id, codigo, nome, categoria, status, ativo
+            FROM public.patrimonios
+            WHERE empresa_id=:empresa_id AND id=:id
+        """), {"empresa_id": empresa_id, "id": int(payload.referencia_patrimonio_id)}).first()
+        if not row:
+            raise HTTPException(status_code=422, detail="Patrimônio selecionado não pertence à empresa ou não existe.")
+        fonte = row_to_dict(row)
+        referencia_patrimonio_id = int(fonte["id"])
+        nome = norm_str(fonte.get("nome")) or nome
+        codigo = codigo or norm_str(fonte.get("codigo"))
+
+    elif tipo_ref == "colaborador":
+        if payload.referencia_usuario_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Selecione a identificação da Unidade de Consumo na base de RH/Colaboradores.",
+            )
+        row = db.execute(text("""
+            SELECT id, nome, email, cargo, ativo
+            FROM public.usuarios
+            WHERE empresa_id=:empresa_id AND id=:id
+        """), {"empresa_id": empresa_id, "id": int(payload.referencia_usuario_id)}).first()
+        if not row:
+            raise HTTPException(status_code=422, detail="Colaborador selecionado não pertence à empresa ou não existe.")
+        fonte = row_to_dict(row)
+        referencia_usuario_id = int(fonte["id"])
+        nome = norm_str(fonte.get("nome")) or nome
+        codigo = codigo or f"RH-{referencia_usuario_id}"
+
+    elif tipo_ref == "cargo":
+        cargo_informado = norm_str(payload.referencia_cargo) or nome
+        if not cargo_informado:
+            raise HTTPException(
+                status_code=422,
+                detail="Selecione a identificação da Unidade de Consumo na base de RH/Funções.",
+            )
+        row = db.execute(text("""
+            SELECT MIN(TRIM(cargo)) AS cargo
+            FROM public.usuarios
+            WHERE empresa_id=:empresa_id
+              AND cargo IS NOT NULL AND TRIM(cargo) <> ''
+              AND LOWER(TRIM(cargo)) = LOWER(TRIM(:cargo))
+        """), {"empresa_id": empresa_id, "cargo": cargo_informado}).first()
+        cargo_canonico = norm_str(row_to_dict(row).get("cargo") if row else None)
+        if not cargo_canonico:
+            raise HTTPException(
+                status_code=422,
+                detail="A função selecionada não foi encontrada na base de RH. Atualize o cadastro do colaborador e tente novamente.",
+            )
+        referencia_cargo = cargo_canonico
+        nome = cargo_canonico
+
+    else:
+        nome = _nome_obrigatorio(nome)
+
+    return {
+        "tipo_referencia": tipo_ref,
+        "nome": _nome_obrigatorio(nome),
+        "codigo": codigo,
+        "departamento_referencia": departamento,
+        "referencia_usuario_id": referencia_usuario_id,
+        "referencia_patrimonio_id": referencia_patrimonio_id,
+        "referencia_cargo": referencia_cargo,
+    }
+
+
+def _unidade_consumo_out(row: Any) -> Dict[str, Any]:
+    item = row_to_dict(row)
+    tipo = str(item.get("tipo_referencia") or "outro").strip().lower()
+
+    if tipo in {"patrimonio", "veiculo"}:
+        item["identificacao_uc"] = item.get("referencia_patrimonio_nome") or item.get("nome")
+        item["referencia_codigo"] = item.get("referencia_patrimonio_codigo")
+        item["referencia_origem"] = "Patrimônio"
+        item["referencia_detalhe"] = " • ".join(
+            str(v) for v in (
+                item.get("referencia_patrimonio_categoria"),
+                item.get("referencia_patrimonio_status"),
+            ) if v
+        ) or None
+        item["referencia_ativa"] = bool(item.get("referencia_patrimonio_id") and item.get("referencia_patrimonio_encontrado"))
+    elif tipo == "colaborador":
+        item["identificacao_uc"] = item.get("referencia_usuario_nome") or item.get("nome")
+        item["referencia_codigo"] = item.get("referencia_usuario_cargo")
+        item["referencia_origem"] = "RH / Colaboradores"
+        item["referencia_detalhe"] = " • ".join(
+            str(v) for v in (
+                item.get("referencia_usuario_cargo"),
+                item.get("referencia_usuario_email"),
+            ) if v
+        ) or None
+        item["referencia_ativa"] = bool(item.get("referencia_usuario_id") and item.get("referencia_usuario_encontrado"))
+    elif tipo == "cargo":
+        item["identificacao_uc"] = item.get("referencia_cargo") or item.get("nome")
+        item["referencia_codigo"] = None
+        item["referencia_origem"] = "RH / Funções"
+        item["referencia_detalhe"] = f"{int(item.get('referencia_cargo_colaboradores') or 0)} colaborador(es) com esta função"
+        item["referencia_ativa"] = bool(item.get("referencia_cargo") and int(item.get("referencia_cargo_colaboradores_ativos") or 0) > 0)
+    else:
+        item["identificacao_uc"] = item.get("departamento_referencia") or item.get("nome")
+        item["referencia_codigo"] = None
+        item["referencia_origem"] = "Cadastro manual"
+        item["referencia_detalhe"] = item.get("departamento_referencia")
+        item["referencia_ativa"] = True
+
+    return item
+
+
 @router.get("/unidades-consumo")
 def listar_unidades_consumo(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
     rows = db.execute(text("""
-        SELECT u.*, pai.codigo AS unidade_pai_codigo, pai.nome AS unidade_pai_nome
+        SELECT
+            u.*,
+            pai.codigo AS unidade_pai_codigo,
+            pai.nome AS unidade_pai_nome,
+            ru.nome AS referencia_usuario_nome,
+            ru.email AS referencia_usuario_email,
+            ru.cargo AS referencia_usuario_cargo,
+            (ru.id IS NOT NULL AND ru.ativo = TRUE) AS referencia_usuario_encontrado,
+            rp.codigo AS referencia_patrimonio_codigo,
+            rp.nome AS referencia_patrimonio_nome,
+            rp.categoria AS referencia_patrimonio_categoria,
+            rp.status AS referencia_patrimonio_status,
+            (rp.id IS NOT NULL AND rp.ativo = TRUE) AS referencia_patrimonio_encontrado,
+            CASE WHEN u.referencia_cargo IS NULL THEN 0 ELSE (
+                SELECT COUNT(*) FROM public.usuarios ux
+                WHERE ux.empresa_id=u.empresa_id
+                  AND ux.cargo IS NOT NULL
+                  AND LOWER(TRIM(ux.cargo))=LOWER(TRIM(u.referencia_cargo))
+            ) END AS referencia_cargo_colaboradores,
+            CASE WHEN u.referencia_cargo IS NULL THEN 0 ELSE (
+                SELECT COUNT(*) FROM public.usuarios ux
+                WHERE ux.empresa_id=u.empresa_id
+                  AND ux.ativo=TRUE
+                  AND ux.cargo IS NOT NULL
+                  AND LOWER(TRIM(ux.cargo))=LOWER(TRIM(u.referencia_cargo))
+            ) END AS referencia_cargo_colaboradores_ativos
         FROM public.financeiro_unidades_consumo u
         LEFT JOIN public.financeiro_unidades_consumo pai
                ON pai.id=u.unidade_pai_id AND pai.empresa_id=u.empresa_id
+        LEFT JOIN public.usuarios ru
+               ON ru.id=u.referencia_usuario_id AND ru.empresa_id=u.empresa_id
+        LEFT JOIN public.patrimonios rp
+               ON rp.id=u.referencia_patrimonio_id AND rp.empresa_id=u.empresa_id
         WHERE u.empresa_id=:empresa_id
         ORDER BY u.ativo DESC, COALESCE(pai.nome, u.nome), u.unidade_pai_id NULLS FIRST, u.nome, u.id
     """), {"empresa_id": empresa_do(usuario)}).fetchall()
-    return [row_to_dict(r) for r in rows]
+    return [_unidade_consumo_out(r) for r in rows]
+
+
+@router.get("/unidades-consumo/referencias")
+def listar_referencias_unidade_consumo(
+    tipo_referencia: str = Query(..., min_length=1, max_length=50),
+    busca: str = Query(default="", max_length=120),
+    limit: int = Query(default=200, ge=1, le=500),
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    """Fonte para a Identificação da U.C. exigida no documento do cliente."""
+    empresa_id = empresa_do(usuario)
+    tipo = (tipo_referencia or "").strip().lower()
+    termo = (busca or "").strip()
+    like = f"%{termo}%"
+
+    if tipo == "cargo":
+        rows = db.execute(text("""
+            SELECT MIN(TRIM(cargo)) AS nome,
+                   COUNT(*) AS quantidade,
+                   COUNT(*) FILTER (WHERE ativo=TRUE) AS quantidade_ativos
+            FROM public.usuarios
+            WHERE empresa_id=:empresa_id
+              AND cargo IS NOT NULL AND TRIM(cargo) <> ''
+              AND (:busca = '' OR cargo ILIKE :like)
+            GROUP BY LOWER(TRIM(cargo))
+            ORDER BY MIN(TRIM(cargo)) ASC
+            LIMIT :limit
+        """), {"empresa_id": empresa_id, "busca": termo, "like": like, "limit": limit}).fetchall()
+        return [{
+            "tipo": "cargo",
+            "id": None,
+            "chave": r.nome,
+            "codigo": None,
+            "nome": r.nome,
+            "descricao": f"RH/Funções • {int(r.quantidade_ativos or 0)} ativo(s) de {int(r.quantidade or 0)} colaborador(es)",
+            "ativo": int(r.quantidade_ativos or 0) > 0,
+        } for r in rows]
+
+    if tipo == "colaborador":
+        rows = db.execute(text("""
+            SELECT id, nome, email, cargo, ativo
+            FROM public.usuarios
+            WHERE empresa_id=:empresa_id
+              AND ativo=TRUE
+              AND (:busca = '' OR nome ILIKE :like OR email ILIKE :like OR COALESCE(cargo, '') ILIKE :like)
+            ORDER BY nome ASC, id ASC
+            LIMIT :limit
+        """), {"empresa_id": empresa_id, "busca": termo, "like": like, "limit": limit}).fetchall()
+        return [{
+            "tipo": "colaborador",
+            "id": int(r.id),
+            "chave": str(r.id),
+            "codigo": f"RH-{int(r.id)}",
+            "nome": r.nome,
+            "descricao": " • ".join(str(v) for v in (r.cargo, r.email) if v),
+            "ativo": bool(r.ativo),
+        } for r in rows]
+
+    if tipo in {"patrimonio", "veiculo"}:
+        rows = db.execute(text("""
+            SELECT id, codigo, nome, categoria, marca, modelo, numero_serie, status, ativo
+            FROM public.patrimonios
+            WHERE empresa_id=:empresa_id
+              AND ativo=TRUE
+              AND (
+                  :busca = '' OR codigo ILIKE :like OR nome ILIKE :like OR
+                  COALESCE(categoria, '') ILIKE :like OR COALESCE(numero_serie, '') ILIKE :like
+              )
+            ORDER BY nome ASC, id ASC
+            LIMIT :limit
+        """), {"empresa_id": empresa_id, "busca": termo, "like": like, "limit": limit}).fetchall()
+        return [{
+            "tipo": tipo,
+            "id": int(r.id),
+            "chave": str(r.id),
+            "codigo": r.codigo,
+            "nome": r.nome,
+            "descricao": " • ".join(str(v) for v in (r.categoria, r.marca, r.modelo, r.numero_serie, r.status) if v),
+            "ativo": bool(r.ativo),
+        } for r in rows]
+
+    return []
 
 
 @router.post("/unidades-consumo", status_code=status.HTTP_201_CREATED)
 def criar_unidade_consumo(payload: UnidadeConsumoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
     empresa_id = empresa_do(usuario)
     validar_id_empresa(db, table_name="financeiro_unidades_consumo", item_id=payload.unidade_pai_id, empresa_id=empresa_id, label="Unidade de consumo pai")
-    tipo_ref = (payload.tipo_referencia or "outro").strip().lower()
-    if tipo_ref not in {"departamento", "colaborador", "veiculo", "patrimonio", "projeto", "contrato", "cargo", "outro"}:
-        raise HTTPException(status_code=422, detail="Tipo de referência da unidade de consumo inválido.")
+    dados = _resolver_referencia_unidade_consumo(payload, db, empresa_id)
     row = db.execute(text("""
         INSERT INTO public.financeiro_unidades_consumo
-            (empresa_id, codigo, nome, tipo_referencia, unidade_pai_id, departamento_referencia, ativo, criado_em, atualizado_em)
-        VALUES (:empresa_id, :codigo, :nome, :tipo_ref, :pai, :departamento, :ativo, NOW(), NOW()) RETURNING *
-    """), {"empresa_id": empresa_id, "codigo": norm_str(payload.codigo), "nome": _nome_obrigatorio(payload.nome), "tipo_ref": tipo_ref, "pai": payload.unidade_pai_id, "departamento": norm_str(payload.departamento_referencia), "ativo": payload.ativo}).first()
+            (empresa_id, codigo, nome, tipo_referencia, unidade_pai_id,
+             departamento_referencia, referencia_usuario_id, referencia_patrimonio_id,
+             referencia_cargo, ativo, criado_em, atualizado_em)
+        VALUES (:empresa_id, :codigo, :nome, :tipo_ref, :pai,
+                :departamento, :ref_usuario, :ref_patrimonio, :ref_cargo,
+                :ativo, NOW(), NOW())
+        RETURNING *
+    """), {
+        "empresa_id": empresa_id,
+        "codigo": dados["codigo"],
+        "nome": dados["nome"],
+        "tipo_ref": dados["tipo_referencia"],
+        "pai": payload.unidade_pai_id,
+        "departamento": dados["departamento_referencia"],
+        "ref_usuario": dados["referencia_usuario_id"],
+        "ref_patrimonio": dados["referencia_patrimonio_id"],
+        "ref_cargo": dados["referencia_cargo"],
+        "ativo": payload.ativo,
+    }).first()
     novo = row_to_dict(row)
     _auditar_salvar_auxiliar(db, usuario, "financeiro_unidades_consumo", int(novo["id"]), None, novo)
     db.commit()
@@ -3188,18 +4121,37 @@ def atualizar_unidade_consumo(item_id: int, payload: UnidadeConsumoIn, db: Sessi
         item_id=item_id, parent_id=payload.unidade_pai_id, empresa_id=empresa_id,
         label="A unidade de consumo pai selecionada",
     )
-    tipo_ref = (payload.tipo_referencia or "outro").strip().lower()
-    if tipo_ref not in {"departamento", "colaborador", "veiculo", "patrimonio", "projeto", "contrato", "cargo", "outro"}:
-        raise HTTPException(status_code=422, detail="Tipo de referência da unidade de consumo inválido.")
     anterior_row = db.execute(text("SELECT * FROM public.financeiro_unidades_consumo WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
     if not anterior_row:
         raise HTTPException(status_code=404, detail="Unidade de consumo não encontrada.")
+    dados = _resolver_referencia_unidade_consumo(payload, db, empresa_id)
     row = db.execute(text("""
-        UPDATE public.financeiro_unidades_consumo SET codigo=:codigo, nome=:nome,
-            tipo_referencia=:tipo_ref, unidade_pai_id=:pai,
-            departamento_referencia=:departamento, ativo=:ativo, atualizado_em=NOW()
-        WHERE empresa_id=:empresa_id AND id=:id RETURNING *
-    """), {"empresa_id": empresa_id, "id": item_id, "codigo": norm_str(payload.codigo), "nome": _nome_obrigatorio(payload.nome), "tipo_ref": tipo_ref, "pai": payload.unidade_pai_id, "departamento": norm_str(payload.departamento_referencia), "ativo": payload.ativo}).first()
+        UPDATE public.financeiro_unidades_consumo
+           SET codigo=:codigo,
+               nome=:nome,
+               tipo_referencia=:tipo_ref,
+               unidade_pai_id=:pai,
+               departamento_referencia=:departamento,
+               referencia_usuario_id=:ref_usuario,
+               referencia_patrimonio_id=:ref_patrimonio,
+               referencia_cargo=:ref_cargo,
+               ativo=:ativo,
+               atualizado_em=NOW()
+         WHERE empresa_id=:empresa_id AND id=:id
+         RETURNING *
+    """), {
+        "empresa_id": empresa_id,
+        "id": item_id,
+        "codigo": dados["codigo"],
+        "nome": dados["nome"],
+        "tipo_ref": dados["tipo_referencia"],
+        "pai": payload.unidade_pai_id,
+        "departamento": dados["departamento_referencia"],
+        "ref_usuario": dados["referencia_usuario_id"],
+        "ref_patrimonio": dados["referencia_patrimonio_id"],
+        "ref_cargo": dados["referencia_cargo"],
+        "ativo": payload.ativo,
+    }).first()
     novo = row_to_dict(row)
     _auditar_salvar_auxiliar(db, usuario, "financeiro_unidades_consumo", item_id, row_to_dict(anterior_row), novo)
     db.commit()

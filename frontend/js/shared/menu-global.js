@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260812-permissions-v30';
+  const VERSION = '20260819-automacao-cobranca-v1';
   const PARTIAL_URL = '/frontend/partials/sidebar-content.inc?v=' + VERSION;
   const CSS_URL = '/frontend/css/menu-global.css?v=' + VERSION;
   const ROUTES = {
@@ -10,9 +10,10 @@
     'area-cliente-admin': '/area-cliente-admin', 'contratos-admin': '/contratos-admin', usuarios: '/usuarios',
     config: '/configuracoes', formularios: '/formularios', ajuda: '/ajuda', perfil: '/perfil', empresa: '/empresa',
     financeiro: '/financeiro', 'vendas-financeiro': '/vendas-financeiro', 'contas-receber': '/contas-receber',
-    'contas-pagar': '/contas-pagar', 'fluxo-caixa': '/fluxo-caixa', 'categorias-financeiras': '/categorias-financeiras',
+    'contas-pagar': '/contas-pagar', 'cobrancas-financeiro': '/cobrancas-financeiro', 'fluxo-caixa': '/fluxo-caixa', 'categorias-financeiras': '/categorias-financeiras',
     'formas-pagamento': '/formas-pagamento', 'contas-bancos': '/contas-bancos',
-    'cadastros-financeiros': '/cadastros-financeiros', 'relatorios-financeiros': '/relatorios-financeiros'
+    'cadastros-financeiros': '/cadastros-financeiros', 'relatorios-financeiros': '/relatorios-financeiros',
+    'configuracoes-financeiras': '/configuracoes-financeiras', 'automacao-cobranca': '/automacao-cobranca'
   };
 
   const TARGET_MODULES = {
@@ -35,12 +36,15 @@
     'vendas-financeiro': 'financeiro',
     'contas-receber': 'financeiro',
     'contas-pagar': 'financeiro',
+    'cobrancas-financeiro': 'financeiro',
     'fluxo-caixa': 'financeiro',
     'categorias-financeiras': 'financeiro',
     'formas-pagamento': 'financeiro',
     'contas-bancos': 'financeiro',
     'cadastros-financeiros': 'financeiro',
-    'relatorios-financeiros': 'financeiro'
+    'relatorios-financeiros': 'financeiro',
+    'configuracoes-financeiras': 'financeiro',
+    'automacao-cobranca': 'financeiro'
   };
 
   let permissionProfile = null;
@@ -102,10 +106,10 @@
       ['arquivos-tecnicos','arquivos-tecnicos'], ['clientes','clientes'], ['fornecedores','fornecedores'], ['cotacoes','cotacoes'], ['produtos','produtos'],
       ['patrimonio','patrimonio'], ['orcamentos','orcamentos'], ['propostas','propostas'],
       ['area-cliente-admin','area-cliente-admin'], ['contratos-admin','contratos-admin'], ['usuarios','usuarios'],
-      ['vendas-financeiro','vendas-financeiro'], ['contas-receber','contas-receber'], ['contas-pagar','contas-pagar'],
-      ['fluxo-caixa','fluxo-caixa'], ['categorias-financeiras','categorias-financeiras'], ['formas-pagamento','formas-pagamento'],
-      ['contas-bancos','contas-bancos'], ['cadastros-financeiros','cadastros-financeiros'],
-      ['relatorios-financeiros','relatorios-financeiros'], ['financeiro','financeiro'], ['formularios','formularios'],
+      ['vendas-financeiro','contas-receber'], ['contas-receber','contas-receber'], ['contas-pagar','contas-pagar'],
+      ['cobrancas-financeiro','cobrancas-financeiro'], ['fluxo-caixa','fluxo-caixa'], ['categorias-financeiras','configuracoes-financeiras'], ['formas-pagamento','configuracoes-financeiras'],
+      ['contas-bancos','configuracoes-financeiras'], ['cadastros-financeiros','configuracoes-financeiras'],
+      ['relatorios-financeiros','relatorios-financeiros'], ['automacao-cobranca','configuracoes-financeiras'], ['configuracoes-financeiras','configuracoes-financeiras'], ['financeiro','financeiro'], ['formularios','formularios'],
       ['ajuda','ajuda'], ['perfil','perfil'], ['empresa','empresa'], ['configuracoes','config'], ['config','config']
     ];
     for (const [needle, target] of aliases) if (path.includes(needle)) return target;

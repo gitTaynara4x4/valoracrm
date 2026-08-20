@@ -1114,8 +1114,14 @@ async function carregarOpcoesFinanceiras() {
       placeholder: 'Não definido',
       labelFn: (item) => `${item.codigo ? `${item.codigo} • ` : ''}${item.nome || ''}`,
     });
-    preencherSelectFinanceiro(dom.recorrenciaUcPrincipal, state.financeiroOpcoes.unidades_consumo || [], { placeholder: 'Não definida' });
-    preencherSelectFinanceiro(dom.recorrenciaUcSecundaria, state.financeiroOpcoes.unidades_consumo || [], { placeholder: 'Não definida' });
+    preencherSelectFinanceiro(dom.recorrenciaUcPrincipal, state.financeiroOpcoes.unidades_consumo || [], {
+      placeholder: 'Não definida',
+      labelFn: (item) => `${item.codigo ? `${item.codigo} • ` : ''}${item.nome_exibicao || item.nome || ''}`,
+    });
+    preencherSelectFinanceiro(dom.recorrenciaUcSecundaria, state.financeiroOpcoes.unidades_consumo || [], {
+      placeholder: 'Não definida',
+      labelFn: (item) => `${item.codigo ? `${item.codigo} • ` : ''}${item.nome_exibicao || item.nome || ''}`,
+    });
   } catch (error) {
     state.financeiroDisponivel = false;
     state.financeiroOpcoes = null;

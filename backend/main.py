@@ -34,11 +34,13 @@ from backend.routers.financeiro_cobranca import router as financeiro_cobranca_ro
 from backend.routers import empresa
 from backend.routers import campos_propostas
 from backend.routers.integracoes_zapschat import router as integracoes_zapschat_router
+from backend.routers.integracoes_seg import router as integracoes_seg_router
 from backend.routers.exportacoes import router as exportacoes_router
 from backend.routers.agenda import router as agenda_router
 from backend.routers.arquivos_tecnicos import router as arquivos_tecnicos_router
 from backend.agenda_push import start_push_dispatcher, stop_push_dispatcher
 from backend.financeiro_recorrencia import start_financeiro_recorrencia_dispatcher, stop_financeiro_recorrencia_dispatcher
+from backend.financeiro_cobranca_automacao import start_financeiro_cobranca_dispatcher, stop_financeiro_cobranca_dispatcher
 from backend.database import SessionLocal
 from backend import models
 from backend.security.permissions import user_has_permission
@@ -117,10 +119,12 @@ async def start_agenda_push_background() -> None:
     ensure_each_company_has_owner()
     await start_push_dispatcher()
     await start_financeiro_recorrencia_dispatcher()
+    await start_financeiro_cobranca_dispatcher()
 
 
 @app.on_event("shutdown")
 async def stop_agenda_push_background() -> None:
+    await stop_financeiro_cobranca_dispatcher()
     await stop_financeiro_recorrencia_dispatcher()
     await stop_push_dispatcher()
 
@@ -256,6 +260,7 @@ PUBLIC_EXACT_PATHS = {
 PUBLIC_PREFIXES = (
     "/api/auth",
     "/api/area-cliente-publica",
+    "/api/integracoes/seg",
     "/frontend/img/",
     "/frontend/fonts/",
     "/frontend/css/",
@@ -311,11 +316,13 @@ PAGE_PERMISSION_MODULES = {
     "/contas-receber": "financeiro",
     "/vendas-financeiro": "financeiro",
     "/cobrancas-financeiro": "financeiro",
+    "/automacao-cobranca": "financeiro",
     "/contas-bancos": "financeiro",
     "/cadastros-financeiros": "financeiro",
     "/categorias-financeiras": "financeiro",
     "/formas-pagamento": "financeiro",
     "/relatorios-financeiros": "financeiro",
+    "/configuracoes-financeiras": "financeiro",
 }
 
 
@@ -746,6 +753,7 @@ app.include_router(formularios_router)
 app.include_router(financeiro_router)
 app.include_router(financeiro_cobranca_router)
 app.include_router(integracoes_zapschat_router)
+app.include_router(integracoes_seg_router)
 app.include_router(exportacoes_router)
 app.include_router(agenda_router)
 app.include_router(arquivos_tecnicos_router)

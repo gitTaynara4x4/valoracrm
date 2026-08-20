@@ -90,7 +90,7 @@
       categorias: [(ops.categorias || []).filter((item) => ['receita', 'ambos'].includes(item.tipo)), (item) => `${item.nome} (${item.tipo})`],
       'contas-contabeis': [(ops.contas_contabeis || []).filter((item) => item.aceita_lancamento !== false), (item) => `${item.codigo} - ${item.nome}`],
       'tipos-documento': [(ops.tipos_documento || []).filter((item) => !item.aplicacao || ['receber', 'ambos'].includes(item.aplicacao)), (item) => item.nome],
-      'naturezas-operacao': [(ops.naturezas_operacao || []).filter((item) => !item.aplicacao || ['receber', 'ambos'].includes(item.aplicacao)), (item) => `${item.codigo ? `${item.codigo} - ` : ''}${item.nome}`],
+      'naturezas-operacao': [(ops.naturezas_operacao || []).filter((item) => !item.aplicacao || ['receber', 'ambos'].includes(item.aplicacao)), (item) => `${item.codigo ? `${item.codigo} - ` : ''}${item.nome_exibicao || item.nome}`],
       'centros-custo': [(ops.centros_custo || []), (item) => `${item.codigo ? `${item.codigo} - ` : ''}${item.nome}`],
       'unidades-consumo': [(ops.unidades_consumo || []), (item) => `${item.codigo ? `${item.codigo} - ` : ''}${item.nome}`],
       'regras-encargos': [(ops.regras_encargos || []).filter((item) => !item.aplicacao || ['receber', 'ambos'].includes(item.aplicacao)), (item) => `${item.nome}${item.padrao ? ' (padrão)' : ''}`],

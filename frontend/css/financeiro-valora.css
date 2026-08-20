@@ -1720,9 +1720,47 @@ body.financeiro-theme-valora .financeiro-lookup {
   width: 100%;
 }
 
-body.financeiro-theme-valora .financeiro-lookup > input[data-sacado-search] {
+body.financeiro-theme-valora .financeiro-lookup > input[data-sacado-search],
+body.financeiro-theme-valora .financeiro-lookup > input[data-envolvido-search] {
   padding-left: 39px !important;
   padding-right: 39px !important;
+}
+
+
+/* Cliente/fornecedor pesquisável no modal de lançamento.
+   O select original continua no formulário como fonte do ID, mas não fica exposto ao operador. */
+body.financeiro-theme-valora .financeiro-field > select.financeiro-native-select-proxy {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-height: 1px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  clip-path: inset(50%) !important;
+}
+
+body.financeiro-theme-valora .financeiro-envolvido-lookup {
+  min-width: 0;
+}
+
+body.financeiro-theme-valora .financeiro-envolvido-lookup > input[type="search"] {
+  cursor: text;
+}
+
+body.financeiro-theme-valora .financeiro-lookup-help {
+  display: block;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+/* Quando o lançamento é a receber, fornecedor some; quando é a pagar, cliente some.
+   Garante que o CSS da grade nunca sobreponha o atributo hidden. */
+body.financeiro-theme-valora .financeiro-field[hidden] {
+  display: none !important;
 }
 
 body.financeiro-theme-valora .financeiro-lookup-icon {
@@ -2826,4 +2864,1843 @@ html:not([data-theme="dark"]) body.financeiro-theme-valora .financeiro-page--ove
   html:not([data-theme="dark"]) body.financeiro-theme-valora .financeiro-page--overview .financeiro-tabs {
     gap: 15px !important;
   }
+}
+
+/* =========================================================
+   RELATÓRIOS FINANCEIROS — DOCUMENTO FUNCIONAL DE COBRANÇA
+   ========================================================= */
+body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-docs {
+  margin: 22px 0 26px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 8px 0 14px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-section-heading h2 {
+  margin: 3px 0 4px;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-section-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-section-heading--secondary {
+  margin-top: 32px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-panel {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-panel .financeiro-panel-head {
+  padding: 16px 18px 14px;
+  margin: 0 !important;
+  border-bottom: 1px solid var(--border);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-panel .financeiro-table-wrap {
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-summary {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 120px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-summary strong {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-summary span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-panel .financeiro-panel-head {
+    align-items: flex-start;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-summary {
+    align-items: flex-start;
+  }
+}
+
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+
+  html,
+  body.financeiro-theme-valora {
+    background: #fff !important;
+  }
+
+  body.financeiro-theme-valora #valora-menu-root,
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] > * {
+    display: none !important;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] > .financeiro-report-docs {
+    display: block !important;
+    margin: 0 !important;
+  }
+
+  body.financeiro-theme-valora .layout,
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-section-heading {
+    display: block !important;
+    margin: 0 0 8mm !important;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-panel {
+    display: block !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #d8dde5 !important;
+    box-shadow: none !important;
+    margin: 0 0 7mm !important;
+    background: #fff !important;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-panel .financeiro-panel-head {
+    display: flex !important;
+    padding: 4mm 5mm 3mm !important;
+    border-bottom: 1px solid #d8dde5 !important;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-panel table,
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-panel thead,
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-panel tbody,
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-panel tr,
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-panel th,
+  body.financeiro-theme-valora [data-financeiro-page="relatorios"] .financeiro-report-panel td {
+    background: #fff !important;
+    color: #111827 !important;
+  }
+}
+
+/* Unidade de Consumo integrada a RH/Funções e Patrimônio */
+.financeiro-reference-source small,
+.financeiro-table-subtext,
+.financeiro-reference-warning {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 500;
+  color: var(--text-muted, #6b7280);
+}
+
+.financeiro-field.is-source-linked input[readonly] {
+  cursor: default;
+  background: var(--surface-soft, #f7f8fa);
+  color: var(--text-secondary, #4b5563);
+}
+
+.financeiro-reference-warning {
+  color: var(--danger, #b42318);
+}
+
+.financeiro-reference-warning i {
+  margin-right: 4px;
+}
+
+/* =========================================================
+   Item 4 — Reparcelamento do saldo durante a baixa
+   ========================================================= */
+body.financeiro-theme-valora .financeiro-reparcelamento-box {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-box[hidden] {
+  display: none !important;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 12px;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-head > div {
+  min-width: 0;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-head strong,
+body.financeiro-theme-valora .financeiro-reparcelamento-head span {
+  display: block;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-head strong {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-head span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-head select {
+  width: 112px;
+  min-width: 112px;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-grid {
+  margin-top: 0;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-info {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-info.is-danger {
+  color: var(--danger, #b42318);
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-history {
+  padding: 12px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-soft);
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-history + .financeiro-reparcelamento-history {
+  margin-top: 8px;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-history > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-history > div:first-child strong {
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-history > div:first-child span,
+body.financeiro-theme-valora .financeiro-reparcelamento-history > small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+body.financeiro-theme-valora .financeiro-reparcelamento-history .financeiro-history-breakdown {
+  margin-top: 9px;
+}
+
+@media (max-width: 620px) {
+  body.financeiro-theme-valora .financeiro-reparcelamento-head,
+  body.financeiro-theme-valora .financeiro-reparcelamento-history > div:first-child {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.financeiro-theme-valora .financeiro-reparcelamento-head select {
+    width: 100%;
+  }
+}
+
+/* =========================================================
+   Item 5 — Emissão de cobranças em lote
+   ========================================================= */
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-section-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-filtros {
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  align-items: end;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-buscar .btn {
+  width: 100%;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 12px 0 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-result-head > div:first-child {
+  min-width: 0;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-result-head strong,
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-result-head span {
+  display: block;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-result-head > div:first-child > strong {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-result-head > div:first-child > span {
+  margin-top: 3px;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-selection-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-selection-summary > span:last-child {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-table-wrap {
+  margin-top: 0;
+  max-height: 420px;
+  overflow: auto;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-check-col {
+  width: 42px;
+  min-width: 42px;
+  text-align: center;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-check-col input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  vertical-align: middle;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-actions p {
+  margin: 0;
+  max-width: 760px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-actions p i {
+  margin-right: 5px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-actions .btn {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1100px) {
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-filtros {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-filtros {
+    grid-template-columns: 1fr;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-result-head,
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-selection-summary {
+    justify-content: space-between;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-emissao-actions .btn {
+    width: 100%;
+  }
+}
+
+/* Automação real da régua de cobrança */
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automacao-cobranca-panel {
+  padding-bottom: 18px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-state.is-active {
+  color: var(--success, #257953);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-state.is-disabled,
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-state.is-error {
+  color: var(--danger, #b54747);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-item {
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-item > span,
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-item > strong,
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-item > small {
+  display: block;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-item > span {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-item > span i {
+  width: 16px;
+  margin-right: 4px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-item > strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-item > strong.is-ok {
+  color: var(--success, #257953);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-item > strong.is-missing {
+  color: var(--danger, #b54747);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-item > small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1100px) {
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   ZAPSCHAT — CONFIGURAÇÃO SEGURA DA INSTÂNCIA DE COBRANÇA
+   ========================================================= */
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] #btn-configurar-zapschat-cobranca {
+  min-height: 32px;
+  padding: 0 11px;
+  font-size: 11px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-item--whatsapp {
+  position: relative;
+  overflow: hidden;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-item--whatsapp::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: #22c55e;
+  opacity: .72;
+}
+
+body.financeiro-theme-valora .zapschat-cobranca-modal {
+  width: min(820px, calc(100vw - 56px)) !important;
+}
+
+body.financeiro-theme-valora .zapschat-cobranca-modal .financeiro-modal-body {
+  max-height: calc(100dvh - 190px);
+  overflow-y: auto;
+}
+
+body.financeiro-theme-valora .zapschat-security-note,
+body.financeiro-theme-valora .zapschat-warning,
+body.financeiro-theme-valora .zapschat-readonly-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--muted);
+}
+
+body.financeiro-theme-valora .zapschat-security-note {
+  border-color: rgba(34, 197, 94, .20);
+  background: rgba(34, 197, 94, .055);
+}
+
+body.financeiro-theme-valora .zapschat-warning {
+  border-color: rgba(245, 158, 11, .25);
+  background: rgba(245, 158, 11, .07);
+}
+
+body.financeiro-theme-valora .zapschat-readonly-note {
+  border-color: rgba(100, 116, 139, .20);
+  background: rgba(100, 116, 139, .055);
+}
+
+body.financeiro-theme-valora .zapschat-security-note > i,
+body.financeiro-theme-valora .zapschat-warning > i,
+body.financeiro-theme-valora .zapschat-readonly-note > i {
+  margin-top: 2px;
+  font-size: 15px;
+}
+
+body.financeiro-theme-valora .zapschat-security-note > i { color: #16a34a; }
+body.financeiro-theme-valora .zapschat-warning > i { color: #d97706; }
+body.financeiro-theme-valora .zapschat-readonly-note > i { color: var(--muted); }
+
+body.financeiro-theme-valora .zapschat-security-note strong,
+body.financeiro-theme-valora .zapschat-warning strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora .zapschat-security-note p,
+body.financeiro-theme-valora .zapschat-warning p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+body.financeiro-theme-valora .zapschat-loading {
+  padding: 24px 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+body.financeiro-theme-valora .zapschat-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 4px 0 16px;
+}
+
+body.financeiro-theme-valora .zapschat-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+body.financeiro-theme-valora .zapschat-step > span {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(75, 195, 199, .12);
+  color: var(--brand-dark);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+body.financeiro-theme-valora .zapschat-step strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora .zapschat-step p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+body.financeiro-theme-valora .zapschat-pair-box,
+body.financeiro-theme-valora .zapschat-instance-card,
+body.financeiro-theme-valora .zapschat-connection-summary {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--panel);
+}
+
+body.financeiro-theme-valora .zapschat-pair-box > label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora .zapschat-pair-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) auto;
+  gap: 9px;
+}
+
+body.financeiro-theme-valora #zapschat-pairing-code {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: .15em;
+}
+
+body.financeiro-theme-valora .zapschat-pair-box > small {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+body.financeiro-theme-valora .zapschat-connection-summary {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 11px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+body.financeiro-theme-valora .zapschat-connection-icon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(34, 197, 94, .10);
+  color: #16a34a;
+  font-size: 17px;
+}
+
+body.financeiro-theme-valora .zapschat-connection-summary span,
+body.financeiro-theme-valora .zapschat-connection-summary small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+body.financeiro-theme-valora .zapschat-connection-summary strong {
+  display: block;
+  margin: 2px 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora .zapschat-status-pill {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 25px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px !important;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+body.financeiro-theme-valora .zapschat-status-pill.is-ok {
+  border: 1px solid rgba(34, 197, 94, .20);
+  background: rgba(34, 197, 94, .08);
+  color: #15803d;
+}
+
+body.financeiro-theme-valora .zapschat-status-pill.is-error {
+  border: 1px solid rgba(239, 68, 68, .20);
+  background: rgba(239, 68, 68, .07);
+  color: var(--danger, #b54747);
+}
+
+body.financeiro-theme-valora .zapschat-instance-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+body.financeiro-theme-valora .zapschat-instance-heading h4 {
+  margin: 2px 0 3px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora .zapschat-instance-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+body.financeiro-theme-valora .zapschat-instance-preview {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 11px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+body.financeiro-theme-valora .zapschat-instance-preview > i {
+  font-size: 20px;
+  color: #16a34a;
+  text-align: center;
+}
+
+body.financeiro-theme-valora .zapschat-instance-preview span,
+body.financeiro-theme-valora .zapschat-instance-preview small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+body.financeiro-theme-valora .zapschat-instance-preview strong {
+  display: block;
+  margin: 1px 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora .zapschat-safe-rules {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+body.financeiro-theme-valora .zapschat-safe-rules > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+}
+
+body.financeiro-theme-valora .zapschat-safe-rules i {
+  margin-top: 2px;
+  color: var(--brand-dark);
+  font-size: 12px;
+}
+
+body.financeiro-theme-valora .zapschat-safe-rules span {
+  color: var(--muted);
+  font-size: 9.8px;
+  line-height: 1.4;
+}
+
+body.financeiro-theme-valora .zapschat-safe-rules strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora .zapschat-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+body.financeiro-theme-valora .zapschat-danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+body.financeiro-theme-valora .zapschat-danger-zone strong {
+  display: block;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora .zapschat-danger-zone p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+body.financeiro-theme-valora .zapschat-foot-status {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+body.financeiro-theme-valora .zapschat-foot-status.is-ok { color: #15803d; }
+body.financeiro-theme-valora .zapschat-foot-status.is-error { color: var(--danger, #b54747); }
+
+@media (max-width: 760px) {
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-automation-head-actions,
+  body.financeiro-theme-valora .zapschat-instance-heading,
+  body.financeiro-theme-valora .zapschat-danger-zone {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.financeiro-theme-valora .zapschat-steps,
+  body.financeiro-theme-valora .zapschat-safe-rules {
+    grid-template-columns: 1fr;
+  }
+
+  body.financeiro-theme-valora .zapschat-pair-row {
+    grid-template-columns: 1fr;
+  }
+
+  body.financeiro-theme-valora .zapschat-connection-summary {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  body.financeiro-theme-valora .zapschat-connection-summary > .zapschat-status-pill {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  body.financeiro-theme-valora .zapschat-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  body.financeiro-theme-valora .zapschat-modal-actions .btn,
+  body.financeiro-theme-valora .zapschat-danger-zone .btn {
+    width: 100%;
+  }
+}
+
+body.financeiro-theme-valora .zapschat-cobranca-modal [hidden] {
+  display: none !important;
+}
+
+/* =========================================================
+   2026-08-19 | FINANCEIRO ORGANIZADO
+   Operação e configuração ficam visualmente separadas.
+   ========================================================= */
+
+body.financeiro-theme-valora main.financeiro-page > .financeiro-toolbar:has(.financeiro-tabs--primary) {
+  min-height: 56px !important;
+  padding: 0 14px !important;
+  border-radius: 11px !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+
+body.financeiro-theme-valora .financeiro-tabs--primary {
+  gap: 18px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none;
+  padding: 0 !important;
+}
+
+body.financeiro-theme-valora .financeiro-tabs--primary::-webkit-scrollbar {
+  display: none;
+}
+
+body.financeiro-theme-valora .financeiro-tabs--primary a {
+  position: relative;
+  min-height: 54px !important;
+  padding: 0 5px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--muted) !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  white-space: nowrap;
+}
+
+body.financeiro-theme-valora .financeiro-tabs--primary a::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+body.financeiro-theme-valora .financeiro-tabs--primary a:hover {
+  color: var(--text) !important;
+  background: transparent !important;
+}
+
+body.financeiro-theme-valora .financeiro-tabs--primary a.active,
+body.financeiro-theme-valora .financeiro-tabs--primary a[aria-current="page"] {
+  color: var(--brand-dark) !important;
+  background: transparent !important;
+}
+
+body.financeiro-theme-valora .financeiro-tabs--primary a.active::after,
+body.financeiro-theme-valora .financeiro-tabs--primary a[aria-current="page"]::after {
+  background: var(--brand) !important;
+}
+
+body.financeiro-theme-valora .financeiro-tabs--primary a.active i,
+body.financeiro-theme-valora .financeiro-tabs--primary a[aria-current="page"] i {
+  color: var(--brand-dark) !important;
+}
+
+body.financeiro-theme-valora .financeiro-page--settings {
+  max-width: none;
+}
+
+body.financeiro-theme-valora .financeiro-settings-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+body.financeiro-theme-valora .financeiro-settings-intro-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+}
+
+body.financeiro-theme-valora .financeiro-settings-intro strong {
+  display: block;
+  margin: 1px 0 4px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora .financeiro-settings-intro p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+body.financeiro-theme-valora .financeiro-settings-section {
+  margin: 0 0 20px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+body.financeiro-theme-valora .financeiro-settings-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+body.financeiro-theme-valora .financeiro-settings-section-head h2 {
+  margin: 3px 0 4px;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+body.financeiro-theme-valora .financeiro-settings-section-head p {
+  margin: 0;
+  max-width: 760px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+body.financeiro-theme-valora .financeiro-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+body.financeiro-theme-valora .financeiro-settings-card {
+  min-width: 0;
+  min-height: 92px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--bg-soft);
+  color: inherit;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+body.financeiro-theme-valora .financeiro-settings-card:hover {
+  border-color: color-mix(in srgb, var(--brand) 30%, var(--border));
+  background: var(--panel-hover);
+  transform: translateY(-1px);
+}
+
+body.financeiro-theme-valora .settings-card-icon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--brand-dark);
+  font-size: 14px;
+}
+
+body.financeiro-theme-valora .financeiro-settings-card h3 {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora .financeiro-settings-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.8px;
+  line-height: 1.5;
+}
+
+body.financeiro-theme-valora .settings-card-arrow {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+body.financeiro-theme-valora .financeiro-automation-grid--settings {
+  margin-top: 2px;
+}
+
+body.financeiro-theme-valora .financeiro-settings-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  color: var(--muted);
+  font-size: 10.8px;
+  line-height: 1.5;
+}
+
+body.financeiro-theme-valora .financeiro-settings-note i {
+  margin-top: 2px;
+  color: var(--brand-dark);
+}
+
+body.financeiro-theme-valora .financeiro-settings-panel-embedded {
+  margin: 0 !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+body.financeiro-theme-valora .financeiro-settings-panel-embedded + .financeiro-settings-panel-embedded {
+  margin-top: 12px !important;
+}
+
+body.financeiro-theme-valora .financeiro-settings-rule-actions {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+body.financeiro-theme-valora .financeiro-settings-rule-actions .financeiro-field {
+  min-width: 250px;
+}
+
+@media (max-width: 980px) {
+  body.financeiro-theme-valora .financeiro-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.financeiro-theme-valora .financeiro-settings-section-head,
+  body.financeiro-theme-valora .financeiro-settings-section-head--actions {
+    flex-direction: column;
+  }
+
+  body.financeiro-theme-valora main.financeiro-page > .financeiro-toolbar:has(.financeiro-tabs--primary) {
+    align-items: flex-start !important;
+    padding: 0 10px !important;
+  }
+
+  body.financeiro-theme-valora .financeiro-toolbar-status {
+    display: none !important;
+  }
+}
+
+@media (max-width: 620px) {
+  body.financeiro-theme-valora .financeiro-settings-section {
+    padding: 14px;
+  }
+
+  body.financeiro-theme-valora .financeiro-tabs--primary {
+    gap: 14px !important;
+  }
+
+  body.financeiro-theme-valora .financeiro-tabs--primary a span {
+    font-size: 11px;
+  }
+}
+
+
+/* =========================================================
+   COBRANÇAS — LEITURA OPERACIONAL CLARA
+   Reduz carga visual e separa "o que aconteceu" de "o que fazer".
+   ========================================================= */
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-historico {
+  padding: 20px !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-historico-head {
+  align-items: flex-start;
+  margin-bottom: 16px !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-historico-head h3 {
+  margin: 1px 0 4px !important;
+  color: var(--text) !important;
+  font-size: 15px !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.02em;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-historico-head p {
+  margin: 0 !important;
+  max-width: 720px;
+  color: var(--muted) !important;
+  font-size: 11.5px !important;
+  line-height: 1.45;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-legenda {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-top: 3px;
+  color: var(--muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-legenda i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted-soft);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-legenda .is-ok i {
+  background: var(--success);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-legenda .is-wait i {
+  background: var(--warning);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-legenda .is-error i {
+  background: var(--danger);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-filtros {
+  display: grid;
+  grid-template-columns: minmax(180px, 230px) minmax(180px, 230px) auto;
+  align-items: end;
+  justify-content: start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-filtros .financeiro-field {
+  min-width: 0;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-filtros .financeiro-field label {
+  margin-bottom: 5px !important;
+  color: var(--muted) !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-filtros select {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  background: var(--panel) !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-filtrar-btn {
+  min-width: 100px;
+  min-height: 36px !important;
+  height: 36px;
+  padding: 0 14px !important;
+  box-shadow: none !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-table-wrap {
+  overflow: hidden !important;
+  border-radius: 10px !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-table {
+  min-width: 1040px !important;
+  table-layout: fixed;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-table th:nth-child(1) { width: 22%; }
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-table th:nth-child(2) { width: 12%; }
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-table th:nth-child(3) { width: 10%; }
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-table th:nth-child(4) { width: 17%; }
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-table th:nth-child(5) { width: 16%; }
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-table th:nth-child(6) { width: 23%; }
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-table th {
+  height: 42px !important;
+  padding: 0 14px !important;
+  font-size: 10.5px !important;
+  font-weight: 650 !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-table td {
+  padding: 15px 14px !important;
+  vertical-align: top;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-row.is-error td:first-child {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-row.is-wait td:first-child {
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-row.is-ok td:first-child {
+  box-shadow: inset 3px 0 0 var(--success);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-cliente,
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-vencimento,
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-etapa,
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-status-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-cliente strong,
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-vencimento strong,
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-etapa strong {
+  max-width: 100%;
+  color: var(--text) !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  line-height: 1.35;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-cliente span,
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-etapa span {
+  max-width: 100%;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-cliente small {
+  color: var(--muted-soft);
+  font-size: 9.5px;
+  line-height: 1.3;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-atraso,
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-em-dia {
+  margin-top: 1px;
+  font-size: 10px !important;
+  line-height: 1.3;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-atraso {
+  color: var(--danger) !important;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-em-dia {
+  color: var(--success) !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-etapa span {
+  display: inline-flex;
+  width: auto;
+  margin-top: 3px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-canal {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-canal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-soft);
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-canal > div {
+  min-width: 0;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-canal strong,
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-canal small {
+  display: block;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-canal strong {
+  color: var(--text) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-canal small {
+  margin-top: 3px;
+  max-width: 100%;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-canal small.is-missing {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-status.is-ok {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-status.is-wait {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-status.is-error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-status.is-muted {
+  background: var(--bg-soft);
+  color: var(--muted);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-status-box > small {
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.3;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-error-detail {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-error-detail i {
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-error-detail span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-actions .btn-sm {
+  min-height: 30px !important;
+  height: 30px;
+  padding: 0 9px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-icon-action:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-soft);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-link-action {
+  min-height: 28px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-link-action:hover {
+  color: var(--danger);
+  text-decoration: underline;
+}
+
+@media (max-width: 1080px) {
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-historico-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-filtros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-filtrar-btn {
+    width: fit-content;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-table-wrap {
+    overflow-x: auto !important;
+  }
+}
+
+@media (max-width: 680px) {
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-historico {
+    padding: 14px !important;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-filtros {
+    grid-template-columns: 1fr;
+  }
+
+  body.financeiro-theme-valora [data-financeiro-page="cobrancas"] .financeiro-cobranca-filtrar-btn {
+    width: 100%;
+  }
+}
+
+
+/* =========================================================
+   AUTOMAÇÃO DE COBRANÇA — PÁGINA DE CONFIGURAÇÃO DEDICADA
+   Operação fica em Cobranças; regras e canais ficam aqui.
+   ========================================================= */
+body.financeiro-theme-valora [data-financeiro-page="automacao"] {
+  max-width: none;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, .7fr);
+  align-items: center;
+  gap: 18px;
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-hero h2 {
+  margin: 4px 0 6px;
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -.02em;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-hero p {
+  margin: 0;
+  max-width: 760px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-hero-status {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--bg-soft);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-hero-status > span,
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-hero-status > small {
+  display: block;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-hero-status > span {
+  margin-bottom: 7px;
+  font-weight: 500;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-hero-status > small {
+  margin-top: 7px;
+  line-height: 1.45;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--panel);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-state.is-active { color: var(--success, #257953); }
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-state.is-disabled,
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-state.is-error { color: var(--danger, #b54747); }
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 2px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-item {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--bg-soft);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-item > span,
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-item > strong,
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-item > small { display: block; }
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-item > span {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 10.8px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-item > span i {
+  width: 16px;
+  margin-right: 4px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-item > strong {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-item > strong.is-ok { color: var(--success, #257953); }
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-item > strong.is-missing { color: var(--danger, #b54747); }
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-item > small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-item--whatsapp {
+  position: relative;
+  overflow: hidden;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-item--whatsapp::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: #22c55e;
+  opacity: .7;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-settings-panel-embedded .financeiro-table th,
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-settings-panel-embedded .financeiro-table td {
+  vertical-align: middle;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-safety-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-safety-grid article {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--bg-soft);
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-safety-grid article > i {
+  margin-top: 2px;
+  color: var(--brand-dark);
+  font-size: 13px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-safety-grid strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-safety-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+body.financeiro-theme-valora .financeiro-settings-card--featured {
+  grid-column: span 2;
+  min-height: 98px;
+}
+
+@media (max-width: 1000px) {
+  body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-hero { grid-template-columns: 1fr; }
+  body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-safety-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  body.financeiro-theme-valora [data-financeiro-page="automacao"] .financeiro-automation-grid { grid-template-columns: 1fr; }
+  body.financeiro-theme-valora .financeiro-settings-card--featured { grid-column: span 1; }
 }
