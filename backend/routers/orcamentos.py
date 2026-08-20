@@ -7,13 +7,21 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import bindparam, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from backend import models
+from backend.services.proposta_cliente import build_public_url, create_public_token, link_days
+from backend.services.contrato_cliente import (
+    build_contract_snapshot,
+    contract_details,
+    contract_filename,
+    load_contract_source,
+    render_contract_pdf,
+)
 from backend.security.permissions import (
     get_current_user,
     get_db,
@@ -37,6 +45,40 @@ STATUS_VALIDOS = {
 
 TIPOS_DESCONTO = {"valor", "percentual"}
 STATUS_PRECOS_BLOQUEADOS = {"aprovado", "recusado", "cancelado", "expirado"}
+
+PROPOSTA_CLIENTE_NATUREZAS = {"venda", "locacao", "comodato", "prestacao_servicos"}
+PROPOSTA_CLIENTE_SERVICOS = {"alarme", "cerca_eletrica", "cftv", "controle_acesso", "manutencao"}
+PROPOSTA_CLIENTE_PLANOS = {"monitoramento_alarme", "cerca_eletrica", "acompanhamento", "assistencia_tecnica"}
+PROPOSTA_CLIENTE_TIPOS_CONTRATO = {"mensal", "trimestral"}
+PROPOSTA_CLIENTE_FORMAS_PAGAMENTO = {"dinheiro", "pix", "cheque", "cartao", "boleto", "outro"}
+PROPOSTA_CLIENTE_NATUREZA_LABELS = {
+    "venda": "Venda",
+    "locacao": "Locação",
+    "comodato": "Comodato",
+    "prestacao_servicos": "Prestação de serviços",
+}
+PROPOSTA_CLIENTE_SERVICO_LABELS = {
+    "alarme": "Alarme",
+    "cerca_eletrica": "Cerca elétrica",
+    "cftv": "CFTV",
+    "controle_acesso": "Controle de acesso",
+    "manutencao": "Manutenção",
+}
+PROPOSTA_CLIENTE_PLANO_LABELS = {
+    "monitoramento_alarme": "Monitoramento de alarme",
+    "cerca_eletrica": "Cerca elétrica",
+    "acompanhamento": "Acompanhamento",
+    "assistencia_tecnica": "Assistência técnica",
+}
+PROPOSTA_CLIENTE_TIPO_CONTRATO_LABELS = {"mensal": "Mensal", "trimestral": "Trimestral"}
+PROPOSTA_CLIENTE_FORMA_PAGAMENTO_LABELS = {
+    "dinheiro": "Dinheiro",
+    "pix": "PIX",
+    "cheque": "Cheque",
+    "cartao": "Cartão",
+    "boleto": "Boleto",
+    "outro": "Outro",
+}
 _SCHEMA_READY = False
 _PREPARED_COMPANIES: set[int] = set()
 
@@ -643,6 +685,26 @@ class EnviarFinanceiroIn(BaseModel):
     tipo_venda: str = "avulsa"
 
 
+class PropostaClientePreparacaoIn(BaseModel):
+    natureza: str
+    servicos: List[str] = Field(default_factory=list)
+    planos: List[str] = Field(default_factory=list)
+    tipo_contrato: Optional[str] = None
+    valor_implantacao: Decimal = Field(default=Decimal("0"), ge=Decimal("0"))
+    valor_mensal: Decimal = Field(default=Decimal("0"), ge=Decimal("0"))
+    dia_vencimento: Optional[int] = Field(default=None, ge=1, le=31)
+    forma_pagamento: str
+    condicao_pagamento: str
+
+
+class PropostaClienteLinkIn(BaseModel):
+    regenerar: bool = False
+
+
+class ContratoClienteGerarIn(BaseModel):
+    regenerar: bool = False
+
+
 class CategoryIn(BaseModel):
     nome: str
     descricao: Optional[str] = None
@@ -1231,6 +1293,69 @@ def serialize_budget(
     for key in ("data_solicitacao", "data_emissao", "data_validade", "data_aprovacao", "aprovado_em", "criado_em", "atualizado_em"):
         out[key] = iso(out.get(key))
     out["pagamentos"] = json_load(out.pop("pagamentos_json", None), [])
+    out["preparacao_cliente"] = {
+        "preparada": bool(out.pop("proposta_cliente_preparada", False)),
+        "natureza": out.pop("proposta_cliente_natureza", None),
+        "servicos": json_load(out.pop("proposta_cliente_servicos_json", None), []),
+        "planos": json_load(out.pop("proposta_cliente_planos_json", None), []),
+        "tipo_contrato": out.pop("proposta_cliente_tipo_contrato", None),
+        "valor_implantacao": dec_out(out.pop("proposta_cliente_valor_implantacao", 0)),
+        "valor_mensal": dec_out(out.pop("proposta_cliente_valor_mensal", 0)),
+        "dia_vencimento": out.pop("proposta_cliente_dia_vencimento", None),
+        "forma_pagamento": out.pop("proposta_cliente_forma_pagamento", None),
+        "condicao_pagamento": out.pop("proposta_cliente_condicao_pagamento", None),
+        "preparada_em": iso(out.pop("proposta_cliente_preparada_em", None)),
+        "preparada_por_id": out.pop("proposta_cliente_preparada_por_id", None),
+    }
+    out["publicacao_cliente"] = {
+        "versao_link": int(out.pop("proposta_cliente_link_versao", 0) or 0),
+        "link_ativo": bool(out.pop("proposta_cliente_link_ativo", False)),
+        "gerado_em": iso(out.pop("proposta_cliente_link_gerado_em", None)),
+        "expira_em": iso(out.pop("proposta_cliente_link_expira_em", None)),
+        "status": out.pop("proposta_cliente_public_status", "nao_gerado") or "nao_gerado",
+        "primeira_visualizacao_em": iso(out.pop("proposta_cliente_primeira_visualizacao_em", None)),
+        "ultima_visualizacao_em": iso(out.pop("proposta_cliente_ultima_visualizacao_em", None)),
+        "visualizacoes": int(out.pop("proposta_cliente_visualizacoes", 0) or 0),
+        "aprovado_em": iso(out.pop("proposta_cliente_aprovado_em", None)),
+        "alteracao_solicitada_em": iso(out.pop("proposta_cliente_alteracao_solicitada_em", None)),
+        "alteracao_mensagem": out.pop("proposta_cliente_alteracao_mensagem", None),
+        "cadastro_contrato": {
+            "status": out.pop("proposta_cliente_cadastro_status", "nao_iniciado") or "nao_iniciado",
+            "iniciado_em": iso(out.pop("proposta_cliente_cadastro_iniciado_em", None)),
+            "concluido_em": iso(out.pop("proposta_cliente_cadastro_concluido_em", None)),
+            "tipo_pessoa": out.pop("proposta_cliente_cadastro_tipo_pessoa", None),
+        },
+        "contrato": {
+            "status": out.pop("proposta_cliente_contrato_status", "nao_gerado") or "nao_gerado",
+            "versao": int(out.pop("proposta_cliente_contrato_versao", 0) or 0),
+            "gerado_em": iso(out.pop("proposta_cliente_contrato_gerado_em", None)),
+            "assinatura": {
+                "status": out.pop("proposta_cliente_assinatura_status", "nao_enviado") or "nao_enviado",
+                "solicitada_em": iso(out.pop("proposta_cliente_assinatura_solicitada_em", None)),
+                "visualizado_em": iso(out.pop("proposta_cliente_assinatura_visualizado_em", None)),
+                "assinado_em": iso(out.pop("proposta_cliente_assinatura_assinado_em", None)),
+                "assinatura_id": out.pop("proposta_cliente_assinatura_id", None),
+            },
+        },
+    }
+    out.pop("proposta_cliente_link_gerado_por_id", None)
+    out.pop("proposta_cliente_link_desativado_em", None)
+    out.pop("proposta_cliente_link_desativado_por_id", None)
+    out.pop("proposta_cliente_snapshot_json", None)
+    out.pop("proposta_cliente_snapshot_orcamento_atualizado_em", None)
+    out.pop("proposta_cliente_aprovado_ip", None)
+    out.pop("proposta_cliente_alteracao_ip", None)
+    out.pop("proposta_cliente_cadastro_ip", None)
+    out.pop("proposta_cliente_contrato_gerado_por_id", None)
+    out.pop("proposta_cliente_contrato_snapshot_json", None)
+    out.pop("proposta_cliente_contrato_cliente_atualizado_em", None)
+    out.pop("proposta_cliente_assinatura_enviado_por_id", None)
+    out.pop("proposta_cliente_assinatura_cancelado_em", None)
+    out.pop("proposta_cliente_assinante_nome", None)
+    out.pop("proposta_cliente_assinante_documento_mascarado", None)
+    out.pop("proposta_cliente_assinatura_documento_hash_sha256", None)
+    out.pop("proposta_cliente_assinatura_pdf_final_hash_sha256", None)
+    out.pop("proposta_cliente_assinatura_evidencias_json", None)
     out["pode_ver_custos"] = show_costs
     if complete:
         items = serialize_items(
@@ -2774,6 +2899,560 @@ def snapshot_venda_financeiro(db: Session, budget_id: int, company_id: int) -> d
         "status_orcamento": status_norm(data.get("status")),
         "financeiro_status": financeiro_status_norm(data.get("financeiro_status")),
     }
+
+
+
+def _proposal_aware_utc(value: Any) -> Optional[datetime]:
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _proposal_snapshot(db: Session, budget_id: int, company_id: int) -> tuple[dict, datetime]:
+    row = db.execute(
+        text(base_select() + " WHERE o.id=:id AND o.empresa_id=:empresa_id LIMIT 1"),
+        {"id": budget_id, "empresa_id": company_id},
+    ).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
+    data = dict(row)
+    if not bool(data.get("proposta_cliente_preparada")):
+        raise HTTPException(status_code=422, detail="Prepare os dados comerciais antes de gerar o link para o cliente.")
+    if not data.get("cliente_id"):
+        raise HTTPException(status_code=422, detail="O orçamento precisa estar vinculado a um cliente.")
+    if status_norm(data.get("status")) in {"aprovado", "recusado", "cancelado", "expirado"}:
+        raise HTTPException(status_code=409, detail="Este orçamento não está disponível para gerar uma nova proposta pública.")
+    if bool(data.get("aprovacao_necessaria")) and str(data.get("aprovacao_status") or "").lower() != "aprovado":
+        raise HTTPException(status_code=409, detail="A margem deste orçamento precisa ser aprovada internamente antes do envio ao cliente.")
+
+    items = serialize_items(db, budget_id, show_costs=False, company_id=company_id)
+    public_items = []
+    for item in items:
+        public_items.append({
+            "codigo": norm_str(item.get("codigo")),
+            "descricao": norm_str(item.get("descricao")) or "Item",
+            "unidade": norm_str(item.get("unidade")) or "UN",
+            "quantidade": dec4_out(item.get("quantidade")),
+            "valor_unitario": dec_out(item.get("valor_unitario")),
+            "desconto": dec_out(item.get("desconto")),
+            "valor_total": dec_out(item.get("valor_total")),
+        })
+
+    natureza = norm_str(data.get("proposta_cliente_natureza"))
+    services = json_load(data.get("proposta_cliente_servicos_json"), [])
+    plans = json_load(data.get("proposta_cliente_planos_json"), [])
+    contract_type = norm_str(data.get("proposta_cliente_tipo_contrato"))
+    payment_method = norm_str(data.get("proposta_cliente_forma_pagamento"))
+    source_updated = _proposal_aware_utc(data.get("atualizado_em")) or datetime.now(timezone.utc)
+
+    snapshot = {
+        "versao": int(data.get("versao") or 1),
+        "gerada_em": datetime.now(timezone.utc).isoformat(),
+        "orcamento": {
+            "id": int(data["id"]),
+            "codigo": norm_str(data.get("codigo")),
+            "titulo": norm_str(data.get("titulo")) or "Proposta comercial",
+            "nome_documento": norm_str(data.get("nome_documento")) or "Proposta",
+            "data_emissao": iso(data.get("data_emissao")),
+            "data_validade": iso(data.get("data_validade")),
+            "prazo_execucao": norm_str(data.get("prazo_execucao")),
+            "subtotal": dec_out(data.get("subtotal")),
+            "desconto_total": dec_out(data.get("desconto_total")),
+            "frete": dec_out(data.get("frete")),
+            "acrescimo": dec_out(data.get("acrescimo")),
+            "total": dec_out(data.get("total")),
+        },
+        "cliente": {
+            "nome": norm_str(data.get("cliente_razao_social")) or norm_str(data.get("cliente_nome")) or "Cliente",
+            "nome_fantasia": norm_str(data.get("cliente_nome_fantasia")),
+        },
+        "emitente": {
+            "nome": norm_str(data.get("emitente_nome_fantasia_documento")) or norm_str(data.get("emitente_nome_documento")) or norm_str(data.get("emitente_razao_social_documento")) or "SEG Sistemas",
+            "razao_social": norm_str(data.get("emitente_razao_social_documento")),
+            "cnpj": norm_str(data.get("emitente_cnpj_documento")),
+            "telefone": norm_str(data.get("emitente_telefone_documento")),
+            "email": norm_str(data.get("emitente_email_documento")),
+            "site": norm_str(data.get("emitente_site_documento")),
+            "endereco": norm_str(data.get("emitente_endereco_documento")),
+        },
+        "itens": public_items,
+        "comercial": {
+            "natureza": {"codigo": natureza, "label": PROPOSTA_CLIENTE_NATUREZA_LABELS.get(natureza or "", natureza)},
+            "servicos": [{"codigo": item, "label": PROPOSTA_CLIENTE_SERVICO_LABELS.get(item, item)} for item in services],
+            "planos": [{"codigo": item, "label": PROPOSTA_CLIENTE_PLANO_LABELS.get(item, item)} for item in plans],
+            "tipo_contrato": {"codigo": contract_type, "label": PROPOSTA_CLIENTE_TIPO_CONTRATO_LABELS.get(contract_type or "", contract_type)} if contract_type else None,
+            "valor_implantacao": dec_out(data.get("proposta_cliente_valor_implantacao")),
+            "valor_mensal": dec_out(data.get("proposta_cliente_valor_mensal")),
+            "dia_vencimento": data.get("proposta_cliente_dia_vencimento"),
+            "forma_pagamento": {"codigo": payment_method, "label": PROPOSTA_CLIENTE_FORMA_PAGAMENTO_LABELS.get(payment_method or "", payment_method)},
+            "condicao_pagamento": norm_str(data.get("proposta_cliente_condicao_pagamento")),
+        },
+    }
+    return snapshot, source_updated
+
+
+def _proposal_link_details(row: dict, request: Request) -> dict:
+    active = bool(row.get("proposta_cliente_link_ativo"))
+    version = int(row.get("proposta_cliente_link_versao") or 0)
+    expires = _proposal_aware_utc(row.get("proposta_cliente_link_expira_em"))
+    source_updated = _proposal_aware_utc(row.get("proposta_cliente_snapshot_orcamento_atualizado_em"))
+    current_updated = _proposal_aware_utc(row.get("atualizado_em"))
+    outdated = bool(source_updated and current_updated and current_updated > source_updated)
+    expired = bool(expires and expires <= datetime.now(timezone.utc))
+    url = None
+    if active and version > 0 and expires and not expired:
+        token = create_public_token(
+            budget_id=int(row["id"]),
+            company_id=int(row["empresa_id"]),
+            version=version,
+            expires_at=expires,
+        )
+        url = build_public_url(token, str(request.base_url))
+    return {
+        "tem_link": bool(active and version > 0 and not expired),
+        "url": url,
+        "versao": version,
+        "status": str(row.get("proposta_cliente_public_status") or "nao_gerado"),
+        "ativo": active,
+        "expirado": expired,
+        "desatualizado": outdated,
+        "gerado_em": iso(row.get("proposta_cliente_link_gerado_em")),
+        "expira_em": iso(row.get("proposta_cliente_link_expira_em")),
+        "primeira_visualizacao_em": iso(row.get("proposta_cliente_primeira_visualizacao_em")),
+        "ultima_visualizacao_em": iso(row.get("proposta_cliente_ultima_visualizacao_em")),
+        "visualizacoes": int(row.get("proposta_cliente_visualizacoes") or 0),
+        "aprovado_em": iso(row.get("proposta_cliente_aprovado_em")),
+        "alteracao_solicitada_em": iso(row.get("proposta_cliente_alteracao_solicitada_em")),
+        "alteracao_mensagem": row.get("proposta_cliente_alteracao_mensagem"),
+        "cadastro_contrato": {
+            "status": str(row.get("proposta_cliente_cadastro_status") or "nao_iniciado"),
+            "iniciado_em": iso(row.get("proposta_cliente_cadastro_iniciado_em")),
+            "concluido_em": iso(row.get("proposta_cliente_cadastro_concluido_em")),
+            "tipo_pessoa": row.get("proposta_cliente_cadastro_tipo_pessoa"),
+        },
+        "contrato": {
+            "status": str(row.get("proposta_cliente_contrato_status") or "nao_gerado"),
+            "versao": int(row.get("proposta_cliente_contrato_versao") or 0),
+            "gerado_em": iso(row.get("proposta_cliente_contrato_gerado_em")),
+        },
+    }
+
+
+def _get_proposal_link_row(db: Session, budget_id: int, company_id: int, *, lock: bool = False):
+    """Carrega apenas o estado necessário para publicação da proposta.
+
+    A consulta de link não deve depender das colunas da etapa de assinatura.
+    Isso mantém o modal de preparação desacoplado das etapas posteriores e,
+    quando o banco estiver desatualizado, devolve uma mensagem útil em vez de
+    um HTTP 500 genérico.
+    """
+    suffix = " FOR UPDATE" if lock else ""
+    try:
+        return db.execute(text("""
+            SELECT id, empresa_id, cliente_id, codigo, titulo, status, atualizado_em,
+                   proposta_cliente_preparada, aprovacao_necessaria, aprovacao_status,
+                   proposta_cliente_link_versao, proposta_cliente_link_ativo,
+                   proposta_cliente_link_gerado_em, proposta_cliente_link_expira_em,
+                   proposta_cliente_public_status, proposta_cliente_snapshot_orcamento_atualizado_em,
+                   proposta_cliente_primeira_visualizacao_em, proposta_cliente_ultima_visualizacao_em,
+                   proposta_cliente_visualizacoes, proposta_cliente_aprovado_em,
+                   proposta_cliente_alteracao_solicitada_em, proposta_cliente_alteracao_mensagem,
+                   proposta_cliente_cadastro_status, proposta_cliente_cadastro_iniciado_em,
+                   proposta_cliente_cadastro_concluido_em, proposta_cliente_cadastro_tipo_pessoa,
+                   proposta_cliente_contrato_status, proposta_cliente_contrato_versao,
+                   proposta_cliente_contrato_gerado_em
+            FROM orcamentos WHERE id=:id AND empresa_id=:empresa_id
+        """ + suffix), {"id": budget_id, "empresa_id": company_id}).mappings().first()
+    except ProgrammingError as exc:
+        # PostgreSQL 42703 = undefined_column. Como esse fluxo foi adicionado
+        # por migrations, uma base que recebeu os arquivos mas não todas as
+        # migrations deve orientar o operador em vez de retornar 500.
+        original = getattr(exc, "orig", None)
+        sqlstate = getattr(original, "sqlstate", None) or getattr(original, "pgcode", None)
+        message = str(original or exc).lower()
+        db.rollback()
+        if sqlstate == "42703" or "proposta_cliente_" in message:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "O banco do Valora está com a estrutura da proposta desatualizada. "
+                    "Execute '.\\.venv\\Scripts\\python.exe -m alembic upgrade head' "
+                    "e reinicie o Valora."
+                ),
+            ) from exc
+        raise
+
+
+@router.get("/{budget_id}/contrato")
+def obter_contrato_cliente(
+    budget_id: int,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    source = load_contract_source(db, budget_id=budget_id, company_id=company_id)
+    row = source["orcamento"]
+    details = contract_details(row, client_updated_at=(source.get("cliente") or {}).get("atualizado_em"))
+    details["pode_gerar"] = True
+    details["pdf_inline_url"] = f"/api/orcamentos/{budget_id}/contrato/pdf"
+    details["pdf_download_url"] = f"/api/orcamentos/{budget_id}/contrato/pdf?download=true"
+    return details
+
+
+@router.post("/{budget_id}/contrato/gerar")
+def gerar_contrato_cliente(
+    budget_id: int,
+    payload: ContratoClienteGerarIn,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    source = load_contract_source(db, budget_id=budget_id, company_id=company_id)
+    row = source["orcamento"]
+    existing = contract_details(row, client_updated_at=(source.get("cliente") or {}).get("atualizado_em"))
+    if existing.get("gerado") and not payload.regenerar:
+        existing["pode_gerar"] = True
+        existing["pdf_inline_url"] = f"/api/orcamentos/{budget_id}/contrato/pdf"
+        existing["pdf_download_url"] = f"/api/orcamentos/{budget_id}/contrato/pdf?download=true"
+        return existing
+
+    assinatura_status = str(row.get("proposta_cliente_assinatura_status") or "nao_enviado")
+    if assinatura_status in {"aguardando_assinatura", "visualizado"}:
+        raise HTTPException(status_code=409, detail="Cancele a solicitação de assinatura antes de gerar uma nova versão do contrato.")
+    if assinatura_status == "assinado":
+        raise HTTPException(status_code=409, detail="Este contrato já foi assinado. Uma nova versão exige um novo fluxo comercial/proposta.")
+
+    version = int(row.get("proposta_cliente_contrato_versao") or 0) + 1
+    snapshot = build_contract_snapshot(
+        db,
+        budget_id=budget_id,
+        company_id=company_id,
+        version=version,
+        generated_by_id=int(current_user.id),
+        generated_by_name=str(current_user.nome or "Usuário"),
+    )
+    now = datetime.now(timezone.utc)
+    db.execute(text("""
+        UPDATE orcamentos SET
+            proposta_cliente_contrato_status='gerado',
+            proposta_cliente_contrato_versao=:versao,
+            proposta_cliente_contrato_gerado_em=:gerado_em,
+            proposta_cliente_contrato_gerado_por_id=:usuario_id,
+            proposta_cliente_contrato_snapshot_json=:snapshot,
+            proposta_cliente_contrato_cliente_atualizado_em=:cliente_atualizado_em,
+            proposta_cliente_assinatura_status='nao_enviado',
+            proposta_cliente_assinatura_solicitada_em=NULL,
+            proposta_cliente_assinatura_enviado_por_id=NULL,
+            proposta_cliente_assinatura_visualizado_em=NULL,
+            proposta_cliente_assinatura_assinado_em=NULL,
+            proposta_cliente_assinatura_cancelado_em=NULL,
+            proposta_cliente_assinatura_id=NULL,
+            proposta_cliente_assinante_nome=NULL,
+            proposta_cliente_assinante_documento_mascarado=NULL,
+            proposta_cliente_assinatura_documento_hash_sha256=NULL,
+            proposta_cliente_assinatura_pdf_final_hash_sha256=NULL,
+            proposta_cliente_assinatura_evidencias_json=NULL
+        WHERE id=:id AND empresa_id=:empresa_id
+    """), {
+        "versao": version,
+        "gerado_em": now,
+        "usuario_id": int(current_user.id),
+        "snapshot": json_dump(snapshot),
+        "cliente_atualizado_em": _proposal_aware_utc((source.get("cliente") or {}).get("atualizado_em")),
+        "id": budget_id,
+        "empresa_id": company_id,
+    })
+    add_history(
+        db,
+        budget_id,
+        current_user,
+        "contrato_gerado" if version == 1 else "contrato_regenerado",
+        "Contrato gerado a partir da proposta aprovada e do cadastro concluído do cliente."
+        if version == 1 else
+        "Nova versão do contrato gerada a partir da proposta aprovada e dos dados atuais do cliente.",
+        data={
+            "contrato_numero": (snapshot.get("contrato") or {}).get("numero"),
+            "versao": version,
+            "proposta_aprovada_em": (snapshot.get("aprovacao") or {}).get("aprovado_em"),
+        },
+    )
+    db.commit()
+
+    fresh = db.execute(text("""
+        SELECT proposta_cliente_contrato_status, proposta_cliente_contrato_versao,
+               proposta_cliente_contrato_gerado_em, proposta_cliente_contrato_snapshot_json,
+               proposta_cliente_contrato_cliente_atualizado_em
+        FROM orcamentos WHERE id=:id AND empresa_id=:empresa_id
+    """), {"id": budget_id, "empresa_id": company_id}).mappings().first()
+    details = contract_details(dict(fresh or {}), client_updated_at=(source.get("cliente") or {}).get("atualizado_em"))
+    details["pode_gerar"] = True
+    details["pdf_inline_url"] = f"/api/orcamentos/{budget_id}/contrato/pdf"
+    details["pdf_download_url"] = f"/api/orcamentos/{budget_id}/contrato/pdf?download=true"
+    return details
+
+
+@router.get("/{budget_id}/contrato/pdf")
+def pdf_contrato_cliente(
+    budget_id: int,
+    download: bool = Query(default=False),
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    row = db.execute(text("""
+        SELECT proposta_cliente_contrato_status, proposta_cliente_contrato_snapshot_json
+        FROM orcamentos WHERE id=:id AND empresa_id=:empresa_id
+    """), {"id": budget_id, "empresa_id": company_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
+    if str(row.get("proposta_cliente_contrato_status") or "") != "gerado":
+        raise HTTPException(status_code=409, detail="Gere o contrato antes de abrir o PDF.")
+    snapshot = json_load(row.get("proposta_cliente_contrato_snapshot_json"), {})
+    if not snapshot:
+        raise HTTPException(status_code=409, detail="A versão do contrato não foi encontrada.")
+    pdf_bytes = render_contract_pdf(snapshot)
+    filename = contract_filename(snapshot)
+    disposition = "attachment" if download else "inline"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="{filename}"',
+            "Cache-Control": "private, no-store, max-age=0",
+        },
+    )
+
+
+@router.put("/{budget_id}/preparacao-cliente")
+def salvar_preparacao_proposta_cliente(
+    budget_id: int,
+    payload: PropostaClientePreparacaoIn,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    row = db.execute(text("""
+        SELECT id, cliente_id, codigo, status, proposta_cliente_public_status
+        FROM orcamentos
+        WHERE id=:id AND empresa_id=:empresa_id
+        FOR UPDATE
+    """), {"id": budget_id, "empresa_id": company_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
+    if str(row.get("proposta_cliente_public_status") or "").lower() == "aprovado":
+        raise HTTPException(status_code=409, detail="Esta proposta já foi aprovada pelo cliente e não pode ser alterada nesta etapa.")
+    if not row.get("cliente_id"):
+        raise HTTPException(status_code=422, detail="Selecione um cliente antes de preparar a proposta para envio.")
+    if status_norm(row.get("status")) in {"recusado", "cancelado", "expirado"}:
+        raise HTTPException(status_code=409, detail="Este orçamento está encerrado e não pode ser preparado para envio ao cliente.")
+
+    natureza = (norm_str(payload.natureza) or "").lower()
+    forma_pagamento = (norm_str(payload.forma_pagamento) or "").lower()
+    tipo_contrato = (norm_str(payload.tipo_contrato) or "").lower() or None
+    servicos = list(dict.fromkeys(str(item or "").strip().lower() for item in payload.servicos if str(item or "").strip()))
+    planos = list(dict.fromkeys(str(item or "").strip().lower() for item in payload.planos if str(item or "").strip()))
+    condicao_pagamento = norm_str(payload.condicao_pagamento)
+
+    if natureza not in PROPOSTA_CLIENTE_NATUREZAS:
+        raise HTTPException(status_code=422, detail="Selecione a natureza da proposta.")
+    invalid_services = [item for item in servicos if item not in PROPOSTA_CLIENTE_SERVICOS]
+    if invalid_services:
+        raise HTTPException(status_code=422, detail="Existe um serviço inválido na preparação da proposta.")
+    invalid_plans = [item for item in planos if item not in PROPOSTA_CLIENTE_PLANOS]
+    if invalid_plans:
+        raise HTTPException(status_code=422, detail="Existe um plano de serviço inválido na preparação da proposta.")
+    if tipo_contrato and tipo_contrato not in PROPOSTA_CLIENTE_TIPOS_CONTRATO:
+        raise HTTPException(status_code=422, detail="Tipo de contrato inválido.")
+    if forma_pagamento not in PROPOSTA_CLIENTE_FORMAS_PAGAMENTO:
+        raise HTTPException(status_code=422, detail="Selecione a forma de pagamento.")
+    if not condicao_pagamento:
+        raise HTTPException(status_code=422, detail="Informe a condição de pagamento.")
+
+    db.execute(text("""
+        UPDATE orcamentos SET
+            proposta_cliente_natureza=:natureza,
+            proposta_cliente_servicos_json=:servicos_json,
+            proposta_cliente_planos_json=:planos_json,
+            proposta_cliente_tipo_contrato=:tipo_contrato,
+            proposta_cliente_valor_implantacao=:valor_implantacao,
+            proposta_cliente_valor_mensal=:valor_mensal,
+            proposta_cliente_dia_vencimento=:dia_vencimento,
+            proposta_cliente_forma_pagamento=:forma_pagamento,
+            proposta_cliente_condicao_pagamento=:condicao_pagamento,
+            proposta_cliente_preparada=TRUE,
+            proposta_cliente_preparada_em=NOW(),
+            proposta_cliente_preparada_por_id=:usuario_id,
+            proposta_cliente_link_ativo=FALSE,
+            proposta_cliente_public_status='preparada',
+            proposta_cliente_cadastro_status='nao_iniciado',
+            proposta_cliente_cadastro_iniciado_em=NULL,
+            proposta_cliente_cadastro_concluido_em=NULL,
+            proposta_cliente_cadastro_ip=NULL,
+            proposta_cliente_cadastro_tipo_pessoa=NULL,
+            proposta_cliente_link_desativado_em=CASE WHEN proposta_cliente_link_ativo THEN NOW() ELSE proposta_cliente_link_desativado_em END,
+            proposta_cliente_link_desativado_por_id=CASE WHEN proposta_cliente_link_ativo THEN :usuario_id ELSE proposta_cliente_link_desativado_por_id END,
+            atualizado_em=NOW()
+        WHERE id=:id AND empresa_id=:empresa_id
+    """), {
+        "id": budget_id,
+        "empresa_id": company_id,
+        "natureza": natureza,
+        "servicos_json": json_dump(servicos),
+        "planos_json": json_dump(planos),
+        "tipo_contrato": tipo_contrato,
+        "valor_implantacao": q2(money(payload.valor_implantacao)),
+        "valor_mensal": q2(money(payload.valor_mensal)),
+        "dia_vencimento": payload.dia_vencimento,
+        "forma_pagamento": forma_pagamento,
+        "condicao_pagamento": condicao_pagamento,
+        "usuario_id": int(current_user.id),
+    })
+    add_history(
+        db,
+        budget_id,
+        current_user,
+        "proposta_cliente_preparada",
+        "Dados para envio e aprovação do cliente preparados.",
+        data={
+            "natureza": natureza,
+            "servicos": servicos,
+            "planos": planos,
+            "tipo_contrato": tipo_contrato,
+            "valor_implantacao": dec_out(payload.valor_implantacao),
+            "valor_mensal": dec_out(payload.valor_mensal),
+            "dia_vencimento": payload.dia_vencimento,
+            "forma_pagamento": forma_pagamento,
+            "condicao_pagamento": condicao_pagamento,
+        },
+    )
+    db.commit()
+    return get_budget(budget_id, current_user=current_user, db=db)
+
+
+@router.get("/{budget_id}/proposta-cliente/link")
+def consultar_link_proposta_cliente(
+    budget_id: int,
+    request: Request,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    row = _get_proposal_link_row(db, budget_id, company_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
+    return _proposal_link_details(dict(row), request)
+
+
+@router.post("/{budget_id}/proposta-cliente/link")
+def gerar_link_proposta_cliente(
+    budget_id: int,
+    payload: PropostaClienteLinkIn,
+    request: Request,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    row = _get_proposal_link_row(db, budget_id, company_id, lock=True)
+    if not row:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
+    if not bool(row.get("proposta_cliente_preparada")):
+        raise HTTPException(status_code=422, detail="Salve a preparação da proposta antes de gerar o link.")
+    if str(row.get("proposta_cliente_public_status") or "").lower() == "aprovado":
+        raise HTTPException(status_code=409, detail="Esta proposta já foi aprovada pelo cliente.")
+
+    existing = _proposal_link_details(dict(row), request)
+    if existing["tem_link"] and not existing["desatualizado"] and not payload.regenerar:
+        return existing
+
+    snapshot, source_updated = _proposal_snapshot(db, budget_id, company_id)
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(days=link_days())
+    version = int(row.get("proposta_cliente_link_versao") or 0) + 1
+
+    db.execute(text("""
+        UPDATE orcamentos SET
+            proposta_cliente_link_versao=:version,
+            proposta_cliente_link_ativo=TRUE,
+            proposta_cliente_link_gerado_em=:now,
+            proposta_cliente_link_gerado_por_id=:usuario_id,
+            proposta_cliente_link_expira_em=:expires,
+            proposta_cliente_link_desativado_em=NULL,
+            proposta_cliente_link_desativado_por_id=NULL,
+            proposta_cliente_public_status='aguardando',
+            proposta_cliente_snapshot_json=:snapshot,
+            proposta_cliente_snapshot_orcamento_atualizado_em=:source_updated,
+            proposta_cliente_primeira_visualizacao_em=NULL,
+            proposta_cliente_ultima_visualizacao_em=NULL,
+            proposta_cliente_visualizacoes=0,
+            proposta_cliente_aprovado_em=NULL,
+            proposta_cliente_aprovado_ip=NULL,
+            proposta_cliente_alteracao_solicitada_em=NULL,
+            proposta_cliente_alteracao_mensagem=NULL,
+            proposta_cliente_alteracao_ip=NULL,
+            proposta_cliente_cadastro_status='nao_iniciado',
+            proposta_cliente_cadastro_iniciado_em=NULL,
+            proposta_cliente_cadastro_concluido_em=NULL,
+            proposta_cliente_cadastro_ip=NULL,
+            proposta_cliente_cadastro_tipo_pessoa=NULL,
+            proposta_cliente_contrato_status='nao_gerado',
+            proposta_cliente_contrato_versao=0,
+            proposta_cliente_contrato_gerado_em=NULL,
+            proposta_cliente_contrato_gerado_por_id=NULL,
+            proposta_cliente_contrato_snapshot_json=NULL,
+            proposta_cliente_contrato_cliente_atualizado_em=NULL
+        WHERE id=:id AND empresa_id=:empresa_id
+    """), {
+        "version": version,
+        "now": now,
+        "usuario_id": int(current_user.id),
+        "expires": expires,
+        "snapshot": json_dump(snapshot),
+        "source_updated": source_updated,
+        "id": budget_id,
+        "empresa_id": company_id,
+    })
+    add_history(
+        db,
+        budget_id,
+        current_user,
+        "proposta_cliente_link_gerado" if version == 1 else "proposta_cliente_link_regenerado",
+        "Link público da proposta gerado para o cliente." if version == 1 else "Nova versão do link público da proposta gerada; links anteriores foram invalidados.",
+        data={"versao_link": version, "expira_em": expires.isoformat()},
+    )
+    db.commit()
+
+    fresh = _get_proposal_link_row(db, budget_id, company_id)
+    return _proposal_link_details(dict(fresh), request)
+
+
+@router.post("/{budget_id}/proposta-cliente/link/desativar")
+def desativar_link_proposta_cliente(
+    budget_id: int,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    row = _get_proposal_link_row(db, budget_id, company_id, lock=True)
+    if not row:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
+    if str(row.get("proposta_cliente_public_status") or "").lower() == "aprovado":
+        raise HTTPException(status_code=409, detail="A proposta já foi aprovada. O registro de aprovação deve ser preservado.")
+    if not bool(row.get("proposta_cliente_link_ativo")):
+        return {"ok": True, "status": "desativado"}
+
+    db.execute(text("""
+        UPDATE orcamentos SET
+            proposta_cliente_link_ativo=FALSE,
+            proposta_cliente_public_status='desativado',
+            proposta_cliente_link_desativado_em=NOW(),
+            proposta_cliente_link_desativado_por_id=:usuario_id
+        WHERE id=:id AND empresa_id=:empresa_id
+    """), {"usuario_id": int(current_user.id), "id": budget_id, "empresa_id": company_id})
+    add_history(db, budget_id, current_user, "proposta_cliente_link_desativado", "Link público da proposta desativado.")
+    db.commit()
+    return {"ok": True, "status": "desativado"}
 
 
 @router.post("/{budget_id}/enviar-financeiro", status_code=status.HTTP_201_CREATED)

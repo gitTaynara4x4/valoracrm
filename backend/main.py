@@ -25,6 +25,7 @@ from backend.routers.patrimonio import router as patrimonio_router
 from backend.routers.cotacoes import router as cotacoes_router
 from backend.routers.propostas import router as propostas_router
 from backend.routers.orcamentos import router as orcamentos_router
+from backend.routers.proposta_cliente_publica import router as proposta_cliente_publica_router
 from backend.routers.dashboard import router as dashboard_router, compat_router as dashboard_compat_router
 from backend.routers.usuarios import router as usuarios_router
 from backend.routers.permissoes import router as permissoes_router
@@ -35,6 +36,9 @@ from backend.routers import empresa
 from backend.routers import campos_propostas
 from backend.routers.integracoes_zapschat import router as integracoes_zapschat_router
 from backend.routers.integracoes_seg import router as integracoes_seg_router
+from backend.routers.integracao_seg_assinatura import router as integracao_seg_assinatura_router
+from backend.routers.assinatura_contrato import router as assinatura_contrato_router
+from backend.routers.asaas_webhook import router as asaas_webhook_router
 from backend.routers.exportacoes import router as exportacoes_router
 from backend.routers.agenda import router as agenda_router
 from backend.routers.arquivos_tecnicos import router as arquivos_tecnicos_router
@@ -260,6 +264,8 @@ PUBLIC_EXACT_PATHS = {
 PUBLIC_PREFIXES = (
     "/api/auth",
     "/api/area-cliente-publica",
+    "/api/proposta-cliente-publica",
+    "/proposta-cliente",
     "/api/integracoes/seg",
     "/frontend/img/",
     "/frontend/fonts/",
@@ -744,6 +750,7 @@ app.include_router(cotacoes_router)
 app.include_router(empresa.router)
 app.include_router(propostas_router)
 app.include_router(orcamentos_router)
+app.include_router(proposta_cliente_publica_router)
 app.include_router(dashboard_router)
 app.include_router(dashboard_compat_router)
 app.include_router(usuarios_router)
@@ -754,6 +761,9 @@ app.include_router(financeiro_router)
 app.include_router(financeiro_cobranca_router)
 app.include_router(integracoes_zapschat_router)
 app.include_router(integracoes_seg_router)
+app.include_router(integracao_seg_assinatura_router)
+app.include_router(assinatura_contrato_router)
+app.include_router(asaas_webhook_router)
 app.include_router(exportacoes_router)
 app.include_router(agenda_router)
 app.include_router(arquivos_tecnicos_router)

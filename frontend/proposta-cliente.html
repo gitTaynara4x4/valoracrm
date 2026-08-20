@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="referrer" content="no-referrer">
+  <title>Proposta comercial</title>
+  <link rel="stylesheet" href="/frontend/css/proposta-cliente.css?v=20260820-v3">
+  <script src="/frontend/js/pages/proposta-cliente.js?v=20260820-v3" defer></script>
+</head>
+<body>
+  <main class="proposal-page-shell">
+    <section class="proposal-loading" id="proposal-loading">
+      <span class="proposal-spinner" aria-hidden="true"></span>
+      <div><strong>Carregando sua proposta</strong><p>Aguarde alguns segundos.</p></div>
+    </section>
+
+    <section class="proposal-error" id="proposal-error" hidden>
+      <div class="proposal-error-icon">!</div>
+      <h1>Não foi possível abrir esta proposta</h1>
+      <p id="proposal-error-message">Confira se o link está correto ou solicite um novo acesso à equipe.</p>
+    </section>
+
+    <article class="proposal-document" id="proposal-document" hidden>
+      <header class="proposal-header">
+        <div class="proposal-brand">
+          <div class="proposal-brand-mark" id="proposal-brand-mark">S</div>
+          <div>
+            <strong id="proposal-emitter-name">SEG Sistemas</strong>
+            <span id="proposal-emitter-meta"></span>
+          </div>
+        </div>
+        <div class="proposal-header-reference">
+          <span>Proposta</span>
+          <strong id="proposal-code">—</strong>
+        </div>
+      </header>
+
+      <section class="proposal-hero">
+        <div>
+          <span class="proposal-eyebrow">Proposta comercial</span>
+          <h1 id="proposal-title">—</h1>
+          <p>Olá, <strong id="proposal-client-name">cliente</strong>. Revise os itens, valores e condições abaixo antes de confirmar.</p>
+        </div>
+        <div class="proposal-total-card">
+          <span>Valor total</span>
+          <strong id="proposal-total">R$ 0,00</strong>
+          <small id="proposal-validity">Consulte a validade abaixo</small>
+        </div>
+      </section>
+
+      <div class="proposal-alert proposal-alert-warning" id="proposal-outdated-alert" hidden>
+        <strong>Esta versão foi atualizada pela equipe.</strong>
+        <span>Solicite um novo link antes de aprovar.</span>
+      </div>
+      <div class="proposal-alert proposal-alert-success" id="proposal-approved-alert" hidden>
+        <strong>Proposta aprovada.</strong>
+        <span id="proposal-approved-text">Sua aprovação foi registrada.</span>
+      </div>
+      <div class="proposal-alert proposal-alert-info" id="proposal-change-alert" hidden>
+        <strong>Alteração solicitada.</strong>
+        <span id="proposal-change-text">A equipe recebeu sua solicitação.</span>
+      </div>
+
+      <section class="proposal-section">
+        <div class="proposal-section-heading">
+          <div><span>01</span><h2>Itens da proposta</h2></div>
+          <p>Produtos e serviços incluídos neste orçamento.</p>
+        </div>
+        <div class="proposal-items-wrap">
+          <table class="proposal-items-table">
+            <thead><tr><th>Descrição</th><th>Qtd.</th><th>Unitário</th><th>Total</th></tr></thead>
+            <tbody id="proposal-items"></tbody>
+          </table>
+        </div>
+        <div class="proposal-values" id="proposal-values"></div>
+      </section>
+
+      <section class="proposal-section">
+        <div class="proposal-section-heading">
+          <div><span>02</span><h2>Escopo e contratação</h2></div>
+          <p>Informações definidas pela equipe antes do envio.</p>
+        </div>
+        <div class="proposal-detail-grid" id="proposal-commercial-details"></div>
+        <div class="proposal-tag-groups">
+          <div id="proposal-services-group"><span class="proposal-label">Serviços</span><div class="proposal-tags" id="proposal-services"></div></div>
+          <div id="proposal-plans-group"><span class="proposal-label">Plano de serviços</span><div class="proposal-tags" id="proposal-plans"></div></div>
+        </div>
+      </section>
+
+      <section class="proposal-section">
+        <div class="proposal-section-heading">
+          <div><span>03</span><h2>Condições comerciais</h2></div>
+          <p>Forma de pagamento e valores recorrentes, quando aplicáveis.</p>
+        </div>
+        <div class="proposal-detail-grid" id="proposal-payment-details"></div>
+      </section>
+
+      <section class="proposal-action-panel" id="proposal-action-panel">
+        <div class="proposal-action-copy">
+          <span class="proposal-eyebrow">Confirmação</span>
+          <h2>Está tudo certo com a proposta?</h2>
+          <p>Ao aprovar, registraremos a data e o horário da sua confirmação no orçamento.</p>
+        </div>
+        <label class="proposal-accept-check" id="proposal-accept-label">
+          <input id="proposal-accept-check" type="checkbox">
+          <span>Li os itens, valores e condições e estou de acordo com esta proposta.</span>
+        </label>
+        <div class="proposal-action-buttons">
+          <button class="proposal-btn proposal-btn-secondary" id="btn-request-change" type="button">Solicitar alteração</button>
+          <button class="proposal-btn proposal-btn-primary" id="btn-approve-proposal" type="button" disabled>Aprovar proposta</button>
+        </div>
+        <div class="proposal-change-form" id="proposal-change-form" hidden>
+          <label for="proposal-change-message">O que precisa ser alterado?</label>
+          <textarea id="proposal-change-message" maxlength="1200" rows="4" placeholder="Descreva de forma simples o que gostaria que a equipe revisasse."></textarea>
+          <div class="proposal-change-actions">
+            <button class="proposal-btn proposal-btn-ghost" id="btn-cancel-change" type="button">Cancelar</button>
+            <button class="proposal-btn proposal-btn-secondary" id="btn-send-change" type="button">Enviar solicitação</button>
+          </div>
+        </div>
+        <p class="proposal-action-feedback" id="proposal-action-feedback" hidden></p>
+      </section>
+
+      <section class="contract-registration" id="contract-registration" hidden>
+        <div class="contract-registration-head">
+          <div>
+            <span class="proposal-eyebrow">Próxima etapa</span>
+            <h2>Cadastro para o contrato</h2>
+            <p>Confira e complete os dados abaixo. As informações serão atualizadas no cadastro real do Valora e usadas na elaboração do contrato.</p>
+          </div>
+          <span class="contract-status" id="contract-registration-status">Pendente</span>
+        </div>
+
+        <div class="proposal-alert proposal-alert-success contract-complete-alert" id="contract-complete-alert" hidden>
+          <strong>Cadastro concluído.</strong>
+          <span id="contract-complete-text">Os dados foram enviados para a equipe.</span>
+        </div>
+
+        <form id="contract-registration-form" novalidate>
+          <section class="contract-block">
+            <div class="contract-block-title"><span>01</span><div><h3>Tipo de cadastro</h3><p>Selecione como o contrato será emitido.</p></div></div>
+            <div class="contract-person-choice" role="radiogroup" aria-label="Tipo de pessoa">
+              <label><input type="radio" name="contract-person-type" value="PF"><span><strong>Pessoa Física</strong><small>Contrato em nome de uma pessoa.</small></span></label>
+              <label><input type="radio" name="contract-person-type" value="PJ"><span><strong>Pessoa Jurídica</strong><small>Contrato em nome de uma empresa.</small></span></label>
+            </div>
+          </section>
+
+          <section class="contract-block">
+            <div class="contract-block-title"><span>02</span><div><h3 id="contract-identification-title">Identificação</h3><p>Dados principais que irão para o contrato.</p></div></div>
+            <div class="contract-grid contract-grid-3">
+              <label class="contract-field contract-span-2"><span id="contract-name-label">Nome completo *</span><input id="contract-name" type="text" maxlength="180" required></label>
+              <label class="contract-field" id="contract-trade-name-field" hidden><span>Nome fantasia</span><input id="contract-trade-name" type="text" maxlength="180"></label>
+              <label class="contract-field"><span id="contract-document-label">CPF *</span><input id="contract-document" type="text" inputmode="numeric" maxlength="20" required></label>
+              <label class="contract-field"><span id="contract-rg-label">RG</span><input id="contract-rg-ie" type="text" maxlength="30"></label>
+              <label class="contract-field" id="contract-municipal-field" hidden><span>Inscrição Municipal</span><input id="contract-municipal" type="text" maxlength="30"></label>
+            </div>
+
+            <div class="contract-grid contract-grid-4" id="contract-pf-extra">
+              <label class="contract-field"><span>Nacionalidade</span><input id="contract-nationality" type="text" maxlength="80" placeholder="Ex.: Brasileira"></label>
+              <label class="contract-field"><span>Profissão</span><input id="contract-profession" type="text" maxlength="120"></label>
+              <label class="contract-field"><span>Estado civil</span><select id="contract-marital-status"><option value="">Selecionar</option><option>Solteiro(a)</option><option>Casado(a)</option><option>Divorciado(a)</option><option>Viúvo(a)</option><option>União estável</option><option>Outro</option></select></label>
+              <label class="contract-field"><span>Data de nascimento</span><input id="contract-birth-date" type="date"></label>
+            </div>
+          </section>
+
+          <section class="contract-block" id="contract-representative-block" hidden>
+            <div class="contract-block-title"><span>03</span><div><h3>Representante legal</h3><p>Pessoa que representará a empresa na contratação.</p></div></div>
+            <div class="contract-grid contract-grid-3">
+              <label class="contract-field contract-span-2"><span>Nome do representante *</span><input id="contract-rep-name" type="text" maxlength="180"></label>
+              <label class="contract-field"><span>CPF *</span><input id="contract-rep-cpf" type="text" inputmode="numeric" maxlength="20"></label>
+              <label class="contract-field"><span>RG</span><input id="contract-rep-rg" type="text" maxlength="30"></label>
+              <label class="contract-field"><span>Função / cargo *</span><input id="contract-rep-role" type="text" maxlength="120"></label>
+              <label class="contract-field"><span>Nacionalidade</span><input id="contract-rep-nationality" type="text" maxlength="80"></label>
+              <label class="contract-field"><span>Profissão</span><input id="contract-rep-profession" type="text" maxlength="120"></label>
+              <label class="contract-field"><span>Estado civil</span><select id="contract-rep-marital"><option value="">Selecionar</option><option>Solteiro(a)</option><option>Casado(a)</option><option>Divorciado(a)</option><option>Viúvo(a)</option><option>União estável</option><option>Outro</option></select></label>
+              <label class="contract-field"><span>Data de nascimento</span><input id="contract-rep-birth-date" type="date"></label>
+              <label class="contract-field"><span>Telefone / WhatsApp</span><input id="contract-rep-phone" type="tel" maxlength="40"></label>
+              <label class="contract-field contract-span-2"><span>E-mail</span><input id="contract-rep-email" type="email" maxlength="255"></label>
+            </div>
+          </section>
+
+          <section class="contract-block">
+            <div class="contract-block-title"><span id="contract-address-step">03</span><div><h3>Endereço</h3><p>Endereço que será usado no contrato.</p></div></div>
+            <div class="contract-grid contract-grid-4">
+              <label class="contract-field"><span>CEP *</span><input id="contract-cep" type="text" inputmode="numeric" maxlength="10" required></label>
+              <label class="contract-field contract-span-2"><span>Logradouro *</span><input id="contract-address" type="text" maxlength="200" required></label>
+              <label class="contract-field"><span>Número *</span><input id="contract-number" type="text" maxlength="20" required></label>
+              <label class="contract-field"><span>Complemento</span><input id="contract-complement" type="text" maxlength="120"></label>
+              <label class="contract-field"><span>Bairro *</span><input id="contract-neighborhood" type="text" maxlength="120" required></label>
+              <label class="contract-field"><span>Cidade *</span><input id="contract-city" type="text" maxlength="120" required></label>
+              <label class="contract-field"><span>UF *</span><input id="contract-state" type="text" maxlength="2" required></label>
+              <label class="contract-field contract-span-4"><span>Ponto de referência</span><input id="contract-reference" type="text" maxlength="180"></label>
+            </div>
+          </section>
+
+          <section class="contract-block">
+            <div class="contract-block-title"><span id="contract-contact-step">04</span><div><h3>Contato</h3><p>Como a equipe poderá falar com você sobre o contrato.</p></div></div>
+            <div class="contract-grid contract-grid-2">
+              <label class="contract-field"><span>Telefone / WhatsApp *</span><input id="contract-phone" type="tel" maxlength="40" required></label>
+              <label class="contract-field"><span>E-mail *</span><input id="contract-email" type="email" maxlength="255" required></label>
+            </div>
+          </section>
+
+          <label class="contract-confirmation">
+            <input id="contract-confirmation" type="checkbox">
+            <span>Confirmo que os dados acima estão corretos e poderão ser utilizados na elaboração do contrato.</span>
+          </label>
+          <div class="contract-submit-row">
+            <p id="contract-feedback" class="contract-feedback" hidden></p>
+            <button class="proposal-btn proposal-btn-primary" id="btn-complete-contract-registration" type="submit">Finalizar cadastro para contrato</button>
+          </div>
+        </form>
+      </section>
+
+      <footer class="proposal-footer">
+        <div>
+          <strong id="proposal-footer-emitter">SEG Sistemas</strong>
+          <span id="proposal-footer-contact"></span>
+        </div>
+        <span>Documento apresentado por link seguro.</span>
+      </footer>
+    </article>
+  </main>
+</body>
+</html>

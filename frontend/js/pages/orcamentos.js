@@ -70,6 +70,16 @@
     cancelado: ['Envio cancelado', 'finance-cancelado'],
   };
 
+  const proposalPublicStatusMeta = {
+    nao_gerado: ['Ainda não gerado', ''],
+    preparada: ['Preparada', ''],
+    aguardando: ['Aguardando cliente', 'status-aguardando'],
+    visualizado: ['Visualizada', 'status-visualizado'],
+    alteracao_solicitada: ['Alteração solicitada', 'status-alteracao_solicitada'],
+    aprovado: ['Aprovada pelo cliente', 'status-aprovado'],
+    desativado: ['Link desativado', 'status-desativado'],
+  };
+
   const DOCUMENT_SCALE_MIN = 70;
   const DOCUMENT_SCALE_MAX = 125;
   const DOCUMENT_SCALE_DEFAULT = 100;
@@ -352,6 +362,10 @@
     return statusMeta[status] || statusMeta.rascunho;
   }
 
+  function proposalPublicStatusInfo(value) {
+    return proposalPublicStatusMeta[String(value || 'nao_gerado')] || [String(value || 'Não gerado'), ''];
+  }
+
   async function bootstrap() {
     try {
       const [meta, categories, templates, kits, users, company, clientsResponse] = await Promise.all([
@@ -492,7 +506,7 @@
           <td data-label="Emissão">${escapeHtml(localDate(budget.data_emissao))}</td>
           <td data-label="Cliente"><div class="budget-client-cell"><strong>${escapeHtml(budget.cliente_nome || 'Cliente não vinculado')}</strong><small>${escapeHtml(budget.cliente_documento || '')}</small></div></td>
           <td data-label="Descrição"><div class="budget-title-cell"><strong>${escapeHtml(budget.titulo)}</strong><small>${escapeHtml(budget.categoria_nome || budget.nome_documento || '')}</small>${approval}</div></td>
-          <td data-label="Status"><span class="budget-status ${className}">${label}</span>${budget.financeiro_status && budget.financeiro_status !== 'nao_enviado' ? `<small class="budget-finance-list ${financeiroStatusInfo(budget.financeiro_status)[1]}"><i class="fa-solid fa-building-columns"></i> ${escapeHtml(financeiroStatusInfo(budget.financeiro_status)[0])}</small>` : ''}</td>
+          <td data-label="Status"><span class="budget-status ${className}">${label}</span>${budget.financeiro_status && budget.financeiro_status !== 'nao_enviado' ? `<small class="budget-finance-list ${financeiroStatusInfo(budget.financeiro_status)[1]}"><i class="fa-solid fa-building-columns"></i> ${escapeHtml(financeiroStatusInfo(budget.financeiro_status)[0])}</small>` : ''}${budget.publicacao_cliente?.status && !['nao_gerado', 'preparada'].includes(budget.publicacao_cliente.status) ? `<small class="budget-client-public-list ${escapeHtml(proposalPublicStatusInfo(budget.publicacao_cliente.status)[1])}"><i class="fa-solid fa-link"></i> ${escapeHtml(proposalPublicStatusInfo(budget.publicacao_cliente.status)[0])}</small>` : (budget.preparacao_cliente?.preparada ? '<small class="budget-client-prepared-list"><i class="fa-solid fa-link"></i> preparado para cliente</small>' : '')}${budget.publicacao_cliente?.cadastro_contrato?.status === 'concluido' ? '<small class="budget-client-contract-list"><i class="fa-solid fa-file-signature"></i> cadastro contrato concluído</small>' : ''}${budget.publicacao_cliente?.contrato?.status === 'gerado' ? `<small class="budget-generated-contract-list"><i class="fa-solid fa-file-contract"></i> contrato v${Number(budget.publicacao_cliente?.contrato?.versao || 1)} gerado</small>` : ''}</td>
           <td data-label="Total" class="text-right"><span class="budget-value-cell">${formatMoney(budget.total)}</span></td>
           <td data-label="Ações" class="text-right"><div class="budget-row-actions">
             <button class="budget-action-btn" data-action="edit" data-id="${budget.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
@@ -608,6 +622,8 @@
     if ($('budget-sidebar-code')) $('budget-sidebar-code').textContent = 'Código não gerado';
     $('btn-imprimir-orcamento').classList.add('is-hidden');
     $('btn-whatsapp-orcamento').classList.add('is-hidden');
+    $('btn-gerar-link-cliente')?.classList.add('is-hidden');
+    $('btn-gerar-contrato-cliente')?.classList.add('is-hidden');
     $('btn-aprovar-margem').classList.add('is-hidden');
     $('budget-financeiro-status')?.classList.add('is-hidden');
     $('btn-enviar-financeiro')?.classList.add('is-hidden');
@@ -662,6 +678,13 @@
       if ($('budget-sidebar-code')) $('budget-sidebar-code').textContent = budget.codigo || 'Código não gerado';
       $('btn-imprimir-orcamento').classList.remove('is-hidden');
       $('btn-whatsapp-orcamento').classList.remove('is-hidden');
+      $('btn-gerar-link-cliente')?.classList.remove('is-hidden');
+      const proposalButtonLabel = $('btn-gerar-link-cliente')?.querySelector('span');
+      if (proposalButtonLabel) proposalButtonLabel.textContent = budget.publicacao_cliente?.link_ativo ? 'Link do cliente' : 'Gerar link para cliente';
+      const contractEligible = budget.publicacao_cliente?.status === 'aprovado' && budget.publicacao_cliente?.cadastro_contrato?.status === 'concluido';
+      $('btn-gerar-contrato-cliente')?.classList.toggle('is-hidden', !contractEligible);
+      const contractTopLabel = $('btn-gerar-contrato-cliente')?.querySelector('span');
+      if (contractTopLabel) contractTopLabel.textContent = budget.publicacao_cliente?.contrato?.status === 'gerado' ? 'Contrato gerado' : 'Gerar contrato';
       $$('.edit-only').forEach((el) => el.classList.remove('is-hidden'));
       syncRefreshPricesButton(budget.status);
       const canApprove = state.meta.pode_configurar && budget.aprovacao_necessaria && budget.aprovacao_status !== 'aprovado';
@@ -2109,6 +2132,463 @@
   }
 
 
+  function proposalSelectedValues(name) {
+    return $$(`input[name="${name}"]:checked`).map((input) => input.value);
+  }
+
+  function setProposalCheckedValues(name, values = []) {
+    const selected = new Set((values || []).map((value) => String(value)));
+    $$(`input[name="${name}"]`).forEach((input) => { input.checked = selected.has(input.value); });
+  }
+
+  function selectedBudgetPayment() {
+    return state.payments.find((payment) => payment.selecionada) || state.payments[0] || null;
+  }
+
+  function proposalPaymentFromBudget() {
+    const payment = selectedBudgetPayment();
+    if (!payment) return { forma: '', condicao: '' };
+    const typeMap = {
+      pix: 'pix',
+      boleto: 'boleto',
+      cartao: 'cartao',
+      cheque: 'cheque',
+      dinheiro: 'dinheiro',
+      avista: '',
+      entrada_parcelas: '',
+      personalizado: '',
+    };
+    const parts = [payment.nome, payment.descricao].filter(Boolean);
+    if (Number(payment.entrada_valor || 0) > 0) parts.push(`Entrada de ${formatMoney(payment.entrada_valor)}`);
+    if (Number(payment.parcelas || 0) > 1) parts.push(`${Number(payment.parcelas)} parcelas`);
+    if (Number(payment.juros_percentual || 0) > 0) parts.push(`${Number(payment.juros_percentual).toLocaleString('pt-BR')}% de juros`);
+    return {
+      forma: typeMap[String(payment.tipo || '').toLowerCase()] || 'outro',
+      condicao: parts.join(' • ') || payment.nome || 'Condição definida no orçamento',
+    };
+  }
+
+  function proposalDateTime(value) {
+    if (!value) return '—';
+    const dt = new Date(value);
+    return Number.isNaN(dt.getTime()) ? String(value) : dt.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  function fillProposalClientPreparation(budget) {
+    const prep = budget?.preparacao_cliente || {};
+    const publication = budget?.publicacao_cliente || {};
+    $('proposal-client-budget-code').textContent = budget?.codigo || '—';
+    $('proposal-client-name').textContent = budget?.cliente_nome || budget?.cliente_razao_social || 'Cliente não vinculado';
+    $('proposal-client-total').textContent = formatMoney(budget?.total || 0);
+    const [statusLabel] = proposalPublicStatusInfo(publication.status || (prep.preparada ? 'preparada' : 'nao_gerado'));
+    $('proposal-client-status').textContent = statusLabel;
+    $('proposal-client-status').classList.toggle('is-ready', Boolean(prep.preparada));
+
+    $$('input[name="proposal-natureza"]').forEach((input) => { input.checked = input.value === String(prep.natureza || ''); });
+    setProposalCheckedValues('proposal-servico', prep.servicos || []);
+    setProposalCheckedValues('proposal-plano', prep.planos || []);
+    $('proposal-tipo-contrato').value = prep.tipo_contrato || '';
+    $('proposal-valor-implantacao').value = inputMoney(prep.valor_implantacao || 0);
+    $('proposal-valor-mensal').value = inputMoney(prep.valor_mensal || 0);
+    $('proposal-dia-vencimento').value = prep.dia_vencimento || '';
+
+    const budgetPayment = proposalPaymentFromBudget();
+    $('proposal-forma-pagamento').value = prep.forma_pagamento || budgetPayment.forma || '';
+    $('proposal-condicao-pagamento').value = prep.condicao_pagamento || budgetPayment.condicao || '';
+
+    const approved = publication.status === 'aprovado';
+    $('btn-salvar-proposal-client').disabled = approved;
+    if (approved) $('btn-salvar-proposal-client').innerHTML = '<i class="fa-solid fa-check"></i> Aprovada pelo cliente';
+    else $('btn-salvar-proposal-client').innerHTML = '<i class="fa-solid fa-link"></i> Salvar e gerar link';
+  }
+
+  function renderProposalClientLink(info = {}) {
+    const status = String(info.status || 'nao_gerado');
+    const [label, className] = proposalPublicStatusInfo(status);
+    const badge = $('proposal-client-link-status');
+    badge.textContent = info.desatualizado ? 'Link desatualizado' : label;
+    badge.className = `proposal-client-link-badge ${info.desatualizado ? 'status-desativado' : className}`.trim();
+
+    const hasLink = Boolean(info.tem_link && info.url);
+    $('proposal-client-link-box').classList.toggle('is-hidden', !hasLink);
+    $('proposal-client-link-empty').classList.toggle('is-hidden', hasLink);
+    $('proposal-client-public-url').value = info.url || '';
+
+    const meta = [];
+    if (info.gerado_em) meta.push(`<span><i class="fa-regular fa-calendar"></i> Gerado ${escapeHtml(proposalDateTime(info.gerado_em))}</span>`);
+    if (info.expira_em) meta.push(`<span><i class="fa-regular fa-clock"></i> Expira ${escapeHtml(proposalDateTime(info.expira_em))}</span>`);
+    if (Number(info.visualizacoes || 0) > 0) meta.push(`<span><i class="fa-regular fa-eye"></i> ${Number(info.visualizacoes)} visualização${Number(info.visualizacoes) === 1 ? '' : 'ões'}</span>`);
+    $('proposal-client-link-meta').innerHTML = meta.join('');
+
+    const feedback = $('proposal-client-link-feedback');
+    const messages = [];
+    if (info.desatualizado) messages.push('O orçamento foi alterado depois que este link foi criado. Gere um novo link antes de enviar ao cliente.');
+    if (status === 'visualizado' && info.primeira_visualizacao_em) messages.push(`O cliente abriu a proposta em ${proposalDateTime(info.primeira_visualizacao_em)}.`);
+    if (status === 'aprovado') messages.push(`Aprovação registrada em ${proposalDateTime(info.aprovado_em)}.`);
+    if (info.cadastro_contrato?.status === 'concluido') messages.push(`Cadastro para contrato concluído${info.cadastro_contrato.concluido_em ? ` em ${proposalDateTime(info.cadastro_contrato.concluido_em)}` : ''}.`);
+    else if (status === 'aprovado' && ['pendente', 'em_preenchimento'].includes(info.cadastro_contrato?.status)) messages.push('Aguardando o cliente concluir o cadastro para contrato.');
+    if (status === 'alteracao_solicitada') messages.push(`Cliente solicitou alteração${info.alteracao_solicitada_em ? ` em ${proposalDateTime(info.alteracao_solicitada_em)}` : ''}: ${info.alteracao_mensagem || 'sem mensagem'}`);
+    feedback.textContent = messages.join(' ');
+    feedback.classList.toggle('is-hidden', !messages.length);
+
+    const approved = status === 'aprovado';
+    $('btn-regenerar-proposal-link').disabled = approved;
+    $('btn-desativar-proposal-link').disabled = approved;
+    $('btn-copiar-proposal-link').disabled = !hasLink;
+    $('btn-abrir-proposal-link').disabled = !hasLink;
+    $('proposal-client-link-help').textContent = approved
+      ? 'A aprovação foi registrada e preservada no histórico do orçamento.'
+      : status === 'alteracao_solicitada'
+        ? 'Revise os dados acima e gere uma nova versão para responder ao cliente.'
+        : 'Compartilhe este link com o cliente para visualização e aprovação.';
+  }
+
+  async function loadProposalClientLink() {
+    if (!state.currentId) return renderProposalClientLink({});
+    try {
+      const info = await api(`${API}/${state.currentId}/proposta-cliente/link`);
+      renderProposalClientLink(info);
+      if (state.current) {
+        state.current.publicacao_cliente = { ...(state.current.publicacao_cliente || {}), status: info.status, link_ativo: info.ativo, versao_link: info.versao, aprovado_em: info.aprovado_em, alteracao_solicitada_em: info.alteracao_solicitada_em, alteracao_mensagem: info.alteracao_mensagem, cadastro_contrato: info.cadastro_contrato };
+      }
+    } catch (error) {
+      renderProposalClientLink({});
+      toast(error.message || 'Não foi possível consultar o link da proposta.', 'error');
+    }
+  }
+
+  async function openProposalClientPreparation() {
+    if (!state.currentId) {
+      toast('Salve o orçamento antes de preparar o envio ao cliente.', 'error');
+      return;
+    }
+    if (!Number($('orcamento-cliente-id').value || state.current?.cliente_id || 0)) {
+      toast('Selecione um cliente antes de preparar o envio.', 'error');
+      return;
+    }
+    fillProposalClientPreparation(state.current || {});
+    renderProposalClientLink({ status: state.current?.publicacao_cliente?.status || 'nao_gerado' });
+    openOverlay('proposal-client-modal');
+    await loadProposalClientLink();
+  }
+
+  function useBudgetPaymentInProposal() {
+    const payment = proposalPaymentFromBudget();
+    if (!payment.condicao) {
+      toast('Cadastre uma condição na aba Pagamento do orçamento primeiro.', 'error');
+      return;
+    }
+    $('proposal-forma-pagamento').value = payment.forma;
+    $('proposal-condicao-pagamento').value = payment.condicao;
+    toast('Condição de pagamento trazida do orçamento.');
+  }
+
+  function collectProposalClientPreparation() {
+    const natureza = $('proposal-natureza-options').querySelector('input[name="proposal-natureza"]:checked')?.value || '';
+    const diaRaw = String($('proposal-dia-vencimento').value || '').trim();
+    return {
+      natureza,
+      servicos: proposalSelectedValues('proposal-servico'),
+      planos: proposalSelectedValues('proposal-plano'),
+      tipo_contrato: $('proposal-tipo-contrato').value || null,
+      valor_implantacao: parseNumber($('proposal-valor-implantacao').value),
+      valor_mensal: parseNumber($('proposal-valor-mensal').value),
+      dia_vencimento: diaRaw ? Number(diaRaw) : null,
+      forma_pagamento: $('proposal-forma-pagamento').value,
+      condicao_pagamento: $('proposal-condicao-pagamento').value.trim(),
+    };
+  }
+
+  function validateProposalClientPreparation(payload) {
+    if (!payload.natureza) throw new Error('Selecione a natureza da proposta.');
+    if (!payload.forma_pagamento) throw new Error('Selecione a forma de pagamento.');
+    if (!payload.condicao_pagamento) throw new Error('Informe a condição de pagamento.');
+    if (payload.dia_vencimento !== null && (!Number.isInteger(payload.dia_vencimento) || payload.dia_vencimento < 1 || payload.dia_vencimento > 31)) {
+      throw new Error('O dia de vencimento deve estar entre 1 e 31.');
+    }
+  }
+
+  async function generateProposalClientLink(regenerar = false) {
+    const info = await api(`${API}/${state.currentId}/proposta-cliente/link`, {
+      method: 'POST',
+      body: JSON.stringify({ regenerar: Boolean(regenerar) }),
+    });
+    renderProposalClientLink(info);
+    if (state.current) {
+      state.current.publicacao_cliente = { ...(state.current.publicacao_cliente || {}), status: info.status, link_ativo: info.ativo, versao_link: info.versao };
+    }
+    const topLabel = $('btn-gerar-link-cliente')?.querySelector('span');
+    if (topLabel) topLabel.textContent = 'Link do cliente';
+    return info;
+  }
+
+  async function saveProposalClientPreparation() {
+    const button = $('btn-salvar-proposal-client');
+    try {
+      const payload = collectProposalClientPreparation();
+      validateProposalClientPreparation(payload);
+      setButtonLoading(button, true, 'Gerando link...');
+      const budget = await api(`${API}/${state.currentId}/preparacao-cliente`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      state.current = budget;
+      state.items = (budget.itens || []).map(normalizeItem);
+      state.payments = (budget.pagamentos || []).map(normalizePayment);
+      fillProposalClientPreparation(budget);
+      renderHistory(budget.historico || []);
+      const info = await generateProposalClientLink(true);
+      toast(info.url ? 'Link da proposta gerado. Agora você já pode enviar ao cliente.' : 'Preparação salva.');
+      await loadBudgets();
+    } catch (error) {
+      toast(error.message || 'Não foi possível gerar o link da proposta.', 'error');
+    } finally {
+      setButtonLoading(button, false);
+      fillProposalClientPreparation(state.current || {});
+    }
+  }
+
+  async function copyProposalClientLink() {
+    const url = $('proposal-client-public-url').value.trim();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Link copiado.');
+    } catch (_) {
+      $('proposal-client-public-url').select();
+      document.execCommand('copy');
+      toast('Link copiado.');
+    }
+  }
+
+  function openProposalClientLink() {
+    const url = $('proposal-client-public-url').value.trim();
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  async function regenerateProposalClientLink() {
+    if (!window.confirm('Gerar uma nova versão? O link anterior deixará de funcionar.')) return;
+    await saveProposalClientPreparation();
+  }
+
+  async function deactivateProposalClientLink() {
+    if (!state.currentId || !window.confirm('Desativar este link? O cliente não conseguirá mais abrir a proposta por ele.')) return;
+    const button = $('btn-desativar-proposal-link');
+    try {
+      setButtonLoading(button, true, 'Desativando...');
+      await api(`${API}/${state.currentId}/proposta-cliente/link/desativar`, { method: 'POST' });
+      renderProposalClientLink({ status: 'desativado' });
+      if (state.current?.publicacao_cliente) {
+        state.current.publicacao_cliente.status = 'desativado';
+        state.current.publicacao_cliente.link_ativo = false;
+      }
+      const topLabel = $('btn-gerar-link-cliente')?.querySelector('span');
+      if (topLabel) topLabel.textContent = 'Gerar link para cliente';
+      toast('Link desativado.');
+      await loadBudgets();
+    } catch (error) {
+      toast(error.message || 'Não foi possível desativar o link.', 'error');
+    } finally {
+      setButtonLoading(button, false);
+    }
+  }
+
+  function renderContractClient(info = {}) {
+    const generated = Boolean(info.gerado || info.status === 'gerado');
+    const outdated = Boolean(info.desatualizado);
+    const version = Number(info.versao || 0);
+    $('contract-client-status-label').textContent = generated ? (outdated ? 'Atualização necessária' : 'Contrato gerado') : 'Pronto para gerar';
+    $('contract-client-number').textContent = generated ? (info.numero || 'Contrato gerado') : 'Contrato ainda não gerado';
+    $('contract-client-description').textContent = generated
+      ? `Gerado ${info.gerado_em ? `em ${proposalDateTime(info.gerado_em)}` : ''}. O PDF desta versão fica preservado.`
+      : 'O Valora usará exatamente a proposta aprovada e os dados concluídos pelo cliente.';
+    $('contract-client-version').textContent = generated ? `Versão ${version || 1}` : 'Nova versão';
+    $('contract-client-warning').classList.toggle('is-hidden', !outdated);
+    $('btn-visualizar-contract-client').classList.toggle('is-hidden', !generated);
+    $('btn-baixar-contract-client').classList.toggle('is-hidden', !generated);
+    const generateButton = $('btn-gerar-contract-client');
+    generateButton.innerHTML = generated
+      ? '<i class="fa-solid fa-rotate"></i> Gerar nova versão'
+      : '<i class="fa-solid fa-file-circle-check"></i> Gerar contrato';
+    generateButton.dataset.regenerar = generated ? 'true' : 'false';
+    if (generated) loadContractSignature().catch(() => {});
+    else renderContractSignature({ status: 'nao_enviado' });
+  }
+
+  async function loadContractClient() {
+    if (!state.currentId) return renderContractClient({});
+    const info = await api(`${API}/${state.currentId}/contrato`);
+    renderContractClient(info);
+    if (state.current?.publicacao_cliente) {
+      state.current.publicacao_cliente.contrato = {
+        status: info.status,
+        versao: info.versao,
+        gerado_em: info.gerado_em,
+      };
+    }
+    return info;
+  }
+
+  async function openContractClient() {
+    if (!state.currentId || !state.current) return;
+    if (state.current.publicacao_cliente?.status !== 'aprovado') {
+      toast('A proposta precisa estar aprovada pelo cliente antes de gerar o contrato.', 'error');
+      return;
+    }
+    if (state.current.publicacao_cliente?.cadastro_contrato?.status !== 'concluido') {
+      toast('Aguarde o cliente concluir o Cadastro para Contrato.', 'error');
+      return;
+    }
+    $('contract-client-budget-code').textContent = state.current.codigo || '—';
+    $('contract-client-name').textContent = state.current.cliente_razao_social || state.current.cliente_nome || 'Cliente';
+    $('contract-client-approved').textContent = state.current.publicacao_cliente?.aprovado_em
+      ? `Aprovada em ${proposalDateTime(state.current.publicacao_cliente.aprovado_em)}`
+      : 'Aprovada';
+    $('contract-client-registration').textContent = state.current.publicacao_cliente?.cadastro_contrato?.concluido_em
+      ? `Concluído em ${proposalDateTime(state.current.publicacao_cliente.cadastro_contrato.concluido_em)}`
+      : 'Concluído';
+    openOverlay('contract-client-modal');
+    try {
+      await loadContractClient();
+    } catch (error) {
+      renderContractClient({});
+      toast(error.message || 'Não foi possível consultar o contrato.', 'error');
+    }
+  }
+
+  async function generateContractClient() {
+    if (!state.currentId) return;
+    const button = $('btn-gerar-contract-client');
+    const regenerar = button.dataset.regenerar === 'true';
+    if (regenerar && !window.confirm('Gerar uma nova versão do contrato com os dados atuais do cliente? A versão anterior continuará registrada no histórico.')) return;
+    try {
+      setButtonLoading(button, true, regenerar ? 'Gerando nova versão...' : 'Gerando contrato...');
+      const info = await api(`${API}/${state.currentId}/contrato/gerar`, {
+        method: 'POST',
+        body: JSON.stringify({ regenerar }),
+      });
+      renderContractClient(info);
+      if (state.current?.publicacao_cliente) {
+        state.current.publicacao_cliente.contrato = { status: info.status, versao: info.versao, gerado_em: info.gerado_em };
+      }
+      const topLabel = $('btn-gerar-contrato-cliente')?.querySelector('span');
+      if (topLabel) topLabel.textContent = 'Contrato gerado';
+      toast(regenerar ? `Contrato versão ${info.versao} gerado.` : 'Contrato gerado com sucesso.');
+      await loadBudgets();
+    } catch (error) {
+      toast(error.message || 'Não foi possível gerar o contrato.', 'error');
+    } finally {
+      setButtonLoading(button, false);
+      const generated = button.dataset.regenerar === 'true';
+      button.innerHTML = generated
+        ? '<i class="fa-solid fa-rotate"></i> Gerar nova versão'
+        : '<i class="fa-solid fa-file-circle-check"></i> Gerar contrato';
+    }
+  }
+
+  function openContractPdf(download = false) {
+    if (!state.currentId) return;
+    const url = `${API}/${state.currentId}/contrato/pdf${download ? '?download=true' : ''}`;
+    if (download) {
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  function contractSignatureStatusInfo(status) {
+    const map = {
+      nao_enviado: ['Não enviado', 'neutral'],
+      aguardando_assinatura: ['Aguardando assinatura', 'pending'],
+      visualizado: ['Visualizado pelo cliente', 'viewed'],
+      assinado: ['Assinado', 'signed'],
+      cancelado: ['Solicitação cancelada', 'cancelled'],
+    };
+    return map[status] || [status || 'Não enviado', 'neutral'];
+  }
+
+  function renderContractSignature(info = {}) {
+    const status = info.status || 'nao_enviado';
+    const [label, cls] = contractSignatureStatusInfo(status);
+    const panel = $('contract-signature-panel');
+    if (panel) panel.classList.toggle('is-hidden', state.current?.publicacao_cliente?.contrato?.status !== 'gerado');
+    $('contract-signature-status').textContent = label;
+    $('contract-signature-chip').textContent = label;
+    $('contract-signature-chip').className = `contract-signature-chip is-${cls}`;
+    const desc = status === 'assinado'
+      ? `Assinado ${info.assinado_em ? `em ${proposalDateTime(info.assinado_em)}` : ''}${info.assinante_nome ? ` por ${info.assinante_nome}` : ''}.`
+      : status === 'visualizado'
+        ? `O cliente visualizou esta versão${info.visualizado_em ? ` em ${proposalDateTime(info.visualizado_em)}` : ''}.`
+        : status === 'aguardando_assinatura'
+          ? `Disponível na Área do Cliente desde ${info.solicitada_em ? proposalDateTime(info.solicitada_em) : 'agora'}.`
+          : status === 'cancelado'
+            ? 'A solicitação anterior foi cancelada. Você pode enviar novamente esta mesma versão.'
+            : 'Disponibilize esta versão na Área do Cliente para aceite eletrônico.';
+    $('contract-signature-description').textContent = desc;
+    const evidence = $('contract-signature-evidence');
+    evidence?.classList.toggle('is-hidden', status !== 'assinado');
+    $('contract-signature-id').textContent = info.assinatura_id ? `ID: ${info.assinatura_id}` : '—';
+    $('contract-signature-hash').textContent = info.pdf_final_hash_sha256 || info.documento_hash_sha256 || '—';
+    $('btn-enviar-assinatura-contract-client').classList.toggle('is-hidden', !info.pode_enviar);
+    $('btn-cancelar-assinatura-contract-client').classList.toggle('is-hidden', !info.pode_cancelar);
+    $('btn-pdf-assinado-contract-client').classList.toggle('is-hidden', !info.pdf_assinado_disponivel);
+    const locked = ['aguardando_assinatura', 'visualizado', 'assinado'].includes(status);
+    $('btn-gerar-contract-client').classList.toggle('is-hidden', locked);
+  }
+
+  async function loadContractSignature() {
+    if (!state.currentId) return;
+    const info = await api(`${API}/${state.currentId}/contrato/assinatura`);
+    renderContractSignature(info);
+    return info;
+  }
+
+  async function sendContractToSignature() {
+    if (!state.currentId) return;
+    if (!window.confirm('Disponibilizar esta versão do contrato na Área do Cliente SEG para assinatura? Enquanto estiver aguardando assinatura ela ficará bloqueada para regeneração.')) return;
+    const button = $('btn-enviar-assinatura-contract-client');
+    try {
+      setButtonLoading(button, true, 'Enviando...');
+      const info = await api(`${API}/${state.currentId}/contrato/assinatura/enviar`, { method: 'POST', body: '{}' });
+      renderContractSignature(info);
+      toast('Contrato disponibilizado na Área do Cliente SEG.');
+      await loadBudgets();
+    } catch (error) {
+      toast(error.message || 'Não foi possível enviar para assinatura.', 'error');
+    } finally {
+      setButtonLoading(button, false);
+      button.innerHTML = '<i class="fa-solid fa-signature"></i> Enviar para assinatura';
+    }
+  }
+
+  async function cancelContractSignature() {
+    if (!state.currentId) return;
+    if (!window.confirm('Cancelar a solicitação de assinatura desta versão?')) return;
+    const button = $('btn-cancelar-assinatura-contract-client');
+    try {
+      setButtonLoading(button, true, 'Cancelando...');
+      const info = await api(`${API}/${state.currentId}/contrato/assinatura/cancelar`, { method: 'POST', body: '{}' });
+      renderContractSignature(info);
+      toast('Solicitação de assinatura cancelada.');
+    } catch (error) {
+      toast(error.message || 'Não foi possível cancelar a solicitação.', 'error');
+    } finally {
+      setButtonLoading(button, false);
+      button.innerHTML = '<i class="fa-solid fa-ban"></i> Cancelar solicitação';
+    }
+  }
+
+  function openSignedContractPdf() {
+    if (!state.currentId) return;
+    window.open(`${API}/${state.currentId}/contrato/pdf-assinado`, '_blank', 'noopener,noreferrer');
+  }
+
   function collectBudgetPayload() {
     return {
       cliente_id: Number($('orcamento-cliente-id').value) || null,
@@ -3138,6 +3618,24 @@
     $('btn-abrir-financeiro-orcamento')?.addEventListener('click', abrirVendaNoFinanceiro);
     $('btn-imprimir-orcamento').addEventListener('click', printCurrent);
     $('btn-whatsapp-orcamento').addEventListener('click', () => state.currentId && sendWhatsApp(state.currentId));
+    $('btn-gerar-link-cliente')?.addEventListener('click', openProposalClientPreparation);
+    $('btn-gerar-contrato-cliente')?.addEventListener('click', openContractClient);
+    $('btn-enviar-assinatura-contract-client')?.addEventListener('click', sendContractToSignature);
+    $('btn-cancelar-assinatura-contract-client')?.addEventListener('click', cancelContractSignature);
+    $('btn-pdf-assinado-contract-client')?.addEventListener('click', openSignedContractPdf);
+    $('btn-fechar-contract-client')?.addEventListener('click', () => closeOverlay('contract-client-modal'));
+    $('btn-cancelar-contract-client')?.addEventListener('click', () => closeOverlay('contract-client-modal'));
+    $('btn-gerar-contract-client')?.addEventListener('click', generateContractClient);
+    $('btn-visualizar-contract-client')?.addEventListener('click', () => openContractPdf(false));
+    $('btn-baixar-contract-client')?.addEventListener('click', () => openContractPdf(true));
+    $('btn-fechar-proposal-client')?.addEventListener('click', () => closeOverlay('proposal-client-modal'));
+    $('btn-cancelar-proposal-client')?.addEventListener('click', () => closeOverlay('proposal-client-modal'));
+    $('btn-usar-pagamento-orcamento')?.addEventListener('click', useBudgetPaymentInProposal);
+    $('btn-salvar-proposal-client')?.addEventListener('click', saveProposalClientPreparation);
+    $('btn-copiar-proposal-link')?.addEventListener('click', copyProposalClientLink);
+    $('btn-abrir-proposal-link')?.addEventListener('click', openProposalClientLink);
+    $('btn-regenerar-proposal-link')?.addEventListener('click', regenerateProposalClientLink);
+    $('btn-desativar-proposal-link')?.addEventListener('click', deactivateProposalClientLink);
     $('btn-aprovar-margem').addEventListener('click', approveMargin);
     $$('.budget-tab').forEach((button) => button.addEventListener('click', () => setTab(button.dataset.tab)));
     $('orcamento-status').addEventListener('change', () => { updateStatusPreview(); syncRefreshPricesButton(); syncFinanceiroActions(state.current); });

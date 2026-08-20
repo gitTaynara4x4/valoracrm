@@ -22,14 +22,14 @@
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260815-nilson-orcamento-v1">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260820-assinatura-v5">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260804-listas-simples-v3">
 
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260815-nilson-orcamento-v1" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260820-assinatura-v5" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -165,6 +165,12 @@
               </button>
               <button class="btn btn-secondary is-hidden budget-head-action" id="btn-whatsapp-orcamento" type="button" title="Enviar pelo WhatsApp">
                 <i class="fa-brands fa-whatsapp"></i><span>WhatsApp</span>
+              </button>
+              <button class="btn btn-secondary is-hidden budget-head-action" id="btn-gerar-link-cliente" type="button" title="Preparar proposta para aprovação do cliente">
+                <i class="fa-solid fa-link"></i><span>Gerar link para cliente</span>
+              </button>
+              <button class="btn btn-secondary is-hidden budget-head-action" id="btn-gerar-contrato-cliente" type="button" title="Gerar contrato a partir da proposta aprovada">
+                <i class="fa-solid fa-file-signature"></i><span>Gerar contrato</span>
               </button>
               <button class="btn btn-secondary budget-head-action budget-maximize-action" id="btn-toggle-budget-maximize" type="button" title="Maximizar orçamento" aria-label="Maximizar orçamento" aria-pressed="false">
                 <i class="fa-solid fa-expand"></i><span>Maximizar</span>
@@ -381,6 +387,180 @@
           </footer>
         </section>
       </form>
+    </div>
+  </div>
+
+  <!-- PREPARAÇÃO DA PROPOSTA PARA O CLIENTE -->
+  <div class="modal-overlay" id="proposal-client-modal" hidden>
+    <div class="modal-content proposal-client-modal-content" data-close-target="false">
+      <header class="modal-header proposal-client-header">
+        <div>
+          <span class="proposal-client-kicker">Envio ao cliente</span>
+          <h3>Preparar proposta para aprovação</h3>
+          <p>Revise somente as informações comerciais que a SEG define antes de gerar o link.</p>
+        </div>
+        <button class="btn-close" id="btn-fechar-proposal-client" type="button" title="Fechar"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+
+      <div class="proposal-client-summary">
+        <div><span>Orçamento</span><strong id="proposal-client-budget-code">—</strong></div>
+        <div class="proposal-client-summary-main"><span>Cliente</span><strong id="proposal-client-name">—</strong></div>
+        <div><span>Valor</span><strong id="proposal-client-total">R$ 0,00</strong></div>
+        <span class="proposal-client-status" id="proposal-client-status">Não preparado</span>
+      </div>
+
+      <div class="proposal-client-body">
+        <section class="proposal-client-section">
+          <div class="proposal-client-section-head"><div><h4>Natureza da proposta</h4><p>Como este fornecimento será contratado.</p></div></div>
+          <div class="proposal-choice-grid proposal-choice-grid-4" id="proposal-natureza-options">
+            <label class="proposal-choice"><input type="radio" name="proposal-natureza" value="venda"><span><i class="fa-solid fa-cart-shopping"></i><strong>Venda</strong></span></label>
+            <label class="proposal-choice"><input type="radio" name="proposal-natureza" value="locacao"><span><i class="fa-solid fa-calendar-check"></i><strong>Locação</strong></span></label>
+            <label class="proposal-choice"><input type="radio" name="proposal-natureza" value="comodato"><span><i class="fa-solid fa-arrows-rotate"></i><strong>Comodato</strong></span></label>
+            <label class="proposal-choice"><input type="radio" name="proposal-natureza" value="prestacao_servicos"><span><i class="fa-solid fa-screwdriver-wrench"></i><strong>Prestação de serviços</strong></span></label>
+          </div>
+        </section>
+
+        <div class="proposal-client-two-columns">
+          <section class="proposal-client-section">
+            <div class="proposal-client-section-head"><div><h4>Serviços</h4><p>Marque o escopo que acompanha esta proposta.</p></div></div>
+            <div class="proposal-check-list">
+              <label><input type="checkbox" name="proposal-servico" value="alarme"><span>Alarme</span></label>
+              <label><input type="checkbox" name="proposal-servico" value="cerca_eletrica"><span>Cerca elétrica</span></label>
+              <label><input type="checkbox" name="proposal-servico" value="cftv"><span>CFTV</span></label>
+              <label><input type="checkbox" name="proposal-servico" value="controle_acesso"><span>Controle de acesso</span></label>
+              <label><input type="checkbox" name="proposal-servico" value="manutencao"><span>Manutenção</span></label>
+            </div>
+          </section>
+
+          <section class="proposal-client-section">
+            <div class="proposal-client-section-head"><div><h4>Plano de serviços</h4><p>Serviços recorrentes ou de acompanhamento.</p></div></div>
+            <div class="proposal-check-list">
+              <label><input type="checkbox" name="proposal-plano" value="monitoramento_alarme"><span>Monitoramento de alarme</span></label>
+              <label><input type="checkbox" name="proposal-plano" value="cerca_eletrica"><span>Cerca elétrica</span></label>
+              <label><input type="checkbox" name="proposal-plano" value="acompanhamento"><span>Acompanhamento</span></label>
+              <label><input type="checkbox" name="proposal-plano" value="assistencia_tecnica"><span>Assistência técnica</span></label>
+            </div>
+          </section>
+        </div>
+
+        <section class="proposal-client-section">
+          <div class="proposal-client-section-head"><div><h4>Contrato e recorrência</h4><p>Valores adicionais ao orçamento e dados usados posteriormente no contrato.</p></div></div>
+          <div class="budget-form-grid grid-4 proposal-contract-grid">
+            <div class="form-group"><label for="proposal-tipo-contrato">Tipo de contrato</label><select id="proposal-tipo-contrato"><option value="">Não se aplica</option><option value="mensal">Mensal</option><option value="trimestral">Trimestral</option></select></div>
+            <div class="form-group"><label for="proposal-valor-implantacao">Implantação (único)</label><div class="proposal-money-input"><span>R$</span><input id="proposal-valor-implantacao" type="text" inputmode="decimal" value="0,00"></div></div>
+            <div class="form-group"><label for="proposal-valor-mensal">Mensalidade</label><div class="proposal-money-input"><span>R$</span><input id="proposal-valor-mensal" type="text" inputmode="decimal" value="0,00"></div></div>
+            <div class="form-group"><label for="proposal-dia-vencimento">Dia de vencimento</label><input id="proposal-dia-vencimento" type="number" min="1" max="31" placeholder="Ex.: 10"></div>
+          </div>
+        </section>
+
+        <section class="proposal-client-section">
+          <div class="proposal-client-section-head"><div><h4>Pagamento</h4><p>Forma e condição comercial que serão apresentadas ao cliente.</p></div><button class="btn btn-secondary btn-small" id="btn-usar-pagamento-orcamento" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i> Usar condição do orçamento</button></div>
+          <div class="budget-form-grid grid-2">
+            <div class="form-group"><label for="proposal-forma-pagamento">Forma de pagamento *</label><select id="proposal-forma-pagamento"><option value="">Selecionar</option><option value="dinheiro">Dinheiro</option><option value="pix">PIX</option><option value="cheque">Cheque</option><option value="cartao">Cartão</option><option value="boleto">Boleto</option><option value="outro">Outro</option></select></div>
+            <div class="form-group"><label for="proposal-condicao-pagamento">Condição de pagamento *</label><input id="proposal-condicao-pagamento" type="text" maxlength="180" placeholder="Ex.: À vista, entrada + 3 parcelas, 30 dias..."></div>
+          </div>
+        </section>
+
+        <section class="proposal-client-link-card" id="proposal-client-link-card">
+          <div class="proposal-client-link-head">
+            <div>
+              <span class="proposal-client-link-eyebrow">Link público</span>
+              <h4>Envio e aprovação do cliente</h4>
+              <p id="proposal-client-link-help">Salve os dados acima para gerar o link seguro desta proposta.</p>
+            </div>
+            <span class="proposal-client-link-badge" id="proposal-client-link-status">Ainda não gerado</span>
+          </div>
+          <div class="proposal-client-link-box is-hidden" id="proposal-client-link-box">
+            <div class="proposal-client-link-input-row">
+              <input id="proposal-client-public-url" type="text" readonly aria-label="Link público da proposta">
+              <button class="btn btn-secondary btn-small" id="btn-copiar-proposal-link" type="button"><i class="fa-regular fa-copy"></i> Copiar</button>
+              <button class="btn btn-secondary btn-small" id="btn-abrir-proposal-link" type="button"><i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir</button>
+            </div>
+            <div class="proposal-client-link-meta" id="proposal-client-link-meta"></div>
+            <div class="proposal-client-link-feedback is-hidden" id="proposal-client-link-feedback"></div>
+            <div class="proposal-client-link-actions">
+              <button class="btn btn-secondary btn-small" id="btn-regenerar-proposal-link" type="button"><i class="fa-solid fa-rotate"></i> Gerar novo link</button>
+              <button class="btn btn-secondary btn-small danger-text" id="btn-desativar-proposal-link" type="button"><i class="fa-solid fa-link-slash"></i> Desativar link</button>
+            </div>
+          </div>
+          <div class="proposal-client-next-step" id="proposal-client-link-empty">
+            <i class="fa-solid fa-shield-halved"></i>
+            <div><strong>O cliente não precisa entrar no Valora.</strong><span>O link é individual, possui validade e registra visualização, aprovação ou solicitação de alteração.</span></div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="modal-footer proposal-client-footer">
+        <button class="btn btn-secondary" id="btn-cancelar-proposal-client" type="button">Fechar</button>
+        <button class="btn btn-primary" id="btn-salvar-proposal-client" type="button"><i class="fa-solid fa-link"></i> Salvar e gerar link</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- CONTRATO GERADO A PARTIR DA PROPOSTA APROVADA -->
+  <div class="modal-overlay" id="contract-client-modal" hidden>
+    <div class="modal-content contract-client-modal-content" data-close-target="false">
+      <header class="modal-header contract-client-header">
+        <div>
+          <span class="proposal-client-kicker">Contrato</span>
+          <h3>Contrato do cliente</h3>
+          <p>Gerado com a proposta aprovada e o cadastro PF/PJ concluído.</p>
+        </div>
+        <button class="btn-close" id="btn-fechar-contract-client" type="button" title="Fechar"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+
+      <div class="contract-client-body">
+        <div class="contract-client-state">
+          <span class="contract-client-icon"><i class="fa-solid fa-file-contract"></i></span>
+          <div class="contract-client-state-copy">
+            <span class="contract-client-eyebrow" id="contract-client-status-label">Pronto para gerar</span>
+            <h4 id="contract-client-number">Contrato ainda não gerado</h4>
+            <p id="contract-client-description">O Valora usará exatamente a proposta aprovada e os dados concluídos pelo cliente.</p>
+          </div>
+          <span class="contract-client-version" id="contract-client-version">—</span>
+        </div>
+
+        <div class="contract-client-warning is-hidden" id="contract-client-warning">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>O cadastro do cliente foi alterado depois da geração deste contrato. Gere uma nova versão antes da assinatura.</span>
+        </div>
+
+        <div class="contract-client-grid">
+          <div><span>Orçamento</span><strong id="contract-client-budget-code">—</strong></div>
+          <div><span>Cliente</span><strong id="contract-client-name">—</strong></div>
+          <div><span>Proposta</span><strong id="contract-client-approved">Aprovada</strong></div>
+          <div><span>Cadastro</span><strong id="contract-client-registration">Concluído</strong></div>
+        </div>
+
+        <div class="contract-client-info">
+          <i class="fa-solid fa-shield-halved"></i>
+          <div><strong>Versão preservada.</strong><span>Depois de gerar, o PDF é reconstruído a partir do snapshot do contrato. Alterações posteriores não mudam uma versão já emitida.</span></div>
+        </div>
+
+        <div class="contract-signature-panel is-hidden" id="contract-signature-panel">
+          <div class="contract-signature-panel-head">
+            <div><span>Assinatura eletrônica SEG</span><strong id="contract-signature-status">Não enviado</strong></div>
+            <span class="contract-signature-chip" id="contract-signature-chip">—</span>
+          </div>
+          <p id="contract-signature-description">Disponibilize esta versão na Área do Cliente para aceite eletrônico.</p>
+          <div class="contract-signature-evidence is-hidden" id="contract-signature-evidence">
+            <span id="contract-signature-id">—</span>
+            <code id="contract-signature-hash">—</code>
+          </div>
+        </div>
+      </div>
+
+      <footer class="modal-footer contract-client-footer">
+        <button class="btn btn-secondary" id="btn-cancelar-contract-client" type="button">Fechar</button>
+        <div class="contract-client-footer-actions">
+          <button class="btn btn-secondary is-hidden" id="btn-visualizar-contract-client" type="button"><i class="fa-regular fa-eye"></i> Visualizar PDF</button>
+          <button class="btn btn-secondary is-hidden" id="btn-baixar-contract-client" type="button"><i class="fa-solid fa-download"></i> Baixar PDF</button>
+          <button class="btn btn-secondary is-hidden" id="btn-pdf-assinado-contract-client" type="button"><i class="fa-solid fa-file-circle-check"></i> PDF assinado</button>
+          <button class="btn btn-secondary is-hidden" id="btn-cancelar-assinatura-contract-client" type="button"><i class="fa-solid fa-ban"></i> Cancelar solicitação</button>
+          <button class="btn btn-primary is-hidden" id="btn-enviar-assinatura-contract-client" type="button"><i class="fa-solid fa-signature"></i> Enviar para assinatura</button>
+          <button class="btn btn-primary" id="btn-gerar-contract-client" type="button"><i class="fa-solid fa-file-circle-check"></i> Gerar contrato</button>
+        </div>
+      </footer>
     </div>
   </div>
 

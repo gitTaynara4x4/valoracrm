@@ -1,17 +1,31 @@
 from __future__ import annotations
 
+import json
 import os
+import re
 import secrets
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Response, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, Response, status
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from backend import models
 from backend.database import get_db
+from backend.services.asaas_cobranca import AsaasError, configured as asaas_configured, environment_name as asaas_environment_name, obter_ou_criar_cliente as asaas_obter_ou_criar_cliente, criar_boleto as asaas_criar_boleto, buscar_pagamento_por_referencia as asaas_buscar_pagamento_por_referencia, obter_linha_digitavel as asaas_obter_linha_digitavel, obter_pix as asaas_obter_pix, obter_pagamento as asaas_obter_pagamento
+
+from backend.routers.proposta_cliente_publica import (
+    PublicApprovalIn,
+    PublicChangeRequestIn,
+    PublicContractRegistrationIn,
+    approve_public_proposal,
+    complete_public_contract_registration,
+    get_public_contract_registration,
+    get_public_proposal,
+    request_public_change,
+)
 
 
 router = APIRouter(prefix="/api/integracoes/seg", tags=["Integração SEG"])
@@ -140,6 +154,41 @@ def _somente_digitos(value: Any) -> str:
     return "".join(ch for ch in str(value or "") if ch.isdigit())
 
 
+def _variantes_telefone(value: Any) -> set[str]:
+    """Normaliza formatos de telefone históricos usados no Valora."""
+    raw = str(value or "").strip()
+    if not raw:
+        return set()
+
+    partes = [raw] + [parte for parte in re.split(r"[/;,|]+", raw) if parte.strip()]
+    variantes: set[str] = set()
+
+    for parte in partes:
+        digits = _somente_digitos(parte)
+        if not digits:
+            continue
+
+        candidatos = {digits}
+        if digits.startswith("55") and len(digits) in {12, 13}:
+            candidatos.add(digits[2:])
+        if len(digits) > 11:
+            candidatos.add(digits[-11:])
+            candidatos.add(digits[-10:])
+
+        for candidato in candidatos:
+            if len(candidato) in {10, 11}:
+                variantes.add(candidato)
+
+    return variantes
+
+
+def _telefone_confere(informado: Any, cadastrado: Any) -> bool:
+    informado_variantes = _variantes_telefone(informado)
+    if not informado_variantes:
+        return False
+    return bool(informado_variantes & _variantes_telefone(cadastrado))
+
+
 def _auth_custom_fields_cliente(db: Session, cliente_id: int) -> Dict[str, Optional[str]]:
     rows = (
         db.query(models.CampoCliente.slug, models.ClienteCampoValor.valor)
@@ -262,19 +311,26 @@ def _validacao_primeiro_acesso_confere(db: Session, cliente: models.Cliente, ver
         return False
 
     custom = _auth_custom_fields_cliente(db, int(cliente.id))
-    candidatos = [
+
+    documentos = [
         cliente.cpf_cnpj,
-        cliente.telefone,
-        cliente.whatsapp,
         custom.get("cpf_cnpj"),
         custom.get("cnpj"),
         custom.get("cpf"),
+    ]
+    telefones = [
+        cliente.telefone,
+        cliente.whatsapp,
         custom.get("telefone_principal_whatssap"),
         custom.get("telefone_whatssap"),
         custom.get("telefone_contato_whatssap"),
     ]
 
-    return any(_somente_digitos(item) == informado for item in candidatos if _somente_digitos(item))
+    if len(informado) in {11, 14}:
+        if any(_somente_digitos(item) == informado for item in documentos if _somente_digitos(item)):
+            return True
+
+    return any(_telefone_confere(verificacao, item) for item in telefones if item)
 
 
 def _resumo_autenticacao(db: Session, cliente: models.Cliente) -> Dict[str, Any]:
@@ -361,6 +417,7 @@ def _financeiro_cliente(db: Session, cliente_id: int) -> Dict[str, Any]:
 
     has_forma_cobranca = _table_exists(db, "public.financeiro_formas_cobranca")
     has_emissao_itens = _table_exists(db, "public.financeiro_cobrancas_emissao_itens")
+    has_cobranca_externa = _table_exists(db, "public.financeiro_cobrancas_externas")
 
     forma_select = (
         "fc.id AS forma_cobranca_id, fc.nome AS forma_cobranca_nome, fc.tipo AS forma_cobranca_tipo,"
@@ -378,6 +435,19 @@ def _financeiro_cliente(db: Session, cliente_id: int) -> Dict[str, Any]:
         "WHERE ei.empresa_id=l.empresa_id AND ei.lancamento_id=l.id) AS emitido_em_lote_valora"
         if has_emissao_itens
         else "FALSE AS emitido_em_lote_valora"
+    )
+    cobranca_select = (
+        ", ce.provider AS cobranca_provider, ce.provider_payment_id, ce.provider_status, "
+        "ce.invoice_url, ce.bank_slip_url, ce.identification_field, ce.barcode, "
+        "ce.pix_payload, ce.pix_expiration"
+        if has_cobranca_externa else
+        ", NULL::VARCHAR AS cobranca_provider, NULL::VARCHAR AS provider_payment_id, "
+        "NULL::VARCHAR AS provider_status, NULL::TEXT AS invoice_url, NULL::TEXT AS bank_slip_url, "
+        "NULL::TEXT AS identification_field, NULL::TEXT AS barcode, NULL::TEXT AS pix_payload, NULL::TIMESTAMPTZ AS pix_expiration"
+    )
+    cobranca_join = (
+        "LEFT JOIN public.financeiro_cobrancas_externas ce ON ce.empresa_id=l.empresa_id AND ce.lancamento_id=l.id"
+        if has_cobranca_externa else ""
     )
 
     status_sql = """
@@ -441,8 +511,10 @@ def _financeiro_cliente(db: Session, cliente_id: int) -> Dict[str, Any]:
                 ({status_sql}) AS status,
                 {forma_select}
                 {emissao_select}
+                {cobranca_select}
             FROM public.financeiro_lancamentos l
             {forma_join}
+            {cobranca_join}
             WHERE l.empresa_id=:empresa_id
               AND l.cliente_id=:cliente_id
               AND l.tipo='receber'
@@ -484,15 +556,28 @@ def _financeiro_cliente(db: Session, cliente_id: int) -> Dict[str, Any]:
                     "nome": _texto(row.get("forma_cobranca_nome")),
                     "tipo": forma_tipo,
                 },
-                # O Valora atual registra o título e a forma "boleto", mas não
-                # possui no schema linha digitável/PDF/Pix bancário. Esses campos
-                # ficam explicitamente nulos até a integração do emissor real.
                 "boleto": {
                     "e_forma_boleto": eh_boleto,
                     "emitido_em_lote_valora": bool(row.get("emitido_em_lote_valora")),
-                    "linha_digitavel": None,
-                    "pdf_url": None,
-                    "pix_copia_cola": None,
+                    "emissor_configurado": bool(asaas_configured()),
+                    "ambiente": asaas_environment_name() if asaas_configured() else None,
+                    "emitido": bool(row.get("provider_payment_id")),
+                    "provider": _texto(row.get("cobranca_provider")),
+                    "provider_payment_id": _texto(row.get("provider_payment_id")),
+                    "provider_status": _texto(row.get("provider_status")),
+                    "linha_digitavel": _texto(row.get("identification_field")),
+                    "codigo_barras": _texto(row.get("barcode")),
+                    "pdf_url": _texto(row.get("bank_slip_url")) or _texto(row.get("invoice_url")),
+                    "fatura_url": _texto(row.get("invoice_url")),
+                    "pix_copia_cola": _texto(row.get("pix_payload")),
+                    "pix_expiracao": _json_value(row.get("pix_expiration")),
+                    "pode_emitir": bool(
+                        eh_boleto
+                        and asaas_configured()
+                        and str(row.get("status") or "").casefold() in {"aberto", "parcial"}
+                        and row.get("data_vencimento") is not None
+                        and row.get("data_vencimento") >= date.today()
+                    ),
                 },
             }
         )
@@ -512,7 +597,157 @@ def _financeiro_cliente(db: Session, cliente_id: int) -> Dict[str, Any]:
         },
         "titulos": titulos,
         "truncado": total_titulos > len(titulos),
+        "cobranca_online": {
+            "provider": "asaas" if asaas_configured() else None,
+            "configurado": bool(asaas_configured()),
+            "ambiente": asaas_environment_name() if asaas_configured() else None,
+        },
     }
+
+
+def _documento_cliente_para_cobranca(db: Session, cliente: models.Cliente) -> str:
+    custom = _auth_custom_fields_cliente(db, int(cliente.id))
+    for value in (cliente.cpf_cnpj, custom.get("cpf_cnpj"), custom.get("cnpj"), custom.get("cpf")):
+        digits = _somente_digitos(value)
+        if len(digits) in {11, 14}:
+            return digits
+    raise HTTPException(status_code=422, detail="CPF/CNPJ do cliente precisa estar preenchido no Valora para emitir boleto.")
+
+
+def _asaas_customer_payload(db: Session, cliente: models.Cliente) -> Dict[str, Any]:
+    custom = _custom_fields_cliente(db, int(cliente.id))
+    documento = _documento_cliente_para_cobranca(db, cliente)
+    telefone = _primeiro(custom.get("telefone_principal_whatssap"), custom.get("telefone_whatssap"), cliente.whatsapp, cliente.telefone)
+    email = _primeiro(cliente.email_cobranca, cliente.email, custom.get("e_mail_cobranca"))
+    payload: Dict[str, Any] = {
+        "name": _primeiro(custom.get("razao_social"), cliente.nome) or f"Cliente {cliente.codigo}",
+        "cpfCnpj": documento,
+        "email": email,
+        "mobilePhone": _somente_digitos(telefone),
+        "address": _primeiro(custom.get("logradouro"), cliente.endereco),
+        "addressNumber": _primeiro(custom.get("nº"), cliente.numero),
+        "complement": _primeiro(custom.get("complemento"), cliente.complemento),
+        "province": _primeiro(custom.get("bairro"), cliente.bairro),
+        "postalCode": _somente_digitos(_primeiro(custom.get("cep"), cliente.cep)),
+        "notificationDisabled": True,
+    }
+    return {key: value for key, value in payload.items() if value not in {None, ""}}
+
+
+def _lancamento_boleto(db: Session, cliente_id: int, lancamento_id: int) -> Dict[str, Any]:
+    has_forma = _table_exists(db, "public.financeiro_formas_cobranca")
+    join = "LEFT JOIN public.financeiro_formas_cobranca fc ON fc.id=l.forma_cobranca_id AND fc.empresa_id=l.empresa_id" if has_forma else ""
+    tipo = "fc.tipo AS forma_tipo" if has_forma else "NULL::VARCHAR AS forma_tipo"
+    row = db.execute(text(f"""
+        SELECT l.id, l.cliente_id, l.descricao, l.valor_total, l.valor_pago, l.data_vencimento, l.status, {tipo}
+        FROM public.financeiro_lancamentos l
+        {join}
+        WHERE l.id=:id AND l.empresa_id=:empresa_id AND l.cliente_id=:cliente_id AND l.tipo='receber'
+        LIMIT 1
+    """), {"id": lancamento_id, "empresa_id": SEG_EMPRESA_ID, "cliente_id": cliente_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Título financeiro não encontrado para este cliente.")
+    data = dict(row)
+    if str(data.get("forma_tipo") or "").casefold() != "boleto":
+        raise HTTPException(status_code=422, detail="Este título não está configurado com forma de cobrança Boleto no Valora.")
+    saldo = Decimal(str(data.get("valor_total") or 0)) - Decimal(str(data.get("valor_pago") or 0))
+    if saldo <= 0:
+        raise HTTPException(status_code=409, detail="Este título já está quitado.")
+    if str(data.get("status") or "").casefold() == "cancelado":
+        raise HTTPException(status_code=409, detail="Este título está cancelado.")
+    data["saldo"] = saldo
+    return data
+
+
+def _salvar_cobranca_asaas(db: Session, *, cliente_id: int, lancamento_id: int, customer_id: str, payment: Dict[str, Any], linha: Dict[str, Any], pix: Dict[str, Any]) -> None:
+    payment_id = str(payment.get("id") or "").strip()
+    if not payment_id:
+        raise HTTPException(status_code=502, detail="O Asaas não retornou o identificador da cobrança.")
+    db.execute(text("""
+        INSERT INTO financeiro_cobrancas_externas
+            (empresa_id, lancamento_id, cliente_id, provider, provider_customer_id, provider_payment_id,
+             billing_type, provider_status, invoice_url, bank_slip_url, identification_field, barcode,
+             pix_payload, pix_expiration, provider_payload_json, ultima_sincronizacao_em, criado_em, atualizado_em)
+        VALUES
+            (:empresa_id, :lancamento_id, :cliente_id, 'asaas', :customer_id, :payment_id,
+             :billing_type, :provider_status, :invoice_url, :bank_slip_url, :identification_field, :barcode,
+             :pix_payload, :pix_expiration, :payload, NOW(), NOW(), NOW())
+        ON CONFLICT (empresa_id, lancamento_id) DO UPDATE SET
+             provider='asaas', provider_customer_id=EXCLUDED.provider_customer_id,
+             provider_payment_id=EXCLUDED.provider_payment_id, billing_type=EXCLUDED.billing_type,
+             provider_status=EXCLUDED.provider_status, invoice_url=EXCLUDED.invoice_url,
+             bank_slip_url=EXCLUDED.bank_slip_url, identification_field=EXCLUDED.identification_field,
+             barcode=EXCLUDED.barcode, pix_payload=EXCLUDED.pix_payload, pix_expiration=EXCLUDED.pix_expiration,
+             provider_payload_json=EXCLUDED.provider_payload_json, ultima_sincronizacao_em=NOW(), atualizado_em=NOW()
+    """), {
+        "empresa_id": SEG_EMPRESA_ID, "lancamento_id": lancamento_id, "cliente_id": cliente_id,
+        "customer_id": customer_id, "payment_id": payment_id, "billing_type": payment.get("billingType") or "BOLETO",
+        "provider_status": payment.get("status"), "invoice_url": payment.get("invoiceUrl"),
+        "bank_slip_url": payment.get("bankSlipUrl"), "identification_field": linha.get("identificationField"),
+        "barcode": linha.get("barCode"), "pix_payload": pix.get("payload"), "pix_expiration": pix.get("expirationDate"),
+        "payload": json.dumps(payment, ensure_ascii=False, default=str),
+    })
+
+
+def _emitir_ou_atualizar_boleto(db: Session, cliente_id: int, lancamento_id: int, *, criar: bool) -> Dict[str, Any]:
+    if not asaas_configured():
+        raise HTTPException(status_code=503, detail="Emissão de boleto Asaas ainda não configurada no Valora.")
+    cliente = _buscar_cliente_por_id(db, cliente_id)
+    _validar_escopo_monitoramento(_custom_fields_cliente(db, cliente_id))
+    lanc = _lancamento_boleto(db, cliente_id, lancamento_id)
+    existing = db.execute(text("SELECT * FROM financeiro_cobrancas_externas WHERE empresa_id=:empresa_id AND lancamento_id=:lancamento_id LIMIT 1"), {"empresa_id": SEG_EMPRESA_ID, "lancamento_id": lancamento_id}).mappings().first()
+    try:
+        if existing:
+            customer_id = str(existing.get("provider_customer_id") or "")
+            payment_id = str(existing.get("provider_payment_id") or "")
+            payment = asaas_obter_pagamento(payment_id)
+        else:
+            if not criar:
+                raise HTTPException(status_code=404, detail="Boleto ainda não emitido para este título.")
+            if lanc.get("data_vencimento") and lanc["data_vencimento"] < date.today():
+                raise HTTPException(
+                    status_code=409,
+                    detail="Este título está vencido. Para não recalcular multa/juros incorretamente, solicite à SEG a atualização da cobrança antes de emitir uma nova via.",
+                )
+            customer = asaas_obter_ou_criar_cliente(_asaas_customer_payload(db, cliente), cliente_id=cliente_id)
+            customer_id = str(customer.get("id") or "").strip()
+            if not customer_id:
+                raise HTTPException(status_code=502, detail="O Asaas não retornou o cliente pagador.")
+            external_reference = f"VALORA-LANCAMENTO-{int(lancamento_id)}"
+            payment = asaas_buscar_pagamento_por_referencia(external_reference)
+            if not payment:
+                payment = asaas_criar_boleto(
+                    asaas_customer_id=customer_id,
+                    lancamento_id=lancamento_id,
+                    valor=lanc["saldo"],
+                    vencimento=lanc["data_vencimento"],
+                    descricao=str(lanc.get("descricao") or f"Título {lancamento_id}"),
+                )
+            payment_id = str(payment.get("id") or "").strip()
+        linha = asaas_obter_linha_digitavel(payment_id)
+        try:
+            pix = asaas_obter_pix(payment_id)
+        except AsaasError:
+            pix = {}
+        _salvar_cobranca_asaas(db, cliente_id=cliente_id, lancamento_id=lancamento_id, customer_id=customer_id, payment=payment, linha=linha, pix=pix)
+        provider_status = str(payment.get("status") or "").upper().strip()
+        if provider_status in {"RECEIVED", "RECEIVED_IN_CASH"}:
+            payment_date_raw = str(payment.get("paymentDate") or payment.get("clientPaymentDate") or "").strip()
+            try:
+                payment_date = date.fromisoformat(payment_date_raw[:10]) if payment_date_raw else date.today()
+            except Exception:
+                payment_date = date.today()
+            db.execute(text("""
+                UPDATE financeiro_lancamentos
+                SET valor_pago=valor_total, data_pagamento=COALESCE(data_pagamento, :data_pagamento),
+                    status='pago', atualizado_em=NOW()
+                WHERE id=:id AND empresa_id=:empresa_id AND cliente_id=:cliente_id AND tipo='receber'
+            """), {"data_pagamento": payment_date, "id": lancamento_id, "empresa_id": SEG_EMPRESA_ID, "cliente_id": cliente_id})
+        db.commit()
+        return _financeiro_cliente(db, cliente_id)
+    except AsaasError as exc:
+        db.rollback()
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
 def _montar_cliente(db: Session, cliente: models.Cliente) -> Dict[str, Any]:
@@ -661,3 +896,85 @@ def obter_cliente_seg_por_codigo(
     _ensure_no_cache(response)
     cliente = _buscar_cliente_por_codigo(db, codigo)
     return _montar_cliente(db, cliente)
+
+
+@router.post("/clientes/{cliente_id}/financeiro/{lancamento_id}/boleto/emitir")
+def emitir_boleto_seg(
+    cliente_id: int,
+    lancamento_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_seg_api_key),
+):
+    _ensure_no_cache(response)
+    return {"ok": True, "financeiro": _emitir_ou_atualizar_boleto(db, cliente_id, lancamento_id, criar=True)}
+
+
+@router.post("/clientes/{cliente_id}/financeiro/{lancamento_id}/boleto/atualizar")
+def atualizar_boleto_seg(
+    cliente_id: int,
+    lancamento_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_seg_api_key),
+):
+    _ensure_no_cache(response)
+    return {"ok": True, "financeiro": _emitir_ou_atualizar_boleto(db, cliente_id, lancamento_id, criar=False)}
+
+
+# ---------------------------------------------------------------------------
+# Proposta pública hospedada no domínio da SEG.
+# O token continua sendo emitido/validado pelo Valora; o navegador do cliente
+# nunca recebe a chave privada da integração.
+# ---------------------------------------------------------------------------
+@router.get("/propostas/{token}")
+def seg_obter_proposta_publica(
+    token: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_seg_api_key),
+):
+    return get_public_proposal(token, request, db)
+
+
+@router.post("/propostas/{token}/aprovar")
+def seg_aprovar_proposta_publica(
+    token: str,
+    payload: PublicApprovalIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_seg_api_key),
+):
+    return approve_public_proposal(token, payload, request, db)
+
+
+@router.post("/propostas/{token}/solicitar-alteracao")
+def seg_solicitar_alteracao_proposta(
+    token: str,
+    payload: PublicChangeRequestIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_seg_api_key),
+):
+    return request_public_change(token, payload, request, db)
+
+
+@router.get("/propostas/{token}/cadastro-contrato")
+def seg_obter_cadastro_contrato_proposta(
+    token: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_seg_api_key),
+):
+    return get_public_contract_registration(token, request, db)
+
+
+@router.post("/propostas/{token}/cadastro-contrato")
+def seg_concluir_cadastro_contrato_proposta(
+    token: str,
+    payload: PublicContractRegistrationIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_seg_api_key),
+):
+    return complete_public_contract_registration(token, payload, request, db)
