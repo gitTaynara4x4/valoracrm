@@ -5393,3 +5393,115 @@ html[data-theme="dark"] .financeiro-faturamento-table tr.is-selected > td {
   .financeiro-boleto-data { grid-template-columns:1fr; }
   .financeiro-boleto-data .full { grid-column:auto; }
 }
+
+/* =========================================================
+   Contas a Pagar — grade compacta estilo ERP
+   Densidade alta para visualizar mais títulos por tela.
+   ========================================================= */
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-table--pagar {
+  min-width: 1320px !important;
+  font-size: 11.5px !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-table--pagar th {
+  height: 34px !important;
+  padding: 0 9px !important;
+  font-size: 10.5px !important;
+  font-weight: 650 !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-table--pagar td {
+  min-height: 0 !important;
+  height: 38px !important;
+  padding: 5px 9px !important;
+  font-size: 11.5px !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-table--pagar td:nth-child(4) {
+  width: 250px;
+  min-width: 210px;
+  max-width: 280px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-table--pagar td:nth-child(5),
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-table--pagar td:nth-child(6) {
+  width: 170px;
+  min-width: 130px;
+  max-width: 190px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-table--pagar td:last-child,
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-table--pagar th:last-child {
+  width: 184px;
+  min-width: 184px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-pagar-fornecedor,
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-pagar-documento,
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-cell-ellipsis {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-pagar-fornecedor {
+  max-width: 270px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-pagar-documento {
+  max-width: 125px;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-cell-wrap {
+  max-width: 180px;
+  line-height: 1.2 !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-table--pagar .financeiro-pill {
+  min-height: 20px !important;
+  padding: 2px 7px !important;
+  border-radius: 999px !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-pagar-actions {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-mini-btn.financeiro-pagar-icon-btn {
+  width: 27px !important;
+  min-width: 27px !important;
+  height: 27px !important;
+  min-height: 27px !important;
+  padding: 0 !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px !important;
+  line-height: 1 !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-mini-btn.financeiro-pagar-icon-btn i {
+  margin: 0 !important;
+  width: auto !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-pagar-row td strong {
+  font-weight: 600 !important;
+}
+
+body.financeiro-theme-valora [data-financeiro-page="pagar"] .financeiro-registro-resumo {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 11px;
+}

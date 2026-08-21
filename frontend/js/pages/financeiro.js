@@ -260,6 +260,20 @@
     </div>`;
   }
 
+  function acoesPagarCompactas(item) {
+    const status = String(item.status_calculado || item.status || "").toLowerCase();
+    const finalizado = ["pago", "cancelado"].includes(status);
+    const reparcelamentoAtivo = Boolean(item.reparcelamento_ativo);
+    return `<div class="actions-cell financeiro-pagar-actions">
+      <button class="financeiro-mini-btn financeiro-pagar-icon-btn ok" type="button" data-action="baixar-lancamento" data-id="${item.id}" ${finalizado ? "disabled" : ""} title="Baixar pagamento" aria-label="Baixar pagamento"><i class="fa-solid fa-check"></i></button>
+      <button class="financeiro-mini-btn financeiro-pagar-icon-btn" type="button" data-action="editar-lancamento" data-id="${item.id}" ${reparcelamentoAtivo ? 'disabled title="Conta original de um reparcelamento ativo"' : 'title="Editar"'} aria-label="Editar"><i class="fa-regular fa-pen-to-square"></i></button>
+      <button class="financeiro-mini-btn financeiro-pagar-icon-btn" type="button" data-action="detalhes-pagar" data-id="${item.id}" title="Detalhes" aria-label="Detalhes"><i class="fa-regular fa-file-lines"></i></button>
+      <button class="financeiro-mini-btn financeiro-pagar-icon-btn" type="button" data-action="historico-lancamento" data-id="${item.id}" title="Histórico" aria-label="Histórico"><i class="fa-solid fa-clock-rotate-left"></i></button>
+      <button class="financeiro-mini-btn financeiro-pagar-icon-btn warn" type="button" data-action="cancelar-lancamento" data-id="${item.id}" ${status === "cancelado" ? "disabled" : ""} title="Cancelar" aria-label="Cancelar"><i class="fa-solid fa-ban"></i></button>
+      <button class="financeiro-mini-btn financeiro-pagar-icon-btn danger" type="button" data-action="excluir-lancamento" data-id="${item.id}" title="Excluir" aria-label="Excluir"><i class="fa-regular fa-trash-can"></i></button>
+    </div>`;
+  }
+
   function rowLancamento(item, modo = "dashboard") {
     if (modo === "dashboard") {
       const tipoLabel = item.tipo === "pagar" ? "Pagamento" : "Recebimento";
@@ -298,15 +312,15 @@
         <td><strong>${item.id}</strong></td>
         <td>${pill(statusEfetivo === "pago" ? "quitado" : statusEfetivo)}</td>
         <td>${dateBR(item.data_vencimento)}</td>
-        <td><strong>${escapeHtml(parceiro || "-")}</strong>${item.fornecedor_tipo ? `<small>${escapeHtml(item.fornecedor_tipo)}</small>` : ""}</td>
-        <td><span class="financeiro-cell-wrap">${escapeHtml(plano)}</span></td>
-        <td><span class="financeiro-cell-wrap">${escapeHtml(centro)}</span></td>
-        <td>${escapeHtml(item.documento || "-")}</td>
+        <td><span class="financeiro-pagar-fornecedor" title="${escapeHtml(parceiro || "-")}"><strong>${escapeHtml(parceiro || "-")}</strong></span></td>
+        <td><span class="financeiro-cell-wrap financeiro-cell-ellipsis" title="${escapeHtml(plano)}">${escapeHtml(plano)}</span></td>
+        <td><span class="financeiro-cell-wrap financeiro-cell-ellipsis" title="${escapeHtml(centro)}">${escapeHtml(centro)}</span></td>
+        <td><span class="financeiro-pagar-documento" title="${escapeHtml(item.documento || "-")}">${escapeHtml(item.documento || "-")}</span></td>
         <td class="financeiro-amount"><strong>${money(item.valor_total, item.moeda)}</strong></td>
         <td class="financeiro-amount">${money(item.valor_pago, item.moeda)}</td>
         <td>${dateBR(item.data_pagamento)}</td>
         <td>${escapeHtml(parcelaTexto)}</td>
-        <td>${acoesLancamento(item)}</td>
+        <td>${acoesPagarCompactas(item)}</td>
       </tr>`;
     }
     const statusEfetivo = String(item.status_calculado || item.status || "aberto").toLowerCase();
