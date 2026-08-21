@@ -28,7 +28,7 @@ EXPECTED_TITLE_COUNT = 221
 EXPECTED_TOTAL = 31272.60
 EXPECTED_PAID = 30870.60
 
-# Revisão assistida feita sobre o relatório gerado em 21/08/2026.
+# Revisão assistida V6 final feita sobre os relatórios gerados em 21/08/2026.
 # Estes vínculos NÃO alteram CPF/CNPJ do cadastro existente; servem somente
 # para reutilizar o cliente correto na importação histórica e evitar duplicidades.
 CURATED_LINKS = {
@@ -97,6 +97,41 @@ CURATED_LINKS = {
     ('TOTAL OFICINA COM PREST SERV AUTOMOTIVO', '21263358000187'): 5281,
     ('UNIAO CENTRAL BRASILEIRA DA IGREJA', '55233019003438'): 5047,
     ('V C ROSA DE SOUZA E CIA LTDA ME OTICA DA', '09386123000187'): 5049,
+    # Revisão V3 — confirmados a partir das 31 pendências da V2.
+    ('ASSOC DA IGREJA METODISTA TERCEIRA REGIAO', ''): 4650,
+    ('CHARLES NAN YONG TUNG', '12631578821'): 2375,
+    ('CHARLES NAN YONG TUNG COMERCIO', '12631578821'): 2375,
+    ('ELETRO VENDA TAUBATE LTDA LUIZ CARLOS DA', '04540326000162'): 4772,
+    ('LABORATORIO SACE SERVICO DE ANALISES', ''): 5514,
+    # Revisão V4 — vínculos seguros a partir do diagnóstico V3.
+    ('EMILIO CENTRO AUTOMOTIVA EPP', '02173224000554'): 4778,
+    ('EMILIO CENTRO AUTOMOTIVO LTDA', '02173224000805'): 4776,
+    ('HELDER JOSE SILVEIRA FERRAZ', '53185412672'): 1722,
+    ('IRACY OTAVIO CAMPHORA', '05794055839'): 1806,
+    ('MARCHETTI MARCHETTI PIZZARIA LTDA EPP', '03544009000151'): 5021,
+    ('SO CORTE', '05551251000188'): 5628,
+    ('T T COMERCIAL E INDUSTRIA DE ALIMENTOS', '04227774000100'): 5030,
+    # Revisão V5 — cidade/uso tornam estes vínculos inequívocos.
+    ('L B KOBAL VESTUARIO E ACESSORIOS ME', '19639040000106'): 5501,
+    ('LOJA PRETO E BRANCO L B KOBAL VESTUARIO E', '19639040000106'): 5500,
+    ('PAULO ERNESTO MARQUES SILVA', '97756644891'): 1814,
+    # Revisão V6 final — conferência cruzada com endereço/contato e identidade jurídica.
+    ('ANA MARIA GOMES RAMOS ARAUJO', '01514059215'): 1653,
+    ('CLAUDETE BEZERRA FARIAS', '15388673000138'): 5166,
+    ('LABORATORIO EMILIO RIBAS ANALISES CLINICAS', '50463553000159'): 4674,
+    ('LAMIA RAFATE SMAIDI EPP ART PE CALCADOS', '07029834000179'): 4877,
+    ('MITRA DIOCESANA DE TAUBATE', '72293509000180'): 4678,
+    ('MITRA DIOCESANA DE TAUBATE SEMINARIO S', '72293509000180'): 4678,
+    ('PRISCILA DA S FEITOSA ME WALTER', '03867616000152'): 5441,
+    ('RECOFER INDUSTRIA E COMERCIO DE', '56917891000108'): 5231,
+}
+
+
+# Exceção revisada: o cadastro atual é a mesma identidade operacional/nome,
+# porém o documento histórico do JCC diverge. Nunca sobrescrevemos o documento
+# atual do Valora; o documento JCC permanece apenas na origem histórica.
+CURATED_LINKS_ALLOW_DOCUMENT_DIVERGENCE = {
+    ('PRISCILA DA S FEITOSA ME WALTER', '03867616000152'),
 }
 
 # Casos revisados em que não foi encontrado candidato plausível no cadastro atual.
@@ -118,12 +153,58 @@ CURATED_SAFE_NEW = {
     ('TAMOTO IMAKAWA', '21148830863'),
     ('TOLEDO FUSCA SILVIA SALLES DE TOLEDO', '10208698000199'),
     ('WALDELAYNE DE CASSIA F LEAL ME', '07622412000102'),
+    # Documento JCC é diferente do único cadastro semelhante existente;
+    # preserva a identidade jurídica histórica como novo cliente.
+    ('PICANHA E TRUTA RESTAURANTE E LANCHONETE', '06297643000125'),
+    # Revisão V5 — CNPJ próprio e nenhum cadastro equivalente encontrado.
+    ('MITRA DIOCESANA PAROQUIA SAO VICENTE DE', '48124865000196'),
+    ('VALECAP PNEUS E TRUCK CENTER TAUBATE LTDA', '09356391000156'),
+    # Revisão V6: não há cadastro equivalente com o mesmo CNPJ/endereço.
+    ('IGREJA ASSEMBLEIA DE DEUS', '45170693000107'),
+    # A filial 0027-10 é a Paróquia São Vicente de Paulo. As duas identidades
+    # históricas abaixo serão consolidadas no mesmo cliente pelo CNPJ.
+    ('MITRA DIOCESANA DE TAUBATE', '72293509002710'),
+    ('MITRA DIOCESANA DE TAUBATE PAROQUIA SAO', '72293509002710'),
 }
 
 # Sem documento válido no JCC: só são criados com --criar-sem-documento.
 CURATED_SAFE_NEW_NO_DOCUMENT = {
     ('DARCY MAIA DE OLIVEIRA', ''),
     ('LATIDOS E MIADOS DANIELLE R SAMPAIO', ''),
+    # Revisão V3 — não há equivalente plausível entre os candidatos atuais.
+    ('ESCRITORIO CONTABILIDADE MAURA', ''),
+}
+
+
+# Documento válido no JCC, porém já está gravado em um cadastro de nome
+# totalmente incompatível. Para não anexar o histórico à pessoa errada e não
+# duplicar o CPF no banco, cria-se o cliente histórico SEM CPF/CNPJ e registra-se
+# o documento JCC apenas em observações.
+CURATED_SAFE_NEW_CONFLICTING_DOCUMENT = {
+    ('MARCOS ROBERTO MARTINS', '13149510848'),
+}
+
+# Dados cadastrais públicos usados somente para tornar os novos cadastros
+# inequívocos. Não alteram cadastros já existentes.
+CURATED_CREATE_OVERRIDES = {
+    ('IGREJA ASSEMBLEIA DE DEUS', '45170693000107'): {
+        'name': 'IGREJA EVANGELICA ASSEMBLEIA DE DEUS',
+        'address': 'RUA DR EMILIO WINTHER',
+        'number': '805',
+        'neighborhood': 'CENTRO',
+    },
+    ('MITRA DIOCESANA DE TAUBATE', '72293509002710'): {
+        'name': 'MITRA DIOCESANA DE TAUBATE - PAROQUIA SAO VICENTE DE PAULO',
+        'address': 'AVENIDA ARMANDO DE MOURA',
+        'number': '256',
+        'neighborhood': '',
+    },
+    ('MITRA DIOCESANA DE TAUBATE PAROQUIA SAO', '72293509002710'): {
+        'name': 'MITRA DIOCESANA DE TAUBATE - PAROQUIA SAO VICENTE DE PAULO',
+        'address': 'AVENIDA ARMANDO DE MOURA',
+        'number': '256',
+        'neighborhood': '',
+    },
 }
 
 
@@ -190,6 +271,13 @@ class ValoraClient:
     cpf_cnpj: str
     city: str
     state: str
+    reference_code: str = ""
+    address: str = ""
+    number: str = ""
+    neighborhood: str = ""
+    phone: str = ""
+    email: str = ""
+    created_at: str = ""
 
     @property
     def normalized_document(self) -> str:
@@ -275,11 +363,25 @@ def load_source(path: Path) -> Tuple[List[dict], List[JccClient]]:
     return rows, clients
 
 
+def source_key_for_title_row(row: dict) -> str:
+    name = normalize_spaces(row.get("cliente"))
+    doc_raw = normalize_spaces(row.get("cpf_cnpj"))
+    doc = only_digits(doc_raw) if valid_document(doc_raw) else ""
+    city = normalize_spaces(row.get("cidade"))
+    state = normalize_spaces(row.get("uf")).upper()
+    return "|".join([normalize_name(name), doc, normalize_name(city), state])
+
+
 def load_valora_clients(db, empresa_id: int) -> List[ValoraClient]:
     result = db.execute(text("""
         SELECT id, codigo, nome, COALESCE(nome_fantasia, '') AS nome_fantasia,
                COALESCE(cpf_cnpj, '') AS cpf_cnpj,
-               COALESCE(cidade, '') AS cidade, COALESCE(estado, '') AS estado
+               COALESCE(cidade, '') AS cidade, COALESCE(estado, '') AS estado,
+               COALESCE(codigo_referencia, '') AS codigo_referencia,
+               COALESCE(endereco, '') AS endereco, COALESCE(numero, '') AS numero,
+               COALESCE(bairro, '') AS bairro, COALESCE(telefone, '') AS telefone,
+               COALESCE(email, '') AS email,
+               COALESCE(criado_em::text, '') AS criado_em
         FROM public.clientes
         WHERE empresa_id = :empresa_id
         ORDER BY id
@@ -288,6 +390,10 @@ def load_valora_clients(db, empresa_id: int) -> List[ValoraClient]:
         id=int(r["id"]), code=str(r["codigo"] or ""), name=str(r["nome"] or ""),
         fantasy_name=str(r["nome_fantasia"] or ""), cpf_cnpj=str(r["cpf_cnpj"] or ""),
         city=str(r["cidade"] or ""), state=str(r["estado"] or ""),
+        reference_code=str(r["codigo_referencia"] or ""), address=str(r["endereco"] or ""),
+        number=str(r["numero"] or ""), neighborhood=str(r["bairro"] or ""),
+        phone=str(r["telefone"] or ""), email=str(r["email"] or ""),
+        created_at=str(r["criado_em"] or ""),
     ) for r in result]
 
 
@@ -311,12 +417,85 @@ def best_suggestions(jcc: JccClient, valora_clients: Sequence[ValoraClient], lim
     return [c for _, c in scored[:limit]]
 
 
-def candidate_label(c: ValoraClient) -> str:
+def candidate_label(c: ValoraClient, *, prefix: str = "", usage_counts: Optional[Dict[int, int]] = None) -> str:
     doc = c.cpf_cnpj or "sem CPF/CNPJ"
-    return f"#{c.id} cód. {c.code} — {c.name} — {doc}"
+    local = " / ".join(x for x in [normalize_spaces(c.city), normalize_spaces(c.state).upper()] if x) or "local não informado"
+    marker = f"{prefix} " if prefix else ""
+    usage = int((usage_counts or {}).get(c.id, 0))
+    extras: List[str] = []
+    if normalize_spaces(c.fantasy_name) and normalize_name(c.fantasy_name) != normalize_name(c.name):
+        extras.append(f"fantasia={normalize_spaces(c.fantasy_name)}")
+    if normalize_spaces(c.reference_code):
+        extras.append(f"ref={normalize_spaces(c.reference_code)}")
+    endereco = " ".join(x for x in [normalize_spaces(c.address), normalize_spaces(c.number)] if x).strip()
+    if endereco:
+        if normalize_spaces(c.neighborhood):
+            endereco += f" - {normalize_spaces(c.neighborhood)}"
+        extras.append(f"end={endereco}")
+    if normalize_spaces(c.phone):
+        extras.append(f"tel={normalize_spaces(c.phone)}")
+    if normalize_spaces(c.email):
+        extras.append(f"email={normalize_spaces(c.email)}")
+    if normalize_spaces(c.created_at):
+        extras.append(f"criado={normalize_spaces(c.created_at)[:10]}")
+    suffix = (" — " + " — ".join(extras)) if extras else ""
+    return f"{marker}#{c.id} cód. {c.code} — {c.name} — {doc} — {local} — uso={usage}{suffix}"
 
 
-def reconcile(jcc_clients: Sequence[JccClient], valora_clients: Sequence[ValoraClient]) -> List[Decision]:
+def load_client_usage_counts(db, candidate_ids: Sequence[int]) -> Dict[int, int]:
+    """Conta referências reais a clientes em todas as FKs do schema público.
+
+    É apenas diagnóstico: não grava nada. Serve para distinguir cadastros duplicados
+    visualmente iguais mostrando qual ID já é utilizado pelo restante do Valora.
+    """
+    ids = sorted({int(x) for x in candidate_ids if x is not None})
+    counts: Dict[int, int] = {client_id: 0 for client_id in ids}
+    if not ids:
+        return counts
+
+    fk_rows = db.execute(text("""
+        SELECT ns.nspname AS schema_name, cls.relname AS table_name, att.attname AS column_name
+        FROM pg_constraint con
+        JOIN pg_class cls ON cls.oid = con.conrelid
+        JOIN pg_namespace ns ON ns.oid = cls.relnamespace
+        JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS ck(attnum, ord) ON TRUE
+        JOIN LATERAL unnest(con.confkey) WITH ORDINALITY AS fk(attnum, ord) ON fk.ord = ck.ord
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ck.attnum
+        JOIN pg_attribute ratt ON ratt.attrelid = con.confrelid AND ratt.attnum = fk.attnum
+        WHERE con.contype = 'f'
+          AND con.confrelid = 'public.clientes'::regclass
+          AND ratt.attname = 'id'
+          AND ns.nspname = 'public'
+        ORDER BY cls.relname, att.attname
+    """)).mappings().all()
+
+    safe_ident = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+    ids_sql = ",".join(str(x) for x in ids)
+    for fk in fk_rows:
+        schema = str(fk["schema_name"] or "")
+        table_name = str(fk["table_name"] or "")
+        column_name = str(fk["column_name"] or "")
+        if not (safe_ident.fullmatch(schema) and safe_ident.fullmatch(table_name) and safe_ident.fullmatch(column_name)):
+            continue
+        try:
+            rows = db.execute(text(
+                f'SELECT "{column_name}" AS cliente_id, COUNT(*) AS qtd '
+                f'FROM "{schema}"."{table_name}" '
+                f'WHERE "{column_name}" IN ({ids_sql}) '
+                f'GROUP BY "{column_name}"'
+            )).mappings().all()
+        except Exception:
+            # Diagnóstico não pode impedir a conciliação caso alguma tabela legada
+            # esteja temporariamente indisponível. Reabre a transação após falha.
+            db.rollback()
+            continue
+        for row in rows:
+            cid = int(row["cliente_id"])
+            counts[cid] = counts.get(cid, 0) + int(row["qtd"] or 0)
+    return counts
+
+
+def reconcile(jcc_clients: Sequence[JccClient], valora_clients: Sequence[ValoraClient], *, usage_counts: Optional[Dict[int, int]] = None) -> List[Decision]:
     by_doc: Dict[str, List[ValoraClient]] = defaultdict(list)
     by_name: Dict[str, List[ValoraClient]] = defaultdict(list)
     for c in valora_clients:
@@ -401,10 +580,27 @@ def reconcile(jcc_clients: Sequence[JccClient], valora_clients: Sequence[ValoraC
             decision.valora_name = chosen.name
             decision.valora_cpf_cnpj = chosen.cpf_cnpj
 
-        suggestions = best_suggestions(j, valora_clients)
-        # Não repetir o cliente já escolhido como sugestão.
-        suggestions = [c for c in suggestions if c.id != decision.valora_id][:3]
-        labels = [candidate_label(c) for c in suggestions]
+        # V3: o relatório de pendências precisa mostrar primeiro qualquer cadastro que
+        # bate pelo CPF/CNPJ, mesmo quando o nome é muito diferente. Na V2 esse
+        # candidato podia desaparecer porque as sugestões eram apenas por nome.
+        suggestion_items: List[Tuple[ValoraClient, str]] = []
+        seen_suggestion_ids = set()
+
+        for c in doc_candidates:
+            if c.id == decision.valora_id or c.id in seen_suggestion_ids:
+                continue
+            suggestion_items.append((c, "[CPF/CNPJ]") )
+            seen_suggestion_ids.add(c.id)
+
+        for c in best_suggestions(j, valora_clients, limit=6):
+            if c.id == decision.valora_id or c.id in seen_suggestion_ids:
+                continue
+            suggestion_items.append((c, "[NOME]"))
+            seen_suggestion_ids.add(c.id)
+            if len(suggestion_items) >= 3:
+                break
+
+        labels = [candidate_label(c, prefix=prefix, usage_counts=usage_counts) for c, prefix in suggestion_items[:3]]
         decision.suggestion_1 = labels[0] if len(labels) > 0 else ""
         decision.suggestion_2 = labels[1] if len(labels) > 1 else ""
         decision.suggestion_3 = labels[2] if len(labels) > 2 else ""
@@ -443,7 +639,12 @@ def apply_curated_review(
                 continue
 
             target_doc = target.normalized_document if valid_document(target.cpf_cnpj) else ""
-            if j.valid_document and target_doc and target_doc != j.normalized_document:
+            if (
+                j.valid_document
+                and target_doc
+                and target_doc != j.normalized_document
+                and key not in CURATED_LINKS_ALLOW_DOCUMENT_DIVERGENCE
+            ):
                 d.status = "REVISAR_VINCULO_REVISADO_DOCUMENTO_DIVERGENTE"
                 d.reason = (
                     f"Cliente revisado #{target_id} agora possui CPF/CNPJ diferente do JCC; "
@@ -456,7 +657,13 @@ def apply_curated_review(
                 continue
 
             d.status = "VINCULADO_REVISAO_ASSISTIDA"
-            d.reason = "Vínculo confirmado na revisão assistida para evitar criação de cliente duplicado."
+            if key in CURATED_LINKS_ALLOW_DOCUMENT_DIVERGENCE:
+                d.reason = (
+                    "Vínculo confirmado pela revisão assistida apesar do documento histórico divergente; "
+                    "o CPF/CNPJ atual do Valora não será alterado."
+                )
+            else:
+                d.reason = "Vínculo confirmado na revisão assistida para evitar criação de cliente duplicado."
             d.valora_id = target.id
             d.valora_code = target.code
             d.valora_name = target.name
@@ -482,6 +689,18 @@ def apply_curated_review(
             d.valora_code = ""
             d.valora_name = ""
             d.valora_cpf_cnpj = ""
+            continue
+
+        if key in CURATED_SAFE_NEW_CONFLICTING_DOCUMENT:
+            d.status = "NOVO_SEGURO_DOCUMENTO_CONFLITANTE"
+            d.reason = (
+                "Revisado: o documento JCC já pertence a cadastro de nome incompatível no Valora. "
+                "Será criado um cliente histórico sem CPF/CNPJ para não vincular o título à pessoa errada."
+            )
+            d.valora_id = None
+            d.valora_code = ""
+            d.valora_name = ""
+            d.valora_cpf_cnpj = ""
 
     return decisions
 
@@ -492,7 +711,11 @@ def recheck_before_create(db, empresa_id: int, j: JccClient) -> Optional[ValoraC
         row = db.execute(text("""
             SELECT id, codigo, nome, COALESCE(nome_fantasia, '') AS nome_fantasia,
                    COALESCE(cpf_cnpj, '') AS cpf_cnpj,
-                   COALESCE(cidade, '') AS cidade, COALESCE(estado, '') AS estado
+                   COALESCE(cidade, '') AS cidade, COALESCE(estado, '') AS estado,
+                   COALESCE(codigo_referencia, '') AS codigo_referencia,
+                   COALESCE(endereco, '') AS endereco, COALESCE(numero, '') AS numero,
+                   COALESCE(bairro, '') AS bairro, COALESCE(telefone, '') AS telefone,
+                   COALESCE(email, '') AS email, COALESCE(criado_em::text, '') AS criado_em
             FROM public.clientes
             WHERE empresa_id=:empresa_id
               AND regexp_replace(COALESCE(cpf_cnpj,''), '[^0-9]', '', 'g')=:doc
@@ -504,6 +727,10 @@ def recheck_before_create(db, empresa_id: int, j: JccClient) -> Optional[ValoraC
                 id=int(row["id"]), code=str(row["codigo"] or ""), name=str(row["nome"] or ""),
                 fantasy_name=str(row["nome_fantasia"] or ""), cpf_cnpj=str(row["cpf_cnpj"] or ""),
                 city=str(row["cidade"] or ""), state=str(row["estado"] or ""),
+                reference_code=str(row["codigo_referencia"] or ""), address=str(row["endereco"] or ""),
+                number=str(row["numero"] or ""), neighborhood=str(row["bairro"] or ""),
+                phone=str(row["telefone"] or ""), email=str(row["email"] or ""),
+                created_at=str(row["criado_em"] or ""),
             )
 
     candidates = load_valora_clients(db, empresa_id)
@@ -512,6 +739,15 @@ def recheck_before_create(db, empresa_id: int, j: JccClient) -> Optional[ValoraC
         return exact[0]
     return None
 
+
+
+
+def recheck_by_exact_name(db, empresa_id: int, j: JccClient) -> Optional[ValoraClient]:
+    candidates = load_valora_clients(db, empresa_id)
+    exact = [c for c in candidates if j.normalized_name in c.names]
+    if len(exact) == 1:
+        return exact[0]
+    return None
 
 
 def existing_codes(db, empresa_id: int) -> set[str]:
@@ -541,14 +777,20 @@ def create_safe_missing_clients(db, empresa_id: int, decisions: List[Decision], 
     created = 0
 
     for d in decisions:
-        allowed = d.status == "NOVO_SEGURO_REVISAO" or (
+        allowed = d.status in {"NOVO_SEGURO_REVISAO", "NOVO_SEGURO_DOCUMENTO_CONFLITANTE"} or (
             create_without_document and d.status == "NOVO_SEGURO_SEM_DOCUMENTO"
         )
         if not allowed:
             continue
         j = jcc_map[d.source_key]
+        key = curated_identity_key(j)
+        conflicting_document = d.status == "NOVO_SEGURO_DOCUMENTO_CONFLITANTE"
 
-        existing = recheck_before_create(db, empresa_id, j)
+        existing = (
+            recheck_by_exact_name(db, empresa_id, j)
+            if conflicting_document
+            else recheck_before_create(db, empresa_id, j)
+        )
         if existing is not None:
             d.valora_id = existing.id
             d.valora_code = existing.code
@@ -557,37 +799,49 @@ def create_safe_missing_clients(db, empresa_id: int, decisions: List[Decision], 
             d.status = "VINCULADO_RECHECAGEM_ANTES_DE_CRIAR"
             d.reason = "Cadastro encontrado na rechecagem final; criação cancelada para evitar duplicidade."
             continue
-        doc_value = j.cpf_cnpj if j.valid_document else None
+        override = CURATED_CREATE_OVERRIDES.get(key, {})
+        doc_value = None if conflicting_document else (j.cpf_cnpj if j.valid_document else None)
         code = next(code_gen)
+        create_name = str(override.get("name") or j.name)
         observations = "Importado da base histórica JCC de Contas a Receber (08/2020)."
-        if not j.valid_document and j.cpf_cnpj:
+        if conflicting_document:
+            observations += (
+                f" Documento informado no JCC: {j.cpf_cnpj}; não gravado porque já está associado "
+                "a outro cadastro de nome incompatível no Valora."
+            )
+        elif not j.valid_document and j.cpf_cnpj:
             observations += f" Documento informado no JCC: {j.cpf_cnpj} (inválido/zerado; não gravado como CPF/CNPJ)."
 
         row = db.execute(text("""
             INSERT INTO public.clientes (
                 empresa_id, codigo, nome, tipo_pessoa, situacao,
-                cpf_cnpj, cidade, estado, pais, observacoes,
+                cpf_cnpj, cidade, estado, pais,
+                endereco, numero, bairro, observacoes,
                 criado_em, atualizado_em
             ) VALUES (
                 :empresa_id, :codigo, :nome, :tipo_pessoa, 'ativo',
-                :cpf_cnpj, :cidade, :estado, 'Brasil', :observacoes,
+                :cpf_cnpj, :cidade, :estado, 'Brasil',
+                :endereco, :numero, :bairro, :observacoes,
                 NOW(), NOW()
             )
             RETURNING id
         """), {
             "empresa_id": empresa_id,
             "codigo": code,
-            "nome": j.name,
-            "tipo_pessoa": infer_person_type(j.cpf_cnpj, j.name),
+            "nome": create_name,
+            "tipo_pessoa": infer_person_type(j.cpf_cnpj, create_name),
             "cpf_cnpj": doc_value,
             "cidade": j.city or None,
             "estado": j.state or None,
+            "endereco": override.get("address") or None,
+            "numero": override.get("number") or None,
+            "bairro": override.get("neighborhood") or None,
             "observacoes": observations,
         }).scalar_one()
 
         d.valora_id = int(row)
         d.valora_code = code
-        d.valora_name = j.name
+        d.valora_name = create_name
         d.valora_cpf_cnpj = doc_value or ""
         d.created_now = True
         d.status = "CRIADO_AGORA"
@@ -628,6 +882,47 @@ def write_reports(output_dir: Path, decisions: Sequence[Decision], *, empresa_id
     return csv_path, json_path
 
 
+def write_pending_titles_report(
+    output_dir: Path,
+    pending: Sequence[Decision],
+    title_rows: Sequence[dict],
+    *,
+    empresa_id: int,
+) -> Optional[Path]:
+    if not pending:
+        return None
+    by_key = {d.source_key: d for d in pending}
+    rows_out: List[dict] = []
+    for row in title_rows:
+        key = source_key_for_title_row(row)
+        d = by_key.get(key)
+        if d is None:
+            continue
+        enriched = dict(row)
+        enriched.update({
+            "source_key": d.source_key,
+            "decision_status": d.status,
+            "decision_reason": d.reason,
+            "valora_id": d.valora_id or "",
+            "valora_code": d.valora_code,
+            "valora_name": d.valora_name,
+            "suggestion_1": d.suggestion_1,
+            "suggestion_2": d.suggestion_2,
+            "suggestion_3": d.suggestion_3,
+        })
+        rows_out.append(enriched)
+    if not rows_out:
+        return None
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = output_dir / f"jcc_titulos_PENDENTES_empresa_{empresa_id}_{stamp}.csv"
+    fieldnames = list(rows_out[0].keys())
+    with path.open("w", encoding="utf-8-sig", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter=";")
+        writer.writeheader()
+        writer.writerows(rows_out)
+    return path
+
+
 def print_summary(decisions: Sequence[Decision], title_rows: Sequence[dict], *, created: int = 0) -> None:
     counts = Counter(d.status for d in decisions)
     total = sum(parse_money(r.get("valor_total", "0")) for r in title_rows)
@@ -647,12 +942,12 @@ def print_summary(decisions: Sequence[Decision], title_rows: Sequence[dict], *, 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Concilia clientes da base histórica JCC com os clientes do Valora sem duplicar cadastros."
+        description="Concilia clientes da base histórica JCC com os clientes do Valora sem duplicar cadastros (revisão V6 final)."
     )
     parser.add_argument("--empresa-id", type=int, default=2, help="Empresa do Valora. Padrão: 2.")
     parser.add_argument("--arquivo", type=Path, default=DEFAULT_SOURCE, help="CSV normalizado da base JCC.")
     parser.add_argument("--saida", type=Path, default=DEFAULT_OUTPUT_DIR, help="Pasta dos relatórios.")
-    parser.add_argument("--aplicar", action="store_true", help="Cria somente clientes aprovados como NOVO_SEGURO_REVISAO.")
+    parser.add_argument("--aplicar", action="store_true", help="Cria clientes aprovados como novos seguros (inclusive conflito documental tratado sem CPF/CNPJ).")
     parser.add_argument(
         "--criar-sem-documento",
         action="store_true",
@@ -674,8 +969,10 @@ def main() -> int:
         print(f"[Valora] Empresa: #{company['id']} — {company['nome']}")
         valora_clients = load_valora_clients(db, args.empresa_id)
         print(f"[Valora] Clientes atuais encontrados: {len(valora_clients)}")
+        print("[Valora] Calculando uso dos cadastros para diagnosticar duplicidades...")
+        usage_counts = load_client_usage_counts(db, [c.id for c in valora_clients])
 
-        decisions = reconcile(jcc_clients, valora_clients)
+        decisions = reconcile(jcc_clients, valora_clients, usage_counts=usage_counts)
         decisions = apply_curated_review(decisions, jcc_map, valora_clients)
         created = 0
         if args.aplicar:
@@ -713,6 +1010,11 @@ def main() -> int:
                     row["jcc_total_value"] = f"{item.jcc_total_value:.2f}".replace(".", ",")
                     writer.writerow(row)
             print(f"Pendências reduzidas para revisão: {pending_path}")
+            pending_titles_path = write_pending_titles_report(
+                args.saida, pending, title_rows, empresa_id=args.empresa_id
+            )
+            if pending_titles_path:
+                print(f"Títulos das pendências (diagnóstico por documento): {pending_titles_path}")
         if not args.aplicar:
             print("\nMODO PRÉVIA: nada foi gravado no banco.")
             print("Envie o CSV gerado para revisão antes de rodar com --aplicar.")

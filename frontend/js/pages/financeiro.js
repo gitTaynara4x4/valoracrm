@@ -3854,12 +3854,18 @@
     prepararInterfaceFinanceiro();
     prepararLookupsEnvolvidos();
     if (state.page === "receber") {
+      // Contas a Receber deve abrir mostrando toda a carteira.
+      // O filtro antigo (Aberto + mês atual) escondia títulos históricos,
+      // inclusive os importados do JCC de 2020.
       const status = $("#filtro-status");
-      if (status && !status.value) status.value = "aberto";
+      if (status) status.value = "todos";
       const inicio = $("#filtro-data-inicio");
       const fim = $("#filtro-data-fim");
-      if (inicio && !inicio.value) inicio.value = monthStartISO();
-      if (fim && !fim.value) fim.value = todayISO();
+      if (inicio) inicio.value = "";
+      if (fim) fim.value = "";
+      $$('[data-receber-status]').forEach(btn =>
+        btn.classList.toggle("is-active", btn.dataset.receberStatus === "todos")
+      );
     }
     if (state.page === "pagar") {
       const status = $("#filtro-status");
@@ -3908,11 +3914,11 @@
     $("#btn-limpar-filtros")?.addEventListener("click", () => {
       ["#filtro-busca", "#filtro-status", "#filtro-data-inicio", "#filtro-data-fim", "#filtro-cliente", "#filtro-fornecedor", "#filtro-forma-cobranca", "#filtro-forma-pagamento", "#filtro-categoria", "#filtro-documento", "#filtro-periodo-por", "#filtro-conta-contabil", "#filtro-centro-custo", "#filtro-caixa-conta"].forEach(sel => { const el = $(sel); if (el) el.value = ""; });
       if (state.page === "receber") {
-        if ($("#filtro-status")) $("#filtro-status").value = "aberto";
+        if ($("#filtro-status")) $("#filtro-status").value = "todos";
         if ($("#filtro-periodo-por")) $("#filtro-periodo-por").value = "vencimento";
-        if ($("#filtro-data-inicio")) $("#filtro-data-inicio").value = monthStartISO();
-        if ($("#filtro-data-fim")) $("#filtro-data-fim").value = todayISO();
-        $$('[data-receber-status]').forEach(btn => btn.classList.toggle("is-active", btn.dataset.receberStatus === "aberto"));
+        if ($("#filtro-data-inicio")) $("#filtro-data-inicio").value = "";
+        if ($("#filtro-data-fim")) $("#filtro-data-fim").value = "";
+        $$('[data-receber-status]').forEach(btn => btn.classList.toggle("is-active", btn.dataset.receberStatus === "todos"));
       }
       if (state.page === "pagar") {
         if ($("#filtro-status")) $("#filtro-status").value = "aberto";
