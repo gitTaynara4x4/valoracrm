@@ -14,16 +14,16 @@
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
   <script src="/frontend/js/shared/menu-global.js?v=20260819-financeiro-organizado-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260819-busca-envolvidos-v2" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260821-base-jcc-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260819-busca-envolvidos-v1" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260821-base-jcc-v1" />
 </head>
 <body class="financeiro-theme-valora">
   <div class="layout">
     <div id="valora-menu-root" aria-label="Menu Valora"></div>
     <main class="main financeiro-page financeiro-page--valora" data-financeiro-page="contas">
       <header class="topbar">
-        <div class="topbar-title"><span class="eyebrow">Financeiro</span><h1>Contas e Bancos</h1><p class="topbar-subtitle">Controle caixa, bancos, cartões e contas financeiras.</p></div>
+        <div class="topbar-title"><span class="eyebrow">Financeiro</span><h1>Contas e Bancos</h1><p class="topbar-subtitle">Cadastro de contas correntes e caixas usados nas baixas, saldo e conciliação.</p></div>
         <div class="topbar-actions">
           <a class="btn btn-secondary" href="/configuracoes-financeiras"><i class="fa-solid fa-arrow-left"></i> Configurações</a>
           <button class="btn btn-secondary" type="button" id="btn-exportar-financeiro"><i class="fa-solid fa-file-export"></i> Exportar CSV</button>
@@ -57,7 +57,7 @@
 </section>
       <section class="financeiro-panel">
   <div class="financeiro-panel-head"><div><h3>Contas cadastradas</h3><p>De onde entra e sai dinheiro.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="conta"><i class="fa-solid fa-plus"></i> Nova conta</button></div>
-  <div class="financeiro-table-wrap"><table class="financeiro-table" id="financeiro-table"><thead><tr><th>Nome</th><th>Banco</th><th>Agência</th><th>Conta</th><th>Saldo inicial</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-contas"><tr><td class="financeiro-empty" colspan="7">Carregando...</td></tr></tbody></table></div>
+  <div class="financeiro-table-wrap"><table class="financeiro-table" id="financeiro-table"><thead><tr><th>Data</th><th>Identificação</th><th>Banco</th><th>Agência</th><th>Conta corrente</th><th>Nome da agência</th><th>Fone</th><th>Saldo atual</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-contas"><tr><td class="financeiro-empty" colspan="10">Carregando...</td></tr></tbody></table></div>
 </section>
     </main>
   </div>

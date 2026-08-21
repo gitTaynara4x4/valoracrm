@@ -23,6 +23,10 @@ from backend.financeiro_recorrencia import (
     gerar_cobrancas_contrato,
     processar_recorrencias_pendentes,
 )
+from backend.services.cobranca_bancaria import (
+    emitir_ou_atualizar_cobranca,
+    status_cobranca,
+)
 
 router = APIRouter(prefix="/api/financeiro", tags=["Financeiro"])
 
@@ -71,6 +75,21 @@ def empresa_do(usuario: models.Usuario) -> int:
     return int(usuario.empresa_id)
 
 
+def efeito_caixa(tipo_lancamento: str, tipo_movimentacao: str) -> str:
+    """Traduz título + movimentação para o efeito real na Conta Corrente.
+
+    receber + baixa   -> crédito
+    pagar   + baixa   -> débito
+    receber + estorno -> débito
+    pagar   + estorno -> crédito
+    """
+    receber = str(tipo_lancamento or "").lower() == "receber"
+    baixa = str(tipo_movimentacao or "").lower() == "baixa"
+    if receber:
+        return "credito" if baixa else "debito"
+    return "debito" if baixa else "credito"
+
+
 # =========================================================
 # Helpers
 # =========================================================
@@ -78,6 +97,15 @@ def empresa_do(usuario: models.Usuario) -> int:
 def norm_str(value: Any) -> Optional[str]:
     text_value = str(value or "").strip()
     return text_value or None
+
+
+def normalizar_idempotency_key(value: Any) -> Optional[str]:
+    key = norm_str(value)
+    if not key:
+        return None
+    if len(key) > 100:
+        raise HTTPException(status_code=422, detail="A chave de segurança da baixa é inválida.")
+    return key
 
 
 def parse_money(value: Any) -> Decimal:
@@ -322,6 +350,75 @@ def validar_id_empresa(
         raise HTTPException(status_code=422, detail=f"{label} não pertence à empresa atual ou não existe.")
 
 
+def validar_estrutura_financeira_operacao(
+    db: Session,
+    *,
+    empresa_id: int,
+    conta_banco_id: Optional[int] = None,
+    conta_contabil_id: Optional[int] = None,
+    centro_custo_principal_id: Optional[int] = None,
+    centro_custo_secundario_id: Optional[int] = None,
+) -> None:
+    """Valida a tríade JCC usada em títulos, baixas e movimentos.
+
+    - Conta/Banco precisa estar ativa.
+    - Plano de Contas precisa aceitar lançamento e estar ativo.
+    - Centro principal é raiz; centro secundário precisa ser filho dele.
+    """
+    if conta_banco_id is not None:
+        conta = db.execute(text("""
+            SELECT id, ativo
+            FROM public.financeiro_contas_bancos
+            WHERE empresa_id=:empresa_id AND id=:id
+        """), {"empresa_id": empresa_id, "id": conta_banco_id}).first()
+        if not conta:
+            raise HTTPException(status_code=422, detail="Conta Corrente/Banco não pertence à empresa atual ou não existe.")
+        if not bool(conta.ativo):
+            raise HTTPException(status_code=422, detail="A Conta Corrente/Banco selecionada está inativa.")
+
+    if conta_contabil_id is not None:
+        conta_plano = db.execute(text("""
+            SELECT id, ativo, aceita_lancamento
+            FROM public.financeiro_contas_contabeis
+            WHERE empresa_id=:empresa_id AND id=:id
+        """), {"empresa_id": empresa_id, "id": conta_contabil_id}).first()
+        if not conta_plano:
+            raise HTTPException(status_code=422, detail="Plano de Contas não pertence à empresa atual ou não existe.")
+        if not bool(conta_plano.ativo):
+            raise HTTPException(status_code=422, detail="A conta do Plano de Contas selecionada está inativa.")
+        if not bool(conta_plano.aceita_lancamento):
+            raise HTTPException(status_code=422, detail="Selecione uma conta analítica do Plano de Contas. Contas agrupadoras não recebem lançamentos.")
+
+    principal = None
+    if centro_custo_principal_id is not None:
+        principal = db.execute(text("""
+            SELECT id, centro_pai_id, ativo
+            FROM public.financeiro_centros_custo
+            WHERE empresa_id=:empresa_id AND id=:id
+        """), {"empresa_id": empresa_id, "id": centro_custo_principal_id}).first()
+        if not principal:
+            raise HTTPException(status_code=422, detail="Centro de Custo principal não pertence à empresa atual ou não existe.")
+        if not bool(principal.ativo):
+            raise HTTPException(status_code=422, detail="O Centro de Custo principal selecionado está inativo.")
+        if principal.centro_pai_id is not None:
+            raise HTTPException(status_code=422, detail="O Centro de Custo principal precisa ser um centro raiz.")
+
+    if centro_custo_secundario_id is not None:
+        if centro_custo_principal_id is None:
+            raise HTTPException(status_code=422, detail="Selecione o Centro de Custo principal antes do secundário.")
+        secundario = db.execute(text("""
+            SELECT id, centro_pai_id, ativo
+            FROM public.financeiro_centros_custo
+            WHERE empresa_id=:empresa_id AND id=:id
+        """), {"empresa_id": empresa_id, "id": centro_custo_secundario_id}).first()
+        if not secundario:
+            raise HTTPException(status_code=422, detail="Centro de Custo secundário não pertence à empresa atual ou não existe.")
+        if not bool(secundario.ativo):
+            raise HTTPException(status_code=422, detail="O Centro de Custo secundário selecionado está inativo.")
+        if int(secundario.centro_pai_id or 0) != int(centro_custo_principal_id):
+            raise HTTPException(status_code=422, detail="O Centro de Custo secundário precisa pertencer ao Centro de Custo principal selecionado.")
+
+
 def validar_referencias_lancamento(
     db: Session,
     *,
@@ -384,6 +481,14 @@ def validar_referencias_lancamento(
     validar_id_empresa(db, table_name="financeiro_reguas_cobranca", item_id=regua_cobranca_id, empresa_id=empresa_id, label="Régua de cobrança")
     validar_id_empresa(db, table_name="financeiro_contas_bancos", item_id=entidade_emissora_id, empresa_id=empresa_id, label="Entidade emissora")
 
+    validar_estrutura_financeira_operacao(
+        db, empresa_id=empresa_id,
+        conta_banco_id=conta_banco_id,
+        conta_contabil_id=conta_contabil_id,
+        centro_custo_principal_id=centro_custo_principal_id,
+        centro_custo_secundario_id=centro_custo_secundario_id,
+    )
+
     if centro_custo_principal_id is not None and centro_custo_principal_id == centro_custo_secundario_id:
         raise HTTPException(status_code=422, detail="Centro de custo principal e secundário devem ser diferentes.")
     if unidade_consumo_principal_id is not None and unidade_consumo_principal_id == unidade_consumo_secundaria_id:
@@ -439,9 +544,18 @@ def validar_referencias_baixa(
     empresa_id: int,
     forma_pagamento_id: Optional[int],
     conta_banco_id: Optional[int],
+    conta_contabil_id: Optional[int] = None,
+    centro_custo_principal_id: Optional[int] = None,
+    centro_custo_secundario_id: Optional[int] = None,
 ) -> None:
     validar_id_empresa(db, table_name="financeiro_formas_pagamento", item_id=forma_pagamento_id, empresa_id=empresa_id, label="Forma de pagamento")
-    validar_id_empresa(db, table_name="financeiro_contas_bancos", item_id=conta_banco_id, empresa_id=empresa_id, label="Conta/Banco")
+    validar_estrutura_financeira_operacao(
+        db, empresa_id=empresa_id,
+        conta_banco_id=conta_banco_id,
+        conta_contabil_id=conta_contabil_id,
+        centro_custo_principal_id=centro_custo_principal_id,
+        centro_custo_secundario_id=centro_custo_secundario_id,
+    )
 
 
 # =========================================================
@@ -463,9 +577,12 @@ class FormaPagamentoIn(BaseModel):
 
 class ContaBancoIn(BaseModel):
     nome: str
+    data_cadastro: Optional[date] = None
     banco: Optional[str] = None
     agencia: Optional[str] = None
     conta: Optional[str] = None
+    nome_agencia: Optional[str] = None
+    telefone: Optional[str] = None
     saldo_inicial: Optional[Any] = 0
     data_saldo_inicial: Optional[date] = None
     ativo: bool = True
@@ -573,6 +690,7 @@ class LancamentoIn(BaseModel):
     indice_mora_diaria_percent: Optional[Any] = None
 
     documento: Optional[str] = None
+    nosso_numero: Optional[str] = None
     observacoes: Optional[str] = None
     anexo_url: Optional[str] = None
 
@@ -595,23 +713,35 @@ class LancamentoIn(BaseModel):
 
 
 class BaixaIn(BaseModel):
+    # Chave gerada pelo front e reaproveitada em retentativas. Evita que um
+    # duplo clique/reenvio após timeout gere duas baixas para o mesmo título.
+    idempotency_key: Optional[str] = None
     valor_baixa: Optional[Any] = None  # compatibilidade
     valor_pago: Optional[Any] = None  # compatibilidade com front antigo
     valor_principal: Optional[Any] = None
     valor_desconto: Optional[Any] = 0
+    valor_acrescimo: Optional[Any] = 0
     valor_multa: Optional[Any] = None
     valor_mora: Optional[Any] = None
     usar_calculo_automatico: bool = True
     data_pagamento: Optional[date] = None
     forma_pagamento_id: Optional[int] = None
     conta_banco_id: Optional[int] = None
+    conta_contabil_id: Optional[int] = None
+    centro_custo_principal_id: Optional[int] = None
+    centro_custo_secundario_id: Optional[int] = None
     observacoes: Optional[str] = None
+    modalidade_baixa: Optional[str] = None
 
     # Reparcelamento do saldo remanescente durante a baixa de Conta a Pagar.
     reparcelar_saldo: bool = False
     reparcelamento_parcelas: Optional[int] = None
     reparcelamento_primeiro_vencimento: Optional[date] = None
     reparcelamento_intervalo_meses: Optional[int] = 1
+
+
+class BoletoActionIn(BaseModel):
+    conta_banco_id: Optional[int] = None
 
 
 class CancelamentoIn(BaseModel):
@@ -621,6 +751,40 @@ class CancelamentoIn(BaseModel):
 class EstornoIn(BaseModel):
     motivo: str
     data_estorno: Optional[date] = None
+
+
+class CaixaMovimentoManualIn(BaseModel):
+    tipo: str
+    data_movimentacao: date
+    documento: Optional[str] = None
+    historico: str
+    valor: Any
+    conta_banco_id: int
+    conta_contabil_id: int
+    centro_custo_principal_id: Optional[int] = None
+    centro_custo_secundario_id: Optional[int] = None
+
+
+class MovimentoBancarioManualIn(BaseModel):
+    tipo: str
+    data_movimentacao: date
+    documento: Optional[str] = None
+    historico: str
+    valor: Any
+    conta_banco_id: int
+    conta_contabil_id: int
+    centro_custo_principal_id: Optional[int] = None
+    centro_custo_secundario_id: Optional[int] = None
+
+
+class TransferenciaBancariaIn(BaseModel):
+    data_transferencia: date
+    conta_origem_id: int
+    conta_destino_id: int
+    valor: Any
+    documento: Optional[str] = None
+    historico: Optional[str] = None
+    idempotency_key: Optional[str] = None
 
 
 class DevolverVendaIn(BaseModel):
@@ -704,6 +868,7 @@ SELECT
         ELSE 0
     END AS dias_atraso,
     c.nome AS cliente_nome,
+    c.parceiro_comercial AS parceiro_comercial,
     f.nome AS fornecedor_nome,
     f.tipo_fornecedor AS fornecedor_tipo,
     cat.nome AS categoria_nome,
@@ -725,6 +890,20 @@ SELECT
     uc.nome AS criado_por_nome,
     ua.nome AS atualizado_por_nome,
     ucan.nome AS cancelado_por_nome,
+    ce.provider AS cobranca_provider,
+    ce.provider_payment_id AS cobranca_provider_payment_id,
+    ce.provider_status AS cobranca_provider_status,
+    ce.invoice_url AS cobranca_invoice_url,
+    ce.bank_slip_url AS cobranca_bank_slip_url,
+    ce.identification_field AS cobranca_linha_digitavel,
+    ce.barcode AS cobranca_codigo_barras,
+    ce.pix_payload AS cobranca_pix,
+    ce.pix_expiration AS cobranca_pix_expiracao,
+    ce.conciliacao_status AS cobranca_conciliacao_status,
+    ce.conciliado_em AS cobranca_conciliado_em,
+    ce.conciliado_movimentacao_id AS cobranca_movimentacao_id,
+    ce.ultimo_evento AS cobranca_ultimo_evento,
+    ce.ultima_sincronizacao_em AS cobranca_sincronizado_em,
     EXISTS (
         SELECT 1
         FROM public.financeiro_reparcelamentos rr
@@ -775,6 +954,8 @@ LEFT JOIN public.financeiro_contas_bancos ee
 LEFT JOIN public.usuarios uc ON uc.id = l.criado_por_usuario_id
 LEFT JOIN public.usuarios ua ON ua.id = l.atualizado_por_usuario_id
 LEFT JOIN public.usuarios ucan ON ucan.id = l.cancelado_por_usuario_id
+LEFT JOIN public.financeiro_cobrancas_externas ce
+       ON ce.lancamento_id = l.id AND ce.empresa_id = l.empresa_id
 """
 
 
@@ -937,7 +1118,7 @@ def opcoes_financeiro(
 
     clientes = [row_to_dict(r) for r in db.execute(text(f"""
         SELECT id, codigo, nome, nome_fantasia, cpf_cnpj,
-               email, email_cobranca, telefone, whatsapp, contato, modalidade_pagamento
+               email, email_cobranca, telefone, whatsapp, contato, modalidade_pagamento, parceiro_comercial
         FROM public.clientes
         WHERE {cliente_where}
         ORDER BY nome ASC, id ASC
@@ -983,6 +1164,44 @@ def opcoes_financeiro(
         ORDER BY u.codigo NULLS LAST, nome_exibicao ASC, u.id ASC
     """), params).fetchall()]
 
+    centros_custo = [row_to_dict(r) for r in db.execute(text("""
+        WITH RECURSIVE arvore AS (
+            SELECT cc.*, 0::int AS nivel,
+                   COALESCE(NULLIF(cc.codigo, ''), cc.nome)::text AS caminho_codigo,
+                   cc.nome::text AS caminho_nome
+            FROM public.financeiro_centros_custo cc
+            WHERE cc.empresa_id=:empresa_id AND cc.ativo=TRUE AND cc.centro_pai_id IS NULL
+            UNION ALL
+            SELECT filho.*, pai.nivel + 1,
+                   (pai.caminho_codigo || ' › ' || COALESCE(NULLIF(filho.codigo, ''), filho.nome))::text,
+                   (pai.caminho_nome || ' › ' || filho.nome)::text
+            FROM public.financeiro_centros_custo filho
+            JOIN arvore pai ON pai.id=filho.centro_pai_id AND pai.empresa_id=filho.empresa_id
+            WHERE filho.ativo=TRUE AND pai.nivel < 1
+        )
+        SELECT * FROM arvore
+        ORDER BY caminho_codigo, nome, id
+    """), params).fetchall()]
+
+    contas_contabeis = [row_to_dict(r) for r in db.execute(text("""
+        WITH RECURSIVE arvore AS (
+            SELECT cc.*, 0::int AS nivel,
+                   cc.codigo::text AS caminho_codigo,
+                   cc.nome::text AS caminho_nome
+            FROM public.financeiro_contas_contabeis cc
+            WHERE cc.empresa_id=:empresa_id AND cc.ativo=TRUE AND cc.conta_pai_id IS NULL
+            UNION ALL
+            SELECT filho.*, pai.nivel + 1,
+                   (pai.caminho_codigo || ' › ' || filho.codigo)::text,
+                   (pai.caminho_nome || ' › ' || filho.nome)::text
+            FROM public.financeiro_contas_contabeis filho
+            JOIN arvore pai ON pai.id=filho.conta_pai_id AND pai.empresa_id=filho.empresa_id
+            WHERE filho.ativo=TRUE AND pai.nivel < 12
+        )
+        SELECT * FROM arvore
+        ORDER BY caminho_codigo, nome, id
+    """), params).fetchall()]
+
     return {
         "categorias": categorias,
         "formas_pagamento": formas,
@@ -992,9 +1211,9 @@ def opcoes_financeiro(
         "tipos_documento": ativos("financeiro_tipos_documento"),
         "naturezas_operacao": ativos("financeiro_naturezas_operacao"),
         "tipos_gasto": ativos("financeiro_tipos_gasto", "codigo NULLS LAST, nome ASC"),
-        "centros_custo": ativos("financeiro_centros_custo", "codigo NULLS LAST, nome ASC"),
+        "centros_custo": centros_custo,
         "unidades_consumo": unidades_consumo,
-        "contas_contabeis": ativos("financeiro_contas_contabeis", "codigo ASC, nome ASC"),
+        "contas_contabeis": contas_contabeis,
         "formas_cobranca": ativos("financeiro_formas_cobranca"),
         "regras_encargos": ativos("financeiro_regras_encargos", "padrao DESC, nome ASC"),
         "reguas_cobranca": ativos("financeiro_reguas_cobranca", "padrao DESC, nome ASC"),
@@ -1026,7 +1245,8 @@ def pesquisar_clientes_financeiro(
             telefone,
             whatsapp,
             contato,
-            modalidade_pagamento
+            modalidade_pagamento,
+            parceiro_comercial
         FROM public.clientes
         WHERE empresa_id = :empresa_id
           AND (
@@ -1207,6 +1427,10 @@ def _listar_lancamentos_impl(
     offset: int,
     db: Session,
     empresa_id: int,
+    periodo_por: Optional[str] = None,
+    documento: Optional[str] = None,
+    conta_contabil_id: Optional[int] = None,
+    centro_custo_principal_id: Optional[int] = None,
 ):
     where = ["l.empresa_id = :empresa_id"]
     params: Dict[str, Any] = {"empresa_id": empresa_id, "limit": limit, "offset": offset}
@@ -1217,19 +1441,39 @@ def _listar_lancamentos_impl(
 
     if status_filtro:
         status_norm = status_filtro.strip().lower()
-        if status_norm not in {"aberto", "vencido", "parcial", "recebido", "pago", "cancelado"}:
-            raise HTTPException(status_code=422, detail="Status de filtro inválido.")
-        where.append(f"({status_efetivo_sql('l')}) = :status")
-        params["status"] = status_norm
+        if status_norm == "todos":
+            pass
+        elif status_norm == "aberto":
+            # Na lógica do JCC, "Aberto" inclui em aberto, vencido e parcialmente baixado.
+            where.append(f"({status_efetivo_sql('l')}) IN ('aberto', 'vencido', 'parcial')")
+        elif status_norm == "quitado":
+            where.append(f"({status_efetivo_sql('l')}) = :status")
+            params["status"] = "recebido" if tipo == "receber" else "pago"
+        else:
+            if status_norm not in {"vencido", "parcial", "recebido", "pago", "cancelado"}:
+                raise HTTPException(status_code=422, detail="Status de filtro inválido.")
+            where.append(f"({status_efetivo_sql('l')}) = :status")
+            params["status"] = status_norm
 
+    periodo_norm = str(periodo_por or "vencimento").strip().lower()
+    coluna_periodo = {
+        "vencimento": "l.data_vencimento",
+        "emissao": "l.data_emissao",
+        "pagamento": "l.data_pagamento",
+    }.get(periodo_norm)
+    if not coluna_periodo:
+        raise HTTPException(status_code=422, detail="Período deve ser por vencimento, emissão ou pagamento.")
     if data_inicio:
-        where.append("l.data_vencimento >= :data_inicio")
+        where.append(f"{coluna_periodo} >= :data_inicio")
         params["data_inicio"] = data_inicio
     if data_fim:
-        where.append("l.data_vencimento <= :data_fim")
+        where.append(f"{coluna_periodo} <= :data_fim")
         params["data_fim"] = data_fim
+    if documento and documento.strip():
+        where.append("COALESCE(l.documento, '') ILIKE :documento")
+        params["documento"] = f"%{documento.strip()}%"
     if busca and busca.strip():
-        where.append("(l.descricao ILIKE :busca OR l.documento ILIKE :busca OR c.nome ILIKE :busca OR f.nome ILIKE :busca)")
+        where.append("(l.descricao ILIKE :busca OR l.documento ILIKE :busca OR COALESCE(l.nosso_numero, '') ILIKE :busca OR c.nome ILIKE :busca OR COALESCE(c.parceiro_comercial, '') ILIKE :busca OR f.nome ILIKE :busca)")
         params["busca"] = f"%{busca.strip()}%"
     if cliente_id is not None:
         validar_id_empresa(db, table_name="clientes", item_id=cliente_id, empresa_id=empresa_id, label="Cliente")
@@ -1251,6 +1495,14 @@ def _listar_lancamentos_impl(
         validar_id_empresa(db, table_name="financeiro_categorias", item_id=categoria_id, empresa_id=empresa_id, label="Categoria")
         where.append("l.categoria_id = :categoria_id")
         params["categoria_id"] = categoria_id
+    if conta_contabil_id is not None:
+        validar_id_empresa(db, table_name="financeiro_contas_contabeis", item_id=conta_contabil_id, empresa_id=empresa_id, label="Plano de Contas")
+        where.append("l.conta_contabil_id = :conta_contabil_id")
+        params["conta_contabil_id"] = conta_contabil_id
+    if centro_custo_principal_id is not None:
+        validar_id_empresa(db, table_name="financeiro_centros_custo", item_id=centro_custo_principal_id, empresa_id=empresa_id, label="Centro de Custo")
+        where.append("l.centro_custo_principal_id = :centro_custo_principal_id")
+        params["centro_custo_principal_id"] = centro_custo_principal_id
 
     where_sql = " AND ".join(where)
     total = db.execute(text("""
@@ -1299,6 +1551,8 @@ def listar_lancamentos(
     forma_cobranca_id: Optional[int] = Query(default=None),
     forma_pagamento_id: Optional[int] = Query(default=None),
     categoria_id: Optional[int] = Query(default=None),
+    periodo_por: Optional[str] = Query(default=None),
+    documento: Optional[str] = Query(default=None, max_length=160),
     limit: int = Query(default=50, ge=1, le=300),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -1309,7 +1563,7 @@ def listar_lancamentos(
         data_fim=data_fim, busca=busca, cliente_id=cliente_id, fornecedor_id=fornecedor_id,
         forma_cobranca_id=forma_cobranca_id, forma_pagamento_id=forma_pagamento_id, categoria_id=categoria_id,
         limit=limit, offset=offset,
-        db=db, empresa_id=empresa_do(usuario),
+        db=db, empresa_id=empresa_do(usuario), periodo_por=periodo_por, documento=documento,
     )
 
 
@@ -1323,6 +1577,8 @@ def listar_contas_receber(
     forma_cobranca_id: Optional[int] = Query(default=None),
     forma_pagamento_id: Optional[int] = Query(default=None),
     categoria_id: Optional[int] = Query(default=None),
+    periodo_por: str = Query(default="vencimento"),
+    documento: Optional[str] = Query(default=None, max_length=160),
     limit: int = Query(default=50, ge=1, le=300),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -1333,7 +1589,136 @@ def listar_contas_receber(
         data_fim=data_fim, busca=busca, cliente_id=cliente_id, fornecedor_id=None,
         forma_cobranca_id=forma_cobranca_id, forma_pagamento_id=forma_pagamento_id, categoria_id=categoria_id,
         limit=limit, offset=offset, db=db, empresa_id=empresa_do(usuario),
+        periodo_por=periodo_por, documento=documento,
     )
+
+
+@router.get("/contas-receber/conciliacao")
+def listar_conciliacao_contas_receber(
+    data_inicio: Optional[date] = Query(default=None),
+    data_fim: Optional[date] = Query(default=None),
+    cliente_id: Optional[int] = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=500),
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    where = ["l.empresa_id=:empresa_id", "l.tipo='receber'", "ce.id IS NOT NULL"]
+    params: Dict[str, Any] = {"empresa_id": empresa_id, "limit": limit}
+    if data_inicio:
+        where.append("l.data_vencimento >= :data_inicio")
+        params["data_inicio"] = data_inicio
+    if data_fim:
+        where.append("l.data_vencimento <= :data_fim")
+        params["data_fim"] = data_fim
+    if cliente_id is not None:
+        validar_id_empresa(db, table_name="clientes", item_id=cliente_id, empresa_id=empresa_id, label="Cliente")
+        where.append("l.cliente_id=:cliente_id")
+        params["cliente_id"] = cliente_id
+    rows = db.execute(text(f"""
+        SELECT
+            l.id AS lancamento_id, l.documento, l.nosso_numero, l.data_emissao, l.data_vencimento,
+            l.valor_total, l.valor_pago, {status_efetivo_sql('l')} AS status_calculado,
+            c.nome AS cliente_nome, c.parceiro_comercial,
+            ce.provider, ce.provider_payment_id, ce.billing_type, ce.provider_status,
+            ce.identification_field, ce.barcode, ce.invoice_url, ce.bank_slip_url,
+            ce.pix_payload, ce.pix_expiration, ce.ultima_sincronizacao_em, ce.ultimo_evento,
+            ce.conciliacao_status, ce.conciliado_em, ce.conciliado_movimentacao_id,
+            ce.conciliado_automaticamente, ce.data_recebimento_gateway, ce.valor_recebido_gateway,
+            CASE WHEN ce.conciliacao_status='conciliado' THEN TRUE ELSE FALSE END AS conciliado
+        FROM public.financeiro_lancamentos l
+        LEFT JOIN public.clientes c ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
+        JOIN public.financeiro_cobrancas_externas ce ON ce.lancamento_id=l.id AND ce.empresa_id=l.empresa_id
+        WHERE {' AND '.join(where)}
+        ORDER BY COALESCE(ce.ultima_sincronizacao_em, ce.atualizado_em, ce.criado_em) DESC, l.id DESC
+        LIMIT :limit
+    """), params).fetchall()
+    items = [row_to_dict(r) for r in rows]
+    return {
+        "items": items,
+        "total": len(items),
+        "conciliados": sum(1 for i in items if bool(i.get("conciliado"))),
+        "pendentes": sum(1 for i in items if not bool(i.get("conciliado"))),
+    }
+
+
+@router.get("/contas-receber/{lancamento_id}/boleto")
+def obter_boleto_conta_receber(
+    lancamento_id: int,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    return status_cobranca(db, empresa_do(usuario), lancamento_id)
+
+
+@router.post("/contas-receber/{lancamento_id}/boleto/emitir")
+def emitir_boleto_conta_receber(
+    lancamento_id: int,
+    payload: BoletoActionIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    try:
+        resultado = emitir_ou_atualizar_cobranca(
+            db, empresa_id=empresa_id, lancamento_id=lancamento_id, criar=True,
+            conta_banco_id=payload.conta_banco_id, usuario_id=int(usuario.id),
+            conciliar_se_recebido=True,
+        )
+        db.commit()
+        return {"ok": True, **resultado, "estado": status_cobranca(db, empresa_id, lancamento_id)}
+    except Exception:
+        db.rollback()
+        raise
+
+
+@router.post("/contas-receber/{lancamento_id}/boleto/atualizar")
+def atualizar_boleto_conta_receber(
+    lancamento_id: int,
+    payload: BoletoActionIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    try:
+        resultado = emitir_ou_atualizar_cobranca(
+            db, empresa_id=empresa_id, lancamento_id=lancamento_id, criar=False,
+            conta_banco_id=payload.conta_banco_id, usuario_id=int(usuario.id),
+            conciliar_se_recebido=True,
+        )
+        db.commit()
+        return {"ok": True, **resultado, "estado": status_cobranca(db, empresa_id, lancamento_id)}
+    except Exception:
+        db.rollback()
+        raise
+
+
+@router.post("/contas-receber/{lancamento_id}/conciliar")
+def conciliar_boleto_conta_receber(
+    lancamento_id: int,
+    payload: BoletoActionIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    try:
+        resultado = emitir_ou_atualizar_cobranca(
+            db, empresa_id=empresa_id, lancamento_id=lancamento_id, criar=False,
+            conta_banco_id=payload.conta_banco_id, usuario_id=int(usuario.id),
+            conciliar_se_recebido=True,
+        )
+        db.commit()
+        conciliacao = resultado.get("conciliacao") or {}
+        return {
+            "ok": True,
+            "conciliado": bool(conciliacao.get("conciliado")),
+            "conciliacao": conciliacao,
+            "estado": status_cobranca(db, empresa_id, lancamento_id),
+        }
+    except Exception:
+        db.rollback()
+        raise
+
 
 
 @router.get("/contas-pagar")
@@ -1343,6 +1728,11 @@ def listar_contas_pagar(
     data_fim: Optional[date] = Query(default=None),
     busca: Optional[str] = Query(default=None),
     fornecedor_id: Optional[int] = Query(default=None),
+    forma_pagamento_id: Optional[int] = Query(default=None),
+    conta_contabil_id: Optional[int] = Query(default=None),
+    centro_custo_principal_id: Optional[int] = Query(default=None),
+    periodo_por: str = Query(default="vencimento"),
+    documento: Optional[str] = Query(default=None, max_length=160),
     limit: int = Query(default=50, ge=1, le=300),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -1351,8 +1741,10 @@ def listar_contas_pagar(
     return _listar_lancamentos_impl(
         tipo="pagar", status_filtro=status_filtro, data_inicio=data_inicio,
         data_fim=data_fim, busca=busca, cliente_id=None, fornecedor_id=fornecedor_id,
-        forma_cobranca_id=None, forma_pagamento_id=None, categoria_id=None,
+        forma_cobranca_id=None, forma_pagamento_id=forma_pagamento_id, categoria_id=None,
         limit=limit, offset=offset, db=db, empresa_id=empresa_do(usuario),
+        periodo_por=periodo_por, documento=documento,
+        conta_contabil_id=conta_contabil_id, centro_custo_principal_id=centro_custo_principal_id,
     )
 
 
@@ -1370,7 +1762,7 @@ def dados_cobranca_cliente(db: Session, empresa_id: int, cliente_id: Optional[in
     if cliente_id is None:
         return {}
     row = db.execute(text("""
-        SELECT contato, email, email_cobranca, telefone, whatsapp, modalidade_pagamento
+        SELECT contato, email, email_cobranca, telefone, whatsapp, modalidade_pagamento, parceiro_comercial
         FROM public.clientes
         WHERE id = :cliente_id AND empresa_id = :empresa_id
         LIMIT 1
@@ -1476,6 +1868,7 @@ def montar_params_lancamento(payload: LancamentoIn, empresa_id: int, db: Session
         "possui_mora_diaria": possui_mora,
         "indice_mora_diaria_percent": indice_mora,
         "documento": norm_str(payload.documento),
+        "nosso_numero": norm_str(payload.nosso_numero),
         "observacoes": norm_str(payload.observacoes),
         "anexo_url": norm_str(payload.anexo_url),
         "contato_cobranca": contato_cobranca,
@@ -1503,7 +1896,7 @@ LANCAMENTO_INSERT_SQL = """
         unidade_consumo_principal_id, unidade_consumo_secundaria_id,
         conta_contabil_id, forma_cobranca_id, regra_encargos_id, regua_cobranca_id, entidade_emissora_id,
         possui_multa, indice_multa_percent, possui_mora_diaria, indice_mora_diaria_percent,
-        documento, observacoes, anexo_url,
+        documento, nosso_numero, observacoes, anexo_url,
         contato_cobranca, email_cobranca, whatsapp_cobranca, modalidade_pagamento,
         nota_fiscal_numero, nota_fiscal_data_emissao,
         recorrente, parcelado, parcela_numero, parcela_total, grupo_recorrencia, grupo_parcelamento,
@@ -1517,7 +1910,7 @@ LANCAMENTO_INSERT_SQL = """
         :unidade_consumo_principal_id, :unidade_consumo_secundaria_id,
         :conta_contabil_id, :forma_cobranca_id, :regra_encargos_id, :regua_cobranca_id, :entidade_emissora_id,
         :possui_multa, :indice_multa_percent, :possui_mora_diaria, :indice_mora_diaria_percent,
-        :documento, :observacoes, :anexo_url,
+        :documento, :nosso_numero, :observacoes, :anexo_url,
         :contato_cobranca, :email_cobranca, :whatsapp_cobranca, :modalidade_pagamento,
         :nota_fiscal_numero, :nota_fiscal_data_emissao,
         :recorrente, :parcelado, :parcela_numero, :parcela_total, :grupo_recorrencia, :grupo_parcelamento,
@@ -1638,6 +2031,7 @@ def criar_reparcelamento_saldo(
             "possui_mora_diaria": bool(lancamento_origem.get("possui_mora_diaria")),
             "indice_mora_diaria_percent": parse_percentage(lancamento_origem.get("indice_mora_diaria_percent")),
             "documento": norm_str(lancamento_origem.get("documento")),
+            "nosso_numero": norm_str(lancamento_origem.get("nosso_numero")),
             "observacoes": norm_str(lancamento_origem.get("observacoes")),
             "anexo_url": norm_str(lancamento_origem.get("anexo_url")),
             "contato_cobranca": norm_str(lancamento_origem.get("contato_cobranca")),
@@ -1861,14 +2255,33 @@ def venda_pendente_dict(row: Any) -> Dict[str, Any]:
                 data[campo] = json.loads(valor)
             except Exception:
                 data[campo] = []
+
+    # O Valora usa o mesmo documento comercial para Orçamento/DAV.
+    # Se a empresa nomear o documento como Ordem de Serviço, o faturamento
+    # também o trata como OS sem duplicar a estrutura comercial.
+    origem_nome = str(data.get("documento_origem_nome") or "Orçamento").strip() or "Orçamento"
+    origem_norm = origem_nome.casefold()
+    if "dav" in origem_norm or "documento auxiliar de venda" in origem_norm:
+        origem_tipo, origem_label = "dav", "DAV"
+    elif origem_norm == "os" or ("ordem" in origem_norm and "serv" in origem_norm):
+        origem_tipo, origem_label = "os", "Ordem de Serviço"
+    else:
+        origem_tipo, origem_label = "orcamento", "Orçamento"
+    data["documento_origem_nome"] = origem_nome
+    data["documento_origem_tipo"] = origem_tipo
+    data["documento_origem_label"] = origem_label
     return data
 
 
+@router.get("/faturamento/documentos")
 @router.get("/vendas-pendentes")
 def listar_vendas_pendentes(
     status_filtro: Optional[str] = Query(default=None, alias="status"),
     busca: Optional[str] = Query(default=None),
     cliente_id: Optional[int] = Query(default=None),
+    tipo_documento: Optional[str] = Query(default=None),
+    data_inicial: Optional[date] = Query(default=None),
+    data_final: Optional[date] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=300),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -1887,15 +2300,36 @@ def listar_vendas_pendentes(
         validar_id_empresa(db, table_name="clientes", item_id=cliente_id, empresa_id=empresa_id, label="Cliente")
         where.append("v.cliente_id=:cliente_id")
         params["cliente_id"] = cliente_id
+    tipo_norm = str(tipo_documento or "").strip().lower()
+    if tipo_norm:
+        if tipo_norm not in {"dav", "orcamento", "os"}:
+            raise HTTPException(status_code=422, detail="Tipo de documento de faturamento inválido.")
+        if tipo_norm == "dav":
+            where.append("(LOWER(COALESCE(o.nome_documento,'')) LIKE '%dav%' OR LOWER(COALESCE(o.nome_documento,'')) LIKE '%documento auxiliar de venda%')")
+        elif tipo_norm == "os":
+            where.append("(LOWER(TRIM(COALESCE(o.nome_documento,'')))='os' OR (LOWER(COALESCE(o.nome_documento,'')) LIKE '%ordem%' AND LOWER(COALESCE(o.nome_documento,'')) LIKE '%serv%'))")
+        else:
+            where.append("NOT (LOWER(COALESCE(o.nome_documento,'')) LIKE '%dav%' OR LOWER(COALESCE(o.nome_documento,'')) LIKE '%documento auxiliar de venda%' OR LOWER(TRIM(COALESCE(o.nome_documento,'')))='os' OR (LOWER(COALESCE(o.nome_documento,'')) LIKE '%ordem%' AND LOWER(COALESCE(o.nome_documento,'')) LIKE '%serv%'))")
+    if data_inicial:
+        where.append("v.data_venda >= :data_inicial")
+        params["data_inicial"] = data_inicial
+    if data_final:
+        where.append("v.data_venda <= :data_final")
+        params["data_final"] = data_final
+    if data_inicial and data_final and data_inicial > data_final:
+        raise HTTPException(status_code=422, detail="A data inicial não pode ser maior que a data final.")
     if busca and str(busca).strip():
         params["busca"] = f"%{str(busca).strip()}%"
         where.append("(v.orcamento_codigo ILIKE :busca OR v.orcamento_titulo ILIKE :busca OR v.cliente_nome ILIKE :busca)")
     where_sql = " AND ".join(where)
-    total = int(db.execute(text(f"SELECT COUNT(*) FROM public.financeiro_vendas_pendentes v WHERE {where_sql}"), params).scalar() or 0)
+    from_sql = "FROM public.financeiro_vendas_pendentes v LEFT JOIN public.orcamentos o ON o.id=v.orcamento_id AND o.empresa_id=v.empresa_id"
+    total = int(db.execute(text(f"SELECT COUNT(*) {from_sql} WHERE {where_sql}"), params).scalar() or 0)
     rows = db.execute(text(f"""
-        SELECT v.*, ue.nome AS enviado_por_nome, ud.nome AS devolvido_por_nome,
+        SELECT v.*, o.nome_documento AS documento_origem_nome,
+               ue.nome AS enviado_por_nome, ud.nome AS devolvido_por_nome,
                ua.nome AS autenticado_por_nome, uc.nome AS cancelado_por_nome
         FROM public.financeiro_vendas_pendentes v
+        LEFT JOIN public.orcamentos o ON o.id=v.orcamento_id AND o.empresa_id=v.empresa_id
         LEFT JOIN public.usuarios ue ON ue.id=v.enviado_por_usuario_id
         LEFT JOIN public.usuarios ud ON ud.id=v.devolvido_por_usuario_id
         LEFT JOIN public.usuarios ua ON ua.id=v.autenticado_por_usuario_id
@@ -1924,6 +2358,7 @@ def listar_vendas_pendentes(
     }
 
 
+@router.get("/faturamento/documentos/{venda_id}")
 @router.get("/vendas-pendentes/{venda_id}")
 def obter_venda_pendente(
     venda_id: int,
@@ -1932,9 +2367,11 @@ def obter_venda_pendente(
 ):
     empresa_id = empresa_do(usuario)
     row = db.execute(text("""
-        SELECT v.*, ue.nome AS enviado_por_nome, ud.nome AS devolvido_por_nome,
+        SELECT v.*, o.nome_documento AS documento_origem_nome,
+               ue.nome AS enviado_por_nome, ud.nome AS devolvido_por_nome,
                ua.nome AS autenticado_por_nome, uc.nome AS cancelado_por_nome
         FROM public.financeiro_vendas_pendentes v
+        LEFT JOIN public.orcamentos o ON o.id=v.orcamento_id AND o.empresa_id=v.empresa_id
         LEFT JOIN public.usuarios ue ON ue.id=v.enviado_por_usuario_id
         LEFT JOIN public.usuarios ud ON ud.id=v.devolvido_por_usuario_id
         LEFT JOIN public.usuarios ua ON ua.id=v.autenticado_por_usuario_id
@@ -1946,6 +2383,7 @@ def obter_venda_pendente(
     return venda_pendente_dict(row)
 
 
+@router.post("/faturamento/documentos/{venda_id}/devolver")
 @router.post("/vendas-pendentes/{venda_id}/devolver")
 def devolver_venda_pendente(
     venda_id: int,
@@ -1992,6 +2430,7 @@ def devolver_venda_pendente(
     return obter_venda_pendente(venda_id, db=db, usuario=usuario)
 
 
+@router.post("/faturamento/documentos/{venda_id}/faturar", status_code=status.HTTP_201_CREATED)
 @router.post("/vendas-pendentes/{venda_id}/autenticar", status_code=status.HTTP_201_CREATED)
 def autenticar_venda_pendente(
     venda_id: int,
@@ -2151,6 +2590,7 @@ def autenticar_venda_pendente(
     return {"venda_id": venda_id, "status": "autenticado", "quantidade": quantidade, "lancamentos": ids}
 
 
+@router.post("/faturamento/documentos/{venda_id}/cancelar-faturamento")
 @router.post("/vendas-pendentes/{venda_id}/cancelar-autenticacao")
 def cancelar_autenticacao_venda(
     venda_id: int,
@@ -2319,6 +2759,7 @@ def atualizar_lancamento(
                possui_mora_diaria = :possui_mora_diaria,
                indice_mora_diaria_percent = :indice_mora_diaria_percent,
                documento = :documento,
+               nosso_numero = :nosso_numero,
                observacoes = :observacoes,
                anexo_url = :anexo_url,
                contato_cobranca = :contato_cobranca,
@@ -2381,6 +2822,7 @@ def calcular_previa_baixa(
         "saldo_aberto": float(saldo_aberto),
         "valor_principal": float(principal),
         "valor_desconto": 0.0,
+        "valor_acrescimo": 0.0,
         "valor_multa": float(encargos["valor_multa"]),
         "valor_mora": float(encargos["valor_mora"]),
         "valor_total_baixa": float(total),
@@ -2401,6 +2843,53 @@ def baixar_lancamento(
     anterior = obter_lancamento_para_update(db, empresa_id, lancamento_id)
     if anterior["status"] == "cancelado":
         raise HTTPException(status_code=409, detail="Não é possível baixar um lançamento cancelado.")
+
+    idempotency_key = normalizar_idempotency_key(payload.idempotency_key)
+    if idempotency_key:
+        existente = db.execute(text("""
+            SELECT id, valor, conta_banco_id, tipo_movimentacao
+            FROM public.financeiro_movimentacoes
+            WHERE empresa_id = :empresa_id
+              AND lancamento_id = :lancamento_id
+              AND tipo_movimentacao = 'baixa'
+              AND chave_idempotencia = :chave
+            LIMIT 1
+        """), {
+            "empresa_id": empresa_id, "lancamento_id": lancamento_id, "chave": idempotency_key,
+        }).first()
+        if existente:
+            mov_existente = row_to_dict(existente)
+            resultado_existente = obter_lancamento_dict(db, empresa_id, lancamento_id)
+            resultado_existente["movimentacao_id"] = int(mov_existente["id"])
+            resultado_existente["valor_total_baixa"] = float(parse_money(mov_existente["valor"]))
+            resultado_existente["conta_banco_id"] = mov_existente.get("conta_banco_id")
+            resultado_existente["efeito_caixa"] = efeito_caixa(anterior.get("tipo"), "baixa")
+            resultado_existente["idempotente"] = True
+            rep_existente = db.execute(text("""
+                SELECT id, saldo_reparcelado, quantidade_parcelas, data_primeiro_vencimento,
+                       intervalo_meses, grupo_parcelamento, lancamentos_gerados_ids
+                FROM public.financeiro_reparcelamentos
+                WHERE empresa_id = :empresa_id AND movimentacao_baixa_id = :movimentacao_id
+                ORDER BY id DESC LIMIT 1
+            """), {"empresa_id": empresa_id, "movimentacao_id": int(mov_existente["id"])}).first()
+            if rep_existente:
+                rep_data = row_to_dict(rep_existente)
+                ids = rep_data.get("lancamentos_gerados_ids")
+                if isinstance(ids, str):
+                    try:
+                        ids = json.loads(ids)
+                    except Exception:
+                        ids = []
+                resultado_existente["reparcelamento"] = {
+                    "id": rep_data.get("id"),
+                    "saldo_reparcelado": rep_data.get("saldo_reparcelado"),
+                    "quantidade_parcelas": rep_data.get("quantidade_parcelas"),
+                    "primeiro_vencimento": rep_data.get("data_primeiro_vencimento"),
+                    "intervalo_meses": rep_data.get("intervalo_meses"),
+                    "grupo_parcelamento": rep_data.get("grupo_parcelamento"),
+                    "lancamentos_gerados_ids": ids if isinstance(ids, list) else [],
+                }
+            return resultado_existente
 
     saldo_aberto = max(Decimal("0"), parse_money(anterior["valor_total"]) - parse_money(anterior["valor_pago"]))
     principal_input = payload.valor_principal
@@ -2446,8 +2935,19 @@ def baixar_lancamento(
     )
 
     valor_desconto = parse_money(payload.valor_desconto)
+    valor_acrescimo = parse_money(payload.valor_acrescimo)
     if valor_desconto < 0 or valor_desconto > valor_principal:
         raise HTTPException(status_code=422, detail="O desconto deve ficar entre zero e o principal desta baixa.")
+    if valor_acrescimo < 0:
+        raise HTTPException(status_code=422, detail="O acréscimo não pode ser negativo.")
+
+    modalidade_baixa = (norm_str(payload.modalidade_baixa) or ("total" if valor_principal == saldo_aberto else "parcial")).lower()
+    if modalidade_baixa not in {"total", "parcial"}:
+        raise HTTPException(status_code=422, detail="A modalidade da baixa deve ser total ou parcial.")
+    if modalidade_baixa == "total" and valor_principal != saldo_aberto:
+        raise HTTPException(status_code=422, detail="Na baixa total, o principal deve corresponder ao saldo aberto do título.")
+    if modalidade_baixa == "parcial" and valor_principal >= saldo_aberto:
+        raise HTTPException(status_code=422, detail="Na baixa parcial, informe um principal menor que o saldo aberto.")
 
     if payload.usar_calculo_automatico:
         valor_multa = encargos["valor_multa"] if payload.valor_multa in (None, "") else parse_money(payload.valor_multa)
@@ -2467,17 +2967,23 @@ def baixar_lancamento(
     if multa_aplicada and valor_multa > 0:
         raise HTTPException(status_code=422, detail="A multa deste título já foi aplicada em outra baixa válida.")
 
-    valor_caixa = arredondar_moeda(valor_principal - valor_desconto + valor_multa + valor_mora)
+    valor_caixa = arredondar_moeda(valor_principal - valor_desconto + valor_acrescimo + valor_multa + valor_mora)
     if valor_caixa <= 0:
         raise HTTPException(status_code=422, detail="O valor total da baixa deve ser maior que zero.")
 
     forma_id = payload.forma_pagamento_id or anterior.get("forma_pagamento_id")
     conta_id = payload.conta_banco_id or anterior.get("conta_banco_id")
+    conta_contabil_id = payload.conta_contabil_id or anterior.get("conta_contabil_id")
+    centro_principal_id = payload.centro_custo_principal_id or anterior.get("centro_custo_principal_id")
+    centro_secundario_id = payload.centro_custo_secundario_id or anterior.get("centro_custo_secundario_id")
     validar_referencias_baixa(
         db,
         empresa_id=empresa_id,
         forma_pagamento_id=int(forma_id) if forma_id else None,
         conta_banco_id=int(conta_id) if conta_id else None,
+        conta_contabil_id=int(conta_contabil_id) if conta_contabil_id else None,
+        centro_custo_principal_id=int(centro_principal_id) if centro_principal_id else None,
+        centro_custo_secundario_id=int(centro_secundario_id) if centro_secundario_id else None,
     )
     if not forma_id:
         raise HTTPException(status_code=422, detail="Selecione a forma de pagamento/recebimento para realizar a baixa.")
@@ -2488,14 +2994,16 @@ def baixar_lancamento(
     mov = db.execute(text("""
         INSERT INTO public.financeiro_movimentacoes (
             empresa_id, lancamento_id, tipo_movimentacao, valor,
-            valor_principal, valor_desconto, valor_multa, valor_mora, dias_atraso,
+            valor_principal, valor_desconto, valor_acrescimo, valor_multa, valor_mora, dias_atraso, modalidade_baixa,
             data_movimentacao, forma_pagamento_id, conta_banco_id,
-            observacoes, usuario_id, criado_em
+            conta_contabil_id, centro_custo_principal_id, centro_custo_secundario_id,
+            chave_idempotencia, observacoes, usuario_id, criado_em
         ) VALUES (
             :empresa_id, :lancamento_id, 'baixa', :valor,
-            :valor_principal, :valor_desconto, :valor_multa, :valor_mora, :dias_atraso,
+            :valor_principal, :valor_desconto, :valor_acrescimo, :valor_multa, :valor_mora, :dias_atraso, :modalidade_baixa,
             :data_movimentacao, :forma_pagamento_id, :conta_banco_id,
-            :observacoes, :usuario_id, NOW()
+            :conta_contabil_id, :centro_custo_principal_id, :centro_custo_secundario_id,
+            :chave_idempotencia, :observacoes, :usuario_id, NOW()
         ) RETURNING id
     """), {
         "empresa_id": empresa_id,
@@ -2503,12 +3011,18 @@ def baixar_lancamento(
         "valor": valor_caixa,
         "valor_principal": valor_principal,
         "valor_desconto": valor_desconto,
+        "valor_acrescimo": valor_acrescimo,
         "valor_multa": valor_multa,
         "valor_mora": valor_mora,
         "dias_atraso": int(encargos["dias_atraso"]),
+        "modalidade_baixa": modalidade_baixa,
         "data_movimentacao": data_baixa,
         "forma_pagamento_id": forma_id,
         "conta_banco_id": conta_id,
+        "conta_contabil_id": conta_contabil_id,
+        "centro_custo_principal_id": centro_principal_id,
+        "centro_custo_secundario_id": centro_secundario_id,
+        "chave_idempotencia": idempotency_key,
         "observacoes": norm_str(payload.observacoes),
         "usuario_id": int(usuario.id),
     }).first()
@@ -2518,6 +3032,9 @@ def baixar_lancamento(
         UPDATE public.financeiro_lancamentos
            SET forma_pagamento_id = COALESCE(:forma_pagamento_id, forma_pagamento_id),
                conta_banco_id = COALESCE(:conta_banco_id, conta_banco_id),
+               conta_contabil_id = COALESCE(:conta_contabil_id, conta_contabil_id),
+               centro_custo_principal_id = COALESCE(:centro_custo_principal_id, centro_custo_principal_id),
+               centro_custo_secundario_id = COALESCE(:centro_custo_secundario_id, centro_custo_secundario_id),
                atualizado_por_usuario_id = :usuario_id,
                atualizado_em = NOW()
          WHERE empresa_id = :empresa_id AND id = :id
@@ -2526,6 +3043,9 @@ def baixar_lancamento(
         "id": lancamento_id,
         "forma_pagamento_id": forma_id,
         "conta_banco_id": conta_id,
+        "conta_contabil_id": conta_contabil_id,
+        "centro_custo_principal_id": centro_principal_id,
+        "centro_custo_secundario_id": centro_secundario_id,
         "usuario_id": int(usuario.id),
     })
     calculado = recalcular_lancamento(db, empresa_id, lancamento_id, int(usuario.id))
@@ -2541,10 +3061,17 @@ def baixar_lancamento(
             "movimentacao_id": movimento_id,
             "valor_principal": float(valor_principal),
             "valor_desconto": float(valor_desconto),
+            "valor_acrescimo": float(valor_acrescimo),
             "valor_multa": float(valor_multa),
             "valor_mora": float(valor_mora),
             "valor_total_baixa": float(valor_caixa),
+            "modalidade_baixa": modalidade_baixa,
             "dias_atraso": int(encargos["dias_atraso"]),
+            "conta_banco_id": conta_id,
+            "conta_contabil_id": conta_contabil_id,
+            "centro_custo_principal_id": centro_principal_id,
+            "centro_custo_secundario_id": centro_secundario_id,
+            "efeito_caixa": efeito_caixa(anterior.get("tipo"), "baixa"),
             **calculado,
         },
         motivo=payload.observacoes,
@@ -2570,6 +3097,9 @@ def baixar_lancamento(
     resultado = obter_lancamento_dict(db, empresa_id, lancamento_id)
     resultado["movimentacao_id"] = movimento_id
     resultado["valor_total_baixa"] = float(valor_caixa)
+    resultado["conta_banco_id"] = conta_id
+    resultado["efeito_caixa"] = efeito_caixa(anterior.get("tipo"), "baixa")
+    resultado["idempotente"] = False
     if reparcelamento:
         resultado["reparcelamento"] = reparcelamento
     return resultado
@@ -2586,9 +3116,13 @@ def historico_lancamento(
     movimentacoes = [row_to_dict(r) for r in db.execute(text("""
         SELECT
             m.*,
-            u.nome AS usuario_nome,
+            COALESCE(u.nome, CASE WHEN m.chave_idempotencia LIKE 'asaas:%' THEN 'Asaas (automático)' END) AS usuario_nome,
             fp.nome AS forma_pagamento_nome,
             cb.nome AS conta_banco_nome,
+            pc.codigo AS conta_contabil_codigo,
+            pc.nome AS conta_contabil_nome,
+            ccp.nome AS centro_custo_principal_nome,
+            ccs.nome AS centro_custo_secundario_nome,
             EXISTS (
                 SELECT 1 FROM public.financeiro_movimentacoes e
                 WHERE e.empresa_id = m.empresa_id
@@ -2607,9 +3141,18 @@ def historico_lancamento(
                ON fp.id = m.forma_pagamento_id AND fp.empresa_id = m.empresa_id
         LEFT JOIN public.financeiro_contas_bancos cb
                ON cb.id = m.conta_banco_id AND cb.empresa_id = m.empresa_id
+        LEFT JOIN public.financeiro_contas_contabeis pc
+               ON pc.id = m.conta_contabil_id AND pc.empresa_id = m.empresa_id
+        LEFT JOIN public.financeiro_centros_custo ccp
+               ON ccp.id = m.centro_custo_principal_id AND ccp.empresa_id = m.empresa_id
+        LEFT JOIN public.financeiro_centros_custo ccs
+               ON ccs.id = m.centro_custo_secundario_id AND ccs.empresa_id = m.empresa_id
         WHERE m.empresa_id = :empresa_id AND m.lancamento_id = :lancamento_id
         ORDER BY m.criado_em DESC, m.id DESC
     """), {"empresa_id": empresa_id, "lancamento_id": lancamento_id}).fetchall()]
+    for movimento in movimentacoes:
+        movimento["efeito_caixa"] = efeito_caixa(lancamento.get("tipo"), movimento.get("tipo_movimentacao"))
+
     auditoria = [row_to_dict(r) for r in db.execute(text("""
         SELECT a.*, u.nome AS usuario_nome
         FROM public.financeiro_auditoria a
@@ -2790,13 +3333,15 @@ def estornar_movimentacao(
     estorno = db.execute(text("""
         INSERT INTO public.financeiro_movimentacoes (
             empresa_id, lancamento_id, tipo_movimentacao, valor,
-            valor_principal, valor_desconto, valor_multa, valor_mora, dias_atraso,
+            valor_principal, valor_desconto, valor_acrescimo, valor_multa, valor_mora, dias_atraso, modalidade_baixa,
             data_movimentacao, forma_pagamento_id, conta_banco_id,
+            conta_contabil_id, centro_custo_principal_id, centro_custo_secundario_id,
             movimentacao_origem_id, observacoes, usuario_id, criado_em
         ) VALUES (
             :empresa_id, :lancamento_id, 'estorno', :valor,
-            :valor_principal, :valor_desconto, :valor_multa, :valor_mora, :dias_atraso,
+            :valor_principal, :valor_desconto, :valor_acrescimo, :valor_multa, :valor_mora, :dias_atraso, :modalidade_baixa,
             :data_movimentacao, :forma_pagamento_id, :conta_banco_id,
+            :conta_contabil_id, :centro_custo_principal_id, :centro_custo_secundario_id,
             :origem_id, :observacoes, :usuario_id, NOW()
         ) RETURNING id
     """), {
@@ -2805,12 +3350,17 @@ def estornar_movimentacao(
         "valor": parse_money(origem["valor"]),
         "valor_principal": parse_money(origem.get("valor_principal") or origem["valor"]),
         "valor_desconto": parse_money(origem.get("valor_desconto")),
+        "valor_acrescimo": parse_money(origem.get("valor_acrescimo")),
         "valor_multa": parse_money(origem.get("valor_multa")),
         "valor_mora": parse_money(origem.get("valor_mora")),
         "dias_atraso": int(origem.get("dias_atraso") or 0),
+        "modalidade_baixa": origem.get("modalidade_baixa"),
         "data_movimentacao": payload.data_estorno or date.today(),
         "forma_pagamento_id": origem.get("forma_pagamento_id"),
         "conta_banco_id": origem.get("conta_banco_id"),
+        "conta_contabil_id": origem.get("conta_contabil_id"),
+        "centro_custo_principal_id": origem.get("centro_custo_principal_id"),
+        "centro_custo_secundario_id": origem.get("centro_custo_secundario_id"),
         "origem_id": movimentacao_id,
         "observacoes": motivo,
         "usuario_id": int(usuario.id),
@@ -2824,7 +3374,12 @@ def estornar_movimentacao(
         motivo=motivo,
     )
     db.commit()
-    return obter_lancamento_dict(db, empresa_id, int(origem["lancamento_id"]))
+    resultado = obter_lancamento_dict(db, empresa_id, int(origem["lancamento_id"]))
+    resultado["movimentacao_estorno_id"] = int(estorno[0])
+    resultado["movimentacao_origem_id"] = movimentacao_id
+    resultado["conta_banco_id"] = origem.get("conta_banco_id")
+    resultado["efeito_caixa"] = efeito_caixa(origem.get("tipo"), "estorno")
+    return resultado
 
 
 @router.patch("/lancamentos/{lancamento_id}/cancelar")
@@ -2906,24 +3461,37 @@ def excluir_lancamento(
 def fluxo_caixa(
     data_inicio: Optional[date] = Query(default=None),
     data_fim: Optional[date] = Query(default=None),
+    conta_banco_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
+    """Controle de Caixa no padrão operacional do JCC.
+
+    Mantém ``items`` com a projeção antiga para compatibilidade e acrescenta:
+    registros, saldos_diarios, resumo_periodo, saldo_anterior e totais.
+    """
     empresa_id = empresa_do(usuario)
     inicio = data_inicio or date.today().replace(day=1)
-    fim = data_fim or (date.today() + timedelta(days=60))
+    fim = data_fim or date.today()
     if fim < inicio:
         raise HTTPException(status_code=422, detail="A data final deve ser igual ou posterior à data inicial.")
-    params = {"empresa_id": empresa_id, "data_inicio": inicio, "data_fim": fim}
+    if conta_banco_id is not None:
+        validar_id_empresa(db, table_name="financeiro_contas_bancos", item_id=conta_banco_id, empresa_id=empresa_id, label="Conta Corrente/Banco")
 
-    saldo_inicial_anterior = Decimal(str(db.execute(text("""
-        SELECT COALESCE(SUM(saldo_inicial), 0)
-        FROM public.financeiro_contas_bancos
-        WHERE empresa_id = :empresa_id
-          AND data_saldo_inicial < :data_inicio
+    params = {"empresa_id": empresa_id, "data_inicio": inicio, "data_fim": fim, "conta_banco_id": conta_banco_id}
+    filtro_conta_mov = "AND m.conta_banco_id = :conta_banco_id" if conta_banco_id is not None else ""
+    filtro_conta_manual = "AND cm.conta_banco_id = :conta_banco_id" if conta_banco_id is not None else ""
+    filtro_conta_saldo = "AND cb.id = :conta_banco_id" if conta_banco_id is not None else ""
+
+    saldo_inicial_anterior = Decimal(str(db.execute(text(f"""
+        SELECT COALESCE(SUM(cb.saldo_inicial), 0)
+        FROM public.financeiro_contas_bancos cb
+        WHERE cb.empresa_id = :empresa_id
+          AND cb.data_saldo_inicial < :data_inicio
+          {filtro_conta_saldo}
     """), params).scalar() or 0))
 
-    movimento_anterior = Decimal(str(db.execute(text("""
+    movimento_automatico_anterior = Decimal(str(db.execute(text(f"""
         SELECT COALESCE(SUM(
             CASE
                 WHEN l.tipo = 'receber' THEN CASE WHEN m.tipo_movimentacao = 'baixa' THEN m.valor ELSE -m.valor END
@@ -2931,85 +3499,1082 @@ def fluxo_caixa(
             END
         ), 0)
         FROM public.financeiro_movimentacoes m
-        JOIN public.financeiro_lancamentos l
-          ON l.id = m.lancamento_id AND l.empresa_id = m.empresa_id
-        WHERE m.empresa_id = :empresa_id
-          AND m.data_movimentacao < :data_inicio
+        JOIN public.financeiro_lancamentos l ON l.id=m.lancamento_id AND l.empresa_id=m.empresa_id
+        WHERE m.empresa_id=:empresa_id AND m.data_movimentacao < :data_inicio
+          {filtro_conta_mov}
     """), params).scalar() or 0))
-    saldo_base = saldo_inicial_anterior + movimento_anterior
 
-    previstos = db.execute(text("""
-        SELECT
-            data_vencimento AS data,
-            COALESCE(SUM(CASE WHEN tipo = 'receber' THEN GREATEST(valor_total - valor_pago, 0) ELSE 0 END), 0) AS entradas_previstas,
-            COALESCE(SUM(CASE WHEN tipo = 'pagar' THEN GREATEST(valor_total - valor_pago, 0) ELSE 0 END), 0) AS saidas_previstas
-        FROM public.financeiro_lancamentos
-        WHERE empresa_id = :empresa_id
-          AND status <> 'cancelado'
-          AND GREATEST(valor_total - valor_pago, 0) > 0
-          AND data_vencimento BETWEEN :data_inicio AND :data_fim
-        GROUP BY data_vencimento
-    """), params).fetchall()
+    movimento_manual_anterior = Decimal(str(db.execute(text(f"""
+        SELECT COALESCE(SUM(CASE WHEN cm.tipo='credito' THEN cm.valor ELSE -cm.valor END), 0)
+        FROM public.financeiro_caixa_movimentos cm
+        WHERE cm.empresa_id=:empresa_id AND cm.status='ativo'
+          AND cm.data_movimentacao < :data_inicio
+          {filtro_conta_manual}
+    """), params).scalar() or 0))
 
-    realizados = db.execute(text("""
+    # Transferências entre contas alteram apenas o saldo da conta selecionada.
+    # No consolidado de todas as contas o efeito é zero, pois a saída e a entrada
+    # pertencem à mesma empresa e não representam receita/despesa.
+    transferencia_anterior = Decimal("0")
+    if conta_banco_id is not None:
+        transferencia_anterior = Decimal(str(db.execute(text("""
+            SELECT COALESCE(SUM(
+                CASE
+                    WHEN t.conta_destino_id = :conta_banco_id THEN t.valor
+                    WHEN t.conta_origem_id = :conta_banco_id THEN -t.valor
+                    ELSE 0
+                END
+            ), 0)
+            FROM public.financeiro_transferencias t
+            WHERE t.empresa_id=:empresa_id
+              AND t.status='ativo'
+              AND t.data_transferencia < :data_inicio
+              AND (:conta_banco_id IN (t.conta_origem_id, t.conta_destino_id))
+        """), params).scalar() or 0))
+
+    saldo_anterior = saldo_inicial_anterior + movimento_automatico_anterior + movimento_manual_anterior + transferencia_anterior
+
+    registros_auto = [row_to_dict(r) for r in db.execute(text(f"""
         SELECT
-            m.data_movimentacao AS data,
-            COALESCE(SUM(CASE WHEN l.tipo = 'receber'
-                THEN CASE WHEN m.tipo_movimentacao = 'baixa' THEN m.valor ELSE -m.valor END ELSE 0 END), 0) AS entradas_realizadas,
-            COALESCE(SUM(CASE WHEN l.tipo = 'pagar'
-                THEN CASE WHEN m.tipo_movimentacao = 'baixa' THEN m.valor ELSE -m.valor END ELSE 0 END), 0) AS saidas_realizadas
+            m.id, 'automatico'::text AS origem, m.data_movimentacao AS data,
+            COALESCE(l.documento, '') AS documento,
+            CASE WHEN l.tipo='receber' THEN 'credito' ELSE 'debito' END AS natureza_base,
+            CASE
+                WHEN l.tipo='receber' THEN CASE WHEN m.tipo_movimentacao='baixa' THEN 'credito' ELSE 'debito' END
+                ELSE CASE WHEN m.tipo_movimentacao='baixa' THEN 'debito' ELSE 'credito' END
+            END AS tipo,
+            m.valor,
+            COALESCE(NULLIF(m.observacoes,''), l.descricao, 'Movimento financeiro') AS historico,
+            CASE WHEN l.tipo='receber' THEN COALESCE(c.nome, '-') ELSE COALESCE(f.nome, '-') END AS parceiro,
+            cb.id AS conta_banco_id, cb.nome AS conta_banco_nome,
+            pc.id AS conta_contabil_id, pc.codigo AS conta_contabil_codigo, pc.nome AS conta_contabil_nome,
+            ccp.id AS centro_custo_principal_id, ccp.nome AS centro_custo_principal_nome,
+            ccs.id AS centro_custo_secundario_id, ccs.nome AS centro_custo_secundario_nome,
+            m.tipo_movimentacao, m.lancamento_id, m.movimentacao_origem_id
         FROM public.financeiro_movimentacoes m
-        JOIN public.financeiro_lancamentos l
-          ON l.id = m.lancamento_id AND l.empresa_id = m.empresa_id
-        WHERE m.empresa_id = :empresa_id
+        JOIN public.financeiro_lancamentos l ON l.id=m.lancamento_id AND l.empresa_id=m.empresa_id
+        LEFT JOIN public.clientes c ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
+        LEFT JOIN public.fornecedores f ON f.id=l.fornecedor_id AND f.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_contas_bancos cb ON cb.id=m.conta_banco_id AND cb.empresa_id=m.empresa_id
+        LEFT JOIN public.financeiro_contas_contabeis pc ON pc.id=m.conta_contabil_id AND pc.empresa_id=m.empresa_id
+        LEFT JOIN public.financeiro_centros_custo ccp ON ccp.id=m.centro_custo_principal_id AND ccp.empresa_id=m.empresa_id
+        LEFT JOIN public.financeiro_centros_custo ccs ON ccs.id=m.centro_custo_secundario_id AND ccs.empresa_id=m.empresa_id
+        WHERE m.empresa_id=:empresa_id
           AND m.data_movimentacao BETWEEN :data_inicio AND :data_fim
-        GROUP BY m.data_movimentacao
-    """), params).fetchall()
+          {filtro_conta_mov}
+        ORDER BY m.data_movimentacao, m.id
+    """), params).fetchall()]
 
-    saldos_no_periodo = db.execute(text("""
+    registros_manual = [row_to_dict(r) for r in db.execute(text(f"""
         SELECT
-            data_saldo_inicial AS data,
-            COALESCE(SUM(CASE WHEN saldo_inicial >= 0 THEN saldo_inicial ELSE 0 END), 0) AS entradas_realizadas,
-            COALESCE(SUM(CASE WHEN saldo_inicial < 0 THEN ABS(saldo_inicial) ELSE 0 END), 0) AS saidas_realizadas
-        FROM public.financeiro_contas_bancos
-        WHERE empresa_id = :empresa_id
-          AND data_saldo_inicial BETWEEN :data_inicio AND :data_fim
-        GROUP BY data_saldo_inicial
-    """), params).fetchall()
+            cm.id, 'manual'::text AS origem, cm.data_movimentacao AS data, cm.documento, cm.tipo, cm.valor,
+            cm.historico, 'Movimento manual'::text AS parceiro,
+            cb.id AS conta_banco_id, cb.nome AS conta_banco_nome,
+            pc.id AS conta_contabil_id, pc.codigo AS conta_contabil_codigo, pc.nome AS conta_contabil_nome,
+            ccp.id AS centro_custo_principal_id, ccp.nome AS centro_custo_principal_nome,
+            ccs.id AS centro_custo_secundario_id, ccs.nome AS centro_custo_secundario_nome,
+            cm.status, cm.usuario_id
+        FROM public.financeiro_caixa_movimentos cm
+        JOIN public.financeiro_contas_bancos cb ON cb.id=cm.conta_banco_id AND cb.empresa_id=cm.empresa_id
+        JOIN public.financeiro_contas_contabeis pc ON pc.id=cm.conta_contabil_id AND pc.empresa_id=cm.empresa_id
+        LEFT JOIN public.financeiro_centros_custo ccp ON ccp.id=cm.centro_custo_principal_id AND ccp.empresa_id=cm.empresa_id
+        LEFT JOIN public.financeiro_centros_custo ccs ON ccs.id=cm.centro_custo_secundario_id AND ccs.empresa_id=cm.empresa_id
+        WHERE cm.empresa_id=:empresa_id AND cm.status='ativo'
+          AND cm.data_movimentacao BETWEEN :data_inicio AND :data_fim
+          {filtro_conta_manual}
+        ORDER BY cm.data_movimentacao, cm.id
+    """), params).fetchall()]
 
-    por_data: Dict[date, Dict[str, Decimal]] = {}
-    def bucket(d: date) -> Dict[str, Decimal]:
-        return por_data.setdefault(d, {
-            "entradas_previstas": Decimal("0"), "saidas_previstas": Decimal("0"),
-            "entradas_realizadas": Decimal("0"), "saidas_realizadas": Decimal("0"),
+    transfer_rows = [row_to_dict(r) for r in db.execute(text("""
+        SELECT
+            t.id, t.data_transferencia AS data, t.documento, t.historico, t.valor,
+            t.conta_origem_id, origem.nome AS conta_origem_nome,
+            t.conta_destino_id, destino.nome AS conta_destino_nome
+        FROM public.financeiro_transferencias t
+        JOIN public.financeiro_contas_bancos origem ON origem.id=t.conta_origem_id AND origem.empresa_id=t.empresa_id
+        JOIN public.financeiro_contas_bancos destino ON destino.id=t.conta_destino_id AND destino.empresa_id=t.empresa_id
+        WHERE t.empresa_id=:empresa_id
+          AND t.status='ativo'
+          AND t.data_transferencia BETWEEN :data_inicio AND :data_fim
+          AND (:conta_banco_id IS NULL OR :conta_banco_id IN (t.conta_origem_id, t.conta_destino_id))
+        ORDER BY t.data_transferencia, t.id
+    """), params).fetchall()]
+
+    registros_transferencia = []
+    for t in transfer_rows:
+        base = {
+            "id": t["id"], "origem": "transferencia", "data": t["data"],
+            "documento": t.get("documento") or f"TRANSF-{t['id']}",
+            "valor": t["valor"], "conta_contabil_id": None, "conta_contabil_codigo": None,
+            "conta_contabil_nome": None, "centro_custo_principal_id": None,
+            "centro_custo_principal_nome": None, "centro_custo_secundario_id": None,
+            "centro_custo_secundario_nome": None, "transferencia_id": t["id"],
+        }
+        if conta_banco_id is None or int(conta_banco_id) == int(t["conta_origem_id"]):
+            registros_transferencia.append({
+                **base, "tipo": "debito", "conta_banco_id": t["conta_origem_id"],
+                "conta_banco_nome": t["conta_origem_nome"],
+                "parceiro": f"Transferência para {t['conta_destino_nome']}",
+                "historico": t.get("historico") or f"Transferência para {t['conta_destino_nome']}",
+                "lado_transferencia": "origem",
+            })
+        if conta_banco_id is None or int(conta_banco_id) == int(t["conta_destino_id"]):
+            registros_transferencia.append({
+                **base, "tipo": "credito", "conta_banco_id": t["conta_destino_id"],
+                "conta_banco_nome": t["conta_destino_nome"],
+                "parceiro": f"Transferência de {t['conta_origem_nome']}",
+                "historico": t.get("historico") or f"Transferência de {t['conta_origem_nome']}",
+                "lado_transferencia": "destino",
+            })
+
+    registros_saldo = [row_to_dict(r) for r in db.execute(text(f"""
+        SELECT
+            cb.id, 'saldo_inicial'::text AS origem, cb.data_saldo_inicial AS data,
+            'SALDO INICIAL'::text AS documento,
+            CASE WHEN cb.saldo_inicial >= 0 THEN 'credito' ELSE 'debito' END AS tipo,
+            ABS(cb.saldo_inicial) AS valor,
+            ('Saldo inicial - ' || cb.nome)::text AS historico,
+            'Saldo inicial'::text AS parceiro,
+            cb.id AS conta_banco_id, cb.nome AS conta_banco_nome,
+            NULL::bigint AS conta_contabil_id, NULL::varchar AS conta_contabil_codigo, NULL::varchar AS conta_contabil_nome,
+            NULL::bigint AS centro_custo_principal_id, NULL::varchar AS centro_custo_principal_nome,
+            NULL::bigint AS centro_custo_secundario_id, NULL::varchar AS centro_custo_secundario_nome
+        FROM public.financeiro_contas_bancos cb
+        WHERE cb.empresa_id=:empresa_id
+          AND cb.data_saldo_inicial BETWEEN :data_inicio AND :data_fim
+          {filtro_conta_saldo}
+        ORDER BY cb.data_saldo_inicial, cb.id
+    """), params).fetchall()]
+
+    registros = registros_auto + registros_manual + registros_transferencia + registros_saldo
+    registros.sort(key=lambda r: (str(r.get("data") or ""), 0 if r.get("origem") == "saldo_inicial" else 1, int(r.get("id") or 0)))
+
+    saldo_corrente = saldo_anterior
+    credito_total = Decimal("0")
+    debito_total = Decimal("0")
+    por_dia: Dict[date, Dict[str, Decimal]] = {}
+    resumo_periodo = []
+    for item in registros:
+        valor = arredondar_moeda(item.get("valor"))
+        credito = valor if item.get("tipo") == "credito" else Decimal("0")
+        debito = valor if item.get("tipo") == "debito" else Decimal("0")
+        credito_total += credito
+        debito_total += debito
+        saldo_corrente += credito - debito
+        item["credito"] = float(credito)
+        item["debito"] = float(debito)
+        item["saldo"] = float(saldo_corrente)
+        item["valor"] = float(valor)
+        resumo_periodo.append(dict(item))
+        d = item.get("data")
+        if not isinstance(d, date):
+            d = date.fromisoformat(str(d)[:10])
+        bucket = por_dia.setdefault(d, {"credito": Decimal("0"), "debito": Decimal("0")})
+        bucket["credito"] += credito
+        bucket["debito"] += debito
+
+    saldos_diarios = []
+    saldo_dia = saldo_anterior
+    for d in sorted(por_dia):
+        valores = por_dia[d]
+        saldo_dia += valores["credito"] - valores["debito"]
+        saldos_diarios.append({
+            "data": d.isoformat(), "credito": float(valores["credito"]),
+            "debito": float(valores["debito"]), "saldo": float(saldo_dia),
         })
 
+    # Mantém a projeção antiga para Dashboard/relatórios que usam ``items``.
+    previstos = db.execute(text("""
+        SELECT data_vencimento AS data,
+          COALESCE(SUM(CASE WHEN tipo='receber' THEN GREATEST(valor_total-valor_pago,0) ELSE 0 END),0) AS entradas_previstas,
+          COALESCE(SUM(CASE WHEN tipo='pagar' THEN GREATEST(valor_total-valor_pago,0) ELSE 0 END),0) AS saidas_previstas
+        FROM public.financeiro_lancamentos
+        WHERE empresa_id=:empresa_id AND status<>'cancelado' AND GREATEST(valor_total-valor_pago,0)>0
+          AND data_vencimento BETWEEN :data_inicio AND :data_fim
+        GROUP BY data_vencimento ORDER BY data_vencimento
+    """), params).fetchall()
+    proj_por_data: Dict[date, Dict[str, Decimal]] = {}
     for row in previstos:
         r = row_to_dict(row)
-        d = date.fromisoformat(str(r["data"])[:10])
-        bucket(d)["entradas_previstas"] += Decimal(str(r["entradas_previstas"] or 0))
-        bucket(d)["saidas_previstas"] += Decimal(str(r["saidas_previstas"] or 0))
-    for colecao in (realizados, saldos_no_periodo):
-        for row in colecao:
-            r = row_to_dict(row)
-            d = date.fromisoformat(str(r["data"])[:10])
-            bucket(d)["entradas_realizadas"] += Decimal(str(r["entradas_realizadas"] or 0))
-            bucket(d)["saidas_realizadas"] += Decimal(str(r["saidas_realizadas"] or 0))
-
-    saldo_previsto = saldo_base
-    saldo_realizado = saldo_base
+        d = r.get("data") if isinstance(r.get("data"), date) else date.fromisoformat(str(r.get("data"))[:10])
+        proj_por_data[d] = {
+            "entradas_previstas": arredondar_moeda(r.get("entradas_previstas")),
+            "saidas_previstas": arredondar_moeda(r.get("saidas_previstas")),
+        }
     items = []
-    for d in sorted(por_data):
-        valores = por_data[d]
-        saldo_previsto += valores["entradas_previstas"] - valores["saidas_previstas"]
-        saldo_realizado += valores["entradas_realizadas"] - valores["saidas_realizadas"]
+    saldo_previsto = saldo_anterior
+    saldo_realizado_compativel = saldo_anterior
+    for d in sorted(set(proj_por_data) | set(por_dia)):
+        proj = proj_por_data.get(d, {"entradas_previstas": Decimal("0"), "saidas_previstas": Decimal("0")})
+        realizado = por_dia.get(d, {"credito": Decimal("0"), "debito": Decimal("0")})
+        ent_prev = proj["entradas_previstas"]
+        sai_prev = proj["saidas_previstas"]
+        ent_real = realizado["credito"]
+        sai_real = realizado["debito"]
+        saldo_previsto += ent_prev - sai_prev
+        saldo_realizado_compativel += ent_real - sai_real
         items.append({
-            "data": d.isoformat(),
-            **{k: float(v) for k, v in valores.items()},
-            "saldo_previsto_acumulado": float(saldo_previsto),
-            "saldo_realizado_acumulado": float(saldo_realizado),
+            "data": d.isoformat(), "entradas_previstas": float(ent_prev), "saidas_previstas": float(sai_prev),
+            "entradas_realizadas": float(ent_real), "saidas_realizadas": float(sai_real),
+            "saldo_previsto_acumulado": float(saldo_previsto), "saldo_realizado_acumulado": float(saldo_realizado_compativel),
         })
-    return {"items": items, "saldo_inicial_periodo": float(saldo_base)}
+
+    return {
+        "periodo": {"data_inicio": inicio.isoformat(), "data_fim": fim.isoformat()},
+        "saldo_anterior": float(saldo_anterior),
+        "saldo_inicial_periodo": float(saldo_anterior),
+        "saldo_final": float(saldo_corrente),
+        "totais": {
+            "credito": float(credito_total), "debito": float(debito_total),
+            "movimento_periodo": float(credito_total-debito_total), "saldo_final": float(saldo_corrente),
+        },
+        "registros": registros,
+        "saldos_diarios": saldos_diarios,
+        "resumo_periodo": resumo_periodo,
+        "items": items,
+    }
+
+
+@router.post("/caixa/movimentos")
+def criar_movimento_caixa(
+    payload: CaixaMovimentoManualIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    tipo = str(payload.tipo or "").strip().lower()
+    if tipo not in {"credito", "debito"}:
+        raise HTTPException(status_code=422, detail="Tipo do movimento deve ser crédito ou débito.")
+    valor = arredondar_moeda(parse_money(payload.valor))
+    if valor <= 0:
+        raise HTTPException(status_code=422, detail="Informe um valor maior que zero.")
+    historico = norm_str(payload.historico)
+    if not historico:
+        raise HTTPException(status_code=422, detail="Informe o histórico do movimento.")
+    validar_estrutura_financeira_operacao(
+        db, empresa_id=empresa_id, conta_banco_id=payload.conta_banco_id, conta_contabil_id=payload.conta_contabil_id,
+        centro_custo_principal_id=payload.centro_custo_principal_id, centro_custo_secundario_id=payload.centro_custo_secundario_id,
+    )
+    row = db.execute(text("""
+        INSERT INTO public.financeiro_caixa_movimentos (
+          empresa_id, usuario_id, tipo, data_movimentacao, documento, historico, valor, conta_banco_id, conta_contabil_id,
+          centro_custo_principal_id, centro_custo_secundario_id, status, criado_em, atualizado_em
+        ) VALUES (
+          :empresa_id, :usuario_id, :tipo, :data_movimentacao, :documento, :historico, :valor, :conta_banco_id, :conta_contabil_id,
+          :centro_custo_principal_id, :centro_custo_secundario_id, 'ativo', NOW(), NOW()
+        ) RETURNING *
+    """), {
+        "empresa_id": empresa_id, "usuario_id": int(usuario.id), "tipo": tipo, "data_movimentacao": payload.data_movimentacao,
+        "documento": norm_str(payload.documento), "historico": historico, "valor": valor,
+        "conta_banco_id": payload.conta_banco_id, "conta_contabil_id": payload.conta_contabil_id,
+        "centro_custo_principal_id": payload.centro_custo_principal_id, "centro_custo_secundario_id": payload.centro_custo_secundario_id,
+    }).first()
+    novo = row_to_dict(row)
+    registrar_auditoria(db, empresa_id=empresa_id, usuario_id=int(usuario.id), acao="criar", entidade="financeiro_caixa_movimentos", entidade_id=int(novo["id"]), novos=novo)
+    db.commit()
+    return novo
+
+
+@router.put("/caixa/movimentos/{movimento_id}")
+def editar_movimento_caixa(
+    movimento_id: int, payload: CaixaMovimentoManualIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    anterior_row = db.execute(text("SELECT * FROM public.financeiro_caixa_movimentos WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": movimento_id}).first()
+    if not anterior_row:
+        raise HTTPException(status_code=404, detail="Movimento de caixa não encontrado.")
+    anterior = row_to_dict(anterior_row)
+    if anterior.get("status") != "ativo":
+        raise HTTPException(status_code=409, detail="Movimento cancelado não pode ser editado.")
+    tipo = str(payload.tipo or "").strip().lower()
+    if tipo not in {"credito", "debito"}:
+        raise HTTPException(status_code=422, detail="Tipo do movimento deve ser crédito ou débito.")
+    valor = arredondar_moeda(parse_money(payload.valor))
+    if valor <= 0:
+        raise HTTPException(status_code=422, detail="Informe um valor maior que zero.")
+    historico = norm_str(payload.historico)
+    if not historico:
+        raise HTTPException(status_code=422, detail="Informe o histórico do movimento.")
+    validar_estrutura_financeira_operacao(
+        db, empresa_id=empresa_id, conta_banco_id=payload.conta_banco_id, conta_contabil_id=payload.conta_contabil_id,
+        centro_custo_principal_id=payload.centro_custo_principal_id, centro_custo_secundario_id=payload.centro_custo_secundario_id,
+    )
+    row = db.execute(text("""
+        UPDATE public.financeiro_caixa_movimentos SET
+          tipo=:tipo, data_movimentacao=:data_movimentacao, documento=:documento, historico=:historico, valor=:valor,
+          conta_banco_id=:conta_banco_id, conta_contabil_id=:conta_contabil_id,
+          centro_custo_principal_id=:centro_custo_principal_id, centro_custo_secundario_id=:centro_custo_secundario_id,
+          atualizado_em=NOW()
+        WHERE empresa_id=:empresa_id AND id=:id RETURNING *
+    """), {
+        "empresa_id": empresa_id, "id": movimento_id, "tipo": tipo, "data_movimentacao": payload.data_movimentacao,
+        "documento": norm_str(payload.documento), "historico": historico, "valor": valor,
+        "conta_banco_id": payload.conta_banco_id, "conta_contabil_id": payload.conta_contabil_id,
+        "centro_custo_principal_id": payload.centro_custo_principal_id, "centro_custo_secundario_id": payload.centro_custo_secundario_id,
+    }).first()
+    novo = row_to_dict(row)
+    registrar_auditoria(db, empresa_id=empresa_id, usuario_id=int(usuario.id), acao="editar", entidade="financeiro_caixa_movimentos", entidade_id=movimento_id, anteriores=anterior, novos=novo)
+    db.commit()
+    return novo
+
+
+@router.patch("/caixa/movimentos/{movimento_id}/cancelar")
+def cancelar_movimento_caixa(
+    movimento_id: int, payload: CancelamentoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    motivo = norm_str(payload.motivo)
+    if not motivo:
+        raise HTTPException(status_code=422, detail="Informe o motivo do cancelamento.")
+    anterior_row = db.execute(text("SELECT * FROM public.financeiro_caixa_movimentos WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": movimento_id}).first()
+    if not anterior_row:
+        raise HTTPException(status_code=404, detail="Movimento de caixa não encontrado.")
+    anterior = row_to_dict(anterior_row)
+    if anterior.get("status") != "ativo":
+        raise HTTPException(status_code=409, detail="Movimento já está cancelado.")
+    row = db.execute(text("""
+        UPDATE public.financeiro_caixa_movimentos SET status='cancelado', motivo_cancelamento=:motivo, atualizado_em=NOW()
+        WHERE empresa_id=:empresa_id AND id=:id RETURNING *
+    """), {"empresa_id": empresa_id, "id": movimento_id, "motivo": motivo}).first()
+    novo = row_to_dict(row)
+    registrar_auditoria(db, empresa_id=empresa_id, usuario_id=int(usuario.id), acao="cancelar", entidade="financeiro_caixa_movimentos", entidade_id=movimento_id, anteriores=anterior, novos=novo, motivo=motivo)
+    db.commit()
+    return novo
+
+
+# =========================================================
+# Movimento Bancário / Transferências
+# =========================================================
+
+def _conta_banco_ativa(db: Session, empresa_id: int, conta_id: int, label: str) -> Dict[str, Any]:
+    row = db.execute(text("""
+        SELECT * FROM public.financeiro_contas_bancos
+        WHERE empresa_id=:empresa_id AND id=:id
+    """), {"empresa_id": empresa_id, "id": conta_id}).first()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"{label} não encontrada.")
+    item = row_to_dict(row)
+    if item.get("ativo") is False:
+        raise HTTPException(status_code=422, detail=f"{label} está inativa e não pode receber nova movimentação.")
+    return item
+
+
+def _buscar_transferencia_por_chave(
+    db: Session, *, empresa_id: int, chave: str
+) -> Optional[Dict[str, Any]]:
+    row = db.execute(text("""
+        SELECT t.*,
+               origem.nome AS conta_origem_nome,
+               destino.nome AS conta_destino_nome
+        FROM public.financeiro_transferencias t
+        JOIN public.financeiro_contas_bancos origem
+          ON origem.id=t.conta_origem_id AND origem.empresa_id=t.empresa_id
+        JOIN public.financeiro_contas_bancos destino
+          ON destino.id=t.conta_destino_id AND destino.empresa_id=t.empresa_id
+        WHERE t.empresa_id=:empresa_id AND t.chave_idempotencia=:chave
+        LIMIT 1
+    """), {"empresa_id": empresa_id, "chave": chave}).first()
+    return row_to_dict(row) if row else None
+
+
+def _validar_replay_transferencia(
+    existente: Dict[str, Any], *, payload: TransferenciaBancariaIn, valor: Decimal
+) -> Dict[str, Any]:
+    mesma_transferencia = (
+        int(existente.get("conta_origem_id") or 0) == int(payload.conta_origem_id)
+        and int(existente.get("conta_destino_id") or 0) == int(payload.conta_destino_id)
+        and arredondar_moeda(existente.get("valor")) == valor
+        and str(existente.get("data_transferencia") or "")[:10] == payload.data_transferencia.isoformat()
+    )
+    documento_payload = norm_str(payload.documento)
+    if documento_payload is not None:
+        mesma_transferencia = mesma_transferencia and norm_str(existente.get("documento")) == documento_payload
+
+    if not mesma_transferencia:
+        raise HTTPException(
+            status_code=409,
+            detail="A chave de segurança desta transferência já foi usada com dados diferentes.",
+        )
+
+    item = dict(existente)
+    item["idempotent_replay"] = True
+    item["integrado_caixa"] = True
+    return item
+
+
+def _registrar_movimento_bancario_manual(
+    db: Session, *, empresa_id: int, usuario_id: int, payload: MovimentoBancarioManualIn
+) -> Dict[str, Any]:
+    tipo_raw = str(payload.tipo or "").strip().lower()
+    mapa = {"entrada": "credito", "saida": "debito", "crédito": "credito", "credito": "credito", "débito": "debito", "debito": "debito"}
+    tipo = mapa.get(tipo_raw)
+    if not tipo:
+        raise HTTPException(status_code=422, detail="Tipo do movimento deve ser entrada ou saída.")
+    valor = arredondar_moeda(parse_money(payload.valor))
+    if valor <= 0:
+        raise HTTPException(status_code=422, detail="Informe um valor maior que zero.")
+    historico = norm_str(payload.historico)
+    if not historico:
+        raise HTTPException(status_code=422, detail="Informe o histórico do movimento bancário.")
+    validar_estrutura_financeira_operacao(
+        db, empresa_id=empresa_id, conta_banco_id=payload.conta_banco_id,
+        conta_contabil_id=payload.conta_contabil_id,
+        centro_custo_principal_id=payload.centro_custo_principal_id,
+        centro_custo_secundario_id=payload.centro_custo_secundario_id,
+    )
+    row = db.execute(text("""
+        INSERT INTO public.financeiro_caixa_movimentos (
+          empresa_id, usuario_id, tipo, data_movimentacao, documento, historico, valor,
+          conta_banco_id, conta_contabil_id, centro_custo_principal_id,
+          centro_custo_secundario_id, status, criado_em, atualizado_em
+        ) VALUES (
+          :empresa_id, :usuario_id, :tipo, :data_movimentacao, :documento, :historico, :valor,
+          :conta_banco_id, :conta_contabil_id, :centro_custo_principal_id,
+          :centro_custo_secundario_id, 'ativo', NOW(), NOW()
+        ) RETURNING *
+    """), {
+        "empresa_id": empresa_id, "usuario_id": usuario_id, "tipo": tipo,
+        "data_movimentacao": payload.data_movimentacao,
+        "documento": norm_str(payload.documento), "historico": historico, "valor": valor,
+        "conta_banco_id": payload.conta_banco_id, "conta_contabil_id": payload.conta_contabil_id,
+        "centro_custo_principal_id": payload.centro_custo_principal_id,
+        "centro_custo_secundario_id": payload.centro_custo_secundario_id,
+    }).first()
+    novo = row_to_dict(row)
+    registrar_auditoria(
+        db, empresa_id=empresa_id, usuario_id=usuario_id, acao="criar",
+        entidade="financeiro_caixa_movimentos", entidade_id=int(novo["id"]),
+        novos={**novo, "origem_tela": "movimento_bancario"},
+    )
+    return novo
+
+
+@router.post("/movimento-bancario/lancamentos", status_code=status.HTTP_201_CREATED)
+def criar_lancamento_bancario(
+    payload: MovimentoBancarioManualIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    novo = _registrar_movimento_bancario_manual(
+        db, empresa_id=empresa_id, usuario_id=int(usuario.id), payload=payload
+    )
+    db.commit()
+    novo["integrado_caixa"] = True
+    return novo
+
+
+@router.post("/transferencias", status_code=status.HTTP_201_CREATED)
+def criar_transferencia_bancaria(
+    payload: TransferenciaBancariaIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    if int(payload.conta_origem_id) == int(payload.conta_destino_id):
+        raise HTTPException(status_code=422, detail="A conta de origem deve ser diferente da conta de destino.")
+    valor = arredondar_moeda(parse_money(payload.valor))
+    if valor <= 0:
+        raise HTTPException(status_code=422, detail="Informe um valor de transferência maior que zero.")
+    chave = normalizar_idempotency_key(payload.idempotency_key)
+    if chave:
+        existente = _buscar_transferencia_por_chave(db, empresa_id=empresa_id, chave=chave)
+        if existente:
+            return _validar_replay_transferencia(existente, payload=payload, valor=valor)
+
+    # Para uma transferência nova as duas contas precisam estar ativas. O replay
+    # idempotente é resolvido antes disso para que uma retentativa segura continue
+    # funcionando mesmo se uma das contas tiver sido inativada depois da gravação.
+    origem = _conta_banco_ativa(db, empresa_id, int(payload.conta_origem_id), "Conta de origem")
+    destino = _conta_banco_ativa(db, empresa_id, int(payload.conta_destino_id), "Conta de destino")
+    historico = norm_str(payload.historico) or f"Transferência de {origem.get('nome')} para {destino.get('nome')}"
+    try:
+        row = db.execute(text("""
+            INSERT INTO public.financeiro_transferencias (
+                empresa_id, usuario_id, data_transferencia, conta_origem_id, conta_destino_id,
+                documento, historico, valor, chave_idempotencia, status, criado_em, atualizado_em
+            ) VALUES (
+                :empresa_id, :usuario_id, :data_transferencia, :conta_origem_id, :conta_destino_id,
+                :documento, :historico, :valor, :chave, 'ativo', NOW(), NOW()
+            ) RETURNING *
+        """), {
+            "empresa_id": empresa_id, "usuario_id": int(usuario.id),
+            "data_transferencia": payload.data_transferencia,
+            "conta_origem_id": int(payload.conta_origem_id),
+            "conta_destino_id": int(payload.conta_destino_id),
+            "documento": norm_str(payload.documento), "historico": historico,
+            "valor": valor, "chave": chave,
+        }).first()
+    except IntegrityError:
+        db.rollback()
+        if chave:
+            existente = _buscar_transferencia_por_chave(db, empresa_id=empresa_id, chave=chave)
+            if existente:
+                return _validar_replay_transferencia(existente, payload=payload, valor=valor)
+        raise
+    novo = row_to_dict(row)
+    registrar_auditoria(
+        db, empresa_id=empresa_id, usuario_id=int(usuario.id), acao="criar",
+        entidade="financeiro_transferencias", entidade_id=int(novo["id"]), novos=novo,
+        motivo="Transferência entre Contas Correntes; sem natureza de receita/despesa.",
+    )
+    db.commit()
+    novo["conta_origem_nome"] = origem.get("nome")
+    novo["conta_destino_nome"] = destino.get("nome")
+    novo["integrado_caixa"] = True
+    return novo
+
+
+@router.get("/transferencias")
+def listar_transferencias_bancarias(
+    data_inicio: Optional[date] = Query(default=None),
+    data_fim: Optional[date] = Query(default=None),
+    conta_banco_id: Optional[int] = Query(default=None),
+    incluir_canceladas: bool = Query(default=False),
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    inicio = data_inicio or date.today().replace(day=1)
+    fim = data_fim or date.today()
+    if fim < inicio:
+        raise HTTPException(status_code=422, detail="A data final deve ser igual ou posterior à data inicial.")
+    if conta_banco_id is not None:
+        validar_id_empresa(db, table_name="financeiro_contas_bancos", item_id=conta_banco_id, empresa_id=empresa_id, label="Conta Corrente/Banco")
+    rows = db.execute(text("""
+        SELECT t.*, origem.nome AS conta_origem_nome, destino.nome AS conta_destino_nome,
+               u.nome AS usuario_nome
+        FROM public.financeiro_transferencias t
+        JOIN public.financeiro_contas_bancos origem ON origem.id=t.conta_origem_id AND origem.empresa_id=t.empresa_id
+        JOIN public.financeiro_contas_bancos destino ON destino.id=t.conta_destino_id AND destino.empresa_id=t.empresa_id
+        LEFT JOIN public.usuarios u ON u.id=t.usuario_id
+        WHERE t.empresa_id=:empresa_id
+          AND t.data_transferencia BETWEEN :data_inicio AND :data_fim
+          AND (:conta_banco_id IS NULL OR :conta_banco_id IN (t.conta_origem_id, t.conta_destino_id))
+          AND (:incluir_canceladas OR t.status='ativo')
+        ORDER BY t.data_transferencia DESC, t.id DESC
+    """), {
+        "empresa_id": empresa_id, "data_inicio": inicio, "data_fim": fim,
+        "conta_banco_id": conta_banco_id, "incluir_canceladas": incluir_canceladas,
+    }).fetchall()
+    return [row_to_dict(r) for r in rows]
+
+
+@router.patch("/transferencias/{transferencia_id}/cancelar")
+def cancelar_transferencia_bancaria(
+    transferencia_id: int,
+    payload: CancelamentoIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    motivo = norm_str(payload.motivo)
+    if not motivo:
+        raise HTTPException(status_code=422, detail="Informe o motivo do cancelamento da transferência.")
+    row = db.execute(text("""
+        SELECT * FROM public.financeiro_transferencias
+        WHERE empresa_id=:empresa_id AND id=:id
+        FOR UPDATE
+    """), {"empresa_id": empresa_id, "id": transferencia_id}).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Transferência não encontrada.")
+    anterior = row_to_dict(row)
+    if anterior.get("status") != "ativo":
+        raise HTTPException(status_code=409, detail="A transferência já está cancelada.")
+    novo_row = db.execute(text("""
+        UPDATE public.financeiro_transferencias
+           SET status='cancelado', motivo_cancelamento=:motivo,
+               cancelado_por_usuario_id=:usuario_id, cancelado_em=NOW(), atualizado_em=NOW()
+         WHERE empresa_id=:empresa_id AND id=:id
+         RETURNING *
+    """), {
+        "empresa_id": empresa_id, "id": transferencia_id,
+        "motivo": motivo, "usuario_id": int(usuario.id),
+    }).first()
+    novo = row_to_dict(novo_row)
+    registrar_auditoria(
+        db, empresa_id=empresa_id, usuario_id=int(usuario.id), acao="cancelar",
+        entidade="financeiro_transferencias", entidade_id=transferencia_id,
+        anteriores=anterior, novos=novo, motivo=motivo,
+    )
+    db.commit()
+    return novo
+
+
+@router.get("/movimento-bancario")
+def movimento_bancario(
+    data_inicio: Optional[date] = Query(default=None),
+    data_fim: Optional[date] = Query(default=None),
+    conta_banco_id: Optional[int] = Query(default=None),
+    tipo: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    empresa_id = empresa_do(usuario)
+    inicio = data_inicio or date.today().replace(day=1)
+    fim = data_fim or date.today()
+    if fim < inicio:
+        raise HTTPException(status_code=422, detail="A data final deve ser igual ou posterior à data inicial.")
+    if conta_banco_id is not None:
+        validar_id_empresa(db, table_name="financeiro_contas_bancos", item_id=conta_banco_id, empresa_id=empresa_id, label="Conta Corrente/Banco")
+    tipo_norm = str(tipo or "").strip().lower()
+    if tipo_norm and tipo_norm not in {"entrada", "saida", "transferencia"}:
+        raise HTTPException(status_code=422, detail="Tipo deve ser entrada, saída ou transferência.")
+
+    params = {"empresa_id": empresa_id, "data_inicio": inicio, "data_fim": fim, "conta_banco_id": conta_banco_id}
+    filtro_conta_m = "AND m.conta_banco_id=:conta_banco_id" if conta_banco_id is not None else ""
+    filtro_conta_cm = "AND cm.conta_banco_id=:conta_banco_id" if conta_banco_id is not None else ""
+    filtro_conta_cb = "AND cb.id=:conta_banco_id" if conta_banco_id is not None else ""
+
+    saldo_inicial = Decimal(str(db.execute(text(f"""
+        SELECT COALESCE(SUM(cb.saldo_inicial),0)
+        FROM public.financeiro_contas_bancos cb
+        WHERE cb.empresa_id=:empresa_id AND cb.data_saldo_inicial < :data_inicio {filtro_conta_cb}
+    """), params).scalar() or 0))
+    auto_ant = Decimal(str(db.execute(text(f"""
+        SELECT COALESCE(SUM(
+          CASE WHEN l.tipo='receber'
+               THEN CASE WHEN m.tipo_movimentacao='baixa' THEN m.valor ELSE -m.valor END
+               ELSE -1 * CASE WHEN m.tipo_movimentacao='baixa' THEN m.valor ELSE -m.valor END END
+        ),0)
+        FROM public.financeiro_movimentacoes m
+        JOIN public.financeiro_lancamentos l ON l.id=m.lancamento_id AND l.empresa_id=m.empresa_id
+        WHERE m.empresa_id=:empresa_id AND m.conta_banco_id IS NOT NULL
+          AND m.data_movimentacao < :data_inicio {filtro_conta_m}
+    """), params).scalar() or 0))
+    manual_ant = Decimal(str(db.execute(text(f"""
+        SELECT COALESCE(SUM(CASE WHEN cm.tipo='credito' THEN cm.valor ELSE -cm.valor END),0)
+        FROM public.financeiro_caixa_movimentos cm
+        WHERE cm.empresa_id=:empresa_id AND cm.status='ativo'
+          AND cm.data_movimentacao < :data_inicio {filtro_conta_cm}
+    """), params).scalar() or 0))
+    transf_ant = Decimal("0")
+    if conta_banco_id is not None:
+        transf_ant = Decimal(str(db.execute(text("""
+            SELECT COALESCE(SUM(CASE WHEN t.conta_destino_id=:conta_banco_id THEN t.valor ELSE -t.valor END),0)
+            FROM public.financeiro_transferencias t
+            WHERE t.empresa_id=:empresa_id AND t.status='ativo'
+              AND t.data_transferencia < :data_inicio
+              AND :conta_banco_id IN (t.conta_origem_id, t.conta_destino_id)
+        """), params).scalar() or 0))
+    saldo_anterior = saldo_inicial + auto_ant + manual_ant + transf_ant
+
+    movimentos = []
+    autos = db.execute(text(f"""
+        SELECT m.id, m.data_movimentacao AS data, l.documento,
+               CASE WHEN l.tipo='receber'
+                    THEN CASE WHEN m.tipo_movimentacao='baixa' THEN 'entrada' ELSE 'saida' END
+                    ELSE CASE WHEN m.tipo_movimentacao='baixa' THEN 'saida' ELSE 'entrada' END END AS tipo,
+               m.valor, COALESCE(NULLIF(m.observacoes,''),l.descricao,'Movimento financeiro') AS historico,
+               cb.id AS conta_banco_id, cb.nome AS conta_banco_nome,
+               CASE WHEN l.tipo='receber' THEN COALESCE(c.nome,'Cliente') ELSE COALESCE(f.nome,'Fornecedor') END AS parceiro,
+               l.id AS lancamento_id, m.tipo_movimentacao
+        FROM public.financeiro_movimentacoes m
+        JOIN public.financeiro_lancamentos l ON l.id=m.lancamento_id AND l.empresa_id=m.empresa_id
+        JOIN public.financeiro_contas_bancos cb ON cb.id=m.conta_banco_id AND cb.empresa_id=m.empresa_id
+        LEFT JOIN public.clientes c ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
+        LEFT JOIN public.fornecedores f ON f.id=l.fornecedor_id AND f.empresa_id=l.empresa_id
+        WHERE m.empresa_id=:empresa_id AND m.conta_banco_id IS NOT NULL
+          AND m.data_movimentacao BETWEEN :data_inicio AND :data_fim {filtro_conta_m}
+    """), params).fetchall()
+    for row in autos:
+        i=row_to_dict(row); i.update({"origem":"titulo", "integrado_caixa":True, "editavel":False}); movimentos.append(i)
+
+    manuals = db.execute(text(f"""
+        SELECT cm.id, cm.data_movimentacao AS data, cm.documento,
+               CASE WHEN cm.tipo='credito' THEN 'entrada' ELSE 'saida' END AS tipo,
+               cm.valor, cm.historico, cb.id AS conta_banco_id, cb.nome AS conta_banco_nome,
+               'Lançamento bancário'::text AS parceiro,
+               cm.conta_contabil_id, pc.codigo AS conta_contabil_codigo, pc.nome AS conta_contabil_nome
+        FROM public.financeiro_caixa_movimentos cm
+        JOIN public.financeiro_contas_bancos cb ON cb.id=cm.conta_banco_id AND cb.empresa_id=cm.empresa_id
+        LEFT JOIN public.financeiro_contas_contabeis pc ON pc.id=cm.conta_contabil_id AND pc.empresa_id=cm.empresa_id
+        WHERE cm.empresa_id=:empresa_id AND cm.status='ativo'
+          AND cm.data_movimentacao BETWEEN :data_inicio AND :data_fim {filtro_conta_cm}
+    """), params).fetchall()
+    for row in manuals:
+        i=row_to_dict(row); i.update({"origem":"manual", "integrado_caixa":True, "editavel":True}); movimentos.append(i)
+
+    transfers = db.execute(text("""
+        SELECT t.*, origem.nome AS conta_origem_nome, destino.nome AS conta_destino_nome
+        FROM public.financeiro_transferencias t
+        JOIN public.financeiro_contas_bancos origem ON origem.id=t.conta_origem_id AND origem.empresa_id=t.empresa_id
+        JOIN public.financeiro_contas_bancos destino ON destino.id=t.conta_destino_id AND destino.empresa_id=t.empresa_id
+        WHERE t.empresa_id=:empresa_id AND t.status='ativo'
+          AND t.data_transferencia BETWEEN :data_inicio AND :data_fim
+          AND (:conta_banco_id IS NULL OR :conta_banco_id IN (t.conta_origem_id,t.conta_destino_id))
+    """), params).fetchall()
+    for row in transfers:
+        t=row_to_dict(row)
+        if conta_banco_id is None or int(conta_banco_id)==int(t["conta_origem_id"]):
+            movimentos.append({
+                "id":t["id"], "data":t["data_transferencia"], "documento":t.get("documento") or f"TRANSF-{t['id']}",
+                "tipo":"saida", "valor":t["valor"], "historico":t.get("historico"),
+                "conta_banco_id":t["conta_origem_id"], "conta_banco_nome":t["conta_origem_nome"],
+                "parceiro":f"Para {t['conta_destino_nome']}", "origem":"transferencia", "lado_transferencia":"origem",
+                "transferencia_id":t["id"], "integrado_caixa":True, "editavel":False,
+            })
+        if conta_banco_id is None or int(conta_banco_id)==int(t["conta_destino_id"]):
+            movimentos.append({
+                "id":t["id"], "data":t["data_transferencia"], "documento":t.get("documento") or f"TRANSF-{t['id']}",
+                "tipo":"entrada", "valor":t["valor"], "historico":t.get("historico"),
+                "conta_banco_id":t["conta_destino_id"], "conta_banco_nome":t["conta_destino_nome"],
+                "parceiro":f"De {t['conta_origem_nome']}", "origem":"transferencia", "lado_transferencia":"destino",
+                "transferencia_id":t["id"], "integrado_caixa":True, "editavel":False,
+            })
+
+    # Saldo inicial dentro do período também faz parte do extrato bancário.
+    saldos = db.execute(text(f"""
+        SELECT cb.id, cb.data_saldo_inicial AS data, cb.saldo_inicial AS valor,
+               cb.nome AS conta_banco_nome
+        FROM public.financeiro_contas_bancos cb
+        WHERE cb.empresa_id=:empresa_id AND cb.data_saldo_inicial BETWEEN :data_inicio AND :data_fim {filtro_conta_cb}
+    """), params).fetchall()
+    for row in saldos:
+        i=row_to_dict(row); valor=arredondar_moeda(i.get("valor"));
+        movimentos.append({
+            "id":i["id"], "data":i["data"], "documento":"SALDO INICIAL",
+            "tipo":"entrada" if valor>=0 else "saida", "valor":abs(valor),
+            "historico":f"Saldo inicial - {i['conta_banco_nome']}", "conta_banco_id":i["id"],
+            "conta_banco_nome":i["conta_banco_nome"], "parceiro":"Saldo inicial", "origem":"saldo_inicial",
+            "integrado_caixa":True, "editavel":False,
+        })
+
+    movimentos.sort(key=lambda i:(str(i.get("data") or ""), int(i.get("id") or 0), 0 if i.get("tipo")=="saida" else 1))
+
+    # O saldo acumulado é sempre calculado sobre o extrato completo. Assim um
+    # filtro de "somente entradas", por exemplo, não produz um saldo fictício
+    # por ignorar as saídas que ocorreram entre duas linhas exibidas.
+    saldo=saldo_anterior
+    for i in movimentos:
+        valor=arredondar_moeda(i.get("valor"))
+        saldo += valor if i.get("tipo")=="entrada" else -valor
+        i["valor"]=float(valor); i["saldo"]=float(saldo)
+
+    movimentos_filtrados = movimentos
+    if tipo_norm == "transferencia":
+        movimentos_filtrados=[i for i in movimentos if i.get("origem")=="transferencia"]
+    elif tipo_norm in {"entrada","saida"}:
+        movimentos_filtrados=[i for i in movimentos if i.get("tipo")==tipo_norm]
+
+    entradas=sum((arredondar_moeda(i.get("valor")) for i in movimentos_filtrados if i.get("tipo")=="entrada"), Decimal("0"))
+    saidas=sum((arredondar_moeda(i.get("valor")) for i in movimentos_filtrados if i.get("tipo")=="saida"), Decimal("0"))
+    contas = listar_contas_bancos(db=db, usuario=usuario)
+    return {
+        "periodo":{"data_inicio":inicio.isoformat(),"data_fim":fim.isoformat()},
+        "conta_banco_id":conta_banco_id,
+        "saldo_anterior":float(saldo_anterior), "saldo_final":float(saldo),
+        "totais":{"entradas":float(entradas),"saidas":float(saidas),"movimento":float(entradas-saidas)},
+        "movimentos":movimentos_filtrados,
+        "contas":contas,
+        "conciliacao_caixa":{
+            "modo":"integracao_unica", "conciliados":len(movimentos), "pendentes":0,
+            "mensagem":"Movimento Bancário e Controle de Caixa usam a mesma origem financeira; não há lançamento duplicado para conciliar."
+        },
+    }
+
+
+@router.get("/acompanhamento")
+def acompanhamento_financeiro(
+    data_inicio: Optional[date] = Query(default=None),
+    data_fim: Optional[date] = Query(default=None),
+    projecao_dias: int = Query(default=90, ge=30, le=365),
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    """Posição financeira consolidada no espírito do Acompanhamento Financeiro do JCC.
+
+    A posição em aberto é calculada na data atual e o período informado é usado
+    para o realizado (recebimentos/pagamentos). A projeção considera os títulos
+    ainda abertos até o horizonte escolhido, sem transformar transferência
+    entre contas em receita ou despesa.
+    """
+    empresa_id = empresa_do(usuario)
+    hoje = date.today()
+    inicio = data_inicio or hoje.replace(day=1)
+    fim = data_fim or hoje
+    if fim < inicio:
+        raise HTTPException(status_code=422, detail="A data final deve ser igual ou posterior à data inicial.")
+
+    horizonte = hoje + timedelta(days=projecao_dias)
+    params = {
+        "empresa_id": empresa_id,
+        "data_inicio": inicio,
+        "data_fim": fim,
+        "hoje": hoje,
+        "horizonte": horizonte,
+    }
+
+    posicao_row = db.execute(text("""
+        SELECT
+            COALESCE(SUM(CASE WHEN tipo='receber' AND status <> 'cancelado'
+                THEN GREATEST(valor_total-valor_pago, 0) ELSE 0 END), 0) AS receber_aberto,
+            COALESCE(SUM(CASE WHEN tipo='receber' AND status <> 'cancelado' AND data_vencimento < :hoje
+                THEN GREATEST(valor_total-valor_pago, 0) ELSE 0 END), 0) AS receber_vencido,
+            COALESCE(SUM(CASE WHEN tipo='receber' AND status <> 'cancelado' AND data_vencimento >= :hoje
+                THEN GREATEST(valor_total-valor_pago, 0) ELSE 0 END), 0) AS receber_a_vencer,
+            COALESCE(SUM(CASE WHEN tipo='pagar' AND status <> 'cancelado'
+                THEN GREATEST(valor_total-valor_pago, 0) ELSE 0 END), 0) AS pagar_aberto,
+            COALESCE(SUM(CASE WHEN tipo='pagar' AND status <> 'cancelado' AND data_vencimento < :hoje
+                THEN GREATEST(valor_total-valor_pago, 0) ELSE 0 END), 0) AS pagar_vencido,
+            COALESCE(SUM(CASE WHEN tipo='pagar' AND status <> 'cancelado' AND data_vencimento >= :hoje
+                THEN GREATEST(valor_total-valor_pago, 0) ELSE 0 END), 0) AS pagar_a_vencer,
+            COALESCE(SUM(CASE WHEN tipo='receber' AND status <> 'cancelado'
+                                   AND data_vencimento BETWEEN :hoje AND :horizonte
+                THEN GREATEST(valor_total-valor_pago, 0) ELSE 0 END), 0) AS receber_horizonte,
+            COALESCE(SUM(CASE WHEN tipo='pagar' AND status <> 'cancelado'
+                                   AND data_vencimento BETWEEN :hoje AND :horizonte
+                THEN GREATEST(valor_total-valor_pago, 0) ELSE 0 END), 0) AS pagar_horizonte,
+            COUNT(*) FILTER (
+                WHERE tipo='receber' AND status <> 'cancelado' AND data_vencimento < :hoje
+                  AND GREATEST(valor_total-valor_pago, 0) > 0
+            ) AS qtd_receber_vencido,
+            COUNT(*) FILTER (
+                WHERE tipo='pagar' AND status <> 'cancelado' AND data_vencimento < :hoje
+                  AND GREATEST(valor_total-valor_pago, 0) > 0
+            ) AS qtd_pagar_vencido,
+            COUNT(DISTINCT cliente_id) FILTER (
+                WHERE tipo='receber' AND status <> 'cancelado' AND data_vencimento < :hoje
+                  AND GREATEST(valor_total-valor_pago, 0) > 0 AND cliente_id IS NOT NULL
+            ) AS clientes_inadimplentes
+        FROM public.financeiro_lancamentos
+        WHERE empresa_id=:empresa_id
+    """), params).first()
+    posicao = row_to_dict(posicao_row) if posicao_row else {}
+
+    realizado_row = db.execute(text("""
+        SELECT
+            COALESCE(SUM(CASE WHEN l.tipo='receber'
+                THEN CASE WHEN m.tipo_movimentacao='baixa' THEN m.valor ELSE -m.valor END
+                ELSE 0 END), 0) AS recebido_periodo,
+            COALESCE(SUM(CASE WHEN l.tipo='pagar'
+                THEN CASE WHEN m.tipo_movimentacao='baixa' THEN m.valor ELSE -m.valor END
+                ELSE 0 END), 0) AS pago_periodo
+        FROM public.financeiro_movimentacoes m
+        JOIN public.financeiro_lancamentos l
+          ON l.id=m.lancamento_id AND l.empresa_id=m.empresa_id
+        WHERE m.empresa_id=:empresa_id
+          AND m.data_movimentacao BETWEEN :data_inicio AND :data_fim
+    """), params).first()
+    realizado = row_to_dict(realizado_row) if realizado_row else {}
+
+    saldo_inicial = Decimal(str(db.execute(text("""
+        SELECT COALESCE(SUM(
+            CASE WHEN data_saldo_inicial IS NULL OR data_saldo_inicial <= :hoje THEN saldo_inicial ELSE 0 END
+        ), 0)
+        FROM public.financeiro_contas_bancos
+        WHERE empresa_id=:empresa_id
+    """), params).scalar() or 0))
+
+    movimento_automatico = Decimal(str(db.execute(text("""
+        SELECT COALESCE(SUM(
+            CASE
+                WHEN l.tipo='receber' THEN CASE WHEN m.tipo_movimentacao='baixa' THEN m.valor ELSE -m.valor END
+                ELSE -1 * CASE WHEN m.tipo_movimentacao='baixa' THEN m.valor ELSE -m.valor END
+            END
+        ), 0)
+        FROM public.financeiro_movimentacoes m
+        JOIN public.financeiro_lancamentos l
+          ON l.id=m.lancamento_id AND l.empresa_id=m.empresa_id
+        WHERE m.empresa_id=:empresa_id AND m.data_movimentacao <= :hoje
+    """), params).scalar() or 0))
+
+    movimento_manual = Decimal(str(db.execute(text("""
+        SELECT COALESCE(SUM(CASE WHEN tipo='credito' THEN valor ELSE -valor END), 0)
+        FROM public.financeiro_caixa_movimentos
+        WHERE empresa_id=:empresa_id AND status='ativo' AND data_movimentacao <= :hoje
+    """), params).scalar() or 0))
+
+    saldo_atual = saldo_inicial + movimento_automatico + movimento_manual
+    receber_aberto = Decimal(str(posicao.get("receber_aberto") or 0))
+    pagar_aberto = Decimal(str(posicao.get("pagar_aberto") or 0))
+    receber_vencido = Decimal(str(posicao.get("receber_vencido") or 0))
+    pagar_vencido = Decimal(str(posicao.get("pagar_vencido") or 0))
+    receber_horizonte = Decimal(str(posicao.get("receber_horizonte") or 0))
+    pagar_horizonte = Decimal(str(posicao.get("pagar_horizonte") or 0))
+    recebido_periodo = Decimal(str(realizado.get("recebido_periodo") or 0))
+    pago_periodo = Decimal(str(realizado.get("pago_periodo") or 0))
+
+    resumo = {
+        **posicao,
+        **realizado,
+        "saldo_atual": float(saldo_atual),
+        "saldo_projetado_total": float(saldo_atual + receber_aberto - pagar_aberto),
+        "saldo_projetado_horizonte": float(
+            saldo_atual + receber_vencido + receber_horizonte - pagar_vencido - pagar_horizonte
+        ),
+        "resultado_realizado_periodo": float(recebido_periodo - pago_periodo),
+        "necessidade_caixa_vencido": float(pagar_vencido - receber_vencido),
+    }
+
+    vencidos = [row_to_dict(r) for r in db.execute(text("""
+        SELECT
+            l.id, l.tipo, l.documento, l.descricao, l.data_vencimento,
+            GREATEST(l.valor_total-l.valor_pago, 0) AS saldo_aberto,
+            (:hoje - l.data_vencimento) AS dias_atraso,
+            COALESCE(c.nome, f.nome, 'Não informado') AS parceiro,
+            COALESCE(cb.nome, '') AS conta_banco_nome
+        FROM public.financeiro_lancamentos l
+        LEFT JOIN public.clientes c ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
+        LEFT JOIN public.fornecedores f ON f.id=l.fornecedor_id AND f.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_contas_bancos cb ON cb.id=l.conta_banco_id AND cb.empresa_id=l.empresa_id
+        WHERE l.empresa_id=:empresa_id
+          AND l.status <> 'cancelado'
+          AND l.data_vencimento < :hoje
+          AND GREATEST(l.valor_total-l.valor_pago, 0) > 0
+        ORDER BY l.data_vencimento ASC, saldo_aberto DESC, l.id ASC
+        LIMIT 40
+    """), params).fetchall()]
+
+    a_vencer = [row_to_dict(r) for r in db.execute(text("""
+        SELECT
+            l.id, l.tipo, l.documento, l.descricao, l.data_vencimento,
+            GREATEST(l.valor_total-l.valor_pago, 0) AS saldo_aberto,
+            (l.data_vencimento - :hoje) AS dias_para_vencer,
+            COALESCE(c.nome, f.nome, 'Não informado') AS parceiro,
+            COALESCE(cb.nome, '') AS conta_banco_nome
+        FROM public.financeiro_lancamentos l
+        LEFT JOIN public.clientes c ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
+        LEFT JOIN public.fornecedores f ON f.id=l.fornecedor_id AND f.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_contas_bancos cb ON cb.id=l.conta_banco_id AND cb.empresa_id=l.empresa_id
+        WHERE l.empresa_id=:empresa_id
+          AND l.status <> 'cancelado'
+          AND l.data_vencimento BETWEEN :hoje AND :horizonte
+          AND GREATEST(l.valor_total-l.valor_pago, 0) > 0
+        ORDER BY l.data_vencimento ASC, l.tipo DESC, l.id ASC
+        LIMIT 50
+    """), params).fetchall()]
+
+    movimentos = [row_to_dict(r) for r in db.execute(text("""
+        SELECT
+            m.id, m.data_movimentacao, m.tipo_movimentacao, m.valor,
+            l.id AS lancamento_id, l.tipo, l.documento, l.descricao,
+            COALESCE(c.nome, f.nome, 'Não informado') AS parceiro,
+            COALESCE(cb.nome, 'Conta não informada') AS conta_banco_nome
+        FROM public.financeiro_movimentacoes m
+        JOIN public.financeiro_lancamentos l
+          ON l.id=m.lancamento_id AND l.empresa_id=m.empresa_id
+        LEFT JOIN public.clientes c ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
+        LEFT JOIN public.fornecedores f ON f.id=l.fornecedor_id AND f.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_contas_bancos cb ON cb.id=m.conta_banco_id AND cb.empresa_id=m.empresa_id
+        WHERE m.empresa_id=:empresa_id
+          AND m.data_movimentacao BETWEEN :data_inicio AND :data_fim
+        ORDER BY m.data_movimentacao DESC, m.id DESC
+        LIMIT 40
+    """), params).fetchall()]
+
+    contas = [row_to_dict(r) for r in db.execute(text("""
+        SELECT
+            cb.id, cb.nome, cb.banco, cb.agencia, cb.conta, cb.ativo,
+            COALESCE(CASE WHEN cb.data_saldo_inicial IS NULL OR cb.data_saldo_inicial <= :hoje
+                THEN cb.saldo_inicial ELSE 0 END, 0)
+            + COALESCE((
+                SELECT SUM(
+                    CASE
+                        WHEN l.tipo='receber' THEN CASE WHEN m.tipo_movimentacao='baixa' THEN m.valor ELSE -m.valor END
+                        ELSE -1 * CASE WHEN m.tipo_movimentacao='baixa' THEN m.valor ELSE -m.valor END
+                    END
+                )
+                FROM public.financeiro_movimentacoes m
+                JOIN public.financeiro_lancamentos l
+                  ON l.id=m.lancamento_id AND l.empresa_id=m.empresa_id
+                WHERE m.empresa_id=cb.empresa_id AND m.conta_banco_id=cb.id
+                  AND m.data_movimentacao <= :hoje
+            ), 0)
+            + COALESCE((
+                SELECT SUM(CASE WHEN cm.tipo='credito' THEN cm.valor ELSE -cm.valor END)
+                FROM public.financeiro_caixa_movimentos cm
+                WHERE cm.empresa_id=cb.empresa_id AND cm.conta_banco_id=cb.id
+                  AND cm.status='ativo' AND cm.data_movimentacao <= :hoje
+            ), 0)
+            + COALESCE((
+                SELECT SUM(
+                    CASE
+                        WHEN t.conta_destino_id=cb.id THEN t.valor
+                        WHEN t.conta_origem_id=cb.id THEN -t.valor
+                        ELSE 0
+                    END
+                )
+                FROM public.financeiro_transferencias t
+                WHERE t.empresa_id=cb.empresa_id AND t.status='ativo'
+                  AND t.data_transferencia <= :hoje
+                  AND cb.id IN (t.conta_origem_id, t.conta_destino_id)
+            ), 0) AS saldo_atual
+        FROM public.financeiro_contas_bancos cb
+        WHERE cb.empresa_id=:empresa_id
+        ORDER BY cb.ativo DESC, cb.nome ASC, cb.id ASC
+    """), params).fetchall()]
+
+    projecao_rows = [row_to_dict(r) for r in db.execute(text("""
+        SELECT
+            date_trunc('month', l.data_vencimento)::date AS competencia,
+            COALESCE(SUM(CASE WHEN l.tipo='receber'
+                THEN GREATEST(l.valor_total-l.valor_pago, 0) ELSE 0 END), 0) AS entradas,
+            COALESCE(SUM(CASE WHEN l.tipo='pagar'
+                THEN GREATEST(l.valor_total-l.valor_pago, 0) ELSE 0 END), 0) AS saidas
+        FROM public.financeiro_lancamentos l
+        WHERE l.empresa_id=:empresa_id
+          AND l.status <> 'cancelado'
+          AND l.data_vencimento BETWEEN :hoje AND :horizonte
+          AND GREATEST(l.valor_total-l.valor_pago, 0) > 0
+        GROUP BY date_trunc('month', l.data_vencimento)::date
+        ORDER BY competencia ASC
+    """), params).fetchall()]
+    projecao_por_mes = {
+        str(item.get("competencia")): item for item in projecao_rows if item.get("competencia")
+    }
+
+    projecao = []
+    saldo_projetado = saldo_atual
+    if receber_vencido or pagar_vencido:
+        saldo_inicio = saldo_projetado
+        saldo_projetado = saldo_projetado + receber_vencido - pagar_vencido
+        projecao.append({
+            "competencia": "vencidos",
+            "label": "Vencidos até hoje",
+            "saldo_inicial": float(saldo_inicio),
+            "entradas": float(receber_vencido),
+            "saidas": float(pagar_vencido),
+            "saldo_final": float(saldo_projetado),
+        })
+
+    competencia = hoje.replace(day=1)
+    fim_competencia = horizonte.replace(day=1)
+    while competencia <= fim_competencia:
+        item = projecao_por_mes.get(competencia.isoformat(), {})
+        entradas = Decimal(str(item.get("entradas") or 0))
+        saidas = Decimal(str(item.get("saidas") or 0))
+        saldo_inicio = saldo_projetado
+        saldo_projetado = saldo_projetado + entradas - saidas
+        projecao.append({
+            "competencia": competencia.isoformat(),
+            "label": competencia.strftime("%m/%Y"),
+            "saldo_inicial": float(saldo_inicio),
+            "entradas": float(entradas),
+            "saidas": float(saidas),
+            "saldo_final": float(saldo_projetado),
+        })
+        competencia = adicionar_meses(competencia, 1)
+
+    return {
+        "periodo": {
+            "data_inicio": inicio.isoformat(),
+            "data_fim": fim.isoformat(),
+            "hoje": hoje.isoformat(),
+            "projecao_dias": projecao_dias,
+            "projecao_ate": horizonte.isoformat(),
+        },
+        "resumo": resumo,
+        "posicao": [
+            {"tipo": "receber", "situacao": "vencido", "quantidade": int(posicao.get("qtd_receber_vencido") or 0), "valor": float(receber_vencido)},
+            {"tipo": "receber", "situacao": "a_vencer", "quantidade": None, "valor": float(Decimal(str(posicao.get("receber_a_vencer") or 0)))},
+            {"tipo": "pagar", "situacao": "vencido", "quantidade": int(posicao.get("qtd_pagar_vencido") or 0), "valor": float(pagar_vencido)},
+            {"tipo": "pagar", "situacao": "a_vencer", "quantidade": None, "valor": float(Decimal(str(posicao.get("pagar_a_vencer") or 0)))},
+        ],
+        "vencidos": vencidos,
+        "a_vencer": a_vencer,
+        "movimentos_periodo": movimentos,
+        "contas": contas,
+        "projecao": projecao,
+    }
 
 
 @router.get("/relatorios/resumo")
@@ -3363,6 +4928,108 @@ def excluir_auxiliar(table_name: str, item_id: int, empresa_id: int, db: Session
     return None
 
 
+
+@router.get("/estrutura-base")
+def resumo_estrutura_base(
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    """Mapeia a base financeira já existente sem alterar dados.
+
+    Este resumo é a referência da primeira etapa de aproximação com o JCC:
+    contas/bancos, centros de custo, plano de contas, classificações,
+    contas a receber, contas a pagar e movimentos que alimentam o caixa.
+    """
+    empresa_id = empresa_do(usuario)
+    params = {"empresa_id": empresa_id}
+
+    def one(sql: str) -> Dict[str, Any]:
+        row = db.execute(text(sql), params).mappings().one()
+        return dict(row)
+
+    contas_bancos = one("""
+        SELECT
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE ativo)::int AS ativas,
+            COUNT(*) FILTER (WHERE NOT ativo)::int AS inativas
+        FROM public.financeiro_contas_bancos
+        WHERE empresa_id=:empresa_id
+    """)
+    centros = one("""
+        SELECT
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE ativo)::int AS ativos,
+            COUNT(*) FILTER (WHERE centro_pai_id IS NULL)::int AS principais,
+            COUNT(*) FILTER (WHERE centro_pai_id IS NOT NULL)::int AS secundarios
+        FROM public.financeiro_centros_custo
+        WHERE empresa_id=:empresa_id
+    """)
+    plano = one("""
+        SELECT
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE ativo)::int AS ativas,
+            COUNT(*) FILTER (WHERE conta_pai_id IS NULL)::int AS raizes,
+            COUNT(*) FILTER (WHERE aceita_lancamento AND ativo)::int AS lancaveis
+        FROM public.financeiro_contas_contabeis
+        WHERE empresa_id=:empresa_id
+    """)
+    classificacoes = one("""
+        SELECT
+            (SELECT COUNT(*) FROM public.financeiro_categorias WHERE empresa_id=:empresa_id)::int AS categorias,
+            (SELECT COUNT(*) FROM public.financeiro_tipos_gasto WHERE empresa_id=:empresa_id)::int AS tipos_gasto,
+            (SELECT COUNT(*) FROM public.financeiro_naturezas_operacao WHERE empresa_id=:empresa_id)::int AS naturezas
+    """)
+
+    def resumo_lancamentos(tipo: str) -> Dict[str, Any]:
+        row = db.execute(text("""
+            SELECT
+                COUNT(*)::int AS total,
+                COUNT(*) FILTER (
+                    WHERE status NOT IN ('recebido', 'pago', 'cancelado')
+                      AND GREATEST(valor_total - valor_pago, 0) > 0
+                )::int AS em_aberto,
+                COUNT(*) FILTER (
+                    WHERE status NOT IN ('recebido', 'pago', 'cancelado')
+                      AND GREATEST(valor_total - valor_pago, 0) > 0
+                      AND data_vencimento < CURRENT_DATE
+                )::int AS vencidos,
+                COUNT(*) FILTER (WHERE conta_contabil_id IS NULL AND status <> 'cancelado')::int AS sem_plano_contas,
+                COUNT(*) FILTER (WHERE centro_custo_principal_id IS NULL AND status <> 'cancelado')::int AS sem_centro_custo,
+                COUNT(*) FILTER (WHERE categoria_id IS NULL AND status <> 'cancelado')::int AS sem_categoria
+            FROM public.financeiro_lancamentos
+            WHERE empresa_id=:empresa_id AND tipo=:tipo
+        """), {"empresa_id": empresa_id, "tipo": tipo}).mappings().one()
+        return dict(row)
+
+    receber = resumo_lancamentos("receber")
+    pagar = resumo_lancamentos("pagar")
+    fluxo = one("""
+        SELECT
+            COUNT(*)::int AS movimentacoes,
+            COUNT(DISTINCT conta_banco_id) FILTER (WHERE conta_banco_id IS NOT NULL)::int AS contas_movimentadas,
+            MAX(data_movimentacao) AS ultimo_movimento
+        FROM (
+            SELECT conta_banco_id, data_movimentacao
+            FROM public.financeiro_movimentacoes
+            WHERE empresa_id=:empresa_id
+            UNION ALL
+            SELECT conta_banco_id, data_movimentacao
+            FROM public.financeiro_caixa_movimentos
+            WHERE empresa_id=:empresa_id AND status='ativo'
+        ) movimentos_caixa
+    """)
+
+    return {
+        "contas_bancos": contas_bancos,
+        "centros_custo": centros,
+        "plano_contas": plano,
+        "classificacoes": classificacoes,
+        "contas_receber": receber,
+        "contas_pagar": pagar,
+        "fluxo_caixa": fluxo,
+    }
+
+
 @router.get("/categorias")
 def listar_categorias(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
     return listar_auxiliar("financeiro_categorias", empresa_do(usuario), db)
@@ -3455,7 +5122,8 @@ def listar_contas_bancos(db: Session = Depends(get_db), usuario: models.Usuario 
     rows = db.execute(text("""
         SELECT
             cb.*,
-            cb.saldo_inicial + COALESCE((
+            cb.saldo_inicial
+            + COALESCE((
                 SELECT SUM(
                     CASE
                         WHEN l.tipo = 'receber' THEN CASE WHEN m.tipo_movimentacao = 'baixa' THEN m.valor ELSE -m.valor END
@@ -3468,6 +5136,28 @@ def listar_contas_bancos(db: Session = Depends(get_db), usuario: models.Usuario 
                 WHERE m.empresa_id = cb.empresa_id
                   AND m.conta_banco_id = cb.id
                   AND m.data_movimentacao >= cb.data_saldo_inicial
+            ), 0)
+            + COALESCE((
+                SELECT SUM(CASE WHEN cm.tipo = 'credito' THEN cm.valor ELSE -cm.valor END)
+                FROM public.financeiro_caixa_movimentos cm
+                WHERE cm.empresa_id = cb.empresa_id
+                  AND cm.conta_banco_id = cb.id
+                  AND cm.status = 'ativo'
+                  AND cm.data_movimentacao >= cb.data_saldo_inicial
+            ), 0)
+            + COALESCE((
+                SELECT SUM(
+                    CASE
+                        WHEN t.conta_destino_id = cb.id THEN t.valor
+                        WHEN t.conta_origem_id = cb.id THEN -t.valor
+                        ELSE 0
+                    END
+                )
+                FROM public.financeiro_transferencias t
+                WHERE t.empresa_id = cb.empresa_id
+                  AND t.status = 'ativo'
+                  AND cb.id IN (t.conta_origem_id, t.conta_destino_id)
+                  AND t.data_transferencia >= cb.data_saldo_inicial
             ), 0) AS saldo_atual
         FROM public.financeiro_contas_bancos cb
         WHERE cb.empresa_id = :empresa_id
@@ -3481,18 +5171,21 @@ def criar_conta_banco(payload: ContaBancoIn, db: Session = Depends(get_db), usua
     empresa_id = empresa_do(usuario)
     row = db.execute(text("""
         INSERT INTO public.financeiro_contas_bancos (
-            empresa_id, nome, banco, agencia, conta, saldo_inicial,
+            empresa_id, nome, data_cadastro, banco, agencia, conta, nome_agencia, telefone, saldo_inicial,
             data_saldo_inicial, ativo, criado_em, atualizado_em
         ) VALUES (
-            :empresa_id, :nome, :banco, :agencia, :conta, :saldo_inicial,
+            :empresa_id, :nome, :data_cadastro, :banco, :agencia, :conta, :nome_agencia, :telefone, :saldo_inicial,
             :data_saldo_inicial, :ativo, NOW(), NOW()
         ) RETURNING *
     """), {
         "empresa_id": empresa_id,
         "nome": payload.nome.strip(),
+        "data_cadastro": payload.data_cadastro or date.today(),
         "banco": norm_str(payload.banco),
         "agencia": norm_str(payload.agencia),
         "conta": norm_str(payload.conta),
+        "nome_agencia": norm_str(payload.nome_agencia),
+        "telefone": norm_str(payload.telefone),
         "saldo_inicial": parse_money(payload.saldo_inicial),
         "data_saldo_inicial": payload.data_saldo_inicial or date.today(),
         "ativo": payload.ativo,
@@ -3512,7 +5205,8 @@ def atualizar_conta_banco(item_id: int, payload: ContaBancoIn, db: Session = Dep
         raise HTTPException(status_code=404, detail="Conta/Banco não encontrada.")
     row = db.execute(text("""
         UPDATE public.financeiro_contas_bancos
-           SET nome = :nome, banco = :banco, agencia = :agencia, conta = :conta,
+           SET nome = :nome, data_cadastro = :data_cadastro, banco = :banco, agencia = :agencia, conta = :conta,
+               nome_agencia = :nome_agencia, telefone = :telefone,
                saldo_inicial = :saldo_inicial, data_saldo_inicial = :data_saldo_inicial,
                ativo = :ativo, atualizado_em = NOW()
          WHERE empresa_id = :empresa_id AND id = :id RETURNING *
@@ -3520,9 +5214,12 @@ def atualizar_conta_banco(item_id: int, payload: ContaBancoIn, db: Session = Dep
         "empresa_id": empresa_id,
         "id": item_id,
         "nome": payload.nome.strip(),
+        "data_cadastro": payload.data_cadastro or date.today(),
         "banco": norm_str(payload.banco),
         "agencia": norm_str(payload.agencia),
         "conta": norm_str(payload.conta),
+        "nome_agencia": norm_str(payload.nome_agencia),
+        "telefone": norm_str(payload.telefone),
         "saldo_inicial": parse_money(payload.saldo_inicial),
         "data_saldo_inicial": payload.data_saldo_inicial or date.today(),
         "ativo": payload.ativo,
@@ -3758,10 +5455,24 @@ def listar_centros_custo(db: Session = Depends(get_db), usuario: models.Usuario 
     empresa_id = empresa_do(usuario)
     garantir_centros_custo_iniciais(db, empresa_id)
     rows = db.execute(text("""
-        SELECT cc.*, pai.nome AS centro_pai_nome
-        FROM public.financeiro_centros_custo cc
-        LEFT JOIN public.financeiro_centros_custo pai ON pai.id=cc.centro_pai_id AND pai.empresa_id=cc.empresa_id
-        WHERE cc.empresa_id=:empresa_id ORDER BY cc.ativo DESC, cc.codigo NULLS LAST, cc.nome, cc.id
+        WITH RECURSIVE arvore AS (
+            SELECT cc.*, pai.nome AS centro_pai_nome, 0::int AS nivel,
+                   COALESCE(NULLIF(cc.codigo, ''), cc.nome)::text AS caminho_codigo,
+                   cc.nome::text AS caminho_nome
+            FROM public.financeiro_centros_custo cc
+            LEFT JOIN public.financeiro_centros_custo pai
+                   ON pai.id=cc.centro_pai_id AND pai.empresa_id=cc.empresa_id
+            WHERE cc.empresa_id=:empresa_id AND cc.centro_pai_id IS NULL
+            UNION ALL
+            SELECT filho.*, pai_arvore.nome AS centro_pai_nome, pai_arvore.nivel + 1,
+                   (pai_arvore.caminho_codigo || ' › ' || COALESCE(NULLIF(filho.codigo, ''), filho.nome))::text,
+                   (pai_arvore.caminho_nome || ' › ' || filho.nome)::text
+            FROM public.financeiro_centros_custo filho
+            JOIN arvore pai_arvore ON pai_arvore.id=filho.centro_pai_id AND pai_arvore.empresa_id=filho.empresa_id
+            WHERE pai_arvore.nivel < 1
+        )
+        SELECT * FROM arvore
+        ORDER BY ativo DESC, caminho_codigo, nome, id
     """), {"empresa_id": empresa_id}).fetchall()
     return [row_to_dict(r) for r in rows]
 
@@ -3770,6 +5481,12 @@ def listar_centros_custo(db: Session = Depends(get_db), usuario: models.Usuario 
 def criar_centro_custo(payload: CentroCustoIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
     empresa_id = empresa_do(usuario)
     validar_id_empresa(db, table_name="financeiro_centros_custo", item_id=payload.centro_pai_id, empresa_id=empresa_id, label="Centro de custo pai")
+    if payload.centro_pai_id is not None:
+        pai = db.execute(text("SELECT centro_pai_id, ativo FROM public.financeiro_centros_custo WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": payload.centro_pai_id}).first()
+        if not pai or not bool(pai.ativo):
+            raise HTTPException(status_code=422, detail="O Centro de Custo principal selecionado está inativo ou não existe.")
+        if pai.centro_pai_id is not None:
+            raise HTTPException(status_code=422, detail="A estrutura de Centro de Custo usa dois níveis: principal e secundário.")
     row = db.execute(text("""
         INSERT INTO public.financeiro_centros_custo
             (empresa_id, codigo, nome, centro_pai_id, ativo, criado_em, atualizado_em)
@@ -3792,6 +5509,12 @@ def atualizar_centro_custo(item_id: int, payload: CentroCustoIn, db: Session = D
         item_id=item_id, parent_id=payload.centro_pai_id, empresa_id=empresa_id,
         label="O centro de custo pai selecionado",
     )
+    if payload.centro_pai_id is not None:
+        pai = db.execute(text("SELECT centro_pai_id, ativo FROM public.financeiro_centros_custo WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": payload.centro_pai_id}).first()
+        if not pai or not bool(pai.ativo):
+            raise HTTPException(status_code=422, detail="O Centro de Custo principal selecionado está inativo ou não existe.")
+        if pai.centro_pai_id is not None:
+            raise HTTPException(status_code=422, detail="A estrutura de Centro de Custo usa dois níveis: principal e secundário.")
     anterior_row = db.execute(text("SELECT * FROM public.financeiro_centros_custo WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
     if not anterior_row:
         raise HTTPException(status_code=404, detail="Centro de custo não encontrado.")
@@ -4166,10 +5889,24 @@ def excluir_unidade_consumo(item_id: int, db: Session = Depends(get_db), usuario
 @router.get("/contas-contabeis")
 def listar_contas_contabeis(db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
     rows = db.execute(text("""
-        SELECT cc.*, pai.codigo AS conta_pai_codigo, pai.nome AS conta_pai_nome
-        FROM public.financeiro_contas_contabeis cc
-        LEFT JOIN public.financeiro_contas_contabeis pai ON pai.id=cc.conta_pai_id AND pai.empresa_id=cc.empresa_id
-        WHERE cc.empresa_id=:empresa_id ORDER BY cc.ativo DESC, cc.codigo, cc.nome, cc.id
+        WITH RECURSIVE arvore AS (
+            SELECT cc.*, pai.codigo AS conta_pai_codigo, pai.nome AS conta_pai_nome,
+                   0::int AS nivel, cc.codigo::text AS caminho_codigo, cc.nome::text AS caminho_nome
+            FROM public.financeiro_contas_contabeis cc
+            LEFT JOIN public.financeiro_contas_contabeis pai
+                   ON pai.id=cc.conta_pai_id AND pai.empresa_id=cc.empresa_id
+            WHERE cc.empresa_id=:empresa_id AND cc.conta_pai_id IS NULL
+            UNION ALL
+            SELECT filho.*, pai_arvore.codigo AS conta_pai_codigo, pai_arvore.nome AS conta_pai_nome,
+                   pai_arvore.nivel + 1,
+                   (pai_arvore.caminho_codigo || ' › ' || filho.codigo)::text,
+                   (pai_arvore.caminho_nome || ' › ' || filho.nome)::text
+            FROM public.financeiro_contas_contabeis filho
+            JOIN arvore pai_arvore ON pai_arvore.id=filho.conta_pai_id AND pai_arvore.empresa_id=filho.empresa_id
+            WHERE pai_arvore.nivel < 12
+        )
+        SELECT * FROM arvore
+        ORDER BY ativo DESC, caminho_codigo, nome, id
     """), {"empresa_id": empresa_do(usuario)}).fetchall()
     return [row_to_dict(r) for r in rows]
 
@@ -4178,6 +5915,14 @@ def listar_contas_contabeis(db: Session = Depends(get_db), usuario: models.Usuar
 def criar_conta_contabil(payload: ContaContabilIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(get_current_user)):
     empresa_id = empresa_do(usuario)
     validar_id_empresa(db, table_name="financeiro_contas_contabeis", item_id=payload.conta_pai_id, empresa_id=empresa_id, label="Conta contábil pai")
+    codigo = _nome_obrigatorio(payload.codigo, "Código")
+    duplicada = db.execute(text("SELECT 1 FROM public.financeiro_contas_contabeis WHERE empresa_id=:empresa_id AND LOWER(TRIM(codigo))=LOWER(TRIM(:codigo)) LIMIT 1"), {"empresa_id": empresa_id, "codigo": codigo}).first()
+    if duplicada:
+        raise HTTPException(status_code=409, detail="Já existe uma conta no Plano de Contas com este código.")
+    if payload.conta_pai_id is not None:
+        pai = db.execute(text("SELECT ativo FROM public.financeiro_contas_contabeis WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": payload.conta_pai_id}).first()
+        if not pai or not bool(pai.ativo):
+            raise HTTPException(status_code=422, detail="A conta pai selecionada está inativa ou não existe.")
     tipo = (payload.tipo or "outros").strip().lower()
     if tipo not in {"ativo", "passivo", "receita", "despesa", "patrimonio", "outros"}:
         raise HTTPException(status_code=422, detail="Tipo de conta contábil inválido.")
@@ -4185,8 +5930,10 @@ def criar_conta_contabil(payload: ContaContabilIn, db: Session = Depends(get_db)
         INSERT INTO public.financeiro_contas_contabeis
             (empresa_id, codigo, nome, tipo, conta_pai_id, aceita_lancamento, ativo, criado_em, atualizado_em)
         VALUES (:empresa_id, :codigo, :nome, :tipo, :pai, :aceita, :ativo, NOW(), NOW()) RETURNING *
-    """), {"empresa_id": empresa_id, "codigo": _nome_obrigatorio(payload.codigo, "Código"), "nome": _nome_obrigatorio(payload.nome), "tipo": tipo, "pai": payload.conta_pai_id, "aceita": payload.aceita_lancamento, "ativo": payload.ativo}).first()
+    """), {"empresa_id": empresa_id, "codigo": codigo, "nome": _nome_obrigatorio(payload.nome), "tipo": tipo, "pai": payload.conta_pai_id, "aceita": payload.aceita_lancamento, "ativo": payload.ativo}).first()
     novo = row_to_dict(row)
+    if payload.conta_pai_id is not None:
+        db.execute(text("UPDATE public.financeiro_contas_contabeis SET aceita_lancamento=FALSE, atualizado_em=NOW() WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": payload.conta_pai_id})
     _auditar_salvar_auxiliar(db, usuario, "financeiro_contas_contabeis", int(novo["id"]), None, novo)
     db.commit()
     return novo
@@ -4206,6 +5953,17 @@ def atualizar_conta_contabil(item_id: int, payload: ContaContabilIn, db: Session
     anterior_row = db.execute(text("SELECT * FROM public.financeiro_contas_contabeis WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": item_id}).first()
     if not anterior_row:
         raise HTTPException(status_code=404, detail="Conta contábil não encontrada.")
+    codigo = _nome_obrigatorio(payload.codigo, "Código")
+    duplicada = db.execute(text("SELECT 1 FROM public.financeiro_contas_contabeis WHERE empresa_id=:empresa_id AND id<>:id AND LOWER(TRIM(codigo))=LOWER(TRIM(:codigo)) LIMIT 1"), {"empresa_id": empresa_id, "id": item_id, "codigo": codigo}).first()
+    if duplicada:
+        raise HTTPException(status_code=409, detail="Já existe outra conta no Plano de Contas com este código.")
+    if payload.conta_pai_id is not None:
+        pai = db.execute(text("SELECT ativo FROM public.financeiro_contas_contabeis WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": payload.conta_pai_id}).first()
+        if not pai or not bool(pai.ativo):
+            raise HTTPException(status_code=422, detail="A conta pai selecionada está inativa ou não existe.")
+    possui_filhos = bool(db.execute(text("SELECT 1 FROM public.financeiro_contas_contabeis WHERE empresa_id=:empresa_id AND conta_pai_id=:id LIMIT 1"), {"empresa_id": empresa_id, "id": item_id}).first())
+    if possui_filhos and payload.aceita_lancamento:
+        raise HTTPException(status_code=422, detail="Uma conta agrupadora com subcontas não pode aceitar lançamentos diretamente.")
     tipo = (payload.tipo or "outros").strip().lower()
     if tipo not in {"ativo", "passivo", "receita", "despesa", "patrimonio", "outros"}:
         raise HTTPException(status_code=422, detail="Tipo de conta contábil inválido.")
@@ -4213,8 +5971,10 @@ def atualizar_conta_contabil(item_id: int, payload: ContaContabilIn, db: Session
         UPDATE public.financeiro_contas_contabeis SET codigo=:codigo, nome=:nome, tipo=:tipo,
             conta_pai_id=:pai, aceita_lancamento=:aceita, ativo=:ativo, atualizado_em=NOW()
         WHERE empresa_id=:empresa_id AND id=:id RETURNING *
-    """), {"empresa_id": empresa_id, "id": item_id, "codigo": _nome_obrigatorio(payload.codigo, "Código"), "nome": _nome_obrigatorio(payload.nome), "tipo": tipo, "pai": payload.conta_pai_id, "aceita": payload.aceita_lancamento, "ativo": payload.ativo}).first()
+    """), {"empresa_id": empresa_id, "id": item_id, "codigo": codigo, "nome": _nome_obrigatorio(payload.nome), "tipo": tipo, "pai": payload.conta_pai_id, "aceita": payload.aceita_lancamento, "ativo": payload.ativo}).first()
     novo = row_to_dict(row)
+    if payload.conta_pai_id is not None:
+        db.execute(text("UPDATE public.financeiro_contas_contabeis SET aceita_lancamento=FALSE, atualizado_em=NOW() WHERE empresa_id=:empresa_id AND id=:id"), {"empresa_id": empresa_id, "id": payload.conta_pai_id})
     _auditar_salvar_auxiliar(db, usuario, "financeiro_contas_contabeis", item_id, row_to_dict(anterior_row), novo)
     db.commit()
     return novo

@@ -1234,10 +1234,11 @@
 
         <div class="dropdown dropdown-financeiro">
           <button class="dropdown-item" type="button" data-target="financeiro">Visão Geral</button>
-          <button class="dropdown-item" type="button" data-target="vendas-financeiro">Vendas pendentes</button>
+          <button class="dropdown-item" type="button" data-target="faturamento">Faturamento</button>
           <button class="dropdown-item" type="button" data-target="contas-receber">Contas a Receber</button>
           <button class="dropdown-item" type="button" data-target="contas-pagar">Contas a Pagar</button>
           <button class="dropdown-item" type="button" data-target="fluxo-caixa">Fluxo de Caixa</button>
+          <button class="dropdown-item" type="button" data-target="movimento-bancario">Movimento Bancário</button>
           <button class="dropdown-item" type="button" data-target="categorias-financeiras">Categorias</button>
           <button class="dropdown-item" type="button" data-target="formas-pagamento">Formas de Pagamento</button>
           <button class="dropdown-item" type="button" data-target="contas-bancos">Contas/Bancos</button>
@@ -1378,10 +1379,11 @@
     <div class="mobile-section">
       <div class="mobile-title">Financeiro</div>
       <button class="mobile-link" type="button" data-target="financeiro"><i class="fa-solid fa-chart-pie"></i> Visão Geral</button>
-      <button class="mobile-link" type="button" data-target="vendas-financeiro"><i class="fa-solid fa-cart-arrow-down"></i> Vendas pendentes</button>
+      <button class="mobile-link" type="button" data-target="faturamento"><i class="fa-solid fa-file-invoice-dollar"></i> Faturamento</button>
       <button class="mobile-link" type="button" data-target="contas-receber"><i class="fa-solid fa-hand-holding-dollar"></i> Contas a Receber</button>
       <button class="mobile-link" type="button" data-target="contas-pagar"><i class="fa-solid fa-file-invoice-dollar"></i> Contas a Pagar</button>
       <button class="mobile-link" type="button" data-target="fluxo-caixa"><i class="fa-solid fa-money-bill-transfer"></i> Fluxo de Caixa</button>
+      <button class="mobile-link" type="button" data-target="movimento-bancario"><i class="fa-solid fa-building-columns"></i> Movimento Bancário</button>
       <button class="mobile-link" type="button" data-target="categorias-financeiras"><i class="fa-solid fa-folder-tree"></i> Categorias</button>
       <button class="mobile-link" type="button" data-target="formas-pagamento"><i class="fa-solid fa-credit-card"></i> Formas de Pagamento</button>
       <button class="mobile-link" type="button" data-target="contas-bancos"><i class="fa-solid fa-building-columns"></i> Contas/Bancos</button>
@@ -2051,8 +2053,12 @@
           goTo('/financeiro');
           break;
 
+        case 'faturamento':
+          goTo('/faturamento');
+          break;
+
         case 'vendas-financeiro':
-          goTo('/vendas-financeiro');
+          goTo('/faturamento');
           break;
 
         case 'contas-receber':
@@ -2065,6 +2071,10 @@
 
         case 'fluxo-caixa':
           goTo('/fluxo-caixa');
+          break;
+
+        case 'movimento-bancario':
+          goTo('/movimento-bancario');
           break;
 
         case 'categorias-financeiras':
@@ -2169,10 +2179,11 @@
       if (path === '/usuarios' || path === '/frontend/usuarios.html') return 'usuarios';
 
       if (path === '/financeiro' || path === '/frontend/financeiro.html') return 'financeiro';
-      if (path === '/vendas-financeiro' || path === '/frontend/vendas-financeiro.html') return 'vendas-financeiro';
+      if (path === '/faturamento' || path === '/frontend/faturamento.html' || path === '/vendas-financeiro' || path === '/frontend/vendas-financeiro.html') return 'faturamento';
       if (path === '/contas-receber' || path === '/frontend/contas-receber.html') return 'contas-receber';
       if (path === '/contas-pagar' || path === '/frontend/contas-pagar.html') return 'contas-pagar';
       if (path === '/fluxo-caixa' || path === '/frontend/fluxo-caixa.html') return 'fluxo-caixa';
+      if (path === '/movimento-bancario' || path === '/frontend/movimento-bancario.html') return 'movimento-bancario';
       if (path === '/categorias-financeiras' || path === '/frontend/categorias-financeiras.html') return 'categorias-financeiras';
       if (path === '/formas-pagamento' || path === '/frontend/formas-pagamento.html') return 'formas-pagamento';
       if (path === '/contas-bancos' || path === '/frontend/contas-bancos.html') return 'contas-bancos';

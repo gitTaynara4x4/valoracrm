@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Movimento Bancário | Valora CRM</title>
+  <script>(() => { const t = localStorage.getItem("valora_theme") || "light"; document.documentElement.setAttribute("data-theme", t); })();</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260630-dark-chatgpt-v6" />
+  <link rel="stylesheet" href="/frontend/css/financeiro.css?v=20260723-financeiro-base-v1" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
+  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260821-mov-bancario-jcc-v1" />
+  <script src="/frontend/js/shared/menu-global.js?v=20260819-financeiro-organizado-v1" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
+  <script src="/frontend/js/pages/movimento-bancario.js?v=20260821-mov-bancario-jcc-v1" defer></script>
+</head>
+<body class="financeiro-theme-valora">
+  <div class="layout">
+    <div id="valora-menu-root" aria-label="Menu Valora"></div>
+    <main class="main financeiro-page financeiro-page--valora financeiro-banco-page">
+      <header class="topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Financeiro</span>
+          <h1>Movimento Bancário</h1>
+          <p class="topbar-subtitle">Extrato por conta, entradas, saídas e transferências integradas ao Caixa.</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" type="button" id="btn-exportar-extrato"><i class="fa-solid fa-file-export"></i> Exportar CSV</button>
+          <button class="btn btn-secondary" type="button" data-bank-tab-open="lancamento"><i class="fa-solid fa-arrow-right-arrow-left"></i> Entrada / Saída</button>
+          <button class="btn btn-primary" type="button" data-bank-tab-open="transferencias"><i class="fa-solid fa-building-columns"></i> Transferir</button>
+        </div>
+      </header>
+
+      <div class="financeiro-toolbar">
+        <nav class="financeiro-tabs financeiro-tabs--primary">
+          <a href="/financeiro"><i class="fa-regular fa-clipboard"></i><span>Visão geral</span></a>
+          <a href="/faturamento"><i class="fa-solid fa-file-invoice-dollar"></i><span>Faturamento</span></a>
+          <a href="/contas-receber"><i class="fa-regular fa-calendar-check"></i><span>Contas a receber</span></a>
+          <a href="/contas-pagar"><i class="fa-regular fa-file-lines"></i><span>Contas a pagar</span></a>
+          <a href="/fluxo-caixa"><i class="fa-solid fa-cash-register"></i><span>Controle de Caixa</span></a>
+          <a href="/movimento-bancario" class="active" aria-current="page"><i class="fa-solid fa-building-columns"></i><span>Movimento Bancário</span></a>
+        </nav>
+        <span class="financeiro-muted financeiro-toolbar-status" id="bank-status-text">Carregando...</span>
+      </div>
+
+      <section class="financeiro-panel financeiro-filter-panel is-open">
+        <div class="financeiro-filters-grid financeiro-bank-filters">
+          <div class="financeiro-field">
+            <label>Conta Corrente / Banco</label>
+            <select id="bank-filtro-conta"><option value="">Todas as contas</option></select>
+          </div>
+          <div class="financeiro-field"><label>Data inicial</label><input id="bank-filtro-inicio" type="date"></div>
+          <div class="financeiro-field"><label>Data final</label><input id="bank-filtro-fim" type="date"></div>
+          <div class="financeiro-field">
+            <label>Tipo</label>
+            <select id="bank-filtro-tipo">
+              <option value="">Todos</option>
+              <option value="entrada">Entradas</option>
+              <option value="saida">Saídas</option>
+              <option value="transferencia">Transferências</option>
+            </select>
+          </div>
+        </div>
+        <div class="financeiro-toolbar" style="margin:14px 0 0;">
+          <span class="financeiro-muted">Selecione uma conta para ver o saldo bancário individual e o efeito das transferências.</span>
+          <div>
+            <button class="btn btn-secondary" type="button" id="bank-btn-limpar">Limpar</button>
+            <button class="btn btn-primary" type="button" id="bank-btn-aplicar">Aplicar</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="financeiro-grid-4 financeiro-bank-kpis">
+        <article class="financeiro-card"><div class="financeiro-card-top"><div><h3>Saldo anterior</h3><p>Antes do período</p></div><span class="financeiro-icon blue"><i class="fa-solid fa-clock-rotate-left"></i></span></div><div><div class="financeiro-value" id="bank-kpi-anterior">R$ 0,00</div><div class="financeiro-meta">Base do extrato</div></div></article>
+        <article class="financeiro-card"><div class="financeiro-card-top"><div><h3>Entradas</h3><p>No período</p></div><span class="financeiro-icon ok"><i class="fa-solid fa-arrow-down"></i></span></div><div><div class="financeiro-value" id="bank-kpi-entradas">R$ 0,00</div><div class="financeiro-meta">Créditos bancários</div></div></article>
+        <article class="financeiro-card"><div class="financeiro-card-top"><div><h3>Saídas</h3><p>No período</p></div><span class="financeiro-icon danger"><i class="fa-solid fa-arrow-up"></i></span></div><div><div class="financeiro-value" id="bank-kpi-saidas">R$ 0,00</div><div class="financeiro-meta">Débitos bancários</div></div></article>
+        <article class="financeiro-card"><div class="financeiro-card-top"><div><h3>Saldo</h3><p>Fim do período</p></div><span class="financeiro-icon warn"><i class="fa-solid fa-wallet"></i></span></div><div><div class="financeiro-value" id="bank-kpi-saldo">R$ 0,00</div><div class="financeiro-meta">Saldo acumulado</div></div></article>
+      </section>
+
+      <section class="financeiro-bank-reconcile" id="bank-reconcile">
+        <i class="fa-solid fa-circle-check"></i>
+        <div><strong>Conciliação com o Caixa</strong><span id="bank-reconcile-text">Os movimentos usam a mesma origem financeira do Controle de Caixa.</span></div>
+        <span class="financeiro-bank-reconcile-badge">Integrado</span>
+      </section>
+
+      <section class="financeiro-panel financeiro-bank-workspace">
+        <div class="financeiro-caixa-tabs" role="tablist" aria-label="Movimento Bancário">
+          <button type="button" class="is-active" data-bank-tab="extrato"><i class="fa-regular fa-rectangle-list"></i> Extrato</button>
+          <button type="button" data-bank-tab="lancamento"><i class="fa-solid fa-arrow-right-arrow-left"></i> Entrada / Saída</button>
+          <button type="button" data-bank-tab="transferencias"><i class="fa-solid fa-building-columns"></i> Transferências</button>
+        </div>
+
+        <div class="financeiro-caixa-pane is-active" data-bank-pane="extrato">
+          <div class="financeiro-panel-head">
+            <div><h3>Extrato por Conta</h3><p>Baixas, estornos, movimentos manuais e transferências no mesmo extrato.</p></div>
+            <span class="financeiro-jcc-note"><i class="fa-solid fa-link"></i> Sem duplicação com o Caixa</span>
+          </div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table financeiro-bank-table">
+            <thead><tr><th>Data</th><th>Documento</th><th>Histórico</th><th>Conta</th><th>Origem</th><th>Entrada</th><th>Saída</th><th>Saldo</th><th>Ações</th></tr></thead>
+            <tbody id="bank-tbody-extrato"><tr><td class="financeiro-empty" colspan="9">Carregando...</td></tr></tbody>
+          </table></div>
+        </div>
+
+        <div class="financeiro-caixa-pane" data-bank-pane="lancamento" hidden>
+          <div class="financeiro-panel-head"><div><h3>Entrada / Saída Bancária</h3><p>O lançamento é gravado uma única vez e aparece automaticamente no Controle de Caixa.</p></div></div>
+          <form id="bank-form-lancamento" class="financeiro-caixa-editor">
+            <div class="financeiro-form-grid cols-3">
+              <div class="financeiro-field"><label>Data</label><input name="data_movimentacao" type="date" required></div>
+              <div class="financeiro-field"><label>Operação</label><select name="tipo" required><option value="entrada">Entrada</option><option value="saida">Saída</option></select></div>
+              <div class="financeiro-field"><label>Documento</label><input name="documento" maxlength="120" placeholder="NF, depósito, tarifa..."></div>
+              <div class="financeiro-field full"><label>Histórico</label><input name="historico" maxlength="1000" required placeholder="Descrição do movimento bancário"></div>
+              <div class="financeiro-field"><label>Valor</label><input name="valor" inputmode="decimal" required placeholder="R$ 0,00"></div>
+              <div class="financeiro-field"><label>Conta Corrente / Banco</label><select name="conta_banco_id" required><option value="">Selecione...</option></select></div>
+              <div class="financeiro-field"><label>Plano de Contas</label><select name="conta_contabil_id" required><option value="">Selecione...</option></select></div>
+              <div class="financeiro-field"><label>Centro de Custo</label><select name="centro_custo_principal_id"><option value="">Sem centro...</option></select></div>
+              <div class="financeiro-field"><label>Centro Secundário</label><select name="centro_custo_secundario_id"><option value="">Sem secundário...</option></select></div>
+            </div>
+            <div class="financeiro-bank-form-note"><i class="fa-solid fa-circle-info"></i> Entrada/Saída manual usa Plano de Contas porque representa um movimento financeiro. Para movimentar dinheiro entre duas contas use <strong>Transferência</strong>.</div>
+            <div class="financeiro-caixa-editor-actions"><button class="btn btn-secondary" type="reset">Limpar</button><button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Salvar movimento</button></div>
+          </form>
+        </div>
+
+        <div class="financeiro-caixa-pane" data-bank-pane="transferencias" hidden>
+          <div class="financeiro-bank-transfer-grid">
+            <div>
+              <div class="financeiro-panel-head"><div><h3>Transferir entre contas</h3><p>Move saldo entre contas sem criar receita ou despesa.</p></div></div>
+              <form id="bank-form-transferencia" class="financeiro-caixa-editor">
+                <div class="financeiro-form-grid cols-2">
+                  <div class="financeiro-field"><label>Data</label><input name="data_transferencia" type="date" required></div>
+                  <div class="financeiro-field"><label>Documento</label><input name="documento" maxlength="120" placeholder="TED, PIX, transferência..."></div>
+                  <div class="financeiro-field"><label>Conta de origem</label><select name="conta_origem_id" required><option value="">Selecione...</option></select></div>
+                  <div class="financeiro-field"><label>Conta de destino</label><select name="conta_destino_id" required><option value="">Selecione...</option></select></div>
+                  <div class="financeiro-field"><label>Valor</label><input name="valor" inputmode="decimal" required placeholder="R$ 0,00"></div>
+                  <div class="financeiro-field"><label>Histórico</label><input name="historico" maxlength="1000" placeholder="Transferência entre contas"></div>
+                </div>
+                <div class="financeiro-bank-transfer-rule"><span><i class="fa-solid fa-arrow-up"></i> Débito na origem</span><i class="fa-solid fa-arrow-right-long"></i><span><i class="fa-solid fa-arrow-down"></i> Crédito no destino</span><strong>Resultado financeiro: R$ 0,00</strong></div>
+                <div class="financeiro-caixa-editor-actions"><button class="btn btn-secondary" type="reset">Limpar</button><button class="btn btn-primary" type="submit"><i class="fa-solid fa-right-left"></i> Transferir</button></div>
+              </form>
+            </div>
+            <div>
+              <div class="financeiro-panel-head"><div><h3>Transferências do período</h3><p>Histórico auditável entre Contas Correntes.</p></div></div>
+              <div class="financeiro-table-wrap"><table class="financeiro-table">
+                <thead><tr><th>Data</th><th>Origem</th><th>Destino</th><th>Documento</th><th>Valor</th><th>Ações</th></tr></thead>
+                <tbody id="bank-tbody-transferencias"><tr><td class="financeiro-empty" colspan="6">Carregando...</td></tr></tbody>
+              </table></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="financeiro-toast" id="bank-toast" hidden></div>
+    </main>
+  </div>
+</body>
+</html>

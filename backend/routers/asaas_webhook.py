@@ -2,28 +2,16 @@ from __future__ import annotations
 
 import json
 import secrets
-from datetime import date, datetime, timezone
-from decimal import Decimal
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from sqlalchemy import text
 
 from backend.database import SessionLocal
 from backend.services.asaas_cobranca import webhook_token
+from backend.services.cobranca_bancaria import processar_webhook_pagamento
 
 router = APIRouter(prefix="/api/integracoes/asaas", tags=["Integração Asaas"])
-
-
-def _payment_date(payment: dict[str, Any]) -> date:
-    for key in ("paymentDate", "clientPaymentDate", "confirmedDate"):
-        raw = str(payment.get(key) or "").strip()
-        if raw:
-            try:
-                return date.fromisoformat(raw[:10])
-            except Exception:
-                pass
-    return datetime.now(timezone.utc).date()
 
 
 @router.post("/webhook")
@@ -71,68 +59,14 @@ async def receber_webhook_asaas(
             },
         )
 
-        row = db.execute(
-            text("""
-                SELECT id, empresa_id, lancamento_id
-                FROM financeiro_cobrancas_externas
-                WHERE provider='asaas' AND provider_payment_id=:payment_id
-                LIMIT 1
-            """),
-            {"payment_id": payment_id},
-        ).mappings().first()
-
-        if row:
-            provider_status = str(payment.get("status") or event.removeprefix("PAYMENT_") or "").strip().upper()
-            db.execute(
-                text("""
-                    UPDATE financeiro_cobrancas_externas
-                    SET provider_status=:provider_status,
-                        ultimo_evento=:evento,
-                        provider_payload_json=:payload_json,
-                        ultima_sincronizacao_em=NOW(),
-                        atualizado_em=NOW()
-                    WHERE id=:id
-                """),
-                {
-                    "id": row["id"],
-                    "provider_status": provider_status,
-                    "evento": event,
-                    "payload_json": json.dumps(payment, ensure_ascii=False, default=str),
-                },
-            )
-
-            if event in {"PAYMENT_RECEIVED", "PAYMENT_RECEIVED_IN_CASH"}:
-                lanc = db.execute(
-                    text("SELECT valor_total FROM financeiro_lancamentos WHERE id=:id AND empresa_id=:empresa_id"),
-                    {"id": row["lancamento_id"], "empresa_id": row["empresa_id"]},
-                ).mappings().first()
-                if lanc:
-                    total = Decimal(str(lanc.get("valor_total") or 0))
-                    received = payment.get("value")
-                    try:
-                        received_value = Decimal(str(received)) if received is not None else total
-                    except Exception:
-                        received_value = total
-                    received_value = min(max(received_value, Decimal("0")), total) if total > 0 else received_value
-                    db.execute(
-                        text("""
-                            UPDATE financeiro_lancamentos
-                            SET valor_pago=GREATEST(valor_pago, :valor_pago),
-                                data_pagamento=COALESCE(data_pagamento, :data_pagamento),
-                                status=CASE WHEN :valor_pago >= valor_total THEN 'pago' ELSE status END,
-                                atualizado_em=NOW()
-                            WHERE id=:id AND empresa_id=:empresa_id AND tipo='receber'
-                        """),
-                        {
-                            "valor_pago": received_value,
-                            "data_pagamento": _payment_date(payment),
-                            "id": row["lancamento_id"],
-                            "empresa_id": row["empresa_id"],
-                        },
-                    )
-
+        resultado = processar_webhook_pagamento(
+            db,
+            payment_id=payment_id,
+            event=event,
+            payment=payment,
+        )
         db.commit()
-        return {"ok": True}
+        return {"ok": True, "processamento": resultado}
     except Exception:
         db.rollback()
         raise

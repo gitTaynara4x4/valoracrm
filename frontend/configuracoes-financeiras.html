@@ -14,9 +14,9 @@
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
   <script src="/frontend/js/shared/menu-global.js?v=20260819-automacao-cobranca-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260819-automacao-cobranca-v1" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260821-base-jcc-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260819-automacao-cobranca-v1" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260821-base-jcc-v1" />
 </head>
 <body class="financeiro-theme-valora">
   <div class="layout">
@@ -52,6 +52,54 @@
           <strong>Área de configuração</strong>
           <p>Use esta tela para preparar o Financeiro. Contas, baixas, cobranças e relatórios continuam nas telas operacionais.</p>
         </div>
+      </section>
+
+      <section class="financeiro-settings-section financeiro-base-map" id="base-financeira">
+        <div class="financeiro-settings-section-head">
+          <div>
+            <span class="financeiro-section-kicker">Base financeira atual</span>
+            <h2>Estruturas que vão sustentar o fluxo do JCC</h2>
+            <p>O Valora já possui estas bases. Nesta etapa elas foram mapeadas e organizadas sem recriar contas ou alterar lançamentos existentes.</p>
+          </div>
+        </div>
+        <div class="financeiro-base-grid">
+          <a class="financeiro-base-card" data-base-financeira="contas-bancos" href="/contas-bancos">
+            <span class="financeiro-base-icon"><i class="fa-solid fa-building-columns"></i></span>
+            <div><span>Contas e Bancos</span><strong data-base-principal>Carregando...</strong><small data-base-detalhe>Contas usadas nas baixas e no caixa.</small></div>
+            <em data-base-alerta hidden></em><i class="fa-solid fa-chevron-right"></i>
+          </a>
+          <a class="financeiro-base-card" data-base-financeira="centros-custo" href="/cadastros-financeiros#centros-custo">
+            <span class="financeiro-base-icon"><i class="fa-solid fa-diagram-project"></i></span>
+            <div><span>Centros de Custo</span><strong data-base-principal>Carregando...</strong><small data-base-detalhe>Estrutura principal e secundária.</small></div>
+            <em data-base-alerta hidden></em><i class="fa-solid fa-chevron-right"></i>
+          </a>
+          <a class="financeiro-base-card" data-base-financeira="plano-contas" href="/cadastros-financeiros#plano-contas">
+            <span class="financeiro-base-icon"><i class="fa-solid fa-sitemap"></i></span>
+            <div><span>Plano de Contas</span><strong data-base-principal>Carregando...</strong><small data-base-detalhe>Contas hierárquicas e lançáveis.</small></div>
+            <em data-base-alerta hidden></em><i class="fa-solid fa-chevron-right"></i>
+          </a>
+          <a class="financeiro-base-card" data-base-financeira="classificacoes" href="/categorias-financeiras">
+            <span class="financeiro-base-icon"><i class="fa-solid fa-tags"></i></span>
+            <div><span>Categorias / Classificações</span><strong data-base-principal>Carregando...</strong><small data-base-detalhe>Receitas, despesas, tipos de gasto e naturezas.</small></div>
+            <em data-base-alerta hidden></em><i class="fa-solid fa-chevron-right"></i>
+          </a>
+          <a class="financeiro-base-card" data-base-financeira="contas-receber" href="/contas-receber">
+            <span class="financeiro-base-icon"><i class="fa-regular fa-calendar-check"></i></span>
+            <div><span>Contas a Receber</span><strong data-base-principal>Carregando...</strong><small data-base-detalhe>Títulos atuais e classificação.</small></div>
+            <em data-base-alerta hidden></em><i class="fa-solid fa-chevron-right"></i>
+          </a>
+          <a class="financeiro-base-card" data-base-financeira="contas-pagar" href="/contas-pagar">
+            <span class="financeiro-base-icon"><i class="fa-regular fa-file-lines"></i></span>
+            <div><span>Contas a Pagar</span><strong data-base-principal>Carregando...</strong><small data-base-detalhe>Títulos atuais e classificação.</small></div>
+            <em data-base-alerta hidden></em><i class="fa-solid fa-chevron-right"></i>
+          </a>
+          <a class="financeiro-base-card" data-base-financeira="fluxo-caixa" href="/fluxo-caixa">
+            <span class="financeiro-base-icon"><i class="fa-solid fa-wave-square"></i></span>
+            <div><span>Fluxo de Caixa</span><strong data-base-principal>Carregando...</strong><small data-base-detalhe>Movimentos realizados e previstos.</small></div>
+            <em data-base-alerta hidden></em><i class="fa-solid fa-chevron-right"></i>
+          </a>
+        </div>
+        <div class="financeiro-base-note"><i class="fa-solid fa-circle-info"></i><span>As pendências indicadas são títulos sem alguma classificação-base (Plano de Contas, Centro de Custo ou Categoria). Nada é corrigido automaticamente.</span></div>
       </section>
 
       <section class="financeiro-settings-section financeiro-settings-section--automation-index" id="automacoes-integracoes">

@@ -51,6 +51,7 @@
 
         <div class="dropdown dropdown-financeiro">
           <button class="dropdown-item" type="button" data-target="financeiro">Visão geral</button>
+          <button class="dropdown-item" type="button" data-target="acompanhamento-financeiro">Acompanhamento Financeiro</button>
           <button class="dropdown-item" type="button" data-target="contas-receber">Contas a receber</button>
           <button class="dropdown-item" type="button" data-target="contas-pagar">Contas a pagar</button>
           <button class="dropdown-item" type="button" data-target="cobrancas-financeiro">Cobranças</button>
@@ -193,6 +194,7 @@
     <div class="mobile-section">
       <div class="mobile-title">Financeiro</div>
       <button class="mobile-link" type="button" data-target="financeiro"><i class="fa-solid fa-chart-pie"></i> Visão geral</button>
+      <button class="mobile-link" type="button" data-target="acompanhamento-financeiro"><i class="fa-solid fa-chart-line"></i> Acompanhamento Financeiro</button>
       <button class="mobile-link" type="button" data-target="contas-receber"><i class="fa-solid fa-hand-holding-dollar"></i> Contas a receber</button>
       <button class="mobile-link" type="button" data-target="contas-pagar"><i class="fa-solid fa-file-invoice-dollar"></i> Contas a pagar</button>
       <button class="mobile-link" type="button" data-target="cobrancas-financeiro"><i class="fa-regular fa-bell"></i> Cobranças</button>

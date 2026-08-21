@@ -10,7 +10,7 @@
     'area-cliente-admin': '/area-cliente-admin', 'contratos-admin': '/contratos-admin', usuarios: '/usuarios',
     config: '/configuracoes', formularios: '/formularios', ajuda: '/ajuda', perfil: '/perfil', empresa: '/empresa',
     financeiro: '/financeiro', 'vendas-financeiro': '/vendas-financeiro', 'contas-receber': '/contas-receber',
-    'contas-pagar': '/contas-pagar', 'cobrancas-financeiro': '/cobrancas-financeiro', 'fluxo-caixa': '/fluxo-caixa', 'categorias-financeiras': '/categorias-financeiras',
+    'contas-pagar': '/contas-pagar', 'cobrancas-financeiro': '/cobrancas-financeiro', 'fluxo-caixa': '/fluxo-caixa', 'acompanhamento-financeiro': '/acompanhamento-financeiro', 'categorias-financeiras': '/categorias-financeiras',
     'formas-pagamento': '/formas-pagamento', 'contas-bancos': '/contas-bancos',
     'cadastros-financeiros': '/cadastros-financeiros', 'relatorios-financeiros': '/relatorios-financeiros',
     'configuracoes-financeiras': '/configuracoes-financeiras', 'automacao-cobranca': '/automacao-cobranca'
@@ -38,6 +38,7 @@
     'contas-pagar': 'financeiro',
     'cobrancas-financeiro': 'financeiro',
     'fluxo-caixa': 'financeiro',
+    'acompanhamento-financeiro': 'financeiro',
     'categorias-financeiras': 'financeiro',
     'formas-pagamento': 'financeiro',
     'contas-bancos': 'financeiro',
@@ -107,7 +108,7 @@
       ['patrimonio','patrimonio'], ['orcamentos','orcamentos'], ['propostas','propostas'],
       ['area-cliente-admin','area-cliente-admin'], ['contratos-admin','contratos-admin'], ['usuarios','usuarios'],
       ['vendas-financeiro','contas-receber'], ['contas-receber','contas-receber'], ['contas-pagar','contas-pagar'],
-      ['cobrancas-financeiro','cobrancas-financeiro'], ['fluxo-caixa','fluxo-caixa'], ['categorias-financeiras','configuracoes-financeiras'], ['formas-pagamento','configuracoes-financeiras'],
+      ['cobrancas-financeiro','cobrancas-financeiro'], ['fluxo-caixa','fluxo-caixa'], ['acompanhamento-financeiro','acompanhamento-financeiro'], ['categorias-financeiras','configuracoes-financeiras'], ['formas-pagamento','configuracoes-financeiras'],
       ['contas-bancos','configuracoes-financeiras'], ['cadastros-financeiros','configuracoes-financeiras'],
       ['relatorios-financeiros','relatorios-financeiros'], ['automacao-cobranca','configuracoes-financeiras'], ['configuracoes-financeiras','configuracoes-financeiras'], ['financeiro','financeiro'], ['formularios','formularios'],
       ['ajuda','ajuda'], ['perfil','perfil'], ['empresa','empresa'], ['configuracoes','config'], ['config','config']

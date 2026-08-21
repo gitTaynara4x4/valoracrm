@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Acompanhamento Financeiro | Valora CRM</title>
+  <script>(() => { const t = localStorage.getItem('valora_theme') || 'light'; document.documentElement.setAttribute('data-theme', t); })();</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260630-dark-chatgpt-v6" />
+  <link rel="stylesheet" href="/frontend/css/financeiro.css?v=20260723-financeiro-base-v1" />
+  <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
+  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260821-acompanhamento-v1" />
+  <link rel="stylesheet" href="/frontend/css/acompanhamento-financeiro.css?v=20260821-acompanhamento-v1" />
+  <script src="/frontend/js/shared/menu-global.js?v=20260821-acompanhamento-v1" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
+  <script src="/frontend/js/pages/acompanhamento-financeiro.js?v=20260821-acompanhamento-v1" defer></script>
+</head>
+<body class="financeiro-theme-valora acompanhamento-financeiro-page">
+  <div class="layout">
+    <div id="valora-menu-root" aria-label="Menu Valora"></div>
+    <main class="main financeiro-page financeiro-page--valora acompanhamento-main">
+      <header class="topbar acompanhamento-topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Financeiro</span>
+          <h1>Acompanhamento Financeiro</h1>
+          <p class="topbar-subtitle">Posição consolidada de recebimentos, pagamentos, vencimentos, saldo disponível e projeção de caixa.</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" type="button" id="acomp-btn-exportar"><i class="fa-solid fa-file-export"></i> Exportar CSV</button>
+          <button class="btn btn-secondary" type="button" id="acomp-btn-imprimir"><i class="fa-solid fa-print"></i> Imprimir</button>
+          <button class="btn btn-primary" type="button" id="acomp-btn-atualizar"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+        </div>
+      </header>
+
+      <div class="financeiro-toolbar acompanhamento-toolbar">
+        <nav class="financeiro-tabs financeiro-tabs--primary">
+          <a href="/financeiro"><i class="fa-regular fa-clipboard"></i><span>Visão geral</span></a>
+          <a href="/acompanhamento-financeiro" class="active" aria-current="page"><i class="fa-solid fa-chart-line"></i><span>Acompanhamento</span></a>
+          <a href="/faturamento"><i class="fa-solid fa-file-invoice-dollar"></i><span>Faturamento</span></a>
+          <a href="/contas-receber"><i class="fa-regular fa-calendar-check"></i><span>Contas a receber</span></a>
+          <a href="/contas-pagar"><i class="fa-regular fa-file-lines"></i><span>Contas a pagar</span></a>
+          <a href="/fluxo-caixa"><i class="fa-solid fa-cash-register"></i><span>Controle de Caixa</span></a>
+          <a href="/movimento-bancario"><i class="fa-solid fa-building-columns"></i><span>Movimento Bancário</span></a>
+        </nav>
+        <span class="financeiro-muted financeiro-toolbar-status" id="acomp-status">Carregando posição financeira...</span>
+      </div>
+
+      <section class="financeiro-panel financeiro-filter-panel is-open acompanhamento-filtros">
+        <div class="financeiro-filters-grid acompanhamento-filter-grid">
+          <div class="financeiro-field"><label>Realizado de</label><input id="acomp-data-inicio" type="date"></div>
+          <div class="financeiro-field"><label>Até</label><input id="acomp-data-fim" type="date"></div>
+          <div class="financeiro-field">
+            <label>Horizonte da projeção</label>
+            <select id="acomp-projecao-dias">
+              <option value="30">30 dias</option>
+              <option value="60">60 dias</option>
+              <option value="90" selected>90 dias</option>
+              <option value="180">180 dias</option>
+              <option value="365">12 meses</option>
+            </select>
+          </div>
+          <div class="acompanhamento-filter-action">
+            <button class="btn btn-primary" type="button" id="acomp-btn-aplicar"><i class="fa-solid fa-filter"></i> Aplicar</button>
+          </div>
+        </div>
+        <div class="acompanhamento-filter-note">
+          <i class="fa-regular fa-circle-question"></i>
+          <span>O período acima controla <strong>recebido e pago</strong>. Vencidos, a vencer e saldos representam a posição atual da empresa.</span>
+        </div>
+      </section>
+
+      <section class="acompanhamento-kpi-grid" aria-label="Posição financeira consolidada">
+        <article class="acomp-kpi acomp-kpi--saldo">
+          <div class="acomp-kpi-head"><span>Saldo atual</span><i class="fa-solid fa-wallet"></i></div>
+          <strong id="acomp-kpi-saldo-atual">R$ 0,00</strong>
+          <small>Caixa e contas correntes</small>
+        </article>
+        <article class="acomp-kpi acomp-kpi--projecao">
+          <div class="acomp-kpi-head"><span>Saldo projetado</span><i class="fa-solid fa-chart-line"></i></div>
+          <strong id="acomp-kpi-saldo-projetado">R$ 0,00</strong>
+          <small id="acomp-projecao-label">Próximos 90 dias + vencidos</small>
+        </article>
+        <article class="acomp-kpi acomp-kpi--entrada">
+          <div class="acomp-kpi-head"><span>Recebido</span><i class="fa-solid fa-arrow-down"></i></div>
+          <strong id="acomp-kpi-recebido">R$ 0,00</strong>
+          <small>No período selecionado</small>
+        </article>
+        <article class="acomp-kpi acomp-kpi--saida">
+          <div class="acomp-kpi-head"><span>Pago</span><i class="fa-solid fa-arrow-up"></i></div>
+          <strong id="acomp-kpi-pago">R$ 0,00</strong>
+          <small>No período selecionado</small>
+        </article>
+        <article class="acomp-kpi acomp-kpi--danger">
+          <div class="acomp-kpi-head"><span>A receber vencido</span><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <strong id="acomp-kpi-receber-vencido">R$ 0,00</strong>
+          <small id="acomp-kpi-receber-vencido-meta">0 título(s)</small>
+        </article>
+        <article class="acomp-kpi">
+          <div class="acomp-kpi-head"><span>A receber</span><i class="fa-regular fa-calendar-check"></i></div>
+          <strong id="acomp-kpi-receber-vencer">R$ 0,00</strong>
+          <small>Saldo ainda a vencer</small>
+        </article>
+        <article class="acomp-kpi acomp-kpi--danger">
+          <div class="acomp-kpi-head"><span>A pagar vencido</span><i class="fa-solid fa-circle-exclamation"></i></div>
+          <strong id="acomp-kpi-pagar-vencido">R$ 0,00</strong>
+          <small id="acomp-kpi-pagar-vencido-meta">0 título(s)</small>
+        </article>
+        <article class="acomp-kpi">
+          <div class="acomp-kpi-head"><span>A pagar</span><i class="fa-regular fa-calendar"></i></div>
+          <strong id="acomp-kpi-pagar-vencer">R$ 0,00</strong>
+          <small>Saldo ainda a vencer</small>
+        </article>
+      </section>
+
+      <section class="acompanhamento-summary-strip">
+        <div><span>Resultado realizado</span><strong id="acomp-resultado-realizado">R$ 0,00</strong></div>
+        <div><span>Posição total a receber</span><strong id="acomp-total-receber">R$ 0,00</strong></div>
+        <div><span>Posição total a pagar</span><strong id="acomp-total-pagar">R$ 0,00</strong></div>
+        <div><span>Clientes inadimplentes</span><strong id="acomp-inadimplentes">0</strong></div>
+      </section>
+
+      <div class="acompanhamento-grid acompanhamento-grid--projection">
+        <section class="financeiro-panel acompanhamento-panel">
+          <div class="financeiro-panel-head">
+            <div><span class="eyebrow">Projeção</span><h3>Projeção de caixa</h3><p>Saldo acumulado considerando títulos vencidos e os próximos vencimentos.</p></div>
+          </div>
+          <div class="financeiro-table-wrap">
+            <table class="financeiro-table acompanhamento-table">
+              <thead><tr><th>Competência</th><th>Saldo inicial</th><th>Entradas previstas</th><th>Saídas previstas</th><th>Saldo projetado</th></tr></thead>
+              <tbody id="acomp-tbody-projecao"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="financeiro-panel acompanhamento-panel">
+          <div class="financeiro-panel-head">
+            <div><span class="eyebrow">Disponibilidade</span><h3>Saldo por conta</h3><p>Saldo atual de cada conta com baixas, estornos, caixa manual e transferências.</p></div>
+            <a class="acomp-inline-link" href="/movimento-bancario">Abrir Movimento Bancário <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+          <div class="financeiro-table-wrap">
+            <table class="financeiro-table acompanhamento-table">
+              <thead><tr><th>Conta</th><th>Banco</th><th>Agência / Conta</th><th>Status</th><th>Saldo atual</th></tr></thead>
+              <tbody id="acomp-tbody-contas"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div class="acompanhamento-grid">
+        <section class="financeiro-panel acompanhamento-panel">
+          <div class="financeiro-panel-head">
+            <div><span class="eyebrow">Atenção</span><h3>Títulos vencidos</h3><p>Recebimentos e pagamentos em atraso que ainda possuem saldo.</p></div>
+            <span class="acomp-count-badge" id="acomp-vencidos-count">0</span>
+          </div>
+          <div class="financeiro-table-wrap acompanhamento-scroll-table">
+            <table class="financeiro-table acompanhamento-table">
+              <thead><tr><th>Tipo</th><th>Parceiro</th><th>Documento</th><th>Vencimento</th><th>Atraso</th><th>Saldo</th></tr></thead>
+              <tbody id="acomp-tbody-vencidos"><tr><td class="financeiro-empty" colspan="6">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="financeiro-panel acompanhamento-panel">
+          <div class="financeiro-panel-head">
+            <div><span class="eyebrow">Agenda financeira</span><h3>Próximos vencimentos</h3><p>Entradas e saídas previstas dentro do horizonte selecionado.</p></div>
+            <span class="acomp-count-badge" id="acomp-vencer-count">0</span>
+          </div>
+          <div class="financeiro-table-wrap acompanhamento-scroll-table">
+            <table class="financeiro-table acompanhamento-table">
+              <thead><tr><th>Tipo</th><th>Parceiro</th><th>Documento</th><th>Vencimento</th><th>Prazo</th><th>Saldo</th></tr></thead>
+              <tbody id="acomp-tbody-vencer"><tr><td class="financeiro-empty" colspan="6">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <section class="financeiro-panel acompanhamento-panel acompanhamento-movimentos">
+        <div class="financeiro-panel-head">
+          <div><span class="eyebrow">Realizado</span><h3>Recebimentos e pagamentos do período</h3><p>Baixas e estornos que compõem os valores realizados acima.</p></div>
+          <span class="financeiro-muted" id="acomp-periodo-label"></span>
+        </div>
+        <div class="financeiro-table-wrap">
+          <table class="financeiro-table acompanhamento-table">
+            <thead><tr><th>Data</th><th>Movimento</th><th>Parceiro</th><th>Documento</th><th>Conta</th><th>Valor</th></tr></thead>
+            <tbody id="acomp-tbody-movimentos"><tr><td class="financeiro-empty" colspan="6">Carregando...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div class="financeiro-toast" id="acomp-toast" hidden></div>
+</body>
+</html>

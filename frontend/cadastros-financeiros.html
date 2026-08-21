@@ -14,9 +14,9 @@
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
   <script src="/frontend/js/shared/menu-global.js?v=20260819-financeiro-organizado-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260819-financeiro-organizado-v1" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260821-base-jcc-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260819-financeiro-organizado-v1" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260821-base-jcc-v1" />
 </head>
 <body class="financeiro-theme-valora">
   <div class="layout">
@@ -77,8 +77,8 @@
           <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Nome</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-tipos-gasto"><tr><td class="financeiro-empty" colspan="4">Carregando...</td></tr></tbody></table></div>
         </article>
 
-        <article class="financeiro-panel financeiro-cadastro-panel">
-          <div class="financeiro-panel-head"><div><h3>Centros de custo</h3><p>Estrutura principal e secundária para rateio e relatórios.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="centro-custo"><i class="fa-solid fa-plus"></i> Novo</button></div>
+        <article class="financeiro-panel financeiro-cadastro-panel" id="centros-custo">
+          <div class="financeiro-panel-head"><div><h3>Centros de Custo</h3><p>Hierarquia em dois níveis: centro principal e centro secundário, usada nas baixas e movimentos.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="centro-custo"><i class="fa-solid fa-plus"></i> Novo</button></div>
           <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Nome</th><th>Centro pai</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-centros-custo"><tr><td class="financeiro-empty" colspan="5">Carregando...</td></tr></tbody></table></div>
         </article>
 
@@ -87,8 +87,8 @@
           <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Identificação da U.C.</th><th>Tipo</th><th>Origem</th><th>Unidade pai</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-unidades-consumo"><tr><td class="financeiro-empty" colspan="7">Carregando...</td></tr></tbody></table></div>
         </article>
 
-        <article class="financeiro-panel financeiro-cadastro-panel financeiro-cadastro-panel--wide">
-          <div class="financeiro-panel-head"><div><h3>Plano de contas contábil</h3><p>Contas internas de destino e débito usadas pelo Financeiro.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="conta-contabil"><i class="fa-solid fa-plus"></i> Nova conta</button></div>
+        <article class="financeiro-panel financeiro-cadastro-panel financeiro-cadastro-panel--wide" id="plano-contas">
+          <div class="financeiro-panel-head"><div><h3>Plano de Contas</h3><p>Árvore hierárquica no padrão JCC: contas agrupadoras organizam a estrutura e contas analíticas recebem lançamentos.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="conta-contabil"><i class="fa-solid fa-plus"></i> Nova conta</button></div>
           <div class="financeiro-table-wrap"><table class="financeiro-table"><thead><tr><th>Código</th><th>Nome</th><th>Tipo</th><th>Conta pai</th><th>Aceita lançamentos</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-contas-contabeis"><tr><td class="financeiro-empty" colspan="7">Carregando...</td></tr></tbody></table></div>
         </article>
 

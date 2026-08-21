@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from backend import models
 from backend.database import get_db
 from backend.services.asaas_cobranca import AsaasError, configured as asaas_configured, environment_name as asaas_environment_name, obter_ou_criar_cliente as asaas_obter_ou_criar_cliente, criar_boleto as asaas_criar_boleto, buscar_pagamento_por_referencia as asaas_buscar_pagamento_por_referencia, obter_linha_digitavel as asaas_obter_linha_digitavel, obter_pix as asaas_obter_pix, obter_pagamento as asaas_obter_pagamento
+from backend.services.cobranca_bancaria import emitir_ou_atualizar_cobranca
 
 from backend.routers.proposta_cliente_publica import (
     PublicApprovalIn,
@@ -690,65 +691,25 @@ def _salvar_cobranca_asaas(db: Session, *, cliente_id: int, lancamento_id: int, 
 
 
 def _emitir_ou_atualizar_boleto(db: Session, cliente_id: int, lancamento_id: int, *, criar: bool) -> Dict[str, Any]:
-    if not asaas_configured():
-        raise HTTPException(status_code=503, detail="Emissão de boleto Asaas ainda não configurada no Valora.")
-    cliente = _buscar_cliente_por_id(db, cliente_id)
-    _validar_escopo_monitoramento(_custom_fields_cliente(db, cliente_id))
-    lanc = _lancamento_boleto(db, cliente_id, lancamento_id)
-    existing = db.execute(text("SELECT * FROM financeiro_cobrancas_externas WHERE empresa_id=:empresa_id AND lancamento_id=:lancamento_id LIMIT 1"), {"empresa_id": SEG_EMPRESA_ID, "lancamento_id": lancamento_id}).mappings().first()
     try:
-        if existing:
-            customer_id = str(existing.get("provider_customer_id") or "")
-            payment_id = str(existing.get("provider_payment_id") or "")
-            payment = asaas_obter_pagamento(payment_id)
-        else:
-            if not criar:
-                raise HTTPException(status_code=404, detail="Boleto ainda não emitido para este título.")
-            if lanc.get("data_vencimento") and lanc["data_vencimento"] < date.today():
-                raise HTTPException(
-                    status_code=409,
-                    detail="Este título está vencido. Para não recalcular multa/juros incorretamente, solicite à SEG a atualização da cobrança antes de emitir uma nova via.",
-                )
-            customer = asaas_obter_ou_criar_cliente(_asaas_customer_payload(db, cliente), cliente_id=cliente_id)
-            customer_id = str(customer.get("id") or "").strip()
-            if not customer_id:
-                raise HTTPException(status_code=502, detail="O Asaas não retornou o cliente pagador.")
-            external_reference = f"VALORA-LANCAMENTO-{int(lancamento_id)}"
-            payment = asaas_buscar_pagamento_por_referencia(external_reference)
-            if not payment:
-                payment = asaas_criar_boleto(
-                    asaas_customer_id=customer_id,
-                    lancamento_id=lancamento_id,
-                    valor=lanc["saldo"],
-                    vencimento=lanc["data_vencimento"],
-                    descricao=str(lanc.get("descricao") or f"Título {lancamento_id}"),
-                )
-            payment_id = str(payment.get("id") or "").strip()
-        linha = asaas_obter_linha_digitavel(payment_id)
-        try:
-            pix = asaas_obter_pix(payment_id)
-        except AsaasError:
-            pix = {}
-        _salvar_cobranca_asaas(db, cliente_id=cliente_id, lancamento_id=lancamento_id, customer_id=customer_id, payment=payment, linha=linha, pix=pix)
-        provider_status = str(payment.get("status") or "").upper().strip()
-        if provider_status in {"RECEIVED", "RECEIVED_IN_CASH"}:
-            payment_date_raw = str(payment.get("paymentDate") or payment.get("clientPaymentDate") or "").strip()
-            try:
-                payment_date = date.fromisoformat(payment_date_raw[:10]) if payment_date_raw else date.today()
-            except Exception:
-                payment_date = date.today()
-            db.execute(text("""
-                UPDATE financeiro_lancamentos
-                SET valor_pago=valor_total, data_pagamento=COALESCE(data_pagamento, :data_pagamento),
-                    status='pago', atualizado_em=NOW()
-                WHERE id=:id AND empresa_id=:empresa_id AND cliente_id=:cliente_id AND tipo='receber'
-            """), {"data_pagamento": payment_date, "id": lancamento_id, "empresa_id": SEG_EMPRESA_ID, "cliente_id": cliente_id})
+        emitir_ou_atualizar_cobranca(
+            db,
+            empresa_id=SEG_EMPRESA_ID,
+            lancamento_id=lancamento_id,
+            criar=criar,
+            cliente_id=cliente_id,
+            usuario_id=None,
+            conciliar_se_recebido=True,
+        )
         db.commit()
+        # Mantém exatamente o contrato da API consumida pela Área do Cliente SEG.
         return _financeiro_cliente(db, cliente_id)
+    except HTTPException:
+        db.rollback()
+        raise
     except AsaasError as exc:
         db.rollback()
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
-
 
 def _montar_cliente(db: Session, cliente: models.Cliente) -> Dict[str, Any]:
     custom = _custom_fields_cliente(db, int(cliente.id))

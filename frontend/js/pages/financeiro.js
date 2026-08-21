@@ -17,6 +17,16 @@
     filtros: {},
     historicoLancamentoId: null,
     baixaAtual: null,
+    baixaIdempotencyKey: null,
+    estornoAtual: null,
+    receberSelecionadoId: null,
+    receberTab: "registros",
+    pagarSelecionadoId: null,
+    pagarTab: "registros",
+    receberConciliacao: [],
+    boletoAtual: null,
+    boletoAtualId: null,
+    caixa: { tab: "registros", registros: [], saldos: [], resumo: [] },
     cobranca: {
       reguas: [], etapas: [], fila: [], reguaSelecionadaId: null,
       emissaoTitulos: [], emissaoSelecionados: new Set(), emissoesLotes: [], automacao: null,
@@ -57,6 +67,11 @@
     const mes = String(agora.getMonth() + 1).padStart(2, "0");
     const dia = String(agora.getDate()).padStart(2, "0");
     return `${ano}-${mes}-${dia}`;
+  };
+
+  const novaChaveBaixa = () => {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+    return `baixa-${Date.now()}-${Math.random().toString(36).slice(2, 14)}`;
   };
 
   const monthStartISO = () => {
@@ -156,7 +171,7 @@
 
   const statusClass = (status) => {
     const s = String(status || "").toLowerCase();
-    if (["recebido", "pago", "ativo", "receita", "enviado"].includes(s)) return "ok";
+    if (["recebido", "pago", "quitado", "ativo", "receita", "enviado"].includes(s)) return "ok";
     if (["vencido", "cancelado", "inativo", "despesa", "erro"].includes(s)) return "danger";
     if (["parcial", "aberto", "ambos", "ignorado"].includes(s)) return "warn";
     return "blue";
@@ -197,6 +212,13 @@
     return data;
   }
 
+  function safeExternalUrl(value) {
+    try {
+      const url = new URL(String(value || ""), window.location.origin);
+      return ["http:", "https:"].includes(url.protocol) ? url.href : "#";
+    } catch (_) { return "#"; }
+  }
+
   const qs = (params) => {
     const sp = new URLSearchParams();
     Object.entries(params || {}).forEach(([k, v]) => {
@@ -221,10 +243,15 @@
   }
 
   function acoesLancamento(item) {
-    const status = String(item.status || "").toLowerCase();
+    const status = String(item.status_calculado || item.status || "").toLowerCase();
     const finalizado = ["recebido", "pago", "cancelado"].includes(status);
     const reparcelamentoAtivo = Boolean(item.reparcelamento_ativo);
+    const boleto = item.tipo === "receber"
+      ? `<button class="financeiro-mini-btn" type="button" data-action="boleto-titulo" data-id="${item.id}" ${(!item.cobranca_provider_payment_id && finalizado) ? "disabled" : ""}><i class="fa-solid fa-barcode"></i> Boleto</button>`
+      : "";
     return `<div class="actions-cell">
+      <button class="financeiro-mini-btn" type="button" data-action="${item.tipo === "pagar" ? "detalhes-pagar" : "detalhes-receber"}" data-id="${item.id}"><i class="fa-regular fa-file-lines"></i> Detalhes</button>
+      ${boleto}
       <button class="financeiro-mini-btn" type="button" data-action="editar-lancamento" data-id="${item.id}" ${reparcelamentoAtivo ? 'disabled title="Conta original de um reparcelamento ativo"' : ""}><i class="fa-regular fa-pen-to-square"></i> Editar</button>
       <button class="financeiro-mini-btn ok" type="button" data-action="baixar-lancamento" data-id="${item.id}" ${finalizado ? "disabled" : ""}><i class="fa-solid fa-check"></i> Baixar</button>
       <button class="financeiro-mini-btn" type="button" data-action="historico-lancamento" data-id="${item.id}"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</button>
@@ -260,33 +287,43 @@
       ? `<small class="financeiro-parcela-label">Parcela ${Number(item.parcela_numero || 1)}/${Number(item.parcela_total)}</small>`
       : "";
     if (state.page === "pagar") {
-      const dias = Number(item.dias_atraso || 0);
-      return `<tr>
-        <td>${item.id}</td>
-        <td><strong>${escapeHtml(parceiro || "-")}</strong>${item.fornecedor_tipo ? `<small>${escapeHtml(item.fornecedor_tipo)}</small>` : ""}</td>
-        <td>${escapeHtml(item.descricao)}${parcela}</td>
+      const statusEfetivo = String(item.status_calculado || item.status || "aberto").toLowerCase();
+      const plano = item.conta_contabil_codigo && item.conta_contabil_nome
+        ? `${item.conta_contabil_codigo} - ${item.conta_contabil_nome}`
+        : (item.conta_contabil_nome || "-");
+      const centro = [item.centro_custo_principal_nome, item.centro_custo_secundario_nome].filter(Boolean).join(" / ") || "-";
+      const parcelaTexto = item.parcelado && item.parcela_total ? `${Number(item.parcela_numero || 1)}/${Number(item.parcela_total)}` : "-";
+      const selecionado = Number(state.pagarSelecionadoId) === Number(item.id);
+      return `<tr class="financeiro-pagar-row ${selecionado ? "is-selected" : ""}" data-pagar-row-id="${item.id}">
+        <td><strong>${item.id}</strong></td>
+        <td>${pill(statusEfetivo === "pago" ? "quitado" : statusEfetivo)}</td>
         <td>${dateBR(item.data_vencimento)}</td>
-        <td>${dias > 0 ? `<span class="financeiro-atraso">${dias} dia${dias === 1 ? "" : "s"}</span>` : "-"}</td>
-        <td class="financeiro-amount">${money(item.valor_total, item.moeda)}</td>
+        <td><strong>${escapeHtml(parceiro || "-")}</strong>${item.fornecedor_tipo ? `<small>${escapeHtml(item.fornecedor_tipo)}</small>` : ""}</td>
+        <td><span class="financeiro-cell-wrap">${escapeHtml(plano)}</span></td>
+        <td><span class="financeiro-cell-wrap">${escapeHtml(centro)}</span></td>
+        <td>${escapeHtml(item.documento || "-")}</td>
+        <td class="financeiro-amount"><strong>${money(item.valor_total, item.moeda)}</strong></td>
         <td class="financeiro-amount">${money(item.valor_pago, item.moeda)}</td>
-        <td class="financeiro-amount"><strong>${money(item.saldo_aberto, item.moeda)}</strong></td>
-        <td>${pill(item.status)}</td>
+        <td>${dateBR(item.data_pagamento)}</td>
+        <td>${escapeHtml(parcelaTexto)}</td>
         <td>${acoesLancamento(item)}</td>
       </tr>`;
     }
-    const dias = Number(item.dias_atraso || 0);
+    const statusEfetivo = String(item.status_calculado || item.status || "aberto").toLowerCase();
     const cobranca = item.forma_cobranca_nome || item.modalidade_pagamento || item.forma_pagamento_nome || "-";
-    return `<tr>
-      <td>${item.id}</td>
-      <td><strong>${escapeHtml(parceiro || "-")}</strong>${item.email_cobranca ? `<small>${escapeHtml(item.email_cobranca)}</small>` : ""}</td>
-      <td>${escapeHtml(item.descricao)}${parcela}${item.nota_fiscal_numero ? `<small>NF ${escapeHtml(item.nota_fiscal_numero)}</small>` : ""}</td>
-      <td>${escapeHtml(cobranca)}</td>
+    const quitado = statusEfetivo === "recebido";
+    const selecionado = Number(state.receberSelecionadoId) === Number(item.id);
+    return `<tr class="financeiro-receber-row ${selecionado ? "is-selected" : ""}" data-receber-row-id="${item.id}">
+      <td><strong>${item.id}</strong></td>
+      <td>${pill(statusEfetivo === "recebido" ? "quitado" : statusEfetivo)}</td>
+      <td>${dateBR(item.data_emissao)}</td>
       <td>${dateBR(item.data_vencimento)}</td>
-      <td>${dias > 0 ? `<span class="financeiro-atraso">${dias} dia${dias === 1 ? "" : "s"}</span>` : "-"}</td>
-      <td class="financeiro-amount">${money(item.valor_total, item.moeda)}</td>
-      <td class="financeiro-amount">${money(item.valor_pago, item.moeda)}</td>
-      <td class="financeiro-amount"><strong>${money(item.saldo_aberto, item.moeda)}</strong></td>
-      <td>${pill(item.status)}</td>
+      <td>${escapeHtml(item.documento || "-")}</td>
+      <td><strong>${escapeHtml(parceiro || "-")}</strong>${item.parceiro_comercial ? `<small>Comercial: ${escapeHtml(item.parceiro_comercial)}</small>` : ""}</td>
+      <td>${escapeHtml(cobranca)}</td>
+      <td class="financeiro-amount"><strong>${money(item.valor_total, item.moeda)}</strong></td>
+      <td>${quitado ? '<span class="financeiro-quitado yes"><i class="fa-solid fa-check"></i> Sim</span>' : '<span class="financeiro-quitado">Não</span>'}</td>
+      <td>${escapeHtml(item.nosso_numero || item.conciliacao_identificador || "-")}</td>
       <td>${acoesLancamento(item)}</td>
     </tr>`;
   }
@@ -514,6 +551,10 @@
       forma_cobranca_id: $("#filtro-forma-cobranca")?.value || "",
       forma_pagamento_id: $("#filtro-forma-pagamento")?.value || "",
       categoria_id: $("#filtro-categoria")?.value || "",
+      periodo_por: $("#filtro-periodo-por")?.value || "",
+      documento: $("#filtro-documento")?.value || "",
+      conta_contabil_id: $("#filtro-conta-contabil")?.value || "",
+      centro_custo_principal_id: $("#filtro-centro-custo")?.value || "",
       limit: 300,
     };
   }
@@ -581,7 +622,7 @@
     });
     $$('[data-select="contas"]').forEach(sel => {
       const current = sel.value;
-      sel.innerHTML = '<option value="">Selecione...</option>' + (ops.contas_bancos || []).map(i => option(i.nome, i.id)).join("");
+      sel.innerHTML = '<option value="">Selecione...</option>' + (ops.contas_bancos || []).map(i => option([i.nome, i.banco, i.agencia ? `Ag. ${i.agencia}` : '', i.conta ? `Cc. ${i.conta}` : ''].filter(Boolean).join(' • '), i.id)).join("");
       sel.value = current;
     });
     $$('[data-select="clientes"]').forEach(sel => {
@@ -593,7 +634,7 @@
     $$('[data-select="fornecedores"]').forEach(sel => {
       const current = sel.value;
       const vazio = sel.id === "filtro-fornecedor"
-        ? (state.page === "pagar" ? "Todos os sacados" : "Todos os fornecedores")
+        ? "Todos os fornecedores"
         : "Selecione...";
       sel.innerHTML = `<option value="">${vazio}</option>` + (ops.fornecedores || []).map(i => option(`${i.codigo || ""} - ${i.nome}`, i.id)).join("");
       sel.value = current;
@@ -609,9 +650,13 @@
     popular('[data-select="tipos-documento"]', ops.tipos_documento, i => `${i.nome}${i.aplicacao && i.aplicacao !== "ambos" ? ` (${i.aplicacao})` : ""}`);
     popular('[data-select="naturezas-operacao"]', ops.naturezas_operacao, i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
     popular('[data-select="tipos-gasto"]', ops.tipos_gasto, i => `${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
-    popular('[data-select="centros-custo"]', ops.centros_custo, i => `${i.centro_pai_id ? "↳ " : ""}${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`);
+    popular('[data-select="centros-custo"]', ops.centros_custo, i => `${Number(i.nivel || 0) > 0 ? "↳ " : ""}${i.caminho_nome || ((i.codigo ? `${i.codigo} - ` : "") + i.nome)}`);
     popular('[data-select="unidades-consumo"]', ops.unidades_consumo, i => `${i.unidade_pai_id ? "↳ " : ""}${i.codigo ? `${i.codigo} - ` : ""}${i.nome_exibicao || i.nome}`);
-    popular('[data-select="contas-contabeis"]', (ops.contas_contabeis || []).filter(i => i.aceita_lancamento !== false), i => `${i.codigo} - ${i.nome}`);
+    popular('[data-select="contas-contabeis"]', (ops.contas_contabeis || []).filter(i => i.aceita_lancamento !== false), i => `${'  '.repeat(Math.max(0, Number(i.nivel || 0)))}${i.codigo} - ${i.nome}`);
+    const filtroPlanoContas = $("#filtro-conta-contabil");
+    if (filtroPlanoContas && !filtroPlanoContas.value && filtroPlanoContas.options.length) filtroPlanoContas.options[0].textContent = "Todos os planos";
+    const filtroCentroCusto = $("#filtro-centro-custo");
+    if (filtroCentroCusto && !filtroCentroCusto.value && filtroCentroCusto.options.length) filtroCentroCusto.options[0].textContent = "Todos os centros";
     popular('[data-select="formas-cobranca"]', ops.formas_cobranca, i => i.nome);
     [$("#filtro-forma-cobranca"), $("#emissao-forma-cobranca")].filter(Boolean).forEach(filtroFormaCobranca => {
       if (!filtroFormaCobranca.value && filtroFormaCobranca.options.length) filtroFormaCobranca.options[0].textContent = "Todas as formas";
@@ -1084,6 +1129,8 @@
       whatsapp_cobranca: cliente?.whatsapp || cliente?.telefone || "",
       modalidade_pagamento: cliente?.modalidade_pagamento || "",
     };
+    const parceiro = form.querySelector('[data-parceiro-comercial]');
+    if (parceiro) parceiro.value = cliente?.parceiro_comercial || "";
     Object.entries(valores).forEach(([name, value]) => {
       const el = form.querySelector(`[name="${name}"]`);
       if (el && (sobrescrever || !String(el.value || "").trim())) el.value = value;
@@ -1130,6 +1177,13 @@
       sacadoSearch.required = !receber;
       sacadoSearch.setAttribute("aria-required", String(!receber));
       if (receber) sacadoSearch.setCustomValidity("");
+      if (!receber) sacadoSearch.placeholder = "Digite fornecedor, código, CPF/CNPJ, telefone ou e-mail";
+    }
+    if (fornecedorField && !receber) {
+      const label = fornecedorField.querySelector("label");
+      if (label) label.textContent = "Fornecedor";
+      const small = fornecedorField.querySelector("small");
+      if (small) small.textContent = "Localize o fornecedor que receberá este pagamento.";
     }
     const secCobranca = form.querySelector("#fin-sec-cobranca-cliente");
     if (secCobranca) secCobranca.hidden = !receber;
@@ -1219,12 +1273,36 @@
     if (!form) return;
     const principal = Number(moneyToBackend(form.querySelector('[name="valor_principal"]')?.value || 0));
     const desconto = Number(moneyToBackend(form.querySelector('[name="valor_desconto"]')?.value || 0));
+    const acrescimo = Number(moneyToBackend(form.querySelector('[name="valor_acrescimo"]')?.value || 0));
     const multa = Number(moneyToBackend(form.querySelector('[name="valor_multa"]')?.value || 0));
     const mora = Number(moneyToBackend(form.querySelector('[name="valor_mora"]')?.value || 0));
-    const total = Math.max(0, principal - desconto + multa + mora);
+    const total = Math.max(0, principal - desconto + acrescimo + multa + mora);
     const out = form.querySelector('[name="valor_total_baixa"]');
     if (out) out.value = formatMoneyForInput(total, state.baixaAtual?.moeda || "BRL");
     atualizarReparcelamentoBaixa();
+  }
+
+  function atualizarModalidadeBaixa() {
+    const form = $("#form-baixa");
+    const item = state.baixaAtual;
+    if (!form || !item) return;
+    const modalidade = form.querySelector('[name="modalidade_baixa"]:checked')?.value || "total";
+    const principal = form.querySelector('[name="valor_principal"]');
+    const saldo = Math.max(0, Number(item.valor_total || 0) - Number(item.valor_pago || 0));
+    if (!principal) return;
+    if (modalidade === "total") {
+      principal.value = formatMoneyForInput(saldo, item.moeda || "BRL");
+      principal.readOnly = true;
+      principal.setAttribute("aria-readonly", "true");
+    } else {
+      principal.readOnly = false;
+      principal.removeAttribute("aria-readonly");
+      const atual = Number(moneyToBackend(principal.value || 0));
+      if (!(atual > 0 && atual < saldo)) {
+        principal.value = formatMoneyForInput(Math.max(0.01, saldo / 2), item.moeda || "BRL");
+      }
+    }
+    atualizarCalculoBaixa();
   }
 
   function atualizarReparcelamentoBaixa() {
@@ -1283,6 +1361,8 @@
       const mora = form.querySelector('[name="valor_mora"]');
       if (multa) multa.value = formatMoneyForInput(previa.valor_multa || 0, item.moeda);
       if (mora) mora.value = formatMoneyForInput(previa.valor_mora || 0, item.moeda);
+      const encargos = form.querySelector('[name="encargos_automaticos"]');
+      if (encargos) encargos.value = formatMoneyForInput(Number(previa.valor_multa || 0) + Number(previa.valor_mora || 0), item.moeda);
       const dias = form.querySelector('[data-baixa-dias]');
       if (dias) dias.textContent = `${Number(previa.dias_atraso || 0)} dia${Number(previa.dias_atraso || 0) === 1 ? "" : "s"}`;
       const regra = form.querySelector('[data-baixa-regra]');
@@ -1334,59 +1414,480 @@
     setStatusText("Atualizado agora há pouco.");
   }
 
+  function receberItemSelecionado() {
+    return state.items.find(i => Number(i.id) === Number(state.receberSelecionadoId)) || null;
+  }
+
+  function ativarAbaReceber(tab = "registros") {
+    if (state.page !== "receber") return;
+    const alvo = ["registros", "detalhes", "conciliacao"].includes(tab) ? tab : "registros";
+    state.receberTab = alvo;
+    $$('[data-receber-tab]').forEach(btn => {
+      const ativo = btn.dataset.receberTab === alvo;
+      btn.classList.toggle("is-active", ativo);
+      btn.setAttribute("aria-selected", String(ativo));
+    });
+    $$('[data-receber-panel]').forEach(panel => { panel.hidden = panel.dataset.receberPanel !== alvo; });
+    if (alvo === "detalhes") renderDetalhesReceber(receberItemSelecionado());
+    if (alvo === "conciliacao") carregarConciliacaoReceber().catch(err => alertBox(`Erro na conciliação: ${err.message}`, "danger"));
+  }
+
+  function selecionarReceber(id, abrirDetalhes = false) {
+    state.receberSelecionadoId = Number(id) || null;
+    $$("[data-receber-row-id]").forEach(row => row.classList.toggle("is-selected", Number(row.dataset.receberRowId) === Number(state.receberSelecionadoId)));
+    renderDetalhesReceber(receberItemSelecionado());
+    const resumo = $("#receber-registro-resumo");
+    const item = receberItemSelecionado();
+    if (resumo) resumo.innerHTML = item
+      ? `<strong>#${item.id} • ${escapeHtml(item.cliente_nome || "Cliente")}</strong><span>${escapeHtml(item.documento || "Sem documento")} • ${money(item.valor_total, item.moeda)} • ${dateBR(item.data_vencimento)}</span>`
+      : "Selecione um título para consultar os detalhes.";
+    if (abrirDetalhes) ativarAbaReceber("detalhes");
+  }
+
+  function labelConciliacao(status) {
+    const chave = String(status || "").trim().toLowerCase();
+    const labels = {
+      conciliado: "Conciliado",
+      aguardando_retorno: "Aguardando retorno",
+      aguardando_conta: "Aguardando conta corrente",
+      estorno_pendente_gateway: "Reembolso em processamento",
+      estornado_no_gateway: "Reembolsado / estornado",
+      divergencia_titulo_cancelado: "Revisar: título cancelado",
+      divergencia_baixa_estornada: "Revisar: baixa estornada",
+      divergencia_movimentacao_ausente: "Revisar: baixa não encontrada",
+    };
+    return labels[chave] || (status ? String(status).replaceAll("_", " ") : "Pendente");
+  }
+
+  function podeConciliarCobranca(status) {
+    return ![
+      "conciliado",
+      "estorno_pendente_gateway",
+      "estornado_no_gateway",
+      "divergencia_titulo_cancelado",
+      "divergencia_baixa_estornada",
+      "divergencia_movimentacao_ausente",
+    ].includes(String(status || "").trim().toLowerCase());
+  }
+
+  function renderDetalhesReceber(item) {
+    const host = $("#receber-detalhes");
+    if (!host) return;
+    if (!item) {
+      host.innerHTML = '<div class="financeiro-empty-soft">Selecione um registro na aba Registros.</div>';
+      return;
+    }
+    const status = String(item.status_calculado || item.status || "aberto").toLowerCase();
+    const classificacao = [
+      item.conta_contabil_codigo && item.conta_contabil_nome ? `${item.conta_contabil_codigo} - ${item.conta_contabil_nome}` : item.conta_contabil_nome,
+      item.centro_custo_principal_nome,
+      item.centro_custo_secundario_nome,
+    ].filter(Boolean).join(" • ") || "Não classificado";
+    const temBoleto = Boolean(item.cobranca_provider_payment_id);
+    const conciliado = String(item.cobranca_conciliacao_status || "").toLowerCase() === "conciliado";
+    host.innerHTML = `
+      <div class="financeiro-receber-detail-head">
+        <div><span>Título #${item.id}</span><h4>${escapeHtml(item.cliente_nome || "Cliente não informado")}</h4><p>${escapeHtml(item.descricao || "Sem descrição")}</p></div>
+        <div>${pill(status === "recebido" ? "quitado" : status)}</div>
+      </div>
+      <div class="financeiro-receber-detail-grid">
+        <div><span>Documento</span><strong>${escapeHtml(item.documento || "-")}</strong></div>
+        <div><span>Nosso número</span><strong>${escapeHtml(item.nosso_numero || item.conciliacao_identificador || "-")}</strong></div>
+        <div><span>Emissão</span><strong>${dateBR(item.data_emissao)}</strong></div>
+        <div><span>Vencimento</span><strong>${dateBR(item.data_vencimento)}</strong></div>
+        <div><span>Valor</span><strong>${money(item.valor_total, item.moeda)}</strong></div>
+        <div><span>Recebido</span><strong>${money(item.valor_pago, item.moeda)}</strong></div>
+        <div><span>Saldo</span><strong>${money(item.saldo_aberto, item.moeda)}</strong></div>
+        <div><span>Modalidade</span><strong>${escapeHtml(item.forma_cobranca_nome || item.modalidade_pagamento || item.forma_pagamento_nome || "-")}</strong></div>
+      </div>
+      <div class="financeiro-receber-detail-notes">
+        <div><span>Parceiro / Comercial</span><strong>${escapeHtml(item.parceiro_comercial || "Não informado")}</strong></div>
+        <div><span>Classificação</span><strong>${escapeHtml(classificacao)}</strong></div>
+        <div class="full"><span>Observação</span><p>${escapeHtml(item.observacoes || "Sem observações.")}</p></div>
+      </div>
+      <div class="financeiro-boleto-inline ${temBoleto ? "has-charge" : ""}">
+        <div><span>Boleto / retorno bancário</span><strong>${temBoleto ? escapeHtml(String(item.cobranca_provider || "banco").toUpperCase()) + " • " + escapeHtml(item.cobranca_provider_status || "Aguardando") : "Ainda não emitido"}</strong></div>
+        <div><span>Conciliação</span><strong>${temBoleto ? (conciliado ? "Conciliado" : escapeHtml(labelConciliacao(item.cobranca_conciliacao_status))) : "-"}</strong></div>
+        <button class="btn btn-secondary" type="button" data-action="boleto-titulo" data-id="${item.id}"><i class="fa-solid fa-barcode"></i> ${temBoleto ? "Abrir boleto" : "Emitir boleto"}</button>
+      </div>
+      <div class="financeiro-receber-detail-actions">
+        <button class="btn btn-secondary" type="button" data-action="editar-lancamento" data-id="${item.id}"><i class="fa-regular fa-pen-to-square"></i> Editar</button>
+        <button class="btn btn-primary" type="button" data-action="baixar-lancamento" data-id="${item.id}" ${["recebido","cancelado"].includes(status) ? "disabled" : ""}><i class="fa-solid fa-check"></i> Baixar recebimento</button>
+        <button class="btn btn-secondary" type="button" data-action="historico-lancamento" data-id="${item.id}"><i class="fa-solid fa-clock-rotate-left"></i> Histórico / Estornar</button>
+        <button class="btn btn-secondary financeiro-cancel-title" type="button" data-action="cancelar-lancamento" data-id="${item.id}" ${status === "cancelado" || Number(item.valor_pago || 0) > 0 ? "disabled" : ""}><i class="fa-solid fa-ban"></i> Cancelar título</button>
+      </div>`;
+  }
+
+  function renderBoletoModal(data) {
+    state.boletoAtual = data || null;
+    const host = $("#boleto-conteudo");
+    const conta = $("#boleto-conta-banco");
+    if (!host) return;
+    const titulo = data?.titulo || {};
+    const cobranca = data?.cobranca || null;
+    if (conta) conta.value = titulo.conta_banco_id ? String(titulo.conta_banco_id) : "";
+    const status = String(cobranca?.provider_status || "").toUpperCase();
+    const conciliacao = String(cobranca?.conciliacao_status || "");
+    const boletoUrl = safeExternalUrl(cobranca?.bank_slip_url || cobranca?.invoice_url);
+    host.innerHTML = `
+      <div class="financeiro-boleto-summary">
+        <div><span>Título</span><strong>#${Number(titulo.id || 0)} • ${escapeHtml(titulo.documento || "Sem documento")}</strong></div>
+        <div><span>Vencimento</span><strong>${dateBR(titulo.data_vencimento)}</strong></div>
+        <div><span>Saldo</span><strong>${money(titulo.saldo || 0)}</strong></div>
+        <div><span>Ambiente</span><strong>${escapeHtml(data?.ambiente || "-")}</strong></div>
+      </div>
+      ${!data?.configurado ? '<div class="financeiro-alert-inline danger">Asaas ainda não está configurado no servidor.</div>' : ""}
+      ${cobranca ? `
+        <div class="financeiro-boleto-status-row">
+          <span class="financeiro-provider-pill">${escapeHtml(String(data.provider || cobranca.provider || "asaas").toUpperCase())}</span>
+          <span>${escapeHtml(status || "Aguardando retorno")}</span>
+          <span>${escapeHtml(labelConciliacao(conciliacao || "aguardando_retorno"))}</span>
+        </div>
+        <div class="financeiro-boleto-data">
+          <div><span>Nosso número</span><strong>${escapeHtml(titulo.nosso_numero || "-")}</strong></div>
+          <div class="full"><span>Linha digitável</span><code>${escapeHtml(cobranca.identification_field || "Ainda não disponível")}</code>${cobranca.identification_field ? '<button class="financeiro-link-action" type="button" data-action="boleto-copiar-linha">Copiar linha</button>' : ""}</div>
+          <div class="full"><span>Pix copia e cola</span><code>${escapeHtml(cobranca.pix_payload || "Ainda não disponível")}</code>${cobranca.pix_payload ? '<button class="financeiro-link-action" type="button" data-action="boleto-copiar-pix">Copiar Pix</button>' : ""}</div>
+        </div>
+        <div class="financeiro-boleto-actions">
+          ${boletoUrl !== "#" ? `<a class="btn btn-secondary" href="${escapeHtml(boletoUrl)}" target="_blank" rel="noopener noreferrer"><i class="fa-regular fa-file-pdf"></i> Ver boleto</a>` : ""}
+          <button class="btn btn-secondary" type="button" data-action="boleto-atualizar"><i class="fa-solid fa-arrows-rotate"></i> Atualizar retorno</button>
+          ${podeConciliarCobranca(conciliacao) ? '<button class="btn btn-primary" type="button" data-action="boleto-conciliar"><i class="fa-solid fa-building-columns"></i> Conciliar</button>' : (conciliacao === "conciliado" ? '<span class="financeiro-quitado yes"><i class="fa-solid fa-check"></i> Conciliado</span>' : `<span class="financeiro-status-pending">${escapeHtml(labelConciliacao(conciliacao))}</span>`)}
+        </div>` : `
+        <div class="financeiro-boleto-empty"><i class="fa-solid fa-barcode"></i><strong>Boleto ainda não emitido</strong><span>Selecione a Conta Corrente onde o recebimento deve ser creditado e emita a cobrança.</span></div>
+        <div class="financeiro-boleto-actions"><button class="btn btn-primary" type="button" data-action="boleto-emitir" ${!data?.configurado ? "disabled" : ""}><i class="fa-solid fa-barcode"></i> Emitir boleto</button></div>`}
+    `;
+  }
+
+  async function abrirBoleto(lancamentoId) {
+    state.boletoAtualId = Number(lancamentoId);
+    state.boletoAtual = null;
+    const host = $("#boleto-conteudo");
+    if (host) host.innerHTML = '<div class="financeiro-empty-soft">Carregando boleto e retorno bancário...</div>';
+    abrirModal("#modal-boleto");
+    try {
+      const data = await request(`/api/financeiro/contas-receber/${lancamentoId}/boleto`);
+      renderBoletoModal(data);
+    } catch (err) {
+      if (host) host.innerHTML = `<div class="financeiro-alert-inline danger">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  async function operarBoleto(acao) {
+    const id = Number(state.boletoAtualId || 0);
+    if (!id) return;
+    const contaId = nullNumber($("#boleto-conta-banco")?.value);
+    if (["emitir", "conciliar"].includes(acao) && !contaId) {
+      return alertBox("Selecione a Conta Corrente/Banco que receberá o valor.", "danger");
+    }
+    const path = acao === "emitir" ? "boleto/emitir" : acao === "atualizar" ? "boleto/atualizar" : "conciliar";
+    const resultado = await request(`/api/financeiro/contas-receber/${id}/${path}`, { method: "POST", body: { conta_banco_id: contaId } });
+    const estado = resultado?.estado || await request(`/api/financeiro/contas-receber/${id}/boleto`);
+    renderBoletoModal(estado);
+    if (acao === "emitir") alertBox("Boleto emitido e vinculado ao título.", "ok");
+    else if (resultado?.conciliado || resultado?.conciliacao?.conciliado) alertBox("Retorno conciliado. A baixa entrou automaticamente no Caixa/Conta Corrente.", "ok");
+    else alertBox("Retorno bancário atualizado.", "ok");
+    await carregarReceber();
+    if (state.receberTab === "conciliacao") await carregarConciliacaoReceber();
+  }
+
+  async function copiarTextoBoleto(value, label) {
+    const texto = String(value || "").trim();
+    if (!texto) return alertBox(`${label} ainda não está disponível.`, "warn");
+    await navigator.clipboard.writeText(texto);
+    alertBox(`${label} copiado.`, "ok");
+  }
+
+  async function carregarConciliacaoReceber() {
+    if (state.page !== "receber") return;
+    const tbody = $("#tbody-receber-conciliacao");
+    if (tbody) tbody.innerHTML = '<tr><td class="financeiro-empty" colspan="11">Carregando conciliação...</td></tr>';
+    const f = filtros();
+    const data = await request(`/api/financeiro/contas-receber/conciliacao${qs({ data_inicio: f.data_inicio, data_fim: f.data_fim, cliente_id: f.cliente_id, limit: 300 })}`);
+    state.receberConciliacao = data.items || [];
+    const resumo = $("#receber-conciliacao-resumo");
+    if (resumo) resumo.innerHTML = `<span><strong>${Number(data.total || 0)}</strong> retorno(s)</span><span><strong>${Number(data.conciliados || 0)}</strong> conciliado(s)</span><span><strong>${Number(data.pendentes || 0)}</strong> pendente(s)</span>`;
+    if (!tbody) return;
+    if (!state.receberConciliacao.length) {
+      tbody.innerHTML = '<tr><td class="financeiro-empty" colspan="11">Nenhuma cobrança bancária vinculada aos títulos deste período.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = state.receberConciliacao.map(i => `<tr>
+      <td>#${i.lancamento_id}</td>
+      <td><strong>${escapeHtml(i.cliente_nome || "-")}</strong></td>
+      <td>${escapeHtml(i.documento || "-")}</td>
+      <td>${escapeHtml(i.nosso_numero || "-")}</td>
+      <td>${escapeHtml(String(i.provider || "-").toUpperCase())}</td>
+      <td>${escapeHtml(i.provider_status || i.ultimo_evento || "-")}</td>
+      <td>${dateBR(i.data_vencimento)}</td>
+      <td class="financeiro-amount">${money(i.valor_total)}</td>
+      <td><div class="financeiro-bank-links">${i.identification_field ? `<button type="button" class="financeiro-link-action" data-action="copiar-conciliacao-linha" data-id="${i.lancamento_id}">Linha</button>` : ""}${i.pix_payload ? `<button type="button" class="financeiro-link-action" data-action="copiar-conciliacao-pix" data-id="${i.lancamento_id}">Pix</button>` : ""}</div></td>
+      <td>${i.conciliado ? '<span class="financeiro-quitado yes"><i class="fa-solid fa-check"></i> Conciliado</span>' : `<span class="financeiro-status-pending">${escapeHtml(labelConciliacao(i.conciliacao_status))}</span>`}</td>
+      <td><div class="actions-cell"><button class="financeiro-mini-btn" type="button" data-action="boleto-titulo" data-id="${i.lancamento_id}"><i class="fa-solid fa-barcode"></i> Abrir</button>${!i.conciliado && podeConciliarCobranca(i.conciliacao_status) ? `<button class="financeiro-mini-btn ok" type="button" data-action="conciliar-boleto" data-id="${i.lancamento_id}"><i class="fa-solid fa-arrows-rotate"></i> Conciliar</button>` : ""}</div></td>
+    </tr>`).join("");
+  }
+
   async function carregarReceber() {
     const data = await request(`/api/financeiro/contas-receber${qs(filtros())}`);
     const items = data.items || [];
     state.items = items;
+    if (!items.some(i => Number(i.id) === Number(state.receberSelecionadoId))) state.receberSelecionadoId = items[0]?.id || null;
     const resumo = data.resumo || {};
     setKPI("receber-aberto", money(resumo.total_em_aberto || 0));
     setKPI("receber-recebido", money(resumo.total_baixado || 0));
     setKPI("receber-vencido", money(resumo.total_vencido || 0));
     setKPI("receber-hoje", money(resumo.total_vence_hoje || 0));
-    setTable("tbody-receber", 11, items.map(i => rowLancamento(i, "receber")).join(""), "Nenhuma conta a receber cadastrada ainda.");
+    setTable("tbody-receber", 11, items.map(i => rowLancamento(i, "receber")).join(""), "Nenhuma conta a receber encontrada.");
+    selecionarReceber(state.receberSelecionadoId, false);
+    ativarAbaReceber(state.receberTab);
     const inadimplentes = Number(resumo.clientes_inadimplentes || 0);
-    setStatusText(`${data.total || 0} título(s) a receber • ${inadimplentes} cliente(s) inadimplente(s).`);
+    setStatusText(`${data.total || 0} título(s) • ${inadimplentes} cliente(s) inadimplente(s).`);
+  }
+
+  function pagarItemSelecionado() {
+    return state.items.find(i => Number(i.id) === Number(state.pagarSelecionadoId)) || null;
+  }
+
+  function ativarAbaPagar(tab = "registros") {
+    if (state.page !== "pagar") return;
+    const alvo = ["registros", "detalhes"].includes(tab) ? tab : "registros";
+    state.pagarTab = alvo;
+    $$('[data-pagar-tab]').forEach(btn => {
+      const ativo = btn.dataset.pagarTab === alvo;
+      btn.classList.toggle("is-active", ativo);
+      btn.setAttribute("aria-selected", String(ativo));
+    });
+    $$('[data-pagar-panel]').forEach(panel => { panel.hidden = panel.dataset.pagarPanel !== alvo; });
+    if (alvo === "detalhes") renderDetalhesPagar(pagarItemSelecionado());
+  }
+
+  function selecionarPagar(id, abrirDetalhes = false) {
+    state.pagarSelecionadoId = Number(id) || null;
+    $$('[data-pagar-row-id]').forEach(row => row.classList.toggle("is-selected", Number(row.dataset.pagarRowId) === Number(state.pagarSelecionadoId)));
+    const item = pagarItemSelecionado();
+    renderDetalhesPagar(item);
+    const resumo = $("#pagar-registro-resumo");
+    if (resumo) resumo.innerHTML = item
+      ? `<strong>#${item.id} • ${escapeHtml(item.fornecedor_nome || "Fornecedor")}</strong><span>${escapeHtml(item.documento || "Sem documento")} • ${money(item.valor_total, item.moeda)} • vence ${dateBR(item.data_vencimento)}</span>`
+      : "Selecione um título para consultar os detalhes.";
+    if (abrirDetalhes) ativarAbaPagar("detalhes");
+  }
+
+  function renderDetalhesPagar(item) {
+    const host = $("#pagar-detalhes");
+    if (!host) return;
+    if (!item) {
+      host.innerHTML = '<div class="financeiro-empty-soft">Selecione um registro na aba Registros.</div>';
+      return;
+    }
+    const status = String(item.status_calculado || item.status || "aberto").toLowerCase();
+    const plano = item.conta_contabil_codigo && item.conta_contabil_nome
+      ? `${item.conta_contabil_codigo} - ${item.conta_contabil_nome}`
+      : (item.conta_contabil_nome || "Não informado");
+    const centro = [item.centro_custo_principal_nome, item.centro_custo_secundario_nome].filter(Boolean).join(" / ") || "Não informado";
+    const parcela = item.parcelado && item.parcela_total ? `${Number(item.parcela_numero || 1)}/${Number(item.parcela_total)}` : "Não parcelado";
+    host.innerHTML = `
+      <div class="financeiro-receber-detail-head">
+        <div><span>Conta a pagar #${item.id}</span><h4>${escapeHtml(item.fornecedor_nome || "Fornecedor não informado")}</h4><p>${escapeHtml(item.descricao || "Sem descrição")}</p></div>
+        <div>${pill(status === "pago" ? "quitado" : status)}</div>
+      </div>
+      <div class="financeiro-receber-detail-grid">
+        <div><span>Documento</span><strong>${escapeHtml(item.documento || "-")}</strong></div>
+        <div><span>Emissão</span><strong>${dateBR(item.data_emissao)}</strong></div>
+        <div><span>Vencimento</span><strong>${dateBR(item.data_vencimento)}</strong></div>
+        <div><span>Pagamento</span><strong>${dateBR(item.data_pagamento)}</strong></div>
+        <div><span>Valor</span><strong>${money(item.valor_total, item.moeda)}</strong></div>
+        <div><span>Pago</span><strong>${money(item.valor_pago, item.moeda)}</strong></div>
+        <div><span>Saldo</span><strong>${money(item.saldo_aberto, item.moeda)}</strong></div>
+        <div><span>Parcela</span><strong>${escapeHtml(parcela)}</strong></div>
+        <div><span>Forma de pagamento</span><strong>${escapeHtml(item.forma_pagamento_nome || "-")}</strong></div>
+        <div><span>Conta Corrente</span><strong>${escapeHtml(item.conta_banco_nome || "-")}</strong></div>
+      </div>
+      <div class="financeiro-receber-detail-notes">
+        <div><span>Plano de Contas</span><strong>${escapeHtml(plano)}</strong></div>
+        <div><span>Centro de Custo</span><strong>${escapeHtml(centro)}</strong></div>
+        <div class="full"><span>Observação</span><p>${escapeHtml(item.observacoes || "Sem observações.")}</p></div>
+      </div>
+      <div class="financeiro-receber-detail-actions">
+        <button class="btn btn-secondary" type="button" data-action="editar-lancamento" data-id="${item.id}"><i class="fa-regular fa-pen-to-square"></i> Editar</button>
+        <button class="btn btn-primary" type="button" data-action="baixar-lancamento" data-id="${item.id}" ${["pago","cancelado"].includes(status) ? "disabled" : ""}><i class="fa-solid fa-check"></i> Baixar pagamento</button>
+        <button class="btn btn-secondary" type="button" data-action="historico-lancamento" data-id="${item.id}"><i class="fa-solid fa-clock-rotate-left"></i> Histórico / Estornar</button>
+        <button class="btn btn-secondary financeiro-cancel-title" type="button" data-action="cancelar-lancamento" data-id="${item.id}" ${status === "cancelado" || Number(item.valor_pago || 0) > 0 ? "disabled" : ""}><i class="fa-solid fa-ban"></i> Cancelar título</button>
+      </div>`;
   }
 
   async function carregarPagar() {
     const data = await request(`/api/financeiro/contas-pagar${qs(filtros())}`);
     const items = data.items || [];
     state.items = items;
-    const aberto = items.filter(i => !["pago", "cancelado"].includes(String(i.status).toLowerCase()));
-    const pagos = items.filter(i => String(i.status).toLowerCase() === "pago");
-    const vencidos = items.filter(i => String(i.status).toLowerCase() === "vencido");
-    const hoje = todayISO();
-    const hojeItems = items.filter(i => String(i.data_vencimento).slice(0, 10) === hoje);
-    setKPI("pagar-aberto", money(soma(aberto, i => Number(i.valor_total || 0) - Number(i.valor_pago || 0))));
-    setKPI("pagar-pago", money(soma(pagos, i => i.valor_pago || i.valor_total)));
-    setKPI("pagar-vencido", money(soma(vencidos, i => Number(i.valor_total || 0) - Number(i.valor_pago || 0))));
-    setKPI("pagar-hoje", money(soma(hojeItems, i => Math.max(0, Number(i.valor_total || 0) - Number(i.valor_pago || 0)))));
-    setTable("tbody-pagar", 10, items.map(i => rowLancamento(i, "pagar")).join(""), "Nenhuma conta a pagar cadastrada ainda.");
-    setStatusText(`${data.total || 0} conta(s) a pagar.`);
+    if (!items.some(i => Number(i.id) === Number(state.pagarSelecionadoId))) state.pagarSelecionadoId = items[0]?.id || null;
+    const resumo = data.resumo || {};
+    setKPI("pagar-aberto", money(resumo.total_em_aberto || 0));
+    setKPI("pagar-pago", money(resumo.total_baixado || 0));
+    setKPI("pagar-vencido", money(resumo.total_vencido || 0));
+    setKPI("pagar-hoje", money(resumo.total_vence_hoje || 0));
+    setTable("tbody-pagar", 12, items.map(i => rowLancamento(i, "pagar")).join(""), "Nenhuma conta a pagar encontrada.");
+    selecionarPagar(state.pagarSelecionadoId, false);
+    ativarAbaPagar(state.pagarTab);
+    setStatusText(`${data.total || 0} título(s) a pagar.`);
+  }
+
+  function filtrosCaixa() {
+    return {
+      data_inicio: $("#filtro-data-inicio")?.value || monthStartISO(),
+      data_fim: $("#filtro-data-fim")?.value || todayISO(),
+      conta_banco_id: $("#filtro-caixa-conta")?.value || "",
+    };
+  }
+
+  function preencherSelectsCaixa() {
+    const contas = Array.isArray(state.opcoes.contas_bancos) ? state.opcoes.contas_bancos : [];
+    const planos = (Array.isArray(state.opcoes.contas_contabeis) ? state.opcoes.contas_contabeis : []).filter(i => i.ativo !== false && i.aceita_lancamento !== false);
+    const centros = Array.isArray(state.opcoes.centros_custo) ? state.opcoes.centros_custo : [];
+    const principais = centros.filter(i => i.centro_pai_id == null && i.ativo !== false);
+
+    const contaFiltro = $("#filtro-caixa-conta");
+    if (contaFiltro) {
+      const atual = contaFiltro.value;
+      contaFiltro.innerHTML = `<option value="">Todas as contas</option>${contas.map(i => option([i.nome, i.banco, i.agencia && `Ag. ${i.agencia}`, i.conta && `Cc. ${i.conta}`].filter(Boolean).join(" • "), i.id)).join("")}`;
+      contaFiltro.value = atual;
+    }
+    $$('[data-caixa-select="contas"]').forEach(sel => {
+      const atual = sel.value;
+      sel.innerHTML = `<option value="">Selecione...</option>${contas.map(i => option([i.nome, i.banco, i.agencia && `Ag. ${i.agencia}`, i.conta && `Cc. ${i.conta}`].filter(Boolean).join(" • "), i.id)).join("")}`;
+      sel.value = atual;
+    });
+    $$('[data-caixa-select="plano"]').forEach(sel => {
+      const atual = sel.value;
+      sel.innerHTML = `<option value="">Selecione...</option>${planos.map(i => option(`${i.codigo || ""} - ${i.caminho_nome || i.nome}`.replace(/^ - /, ""), i.id)).join("")}`;
+      sel.value = atual;
+    });
+    $$('[data-caixa-select="centro-principal"]').forEach(sel => {
+      const atual = sel.value;
+      sel.innerHTML = `<option value="">Sem centro...</option>${principais.map(i => option(`${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`, i.id)).join("")}`;
+      sel.value = atual;
+    });
+    atualizarCentrosSecundariosCaixa();
+  }
+
+  function atualizarCentrosSecundariosCaixa(valorAtual = null) {
+    const form = $("#form-caixa-movimento");
+    if (!form) return;
+    const principalId = Number(form.elements.centro_custo_principal_id?.value || 0);
+    const sel = form.elements.centro_custo_secundario_id;
+    if (!sel) return;
+    const atual = valorAtual ?? sel.value;
+    const centros = (state.opcoes.centros_custo || []).filter(i => Number(i.centro_pai_id || 0) === principalId && i.ativo !== false);
+    sel.innerHTML = `<option value="">Sem secundário...</option>${centros.map(i => option(`${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`, i.id)).join("")}`;
+    sel.value = atual == null ? "" : String(atual);
+    if (sel.value !== String(atual ?? "")) sel.value = "";
+  }
+
+  function ativarAbaCaixa(tab) {
+    const alvo = ["registros", "edicao", "saldos", "resumo"].includes(tab) ? tab : "registros";
+    state.caixa.tab = alvo;
+    $$('[data-caixa-tab]').forEach(btn => btn.classList.toggle("is-active", btn.dataset.caixaTab === alvo));
+    $$('[data-caixa-pane]').forEach(pane => {
+      const ativo = pane.dataset.caixaPane === alvo;
+      pane.classList.toggle("is-active", ativo);
+      pane.hidden = !ativo;
+    });
+  }
+
+  function resetarEdicaoCaixa() {
+    const form = $("#form-caixa-movimento");
+    if (!form) return;
+    form.reset();
+    form.elements.id.value = "";
+    form.elements.data_movimentacao.value = todayISO();
+    form.elements.tipo.value = "credito";
+    $("#caixa-edicao-titulo").textContent = "Novo movimento";
+    atualizarCentrosSecundariosCaixa();
+  }
+
+  function abrirEdicaoCaixa(item = null) {
+    const form = $("#form-caixa-movimento");
+    if (!form) return;
+    resetarEdicaoCaixa();
+    if (item) {
+      form.elements.id.value = item.id || "";
+      form.elements.data_movimentacao.value = String(item.data || "").slice(0, 10);
+      form.elements.tipo.value = item.tipo || "credito";
+      form.elements.documento.value = item.documento || "";
+      form.elements.historico.value = item.historico || "";
+      form.elements.valor.value = Number(item.valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      form.elements.conta_banco_id.value = item.conta_banco_id || "";
+      form.elements.conta_contabil_id.value = item.conta_contabil_id || "";
+      form.elements.centro_custo_principal_id.value = item.centro_custo_principal_id || "";
+      atualizarCentrosSecundariosCaixa(item.centro_custo_secundario_id || "");
+      $("#caixa-edicao-titulo").textContent = `Editar movimento #${item.id}`;
+    }
+    ativarAbaCaixa("edicao");
+  }
+
+  async function salvarMovimentoCaixa(ev) {
+    ev.preventDefault();
+    const form = ev.currentTarget;
+    const id = Number(form.elements.id.value || 0);
+    const data = getForm(form);
+    delete data.id;
+    data.valor = moneyToBackend(data.valor || 0);
+    data.conta_banco_id = nullNumber(data.conta_banco_id);
+    data.conta_contabil_id = nullNumber(data.conta_contabil_id);
+    data.centro_custo_principal_id = nullNumber(data.centro_custo_principal_id);
+    data.centro_custo_secundario_id = nullNumber(data.centro_custo_secundario_id);
+    try {
+      await request(id ? `/api/financeiro/caixa/movimentos/${id}` : "/api/financeiro/caixa/movimentos", { method: id ? "PUT" : "POST", body: data });
+      alertBox(id ? "Movimento atualizado." : "Movimento registrado.", "ok");
+      resetarEdicaoCaixa();
+      state.caixa.tab = "registros";
+      await carregarFluxo();
+      ativarAbaCaixa("registros");
+    } catch (err) {
+      alertBox(`Erro ao salvar movimento: ${err.message}`, "danger");
+    }
+  }
+
+  function linhaRegistroCaixa(i) {
+    const manual = i.origem === "manual";
+    const operacao = i.tipo === "credito" ? '<span class="financeiro-caixa-op credito"><i class="fa-solid fa-arrow-down"></i> Crédito</span>' : '<span class="financeiro-caixa-op debito"><i class="fa-solid fa-arrow-up"></i> Débito</span>';
+    const plano = i.conta_contabil_nome ? `${i.conta_contabil_codigo ? `${i.conta_contabil_codigo} - ` : ""}${i.conta_contabil_nome}` : "-";
+    const acoes = manual
+      ? `<div class="actions-cell"><button class="financeiro-mini-btn" type="button" data-action="editar-caixa" data-id="${i.id}"><i class="fa-regular fa-pen-to-square"></i> Editar</button><button class="financeiro-mini-btn danger" type="button" data-action="cancelar-caixa" data-id="${i.id}" title="Cancelar movimento"><i class="fa-solid fa-ban"></i></button></div>`
+      : `<span class="financeiro-caixa-origin"><i class="fa-solid fa-lock"></i> ${i.origem === "saldo_inicial" ? "Saldo inicial" : "Automático"}</span>`;
+    return `<tr>
+      <td>${dateBR(i.data)}</td><td>${escapeHtml(i.documento || "-")}</td><td>${operacao}</td>
+      <td><strong>${escapeHtml(i.historico || "-")}</strong><small>${escapeHtml(i.parceiro || "")}</small></td>
+      <td>${escapeHtml(i.conta_banco_nome || "-")}</td><td><span class="financeiro-cell-wrap">${escapeHtml(plano)}</span></td>
+      <td class="financeiro-amount financeiro-caixa-credit">${Number(i.credito || 0) ? money(i.credito) : "-"}</td>
+      <td class="financeiro-amount financeiro-caixa-debit">${Number(i.debito || 0) ? money(i.debito) : "-"}</td><td>${acoes}</td>
+    </tr>`;
   }
 
   async function carregarFluxo() {
-    const data = await request(`/api/financeiro/fluxo-caixa${qs(filtros())}`);
-    const items = data.items || [];
-    state.items = items;
-    const entradas = soma(items, i => i.entradas_previstas);
-    const saidas = soma(items, i => i.saidas_previstas);
-    const realizado = soma(items, i => Number(i.entradas_realizadas || 0) - Number(i.saidas_realizadas || 0));
-    setKPI("fluxo-entradas", money(entradas));
-    setKPI("fluxo-saidas", money(saidas));
-    setKPI("fluxo-saldo", money(entradas - saidas));
-    setKPI("fluxo-realizado", money(realizado));
-    setTable("tbody-fluxo", 7, items.map(i => `<tr>
-      <td>${dateBR(i.data)}</td>
-      <td class="financeiro-amount">${money(i.entradas_previstas)}</td>
-      <td class="financeiro-amount">${money(i.entradas_realizadas)}</td>
-      <td class="financeiro-amount">${money(i.saidas_previstas)}</td>
-      <td class="financeiro-amount">${money(i.saidas_realizadas)}</td>
-      <td class="financeiro-amount">${money(Number(i.entradas_previstas || 0) - Number(i.saidas_previstas || 0))}</td>
-      <td class="financeiro-amount">${money(i.saldo_previsto_acumulado)}</td>
-    </tr>`).join(""), "Nenhum fluxo encontrado no período.");
-    setStatusText(`${items.length} dia(s) no fluxo.`);
+    preencherSelectsCaixa();
+    const data = await request(`/api/financeiro/fluxo-caixa${qs(filtrosCaixa())}`);
+    const registros = Array.isArray(data.registros) ? data.registros : [];
+    const saldos = Array.isArray(data.saldos_diarios) ? data.saldos_diarios : [];
+    const resumo = Array.isArray(data.resumo_periodo) ? data.resumo_periodo : [];
+    state.caixa.registros = registros;
+    state.caixa.saldos = saldos;
+    state.caixa.resumo = resumo;
+    state.items = registros;
+
+    setKPI("caixa-saldo-anterior", money(data.saldo_anterior || 0));
+    setKPI("caixa-creditos", money(data.totais?.credito || 0));
+    setKPI("caixa-debitos", money(data.totais?.debito || 0));
+    setKPI("caixa-saldo-final", money(data.saldo_final || 0));
+    const saldoAnteriorResumo = $("#caixa-resumo-saldo-anterior");
+    if (saldoAnteriorResumo) saldoAnteriorResumo.textContent = money(data.saldo_anterior || 0);
+
+    setTable("tbody-caixa-registros", 9, registros.map(linhaRegistroCaixa).join(""), "Nenhum movimento de caixa encontrado no período.");
+    setTable("tbody-caixa-saldos", 4, saldos.map(i => `<tr><td>${dateBR(i.data)}</td><td class="financeiro-amount financeiro-caixa-credit">${money(i.credito)}</td><td class="financeiro-amount financeiro-caixa-debit">${money(i.debito)}</td><td class="financeiro-amount"><strong>${money(i.saldo)}</strong></td></tr>`).join(""), "Nenhum saldo diário encontrado no período.");
+    setTable("tbody-caixa-resumo", 7, resumo.map(i => `<tr><td>${dateBR(i.data)}</td><td>${escapeHtml(i.documento || "-")}</td><td>${escapeHtml(i.parceiro || "-")}</td><td>${escapeHtml(i.historico || "-")}</td><td class="financeiro-amount financeiro-caixa-credit">${Number(i.credito || 0) ? money(i.credito) : "-"}</td><td class="financeiro-amount financeiro-caixa-debit">${Number(i.debito || 0) ? money(i.debito) : "-"}</td><td class="financeiro-amount"><strong>${money(i.saldo)}</strong></td></tr>`).join(""), "Nenhum movimento no período.");
+    ativarAbaCaixa(state.caixa.tab);
+    setStatusText(`${registros.length} movimento(s) no caixa • saldo ${money(data.saldo_final || 0)}.`);
   }
+
 
   async function carregarCategorias() {
     const items = await request("/api/financeiro/categorias");
@@ -1414,7 +1915,7 @@
     setKPI("contas-saldo", money(soma(items, i => i.saldo_atual ?? i.saldo_inicial)));
     setKPI("contas-ativas", `${items.filter(i => i.ativo).length}`);
     setKPI("contas-inativas", `${items.filter(i => !i.ativo).length}`);
-    setTable("tbody-contas", 7, items.map(i => `<tr><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(i.banco || "-")}</td><td>${escapeHtml(i.agencia || "-")}</td><td>${escapeHtml(i.conta || "-")}</td><td class="financeiro-amount" title="Saldo inicial: ${money(i.saldo_inicial)} em ${dateBR(i.data_saldo_inicial)}">${money(i.saldo_atual ?? i.saldo_inicial)}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "conta")}</td></tr>`).join(""), "Nenhuma conta cadastrada.");
+    setTable("tbody-contas", 10, items.map(i => `<tr><td>${dateBR(i.data_cadastro)}</td><td><strong>${escapeHtml(i.nome)}</strong></td><td>${escapeHtml(i.banco || "-")}</td><td>${escapeHtml(i.agencia || "-")}</td><td>${escapeHtml(i.conta || "-")}</td><td>${escapeHtml(i.nome_agencia || "-")}</td><td>${escapeHtml(i.telefone || "-")}</td><td class="financeiro-amount" title="Saldo inicial: ${money(i.saldo_inicial)} em ${dateBR(i.data_saldo_inicial)}">${money(i.saldo_atual ?? i.saldo_inicial)}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "conta")}</td></tr>`).join(""), "Nenhuma conta cadastrada.");
     setStatusText(`${items.length} conta(s).`);
   }
 
@@ -1423,9 +1924,9 @@
       { tipo: "tipo-documento", endpoint: ENDPOINTS["tipo-documento"], tbody: "tbody-tipos-documento", cols: 6, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.aplicacao)}</td><td>${i.exige_entidade_emissora ? "Sim" : "Não"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "tipo-documento")}</td></tr>` },
       { tipo: "natureza", endpoint: ENDPOINTS.natureza, tbody: "tbody-naturezas", cols: 5, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.aplicacao)}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "natureza")}</td></tr>` },
       { tipo: "tipo-gasto", endpoint: ENDPOINTS["tipo-gasto"], tbody: "tbody-tipos-gasto", cols: 4, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "tipo-gasto")}</td></tr>` },
-      { tipo: "centro-custo", endpoint: ENDPOINTS["centro-custo"], tbody: "tbody-centros-custo", cols: 5, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(i.centro_pai_nome || "Principal")}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "centro-custo")}</td></tr>` },
+      { tipo: "centro-custo", endpoint: ENDPOINTS["centro-custo"], tbody: "tbody-centros-custo", cols: 5, row: i => `<tr class="financeiro-tree-row nivel-${Number(i.nivel || 0)}"><td>${escapeHtml(i.codigo || "-")}</td><td><span class="financeiro-tree-name" style="--tree-level:${Number(i.nivel || 0)}">${Number(i.nivel || 0) ? '<i class="fa-solid fa-turn-up fa-rotate-90"></i>' : '<i class="fa-regular fa-folder"></i>'}${escapeHtml(i.nome)}</span></td><td>${escapeHtml(i.centro_pai_nome || "Principal")}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "centro-custo")}</td></tr>` },
       { tipo: "unidade-consumo", endpoint: ENDPOINTS["unidade-consumo"], tbody: "tbody-unidades-consumo", cols: 7, row: i => `<tr><td>${escapeHtml(i.codigo || "-")}</td><td><strong>${escapeHtml(i.identificacao_uc || i.nome)}</strong>${i.referencia_detalhe ? `<small class="financeiro-table-subtext">${escapeHtml(i.referencia_detalhe)}</small>` : ""}</td><td>${escapeHtml(String(i.tipo_referencia || "outro").replaceAll("_", " "))}</td><td>${escapeHtml(i.referencia_origem || "Cadastro manual")}${i.referencia_ativa === false ? `<small class="financeiro-reference-warning"><i class="fa-solid fa-triangle-exclamation"></i> Vínculo pendente</small>` : ""}</td><td>${escapeHtml(i.unidade_pai_nome || "Principal")}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "unidade-consumo")}</td></tr>` },
-      { tipo: "conta-contabil", endpoint: ENDPOINTS["conta-contabil"], tbody: "tbody-contas-contabeis", cols: 7, row: i => `<tr><td>${escapeHtml(i.codigo)}</td><td>${escapeHtml(i.nome)}</td><td>${pill(i.tipo)}</td><td>${escapeHtml(i.conta_pai_nome || "Raiz")}</td><td>${i.aceita_lancamento ? "Sim" : "Não"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "conta-contabil")}</td></tr>` },
+      { tipo: "conta-contabil", endpoint: ENDPOINTS["conta-contabil"], tbody: "tbody-contas-contabeis", cols: 7, row: i => `<tr class="financeiro-tree-row nivel-${Number(i.nivel || 0)}"><td>${escapeHtml(i.codigo)}</td><td><span class="financeiro-tree-name" style="--tree-level:${Number(i.nivel || 0)}">${i.aceita_lancamento ? '<i class="fa-regular fa-file-lines"></i>' : '<i class="fa-regular fa-folder"></i>'}${escapeHtml(i.nome)}</span></td><td>${pill(i.tipo)}</td><td>${escapeHtml(i.conta_pai_nome || "Raiz")}</td><td>${i.aceita_lancamento ? "Analítica" : "Agrupadora"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "conta-contabil")}</td></tr>` },
       { tipo: "forma-cobranca", endpoint: ENDPOINTS["forma-cobranca"], tbody: "tbody-formas-cobranca", cols: 4, row: i => `<tr><td>${escapeHtml(i.nome)}</td><td>${escapeHtml(String(i.tipo || "-").replaceAll("_", " "))}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "forma-cobranca")}</td></tr>` },
       { tipo: "regra-encargos", endpoint: ENDPOINTS["regra-encargos"], tbody: "tbody-regras-encargos", cols: 7, row: i => `<tr><td>${escapeHtml(i.nome)}</td><td>${pill(i.aplicacao)}</td><td>${i.possui_multa ? `${Number(i.indice_multa_percent || 0).toLocaleString("pt-BR")}%` : "Não"}</td><td>${i.possui_mora_diaria ? `${Number(i.indice_mora_diaria_percent || 0).toLocaleString("pt-BR")}% ao dia` : "Não"}</td><td>${i.padrao ? pill("Padrão") : "-"}</td><td>${pill(i.ativo ? "Ativo" : "Inativo")}</td><td>${acoesAuxiliar(i, "regra-encargos")}</td></tr>` },
     ];
@@ -2137,6 +2638,39 @@
     </tr>`;
   }
 
+  async function carregarConfiguracoesFinanceiras() {
+    const data = await request("/api/financeiro/estrutura-base");
+    const get = (path, fallback = 0) => path.split(".").reduce((acc, key) => acc?.[key], data) ?? fallback;
+    const setBase = (key, principal, detalhe, alertas = 0) => {
+      const card = document.querySelector(`[data-base-financeira="${key}"]`);
+      if (!card) return;
+      const main = card.querySelector("[data-base-principal]");
+      const detail = card.querySelector("[data-base-detalhe]");
+      const badge = card.querySelector("[data-base-alerta]");
+      if (main) main.textContent = principal;
+      if (detail) detail.textContent = detalhe;
+      if (badge) {
+        badge.hidden = !Number(alertas || 0);
+        badge.textContent = Number(alertas || 0) ? `${Number(alertas)} pendência(s)` : "";
+      }
+    };
+
+    setBase("contas-bancos", `${get("contas_bancos.ativas")} ativa(s)`, `${get("contas_bancos.total")} conta(s) cadastrada(s)`);
+    setBase("centros-custo", `${get("centros_custo.ativos")} ativo(s)`, `${get("centros_custo.principais")} principal(is) • ${get("centros_custo.secundarios")} secundário(s)`);
+    setBase("plano-contas", `${get("plano_contas.lancaveis")} lançável(is)`, `${get("plano_contas.total")} conta(s) • ${get("plano_contas.raizes")} raiz(es)`);
+    setBase("classificacoes", `${get("classificacoes.categorias")} categoria(s)`, `${get("classificacoes.tipos_gasto")} tipo(s) de gasto • ${get("classificacoes.naturezas")} natureza(s)`);
+
+    const pendRec = Number(get("contas_receber.sem_plano_contas")) + Number(get("contas_receber.sem_centro_custo")) + Number(get("contas_receber.sem_categoria"));
+    setBase("contas-receber", `${get("contas_receber.em_aberto")} em aberto`, `${get("contas_receber.total")} título(s) • ${get("contas_receber.vencidos")} vencido(s)`, pendRec);
+
+    const pendPag = Number(get("contas_pagar.sem_plano_contas")) + Number(get("contas_pagar.sem_centro_custo")) + Number(get("contas_pagar.sem_categoria"));
+    setBase("contas-pagar", `${get("contas_pagar.em_aberto")} em aberto`, `${get("contas_pagar.total")} título(s) • ${get("contas_pagar.vencidos")} vencido(s)`, pendPag);
+
+    const ultimo = get("fluxo_caixa.ultimo_movimento", null);
+    setBase("fluxo-caixa", `${get("fluxo_caixa.movimentacoes")} movimento(s)`, ultimo ? `Último movimento em ${dateBR(ultimo)} • ${get("fluxo_caixa.contas_movimentadas")} conta(s)` : "Ainda sem movimentações financeiras");
+    setStatusText("Base financeira mapeada.");
+  }
+
   async function carregarRelatorios() {
     const query = qs(filtros());
     const [data, documento] = await Promise.all([
@@ -2205,7 +2739,7 @@
       else if (state.page === "cobrancas") await carregarCobrancas();
       else if (state.page === "relatorios") await carregarRelatorios();
       else if (state.page === "automacao") await carregarAutomacaoCobranca();
-      else if (state.page === "configuracoes") setStatusText("Configurações prontas.");
+      else if (state.page === "configuracoes") await carregarConfiguracoesFinanceiras();
       setStatusText("Dados atualizados.");
     } catch (err) {
       console.error("[Financeiro] erro", err);
@@ -2254,6 +2788,7 @@
       if (!name) return;
       const val = data[name];
       if (el.type === "checkbox") el.checked = Boolean(val);
+      else if (el.type === "radio") el.checked = String(el.value) === String(val);
       else if (val === null || val === undefined) el.value = "";
       else if (String(name).startsWith("data_")) el.value = String(val).slice(0, 10);
       else el.value = String(val);
@@ -2265,6 +2800,7 @@
     $$('input, select, textarea', form).forEach(el => {
       if (!el.name) return;
       if (el.type === "checkbox") data[el.name] = el.checked;
+      else if (el.type === "radio") { if (el.checked) data[el.name] = el.value; }
       else data[el.name] = el.value;
     });
     return data;
@@ -2347,23 +2883,47 @@
     setTimeout(() => ativarNavegacaoModalLancamento("fin-sec-lancamento"), 30);
   }
 
+  function sincronizarCentrosBaixa(form, preservar = true) {
+    if (!form) return;
+    const principal = form.querySelector('[data-centro-baixa="principal"]');
+    const secundario = form.querySelector('[data-centro-baixa="secundario"]');
+    if (!principal || !secundario) return;
+    const atualPrincipal = preservar ? principal.value : "";
+    const atualSecundario = preservar ? secundario.value : "";
+    const centros = state.opcoes.centros_custo || [];
+    const principais = centros.filter(i => !i.centro_pai_id);
+    principal.innerHTML = '<option value="">Selecione...</option>' + principais.map(i => option(`${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`, i.id)).join("");
+    principal.value = principais.some(i => String(i.id) === String(atualPrincipal)) ? String(atualPrincipal) : "";
+    const filhos = principal.value ? centros.filter(i => String(i.centro_pai_id || "") === String(principal.value)) : [];
+    secundario.innerHTML = '<option value="">Opcional</option>' + filhos.map(i => option(`${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`, i.id)).join("");
+    secundario.value = filhos.some(i => String(i.id) === String(atualSecundario)) ? String(atualSecundario) : "";
+    secundario.disabled = !principal.value || filhos.length === 0;
+  }
+
   function abrirBaixa(item) {
     const form = $("#form-baixa");
     if (!form) return;
     state.baixaAtual = item;
+    state.baixaIdempotencyKey = novaChaveBaixa();
     form.reset();
     preencherSelects();
     const restante = Math.max(0, Number(item.valor_total || 0) - Number(item.valor_pago || 0));
     setForm(form, {
       id: item.id,
       valor_principal: formatMoneyForInput(restante, item.moeda || "BRL"),
+      modalidade_baixa: "total",
       valor_desconto: formatMoneyForInput(0, item.moeda || "BRL"),
+      valor_acrescimo: formatMoneyForInput(0, item.moeda || "BRL"),
       valor_multa: formatMoneyForInput(0, item.moeda || "BRL"),
       valor_mora: formatMoneyForInput(0, item.moeda || "BRL"),
+      encargos_automaticos: formatMoneyForInput(0, item.moeda || "BRL"),
       valor_total_baixa: formatMoneyForInput(restante, item.moeda || "BRL"),
       data_pagamento: todayISO(),
       forma_pagamento_id: item.forma_pagamento_id || "",
       conta_banco_id: item.conta_banco_id || "",
+      conta_contabil_id: item.conta_contabil_id || "",
+      centro_custo_principal_id: item.centro_custo_principal_id || "",
+      centro_custo_secundario_id: item.centro_custo_secundario_id || "",
       reparcelar_saldo: "false",
       reparcelamento_saldo: formatMoneyForInput(0, item.moeda || "BRL"),
       reparcelamento_parcelas: "2",
@@ -2371,6 +2931,7 @@
       reparcelamento_intervalo_meses: "1",
       observacoes: "",
     });
+    sincronizarCentrosBaixa(form, true);
     const resumo = $("#financeiro-baixa-resumo", form);
     if (resumo) resumo.innerHTML = `
       <div><span>Valor principal</span><strong>${money(item.valor_total, item.moeda)}</strong></div>
@@ -2400,6 +2961,7 @@
     if (totalLabel) totalLabel.textContent = ehPagamento ? "Total a debitar" : "Total a creditar";
     if (comprovanteLabel) comprovanteLabel.textContent = ehPagamento ? "Comprovante de pagamento (PDF, até 10 MB)" : "Comprovante de recebimento (PDF, até 10 MB)";
     abrirModal("#modal-baixa");
+    atualizarModalidadeBaixa();
     atualizarReparcelamentoBaixa();
     atualizarCalculoBaixa();
   }
@@ -2438,6 +3000,7 @@
       possui_mora_diaria: data.possui_mora_diaria === "true",
       indice_mora_diaria_percent: moneyToBackend(data.indice_mora_diaria_percent || 0),
       documento: data.documento || null,
+      nosso_numero: data.nosso_numero || null,
       observacoes: data.observacoes || null,
       contato_cobranca: data.contato_cobranca || null,
       email_cobranca: data.email_cobranca || null,
@@ -2569,7 +3132,7 @@
     } else if (tipo === "forma") {
       body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo</label><input name="tipo" placeholder="pix, boleto, cartão..."></div>${status}</div>`;
     } else if (tipo === "conta") {
-      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Banco</label><input name="banco"></div><div class="financeiro-field"><label>Agência</label><input name="agencia"></div><div class="financeiro-field"><label>Conta</label><input name="conta"></div><div class="financeiro-field"><label>Saldo inicial</label><input name="saldo_inicial" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off" placeholder="R$ 0,00"></div><div class="financeiro-field"><label>Data do saldo inicial</label><input name="data_saldo_inicial" type="date" value="${todayISO()}" required></div>${status}</div>`;
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Data do cadastro</label><input name="data_cadastro" type="date" value="${todayISO()}" required></div><div class="financeiro-field"><label>Nome / identificação</label><input name="nome" required placeholder="Ex.: Banco Cora - Conta principal"></div><div class="financeiro-field"><label>Banco</label><input name="banco"></div><div class="financeiro-field"><label>Agência</label><input name="agencia"></div><div class="financeiro-field"><label>Conta corrente</label><input name="conta"></div><div class="financeiro-field"><label>Nome da agência</label><input name="nome_agencia"></div><div class="financeiro-field"><label>Fone</label><input name="telefone" inputmode="tel"></div><div class="financeiro-field"><label>Saldo inicial</label><input name="saldo_inicial" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off" placeholder="R$ 0,00"></div><div class="financeiro-field"><label>Data do saldo inicial</label><input name="data_saldo_inicial" type="date" value="${todayISO()}" required></div>${status}</div>`;
     } else if (tipo === "tipo-documento") {
       body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div>${aplicacao}<div class="financeiro-field"><label>Exige banco/entidade emissora?</label><select name="exige_entidade_emissora"><option value="false">Não</option><option value="true">Sim</option></select></div>${status}</div>`;
     } else if (tipo === "natureza") {
@@ -2578,7 +3141,7 @@
       body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40" placeholder="Ex.: CUSTO"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required placeholder="Ex.: Custo, Despesa, Investimento"></div>${status}</div>`;
     } else if (tipo === "centro-custo") {
       const centrosCarregados = state.auxItems.filter(i => i._auxType === "centro-custo");
-      const pais = (centrosCarregados.length ? centrosCarregados : (state.opcoes.centros_custo || [])).filter(i => Number(i.id) !== Number(item?.id));
+      const pais = (centrosCarregados.length ? centrosCarregados : (state.opcoes.centros_custo || [])).filter(i => Number(i.id) !== Number(item?.id) && !i.centro_pai_id);
       body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" maxlength="40"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Centro principal/pai</label><select name="centro_pai_id"><option value="">Nenhum — centro principal</option>${pais.map(i => option(`${i.codigo ? `${i.codigo} - ` : ""}${i.nome}`, i.id)).join("")}</select></div>${status}</div>`;
     } else if (tipo === "unidade-consumo") {
       const unidadesCarregadas = state.auxItems.filter(i => i._auxType === "unidade-consumo");
@@ -2595,7 +3158,7 @@
     } else if (tipo === "conta-contabil") {
       const contasCarregadas = state.auxItems.filter(i => i._auxType === "conta-contabil");
       const pais = (contasCarregadas.length ? contasCarregadas : (state.opcoes.contas_contabeis || [])).filter(i => Number(i.id) !== Number(item?.id));
-      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" required maxlength="60" placeholder="Ex.: 3.1.01"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo</label><select name="tipo"><option value="ativo">Ativo</option><option value="passivo">Passivo</option><option value="receita">Receita</option><option value="despesa">Despesa</option><option value="patrimonio">Patrimônio</option><option value="outros">Outros</option></select></div><div class="financeiro-field"><label>Conta pai</label><select name="conta_pai_id"><option value="">Nenhuma — conta raiz</option>${pais.map(i => option(`${i.codigo} - ${i.nome}`, i.id)).join("")}</select></div><div class="financeiro-field"><label>Aceita lançamentos?</label><select name="aceita_lancamento"><option value="true">Sim</option><option value="false">Não, apenas agrupadora</option></select></div>${status}</div>`;
+      body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Código</label><input name="codigo" required maxlength="60" placeholder="Ex.: 3.1.01"></div><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo</label><select name="tipo"><option value="ativo">Ativo</option><option value="passivo">Passivo</option><option value="receita">Receita</option><option value="despesa">Despesa</option><option value="patrimonio">Patrimônio</option><option value="outros">Outros</option></select></div><div class="financeiro-field"><label>Conta pai</label><select name="conta_pai_id"><option value="">Nenhuma — conta raiz</option>${pais.map(i => option(`${'  '.repeat(Math.max(0, Number(i.nivel || 0)))}${i.codigo} - ${i.nome}`, i.id)).join("")}</select></div><div class="financeiro-field"><label>Aceita lançamentos?</label><select name="aceita_lancamento"><option value="true">Sim</option><option value="false">Não, apenas agrupadora</option></select></div>${status}</div>`;
     } else if (tipo === "forma-cobranca") {
       body.innerHTML = `<div class="financeiro-form-grid cols-2"><div class="financeiro-field"><label>Nome</label><input name="nome" required></div><div class="financeiro-field"><label>Tipo</label><select name="tipo"><option value="carteira">Em carteira/recibo</option><option value="pix">PIX</option><option value="promissoria">Promissória</option><option value="boleto">Boleto</option><option value="cartao_credito">Cartão de crédito</option><option value="debito_conta">Débito em conta</option><option value="deposito">Depósito</option><option value="outro">Outro</option></select></div>${status}</div>`;
     } else if (tipo === "regra-encargos") {
@@ -2616,10 +3179,12 @@
       const activeKey = configuracaoPages.has(state.page) ? "configuracoes" : state.page;
       const items = [
         ["dashboard", "/financeiro", "fa-regular fa-clipboard", "Visão geral"],
+        ["acompanhamento", "/acompanhamento-financeiro", "fa-solid fa-chart-line", "Acompanhamento"],
         ["receber", "/contas-receber", "fa-regular fa-calendar-check", "Contas a receber"],
         ["pagar", "/contas-pagar", "fa-regular fa-file-lines", "Contas a pagar"],
         ["cobrancas", "/cobrancas-financeiro", "fa-regular fa-bell", "Cobranças"],
         ["fluxo", "/fluxo-caixa", "fa-solid fa-wave-square", "Fluxo de caixa"],
+        ["movimento-bancario", "/movimento-bancario", "fa-solid fa-building-columns", "Movimento bancário"],
         ["relatorios", "/relatorios-financeiros", "fa-regular fa-chart-bar", "Relatórios"],
         ["configuracoes", "/configuracoes-financeiras", "fa-solid fa-gear", "Configurações"],
       ];
@@ -2664,7 +3229,7 @@
             <div class="financeiro-field"><label>Entidade emissora</label><select name="entidade_emissora_id" data-select="entidades-emissoras"><option value="">Selecione banco/conta...</option></select></div>
             <div class="financeiro-field"><label>Centro de custo principal</label><select name="centro_custo_principal_id" data-select="centros-custo"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label>Centro de custo secundário</label><select name="centro_custo_secundario_id" data-select="centros-custo"><option value="">Selecione...</option></select></div>
-            <div class="financeiro-field"><label>Conta contábil</label><select name="conta_contabil_id" data-select="contas-contabeis"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Plano de Contas</label><select name="conta_contabil_id" data-select="contas-contabeis"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label>Unidade de consumo principal</label><select name="unidade_consumo_principal_id" data-select="unidades-consumo"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label>Unidade de consumo secundária</label><select name="unidade_consumo_secundaria_id" data-select="unidades-consumo"><option value="">Selecione...</option></select></div>
             <div class="financeiro-field"><label>Forma de cobrança</label><select name="forma_cobranca_id" data-select="formas-cobranca"><option value="">Selecione...</option></select></div>
@@ -2690,6 +3255,8 @@
             <div class="financeiro-field"><label>E-mail de cobrança</label><input name="email_cobranca" type="email" maxlength="255" placeholder="financeiro@cliente.com"></div>
             <div class="financeiro-field"><label>WhatsApp de cobrança</label><input name="whatsapp_cobranca" maxlength="40" placeholder="(00) 00000-0000"></div>
             <div class="financeiro-field"><label>Modalidade cadastrada</label><input name="modalidade_pagamento" maxlength="120" placeholder="PIX, boleto, carteira..."></div>
+            <div class="financeiro-field"><label>Nosso número</label><input name="nosso_numero" maxlength="100" placeholder="Número bancário do título"></div>
+            <div class="financeiro-field"><label>Parceiro / Comercial</label><input data-parceiro-comercial readonly placeholder="Vem do cadastro do cliente"></div>
             <div class="financeiro-field"><label>Nota fiscal nº</label><input name="nota_fiscal_numero" maxlength="80" placeholder="Uso de registro"></div>
             <div class="financeiro-field"><label>Data de emissão da NF</label><input name="nota_fiscal_data_emissao" type="date"></div>
           </div>`;
@@ -2743,16 +3310,26 @@
       if (modalBody) {
         modalBody.innerHTML = `
           <input type="hidden" name="id">
+          <input type="hidden" name="valor_multa" value="0">
+          <input type="hidden" name="valor_mora" value="0">
           <div class="financeiro-baixa-resumo" id="financeiro-baixa-resumo"></div>
+          <div class="financeiro-baixa-mode" role="group" aria-label="Tipo de baixa">
+            <label><input type="radio" name="modalidade_baixa" value="total" checked><span><strong>Baixa total</strong><small>Quita todo o saldo do título.</small></span></label>
+            <label><input type="radio" name="modalidade_baixa" value="parcial"><span><strong>Baixa parcial</strong><small>Recebe somente parte e mantém saldo aberto.</small></span></label>
+          </div>
           <div class="financeiro-form-grid cols-2 financeiro-baixa-grid">
-            <div class="financeiro-field"><label>Principal desta baixa</label><input name="valor_principal" class="financeiro-money-input" data-money-input required inputmode="decimal" autocomplete="off"></div>
             <div class="financeiro-field"><label>Data do pagamento</label><input name="data_pagamento" type="date" required></div>
+            <div class="financeiro-field"><label>Valor principal da baixa</label><input name="valor_principal" class="financeiro-money-input" data-money-input required inputmode="decimal" autocomplete="off"></div>
             <div class="financeiro-field"><label>Desconto</label><input name="valor_desconto" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off"></div>
-            <div class="financeiro-field"><label>Multa</label><input name="valor_multa" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off"></div>
-            <div class="financeiro-field"><label>Mora diária acumulada</label><input name="valor_mora" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off"></div>
-            <div class="financeiro-field financeiro-total-baixa"><label>Total a debitar</label><input name="valor_total_baixa" class="financeiro-money-input" readonly aria-readonly="true"></div>
-            <div class="financeiro-field"><label>Forma de pagamento</label><select name="forma_pagamento_id" data-select="formas"><option value="">Selecione...</option></select></div>
-            <div class="financeiro-field"><label data-baixa-conta-label>Conta a debitar</label><select name="conta_banco_id" data-select="contas"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Acréscimo</label><input name="valor_acrescimo" class="financeiro-money-input" data-money-input inputmode="decimal" autocomplete="off"></div>
+            <div class="financeiro-field"><label>Encargos automáticos</label><input name="encargos_automaticos" class="financeiro-money-input" readonly aria-readonly="true"><small>Multa e mora, quando configuradas no título.</small></div>
+            <div class="financeiro-field financeiro-total-baixa"><label>Valor pago</label><input name="valor_total_baixa" class="financeiro-money-input" readonly aria-readonly="true"></div>
+            <div class="financeiro-field"><label>Forma de recebimento</label><select name="forma_pagamento_id" data-select="formas"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label data-baixa-conta-label>Conta Corrente / Banco</label><select name="conta_banco_id" data-select="contas"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field full financeiro-baixa-classificacao-title"><strong>Classificação do movimento</strong><span>Esses dados ficam registrados junto da baixa.</span></div>
+            <div class="financeiro-field"><label>Plano de Contas</label><select name="conta_contabil_id" data-select="contas-contabeis"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Centro de Custo principal</label><select name="centro_custo_principal_id" data-select="centros-custo" data-centro-baixa="principal"><option value="">Selecione...</option></select></div>
+            <div class="financeiro-field"><label>Centro de Custo secundário</label><select name="centro_custo_secundario_id" data-select="centros-custo" data-centro-baixa="secundario"><option value="">Opcional</option></select></div>
             <section class="financeiro-reparcelamento-box full" data-reparcelamento-box hidden>
               <div class="financeiro-reparcelamento-head">
                 <div><strong>Parcelar o saldo restante?</strong><span>Use quando parte da conta for paga agora e o saldo precisar virar novas parcelas.</span></div>
@@ -2766,10 +3343,10 @@
               </div>
               <div class="financeiro-reparcelamento-info" data-reparcelamento-info>Não. O saldo que não for pago continuará aberto nesta mesma conta.</div>
             </section>
-            <div class="financeiro-field full"><label>Comprovante de pagamento (PDF, até 10 MB)</label><input name="comprovante" type="file" accept="application/pdf,.pdf"><small>O pagamento é salvo primeiro e o comprovante fica vinculado à movimentação.</small></div>
-            <div class="financeiro-field full"><label>Observação da baixa</label><textarea name="observacoes" rows="2" placeholder="Opcional"></textarea></div>
+            <div class="financeiro-field full"><label>Histórico</label><textarea name="observacoes" rows="3" maxlength="1000" placeholder="Ex.: Recebido via PIX, referente à parcela 02/06"></textarea></div>
+            <div class="financeiro-field full"><label>Comprovante (PDF, até 10 MB)</label><input name="comprovante" type="file" accept="application/pdf,.pdf"><small>Opcional. O arquivo fica vinculado à baixa.</small></div>
           </div>
-          <div class="financeiro-baixa-regra" data-baixa-regra>Multa e mora serão calculadas conforme a data e o principal desta baixa.</div>`;
+          <div class="financeiro-baixa-regra" data-baixa-regra>Encargos serão calculados conforme a data do recebimento e as regras do título.</div>`;
       }
     }
 
@@ -2790,6 +3367,70 @@
       });
       $$("[data-close-modal]", $("#modal-historico-financeiro")).forEach(btn => btn.addEventListener("click", fecharModais));
     }
+
+    if (!$("#modal-estorno-baixa")) {
+      document.body.insertAdjacentHTML("beforeend", `
+        <div class="financeiro-modal-backdrop" id="modal-estorno-baixa" aria-hidden="true">
+          <div class="financeiro-modal sm financeiro-modal-estorno">
+            <form id="form-estorno-baixa">
+              <input type="hidden" name="movimentacao_id">
+              <input type="hidden" name="lancamento_id">
+              <div class="financeiro-modal-head">
+                <div class="financeiro-modal-title"><h3>Estornar recebimento</h3><p>O movimento original será preservado e o saldo será reaberto.</p></div>
+                <button class="financeiro-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
+              </div>
+              <div class="financeiro-modal-body">
+                <div class="financeiro-alert warn"><i class="fa-solid fa-triangle-exclamation"></i><span>O estorno não apaga a baixa. Ele cria um movimento inverso para manter a auditoria financeira.</span></div>
+                <div class="financeiro-form-grid cols-1">
+                  <div class="financeiro-field"><label>Data do estorno</label><input name="data_estorno" type="date" required></div>
+                  <div class="financeiro-field"><label>Motivo do estorno</label><textarea name="motivo" rows="4" maxlength="1000" required placeholder="Explique por que este recebimento está sendo estornado"></textarea></div>
+                </div>
+              </div>
+              <div class="financeiro-modal-foot"><button class="btn btn-secondary" type="button" data-close-modal>Voltar</button><button class="btn btn-danger" type="submit"><i class="fa-solid fa-rotate-left"></i> Confirmar estorno</button></div>
+            </form>
+          </div>
+        </div>`);
+      $("#modal-estorno-baixa")?.addEventListener("click", ev => { if (ev.target.id === "modal-estorno-baixa") fecharModais(); });
+      $$("[data-close-modal]", $("#modal-estorno-baixa")).forEach(btn => btn.addEventListener("click", fecharModais));
+      $("#form-estorno-baixa")?.addEventListener("submit", salvarEstornoBaixa);
+    }
+  }
+
+  function abrirEstornoMovimentacao(movimentacaoId, lancamentoId) {
+    prepararInterfaceFinanceiro();
+    state.estornoAtual = { movimentacaoId: Number(movimentacaoId), lancamentoId: Number(lancamentoId) };
+    const form = $("#form-estorno-baixa");
+    if (!form) return;
+    form.reset();
+    const idInput = form.querySelector('[name="movimentacao_id"]');
+    const lancInput = form.querySelector('[name="lancamento_id"]');
+    const dataInput = form.querySelector('[name="data_estorno"]');
+    if (idInput) idInput.value = String(movimentacaoId);
+    if (lancInput) lancInput.value = String(lancamentoId);
+    if (dataInput) dataInput.value = todayISO();
+    abrirModal("#modal-estorno-baixa");
+  }
+
+  async function salvarEstornoBaixa(ev) {
+    ev.preventDefault();
+    const form = ev.currentTarget;
+    const data = getForm(form);
+    const motivo = String(data.motivo || "").trim();
+    if (!motivo) return alertBox("Informe o motivo do estorno.", "danger");
+    try {
+      await request(`/api/financeiro/movimentacoes/${data.movimentacao_id}/estornar`, {
+        method: "PATCH",
+        body: { motivo, data_estorno: data.data_estorno || null },
+      });
+      const lancamentoId = Number(data.lancamento_id || state.estornoAtual?.lancamentoId || 0);
+      fecharModais();
+      state.estornoAtual = null;
+      alertBox("Estorno registrado. O saldo do título foi reaberto conforme a baixa estornada.", "ok");
+      await recarregar();
+      if (lancamentoId) await abrirHistorico(lancamentoId);
+    } catch (err) {
+      alertBox(`Erro ao estornar: ${err.message}`, "danger");
+    }
   }
 
   function renderHistorico(data) {
@@ -2808,6 +3449,7 @@
       const podeEstornar = !estorno && !m.estornada && !m.reparcelamento_ativo;
       const principal = Number(m.valor_principal || m.valor || 0);
       const desconto = Number(m.valor_desconto || 0);
+      const acrescimo = Number(m.valor_acrescimo || 0);
       const multa = Number(m.valor_multa || 0);
       const mora = Number(m.valor_mora || 0);
       const comprovante = m.comprovante_url
@@ -2816,16 +3458,19 @@
       return `<div class="financeiro-history-item ${estorno ? "is-estorno" : ""}">
         <div class="financeiro-history-icon"><i class="fa-solid ${estorno ? "fa-rotate-left" : "fa-check"}"></i></div>
         <div class="financeiro-history-main">
-          <div class="financeiro-history-title"><strong>${estorno ? "Estorno" : (lancamento.tipo === "pagar" ? "Pagamento" : "Recebimento")}</strong><span>${money(m.valor, lancamento.moeda)}</span></div>
+          <div class="financeiro-history-title"><strong>${estorno ? "Estorno" : (lancamento.tipo === "pagar" ? "Pagamento" : "Recebimento")}${!estorno && m.modalidade_baixa ? ` • ${escapeHtml(m.modalidade_baixa === "parcial" ? "Parcial" : "Total")}` : ""}</strong><span>${money(m.valor, lancamento.moeda)}</span></div>
           <div class="financeiro-history-meta">${dateBR(m.data_movimentacao)} • ${escapeHtml(m.usuario_nome || "Usuário não identificado")} • ${escapeHtml(m.conta_banco_nome || "Sem conta/banco")} • ${Number(m.dias_atraso || 0)} dia(s) de atraso</div>
+          <div class="financeiro-history-classificacao"><span><b>Plano:</b> ${escapeHtml([m.conta_contabil_codigo, m.conta_contabil_nome].filter(Boolean).join(" - ") || "Não informado")}</span><span><b>Centro:</b> ${escapeHtml([m.centro_custo_principal_nome, m.centro_custo_secundario_nome].filter(Boolean).join(" › ") || "Não informado")}</span></div>
           <div class="financeiro-history-breakdown">
             <span>Principal <strong>${money(principal, lancamento.moeda)}</strong></span>
             <span>Desconto <strong>${money(desconto, lancamento.moeda)}</strong></span>
+            <span>Acréscimo <strong>${money(acrescimo, lancamento.moeda)}</strong></span>
             <span>Multa <strong>${money(multa, lancamento.moeda)}</strong></span>
             <span>Mora <strong>${money(mora, lancamento.moeda)}</strong></span>
           </div>
           ${m.observacoes ? `<div class="financeiro-history-note">${escapeHtml(m.observacoes)}</div>` : ""}
           ${comprovante}
+          ${m.efeito_caixa ? `<span class="financeiro-history-status">${m.efeito_caixa === "credito" ? "Crédito no caixa/conta" : "Débito no caixa/conta"}</span>` : ""}
           ${m.estornada ? '<span class="financeiro-history-status">Estornada</span>' : ""}
           ${m.reparcelamento_ativo ? '<span class="financeiro-history-status">Baixa vinculada a reparcelamento</span>' : ""}
         </div>
@@ -2954,16 +3599,23 @@
         return alertBox("O comprovante deve ter no máximo 10 MB.", "danger");
       }
     }
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (!state.baixaIdempotencyKey) state.baixaIdempotencyKey = novaChaveBaixa();
+    if (submitBtn) submitBtn.disabled = true;
     try {
       const resultado = await request(`/api/financeiro/lancamentos/${data.id}/baixar`, { method: "PATCH", body: {
+        idempotency_key: state.baixaIdempotencyKey,
         valor_principal: moneyToBackend(data.valor_principal),
         valor_desconto: moneyToBackend(data.valor_desconto || 0),
-        valor_multa: moneyToBackend(data.valor_multa || 0),
-        valor_mora: moneyToBackend(data.valor_mora || 0),
-        usar_calculo_automatico: false,
+        valor_acrescimo: moneyToBackend(data.valor_acrescimo || 0),
+        modalidade_baixa: data.modalidade_baixa || "total",
+        usar_calculo_automatico: true,
         data_pagamento: data.data_pagamento,
         forma_pagamento_id: nullNumber(data.forma_pagamento_id),
         conta_banco_id: nullNumber(data.conta_banco_id),
+        conta_contabil_id: nullNumber(data.conta_contabil_id),
+        centro_custo_principal_id: nullNumber(data.centro_custo_principal_id),
+        centro_custo_secundario_id: nullNumber(data.centro_custo_secundario_id),
         observacoes: data.observacoes || null,
         reparcelar_saldo: data.reparcelar_saldo === "true",
         reparcelamento_parcelas: data.reparcelar_saldo === "true" ? nullNumber(data.reparcelamento_parcelas) : null,
@@ -2988,6 +3640,7 @@
       const rep = resultado?.reparcelamento;
       fecharModais();
       state.baixaAtual = null;
+      state.baixaIdempotencyKey = null;
       if (comprovanteErro) {
         const base = rep
           ? `${nomeAcao} registrado e saldo de ${money(rep.saldo_reparcelado, moedaBaixa)} reparcelado em ${rep.quantidade_parcelas} parcelas, mas o comprovante não foi anexado`
@@ -3000,7 +3653,11 @@
       }
       await recarregar();
     } catch (err) {
+      // Em erro de rede mantemos a mesma chave. Se o servidor já tiver gravado
+      // a baixa, a retentativa retorna a movimentação original em vez de duplicar.
       alertBox(`Erro ao baixar: ${err.message}`, "danger");
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
   }
 
@@ -3052,16 +3709,41 @@
     const item = state.items.find(i => Number(i.id) === id) || state.auxItems.find(i => Number(i.id) === id && (!tipoAux || i._auxType === tipoAux));
 
     try {
+      if (action === "editar-caixa") {
+        const movimento = state.caixa.registros.find(i => i.origem === "manual" && Number(i.id) === id);
+        if (movimento) abrirEdicaoCaixa(movimento);
+        return;
+      }
+      if (action === "cancelar-caixa") {
+        const movimento = state.caixa.registros.find(i => i.origem === "manual" && Number(i.id) === id);
+        if (!movimento) return;
+        const motivo = prompt("Informe o motivo do cancelamento do movimento:");
+        if (!motivo?.trim()) return;
+        await request(`/api/financeiro/caixa/movimentos/${id}/cancelar`, { method: "PATCH", body: { motivo: motivo.trim() } });
+        alertBox("Movimento de caixa cancelado.", "ok");
+        await carregarFluxo();
+        return;
+      }
+      if (action === "detalhes-receber" && item) { selecionarReceber(item.id, true); return; }
+      if (action === "detalhes-pagar" && item) { selecionarPagar(item.id, true); return; }
+      if (action === "boleto-titulo") { await abrirBoleto(id); return; }
+      if (action === "boleto-emitir") { await operarBoleto("emitir"); return; }
+      if (action === "boleto-atualizar") { await operarBoleto("atualizar"); return; }
+      if (action === "boleto-conciliar") { await operarBoleto("conciliar"); return; }
+      if (action === "conciliar-boleto") { await abrirBoleto(id); return; }
+      if (action === "boleto-copiar-linha") { await copiarTextoBoleto(state.boletoAtual?.cobranca?.identification_field, "Linha digitável"); return; }
+      if (action === "boleto-copiar-pix") { await copiarTextoBoleto(state.boletoAtual?.cobranca?.pix_payload, "Pix"); return; }
+      if (action === "copiar-conciliacao-linha" || action === "copiar-conciliacao-pix") {
+        const linha = state.receberConciliacao.find(i => Number(i.lancamento_id) === id);
+        await copiarTextoBoleto(action.endsWith("pix") ? linha?.pix_payload : linha?.identification_field, action.endsWith("pix") ? "Pix" : "Linha digitável");
+        return;
+      }
       if (action === "editar-lancamento" && item) abrirLancamento(item.tipo, item);
       if (action === "baixar-lancamento" && item) abrirBaixa(item);
       if (action === "historico-lancamento") await abrirHistorico(id);
       if (action === "estornar-movimentacao") {
-        const motivo = prompt("Informe o motivo do estorno:");
-        if (!motivo?.trim()) return;
-        await request(`/api/financeiro/movimentacoes/${id}/estornar`, { method: "PATCH", body: { motivo: motivo.trim() } });
-        alertBox("Estorno registrado com sucesso.", "ok");
-        await recarregar();
-        await abrirHistorico(Number(btn.dataset.lancamentoId));
+        abrirEstornoMovimentacao(id, Number(btn.dataset.lancamentoId));
+        return;
       }
       if (action === "cancelar-lancamento") {
         const motivo = prompt("Informe o motivo do cancelamento:");
@@ -3171,6 +3853,32 @@
   function bind() {
     prepararInterfaceFinanceiro();
     prepararLookupsEnvolvidos();
+    if (state.page === "receber") {
+      const status = $("#filtro-status");
+      if (status && !status.value) status.value = "aberto";
+      const inicio = $("#filtro-data-inicio");
+      const fim = $("#filtro-data-fim");
+      if (inicio && !inicio.value) inicio.value = monthStartISO();
+      if (fim && !fim.value) fim.value = todayISO();
+    }
+    if (state.page === "pagar") {
+      const status = $("#filtro-status");
+      if (status && !status.value) status.value = "aberto";
+      const periodo = $("#filtro-periodo-por");
+      if (periodo && !periodo.value) periodo.value = "vencimento";
+      const inicio = $("#filtro-data-inicio");
+      const fim = $("#filtro-data-fim");
+      if (inicio && !inicio.value) inicio.value = monthStartISO();
+      if (fim && !fim.value) fim.value = todayISO();
+      $$('[data-pagar-status]').forEach(btn => btn.classList.toggle("is-active", btn.dataset.pagarStatus === (status?.value || "aberto")));
+    }
+    if (state.page === "fluxo") {
+      const inicio = $("#filtro-data-inicio");
+      const fim = $("#filtro-data-fim");
+      if (inicio && !inicio.value) inicio.value = monthStartISO();
+      if (fim && !fim.value) fim.value = todayISO();
+      resetarEdicaoCaixa();
+    }
     if (state.page === "relatorios") {
       const inicio = $("#filtro-data-inicio");
       const fim = $("#filtro-data-fim");
@@ -3198,7 +3906,26 @@
     $("#btn-toggle-filtros")?.addEventListener("click", () => $("#financeiro-filtros")?.classList.toggle("is-open"));
     $("#btn-aplicar-filtros")?.addEventListener("click", recarregar);
     $("#btn-limpar-filtros")?.addEventListener("click", () => {
-      ["#filtro-busca", "#filtro-status", "#filtro-data-inicio", "#filtro-data-fim", "#filtro-cliente", "#filtro-fornecedor", "#filtro-forma-cobranca", "#filtro-forma-pagamento", "#filtro-categoria"].forEach(sel => { const el = $(sel); if (el) el.value = ""; });
+      ["#filtro-busca", "#filtro-status", "#filtro-data-inicio", "#filtro-data-fim", "#filtro-cliente", "#filtro-fornecedor", "#filtro-forma-cobranca", "#filtro-forma-pagamento", "#filtro-categoria", "#filtro-documento", "#filtro-periodo-por", "#filtro-conta-contabil", "#filtro-centro-custo", "#filtro-caixa-conta"].forEach(sel => { const el = $(sel); if (el) el.value = ""; });
+      if (state.page === "receber") {
+        if ($("#filtro-status")) $("#filtro-status").value = "aberto";
+        if ($("#filtro-periodo-por")) $("#filtro-periodo-por").value = "vencimento";
+        if ($("#filtro-data-inicio")) $("#filtro-data-inicio").value = monthStartISO();
+        if ($("#filtro-data-fim")) $("#filtro-data-fim").value = todayISO();
+        $$('[data-receber-status]').forEach(btn => btn.classList.toggle("is-active", btn.dataset.receberStatus === "aberto"));
+      }
+      if (state.page === "pagar") {
+        if ($("#filtro-status")) $("#filtro-status").value = "aberto";
+        if ($("#filtro-periodo-por")) $("#filtro-periodo-por").value = "vencimento";
+        if ($("#filtro-data-inicio")) $("#filtro-data-inicio").value = monthStartISO();
+        if ($("#filtro-data-fim")) $("#filtro-data-fim").value = todayISO();
+        $$('[data-pagar-status]').forEach(btn => btn.classList.toggle("is-active", btn.dataset.pagarStatus === "aberto"));
+      }
+      if (state.page === "fluxo") {
+        if ($("#filtro-data-inicio")) $("#filtro-data-inicio").value = monthStartISO();
+        if ($("#filtro-data-fim")) $("#filtro-data-fim").value = todayISO();
+        if ($("#filtro-caixa-conta")) $("#filtro-caixa-conta").value = "";
+      }
       if (state.page === "relatorios") {
         const inicio = $("#filtro-data-inicio");
         const fim = $("#filtro-data-fim");
@@ -3208,6 +3935,39 @@
       recarregar();
     });
     $("#btn-exportar-financeiro")?.addEventListener("click", exportarTabela);
+    $$('[data-receber-tab]').forEach(btn => btn.addEventListener("click", () => ativarAbaReceber(btn.dataset.receberTab)));
+    $$('[data-pagar-tab]').forEach(btn => btn.addEventListener("click", () => ativarAbaPagar(btn.dataset.pagarTab)));
+    $$('[data-pagar-status]').forEach(btn => btn.addEventListener("click", async () => {
+      $$('[data-pagar-status]').forEach(other => other.classList.toggle("is-active", other === btn));
+      const status = $("#filtro-status");
+      if (status) status.value = btn.dataset.pagarStatus || "aberto";
+      state.pagarTab = "registros";
+      await carregarPagar().catch(err => alertBox(`Erro ao carregar contas a pagar: ${err.message}`, "danger"));
+    }));
+    $$('[data-receber-status]').forEach(btn => btn.addEventListener("click", async () => {
+      const value = btn.dataset.receberStatus || "aberto";
+      const select = $("#filtro-status");
+      if (select) select.value = value;
+      $$('[data-receber-status]').forEach(item => item.classList.toggle("is-active", item === btn));
+      state.receberSelecionadoId = null;
+      await recarregar();
+    }));
+    $("#btn-atualizar-conciliacao")?.addEventListener("click", () => carregarConciliacaoReceber().catch(err => alertBox(`Erro na conciliação: ${err.message}`, "danger")));
+    $("#tbody-receber")?.addEventListener("click", ev => {
+      if (ev.target.closest("button,a,input,select")) return;
+      const row = ev.target.closest("[data-receber-row-id]");
+      if (row) selecionarReceber(row.dataset.receberRowId, false);
+    });
+    $("#tbody-pagar")?.addEventListener("click", ev => {
+      if (ev.target.closest("button,a,input,select")) return;
+      const row = ev.target.closest("[data-pagar-row-id]");
+      if (row) selecionarPagar(row.dataset.pagarRowId, false);
+    });
+    $$('[data-caixa-tab]').forEach(btn => btn.addEventListener("click", () => ativarAbaCaixa(btn.dataset.caixaTab)));
+    $("#btn-novo-movimento-caixa")?.addEventListener("click", () => { resetarEdicaoCaixa(); ativarAbaCaixa("edicao"); });
+    $("#btn-cancelar-edicao-caixa")?.addEventListener("click", () => { resetarEdicaoCaixa(); ativarAbaCaixa("registros"); });
+    $("#form-caixa-movimento")?.addEventListener("submit", salvarMovimentoCaixa);
+    $("#form-caixa-movimento [name=centro_custo_principal_id]")?.addEventListener("change", () => atualizarCentrosSecundariosCaixa(""));
     $("#btn-imprimir-relatorios")?.addEventListener("click", () => window.print());
     $("#form-lancamento")?.addEventListener("submit", salvarLancamento);
     $("#form-baixa")?.addEventListener("submit", salvarBaixa);
@@ -3302,7 +4062,7 @@
         input.value = clean;
         try { input.setSelectionRange(Math.min(cursor, clean.length), Math.min(cursor, clean.length)); } catch (_) {}
       }
-      if (input.closest("#form-baixa") && ["valor_principal", "valor_desconto", "valor_multa", "valor_mora"].includes(input.name)) {
+      if (input.closest("#form-baixa") && ["valor_principal", "valor_desconto", "valor_acrescimo", "valor_multa", "valor_mora"].includes(input.name)) {
         recalcularTotalBaixaLocal();
       }
     });
@@ -3466,6 +4226,12 @@
       if (formLancamento && ev.target.matches('[name="parcelado"], [name="parcelas_gerar"], [name="intervalo_parcelas_meses"], [name="modo_parcelamento"]')) {
         atualizarCamposParcelamento(formLancamento);
         return;
+      }
+      if (ev.target.closest("#form-baixa") && ev.target.matches('[name="modalidade_baixa"]')) {
+        atualizarModalidadeBaixa();
+      }
+      if (ev.target.closest("#form-baixa") && ev.target.matches('[name="centro_custo_principal_id"]')) {
+        sincronizarCentrosBaixa(ev.target.closest("#form-baixa"), false);
       }
       if (ev.target.closest("#form-baixa") && ev.target.matches('[name="data_pagamento"]')) {
         atualizarCalculoBaixa();

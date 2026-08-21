@@ -2704,7 +2704,7 @@
 
   function abrirVendaNoFinanceiro() {
     if (!state.currentId) return;
-    const targetUrl = `/vendas-financeiro?orcamento_id=${encodeURIComponent(state.currentId)}`;
+    const targetUrl = `/faturamento?orcamento_id=${encodeURIComponent(state.currentId)}`;
     if (window.ValoraNavigate) window.ValoraNavigate(targetUrl);
     else window.location.href = targetUrl;
   }

@@ -14,9 +14,9 @@
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
   <script src="/frontend/js/shared/menu-global.js?v=20260819-financeiro-organizado-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260819-busca-envolvidos-v2" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260821-pagar-jcc-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260819-busca-envolvidos-v1" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260821-pagar-jcc-v1" />
 </head>
 <body class="financeiro-theme-valora">
   <div class="layout">
@@ -39,38 +39,52 @@
           <a href="/relatorios-financeiros"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a>
           <a href="/configuracoes-financeiras"><i class="fa-solid fa-gear"></i><span>Configurações</span></a>
         </nav><span class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando dados reais...</span></div>
-      <section class="financeiro-panel financeiro-filter-panel" id="financeiro-filtros">
-  <div class="financeiro-filters-grid">
-    <div class="financeiro-field"><label>Busca</label><input id="filtro-busca" placeholder="Descrição, documento ou sacado"></div>
-    <div class="financeiro-field"><label>Status</label><select id="filtro-status"><option value="">Todos</option><option value="aberto">Aberto</option><option value="vencido">Vencido</option><option value="parcial">Parcial</option><option value="recebido">Recebido</option><option value="pago">Pago</option><option value="cancelado">Cancelado</option></select></div>
-    <div class="financeiro-field"><label>Sacado</label><select id="filtro-fornecedor" data-select="fornecedores"><option value="">Todos os sacados</option></select></div>
-    <div class="financeiro-field"><label>Data inicial</label><input id="filtro-data-inicio" type="date"></div>
-    <div class="financeiro-field"><label>Data final</label><input id="filtro-data-fim" type="date"></div>
-  </div>
-  <div class="financeiro-toolbar" style="margin:14px 0 0;"><span class="financeiro-muted">Use os filtros para refinar a lista.</span><div><button class="btn btn-secondary" type="button" id="btn-limpar-filtros">Limpar</button> <button class="btn btn-primary" type="button" id="btn-aplicar-filtros">Aplicar</button></div></div>
-</section>
+      <section class="financeiro-panel financeiro-filter-panel financeiro-pagar-filtros" id="financeiro-filtros">
+        <div class="financeiro-pagar-status-tabs" role="group" aria-label="Situação dos títulos">
+          <button type="button" class="is-active" data-pagar-status="aberto">Aberto</button>
+          <button type="button" data-pagar-status="quitado">Quitado</button>
+          <button type="button" data-pagar-status="cancelado">Cancelado</button>
+          <button type="button" data-pagar-status="todos">Todos</button>
+        </div>
+        <select id="filtro-status" hidden aria-hidden="true"><option value="aberto" selected>Aberto</option><option value="quitado">Quitado</option><option value="cancelado">Cancelado</option><option value="todos">Todos</option></select>
+        <div class="financeiro-filters-grid financeiro-filters-grid--pagar">
+          <div class="financeiro-field"><label>Período por</label><select id="filtro-periodo-por"><option value="vencimento">Vencimento</option><option value="emissao">Emissão</option><option value="pagamento">Pagamento</option></select></div>
+          <div class="financeiro-field"><label>Data inicial</label><input id="filtro-data-inicio" type="date"></div>
+          <div class="financeiro-field"><label>Data final</label><input id="filtro-data-fim" type="date"></div>
+          <div class="financeiro-field"><label>Fornecedor</label><select id="filtro-fornecedor" data-select="fornecedores"><option value="">Todos os fornecedores</option></select></div>
+          <div class="financeiro-field"><label>Documento</label><input id="filtro-documento" placeholder="NF, boleto, duplicata..."></div>
+          <div class="financeiro-field"><label>Forma de pagamento</label><select id="filtro-forma-pagamento" data-select="formas"><option value="">Todas</option></select></div>
+          <div class="financeiro-field"><label>Plano de Contas</label><select id="filtro-conta-contabil" data-select="contas-contabeis"><option value="">Todos</option></select></div>
+          <div class="financeiro-field"><label>Centro de Custo</label><select id="filtro-centro-custo" data-select="centros-custo"><option value="">Todos</option></select></div>
+          <div class="financeiro-field full"><label>Busca</label><input id="filtro-busca" placeholder="Fornecedor, descrição ou documento"></div>
+        </div>
+        <div class="financeiro-toolbar financeiro-filter-actions"><span class="financeiro-muted">Filtros aplicados diretamente aos títulos a pagar.</span><div><button class="btn btn-secondary" type="button" id="btn-limpar-filtros">Limpar</button> <button class="btn btn-primary" type="button" id="btn-aplicar-filtros">Aplicar</button></div></div>
+      </section>
+
       <section class="financeiro-grid-4">
-<article class="financeiro-card">
-  <div class="financeiro-card-top"><div><h3>Em aberto</h3><p>Valores ainda não pagos</p></div><span class="financeiro-icon blue"><i class="fa-solid fa-hourglass-half"></i></span></div>
-  <div><div class="financeiro-value" data-kpi="pagar-aberto">R$ 0,00</div><div class="financeiro-meta">Dados reais do financeiro</div></div>
-</article>
-<article class="financeiro-card">
-  <div class="financeiro-card-top"><div><h3>Pago</h3><p>Baixado no período/lista</p></div><span class="financeiro-icon ok"><i class="fa-solid fa-circle-check"></i></span></div>
-  <div><div class="financeiro-value" data-kpi="pagar-pago">R$ 0,00</div><div class="financeiro-meta">Dados reais do financeiro</div></div>
-</article>
-<article class="financeiro-card">
-  <div class="financeiro-card-top"><div><h3>Vencido</h3><p>Contas atrasadas</p></div><span class="financeiro-icon danger"><i class="fa-solid fa-triangle-exclamation"></i></span></div>
-  <div><div class="financeiro-value" data-kpi="pagar-vencido">R$ 0,00</div><div class="financeiro-meta">Dados reais do financeiro</div></div>
-</article>
-<article class="financeiro-card">
-  <div class="financeiro-card-top"><div><h3>Vence hoje</h3><p>Pagamentos do dia</p></div><span class="financeiro-icon warn"><i class="fa-solid fa-calendar-day"></i></span></div>
-  <div><div class="financeiro-value" data-kpi="pagar-hoje">R$ 0,00</div><div class="financeiro-meta">Dados reais do financeiro</div></div>
-</article>
-</section>
-      <section class="financeiro-panel">
-  <div class="financeiro-panel-head"><div><h3>Títulos a pagar</h3><p>Lista real de contas a pagar.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="pagar"><i class="fa-solid fa-plus"></i> Nova conta a pagar</button></div>
-  <div class="financeiro-table-wrap"><table class="financeiro-table" id="financeiro-table"><thead><tr><th>ID</th><th>Sacado</th><th>Descrição</th><th>Vencimento</th><th>Atraso</th><th>Principal</th><th>Baixado</th><th>Saldo</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-pagar"><tr><td class="financeiro-empty" colspan="10">Carregando...</td></tr></tbody></table></div>
-</section>
+        <article class="financeiro-card"><div class="financeiro-card-top"><div><h3>Em aberto</h3><p>Saldo ainda a pagar</p></div><span class="financeiro-icon blue"><i class="fa-solid fa-hourglass-half"></i></span></div><div><div class="financeiro-value" data-kpi="pagar-aberto">R$ 0,00</div><div class="financeiro-meta">Inclui títulos parciais e vencidos</div></div></article>
+        <article class="financeiro-card"><div class="financeiro-card-top"><div><h3>Quitado</h3><p>Pagamentos realizados</p></div><span class="financeiro-icon ok"><i class="fa-solid fa-circle-check"></i></span></div><div><div class="financeiro-value" data-kpi="pagar-pago">R$ 0,00</div><div class="financeiro-meta">Valor efetivamente baixado</div></div></article>
+        <article class="financeiro-card"><div class="financeiro-card-top"><div><h3>Vencido</h3><p>Despesas em atraso</p></div><span class="financeiro-icon danger"><i class="fa-solid fa-triangle-exclamation"></i></span></div><div><div class="financeiro-value" data-kpi="pagar-vencido">R$ 0,00</div><div class="financeiro-meta">Saldo vencido em aberto</div></div></article>
+        <article class="financeiro-card"><div class="financeiro-card-top"><div><h3>Vence hoje</h3><p>Compromissos do dia</p></div><span class="financeiro-icon warn"><i class="fa-solid fa-calendar-day"></i></span></div><div><div class="financeiro-value" data-kpi="pagar-hoje">R$ 0,00</div><div class="financeiro-meta">Saldo com vencimento hoje</div></div></article>
+      </section>
+
+      <section class="financeiro-panel financeiro-pagar-workspace">
+        <div class="financeiro-panel-head">
+          <div><h3>Contas a Pagar</h3><p>Fornecedor, vencimento, classificação, parcelas e baixa em uma única visão.</p></div>
+          <button class="btn btn-primary btn-novo-registro" type="button" data-new="pagar"><i class="fa-solid fa-plus"></i> Nova conta a pagar</button>
+        </div>
+        <div class="financeiro-pagar-tabs" role="tablist" aria-label="Contas a pagar">
+          <button type="button" class="is-active" data-pagar-tab="registros" role="tab" aria-selected="true">Registros</button>
+          <button type="button" data-pagar-tab="detalhes" role="tab" aria-selected="false">Detalhes</button>
+        </div>
+        <div data-pagar-panel="registros">
+          <div class="financeiro-table-wrap"><table class="financeiro-table financeiro-table--pagar" id="financeiro-table"><thead><tr>
+            <th>Cód.</th><th>Status</th><th>Vencimento</th><th>Fornecedor</th><th>Plano de Contas</th><th>Centro de Custo</th><th>Documento</th><th>Valor</th><th>Pago</th><th>Pagamento</th><th>Parcela</th><th>Ações</th>
+          </tr></thead><tbody id="tbody-pagar"><tr><td class="financeiro-empty" colspan="12">Carregando...</td></tr></tbody></table></div>
+          <div class="financeiro-registro-resumo" id="pagar-registro-resumo">Selecione um título para consultar os detalhes.</div>
+        </div>
+        <div data-pagar-panel="detalhes" hidden><div id="pagar-detalhes"><div class="financeiro-empty-soft">Selecione um registro na aba Registros.</div></div></div>
+      </section>
     </main>
   </div>
   
@@ -165,14 +179,14 @@
             <div class="financeiro-form-grid cols-3">
               <div class="financeiro-field"><label>Cliente</label><select name="cliente_id" data-select="clientes"><option value="">Selecione...</option></select></div>
               <div class="financeiro-field" data-sacado-field>
-                <label for="campo-busca-sacado">Sacado</label>
+                <label for="campo-busca-sacado">Fornecedor</label>
                 <div class="financeiro-lookup" data-sacado-lookup>
                   <i class="fa-solid fa-magnifying-glass financeiro-lookup-icon" aria-hidden="true"></i>
                   <input
                     id="campo-busca-sacado"
                     type="search"
                     data-sacado-search
-                    placeholder="Digite nome, código, CPF/CNPJ, telefone ou e-mail"
+                    placeholder="Digite fornecedor, código, CPF/CNPJ, telefone ou e-mail"
                     autocomplete="off"
                     role="combobox"
                     aria-autocomplete="list"
@@ -180,12 +194,12 @@
                     aria-controls="resultados-busca-sacado"
                   >
                   <input type="hidden" name="fornecedor_id">
-                  <button class="financeiro-lookup-clear" type="button" data-sacado-clear title="Limpar sacado" aria-label="Limpar sacado" hidden>
+                  <button class="financeiro-lookup-clear" type="button" data-sacado-clear title="Limpar fornecedor" aria-label="Limpar fornecedor" hidden>
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                   <div class="financeiro-lookup-results" id="resultados-busca-sacado" data-sacado-results role="listbox" hidden></div>
                 </div>
-                <small>Comece a digitar para localizar rapidamente quem receberá o pagamento.</small>
+                <small>Comece a digitar para localizar rapidamente o fornecedor que receberá o pagamento.</small>
               </div>
               <div class="financeiro-field"><label>Categoria</label><select name="categoria_id" data-select="categorias"><option value="">Selecione...</option></select></div>
             </div>
