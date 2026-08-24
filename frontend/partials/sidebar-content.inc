@@ -52,7 +52,8 @@
         <div class="dropdown dropdown-financeiro">
           <button class="dropdown-item" type="button" data-target="financeiro">Visão geral</button>
           <button class="dropdown-item" type="button" data-target="acompanhamento-financeiro">Acompanhamento Financeiro</button>
-          <button class="dropdown-item" type="button" data-target="contas-receber">Contas a receber</button>
+          <button class="dropdown-item" type="button" data-target="contas-receber-movimentacao">Contas a receber — Movimentação</button>
+          <button class="dropdown-item" type="button" data-target="contas-receber-baixa">Contas a receber — Baixa de documentos</button>
           <button class="dropdown-item" type="button" data-target="contas-pagar">Contas a pagar</button>
           <button class="dropdown-item" type="button" data-target="cobrancas-financeiro">Cobranças</button>
           <button class="dropdown-item" type="button" data-target="fluxo-caixa">Fluxo de caixa</button>
@@ -195,7 +196,8 @@
       <div class="mobile-title">Financeiro</div>
       <button class="mobile-link" type="button" data-target="financeiro"><i class="fa-solid fa-chart-pie"></i> Visão geral</button>
       <button class="mobile-link" type="button" data-target="acompanhamento-financeiro"><i class="fa-solid fa-chart-line"></i> Acompanhamento Financeiro</button>
-      <button class="mobile-link" type="button" data-target="contas-receber"><i class="fa-solid fa-hand-holding-dollar"></i> Contas a receber</button>
+      <button class="mobile-link" type="button" data-target="contas-receber-movimentacao"><i class="fa-solid fa-table-list"></i> Receber — Movimentação</button>
+      <button class="mobile-link" type="button" data-target="contas-receber-baixa"><i class="fa-solid fa-check-double"></i> Receber — Baixa de documentos</button>
       <button class="mobile-link" type="button" data-target="contas-pagar"><i class="fa-solid fa-file-invoice-dollar"></i> Contas a pagar</button>
       <button class="mobile-link" type="button" data-target="cobrancas-financeiro"><i class="fa-regular fa-bell"></i> Cobranças</button>
       <button class="mobile-link" type="button" data-target="fluxo-caixa"><i class="fa-solid fa-money-bill-transfer"></i> Fluxo de caixa</button>

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Navegação Financeiro | Valora CRM</title>
+  <script>
+    (() => {
+      let theme = localStorage.getItem('valora_theme') || 'light';
+      try {
+        theme = window.parent?.document?.documentElement?.getAttribute('data-theme') || theme;
+      } catch (_) {}
+      document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    :root {
+      --bar-h: 44px;
+      --bg: #ffffff;
+      --text: #52647a;
+      --text-strong: #0f172a;
+      --border: #dfe6ee;
+      --accent: #31bcc4;
+      --hover: #f4f7f9;
+      --status: #64748b;
+      color-scheme: light;
+    }
+
+    html[data-theme="dark"] {
+      --bg: #202020;
+      --text: #c7cbd1;
+      --text-strong: #f4f4f5;
+      --border: #373737;
+      --accent: #4bc3c7;
+      --hover: #2a2a2a;
+      --status: #c7cbd1;
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: var(--bar-h);
+      min-height: var(--bar-h);
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .finance-sidebar {
+      width: 100%;
+      height: var(--bar-h);
+      display: flex;
+      align-items: stretch;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .finance-sidebar__scroll {
+      min-width: 0;
+      flex: 1 1 auto;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+    }
+
+    .finance-sidebar__scroll::-webkit-scrollbar { display: none; }
+
+    .finance-sidebar__nav {
+      height: 100%;
+      min-width: max-content;
+      display: flex;
+      align-items: stretch;
+      padding: 0 22px;
+      gap: 4px;
+    }
+
+    .finance-sidebar__item {
+      position: relative;
+      height: 100%;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 10px;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1;
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: color .14s ease, background .14s ease;
+    }
+
+    .finance-sidebar__item i {
+      width: 14px;
+      text-align: center;
+      font-size: 11px;
+      opacity: .9;
+    }
+
+    .finance-sidebar__item:hover {
+      background: var(--hover);
+      color: var(--text-strong);
+    }
+
+    .finance-sidebar__item.is-active {
+      color: var(--text-strong);
+      font-weight: 600;
+    }
+
+    .finance-sidebar__item.is-active::after {
+      content: '';
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 0;
+      height: 2px;
+      border-radius: 2px 2px 0 0;
+      background: var(--accent);
+    }
+
+    .finance-sidebar__status {
+      flex: 0 0 auto;
+      height: 100%;
+      max-width: 330px;
+      padding: 0 22px 0 14px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      color: var(--status);
+      font-size: 11px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-left: 1px solid transparent;
+    }
+
+    .finance-sidebar__status.is-visible { display: flex; }
+
+    .finance-sidebar__status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+      background: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+    }
+
+    .finance-sidebar__status-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @media (max-width: 900px) {
+      .finance-sidebar__nav { padding: 0 10px; gap: 1px; }
+      .finance-sidebar__item { padding: 0 9px; }
+      .finance-sidebar__status { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="finance-sidebar" role="navigation" aria-label="Navegação do Financeiro">
+    <div class="finance-sidebar__scroll">
+      <nav class="finance-sidebar__nav" id="financeNav">
+        <a class="finance-sidebar__item" href="/financeiro" target="_top" data-key="dashboard"><i class="fa-regular fa-clipboard"></i><span>Visão geral</span></a>
+        <a class="finance-sidebar__item" href="/acompanhamento-financeiro" target="_top" data-key="acompanhamento"><i class="fa-solid fa-chart-line"></i><span>Acompanhamento</span></a>
+        <a class="finance-sidebar__item" href="/faturamento" target="_top" data-key="faturamento"><i class="fa-solid fa-file-invoice-dollar"></i><span>Faturamento</span></a>
+        <a class="finance-sidebar__item" href="/contas-receber" target="_top" data-key="receber"><i class="fa-regular fa-calendar-check"></i><span>Contas a receber</span></a>
+        <a class="finance-sidebar__item" href="/contas-pagar" target="_top" data-key="pagar"><i class="fa-regular fa-file-lines"></i><span>Contas a pagar</span></a>
+        <a class="finance-sidebar__item" href="/cobrancas-financeiro" target="_top" data-key="cobrancas"><i class="fa-regular fa-bell"></i><span>Cobranças</span></a>
+        <a class="finance-sidebar__item" href="/fluxo-caixa" target="_top" data-key="caixa"><i class="fa-solid fa-cash-register"></i><span>Controle de Caixa</span></a>
+        <a class="finance-sidebar__item" href="/movimento-bancario" target="_top" data-key="movimento-bancario"><i class="fa-solid fa-building-columns"></i><span>Movimento Bancário</span></a>
+        <a class="finance-sidebar__item" href="/relatorios-financeiros" target="_top" data-key="relatorios"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a>
+        <a class="finance-sidebar__item" href="/configuracoes-financeiras" target="_top" data-key="configuracoes"><i class="fa-solid fa-gear"></i><span>Configurações</span></a>
+      </nav>
+    </div>
+    <div class="finance-sidebar__status" id="financeStatus" title="">
+      <span class="finance-sidebar__status-dot" aria-hidden="true"></span>
+      <span class="finance-sidebar__status-text" id="financeStatusText"></span>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const statusBox = document.getElementById('financeStatus');
+      const statusText = document.getElementById('financeStatusText');
+      let statusObserver = null;
+      let themeObserver = null;
+
+      function parentDocument() {
+        try { return window.parent?.document || null; } catch (_) { return null; }
+      }
+
+      function parentPath() {
+        try { return String(window.parent?.location?.pathname || ''); } catch (_) { return ''; }
+      }
+
+      function activeKey(path) {
+        const value = String(path || '').toLowerCase();
+        if (value.includes('acompanhamento-financeiro')) return 'acompanhamento';
+        if (value.includes('faturamento')) return 'faturamento';
+        if (value.includes('vendas-financeiro') || value.includes('contas-receber')) return 'receber';
+        if (value.includes('contas-pagar')) return 'pagar';
+        if (value.includes('cobrancas-financeiro')) return 'cobrancas';
+        if (value.includes('fluxo-caixa')) return 'caixa';
+        if (value.includes('movimento-bancario')) return 'movimento-bancario';
+        if (value.includes('relatorios-financeiros')) return 'relatorios';
+        if (
+          value.includes('configuracoes-financeiras') ||
+          value.includes('cadastros-financeiros') ||
+          value.includes('categorias-financeiras') ||
+          value.includes('formas-pagamento') ||
+          value.includes('contas-bancos') ||
+          value.includes('automacao-cobranca')
+        ) return 'configuracoes';
+        return 'dashboard';
+      }
+
+      function syncActive() {
+        const key = activeKey(parentPath());
+        document.querySelectorAll('[data-key]').forEach((item) => {
+          const active = item.dataset.key === key;
+          item.classList.toggle('is-active', active);
+          if (active) item.setAttribute('aria-current', 'page');
+          else item.removeAttribute('aria-current');
+        });
+      }
+
+      // A navegação deste menu é propositalmente nativa.
+      // Os links já usam target="_top", então funcionam tanto dentro do App Shell
+      // quanto fora dele, sem depender de postMessage ou ValoraShell.navigate().
+      // Não interceptar o clique aqui evita que o submenu fique "morto".
+
+      function statusSource() {
+        const doc = parentDocument();
+        if (!doc) return null;
+        return doc.querySelector(
+          '[data-financeiro-sidebar-status], #acomp-status, #financeiro-status-text, #bank-status-text, #faturamento-status-text, #vendas-status-text'
+        );
+      }
+
+      function renderStatus() {
+        const source = statusSource();
+        const text = String(source?.textContent || '').replace(/\s+/g, ' ').trim();
+        statusText.textContent = text;
+        statusBox.title = text;
+        statusBox.classList.toggle('is-visible', Boolean(text));
+      }
+
+      function observeStatus() {
+        statusObserver?.disconnect();
+        const source = statusSource();
+        if (!source) {
+          renderStatus();
+          return;
+        }
+        statusObserver = new MutationObserver(renderStatus);
+        statusObserver.observe(source, { childList: true, subtree: true, characterData: true, attributes: true });
+        renderStatus();
+      }
+
+      function syncTheme() {
+        let theme = localStorage.getItem('valora_theme') || 'light';
+        const doc = parentDocument();
+        try { theme = doc?.documentElement?.getAttribute('data-theme') || theme; } catch (_) {}
+        document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
+      }
+
+      function observeTheme() {
+        const doc = parentDocument();
+        if (!doc?.documentElement) return;
+        themeObserver?.disconnect();
+        themeObserver = new MutationObserver(syncTheme);
+        themeObserver.observe(doc.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+      }
+
+      syncActive();
+      syncTheme();
+      observeTheme();
+      observeStatus();
+
+      window.addEventListener('storage', syncTheme);
+      window.addEventListener('focus', () => {
+        syncActive();
+        syncTheme();
+        observeStatus();
+      });
+    })();
+  </script>
+</body>
+</html>

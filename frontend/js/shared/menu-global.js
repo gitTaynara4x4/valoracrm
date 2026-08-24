@@ -1,16 +1,18 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260819-automacao-cobranca-v1';
+  const VERSION = '20260822-financeiro-subnav-position-v4';
   const PARTIAL_URL = '/frontend/partials/sidebar-content.inc?v=' + VERSION;
   const CSS_URL = '/frontend/css/menu-global.css?v=' + VERSION;
+  const FINANCE_SUBNAV_URL = '/frontend/partials/financeiro-subnav.inc?v=' + VERSION;
   const ROUTES = {
     home: '/dashboard', clientes: '/clientes', 'arquivos-tecnicos': '/arquivos-tecnicos', fornecedores: '/fornecedores', cotacoes: '/cotacoes',
     produtos: '/produtos', patrimonio: '/patrimonio', orcamentos: '/orcamentos', propostas: '/propostas',
     'area-cliente-admin': '/area-cliente-admin', 'contratos-admin': '/contratos-admin', usuarios: '/usuarios',
     config: '/configuracoes', formularios: '/formularios', ajuda: '/ajuda', perfil: '/perfil', empresa: '/empresa',
     financeiro: '/financeiro', 'vendas-financeiro': '/vendas-financeiro', 'contas-receber': '/contas-receber',
-    'contas-pagar': '/contas-pagar', 'cobrancas-financeiro': '/cobrancas-financeiro', 'fluxo-caixa': '/fluxo-caixa', 'acompanhamento-financeiro': '/acompanhamento-financeiro', 'categorias-financeiras': '/categorias-financeiras',
+    'contas-receber-movimentacao': '/contas-receber?modo=movimentacao', 'contas-receber-baixa': '/contas-receber?modo=baixa',
+    'contas-pagar': '/contas-pagar', 'cobrancas-financeiro': '/cobrancas-financeiro', 'fluxo-caixa': '/fluxo-caixa', 'acompanhamento-financeiro': '/acompanhamento-financeiro', 'faturamento': '/faturamento', 'movimento-bancario': '/movimento-bancario', 'categorias-financeiras': '/categorias-financeiras',
     'formas-pagamento': '/formas-pagamento', 'contas-bancos': '/contas-bancos',
     'cadastros-financeiros': '/cadastros-financeiros', 'relatorios-financeiros': '/relatorios-financeiros',
     'configuracoes-financeiras': '/configuracoes-financeiras', 'automacao-cobranca': '/automacao-cobranca'
@@ -35,10 +37,14 @@
     financeiro: 'financeiro',
     'vendas-financeiro': 'financeiro',
     'contas-receber': 'financeiro',
+    'contas-receber-movimentacao': 'financeiro',
+    'contas-receber-baixa': 'financeiro',
     'contas-pagar': 'financeiro',
     'cobrancas-financeiro': 'financeiro',
     'fluxo-caixa': 'financeiro',
     'acompanhamento-financeiro': 'financeiro',
+    faturamento: 'financeiro',
+    'movimento-bancario': 'financeiro',
     'categorias-financeiras': 'financeiro',
     'formas-pagamento': 'financeiro',
     'contas-bancos': 'financeiro',
@@ -100,6 +106,105 @@
 
   window.ValoraNavigate = navigateUrl;
 
+  function financeSubnavKey(scopeDocument = document) {
+    let locationRef = window.location;
+    try { locationRef = scopeDocument?.defaultView?.location || window.location; } catch (_) {}
+    const path = normalizePath(locationRef?.pathname || '/');
+    if (path.includes('acompanhamento-financeiro')) return 'acompanhamento';
+    if (path.includes('faturamento')) return 'faturamento';
+    if (path.includes('vendas-financeiro') || path.includes('contas-receber')) return 'receber';
+    if (path.includes('contas-pagar')) return 'pagar';
+    if (path.includes('cobrancas-financeiro')) return 'cobrancas';
+    if (path.includes('fluxo-caixa')) return 'caixa';
+    if (path.includes('movimento-bancario')) return 'movimento-bancario';
+    if (path.includes('relatorios-financeiros')) return 'relatorios';
+    if (path.includes('configuracoes-financeiras') || path.includes('cadastros-financeiros') || path.includes('categorias-financeiras') || path.includes('formas-pagamento') || path.includes('contas-bancos') || path.includes('automacao-cobranca')) return 'configuracoes';
+    if (path.includes('financeiro')) return 'dashboard';
+    return '';
+  }
+
+  function markFinanceSubnavHost(nav) {
+    if (!nav) return null;
+    const host = nav.closest?.('.financeiro-toolbar');
+    if (host) {
+      host.classList.add('financeiro-subnav-toolbar');
+      const page = host.closest?.('main.financeiro-page');
+      if (page) {
+        page.classList.add('financeiro-subnav-page');
+        // A Visão Geral ainda herdava padding-top legado do dashboard.
+        // Fixamos no próprio host compartilhado para todas as telas começarem
+        // exatamente na mesma coordenada abaixo do menu global.
+        page.style.setProperty('padding-top', '0px', 'important');
+      }
+    }
+    return host;
+  }
+
+  function syncFinanceSubnavActive(nav, scopeDocument = nav?.ownerDocument || document) {
+    if (!nav) return;
+    markFinanceSubnavHost(nav);
+    const activeKey = financeSubnavKey(scopeDocument);
+    nav.querySelectorAll('[data-financeiro-nav]').forEach((link) => {
+      const active = link.dataset.financeiroNav === activeKey;
+      link.classList.toggle('active', active);
+      if (active) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
+  }
+
+  let financeSubnavPromise = null;
+  async function hydrateFinanceSubnav(scopeDocument = document, { force = false } = {}) {
+    const current = scopeDocument?.querySelector?.('.financeiro-tabs--primary');
+    if (!current) return null;
+
+    const sharedLooksComplete = current.dataset.financeiroSubnav === 'shared'
+      && current.querySelectorAll('[data-financeiro-nav]').length === 10;
+    if (sharedLooksComplete && !force) {
+      syncFinanceSubnavActive(current, scopeDocument);
+      return current;
+    }
+
+    try {
+      if (!financeSubnavPromise) {
+        financeSubnavPromise = fetch(FINANCE_SUBNAV_URL, { credentials: 'include', cache: 'force-cache' })
+          .then((response) => {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.text();
+          });
+      }
+      const html = await financeSubnavPromise;
+      const template = scopeDocument.createElement('template');
+      template.innerHTML = String(html || '').trim();
+      const shared = template.content.querySelector('.financeiro-tabs--primary');
+      if (!shared) throw new Error('Partial financeiro sem .financeiro-tabs--primary');
+      current.replaceWith(shared);
+      markFinanceSubnavHost(shared);
+      syncFinanceSubnavActive(shared, scopeDocument);
+      try {
+        const ViewCustomEvent = scopeDocument.defaultView?.CustomEvent || CustomEvent;
+        scopeDocument.dispatchEvent(new ViewCustomEvent('valora:finance-subnav-ready', { detail: { active: financeSubnavKey(scopeDocument) } }));
+      } catch (_) {}
+      return shared;
+    } catch (error) {
+      financeSubnavPromise = null;
+      // Mantém o menu já presente no HTML como fallback: navegação nunca some.
+      console.error('[Valora financeiro] Falha ao carregar submenu compartilhado:', error);
+      return current;
+    }
+  }
+
+  function syncFinanceSubnav(scopeDocument = document) {
+    const nav = scopeDocument?.querySelector?.('.financeiro-tabs--primary');
+    if (!nav) return Promise.resolve(null);
+    const sharedLooksComplete = nav.dataset.financeiroSubnav === 'shared'
+      && nav.querySelectorAll('[data-financeiro-nav]').length === 10;
+    if (sharedLooksComplete) {
+      syncFinanceSubnavActive(nav, scopeDocument);
+      return Promise.resolve(nav);
+    }
+    return hydrateFinanceSubnav(scopeDocument, { force: true });
+  }
+
   function currentTarget() {
     const path = normalizePath(window.location.pathname);
     if (['/', '/dashboard', '/home', '/inicio', '/frontend/dashboard.html', '/frontend/inicio.html'].includes(path)) return 'home';
@@ -108,7 +213,7 @@
       ['patrimonio','patrimonio'], ['orcamentos','orcamentos'], ['propostas','propostas'],
       ['area-cliente-admin','area-cliente-admin'], ['contratos-admin','contratos-admin'], ['usuarios','usuarios'],
       ['vendas-financeiro','contas-receber'], ['contas-receber','contas-receber'], ['contas-pagar','contas-pagar'],
-      ['cobrancas-financeiro','cobrancas-financeiro'], ['fluxo-caixa','fluxo-caixa'], ['acompanhamento-financeiro','acompanhamento-financeiro'], ['categorias-financeiras','configuracoes-financeiras'], ['formas-pagamento','configuracoes-financeiras'],
+      ['cobrancas-financeiro','cobrancas-financeiro'], ['fluxo-caixa','fluxo-caixa'], ['acompanhamento-financeiro','acompanhamento-financeiro'], ['faturamento','faturamento'], ['movimento-bancario','movimento-bancario'], ['categorias-financeiras','configuracoes-financeiras'], ['formas-pagamento','configuracoes-financeiras'],
       ['contas-bancos','configuracoes-financeiras'], ['cadastros-financeiros','configuracoes-financeiras'],
       ['relatorios-financeiros','relatorios-financeiros'], ['automacao-cobranca','configuracoes-financeiras'], ['configuracoes-financeiras','configuracoes-financeiras'], ['financeiro','financeiro'], ['formularios','formularios'],
       ['ajuda','ajuda'], ['perfil','perfil'], ['empresa','empresa'], ['configuracoes','config'], ['config','config']
@@ -469,12 +574,24 @@
   async function init() {
     if (initialized) return;
 
+    // O submenu do Financeiro é compartilhado por todas as telas, inclusive
+    // quando o módulo está renderizado dentro do app-shell.
+    void hydrateFinanceSubnav();
+
     // O menu visual pertence ao shell. Dentro do iframe mantemos apenas os
     // helpers globais, evitando reconstruir a barra superior a cada módulo.
     if (isEmbeddedPage()) {
+      // O shell pai já reserva os 54px do menu global. Marca o documento
+      // interno para que barras sticky usem top: 0 e não criem um segundo
+      // espaço vazio abaixo do menu principal.
+      document.documentElement.classList.add('valora-shell-embedded');
+      if (document.body) document.body.classList.add('valora-shell-embedded');
       initialized = true;
       return;
     }
+
+    document.documentElement.classList.remove('valora-shell-embedded');
+    if (document.body) document.body.classList.remove('valora-shell-embedded');
 
     root = document.getElementById('valora-menu-root');
     if (!root) return;
@@ -500,6 +617,7 @@
     }
   }
 
+  window.ValoraFinanceSubnav = { hydrate: hydrateFinanceSubnav, sync: syncFinanceSubnav, activeKey: financeSubnavKey };
   window.ValoraMenu = { init, applyTheme, syncUser, syncActive, closeMenus, refreshPermissions };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else void init();

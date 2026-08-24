@@ -21,6 +21,7 @@
     estornoAtual: null,
     receberSelecionadoId: null,
     receberTab: "registros",
+    receberBaixa: { mode: "individual", items: [], selecionadoId: null, selecionados: new Set(), carregando: false },
     pagarSelecionadoId: null,
     pagarTab: "registros",
     receberConciliacao: [],
@@ -40,6 +41,10 @@
       requestId: 0,
     },
     envolvidoLookups: {
+      cliente: { items: [], timer: null, controller: null, requestId: 0 },
+      fornecedor: { items: [], timer: null, controller: null, requestId: 0 },
+    },
+    relatorioPessoaLookups: {
       cliente: { items: [], timer: null, controller: null, requestId: 0 },
       fornecedor: { items: [], timer: null, controller: null, requestId: 0 },
     },
@@ -260,6 +265,22 @@
     </div>`;
   }
 
+  function acoesReceberCompactas(item) {
+    const status = String(item.status_calculado || item.status || "").toLowerCase();
+    const finalizado = ["recebido", "cancelado"].includes(status);
+    const reparcelamentoAtivo = Boolean(item.reparcelamento_ativo);
+    const boletoDesabilitado = !item.cobranca_provider_payment_id && finalizado;
+    return `<div class="actions-cell financeiro-receber-actions">
+      <button class="financeiro-mini-btn financeiro-receber-icon-btn ok" type="button" data-action="baixar-lancamento" data-id="${item.id}" ${finalizado ? "disabled" : ""} title="Baixar recebimento" aria-label="Baixar recebimento"><i class="fa-solid fa-check"></i></button>
+      <button class="financeiro-mini-btn financeiro-receber-icon-btn" type="button" data-action="editar-lancamento" data-id="${item.id}" ${reparcelamentoAtivo ? 'disabled title="Conta original de um reparcelamento ativo"' : 'title="Editar"'} aria-label="Editar"><i class="fa-regular fa-pen-to-square"></i></button>
+      <button class="financeiro-mini-btn financeiro-receber-icon-btn" type="button" data-action="detalhes-receber" data-id="${item.id}" title="Detalhes" aria-label="Detalhes"><i class="fa-regular fa-file-lines"></i></button>
+      <button class="financeiro-mini-btn financeiro-receber-icon-btn" type="button" data-action="boleto-titulo" data-id="${item.id}" ${boletoDesabilitado ? "disabled" : ""} title="Boleto / Pix" aria-label="Boleto / Pix"><i class="fa-solid fa-barcode"></i></button>
+      <button class="financeiro-mini-btn financeiro-receber-icon-btn" type="button" data-action="historico-lancamento" data-id="${item.id}" title="Histórico" aria-label="Histórico"><i class="fa-solid fa-clock-rotate-left"></i></button>
+      <button class="financeiro-mini-btn financeiro-receber-icon-btn warn" type="button" data-action="cancelar-lancamento" data-id="${item.id}" ${status === "cancelado" ? "disabled" : ""} title="Cancelar" aria-label="Cancelar"><i class="fa-solid fa-ban"></i></button>
+      <button class="financeiro-mini-btn financeiro-receber-icon-btn danger" type="button" data-action="excluir-lancamento" data-id="${item.id}" title="Excluir" aria-label="Excluir"><i class="fa-regular fa-trash-can"></i></button>
+    </div>`;
+  }
+
   function acoesPagarCompactas(item) {
     const status = String(item.status_calculado || item.status || "").toLowerCase();
     const finalizado = ["pago", "cancelado"].includes(status);
@@ -312,7 +333,7 @@
         <td><strong>${item.id}</strong></td>
         <td>${pill(statusEfetivo === "pago" ? "quitado" : statusEfetivo)}</td>
         <td>${dateBR(item.data_vencimento)}</td>
-        <td><span class="financeiro-pagar-fornecedor" title="${escapeHtml(parceiro || "-")}"><strong>${escapeHtml(parceiro || "-")}</strong></span></td>
+        <td>${item.fornecedor_id ? `<button class="financeiro-parceiro-link financeiro-pagar-fornecedor" type="button" data-action="abrir-fornecedor" data-id="${item.fornecedor_id}" title="Abrir ficha de ${escapeHtml(parceiro || "Fornecedor")}"><strong>${escapeHtml(parceiro || "-")}</strong></button>` : `<span class="financeiro-pagar-fornecedor" title="${escapeHtml(parceiro || "-")}"><strong>${escapeHtml(parceiro || "-")}</strong></span>`}</td>
         <td><span class="financeiro-cell-wrap financeiro-cell-ellipsis" title="${escapeHtml(plano)}">${escapeHtml(plano)}</span></td>
         <td><span class="financeiro-cell-wrap financeiro-cell-ellipsis" title="${escapeHtml(centro)}">${escapeHtml(centro)}</span></td>
         <td><span class="financeiro-pagar-documento" title="${escapeHtml(item.documento || "-")}">${escapeHtml(item.documento || "-")}</span></td>
@@ -324,21 +345,21 @@
       </tr>`;
     }
     const statusEfetivo = String(item.status_calculado || item.status || "aberto").toLowerCase();
-    const cobranca = item.forma_cobranca_nome || item.modalidade_pagamento || item.forma_pagamento_nome || "-";
-    const quitado = statusEfetivo === "recebido";
     const selecionado = Number(state.receberSelecionadoId) === Number(item.id);
+    const plano = item.conta_contabil_codigo && item.conta_contabil_nome
+      ? `${item.conta_contabil_codigo} - ${item.conta_contabil_nome}`
+      : (item.conta_contabil_nome || "-");
+    const centro = [item.centro_custo_principal_nome, item.centro_custo_secundario_nome].filter(Boolean).join(" / ") || "-";
     return `<tr class="financeiro-receber-row ${selecionado ? "is-selected" : ""}" data-receber-row-id="${item.id}">
-      <td><strong>${item.id}</strong></td>
-      <td>${pill(statusEfetivo === "recebido" ? "quitado" : statusEfetivo)}</td>
       <td>${dateBR(item.data_emissao)}</td>
       <td>${dateBR(item.data_vencimento)}</td>
-      <td>${escapeHtml(item.documento || "-")}</td>
-      <td><strong>${escapeHtml(parceiro || "-")}</strong>${item.parceiro_comercial ? `<small>Comercial: ${escapeHtml(item.parceiro_comercial)}</small>` : ""}</td>
-      <td>${escapeHtml(cobranca)}</td>
+      <td>${item.cliente_id ? `<button class="financeiro-parceiro-link financeiro-receber-cliente" type="button" data-action="abrir-cliente" data-id="${item.cliente_id}" title="Abrir ficha de ${escapeHtml(parceiro || "Cliente")}"><strong>${escapeHtml(parceiro || "-")}</strong></button>` : `<span class="financeiro-receber-cliente" title="${escapeHtml(parceiro || "-")}"><strong>${escapeHtml(parceiro || "-")}</strong></span>`}</td>
+      <td><span class="financeiro-receber-documento" title="${escapeHtml(item.documento || "-")}">${escapeHtml(item.documento || "-")}</span></td>
+      <td><span class="financeiro-cell-wrap financeiro-cell-ellipsis" title="${escapeHtml(plano)}">${escapeHtml(plano)}</span></td>
       <td class="financeiro-amount"><strong>${money(item.valor_total, item.moeda)}</strong></td>
-      <td>${quitado ? '<span class="financeiro-quitado yes"><i class="fa-solid fa-check"></i> Sim</span>' : '<span class="financeiro-quitado">Não</span>'}</td>
-      <td>${escapeHtml(item.nosso_numero || item.conciliacao_identificador || "-")}</td>
-      <td>${acoesLancamento(item)}</td>
+      <td><span class="financeiro-cell-wrap financeiro-cell-ellipsis" title="${escapeHtml(centro)}">${escapeHtml(centro)}</span></td>
+      <td>${pill(statusEfetivo === "recebido" ? "quitado" : statusEfetivo)}</td>
+      <td>${acoesReceberCompactas(item)}</td>
     </tr>`;
   }
 
@@ -641,7 +662,7 @@
     });
     $$('[data-select="clientes"]').forEach(sel => {
       const current = sel.value;
-      const vazio = ["filtro-cliente", "emissao-cliente"].includes(sel.id) ? "Todos os clientes" : "Selecione...";
+      const vazio = ["filtro-cliente", "emissao-cliente", "baixa-multipla-cliente"].includes(sel.id) ? "Todos os clientes" : "Selecione...";
       sel.innerHTML = `<option value="">${vazio}</option>` + (ops.clientes || []).map(i => option(`${i.codigo || ""} - ${i.nome}`, i.id)).join("");
       sel.value = current;
     });
@@ -682,6 +703,8 @@
     popular('[data-select="entidades-emissoras"]', ops.contas_bancos, i => i.nome);
     prepararLookupsEnvolvidos();
     sincronizarLookupsEnvolvidos();
+    prepararLookupsFiltrosRelatorios();
+    sincronizarLookupsFiltrosRelatorios();
   }
 
   function estadoLookupEnvolvido(tipo) {
@@ -925,6 +948,228 @@
     if (!lookupState) return;
     clearTimeout(lookupState.timer);
     lookupState.timer = setTimeout(() => buscarLookupEnvolvido(form, tipo, termo), 220);
+  }
+
+
+  function estadoLookupFiltroRelatorio(tipo) {
+    return state.relatorioPessoaLookups?.[tipo] || null;
+  }
+
+  function elementosLookupFiltroRelatorio(tipo) {
+    if (state.page !== "relatorios" || !["cliente", "fornecedor"].includes(tipo)) return null;
+    const select = tipo === "cliente" ? $("#filtro-cliente") : $("#filtro-fornecedor");
+    const root = document.querySelector(`[data-relatorio-pessoa-lookup="${tipo}"]`);
+    if (!select || !root) return null;
+    return {
+      tipo,
+      select,
+      root,
+      search: root.querySelector(`[data-relatorio-pessoa-search="${tipo}"]`),
+      results: root.querySelector(`[data-relatorio-pessoa-results="${tipo}"]`),
+      clear: root.querySelector(`[data-relatorio-pessoa-clear="${tipo}"]`),
+    };
+  }
+
+  function fecharResultadosLookupFiltroRelatorio(tipo) {
+    const els = elementosLookupFiltroRelatorio(tipo);
+    if (!els) return;
+    els.results.hidden = true;
+    els.results.innerHTML = "";
+    els.search.setAttribute("aria-expanded", "false");
+  }
+
+  function fecharTodosLookupsFiltrosRelatorios() {
+    fecharResultadosLookupFiltroRelatorio("cliente");
+    fecharResultadosLookupFiltroRelatorio("fornecedor");
+  }
+
+  function renderResultadosLookupFiltroRelatorio(tipo, items = [], mensagem = "") {
+    const els = elementosLookupFiltroRelatorio(tipo);
+    const lookupState = estadoLookupFiltroRelatorio(tipo);
+    if (!els || !lookupState) return;
+    lookupState.items = Array.isArray(items) ? items : [];
+    if (mensagem) {
+      els.results.innerHTML = `<div class="financeiro-lookup-message">${escapeHtml(mensagem)}</div>`;
+    } else if (!lookupState.items.length) {
+      els.results.innerHTML = `<div class="financeiro-lookup-message">Nenhum ${tipo === "cliente" ? "cliente" : "fornecedor"} encontrado.</div>`;
+    } else {
+      els.results.innerHTML = lookupState.items.map((item, index) => {
+        const meta = metaLookupEnvolvido(item);
+        return `<button class="financeiro-lookup-option" type="button" role="option" data-relatorio-pessoa-option="${tipo}" data-relatorio-pessoa-index="${index}">
+          <strong>${escapeHtml(labelLookupEnvolvido(item, tipo))}</strong>
+          ${meta ? `<span>${escapeHtml(meta)}</span>` : `<span>Cadastro de ${tipo === "cliente" ? "cliente" : "fornecedor"}</span>`}
+        </button>`;
+      }).join("");
+    }
+    els.results.hidden = false;
+    els.search.setAttribute("aria-expanded", "true");
+  }
+
+  function selecionarLookupFiltroRelatorio(tipo, item = null) {
+    const els = elementosLookupFiltroRelatorio(tipo);
+    const lookupState = estadoLookupFiltroRelatorio(tipo);
+    if (!els || !lookupState) return;
+    clearTimeout(lookupState.timer);
+    if (lookupState.controller) lookupState.controller.abort();
+    lookupState.controller = null;
+    lookupState.requestId += 1;
+
+    if (item) garantirOpcaoLookupEnvolvido(els.select, item, tipo);
+    els.select.value = item?.id ? String(item.id) : "";
+    els.search.value = item ? labelLookupEnvolvido(item, tipo) : "";
+    els.search.dataset.selectedId = item?.id ? String(item.id) : "";
+    els.search.dataset.selectedLabel = item ? labelLookupEnvolvido(item, tipo) : "";
+    els.clear.hidden = !item;
+    els.search.setCustomValidity("");
+    fecharResultadosLookupFiltroRelatorio(tipo);
+    els.select.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function sincronizarLookupFiltroRelatorio(tipo) {
+    const els = elementosLookupFiltroRelatorio(tipo);
+    if (!els) return;
+    const id = String(els.select.value || "");
+    if (!id) {
+      els.search.value = "";
+      els.search.dataset.selectedId = "";
+      els.search.dataset.selectedLabel = "";
+      els.clear.hidden = true;
+      fecharResultadosLookupFiltroRelatorio(tipo);
+      return;
+    }
+    const item = itensLookupEnvolvido(tipo).find(i => String(i.id) === id);
+    if (item) {
+      els.search.value = labelLookupEnvolvido(item, tipo);
+      els.search.dataset.selectedId = id;
+      els.search.dataset.selectedLabel = els.search.value;
+      els.clear.hidden = false;
+    }
+  }
+
+  function sincronizarLookupsFiltrosRelatorios() {
+    if (state.page !== "relatorios") return;
+    sincronizarLookupFiltroRelatorio("cliente");
+    sincronizarLookupFiltroRelatorio("fornecedor");
+  }
+
+  async function buscarLookupFiltroRelatorio(tipo, termo) {
+    const els = elementosLookupFiltroRelatorio(tipo);
+    const lookupState = estadoLookupFiltroRelatorio(tipo);
+    if (!els || !lookupState) return;
+    const busca = String(termo || "").trim();
+
+    if (busca.length < 2) {
+      const locais = resultadosLocaisLookupEnvolvido(tipo, busca);
+      renderResultadosLookupFiltroRelatorio(tipo, locais, locais.length ? "" : "Nenhum cadastro disponível.");
+      return;
+    }
+
+    if (lookupState.controller) lookupState.controller.abort();
+    const controller = new AbortController();
+    lookupState.controller = controller;
+    const requestId = ++lookupState.requestId;
+    renderResultadosLookupFiltroRelatorio(tipo, [], `Procurando ${tipo === "cliente" ? "clientes" : "fornecedores"}...`);
+
+    try {
+      const endpoint = tipo === "cliente" ? "/api/financeiro/clientes-busca" : "/api/financeiro/sacados";
+      const data = await request(`${endpoint}${qs({ busca, limit: 30 })}`, { signal: controller.signal });
+      if (requestId !== lookupState.requestId) return;
+      const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+      renderResultadosLookupFiltroRelatorio(tipo, items);
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      if (requestId !== lookupState.requestId) return;
+      renderResultadosLookupFiltroRelatorio(tipo, [], `Não foi possível pesquisar: ${err.message}`);
+    }
+  }
+
+  function agendarBuscaLookupFiltroRelatorio(tipo, termo) {
+    const lookupState = estadoLookupFiltroRelatorio(tipo);
+    if (!lookupState) return;
+    clearTimeout(lookupState.timer);
+    lookupState.timer = setTimeout(() => buscarLookupFiltroRelatorio(tipo, termo), 220);
+  }
+
+  function montarLookupFiltroRelatorio(tipo) {
+    if (state.page !== "relatorios" || !["cliente", "fornecedor"].includes(tipo)) return;
+    const select = tipo === "cliente" ? $("#filtro-cliente") : $("#filtro-fornecedor");
+    if (!select || select.dataset.reportLookupEnhanced === "true") return;
+    const field = select.closest(".financeiro-field");
+    if (!field) return;
+
+    const singular = tipo === "cliente" ? "cliente" : "fornecedor";
+    const resultId = `financeiro-relatorio-${tipo}-resultados`;
+    const lookup = document.createElement("div");
+    lookup.className = "financeiro-lookup financeiro-report-person-lookup";
+    lookup.dataset.relatorioPessoaLookup = tipo;
+    lookup.innerHTML = `
+      <i class="fa-solid fa-magnifying-glass financeiro-lookup-icon" aria-hidden="true"></i>
+      <input type="search" data-relatorio-pessoa-search="${tipo}" placeholder="Pesquisar ${singular}..." autocomplete="off"
+        role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${resultId}">
+      <button class="financeiro-lookup-clear" type="button" data-relatorio-pessoa-clear="${tipo}" title="Limpar ${singular}" aria-label="Limpar ${singular}" hidden>
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="financeiro-lookup-results" id="${resultId}" data-relatorio-pessoa-results="${tipo}" role="listbox" hidden></div>
+    `;
+    select.classList.add("financeiro-native-select-proxy");
+    select.dataset.reportLookupEnhanced = "true";
+    select.tabIndex = -1;
+    select.setAttribute("aria-hidden", "true");
+    select.insertAdjacentElement("afterend", lookup);
+
+    const search = lookup.querySelector(`[data-relatorio-pessoa-search="${tipo}"]`);
+    const clear = lookup.querySelector(`[data-relatorio-pessoa-clear="${tipo}"]`);
+    const results = lookup.querySelector(`[data-relatorio-pessoa-results="${tipo}"]`);
+
+    search.addEventListener("input", () => {
+      const valorAtual = String(search.value || "");
+      if (search.dataset.selectedId && valorAtual !== String(search.dataset.selectedLabel || "")) {
+        select.value = "";
+        search.dataset.selectedId = "";
+        search.dataset.selectedLabel = "";
+        clear.hidden = true;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      agendarBuscaLookupFiltroRelatorio(tipo, valorAtual);
+    });
+    search.addEventListener("focus", () => {
+      if (search.dataset.selectedId) return;
+      const termo = String(search.value || "").trim();
+      if (termo.length >= 2) agendarBuscaLookupFiltroRelatorio(tipo, termo);
+      else renderResultadosLookupFiltroRelatorio(tipo, resultadosLocaisLookupEnvolvido(tipo, termo));
+    });
+    search.addEventListener("keydown", ev => {
+      if (ev.key === "Escape") return fecharResultadosLookupFiltroRelatorio(tipo);
+      if (ev.key !== "Enter") return;
+      const primeiro = results.querySelector(`[data-relatorio-pessoa-option="${tipo}"]`);
+      if (!primeiro || results.hidden) return;
+      ev.preventDefault();
+      const item = estadoLookupFiltroRelatorio(tipo)?.items?.[Number(primeiro.dataset.relatorioPessoaIndex)];
+      if (item) selecionarLookupFiltroRelatorio(tipo, item);
+    });
+    results.addEventListener("click", ev => {
+      const btn = ev.target.closest(`[data-relatorio-pessoa-option="${tipo}"]`);
+      if (!btn) return;
+      const item = estadoLookupFiltroRelatorio(tipo)?.items?.[Number(btn.dataset.relatorioPessoaIndex)];
+      if (item) selecionarLookupFiltroRelatorio(tipo, item);
+    });
+    clear.addEventListener("click", () => {
+      selecionarLookupFiltroRelatorio(tipo, null);
+      search.focus();
+      renderResultadosLookupFiltroRelatorio(tipo, resultadosLocaisLookupEnvolvido(tipo));
+    });
+  }
+
+  function prepararLookupsFiltrosRelatorios() {
+    if (state.page !== "relatorios") return;
+    montarLookupFiltroRelatorio("cliente");
+    montarLookupFiltroRelatorio("fornecedor");
+    if (pageEl.dataset.reportLookupsOutsideBound !== "true") {
+      document.addEventListener("click", ev => {
+        if (!ev.target.closest("[data-relatorio-pessoa-lookup]")) fecharTodosLookupsFiltrosRelatorios();
+      });
+      pageEl.dataset.reportLookupsOutsideBound = "true";
+    }
   }
 
   function elementosSacado(form = $("#form-lancamento")) {
@@ -1434,7 +1679,7 @@
 
   function ativarAbaReceber(tab = "registros") {
     if (state.page !== "receber") return;
-    const alvo = ["registros", "detalhes", "conciliacao"].includes(tab) ? tab : "registros";
+    const alvo = ["registros", "baixa", "detalhes", "conciliacao"].includes(tab) ? tab : "registros";
     state.receberTab = alvo;
     $$('[data-receber-tab]').forEach(btn => {
       const ativo = btn.dataset.receberTab === alvo;
@@ -1442,20 +1687,225 @@
       btn.setAttribute("aria-selected", String(ativo));
     });
     $$('[data-receber-panel]').forEach(panel => { panel.hidden = panel.dataset.receberPanel !== alvo; });
+    if (alvo === "baixa") prepararBaixaReceber();
     if (alvo === "detalhes") renderDetalhesReceber(receberItemSelecionado());
     if (alvo === "conciliacao") carregarConciliacaoReceber().catch(err => alertBox(`Erro na conciliação: ${err.message}`, "danger"));
   }
 
   function selecionarReceber(id, abrirDetalhes = false) {
     state.receberSelecionadoId = Number(id) || null;
-    $$("[data-receber-row-id]").forEach(row => row.classList.toggle("is-selected", Number(row.dataset.receberRowId) === Number(state.receberSelecionadoId)));
+    $$('[data-receber-row-id]').forEach(row => row.classList.toggle("is-selected", Number(row.dataset.receberRowId) === Number(state.receberSelecionadoId)));
     renderDetalhesReceber(receberItemSelecionado());
     const resumo = $("#receber-registro-resumo");
     const item = receberItemSelecionado();
-    if (resumo) resumo.innerHTML = item
-      ? `<strong>#${item.id} • ${escapeHtml(item.cliente_nome || "Cliente")}</strong><span>${escapeHtml(item.documento || "Sem documento")} • ${money(item.valor_total, item.moeda)} • ${dateBR(item.data_vencimento)}</span>`
-      : "Selecione um título para consultar os detalhes.";
+    if (resumo) {
+      resumo.innerHTML = item
+        ? `<div><span>Parceiro Comercial</span><strong>${escapeHtml(item.parceiro_comercial || "-")}</strong></div>
+           <div><span>Ocorrência</span><strong>${escapeHtml(item.ocorrencia || "-")}</strong></div>
+           <div class="wide"><span>Observação</span><strong>${escapeHtml(item.observacoes || item.descricao || "Sem observações.")}</strong></div>`
+        : `<div><span>Parceiro Comercial</span><strong>-</strong></div><div><span>Ocorrência</span><strong>-</strong></div><div class="wide"><span>Observação</span><strong>Selecione um título para consultar os dados adicionais.</strong></div>`;
+    }
     if (abrirDetalhes) ativarAbaReceber("detalhes");
+  }
+
+  function saldoAbertoReceber(item) {
+    return Math.max(0, Number(item?.saldo_aberto ?? (Number(item?.valor_total || 0) - Number(item?.valor_pago || 0))));
+  }
+
+  function receberBaixaItemSelecionado() {
+    return state.receberBaixa.items.find(i => Number(i.id) === Number(state.receberBaixa.selecionadoId))
+      || state.items.find(i => Number(i.id) === Number(state.receberBaixa.selecionadoId))
+      || null;
+  }
+
+  function ativarModoBaixaReceber(mode = "individual") {
+    const alvo = mode === "multipla" ? "multipla" : "individual";
+    state.receberBaixa.mode = alvo;
+    $$('[data-baixa-receber-mode]').forEach(btn => {
+      const ativo = btn.dataset.baixaReceberMode === alvo;
+      btn.classList.toggle("is-active", ativo);
+      btn.setAttribute("aria-selected", String(ativo));
+    });
+    $$('[data-baixa-receber-panel]').forEach(panel => { panel.hidden = panel.dataset.baixaReceberPanel !== alvo; });
+    if (alvo === "multipla") carregarBaixaMultiplaReceber().catch(err => alertBox(`Erro ao carregar títulos para baixa: ${err.message}`, "danger"));
+  }
+
+  function prepararBaixaReceber() {
+    if (state.page !== "receber") return;
+    const dataBaixa = $("#baixa-multipla-data-baixa");
+    if (dataBaixa && !dataBaixa.value) dataBaixa.value = todayISO();
+    ativarModoBaixaReceber(state.receberBaixa.mode);
+    if (state.receberSelecionadoId && !state.receberBaixa.selecionadoId) {
+      state.receberBaixa.selecionadoId = Number(state.receberSelecionadoId);
+      renderBaixaIndividualReceber(receberItemSelecionado());
+    }
+  }
+
+  async function localizarBaixaIndividualReceber() {
+    const termo = String($("#baixa-receber-busca")?.value || "").trim();
+    const host = $("#baixa-receber-resultados");
+    if (!host) return;
+    if (!termo) {
+      host.innerHTML = '<div class="financeiro-empty-soft">Digite um cliente, documento ou código para localizar um título em aberto.</div>';
+      return;
+    }
+    host.innerHTML = '<div class="financeiro-empty-soft">Localizando...</div>';
+    let encontrados = [];
+    if (/^\d+$/.test(termo)) {
+      try {
+        const direto = await request(`/api/financeiro/lancamentos/${Number(termo)}`);
+        if (direto?.tipo === "receber" && saldoAbertoReceber(direto) > 0 && String(direto.status_calculado || direto.status || "").toLowerCase() !== "cancelado") encontrados.push(direto);
+      } catch (_) {}
+    }
+    if (!encontrados.length) {
+      const data = await request(`/api/financeiro/contas-receber${qs({ status: "aberto", busca: termo, limit: 50 })}`);
+      encontrados = (data.items || []).filter(i => saldoAbertoReceber(i) > 0);
+    }
+    state.receberBaixa.items = encontrados;
+    if (!encontrados.length) {
+      host.innerHTML = '<div class="financeiro-empty-soft">Nenhum título em aberto encontrado.</div>';
+      renderBaixaIndividualReceber(null);
+      return;
+    }
+    host.innerHTML = encontrados.map(i => `<button class="financeiro-baixa-search-result" type="button" data-baixa-individual-id="${i.id}">
+      <span><strong>#${i.id} • ${escapeHtml(i.cliente_nome || "Cliente")}</strong><small>${escapeHtml(i.documento || "Sem documento")} • vence ${dateBR(i.data_vencimento)}</small></span>
+      <strong>${money(saldoAbertoReceber(i), i.moeda)}</strong>
+    </button>`).join("");
+  }
+
+  function renderBaixaIndividualReceber(item) {
+    const host = $("#baixa-receber-individual-card");
+    if (!host) return;
+    if (!item) {
+      host.innerHTML = '<div class="financeiro-empty-soft">Selecione um título para realizar a baixa individual.</div>';
+      return;
+    }
+    state.receberBaixa.selecionadoId = Number(item.id);
+    const saldo = saldoAbertoReceber(item);
+    const status = String(item.status_calculado || item.status || "aberto").toLowerCase();
+    host.innerHTML = `
+      <div class="financeiro-baixa-individual-head">
+        <div><span>Título #${item.id}</span><h4>${escapeHtml(item.cliente_nome || "Cliente não informado")}</h4></div>
+        ${pill(status)}
+      </div>
+      <div class="financeiro-baixa-individual-grid">
+        <div><span>Documento</span><strong>${escapeHtml(item.documento || "-")}</strong></div>
+        <div><span>Emissão</span><strong>${dateBR(item.data_emissao)}</strong></div>
+        <div><span>Vencimento</span><strong>${dateBR(item.data_vencimento)}</strong></div>
+        <div><span>Valor documento</span><strong>${money(item.valor_total, item.moeda)}</strong></div>
+        <div><span>Já recebido</span><strong>${money(item.valor_pago, item.moeda)}</strong></div>
+        <div class="is-total"><span>Saldo para baixa</span><strong>${money(saldo, item.moeda)}</strong></div>
+      </div>
+      <div class="financeiro-baixa-individual-history"><span>Histórico / Observação</span><strong>${escapeHtml(item.observacoes || item.descricao || "-")}</strong></div>
+      <div class="financeiro-baixa-individual-actions">
+        <button class="btn btn-primary" type="button" data-action="baixar-lancamento" data-id="${item.id}" ${saldo <= 0 || ["recebido","cancelado"].includes(status) ? "disabled" : ""}><i class="fa-solid fa-check"></i> Baixar</button>
+        <button class="btn btn-secondary" type="button" data-action="historico-lancamento" data-id="${item.id}"><i class="fa-solid fa-clock-rotate-left"></i> Histórico / Estornar</button>
+        ${item.cliente_id ? `<button class="btn btn-secondary" type="button" data-action="abrir-cliente" data-id="${item.cliente_id}"><i class="fa-regular fa-user"></i> Abrir cliente</button>` : ""}
+      </div>`;
+  }
+
+  function parametrosBaixaMultiplaReceber() {
+    return {
+      status: "aberto",
+      data_inicio: $("#baixa-multipla-data-inicio")?.value || "",
+      data_fim: $("#baixa-multipla-data-fim")?.value || "",
+      periodo_por: $("#baixa-multipla-periodo-por")?.value || "vencimento",
+      cliente_id: $("#baixa-multipla-cliente")?.value || "",
+      limit: 300,
+    };
+  }
+
+  async function carregarBaixaMultiplaReceber() {
+    if (state.receberBaixa.carregando) return;
+    state.receberBaixa.carregando = true;
+    const tbody = $("#tbody-baixa-multipla");
+    if (tbody) tbody.innerHTML = '<tr><td class="financeiro-empty" colspan="7">Carregando títulos em aberto...</td></tr>';
+    try {
+      const data = await request(`/api/financeiro/contas-receber${qs(parametrosBaixaMultiplaReceber())}`);
+      state.receberBaixa.items = (data.items || []).filter(i => saldoAbertoReceber(i) > 0);
+      state.receberBaixa.selecionados = new Set();
+      renderBaixaMultiplaReceber();
+    } finally {
+      state.receberBaixa.carregando = false;
+    }
+  }
+
+  function renderBaixaMultiplaReceber() {
+    const tbody = $("#tbody-baixa-multipla");
+    if (!tbody) return;
+    const items = state.receberBaixa.items || [];
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td class="financeiro-empty" colspan="7">Nenhum título em aberto encontrado para os filtros.</td></tr>';
+    } else {
+      tbody.innerHTML = items.map(i => {
+        const checked = state.receberBaixa.selecionados.has(Number(i.id));
+        return `<tr>
+          <td><input type="checkbox" data-baixa-multipla-check value="${i.id}" ${checked ? "checked" : ""} aria-label="Selecionar título ${i.id}"></td>
+          <td>${dateBR(i.data_emissao)}</td>
+          <td>${dateBR(i.data_vencimento)}</td>
+          <td>${escapeHtml(i.documento || "-")}</td>
+          <td><strong>${escapeHtml(i.cliente_nome || "-")}</strong></td>
+          <td class="financeiro-amount">${money(i.valor_total, i.moeda)}</td>
+          <td class="financeiro-amount"><strong>${money(saldoAbertoReceber(i), i.moeda)}</strong></td>
+        </tr>`;
+      }).join("");
+    }
+    const todos = $("#baixa-multipla-todos");
+    if (todos) {
+      todos.checked = items.length > 0 && state.receberBaixa.selecionados.size === items.length;
+      todos.indeterminate = state.receberBaixa.selecionados.size > 0 && state.receberBaixa.selecionados.size < items.length;
+    }
+    atualizarResumoBaixaMultiplaReceber();
+  }
+
+  function atualizarResumoBaixaMultiplaReceber() {
+    const selecionados = (state.receberBaixa.items || []).filter(i => state.receberBaixa.selecionados.has(Number(i.id)));
+    const qtd = $("#baixa-multipla-qtd");
+    const total = $("#baixa-multipla-total");
+    if (qtd) qtd.textContent = String(selecionados.length);
+    if (total) total.textContent = money(soma(selecionados, saldoAbertoReceber));
+  }
+
+  async function baixarMultiplasReceber() {
+    const selecionados = (state.receberBaixa.items || []).filter(i => state.receberBaixa.selecionados.has(Number(i.id)));
+    if (!selecionados.length) return alertBox("Selecione pelo menos um título para baixar.", "warn");
+    const dataPagamento = $("#baixa-multipla-data-baixa")?.value || "";
+    const formaId = nullNumber($("#baixa-multipla-forma")?.value);
+    const contaId = nullNumber($("#baixa-multipla-conta")?.value);
+    if (!dataPagamento) return alertBox("Informe a data da baixa.", "warn");
+    if (!formaId) return alertBox("Selecione a forma de recebimento.", "warn");
+    if (!contaId) return alertBox("Selecione a Conta Corrente que receberá o crédito.", "warn");
+    const btn = $("#btn-baixar-multiplas");
+    if (btn) btn.disabled = true;
+    let sucesso = 0;
+    const erros = [];
+    try {
+      for (const item of selecionados) {
+        try {
+          await request(`/api/financeiro/lancamentos/${item.id}/baixar`, { method: "PATCH", body: {
+            idempotency_key: `baixa-lote-${Date.now()}-${item.id}-${Math.random().toString(36).slice(2, 8)}`,
+            valor_principal: String(saldoAbertoReceber(item).toFixed(2)),
+            valor_desconto: "0",
+            valor_acrescimo: "0",
+            modalidade_baixa: "total",
+            usar_calculo_automatico: true,
+            data_pagamento: dataPagamento,
+            forma_pagamento_id: formaId,
+            conta_banco_id: contaId,
+            observacoes: "Baixa múltipla realizada pelo Contas a Receber.",
+          }});
+          sucesso += 1;
+        } catch (err) {
+          erros.push(`#${item.id}: ${err.message}`);
+        }
+      }
+      if (erros.length) alertBox(`${sucesso} título(s) baixado(s). ${erros.length} falharam: ${erros.slice(0, 3).join(" | ")}${erros.length > 3 ? " ..." : ""}`, "warn");
+      else alertBox(`${sucesso} título(s) baixado(s) com sucesso.`, "ok");
+      await carregarBaixaMultiplaReceber();
+      await carregarReceber();
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   function labelConciliacao(status) {
@@ -1650,7 +2100,9 @@
     setKPI("receber-recebido", money(resumo.total_baixado || 0));
     setKPI("receber-vencido", money(resumo.total_vencido || 0));
     setKPI("receber-hoje", money(resumo.total_vence_hoje || 0));
-    setTable("tbody-receber", 11, items.map(i => rowLancamento(i, "receber")).join(""), "Nenhuma conta a receber encontrada.");
+    setTable("tbody-receber", 9, items.map(i => rowLancamento(i, "receber")).join(""), "Nenhuma conta a receber encontrada.");
+    const totalFiltrado = $("#receber-total-filtrado");
+    if (totalFiltrado) totalFiltrado.textContent = money(soma(items, i => Number(i.valor_total || 0)));
     selecionarReceber(state.receberSelecionadoId, false);
     ativarAbaReceber(state.receberTab);
     const inadimplentes = Number(resumo.clientes_inadimplentes || 0);
@@ -3189,23 +3641,31 @@
   function prepararInterfaceFinanceiro() {
     const tabs = $(".financeiro-tabs");
     if (tabs) {
-      const configuracaoPages = new Set(["categorias", "formas", "contas", "cadastros", "configuracoes", "automacao"]);
-      const activeKey = configuracaoPages.has(state.page) ? "configuracoes" : state.page;
-      const items = [
-        ["dashboard", "/financeiro", "fa-regular fa-clipboard", "Visão geral"],
-        ["acompanhamento", "/acompanhamento-financeiro", "fa-solid fa-chart-line", "Acompanhamento"],
-        ["receber", "/contas-receber", "fa-regular fa-calendar-check", "Contas a receber"],
-        ["pagar", "/contas-pagar", "fa-regular fa-file-lines", "Contas a pagar"],
-        ["cobrancas", "/cobrancas-financeiro", "fa-regular fa-bell", "Cobranças"],
-        ["fluxo", "/fluxo-caixa", "fa-solid fa-wave-square", "Fluxo de caixa"],
-        ["movimento-bancario", "/movimento-bancario", "fa-solid fa-building-columns", "Movimento bancário"],
-        ["relatorios", "/relatorios-financeiros", "fa-regular fa-chart-bar", "Relatórios"],
-        ["configuracoes", "/configuracoes-financeiras", "fa-solid fa-gear", "Configurações"],
-      ];
       tabs.classList.add("financeiro-tabs--primary");
-      tabs.innerHTML = items.map(([key, href, icon, label]) =>
-        `<a href="${href}" class="${activeKey === key ? "active" : ""}"${activeKey === key ? ' aria-current="page"' : ""}><i class="${icon}"></i><span>${label}</span></a>`
-      ).join("");
+      if (window.ValoraFinanceSubnav?.sync) {
+        // O conteúdo e a ordem da navegação ficam em um único partial
+        // compartilhado por todas as páginas do Financeiro.
+        void window.ValoraFinanceSubnav.sync();
+      } else if (!tabs.dataset.financeiroSubnav) {
+        // Fallback somente para casos em que o menu global não carregou.
+        const configuracaoPages = new Set(["categorias", "formas", "contas", "cadastros", "configuracoes", "automacao"]);
+        const activeKey = configuracaoPages.has(state.page) ? "configuracoes" : state.page;
+        const items = [
+          ["dashboard", "/financeiro", "fa-regular fa-clipboard", "Visão geral"],
+          ["acompanhamento", "/acompanhamento-financeiro", "fa-solid fa-chart-line", "Acompanhamento"],
+          ["faturamento", "/faturamento", "fa-solid fa-file-invoice-dollar", "Faturamento"],
+          ["receber", "/contas-receber", "fa-regular fa-calendar-check", "Contas a receber"],
+          ["pagar", "/contas-pagar", "fa-regular fa-file-lines", "Contas a pagar"],
+          ["cobrancas", "/cobrancas-financeiro", "fa-regular fa-bell", "Cobranças"],
+          ["fluxo", "/fluxo-caixa", "fa-solid fa-cash-register", "Controle de Caixa"],
+          ["movimento-bancario", "/movimento-bancario", "fa-solid fa-building-columns", "Movimento Bancário"],
+          ["relatorios", "/relatorios-financeiros", "fa-regular fa-chart-bar", "Relatórios"],
+          ["configuracoes", "/configuracoes-financeiras", "fa-solid fa-gear", "Configurações"],
+        ];
+        tabs.innerHTML = items.map(([key, href, icon, label]) =>
+          `<a href="${href}" data-financeiro-nav="${key}" class="${activeKey === key ? "active" : ""}"${activeKey === key ? ' aria-current="page"' : ""}><i class="${icon}"></i><span>${label}</span></a>`
+        ).join("");
+      }
     }
 
     const formLancamento = $("#form-lancamento");
@@ -3714,15 +4174,29 @@
     }
   }
 
+  function abrirCadastroRelacionado(tipo, id) {
+    const cadastroId = Number(id || 0);
+    if (!cadastroId) return;
+    const destino = tipo === "cliente"
+      ? `/clientes?editar_cliente_id=${encodeURIComponent(cadastroId)}`
+      : `/fornecedores?editar_fornecedor_id=${encodeURIComponent(cadastroId)}`;
+    if (window.ValoraNavigate) window.ValoraNavigate(destino);
+    else window.location.assign(destino);
+  }
+
   async function actionClick(ev) {
     const btn = ev.target.closest("[data-action]");
     if (!btn || btn.disabled) return;
     const id = Number(btn.dataset.id);
     const action = btn.dataset.action;
     const tipoAux = btn.dataset.tipo || "";
-    const item = state.items.find(i => Number(i.id) === id) || state.auxItems.find(i => Number(i.id) === id && (!tipoAux || i._auxType === tipoAux));
+    const item = state.items.find(i => Number(i.id) === id)
+      || state.receberBaixa.items.find(i => Number(i.id) === id)
+      || state.auxItems.find(i => Number(i.id) === id && (!tipoAux || i._auxType === tipoAux));
 
     try {
+      if (action === "abrir-cliente") { abrirCadastroRelacionado("cliente", id); return; }
+      if (action === "abrir-fornecedor") { abrirCadastroRelacionado("fornecedor", id); return; }
       if (action === "editar-caixa") {
         const movimento = state.caixa.registros.find(i => i.origem === "manual" && Number(i.id) === id);
         if (movimento) abrirEdicaoCaixa(movimento);
@@ -3880,6 +4354,9 @@
       $$('[data-receber-status]').forEach(btn =>
         btn.classList.toggle("is-active", btn.dataset.receberStatus === "todos")
       );
+      const modo = new URLSearchParams(window.location.search).get("modo");
+      if (modo === "baixa") state.receberTab = "baixa";
+      else if (modo === "movimentacao") state.receberTab = "registros";
     }
     if (state.page === "pagar") {
       const status = $("#filtro-status");
@@ -3951,11 +4428,62 @@
         const fim = $("#filtro-data-fim");
         if (inicio) inicio.value = monthStartISO();
         if (fim) fim.value = todayISO();
+        sincronizarLookupsFiltrosRelatorios();
       }
       recarregar();
     });
     $("#btn-exportar-financeiro")?.addEventListener("click", exportarTabela);
     $$('[data-receber-tab]').forEach(btn => btn.addEventListener("click", () => ativarAbaReceber(btn.dataset.receberTab)));
+    $$('[data-baixa-receber-mode]').forEach(btn => btn.addEventListener("click", () => ativarModoBaixaReceber(btn.dataset.baixaReceberMode)));
+    $("#btn-baixa-receber-localizar")?.addEventListener("click", () => localizarBaixaIndividualReceber().catch(err => alertBox(`Erro ao localizar título: ${err.message}`, "danger")));
+    $("#baixa-receber-busca")?.addEventListener("keydown", ev => {
+      if (ev.key === "Enter") { ev.preventDefault(); localizarBaixaIndividualReceber().catch(err => alertBox(`Erro ao localizar título: ${err.message}`, "danger")); }
+    });
+    $("#baixa-receber-resultados")?.addEventListener("click", ev => {
+      const btn = ev.target.closest("[data-baixa-individual-id]");
+      if (!btn) return;
+      const item = state.receberBaixa.items.find(i => Number(i.id) === Number(btn.dataset.baixaIndividualId));
+      if (item) renderBaixaIndividualReceber(item);
+    });
+    $("#btn-carregar-baixa-multipla")?.addEventListener("click", () => carregarBaixaMultiplaReceber().catch(err => alertBox(`Erro ao carregar títulos: ${err.message}`, "danger")));
+    $("#baixa-multipla-todos")?.addEventListener("change", ev => {
+      state.receberBaixa.selecionados = ev.currentTarget.checked
+        ? new Set((state.receberBaixa.items || []).map(i => Number(i.id)))
+        : new Set();
+      renderBaixaMultiplaReceber();
+    });
+    $("#tbody-baixa-multipla")?.addEventListener("change", ev => {
+      const check = ev.target.closest("[data-baixa-multipla-check]");
+      if (!check) return;
+      const id = Number(check.value || 0);
+      if (check.checked) state.receberBaixa.selecionados.add(id);
+      else state.receberBaixa.selecionados.delete(id);
+      atualizarResumoBaixaMultiplaReceber();
+      const todos = $("#baixa-multipla-todos");
+      if (todos) {
+        todos.checked = state.receberBaixa.items.length > 0 && state.receberBaixa.selecionados.size === state.receberBaixa.items.length;
+        todos.indeterminate = state.receberBaixa.selecionados.size > 0 && state.receberBaixa.selecionados.size < state.receberBaixa.items.length;
+      }
+    });
+    $("#btn-baixar-multiplas")?.addEventListener("click", () => baixarMultiplasReceber().catch(err => alertBox(`Erro na baixa múltipla: ${err.message}`, "danger")));
+    $("#receber-acao-editar")?.addEventListener("click", () => {
+      const item = receberItemSelecionado();
+      if (!item) return alertBox("Selecione um título para editar.", "warn");
+      abrirLancamento("receber", item);
+    });
+    $("#receber-acao-baixar")?.addEventListener("click", () => {
+      const item = receberItemSelecionado();
+      if (!item) return alertBox("Selecione um título para baixar.", "warn");
+      state.receberBaixa.mode = "individual";
+      state.receberBaixa.selecionadoId = Number(item.id);
+      ativarAbaReceber("baixa");
+      renderBaixaIndividualReceber(item);
+    });
+    $("#receber-acao-boleto")?.addEventListener("click", () => {
+      const item = receberItemSelecionado();
+      if (!item) return alertBox("Selecione um título para abrir o boleto/Pix.", "warn");
+      abrirBoleto(item.id).catch(err => alertBox(`Erro ao abrir boleto: ${err.message}`, "danger"));
+    });
     $$('[data-pagar-tab]').forEach(btn => btn.addEventListener("click", () => ativarAbaPagar(btn.dataset.pagarTab)));
     $$('[data-pagar-status]').forEach(btn => btn.addEventListener("click", async () => {
       $$('[data-pagar-status]').forEach(other => other.classList.toggle("is-active", other === btn));

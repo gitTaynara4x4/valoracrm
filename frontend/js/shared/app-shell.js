@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260810-shell-standalone-audit-v29';
+  const VERSION = '20260822-financeiro-subnav-unico-v2';
   const EMBED_PARAM = '__valora_embed';
   const stage = document.getElementById('valora-shell-stage');
   const progress = document.getElementById('valora-shell-progress');
@@ -146,6 +146,7 @@
     frame.classList.add('is-active');
     frame.removeAttribute('aria-hidden');
     signalFrame(frame, true, targetUrl);
+    syncFinanceSubnavInto(frame);
   }
 
   function setLoading(loading) {
@@ -186,6 +187,14 @@
     } catch (_) {}
   }
 
+  function syncFinanceSubnavInto(frame) {
+    try {
+      const doc = frame?.contentDocument;
+      if (!doc?.querySelector?.('.financeiro-tabs--primary')) return;
+      void window.ValoraFinanceSubnav?.sync?.(doc);
+    } catch (_) {}
+  }
+
   async function waitUntilPaintable(frame) {
     try {
       const doc = frame.contentDocument;
@@ -223,6 +232,7 @@
     frame.addEventListener('load', () => {
       if (frame !== activeFrame) return;
       syncThemeInto(frame);
+      syncFinanceSubnavInto(frame);
       document.title = frameTitle(frame);
       rememberFrame(frame, frameLocation(frame));
       updateParentFromFrame(frame, 'push');

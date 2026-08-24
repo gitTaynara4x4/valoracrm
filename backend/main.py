@@ -226,7 +226,7 @@ EMBEDDED_PAGE_BRIDGE = """<script id=\"valora-embedded-page-bridge\">
     const path = url.pathname.toLowerCase();
     if (path.startsWith('/api/') || path.startsWith('/uploads/') || path === '/login' || path === '/cadastro') return;
     event.preventDefault();
-    parent.postMessage({ type: 'valora:navigate', url: url.href, replace: false }, location.origin);
+    window.top.postMessage({ type: 'valora:navigate', url: url.href, replace: false }, location.origin);
   }, true);
 })();
 </script>"""

@@ -14,13 +14,21 @@
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
   <script src="/frontend/js/shared/menu-global.js?v=20260819-financeiro-organizado-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260819-busca-envolvidos-v2" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260822-relatorios-pessoas-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260819-busca-envolvidos-v1" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260822-relatorios-pessoas-v1" />
 </head>
 <body class="financeiro-theme-valora">
   <div class="layout">
     <div id="valora-menu-root" aria-label="Menu Valora"></div>
+    <iframe
+      class="financeiro-sidebar-frame"
+      src="/frontend/partials/sidebar-financeiro.html?v=20260824-v4-native-nav"
+      title="Navegação do Financeiro"
+      scrolling="no"
+      loading="eager"
+      style="display:block;width:100%;height:44px;min-height:44px;border:0;margin:0;padding:0;background:transparent;overflow:hidden;"
+    ></iframe>
     <main class="main financeiro-page financeiro-page--valora" data-financeiro-page="relatorios">
       <header class="topbar">
         <div class="topbar-title"><span class="eyebrow">Financeiro</span><h1>Relatórios Financeiros</h1><p class="topbar-subtitle">Relatórios operacionais de cobrança e análise gerencial do período.</p></div>
@@ -30,24 +38,18 @@
           <button class="btn btn-secondary" type="button" id="btn-toggle-filtros"><i class="fa-solid fa-filter"></i> Filtros</button>
         </div>
       </header>
-      <div class="financeiro-toolbar"><nav class="financeiro-tabs financeiro-tabs--primary">
-          <a href="/financeiro"><i class="fa-regular fa-clipboard"></i><span>Visão geral</span></a>
-          <a href="/contas-receber"><i class="fa-regular fa-calendar-check"></i><span>Contas a receber</span></a>
-          <a href="/contas-pagar"><i class="fa-regular fa-file-lines"></i><span>Contas a pagar</span></a>
-          <a href="/cobrancas-financeiro"><i class="fa-regular fa-bell"></i><span>Cobranças</span></a>
-          <a href="/fluxo-caixa"><i class="fa-solid fa-wave-square"></i><span>Fluxo de caixa</span></a>
-          <a href="/relatorios-financeiros" class="active" aria-current="page"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a>
-          <a href="/configuracoes-financeiras"><i class="fa-solid fa-gear"></i><span>Configurações</span></a>
-        </nav><span class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando dados reais...</span></div>
+      
+      <div class="financeiro-sidebar-status-source" hidden><span data-financeiro-sidebar-status class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando dados reais...</span></div>
       <section class="financeiro-panel financeiro-filter-panel is-open" id="financeiro-filtros">
-        <div class="financeiro-filters-grid">
+        <div class="financeiro-filters-grid financeiro-filters-grid--relatorios">
           <div class="financeiro-field"><label>Data inicial</label><input id="filtro-data-inicio" type="date"></div>
           <div class="financeiro-field"><label>Data final</label><input id="filtro-data-fim" type="date"></div>
           <div class="financeiro-field"><label>Cliente</label><select id="filtro-cliente" data-select="clientes"><option value="">Todos os clientes</option></select></div>
+          <div class="financeiro-field"><label>Fornecedor</label><select id="filtro-fornecedor" data-select="fornecedores"><option value="">Todos os fornecedores</option></select></div>
           <div class="financeiro-field"><label>Forma de cobrança</label><select id="filtro-forma-cobranca" data-select="formas-cobranca"><option value="">Todas as formas</option></select></div>
         </div>
         <div class="financeiro-toolbar" style="margin:14px 0 0;">
-          <span class="financeiro-muted">O período é aplicado conforme a natureza do relatório: emissão, pagamento ou vencimento.</span>
+          <span class="financeiro-muted">Pesquise cliente ou fornecedor pelo nome, código, CPF/CNPJ, telefone ou e-mail. Cliente filtra Contas a Receber/cobrança; fornecedor filtra Contas a Pagar.</span>
           <div><button class="btn btn-secondary" type="button" id="btn-limpar-filtros">Limpar</button> <button class="btn btn-primary" type="button" id="btn-aplicar-filtros">Aplicar</button></div>
         </div>
       </section>

@@ -21,7 +21,7 @@
   gap: 9px;
   align-items: center;
   margin-top: 13px;
-  color: var(--text-muted, #68707d);
+  color: var(--muted, #68707d);
   font-size: 12px;
 }
 .acompanhamento-filter-note i { flex: 0 0 auto; }
@@ -35,9 +35,9 @@
 .acomp-kpi {
   min-width: 0;
   padding: 17px 18px;
-  border: 1px solid var(--border-color, #e6e8eb);
+  border: 1px solid var(--border, #e6e8eb);
   border-radius: 13px;
-  background: var(--surface, #fff);
+  background: var(--panel, #fff);
   box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
 }
 .acomp-kpi-head {
@@ -45,7 +45,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  color: var(--text-muted, #68707d);
+  color: var(--muted, #68707d);
   font-size: 12px;
   font-weight: 600;
 }
@@ -53,7 +53,7 @@
 .acomp-kpi > strong {
   display: block;
   margin-top: 9px;
-  color: var(--text-primary, #1f2937);
+  color: var(--text, #1f2937);
   font-size: clamp(20px, 2vw, 27px);
   letter-spacing: -.03em;
   line-height: 1.05;
@@ -61,7 +61,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.acomp-kpi > small { display: block; margin-top: 7px; color: var(--text-muted, #7b8390); font-size: 11px; }
+.acomp-kpi > small { display: block; margin-top: 7px; color: var(--muted, #7b8390); font-size: 11px; }
 .acomp-kpi--entrada > strong { color: #15803d; }
 .acomp-kpi--saida > strong,
 .acomp-kpi--danger > strong { color: #b42318; }
@@ -74,19 +74,19 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   margin-bottom: 16px;
-  border: 1px solid var(--border-color, #e6e8eb);
+  border: 1px solid var(--border, #e6e8eb);
   border-radius: 12px;
-  background: var(--surface, #fff);
+  background: var(--panel, #fff);
   overflow: hidden;
 }
 .acompanhamento-summary-strip > div {
   min-width: 0;
   padding: 13px 17px;
-  border-right: 1px solid var(--border-color, #e6e8eb);
+  border-right: 1px solid var(--border, #e6e8eb);
 }
 .acompanhamento-summary-strip > div:last-child { border-right: 0; }
-.acompanhamento-summary-strip span { display: block; color: var(--text-muted, #7a828d); font-size: 11px; }
-.acompanhamento-summary-strip strong { display: block; margin-top: 4px; color: var(--text-primary, #1f2937); font-size: 15px; }
+.acompanhamento-summary-strip span { display: block; color: var(--muted, #7a828d); font-size: 11px; }
+.acompanhamento-summary-strip strong { display: block; margin-top: 4px; color: var(--text, #1f2937); font-size: 15px; }
 .acompanhamento-summary-strip strong.is-negative { color: #b42318; }
 .acompanhamento-summary-strip strong.is-positive { color: #15803d; }
 
@@ -105,20 +105,20 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: var(--text-muted, #59616d);
+  color: var(--muted, #59616d);
   font-size: 12px;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
 }
-.acomp-inline-link:hover { color: var(--text-primary, #1f2937); }
+.acomp-inline-link:hover { color: var(--text, #1f2937); }
 
 .acompanhamento-table { min-width: 650px; }
-.acompanhamento-table td small { display: block; margin-top: 3px; color: var(--text-muted, #7a828d); font-size: 10px; font-weight: 400; }
+.acompanhamento-table td small { display: block; margin-top: 3px; color: var(--muted, #7a828d); font-size: 10px; font-weight: 400; }
 .acompanhamento-table tbody tr:hover { background: rgba(100, 116, 139, .045); }
 .acompanhamento-scroll-table { max-height: 415px; overflow: auto; }
 .acompanhamento-scroll-table thead { position: sticky; top: 0; z-index: 2; }
-.acompanhamento-scroll-table thead th { background: var(--surface, #fff); }
+.acompanhamento-scroll-table thead th { background: var(--panel, #fff); }
 
 .acomp-money-in { color: #15803d; }
 .acomp-money-out { color: #b42318; }
@@ -145,11 +145,11 @@
 .acomp-movement.is-pagar { background: rgba(180, 35, 24, .08); color: #b42318; }
 .acomp-movement.is-estorno { background: rgba(161, 98, 7, .09); color: #a16207; }
 .acomp-status-pill { padding: 4px 8px; background: rgba(21, 128, 61, .08); color: #15803d; }
-.acomp-status-pill.is-off { background: rgba(100, 116, 139, .1); color: var(--text-muted, #64748b); }
+.acomp-status-pill.is-off { background: rgba(100, 116, 139, .1); color: var(--muted, #64748b); }
 .acomp-delay { padding: 4px 8px; background: rgba(180, 35, 24, .08); color: #b42318; }
-.acomp-due { padding: 4px 8px; background: rgba(100, 116, 139, .08); color: var(--text-muted, #64748b); }
+.acomp-due { padding: 4px 8px; background: rgba(100, 116, 139, .08); color: var(--muted, #64748b); }
 .acomp-due.is-soon { background: rgba(161, 98, 7, .09); color: #a16207; }
-.acomp-count-badge { justify-content: center; min-width: 28px; height: 28px; padding: 0 9px; background: rgba(100, 116, 139, .09); color: var(--text-primary, #334155); }
+.acomp-count-badge { justify-content: center; min-width: 28px; height: 28px; padding: 0 9px; background: rgba(100, 116, 139, .09); color: var(--text, #334155); }
 
 .acompanhamento-movimentos { margin-top: 0; }
 #acomp-btn-atualizar.is-loading i { animation: acomp-spin .7s linear infinite; }
@@ -170,7 +170,7 @@
   .acompanhamento-kpi-grid,
   .acompanhamento-summary-strip,
   .acompanhamento-filter-grid { grid-template-columns: 1fr; }
-  .acompanhamento-summary-strip > div { border-right: 0; border-bottom: 1px solid var(--border-color, #e6e8eb); }
+  .acompanhamento-summary-strip > div { border-right: 0; border-bottom: 1px solid var(--border, #e6e8eb); }
   .acompanhamento-summary-strip > div:last-child { border-bottom: 0; }
   .acompanhamento-filter-action { grid-column: auto; }
   .acompanhamento-filter-action .btn { width: 100%; }
@@ -186,4 +186,60 @@
   .acompanhamento-grid { grid-template-columns: 1fr !important; }
   .acompanhamento-scroll-table { max-height: none; overflow: visible; }
   .financeiro-panel, .acomp-kpi, .acompanhamento-summary-strip { break-inside: avoid; box-shadow: none !important; }
+}
+
+
+/* =========================================================
+   DARK — ACOMPANHAMENTO
+   Usa a mesma paleta global do Valora (estilo ChatGPT),
+   evitando cards brancos e azul forte nesta página.
+   ========================================================= */
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .acomp-kpi,
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .acompanhamento-summary-strip {
+  background: var(--panel) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .acomp-kpi-head,
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .acomp-kpi > small,
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .acompanhamento-summary-strip span,
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .acomp-inline-link,
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .acompanhamento-filter-note {
+  color: var(--muted) !important;
+}
+
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .acomp-kpi > strong,
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .acompanhamento-summary-strip strong,
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .acomp-count-badge {
+  color: var(--text) !important;
+}
+
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .acompanhamento-summary-strip > div {
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .acompanhamento-scroll-table thead th {
+  background: var(--bg-soft) !important;
+}
+
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .financeiro-tabs a.active,
+html[data-theme="dark"] body.financeiro-theme-valora.acompanhamento-financeiro-page .financeiro-tabs button.active {
+  background: var(--brand-soft) !important;
+  border-color: rgba(75, 195, 199, .28) !important;
+  color: var(--brand) !important;
+}
+
+body.financeiro-theme-valora.acompanhamento-financeiro-page .acompanhamento-filter-action .btn-primary,
+body.financeiro-theme-valora.acompanhamento-financeiro-page .acompanhamento-topbar .btn-primary {
+  background: var(--brand) !important;
+  border-color: var(--brand) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+body.financeiro-theme-valora.acompanhamento-financeiro-page .acompanhamento-filter-action .btn-primary:hover,
+body.financeiro-theme-valora.acompanhamento-financeiro-page .acompanhamento-topbar .btn-primary:hover {
+  background: var(--brand-hover) !important;
+  border-color: var(--brand-hover) !important;
 }

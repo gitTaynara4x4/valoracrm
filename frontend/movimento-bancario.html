@@ -21,6 +21,14 @@
 <body class="financeiro-theme-valora">
   <div class="layout">
     <div id="valora-menu-root" aria-label="Menu Valora"></div>
+    <iframe
+      class="financeiro-sidebar-frame"
+      src="/frontend/partials/sidebar-financeiro.html?v=20260824-v4-native-nav"
+      title="Navegação do Financeiro"
+      scrolling="no"
+      loading="eager"
+      style="display:block;width:100%;height:44px;min-height:44px;border:0;margin:0;padding:0;background:transparent;overflow:hidden;"
+    ></iframe>
     <main class="main financeiro-page financeiro-page--valora financeiro-banco-page">
       <header class="topbar">
         <div class="topbar-title">
@@ -35,17 +43,8 @@
         </div>
       </header>
 
-      <div class="financeiro-toolbar">
-        <nav class="financeiro-tabs financeiro-tabs--primary">
-          <a href="/financeiro"><i class="fa-regular fa-clipboard"></i><span>Visão geral</span></a>
-          <a href="/faturamento"><i class="fa-solid fa-file-invoice-dollar"></i><span>Faturamento</span></a>
-          <a href="/contas-receber"><i class="fa-regular fa-calendar-check"></i><span>Contas a receber</span></a>
-          <a href="/contas-pagar"><i class="fa-regular fa-file-lines"></i><span>Contas a pagar</span></a>
-          <a href="/fluxo-caixa"><i class="fa-solid fa-cash-register"></i><span>Controle de Caixa</span></a>
-          <a href="/movimento-bancario" class="active" aria-current="page"><i class="fa-solid fa-building-columns"></i><span>Movimento Bancário</span></a>
-        </nav>
-        <span class="financeiro-muted financeiro-toolbar-status" id="bank-status-text">Carregando...</span>
-      </div>
+      
+      <div class="financeiro-sidebar-status-source" hidden><span data-financeiro-sidebar-status class="financeiro-muted financeiro-toolbar-status" id="bank-status-text">Carregando...</span></div>
 
       <section class="financeiro-panel financeiro-filter-panel is-open">
         <div class="financeiro-filters-grid financeiro-bank-filters">

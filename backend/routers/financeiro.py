@@ -1577,6 +1577,8 @@ def listar_contas_receber(
     forma_cobranca_id: Optional[int] = Query(default=None),
     forma_pagamento_id: Optional[int] = Query(default=None),
     categoria_id: Optional[int] = Query(default=None),
+    conta_contabil_id: Optional[int] = Query(default=None),
+    centro_custo_principal_id: Optional[int] = Query(default=None),
     periodo_por: str = Query(default="vencimento"),
     documento: Optional[str] = Query(default=None, max_length=160),
     limit: int = Query(default=50, ge=1, le=300),
@@ -1588,6 +1590,7 @@ def listar_contas_receber(
         tipo="receber", status_filtro=status_filtro, data_inicio=data_inicio,
         data_fim=data_fim, busca=busca, cliente_id=cliente_id, fornecedor_id=None,
         forma_cobranca_id=forma_cobranca_id, forma_pagamento_id=forma_pagamento_id, categoria_id=categoria_id,
+        conta_contabil_id=conta_contabil_id, centro_custo_principal_id=centro_custo_principal_id,
         limit=limit, offset=offset, db=db, empresa_id=empresa_do(usuario),
         periodo_por=periodo_por, documento=documento,
     )
@@ -4581,16 +4584,49 @@ def acompanhamento_financeiro(
 def relatorio_resumo(
     data_inicio: Optional[date] = Query(default=None),
     data_fim: Optional[date] = Query(default=None),
+    cliente_id: Optional[int] = Query(default=None),
+    fornecedor_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_current_user),
 ):
     empresa_id = empresa_do(usuario)
-    params = {
+    if cliente_id is not None:
+        validar_id_empresa(db, table_name="clientes", item_id=cliente_id, empresa_id=empresa_id, label="Cliente")
+    if fornecedor_id is not None:
+        validar_id_empresa(db, table_name="fornecedores", item_id=fornecedor_id, empresa_id=empresa_id, label="Fornecedor")
+
+    params: Dict[str, Any] = {
         "empresa_id": empresa_id,
         "data_inicio": data_inicio or date.today().replace(day=1),
         "data_fim": data_fim or (date.today() + timedelta(days=60)),
     }
-    por_categoria = [row_to_dict(r) for r in db.execute(text("""
+    if cliente_id is not None:
+        params["cliente_id"] = cliente_id
+    if fornecedor_id is not None:
+        params["fornecedor_id"] = fornecedor_id
+
+    # Os relatórios misturam receber e pagar. Quando ambos os filtros são
+    # informados, cada lado usa sua própria pessoa: cliente em receber e
+    # fornecedor em pagar. Quando somente um é informado, o resumo fica
+    # restrito à natureza correspondente, evitando totais de terceiros.
+    if cliente_id is not None and fornecedor_id is not None:
+        filtro_geral = "AND ((l.tipo='receber' AND l.cliente_id=:cliente_id) OR (l.tipo='pagar' AND l.fornecedor_id=:fornecedor_id))"
+        filtro_receber = "AND l.cliente_id=:cliente_id"
+        filtro_pagar = "AND l.fornecedor_id=:fornecedor_id"
+    elif cliente_id is not None:
+        filtro_geral = "AND l.tipo='receber' AND l.cliente_id=:cliente_id"
+        filtro_receber = "AND l.cliente_id=:cliente_id"
+        filtro_pagar = "AND 1=0"
+    elif fornecedor_id is not None:
+        filtro_geral = "AND l.tipo='pagar' AND l.fornecedor_id=:fornecedor_id"
+        filtro_receber = "AND 1=0"
+        filtro_pagar = "AND l.fornecedor_id=:fornecedor_id"
+    else:
+        filtro_geral = ""
+        filtro_receber = ""
+        filtro_pagar = ""
+
+    por_categoria = [row_to_dict(r) for r in db.execute(text(f"""
         SELECT
             l.tipo,
             COALESCE(cat.nome, 'Sem categoria') AS categoria,
@@ -4604,11 +4640,12 @@ def relatorio_resumo(
         WHERE l.empresa_id = :empresa_id
           AND l.data_vencimento BETWEEN :data_inicio AND :data_fim
           AND l.status <> 'cancelado'
+          {filtro_geral}
         GROUP BY l.tipo, COALESCE(cat.nome, 'Sem categoria')
         ORDER BY l.tipo, valor_total DESC
     """), params).fetchall()]
 
-    contas_receber_row = db.execute(text("""
+    contas_receber_row = db.execute(text(f"""
         SELECT
             COALESCE(SUM(l.valor_total), 0) AS emitido_periodo,
             COALESCE(SUM(GREATEST(l.valor_total - l.valor_pago, 0)), 0) AS em_aberto_periodo,
@@ -4627,10 +4664,11 @@ def relatorio_resumo(
           AND l.tipo = 'receber'
           AND l.data_vencimento BETWEEN :data_inicio AND :data_fim
           AND l.status <> 'cancelado'
+          {filtro_receber}
     """), params).first()
     contas_receber = row_to_dict(contas_receber_row) if contas_receber_row else {}
 
-    recebido_row = db.execute(text("""
+    recebido_row = db.execute(text(f"""
         SELECT COALESCE(SUM(
             CASE WHEN m.tipo_movimentacao = 'baixa' THEN m.valor ELSE -m.valor END
         ), 0) AS recebido_periodo
@@ -4641,11 +4679,12 @@ def relatorio_resumo(
         WHERE m.empresa_id = :empresa_id
           AND l.tipo = 'receber'
           AND m.data_movimentacao BETWEEN :data_inicio AND :data_fim
+          {filtro_receber}
     """), params).first()
     recebido = row_to_dict(recebido_row) if recebido_row else {}
     contas_receber["recebido_periodo"] = recebido.get("recebido_periodo", 0)
 
-    por_tipo_gasto = [row_to_dict(r) for r in db.execute(text("""
+    por_tipo_gasto = [row_to_dict(r) for r in db.execute(text(f"""
         SELECT COALESCE(tg.nome, 'Sem tipo de gasto') AS tipo_gasto, COUNT(*) AS quantidade,
                COALESCE(SUM(l.valor_total), 0) AS valor_total,
                COALESCE(SUM(l.valor_pago), 0) AS valor_pago,
@@ -4656,11 +4695,12 @@ def relatorio_resumo(
         WHERE l.empresa_id=:empresa_id AND l.tipo='pagar'
           AND l.data_vencimento BETWEEN :data_inicio AND :data_fim
           AND l.status <> 'cancelado'
+          {filtro_pagar}
         GROUP BY COALESCE(tg.nome, 'Sem tipo de gasto')
         ORDER BY valor_total DESC
     """), params).fetchall()]
 
-    por_centro_custo = [row_to_dict(r) for r in db.execute(text("""
+    por_centro_custo = [row_to_dict(r) for r in db.execute(text(f"""
         SELECT COALESCE(ccp.nome, 'Sem centro de custo') AS centro_custo,
                COALESCE(ccs.nome, '-') AS subcentro, COUNT(*) AS quantidade,
                COALESCE(SUM(l.valor_total), 0) AS valor_total,
@@ -4674,6 +4714,7 @@ def relatorio_resumo(
         WHERE l.empresa_id=:empresa_id
           AND l.data_vencimento BETWEEN :data_inicio AND :data_fim
           AND l.status <> 'cancelado'
+          {filtro_geral}
         GROUP BY COALESCE(ccp.nome, 'Sem centro de custo'), COALESCE(ccs.nome, '-')
         ORDER BY valor_total DESC
     """), params).fetchall()]

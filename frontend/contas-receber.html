@@ -12,15 +12,23 @@
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260630-dark-chatgpt-v6" />
   <link rel="stylesheet" href="/frontend/css/financeiro.css?v=20260723-financeiro-base-v1" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
-  <script src="/frontend/js/shared/menu-global.js?v=20260819-financeiro-organizado-v1" defer></script>
+  <script src="/frontend/js/shared/menu-global.js?v=20260822-jcc-financeiro-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260821-boleto-conciliacao-v1" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260822-jcc-receber-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260821-boleto-conciliacao-v1" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260822-jcc-receber-v1" />
 </head>
 <body class="financeiro-theme-valora">
   <div class="layout">
     <div id="valora-menu-root" aria-label="Menu Valora"></div>
+    <iframe
+      class="financeiro-sidebar-frame"
+      src="/frontend/partials/sidebar-financeiro.html?v=20260824-v4-native-nav"
+      title="Navegação do Financeiro"
+      scrolling="no"
+      loading="eager"
+      style="display:block;width:100%;height:44px;min-height:44px;border:0;margin:0;padding:0;background:transparent;overflow:hidden;"
+    ></iframe>
     <main class="main financeiro-page financeiro-page--valora" data-financeiro-page="receber">
       <header class="topbar">
         <div class="topbar-title"><span class="eyebrow">Financeiro</span><h1>Contas a Receber</h1><p class="topbar-subtitle">Controle cobranças, recebimentos, vencidos e baixas de clientes.</p></div>
@@ -31,26 +39,19 @@
           <button class="btn btn-primary btn-novo-registro" type="button" data-new="receber"><i class="fa-solid fa-plus"></i> Nova conta a receber</button>
         </div>
       </header>
-      <div class="financeiro-toolbar"><nav class="financeiro-tabs financeiro-tabs--primary">
-          <a href="/financeiro"><i class="fa-regular fa-clipboard"></i><span>Visão geral</span></a>
-          <a href="/contas-receber" class="active" aria-current="page"><i class="fa-regular fa-calendar-check"></i><span>Contas a receber</span></a>
-          <a href="/contas-pagar"><i class="fa-regular fa-file-lines"></i><span>Contas a pagar</span></a>
-          <a href="/cobrancas-financeiro"><i class="fa-regular fa-bell"></i><span>Cobranças</span></a>
-          <a href="/fluxo-caixa"><i class="fa-solid fa-wave-square"></i><span>Fluxo de caixa</span></a>
-          <a href="/relatorios-financeiros"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a>
-          <a href="/configuracoes-financeiras"><i class="fa-solid fa-gear"></i><span>Configurações</span></a>
-        </nav><span class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando dados reais...</span></div>
+      
+      <div class="financeiro-sidebar-status-source" hidden><span data-financeiro-sidebar-status class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando dados reais...</span></div>
       <section class="financeiro-panel financeiro-filter-panel financeiro-receber-filter" id="financeiro-filtros">
         <div class="financeiro-receber-filter-head">
           <div>
             <span class="financeiro-filter-caption">Filtro Status</span>
             <div class="financeiro-status-segment" role="group" aria-label="Status das contas a receber">
               <button type="button" class="is-active" data-receber-status="aberto">Aberto</button>
-              <button type="button" data-receber-status="quitado">Quitado</button>
+              <button type="button" data-receber-status="todos">Todas</button>
               <button type="button" data-receber-status="cancelado">Cancelado</button>
-              <button type="button" data-receber-status="todos">Todos</button>
+              <button type="button" data-receber-status="quitado">Quitadas</button>
             </div>
-            <select id="filtro-status" hidden><option value="aberto" selected>Aberto</option><option value="quitado">Quitado</option><option value="cancelado">Cancelado</option><option value="todos">Todos</option></select>
+            <select id="filtro-status" hidden><option value="aberto" selected>Aberto</option><option value="todos">Todas</option><option value="cancelado">Cancelado</option><option value="quitado">Quitadas</option></select>
           </div>
           <div class="financeiro-receber-period">
             <span class="financeiro-filter-caption">Filtro Período</span>
@@ -65,6 +66,8 @@
         <div class="financeiro-filters-grid financeiro-filters-grid--receber">
           <div class="financeiro-field"><label>Cliente</label><select id="filtro-cliente" data-select="clientes"><option value="">Todos os clientes</option></select></div>
           <div class="financeiro-field"><label>Modalidade de pagamento</label><select id="filtro-forma-cobranca" data-select="formas-cobranca"><option value="">Todas as modalidades</option></select></div>
+          <div class="financeiro-field"><label>Plano de Contas</label><select id="filtro-conta-contabil" data-select="contas-contabeis"><option value="">Todos os planos</option></select></div>
+          <div class="financeiro-field"><label>Centro de Custo</label><select id="filtro-centro-custo" data-select="centros-custo"><option value="">Todos os centros</option></select></div>
           <div class="financeiro-field"><label>Documento</label><input id="filtro-documento" placeholder="Nº do documento"></div>
           <div class="financeiro-field"><label>Busca geral</label><input id="filtro-busca" placeholder="Cliente, descrição, nosso nº..."></div>
         </div>
@@ -90,15 +93,71 @@
 </section>
       <section class="financeiro-panel financeiro-receber-workspace">
         <div class="financeiro-panel-head"><div><h3>Contas a Receber</h3><p>Operação organizada na lógica do JCC, usando os dados reais do Valora.</p></div><button class="btn btn-primary btn-novo-registro" type="button" data-new="receber"><i class="fa-solid fa-plus"></i> Nova conta a receber</button></div>
-        <div class="financeiro-subtabs" role="tablist" aria-label="Contas a Receber">
-          <button type="button" class="is-active" data-receber-tab="registros"><i class="fa-solid fa-table-list"></i> Registros</button>
+        <div class="financeiro-subtabs financeiro-jcc-work-tabs" role="tablist" aria-label="Contas a Receber">
+          <button type="button" class="is-active" data-receber-tab="registros"><i class="fa-solid fa-table-list"></i> Movimentação</button>
+          <button type="button" data-receber-tab="baixa"><i class="fa-solid fa-check-double"></i> Baixa de documentos</button>
           <button type="button" data-receber-tab="detalhes"><i class="fa-regular fa-file-lines"></i> Detalhes</button>
           <button type="button" data-receber-tab="conciliacao"><i class="fa-solid fa-building-columns"></i> Conciliação</button>
         </div>
 
         <div data-receber-panel="registros">
-          <div class="financeiro-table-wrap"><table class="financeiro-table financeiro-table--receber-jcc" id="financeiro-table"><thead><tr><th>Cód.</th><th>Status</th><th>Emissão</th><th>Vencimento</th><th>Documento</th><th>Cliente</th><th>Modalidade</th><th>Valor</th><th>Quitado</th><th>Nosso número</th><th>Ações</th></tr></thead><tbody id="tbody-receber"><tr><td class="financeiro-empty" colspan="11">Carregando...</td></tr></tbody></table></div>
-          <div class="financeiro-receber-footer" id="receber-registro-resumo">Selecione um título para consultar os detalhes.</div>
+          <div class="financeiro-jcc-actionbar" aria-label="Ações da movimentação">
+            <div class="financeiro-jcc-actionbar-main">
+              <button class="financeiro-jcc-action btn-novo-registro" type="button" data-new="receber"><i class="fa-solid fa-plus"></i><span>Novo</span></button>
+              <button class="financeiro-jcc-action" type="button" id="receber-acao-editar"><i class="fa-regular fa-pen-to-square"></i><span>Editar</span></button>
+              <button class="financeiro-jcc-action is-primary" type="button" id="receber-acao-baixar"><i class="fa-solid fa-check"></i><span>Baixar</span></button>
+              <button class="financeiro-jcc-action" type="button" id="receber-acao-boleto"><i class="fa-solid fa-barcode"></i><span>Boleto / Pix</span></button>
+              <a class="financeiro-jcc-action" href="/contas-bancos"><i class="fa-solid fa-building-columns"></i><span>Conta Corrente</span></a>
+              <a class="financeiro-jcc-action" href="/relatorios-financeiros"><i class="fa-regular fa-chart-bar"></i><span>Relatórios</span></a>
+            </div>
+            <div class="financeiro-jcc-total"><span>Total filtrado</span><strong id="receber-total-filtrado">R$ 0,00</strong></div>
+          </div>
+          <div class="financeiro-table-wrap"><table class="financeiro-table financeiro-table--receber-jcc financeiro-table--receber-movimentacao" id="financeiro-table"><thead><tr><th>Dt. Movimento</th><th>Vencimento</th><th>Cliente</th><th>Documento</th><th>Plano de Contas</th><th>Valor</th><th>C.Custo</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-receber"><tr><td class="financeiro-empty" colspan="9">Carregando...</td></tr></tbody></table></div>
+          <div class="financeiro-jcc-selected-info" id="receber-registro-resumo">
+            <div><span>Parceiro Comercial</span><strong>-</strong></div>
+            <div><span>Ocorrência</span><strong>-</strong></div>
+            <div class="wide"><span>Observação</span><strong>Selecione um título para consultar os dados adicionais.</strong></div>
+          </div>
+        </div>
+
+        <div data-receber-panel="baixa" hidden>
+          <div class="financeiro-baixa-documentos">
+            <div class="financeiro-baixa-doc-tabs" role="tablist" aria-label="Baixa de documentos">
+              <button type="button" class="is-active" data-baixa-receber-mode="individual">Baixa individual</button>
+              <button type="button" data-baixa-receber-mode="multipla">Baixa múltiplas contas</button>
+            </div>
+
+            <section data-baixa-receber-panel="individual">
+              <div class="financeiro-baixa-doc-toolbar">
+                <div class="financeiro-field grow"><label>Localizar título</label><input id="baixa-receber-busca" placeholder="Cliente, documento ou código"></div>
+                <button class="btn btn-secondary" type="button" id="btn-baixa-receber-localizar"><i class="fa-solid fa-magnifying-glass"></i> Localizar</button>
+              </div>
+              <div class="financeiro-baixa-doc-results" id="baixa-receber-resultados"><div class="financeiro-empty-soft">Digite um cliente, documento ou código para localizar um título em aberto.</div></div>
+              <div class="financeiro-baixa-individual-card" id="baixa-receber-individual-card">
+                <div class="financeiro-empty-soft">Selecione um título para realizar a baixa individual.</div>
+              </div>
+            </section>
+
+            <section data-baixa-receber-panel="multipla" hidden>
+              <div class="financeiro-baixa-multipla-filtros">
+                <div class="financeiro-field"><label>Data inicial</label><input type="date" id="baixa-multipla-data-inicio"></div>
+                <div class="financeiro-field"><label>Data final</label><input type="date" id="baixa-multipla-data-fim"></div>
+                <div class="financeiro-field"><label>Por</label><select id="baixa-multipla-periodo-por"><option value="vencimento">Vencimento</option><option value="emissao">Emissão</option></select></div>
+                <div class="financeiro-field"><label>Cliente</label><select id="baixa-multipla-cliente" data-select="clientes"><option value="">Todos os clientes</option></select></div>
+                <button class="btn btn-secondary" type="button" id="btn-carregar-baixa-multipla"><i class="fa-solid fa-filter"></i> Filtrar</button>
+              </div>
+              <div class="financeiro-table-wrap financeiro-baixa-multipla-table"><table class="financeiro-table"><thead><tr><th><input type="checkbox" id="baixa-multipla-todos" aria-label="Selecionar todos"></th><th>Emissão</th><th>Vencimento</th><th>Documento</th><th>Cliente</th><th>Valor</th><th>Saldo</th></tr></thead><tbody id="tbody-baixa-multipla"><tr><td class="financeiro-empty" colspan="7">Clique em Filtrar para carregar os títulos em aberto.</td></tr></tbody></table></div>
+              <div class="financeiro-baixa-multipla-foot">
+                <div class="financeiro-baixa-multipla-total"><span>Selecionados</span><strong id="baixa-multipla-qtd">0</strong><span>Total selecionado</span><strong id="baixa-multipla-total">R$ 0,00</strong></div>
+                <div class="financeiro-baixa-multipla-campos">
+                  <div class="financeiro-field"><label>Data da baixa</label><input type="date" id="baixa-multipla-data-baixa"></div>
+                  <div class="financeiro-field"><label>Forma de recebimento</label><select id="baixa-multipla-forma" data-select="formas"><option value="">Selecione...</option></select></div>
+                  <div class="financeiro-field"><label>Conta Corrente para crédito</label><select id="baixa-multipla-conta" data-select="contas"><option value="">Selecione...</option></select></div>
+                  <button class="btn btn-primary" type="button" id="btn-baixar-multiplas"><i class="fa-solid fa-check-double"></i> Baixar selecionados</button>
+                </div>
+              </div>
+            </section>
+          </div>
         </div>
 
         <div data-receber-panel="detalhes" hidden>
