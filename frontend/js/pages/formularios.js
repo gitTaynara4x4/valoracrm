@@ -45,6 +45,16 @@
       icon: 'fa-file-contract',
       customEndpoint: null,
     },
+    contas_receber: {
+      label: 'Contas a receber',
+      icon: 'fa-hand-holding-dollar',
+      customEndpoint: null,
+    },
+    contas_pagar: {
+      label: 'Contas a pagar',
+      icon: 'fa-money-bill-transfer',
+      customEndpoint: null,
+    },
   };
 
 
@@ -89,6 +99,18 @@
       { key: 'busca', label: 'Busca', kind: 'input', placeholder: 'Contrato, cliente, documento...' },
       { key: 'status', label: 'Status', kind: 'select', placeholder: 'Todos' },
       { key: 'tipo', label: 'Tipo', kind: 'select', placeholder: 'Todos' },
+    ],
+    contas_receber: [
+      { key: 'busca', label: 'Busca', kind: 'input', placeholder: 'Cliente, documento, descrição...' },
+      { key: 'status', label: 'Status', kind: 'select', placeholder: 'Todos' },
+      { key: 'vencimento', label: 'Vencimento', kind: 'input', placeholder: 'Período' },
+      { key: 'cliente', label: 'Cliente', kind: 'input', placeholder: 'Cliente' },
+    ],
+    contas_pagar: [
+      { key: 'busca', label: 'Busca', kind: 'input', placeholder: 'Fornecedor, documento, descrição...' },
+      { key: 'status', label: 'Status', kind: 'select', placeholder: 'Todos' },
+      { key: 'vencimento', label: 'Vencimento', kind: 'input', placeholder: 'Período' },
+      { key: 'fornecedor', label: 'Fornecedor', kind: 'input', placeholder: 'Fornecedor' },
     ],
   };
 
@@ -151,6 +173,26 @@
       { key: 'tipo', label: 'Tipo' },
       { key: 'status', label: 'Status' },
       { key: 'valor_mensal', label: 'Valor mensal' },
+      { key: 'acoes', label: 'Ações', fixed: true },
+    ],
+    contas_receber: [
+      { key: 'emissao', label: 'Emissão' },
+      { key: 'vencimento', label: 'Vencimento' },
+      { key: 'documento', label: 'Documento' },
+      { key: 'cliente', label: 'Cliente' },
+      { key: 'valor', label: 'Valor' },
+      { key: 'saldo', label: 'Saldo' },
+      { key: 'status', label: 'Status' },
+      { key: 'acoes', label: 'Ações', fixed: true },
+    ],
+    contas_pagar: [
+      { key: 'emissao', label: 'Emissão' },
+      { key: 'vencimento', label: 'Vencimento' },
+      { key: 'documento', label: 'Documento' },
+      { key: 'fornecedor', label: 'Fornecedor / Sacado' },
+      { key: 'valor', label: 'Valor' },
+      { key: 'saldo', label: 'Saldo' },
+      { key: 'status', label: 'Status' },
       { key: 'acoes', label: 'Ações', fixed: true },
     ],
   };
@@ -241,6 +283,54 @@
       { campo: 'data_inicio', label: 'Data de início', tipo: 'data' },
       { campo: 'data_fim', label: 'Data de fim', tipo: 'data' },
       { campo: 'data_assinatura', label: 'Data de assinatura', tipo: 'data' },
+      { campo: 'observacoes', label: 'Observações', tipo: 'textarea' },
+    ],
+    contas_receber: [
+      { campo: 'tipo', label: 'Tipo', tipo: 'select', somente_leitura: true },
+      { campo: 'status', label: 'Status', tipo: 'select', somente_leitura: true },
+      { campo: 'documento', label: 'Documento', tipo: 'texto' },
+      { campo: 'descricao', label: 'Descrição', tipo: 'texto' },
+      { campo: 'moeda', label: 'Moeda', tipo: 'select' },
+      { campo: 'valor_total', label: 'Valor total', tipo: 'moeda' },
+      { campo: 'valor_pago', label: 'Valor recebido', tipo: 'moeda', somente_leitura: true },
+      { campo: 'data_emissao', label: 'Emissão', tipo: 'data' },
+      { campo: 'data_vencimento', label: 'Vencimento', tipo: 'data' },
+      { campo: 'data_pagamento', label: 'Recebimento', tipo: 'data', somente_leitura: true },
+      { campo: 'cliente_id', label: 'Cliente', tipo: 'relacao_cliente' },
+      { campo: 'categoria_id', label: 'Categoria', tipo: 'select' },
+      { campo: 'forma_pagamento_id', label: 'Forma de recebimento', tipo: 'select' },
+      { campo: 'conta_banco_id', label: 'Conta de destino', tipo: 'select' },
+      { campo: 'tipo_documento_id', label: 'Tipo de documento', tipo: 'select' },
+      { campo: 'natureza_operacao_id', label: 'Natureza da operação', tipo: 'select' },
+      { campo: 'centro_custo_principal_id', label: 'Centro de custo principal', tipo: 'select' },
+      { campo: 'centro_custo_secundario_id', label: 'Centro de custo secundário', tipo: 'select' },
+      { campo: 'conta_contabil_id', label: 'Plano de Contas', tipo: 'select' },
+      { campo: 'forma_cobranca_id', label: 'Forma de cobrança', tipo: 'select' },
+      { campo: 'regra_encargos_id', label: 'Regra de multa e mora', tipo: 'select' },
+      { campo: 'observacoes', label: 'Observações', tipo: 'textarea' },
+    ],
+    contas_pagar: [
+      { campo: 'tipo', label: 'Tipo', tipo: 'select', somente_leitura: true },
+      { campo: 'status', label: 'Status', tipo: 'select', somente_leitura: true },
+      { campo: 'documento', label: 'Documento', tipo: 'texto' },
+      { campo: 'descricao', label: 'Descrição', tipo: 'texto' },
+      { campo: 'moeda', label: 'Moeda', tipo: 'select' },
+      { campo: 'valor_total', label: 'Valor total', tipo: 'moeda' },
+      { campo: 'valor_pago', label: 'Valor pago', tipo: 'moeda', somente_leitura: true },
+      { campo: 'data_emissao', label: 'Emissão', tipo: 'data' },
+      { campo: 'data_vencimento', label: 'Vencimento', tipo: 'data' },
+      { campo: 'data_pagamento', label: 'Pagamento', tipo: 'data', somente_leitura: true },
+      { campo: 'fornecedor_id', label: 'Fornecedor / Sacado', tipo: 'relacao_fornecedor' },
+      { campo: 'categoria_id', label: 'Categoria', tipo: 'select' },
+      { campo: 'forma_pagamento_id', label: 'Forma de pagamento', tipo: 'select' },
+      { campo: 'conta_banco_id', label: 'Conta/Banco', tipo: 'select' },
+      { campo: 'tipo_documento_id', label: 'Tipo de documento', tipo: 'select' },
+      { campo: 'natureza_operacao_id', label: 'Natureza da operação', tipo: 'select' },
+      { campo: 'tipo_gasto_id', label: 'Tipo de gasto', tipo: 'select' },
+      { campo: 'centro_custo_principal_id', label: 'Centro de custo principal', tipo: 'select' },
+      { campo: 'centro_custo_secundario_id', label: 'Centro de custo secundário', tipo: 'select' },
+      { campo: 'conta_contabil_id', label: 'Plano de Contas', tipo: 'select' },
+      { campo: 'regra_encargos_id', label: 'Regra de multa e mora', tipo: 'select' },
       { campo: 'observacoes', label: 'Observações', tipo: 'textarea' },
     ],
   };
@@ -1623,6 +1713,16 @@
       const escolhido = fichaPrincipal || padrao || state.modelos[0];
 
       await carregarModeloCompleto(escolhido.id);
+    } else if (["contas_receber", "contas_pagar"].includes(state.modulo)) {
+      // No Financeiro o formulário padrão representa a ficha que já existe no sistema.
+      // Criá-lo ao entrar no módulo permite personalizar imediatamente os campos
+      // nativos, sem obrigar o usuário a montar uma ficha vazia do zero.
+      await apiJson(`${API_BASE}/modelos/padrao/${state.modulo}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      await carregarModelos();
+      return;
     } else {
       state.modeloAtual = null;
       renderModeloAtual();

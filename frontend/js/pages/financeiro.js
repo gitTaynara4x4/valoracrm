@@ -27,7 +27,14 @@
     receberConciliacao: [],
     boletoAtual: null,
     boletoAtualId: null,
-    caixa: { tab: "registros", registros: [], saldos: [], resumo: [] },
+    caixa: {
+      tab: "registros",
+      mode: "projecao",
+      registros: [], saldos: [], resumo: [],
+      projecao: null,
+      selecionadosPagar: new Set(),
+      simulacaoBusca: "",
+    },
     cobranca: {
       reguas: [], etapas: [], fila: [], reguaSelecionadaId: null,
       emissaoTitulos: [], emissaoSelecionados: new Set(), emissoesLotes: [], automacao: null,
@@ -47,6 +54,18 @@
     relatorioPessoaLookups: {
       cliente: { items: [], timer: null, controller: null, requestId: 0 },
       fornecedor: { items: [], timer: null, controller: null, requestId: 0 },
+    },
+    formulariosFinanceiros: {
+      contas_receber: null,
+      contas_pagar: null,
+      carregados: new Set(),
+      promises: {},
+    },
+    layoutFormularioFinanceiro: {
+      capturado: false,
+      campos: [],
+      secoes: [],
+      nav: [],
     },
   };
 
@@ -96,6 +115,27 @@
     const m = String(data.getMonth() + 1).padStart(2, "0");
     const d = String(data.getDate()).padStart(2, "0");
     return `${a}-${m}-${d}`;
+  };
+
+  const addDaysISO = (isoDate, days = 0) => {
+    const base = /^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || "")) ? String(isoDate) : todayISO();
+    const [ano, mes, dia] = base.split("-").map(Number);
+    const data = new Date(ano, mes - 1, dia + Number(days || 0), 12, 0, 0);
+    return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+  };
+
+  const monthEndISO = (isoDate = todayISO()) => {
+    const base = /^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || "")) ? String(isoDate) : todayISO();
+    const [ano, mes] = base.split("-").map(Number);
+    const data = new Date(ano, mes, 0, 12, 0, 0);
+    return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+  };
+
+  const nextMonthStartISO = (isoDate = todayISO()) => {
+    const base = /^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || "")) ? String(isoDate) : todayISO();
+    const [ano, mes] = base.split("-").map(Number);
+    const data = new Date(ano, mes, 1, 12, 0, 0);
+    return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-01`;
   };
 
   const CURRENCY_CONFIG = {
@@ -2199,10 +2239,390 @@
 
   function filtrosCaixa() {
     return {
-      data_inicio: $("#filtro-data-inicio")?.value || monthStartISO(),
-      data_fim: $("#filtro-data-fim")?.value || todayISO(),
+      data_inicio: $("#filtro-data-inicio")?.value || todayISO(),
+      data_fim: $("#filtro-data-fim")?.value || addDaysISO(todayISO(), 29),
       conta_banco_id: $("#filtro-caixa-conta")?.value || "",
     };
+  }
+
+  function filtrosProjecaoCaixa() {
+    return {
+      ...filtrosCaixa(),
+      agrupar_por: $("#filtro-fluxo-agrupar")?.value || "dia",
+    };
+  }
+
+  function aplicarPresetFluxo(preset = "30") {
+    const inicio = $("#filtro-data-inicio");
+    const fim = $("#filtro-data-fim");
+    const periodo = $("#filtro-fluxo-periodo");
+    if (!inicio || !fim) return;
+    const hoje = todayISO();
+    const valor = String(preset || "30");
+    if (periodo && periodo.value !== valor) periodo.value = valor;
+
+    if (valor === "hoje") {
+      inicio.value = hoje;
+      fim.value = hoje;
+    } else if (valor === "7") {
+      inicio.value = hoje;
+      fim.value = addDaysISO(hoje, 6);
+    } else if (valor === "30") {
+      inicio.value = hoje;
+      fim.value = addDaysISO(hoje, 29);
+    } else if (valor === "fim_mes") {
+      inicio.value = hoje;
+      fim.value = monthEndISO(hoje);
+    } else if (valor === "proximo_mes") {
+      const proximo = nextMonthStartISO(hoje);
+      inicio.value = proximo;
+      fim.value = monthEndISO(proximo);
+    }
+  }
+
+  function fluxoDate(iso) {
+    const texto = String(iso || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) return null;
+    const [ano, mes, dia] = texto.split("-").map(Number);
+    return new Date(ano, mes - 1, dia, 12, 0, 0);
+  }
+
+  function fluxoISO(data) {
+    if (!(data instanceof Date) || Number.isNaN(data.getTime())) return "";
+    return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+  }
+
+  function fluxoChaveGrupo(iso, agrupar = "dia") {
+    const data = fluxoDate(iso);
+    if (!data) return String(iso || "");
+    if (agrupar === "mes") return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+    if (agrupar === "semana") {
+      const d = new Date(data);
+      const deslocamento = (d.getDay() + 6) % 7;
+      d.setDate(d.getDate() - deslocamento);
+      return fluxoISO(d);
+    }
+    return fluxoISO(data);
+  }
+
+  function fluxoRotuloGrupo(chave, agrupar = "dia") {
+    if (agrupar === "mes") {
+      const [ano, mes] = String(chave).split("-").map(Number);
+      const data = new Date(ano, (mes || 1) - 1, 1, 12, 0, 0);
+      const nome = data.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+      return nome ? nome.charAt(0).toUpperCase() + nome.slice(1) : chave;
+    }
+    if (agrupar === "semana") {
+      const inicio = fluxoDate(chave);
+      if (!inicio) return chave;
+      const fim = new Date(inicio);
+      fim.setDate(fim.getDate() + 6);
+      return `${dateBR(fluxoISO(inicio))} a ${dateBR(fluxoISO(fim))}`;
+    }
+    return dateBR(chave);
+  }
+
+  function ativarModoFluxo(mode = "projecao") {
+    if (state.page !== "fluxo") return;
+    const alvo = ["projecao", "simulacao", "realizado"].includes(mode) ? mode : "projecao";
+    state.caixa.mode = alvo;
+    $$('[data-fluxo-mode]').forEach(btn => {
+      const ativo = btn.dataset.fluxoMode === alvo;
+      btn.classList.toggle("is-active", ativo);
+      btn.setAttribute("aria-pressed", String(ativo));
+    });
+    const projecaoArea = $("[data-fluxo-projecao-area]");
+    const realizadoArea = $("[data-fluxo-realizado-area]");
+    if (projecaoArea) projecaoArea.hidden = alvo === "realizado";
+    if (realizadoArea) realizadoArea.hidden = alvo !== "realizado";
+    const simulacao = $("#fluxo-simulacao-panel");
+    if (simulacao) simulacao.hidden = alvo !== "simulacao";
+    $("#fluxo-main-grid")?.classList.toggle("is-simulacao", alvo === "simulacao");
+
+    // O fluxo projetado trabalha do dia atual para frente. Já o controle
+    // realizado continua permitindo consultar datas passadas, como antes.
+    const inicioInput = $("#filtro-data-inicio");
+    const fimInput = $("#filtro-data-fim");
+    if (alvo === "realizado") {
+      inicioInput?.removeAttribute("min");
+      fimInput?.removeAttribute("min");
+    } else {
+      const hoje = todayISO();
+      if (inicioInput) inicioInput.min = hoje;
+      if (fimInput) fimInput.min = hoje;
+    }
+
+    if (alvo !== "realizado") renderFluxoProjetado();
+    else ativarAbaCaixa(state.caixa.tab);
+  }
+
+  function calcularCenarioFluxo() {
+    const data = state.caixa.projecao;
+    if (!data) return null;
+    const inicio = String(data.periodo?.data_inicio || $("#filtro-data-inicio")?.value || todayISO()).slice(0, 10);
+    const fim = String(data.periodo?.data_fim || $("#filtro-data-fim")?.value || inicio).slice(0, 10);
+    const agrupamento = $("#filtro-fluxo-agrupar")?.value || data.agrupar_por || "dia";
+    const movimentos = Array.isArray(data.movimentos) ? data.movimentos : [];
+    const selecionados = state.caixa.selecionadosPagar;
+    const todosPagar = Array.isArray(data.titulos_pagar) ? data.titulos_pagar : [];
+    const modoSimulacao = state.caixa.mode === "simulacao";
+
+    const considerar = (item, forcarTodos = false) => {
+      if (String(item.tipo || "") === "receber") return true;
+      if (String(item.tipo || "") !== "pagar") return false;
+      return forcarTodos || selecionados.has(Number(item.id));
+    };
+
+    const construir = (forcarTodos = false) => {
+      let saldoAbertura = Number(data.saldo_base_atual || 0);
+      const porDia = new Map();
+      let entradas = 0;
+      let saidas = 0;
+
+      movimentos.forEach(item => {
+        if (!considerar(item, forcarTodos)) return;
+        const dataProj = String(item.data_projecao || item.data_vencimento || "").slice(0, 10);
+        if (!dataProj || dataProj > fim) return;
+        const valor = Math.max(0, Number(item.valor || 0));
+        const sinal = String(item.tipo || "") === "receber" ? valor : -valor;
+        if (dataProj < inicio) {
+          saldoAbertura += sinal;
+          return;
+        }
+        const bucket = porDia.get(dataProj) || { entradas: 0, saidas: 0 };
+        if (String(item.tipo || "") === "receber") {
+          bucket.entradas += valor;
+          entradas += valor;
+        } else {
+          bucket.saidas += valor;
+          saidas += valor;
+        }
+        porDia.set(dataProj, bucket);
+      });
+
+      const diaria = [];
+      let saldo = saldoAbertura;
+      let menorSaldo = saldo;
+      let dataMenorSaldo = inicio;
+      let diasNegativos = 0;
+      let primeiroNegativo = null;
+      let cursor = fluxoDate(inicio);
+      const limite = fluxoDate(fim);
+      while (cursor && limite && cursor <= limite) {
+        const iso = fluxoISO(cursor);
+        const mov = porDia.get(iso) || { entradas: 0, saidas: 0 };
+        const saldoInicial = saldo;
+        saldo += Number(mov.entradas || 0) - Number(mov.saidas || 0);
+        if (saldo < menorSaldo) {
+          menorSaldo = saldo;
+          dataMenorSaldo = iso;
+        }
+        if (saldo < 0) {
+          diasNegativos += 1;
+          if (!primeiroNegativo) primeiroNegativo = iso;
+        }
+        diaria.push({ data: iso, saldo_inicial: saldoInicial, entradas: mov.entradas, saidas: mov.saidas, saldo_final: saldo });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      const agrupadosMap = new Map();
+      diaria.forEach(dia => {
+        const chave = fluxoChaveGrupo(dia.data, agrupamento);
+        let g = agrupadosMap.get(chave);
+        if (!g) {
+          g = { chave, data_inicio: dia.data, data_fim: dia.data, saldo_inicial: dia.saldo_inicial, entradas: 0, saidas: 0, saldo_final: dia.saldo_final };
+          agrupadosMap.set(chave, g);
+        }
+        g.data_fim = dia.data;
+        g.entradas += Number(dia.entradas || 0);
+        g.saidas += Number(dia.saidas || 0);
+        g.saldo_final = dia.saldo_final;
+      });
+      const grupos = Array.from(agrupadosMap.values()).map(g => ({ ...g, label: fluxoRotuloGrupo(g.chave, agrupamento) }));
+      return { saldoAbertura, entradas, saidas, saldoFinal: saldo, menorSaldo, dataMenorSaldo, diasNegativos, primeiroNegativo, diaria, grupos };
+    };
+
+    const atual = construir(false);
+    const baseline = construir(true);
+    const selecionadosNoTotal = todosPagar.filter(i => selecionados.has(Number(i.id)));
+    const valorSelecionadoTotal = soma(selecionadosNoTotal, i => i.valor);
+    const valorTotalPagar = soma(todosPagar, i => i.valor);
+    return {
+      ...atual,
+      baseline,
+      modoSimulacao,
+      totalPagar: todosPagar.length,
+      selecionadosPagar: selecionadosNoTotal.length,
+      valorSelecionadoTotal,
+      valorTotalPagar,
+      valorRetirado: Math.max(0, valorTotalPagar - valorSelecionadoTotal),
+      impactoSaldoFinal: atual.saldoFinal - baseline.saldoFinal,
+      agrupamento,
+      inicio,
+      fim,
+    };
+  }
+
+  function renderFluxoProjetadoChart(grupos = []) {
+    const host = $("#fluxo-projecao-chart");
+    if (!host) return;
+    const valid = Array.isArray(grupos) ? grupos.filter(i => i && i.label) : [];
+    if (!valid.length) {
+      host.innerHTML = `<div class="financeiro-empty-chart"><i class="fa-solid fa-chart-line"></i><strong>Sem dados para projetar</strong><span>Não há dias no período selecionado.</span></div>`;
+      return;
+    }
+    const entradas = valid.map(i => Number(i.entradas || 0));
+    const saidas = valid.map(i => -Math.abs(Number(i.saidas || 0)));
+    const saldo = valid.map(i => Number(i.saldo_final || 0));
+    const valores = [...entradas, ...saidas, ...saldo];
+    const min = Math.min(0, ...valores);
+    const max = Math.max(1, ...valores);
+    const range = max - min || 1;
+    const width = 900;
+    const height = 270;
+    const padLeft = 62;
+    const padRight = 20;
+    const padTop = 18;
+    const padBottom = 38;
+    const chartW = width - padLeft - padRight;
+    const chartH = height - padTop - padBottom;
+    const xFor = idx => padLeft + (idx * chartW) / Math.max(valid.length - 1, 1);
+    const yFor = value => padTop + chartH - ((Number(value || 0) - min) / range) * chartH;
+    const points = valuesSerie => valuesSerie.map((value, idx) => `${xFor(idx).toFixed(1)},${yFor(value).toFixed(1)}`).join(" ");
+    const compact = value => {
+      const n = Number(value || 0);
+      const abs = Math.abs(n);
+      const sign = n < 0 ? "-" : "";
+      if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+      if (abs >= 1_000) return `${sign}${(abs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`;
+      return `${sign}${abs.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+    };
+    const grid = Array.from({ length: 5 }, (_, idx) => {
+      const ratio = idx / 4;
+      const y = padTop + chartH * ratio;
+      const value = max - range * ratio;
+      return `<line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${width - padRight}" y2="${y.toFixed(1)}"></line><text class="axis-label" x="${padLeft - 10}" y="${(y + 3).toFixed(1)}" text-anchor="end">${compact(value)}</text>`;
+    }).join("");
+    const maxLabels = 7;
+    const step = Math.max(1, Math.ceil(valid.length / maxLabels));
+    const labels = valid.map((item, idx) => (idx === valid.length - 1 || idx % step === 0)
+      ? `<text class="axis-label" x="${xFor(idx).toFixed(1)}" y="${height - 9}" text-anchor="middle">${escapeHtml(item.label.length > 18 ? item.label.slice(0, 18) : item.label)}</text>`
+      : "").join("");
+    const circles = (valuesSerie, classe) => valuesSerie.map((value, idx) => `<circle class="point ${classe}" cx="${xFor(idx).toFixed(1)}" cy="${yFor(value).toFixed(1)}" r="2.8"></circle>`).join("");
+    host.innerHTML = `<svg class="financeiro-fluxo-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Evolução do fluxo de caixa projetado">
+      <g class="grid">${grid}</g><g class="labels">${labels}</g>
+      <polyline class="series entrada" points="${points(entradas)}"></polyline>
+      <polyline class="series saida" points="${points(saidas)}"></polyline>
+      <polyline class="series saldo" points="${points(saldo)}"></polyline>
+      <g class="points">${circles(entradas, "entrada")}${circles(saidas, "saida")}${circles(saldo, "saldo")}</g>
+    </svg>`;
+  }
+
+  function renderListaSimulacaoFluxo(cenario = null) {
+    const host = $("#fluxo-simulacao-list");
+    const resumo = $("#fluxo-simulacao-resumo");
+    const data = state.caixa.projecao;
+    if (!host || !data || !cenario) return;
+    const busca = String(state.caixa.simulacaoBusca || "").trim().toLowerCase();
+    const todos = Array.isArray(data.titulos_pagar) ? data.titulos_pagar : [];
+    const items = todos.filter(item => {
+      if (!busca) return true;
+      return [item.parceiro, item.documento, item.descricao, item.conta_banco_nome].some(v => String(v || "").toLowerCase().includes(busca));
+    });
+    if (resumo) {
+      const diferenca = cenario.impactoSaldoFinal;
+      resumo.innerHTML = `<strong>${cenario.selecionadosPagar} de ${cenario.totalPagar}</strong> conta(s) marcadas • <strong>${money(cenario.valorSelecionadoTotal)}</strong> consideradas${cenario.valorRetirado > 0 ? ` • <span>${money(cenario.valorRetirado)} fora do cenário</span>` : ""}${diferenca > 0.005 ? ` • saldo final +${money(diferenca)}` : ""}`;
+    }
+    host.innerHTML = items.length ? items.map(item => {
+      const id = Number(item.id);
+      const checked = state.caixa.selecionadosPagar.has(id);
+      const antes = Boolean(item.impacta_saldo_abertura);
+      return `<label class="financeiro-simulacao-item ${checked ? "is-selected" : ""}">
+        <input type="checkbox" data-simulacao-pagar-id="${id}" ${checked ? "checked" : ""}>
+        <span class="financeiro-simulacao-check"><i class="fa-solid fa-check"></i></span>
+        <span class="financeiro-simulacao-copy">
+          <strong>${escapeHtml(item.parceiro || "Fornecedor não informado")}</strong>
+          <span>${escapeHtml(item.documento || item.descricao || `Título #${id}`)}</span>
+          <small>Vence ${dateBR(item.data_vencimento)}${item.vencido ? " • vencido" : ""}${antes ? " • impacta abertura" : ""}</small>
+        </span>
+        <b>${money(item.valor)}</b>
+      </label>`;
+    }).join("") : `<div class="financeiro-empty-soft">${busca ? "Nenhuma conta encontrada para esta busca." : "Não há contas a pagar abertas até o fim do período."}</div>`;
+  }
+
+  function renderFluxoProjetado() {
+    const data = state.caixa.projecao;
+    if (!data) return;
+    const cenario = calcularCenarioFluxo();
+    if (!cenario) return;
+    const simulacao = state.caixa.mode === "simulacao";
+
+    setKPI("fluxo-saldo-abertura", money(cenario.saldoAbertura));
+    setKPI("fluxo-entradas", money(cenario.entradas));
+    setKPI("fluxo-saidas", money(cenario.saidas));
+    setKPI("fluxo-saldo-final", money(cenario.saldoFinal));
+    setKPI("fluxo-menor-saldo", money(cenario.menorSaldo));
+
+    const saidasTitulo = $("#fluxo-saidas-titulo");
+    const saidasSub = $("#fluxo-saidas-subtitulo");
+    const saidasMeta = $("#fluxo-saidas-meta");
+    if (saidasTitulo) saidasTitulo.textContent = simulacao ? "Saídas selecionadas" : "Saídas previstas";
+    if (saidasSub) saidasSub.textContent = simulacao ? "Pagamentos marcados" : "Contas a pagar";
+    if (saidasMeta) saidasMeta.textContent = simulacao
+      ? `${cenario.selecionadosPagar} de ${cenario.totalPagar} conta(s) consideradas`
+      : "Todos os pagamentos do período";
+
+    const aberturaMeta = $("#fluxo-saldo-abertura-meta");
+    if (aberturaMeta) aberturaMeta.textContent = simulacao && Math.abs(cenario.saldoAbertura - cenario.baseline.saldoAbertura) > 0.005
+      ? `Cenário alterou a abertura em ${money(cenario.saldoAbertura - cenario.baseline.saldoAbertura)}`
+      : "Saldo real + compromissos anteriores ao período";
+    const finalMeta = $("#fluxo-saldo-final-meta");
+    if (finalMeta) finalMeta.textContent = simulacao && cenario.impactoSaldoFinal > 0.005
+      ? `${money(cenario.impactoSaldoFinal)} acima do cenário com todos os pagamentos`
+      : "Abertura + entradas - saídas";
+
+    const menorMeta = $("#fluxo-menor-saldo-meta");
+    if (menorMeta) menorMeta.textContent = `${dateBR(cenario.dataMenorSaldo)}${cenario.menorSaldo < 0 ? " • saldo negativo" : " • menor ponto do período"}`;
+    const menorCard = $("#fluxo-menor-saldo-card");
+    if (menorCard) menorCard.classList.toggle("is-negative", cenario.menorSaldo < 0);
+
+    const riskbar = $("#fluxo-riskbar");
+    const riskText = $("#fluxo-riskbar-text");
+    if (riskbar && riskText) {
+      riskbar.classList.toggle("is-danger", cenario.diasNegativos > 0);
+      riskbar.classList.toggle("is-ok", cenario.diasNegativos === 0);
+      const icon = riskbar.querySelector("i");
+      if (cenario.diasNegativos > 0) {
+        if (icon) icon.className = "fa-solid fa-triangle-exclamation";
+        riskText.textContent = `Atenção: o caixa fica negativo em ${cenario.diasNegativos} dia(s). Primeiro dia negativo: ${dateBR(cenario.primeiroNegativo)}.`;
+      } else {
+        if (icon) icon.className = "fa-regular fa-circle-check";
+        riskText.textContent = `O saldo projetado permanece positivo no período. Menor saldo: ${money(cenario.menorSaldo)} em ${dateBR(cenario.dataMenorSaldo)}.`;
+      }
+    }
+
+    const titulo = $("#fluxo-table-title");
+    if (titulo) titulo.textContent = `Fluxo projetado por ${cenario.agrupamento === "mes" ? "mês" : cenario.agrupamento}`;
+    setTable("tbody-fluxo-projecao", 6, cenario.grupos.map(g => {
+      const variacao = Number(g.entradas || 0) - Number(g.saidas || 0);
+      return `<tr class="${Number(g.saldo_final || 0) < 0 ? "is-fluxo-negative" : ""}">
+        <td><strong>${escapeHtml(g.label)}</strong></td>
+        <td class="financeiro-amount">${money(g.saldo_inicial)}</td>
+        <td class="financeiro-amount financeiro-caixa-credit">${money(g.entradas)}</td>
+        <td class="financeiro-amount financeiro-caixa-debit">${money(g.saidas)}</td>
+        <td class="financeiro-amount ${variacao < 0 ? "financeiro-caixa-debit" : "financeiro-caixa-credit"}">${variacao >= 0 ? "+" : ""}${money(variacao)}</td>
+        <td class="financeiro-amount"><strong>${money(g.saldo_final)}</strong></td>
+      </tr>`;
+    }).join(""), "Nenhum dia disponível no período selecionado.");
+    renderFluxoProjetadoChart(cenario.grupos);
+    renderListaSimulacaoFluxo(cenario);
+
+    const chartTitle = $("#fluxo-chart-title");
+    const chartSubtitle = $("#fluxo-chart-subtitle");
+    if (chartTitle) chartTitle.textContent = simulacao ? "Saldo no cenário simulado" : "Evolução do saldo projetado";
+    if (chartSubtitle) chartSubtitle.textContent = simulacao
+      ? "O gráfico responde imediatamente às contas a pagar marcadas ao lado."
+      : "Entradas, saídas e saldo calculados pela data de vencimento.";
   }
 
   function preencherSelectsCaixa() {
@@ -2329,8 +2749,28 @@
     </tr>`;
   }
 
-  async function carregarFluxo() {
-    preencherSelectsCaixa();
+  async function carregarProjecaoFluxo() {
+    const filtrosAtual = filtrosProjecaoCaixa();
+    const data = await request(`/api/financeiro/fluxo-caixa/projecao${qs(filtrosAtual)}`);
+    state.caixa.projecao = data;
+    state.caixa.selecionadosPagar = new Set((Array.isArray(data.titulos_pagar) ? data.titulos_pagar : []).map(i => Number(i.id)));
+    state.caixa.simulacaoBusca = "";
+    const busca = $("#fluxo-simulacao-busca");
+    if (busca) busca.value = "";
+
+    const aviso = $("#fluxo-periodo-aviso");
+    if (aviso) {
+      const ajustado = Boolean(data.periodo?.ajustado_para_hoje);
+      aviso.hidden = !ajustado;
+      aviso.innerHTML = ajustado
+        ? `<i class="fa-solid fa-circle-info"></i><span>A projeção começa em <strong>${dateBR(data.periodo?.data_inicio)}</strong>, porque fluxo futuro usa como base o saldo real de hoje. A data anterior escolhida não é usada para projetar o passado.</span>`
+        : "";
+    }
+    renderFluxoProjetado();
+    return data;
+  }
+
+  async function carregarControleRealizado() {
     const data = await request(`/api/financeiro/fluxo-caixa${qs(filtrosCaixa())}`);
     const registros = Array.isArray(data.registros) ? data.registros : [];
     const saldos = Array.isArray(data.saldos_diarios) ? data.saldos_diarios : [];
@@ -2338,7 +2778,6 @@
     state.caixa.registros = registros;
     state.caixa.saldos = saldos;
     state.caixa.resumo = resumo;
-    state.items = registros;
 
     setKPI("caixa-saldo-anterior", money(data.saldo_anterior || 0));
     setKPI("caixa-creditos", money(data.totais?.credito || 0));
@@ -2351,9 +2790,25 @@
     setTable("tbody-caixa-saldos", 4, saldos.map(i => `<tr><td>${dateBR(i.data)}</td><td class="financeiro-amount financeiro-caixa-credit">${money(i.credito)}</td><td class="financeiro-amount financeiro-caixa-debit">${money(i.debito)}</td><td class="financeiro-amount"><strong>${money(i.saldo)}</strong></td></tr>`).join(""), "Nenhum saldo diário encontrado no período.");
     setTable("tbody-caixa-resumo", 7, resumo.map(i => `<tr><td>${dateBR(i.data)}</td><td>${escapeHtml(i.documento || "-")}</td><td>${escapeHtml(i.parceiro || "-")}</td><td>${escapeHtml(i.historico || "-")}</td><td class="financeiro-amount financeiro-caixa-credit">${Number(i.credito || 0) ? money(i.credito) : "-"}</td><td class="financeiro-amount financeiro-caixa-debit">${Number(i.debito || 0) ? money(i.debito) : "-"}</td><td class="financeiro-amount"><strong>${money(i.saldo)}</strong></td></tr>`).join(""), "Nenhum movimento no período.");
     ativarAbaCaixa(state.caixa.tab);
-    setStatusText(`${registros.length} movimento(s) no caixa • saldo ${money(data.saldo_final || 0)}.`);
+    return data;
   }
 
+  async function carregarFluxo() {
+    preencherSelectsCaixa();
+    const [projecao, realizado] = await Promise.all([
+      carregarProjecaoFluxo(),
+      carregarControleRealizado(),
+    ]);
+    if (state.caixa.mode === "realizado") {
+      state.items = state.caixa.registros;
+      setStatusText(`${state.caixa.registros.length} movimento(s) realizado(s) • saldo ${money(realizado?.saldo_final || 0)}.`);
+    } else {
+      const cenario = calcularCenarioFluxo();
+      state.items = Array.isArray(projecao?.movimentos) ? projecao.movimentos : [];
+      setStatusText(`Fluxo projetado até ${dateBR(projecao?.periodo?.data_fim)} • saldo final ${money(cenario?.saldoFinal || 0)}.`);
+    }
+    ativarModoFluxo(state.caixa.mode);
+  }
 
   async function carregarCategorias() {
     const items = await request("/api/financeiro/categorias");
@@ -3248,6 +3703,418 @@
     }
   }
 
+  const FINANCEIRO_CAMPOS_PROTEGIDOS = {
+    contas_receber: new Set(["tipo", "status", "descricao", "valor_total", "data_vencimento", "cliente_id", "forma_cobranca_id"]),
+    contas_pagar: new Set(["tipo", "status", "descricao", "valor_total", "data_vencimento", "fornecedor_id"]),
+  };
+
+  const moduloFormularioFinanceiro = (tipo = "") =>
+    String(tipo || "").toLowerCase() === "pagar" ? "contas_pagar" : "contas_receber";
+
+  function campoFinanceiroProtegido(modulo, campoSistema) {
+    return FINANCEIRO_CAMPOS_PROTEGIDOS[modulo]?.has(String(campoSistema || "")) || false;
+  }
+
+  async function carregarFormularioFinanceiro(modulo) {
+    if (!modulo || !Object.prototype.hasOwnProperty.call(state.formulariosFinanceiros, modulo)) return null;
+    if (state.formulariosFinanceiros.carregados.has(modulo)) return state.formulariosFinanceiros[modulo];
+    if (state.formulariosFinanceiros.promises[modulo]) return state.formulariosFinanceiros.promises[modulo];
+
+    const promise = (async () => {
+      try {
+        const res = await fetch(`/api/formularios/modelos/principal/${encodeURIComponent(modulo)}`, {
+          credentials: "include",
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+        });
+        if (res.status === 404) {
+          state.formulariosFinanceiros[modulo] = null;
+          return null;
+        }
+        let data = null;
+        try { data = await res.json(); } catch (_) {}
+        if (!res.ok) throw new Error(data?.detail || data?.message || `${res.status} ${res.statusText}`);
+        state.formulariosFinanceiros[modulo] = data || null;
+        return data || null;
+      } catch (err) {
+        console.warn(`[Financeiro] Não foi possível carregar o formulário ${modulo}:`, err);
+        state.formulariosFinanceiros[modulo] = null;
+        return null;
+      } finally {
+        state.formulariosFinanceiros.carregados.add(modulo);
+        delete state.formulariosFinanceiros.promises[modulo];
+      }
+    })();
+
+    state.formulariosFinanceiros.promises[modulo] = promise;
+    return promise;
+  }
+
+  async function carregarFormulariosFinanceiros() {
+    await Promise.all([
+      carregarFormularioFinanceiro("contas_receber"),
+      carregarFormularioFinanceiro("contas_pagar"),
+    ]);
+  }
+
+  function registrarLayoutNativoFormularioFinanceiro(form = $("#form-lancamento")) {
+    if (!form || state.layoutFormularioFinanceiro.capturado) return;
+    const modal = form.closest("#modal-lancamento") || form;
+    const body = $(".financeiro-modal-body--ficha", form);
+    const nav = $(".financeiro-ficha-nav", form);
+    if (!body || !nav) return;
+
+    state.layoutFormularioFinanceiro.secoes = $$(".financeiro-editor-card", body).map((section) => ({
+      section,
+      hidden: Boolean(section.hidden),
+    }));
+    state.layoutFormularioFinanceiro.nav = $$(':scope > button[data-financeiro-section]', nav).map((button) => ({
+      button,
+      hidden: Boolean(button.hidden),
+    }));
+    state.layoutFormularioFinanceiro.campos = $$(".financeiro-field", body)
+      .map((wrapper) => {
+        const control = wrapper.querySelector("[name]");
+        if (!control?.name) return null;
+        const label = wrapper.querySelector("label");
+        return {
+          name: control.name,
+          wrapper,
+          parent: wrapper.parentNode,
+          next: wrapper.nextSibling,
+          hidden: Boolean(wrapper.hidden),
+          className: wrapper.className,
+          label,
+          labelText: label?.textContent || "",
+          control,
+          required: Boolean(control.required),
+          readOnly: Boolean(control.readOnly),
+          disabled: Boolean(control.disabled),
+          placeholder: control.getAttribute("placeholder"),
+        };
+      })
+      .filter(Boolean);
+
+    state.layoutFormularioFinanceiro.capturado = true;
+    modal.dataset.formularioFinanceiroLayout = "nativo";
+  }
+
+  function restaurarLayoutNativoFormularioFinanceiro(form = $("#form-lancamento")) {
+    if (!form || !state.layoutFormularioFinanceiro.capturado) return;
+    const modal = form.closest("#modal-lancamento") || form;
+
+    // Primeiro devolve os campos nativos; remover a seção customizada antes disso
+    // destruiria os próprios inputs que foram apenas movidos pelo construtor.
+    [...state.layoutFormularioFinanceiro.campos].reverse().forEach((item) => {
+      if (!item.wrapper || !item.parent) return;
+      if (item.next && item.next.parentNode === item.parent) item.parent.insertBefore(item.wrapper, item.next);
+      else item.parent.appendChild(item.wrapper);
+      item.wrapper.hidden = item.hidden;
+      item.wrapper.className = item.className;
+      delete item.wrapper.dataset.formWidth;
+      if (item.label) item.label.textContent = item.labelText;
+      item.control.required = item.required;
+      item.control.readOnly = item.readOnly;
+      item.control.disabled = item.disabled;
+      if (item.placeholder === null) item.control.removeAttribute("placeholder");
+      else item.control.setAttribute("placeholder", item.placeholder);
+    });
+
+    $$('[data-fin-form-generated="true"]', form).forEach(el => el.remove());
+    state.layoutFormularioFinanceiro.secoes.forEach(({ section, hidden }) => { section.hidden = hidden; });
+    state.layoutFormularioFinanceiro.nav.forEach(({ button, hidden }) => { button.hidden = hidden; });
+    modal.dataset.formularioFinanceiroLayout = "nativo";
+  }
+
+  function normalizarOpcoesFormulario(campo) {
+    let opcoes = campo?.opcoes ?? campo?.opcoes_json ?? [];
+    if (typeof opcoes === "string") {
+      try { opcoes = JSON.parse(opcoes); }
+      catch (_) { opcoes = opcoes.split(/\r?\n|,/).map(v => v.trim()).filter(Boolean); }
+    }
+    if (!Array.isArray(opcoes)) return [];
+    return opcoes.map((item) => {
+      if (item && typeof item === "object") {
+        const value = item.value ?? item.id ?? item.codigo ?? item.label ?? item.nome ?? "";
+        const label = item.label ?? item.nome ?? item.descricao ?? item.value ?? item.id ?? "";
+        return { value: String(value), label: String(label) };
+      }
+      return { value: String(item), label: String(item) };
+    });
+  }
+
+  function aplicarValorCampoPersonalizado(control, campo, valor) {
+    if (!control) return;
+    if (control.type === "checkbox") {
+      control.checked = Boolean(valor);
+      return;
+    }
+    if (control.multiple) {
+      const valores = Array.isArray(valor) ? valor.map(String) : (valor == null || valor === "" ? [] : [String(valor)]);
+      Array.from(control.options).forEach(opt => { opt.selected = valores.includes(String(opt.value)); });
+      return;
+    }
+    control.value = valor == null ? "" : String(valor);
+  }
+
+  async function carregarRelacaoCampoPersonalizado(control, campo, valorAtual) {
+    const tipo = String(campo?.tipo_campo || "");
+    if (!tipo.startsWith("relacao_")) return;
+    const relacao = tipo.replace(/^relacao_/, "").replace(/_multi$/, "");
+    try {
+      const data = await request(`/api/formularios/opcoes-relacao?tipo=${encodeURIComponent(relacao)}&limit=5000`);
+      const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+      const vazio = control.multiple ? "" : '<option value="">Selecione...</option>';
+      control.innerHTML = vazio + items.map(item =>
+        `<option value="${escapeHtml(item.value ?? item.id ?? "")}">${escapeHtml(item.label ?? item.nome ?? item.value ?? item.id ?? "")}</option>`
+      ).join("");
+      aplicarValorCampoPersonalizado(control, campo, valorAtual);
+    } catch (err) {
+      console.warn(`[Financeiro] Falha ao carregar opções de ${campo?.label || relacao}:`, err);
+    }
+  }
+
+  function criarCampoPersonalizadoFinanceiro(campo, valorAtual) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "financeiro-field financeiro-field--form-builder";
+    wrapper.dataset.formWidth = String(campo?.largura || "50");
+    wrapper.dataset.finCustomField = String(campo.id);
+
+    const label = document.createElement("label");
+    label.textContent = `${campo.label || "Campo personalizado"}${campo.obrigatorio ? " *" : ""}`;
+    wrapper.appendChild(label);
+
+    const tipo = String(campo.tipo_campo || "texto");
+    let control;
+    if (tipo === "textarea") {
+      control = document.createElement("textarea");
+    } else if (tipo === "select" || tipo === "multiselect" || tipo.startsWith("relacao_")) {
+      control = document.createElement("select");
+      if (tipo === "multiselect" || tipo.endsWith("_multi")) control.multiple = true;
+      if (!tipo.startsWith("relacao_")) {
+        const opcoes = normalizarOpcoesFormulario(campo);
+        control.innerHTML = (control.multiple ? "" : '<option value="">Selecione...</option>') + opcoes.map(opt =>
+          `<option value="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</option>`
+        ).join("");
+      } else {
+        const atuais = Array.isArray(valorAtual) ? valorAtual : (valorAtual == null || valorAtual === "" ? [] : [valorAtual]);
+        control.innerHTML = (control.multiple ? "" : '<option value="">Selecione...</option>') + atuais.map(value =>
+          `<option value="${escapeHtml(value)}" selected>${escapeHtml(value)}</option>`
+        ).join("");
+      }
+    } else {
+      control = document.createElement("input");
+      if (tipo === "data") control.type = "date";
+      else if (tipo === "numero" || tipo === "percentual") { control.type = "number"; control.step = "any"; }
+      else if (tipo === "email") control.type = "email";
+      else if (tipo === "telefone") control.type = "tel";
+      else if (tipo === "checkbox") control.type = "checkbox";
+      else { control.type = "text"; if (tipo === "moeda") control.inputMode = "decimal"; }
+    }
+
+    control.name = `custom__${campo.id}`;
+    control.dataset.finCustomId = String(campo.id);
+    control.required = Boolean(campo.obrigatorio);
+    if (campo.placeholder && control.tagName !== "SELECT") control.placeholder = campo.placeholder;
+    if (campo.somente_leitura) {
+      if (control.tagName === "SELECT" || control.type === "checkbox") control.disabled = true;
+      else control.readOnly = true;
+    }
+    wrapper.appendChild(control);
+
+    if (campo.ajuda) {
+      const small = document.createElement("small");
+      small.textContent = campo.ajuda;
+      wrapper.appendChild(small);
+    }
+
+    if (tipo.startsWith("relacao_")) void carregarRelacaoCampoPersonalizado(control, campo, valorAtual);
+    else aplicarValorCampoPersonalizado(control, campo, valorAtual);
+    return wrapper;
+  }
+
+  function criarBlocoVisualFinanceiro(campo) {
+    const tipo = String(campo.tipo_visual || "texto");
+    const el = document.createElement(tipo === "separador" ? "hr" : "div");
+    el.className = `financeiro-form-visual financeiro-form-visual--${tipo}`;
+    el.dataset.formWidth = String(campo.largura || "100");
+    if (tipo !== "separador") {
+      if (["titulo", "subtitulo"].includes(tipo)) {
+        const title = document.createElement(tipo === "titulo" ? "h5" : "strong");
+        title.textContent = campo.label || "";
+        el.appendChild(title);
+        if (campo.ajuda) { const p = document.createElement("p"); p.textContent = campo.ajuda; el.appendChild(p); }
+      } else {
+        el.textContent = campo.label || campo.ajuda || "";
+      }
+    }
+    return el;
+  }
+
+  function configurarCampoSistemaFinanceiro(form, campo, modulo) {
+    const nome = String(campo?.campo_sistema || "");
+    if (!nome) return null;
+    const item = state.layoutFormularioFinanceiro.campos.find(c => c.name === nome);
+    if (!item) return null;
+    const wrapper = item.wrapper;
+    const control = item.control;
+    const protegido = campoFinanceiroProtegido(modulo, nome);
+    if (!campo.ativo && !protegido) {
+      wrapper.hidden = true;
+      return null;
+    }
+    wrapper.hidden = false;
+    wrapper.dataset.formWidth = String(campo.largura || "50");
+    if (item.label && campo.label) item.label.textContent = `${campo.label}${campo.obrigatorio || protegido && ["descricao", "valor_total", "data_vencimento"].includes(nome) ? " *" : ""}`;
+    if (campo.placeholder && control.tagName !== "SELECT") control.placeholder = campo.placeholder;
+
+    const required = protegido || Boolean(campo.obrigatorio);
+    // Cliente/fornecedor usam um campo visual de busca e um input interno com name.
+    const search = wrapper.querySelector('[data-envolvido-search], [data-sacado-search]');
+    if (search) {
+      search.required = required;
+      search.setAttribute("aria-required", String(required));
+    } else {
+      control.required = required;
+    }
+
+    if (campo.somente_leitura || ["tipo", "status", "valor_pago", "data_pagamento"].includes(nome)) {
+      if (control.tagName === "SELECT") control.disabled = true;
+      else control.readOnly = true;
+    }
+    return wrapper;
+  }
+
+  function coletarCamposPersonalizadosFinanceiro(form) {
+    const valores = {};
+    $$('[data-fin-custom-id]', form).forEach((control) => {
+      const id = String(control.dataset.finCustomId || "");
+      if (!id) return;
+      if (control.type === "checkbox") valores[id] = Boolean(control.checked);
+      else if (control.multiple) valores[id] = Array.from(control.selectedOptions).map(opt => opt.value);
+      else valores[id] = control.value;
+    });
+    return valores;
+  }
+
+  function secaoCampoSistemaFinanceiro(form, campoSistema) {
+    const wrapper = state.layoutFormularioFinanceiro.campos.find(c => c.name === campoSistema)?.wrapper;
+    return wrapper?.closest('[data-fin-form-generated="true"]')?.id || null;
+  }
+
+  function primeiraSecaoFormularioFinanceiro(form) {
+    return form?.querySelector('[data-fin-form-generated="true"].financeiro-editor-card')?.id || "fin-sec-lancamento";
+  }
+
+  function aplicarFormularioFinanceiro(form, tipo, valoresPersonalizados = {}) {
+    if (!form) return;
+    const modulo = moduloFormularioFinanceiro(tipo);
+    const config = state.formulariosFinanceiros[modulo];
+    const modelo = config?.modelo;
+    const secoes = Array.isArray(config?.secoes) ? config.secoes.filter(s => s.ativo !== false) : [];
+    const semSecao = Array.isArray(config?.campos_sem_secao) ? config.campos_sem_secao : [];
+    if (!modelo) return;
+
+    const body = $(".financeiro-modal-body--ficha", form);
+    const nav = $(".financeiro-ficha-nav", form);
+    if (!body || !nav) return;
+
+    state.layoutFormularioFinanceiro.secoes.forEach(({ section }) => { section.hidden = true; });
+    state.layoutFormularioFinanceiro.nav.forEach(({ button }) => { button.hidden = true; });
+
+    const sectionEntries = [...secoes.map(s => ({ ...s, campos: Array.isArray(s.campos) ? s.campos : [] }))];
+    if (semSecao.length) sectionEntries.push({ id: `sem-secao-${modelo.id}`, titulo: "Outros campos", descricao: "Campos adicionais do formulário.", icone: "fa-sliders", ordem: 99999, campos: semSecao, ativo: true });
+    if (!sectionEntries.length) {
+      const todosCampos = Array.isArray(config?.campos) ? config.campos : [];
+      sectionEntries.push({
+        id: `protegidos-${modelo.id}`,
+        titulo: "Lançamento",
+        descricao: "Campos estruturais necessários para salvar o lançamento.",
+        icone: "fa-clipboard-list",
+        ordem: 1,
+        ativo: true,
+        campos: todosCampos.filter(c => c.origem === "sistema" && campoFinanceiroProtegido(modulo, c.campo_sistema)),
+      });
+    }
+    sectionEntries.sort((a, b) => Number(a.ordem || 0) - Number(b.ordem || 0));
+
+    const firstNative = state.layoutFormularioFinanceiro.secoes[0]?.section || null;
+    let primeiraId = null;
+
+    sectionEntries.forEach((secao, secIndex) => {
+      const campos = [...(secao.campos || [])].sort((a, b) => Number(a.ordem || 0) - Number(b.ordem || 0));
+      const ativos = campos.filter(c => c.ativo !== false || (c.origem === "sistema" && campoFinanceiroProtegido(modulo, c.campo_sistema)));
+      if (!ativos.length) return;
+
+      const section = document.createElement("section");
+      section.className = "financeiro-editor-card financeiro-editor-card--form-builder";
+      section.id = `fin-form-sec-${String(secao.id).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+      section.dataset.finFormGenerated = "true";
+      section.dataset.finFormSection = String(secao.id);
+
+      const head = document.createElement("div");
+      head.className = "financeiro-editor-card-head";
+      const headInner = document.createElement("div");
+      const h4 = document.createElement("h4"); h4.textContent = secao.titulo || `Seção ${secIndex + 1}`;
+      headInner.appendChild(h4);
+      if (secao.descricao) { const p = document.createElement("p"); p.textContent = secao.descricao; headInner.appendChild(p); }
+      head.appendChild(headInner);
+      section.appendChild(head);
+
+      const grid = document.createElement("div");
+      grid.className = "financeiro-form-grid financeiro-form-grid--builder";
+      section.appendChild(grid);
+
+      ativos.forEach((campo) => {
+        if (campo.origem === "visual") {
+          grid.appendChild(criarBlocoVisualFinanceiro(campo));
+          return;
+        }
+        if (campo.origem === "sistema") {
+          const wrapper = configurarCampoSistemaFinanceiro(form, campo, modulo);
+          if (wrapper) grid.appendChild(wrapper);
+          return;
+        }
+        if (campo.origem === "personalizado") {
+          grid.appendChild(criarCampoPersonalizadoFinanceiro(campo, valoresPersonalizados?.[String(campo.id)]));
+        }
+      });
+
+      // Se todos os campos do banco não tiverem representação na tela atual, não cria seção vazia.
+      if (!grid.children.length) return;
+
+      if (firstNative) body.insertBefore(section, firstNative);
+      else body.appendChild(section);
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.finFormGenerated = "true";
+      button.dataset.financeiroSection = section.id;
+      const icon = String(secao.icone || "fa-layer-group").replace(/^fa-solid\s+/, "");
+      button.innerHTML = `<i class="fa-solid ${escapeHtml(icon)}"></i><span>${escapeHtml(secao.titulo || `Seção ${secIndex + 1}`)}</span>`;
+      button.addEventListener("click", () => ativarNavegacaoModalLancamento(section.id));
+      nav.appendChild(button);
+      if (!primeiraId) primeiraId = section.id;
+    });
+
+    // Qualquer campo estrutural ausente de um modelo antigo continua disponível.
+    const ausentes = Array.from(FINANCEIRO_CAMPOS_PROTEGIDOS[modulo] || []).filter(nome => {
+      const item = state.layoutFormularioFinanceiro.campos.find(c => c.name === nome);
+      return item && !item.wrapper.closest('[data-fin-form-generated="true"]');
+    });
+    if (ausentes.length) {
+      let section = form.querySelector('[data-fin-form-generated="true"].financeiro-editor-card');
+      let grid = section?.querySelector(".financeiro-form-grid--builder");
+      ausentes.forEach(nome => {
+        const item = state.layoutFormularioFinanceiro.campos.find(c => c.name === nome);
+        if (item && grid) { item.wrapper.hidden = false; grid.appendChild(item.wrapper); }
+      });
+    }
+
+    (form.closest("#modal-lancamento") || form).dataset.formularioFinanceiroLayout = "builder";
+    if (primeiraId) setTimeout(() => ativarNavegacaoModalLancamento(primeiraId), 0);
+  }
+
   function setForm(form, data = {}) {
     $$('input, select, textarea', form).forEach(el => {
       const name = el.name;
@@ -3276,10 +4143,18 @@
     return v === "" || v === null || v === undefined ? null : Number(v);
   }
 
-  function abrirLancamento(tipo = "", item = null) {
+  async function abrirLancamento(tipo = "", item = null) {
     const form = $("#form-lancamento");
     if (!form) return;
     prepararLookupsEnvolvidos(form);
+    registrarLayoutNativoFormularioFinanceiro(form);
+    restaurarLayoutNativoFormularioFinanceiro(form);
+    if (item?.id && item.campos_personalizados === undefined) {
+      try { item = await request(`/api/financeiro/lancamentos/${item.id}`); }
+      catch (err) { console.warn("[Financeiro] Não foi possível carregar os campos personalizados do lançamento:", err); }
+    }
+    const modulo = moduloFormularioFinanceiro(item?.tipo || tipo || (state.page === "pagar" ? "pagar" : "receber"));
+    if (!state.formulariosFinanceiros.carregados.has(modulo)) await carregarFormularioFinanceiro(modulo);
     form.reset();
     form.dataset.editando = item ? "true" : "";
     preencherSelects();
@@ -3345,8 +4220,9 @@
     if (subtitulo) subtitulo.textContent = item
       ? "Atualize os dados desta parcela ou lançamento."
       : "Preencha os dados financeiros; o sistema pode gerar as parcelas futuras automaticamente.";
+    aplicarFormularioFinanceiro(form, base.tipo, item?.campos_personalizados || {});
     abrirModal("#modal-lancamento");
-    setTimeout(() => ativarNavegacaoModalLancamento("fin-sec-lancamento"), 30);
+    setTimeout(() => ativarNavegacaoModalLancamento(primeiraSecaoFormularioFinanceiro(form)), 30);
   }
 
   function sincronizarCentrosBaixa(form, preservar = true) {
@@ -4015,7 +4891,7 @@
     const clienteLookup = elementosLookupEnvolvido(form, "cliente");
     if (receber && clienteLookup && !String(clienteLookup.select.value || "").trim()) {
       clienteLookup.search.setCustomValidity("Selecione o cliente na lista de resultados.");
-      ativarNavegacaoModalLancamento("fin-sec-envolvidos");
+      ativarNavegacaoModalLancamento(secaoCampoSistemaFinanceiro(form, "cliente_id") || "fin-sec-envolvidos");
       clienteLookup.search.reportValidity();
       clienteLookup.search.focus();
       return;
@@ -4024,19 +4900,21 @@
     const sacado = elementosSacado(form);
     if (!receber && fornecedorLookup && !sacado && !String(fornecedorLookup.select.value || "").trim()) {
       fornecedorLookup.search.setCustomValidity("Selecione o fornecedor na lista de resultados.");
-      ativarNavegacaoModalLancamento("fin-sec-envolvidos");
+      ativarNavegacaoModalLancamento(secaoCampoSistemaFinanceiro(form, "fornecedor_id") || "fin-sec-envolvidos");
       fornecedorLookup.search.reportValidity();
       fornecedorLookup.search.focus();
       return;
     }
     if (tipo === "pagar" && sacado && !String(sacado.hidden.value || "").trim()) {
       sacado.search.setCustomValidity("Selecione o sacado na lista de resultados.");
-      ativarNavegacaoModalLancamento("fin-sec-envolvidos");
+      ativarNavegacaoModalLancamento(secaoCampoSistemaFinanceiro(form, "fornecedor_id") || "fin-sec-envolvidos");
       sacado.search.reportValidity();
       sacado.search.focus();
       return;
     }
+    const camposPersonalizados = coletarCamposPersonalizadosFinanceiro(form);
     const payload = limparPayloadLancamento(getForm(form));
+    payload.campos_personalizados = camposPersonalizados;
     const id = payload.id;
     delete payload.id;
     if (id) {
@@ -4199,7 +5077,10 @@
       if (action === "abrir-fornecedor") { abrirCadastroRelacionado("fornecedor", id); return; }
       if (action === "editar-caixa") {
         const movimento = state.caixa.registros.find(i => i.origem === "manual" && Number(i.id) === id);
-        if (movimento) abrirEdicaoCaixa(movimento);
+        if (movimento) {
+          ativarModoFluxo("realizado");
+          abrirEdicaoCaixa(movimento);
+        }
         return;
       }
       if (action === "cancelar-caixa") {
@@ -4324,7 +5205,9 @@
         rows.push("");
       });
     } else {
-      const table = $("#financeiro-table");
+      const table = state.page === "fluxo" && state.caixa.mode !== "realizado"
+        ? $("#tbody-fluxo-projecao")?.closest("table")
+        : $("#financeiro-table");
       if (!table) return;
       rows = $$("tr", table).map(tr => $$("th,td", tr).map(td => `"${td.innerText.replace(/"/g, '""').trim()}"`).join(";"));
     }
@@ -4341,6 +5224,7 @@
   function bind() {
     prepararInterfaceFinanceiro();
     prepararLookupsEnvolvidos();
+    registrarLayoutNativoFormularioFinanceiro();
     if (state.page === "receber") {
       // Contas a Receber deve abrir mostrando toda a carteira.
       // O filtro antigo (Aberto + mês atual) escondia títulos históricos,
@@ -4372,9 +5256,12 @@
     if (state.page === "fluxo") {
       const inicio = $("#filtro-data-inicio");
       const fim = $("#filtro-data-fim");
-      if (inicio && !inicio.value) inicio.value = monthStartISO();
-      if (fim && !fim.value) fim.value = todayISO();
+      if (inicio) inicio.min = todayISO();
+      if (fim) fim.min = todayISO();
+      aplicarPresetFluxo($("#filtro-fluxo-periodo")?.value || "30");
+      if ($("#filtro-fluxo-agrupar")) $("#filtro-fluxo-agrupar").value = "dia";
       resetarEdicaoCaixa();
+      ativarModoFluxo("projecao");
     }
     if (state.page === "relatorios") {
       const inicio = $("#filtro-data-inicio");
@@ -4419,9 +5306,9 @@
         $$('[data-pagar-status]').forEach(btn => btn.classList.toggle("is-active", btn.dataset.pagarStatus === "aberto"));
       }
       if (state.page === "fluxo") {
-        if ($("#filtro-data-inicio")) $("#filtro-data-inicio").value = monthStartISO();
-        if ($("#filtro-data-fim")) $("#filtro-data-fim").value = todayISO();
         if ($("#filtro-caixa-conta")) $("#filtro-caixa-conta").value = "";
+        if ($("#filtro-fluxo-agrupar")) $("#filtro-fluxo-agrupar").value = "dia";
+        aplicarPresetFluxo("30");
       }
       if (state.page === "relatorios") {
         const inicio = $("#filtro-data-inicio");
@@ -4511,8 +5398,43 @@
       const row = ev.target.closest("[data-pagar-row-id]");
       if (row) selecionarPagar(row.dataset.pagarRowId, false);
     });
+    $$('[data-fluxo-mode]').forEach(btn => btn.addEventListener("click", () => ativarModoFluxo(btn.dataset.fluxoMode)));
+    $("#filtro-fluxo-periodo")?.addEventListener("change", async ev => {
+      const valor = ev.currentTarget.value || "30";
+      if (valor !== "personalizado") aplicarPresetFluxo(valor);
+      await recarregar();
+    });
+    $("#filtro-fluxo-agrupar")?.addEventListener("change", () => renderFluxoProjetado());
+    [$("#filtro-data-inicio"), $("#filtro-data-fim")].filter(Boolean).forEach(input => {
+      input.addEventListener("change", () => {
+        const periodo = $("#filtro-fluxo-periodo");
+        if (state.page === "fluxo" && periodo) periodo.value = "personalizado";
+      });
+    });
+    $("#fluxo-simulacao-list")?.addEventListener("change", ev => {
+      const check = ev.target.closest("[data-simulacao-pagar-id]");
+      if (!check) return;
+      const id = Number(check.dataset.simulacaoPagarId || 0);
+      if (!id) return;
+      if (check.checked) state.caixa.selecionadosPagar.add(id);
+      else state.caixa.selecionadosPagar.delete(id);
+      renderFluxoProjetado();
+    });
+    $("#btn-simulacao-marcar-todos")?.addEventListener("click", () => {
+      const pagar = Array.isArray(state.caixa.projecao?.titulos_pagar) ? state.caixa.projecao.titulos_pagar : [];
+      state.caixa.selecionadosPagar = new Set(pagar.map(i => Number(i.id)));
+      renderFluxoProjetado();
+    });
+    $("#btn-simulacao-limpar")?.addEventListener("click", () => {
+      state.caixa.selecionadosPagar = new Set();
+      renderFluxoProjetado();
+    });
+    $("#fluxo-simulacao-busca")?.addEventListener("input", ev => {
+      state.caixa.simulacaoBusca = ev.currentTarget.value || "";
+      renderListaSimulacaoFluxo(calcularCenarioFluxo());
+    });
     $$('[data-caixa-tab]').forEach(btn => btn.addEventListener("click", () => ativarAbaCaixa(btn.dataset.caixaTab)));
-    $("#btn-novo-movimento-caixa")?.addEventListener("click", () => { resetarEdicaoCaixa(); ativarAbaCaixa("edicao"); });
+    $("#btn-novo-movimento-caixa")?.addEventListener("click", () => { ativarModoFluxo("realizado"); resetarEdicaoCaixa(); ativarAbaCaixa("edicao"); });
     $("#btn-cancelar-edicao-caixa")?.addEventListener("click", () => { resetarEdicaoCaixa(); ativarAbaCaixa("registros"); });
     $("#form-caixa-movimento")?.addEventListener("submit", salvarMovimentoCaixa);
     $("#form-caixa-movimento [name=centro_custo_principal_id]")?.addEventListener("change", () => atualizarCentrosSecundariosCaixa(""));
@@ -4727,7 +5649,7 @@
       if (form?.id === "form-baixa" && input.name === "valor_principal") atualizarCalculoBaixa();
     }, true);
 
-    document.addEventListener("change", (ev) => {
+    document.addEventListener("change", async (ev) => {
       const emissaoCheck = ev.target.closest("[data-emissao-check]");
       if (emissaoCheck) {
         const id = Number(emissaoCheck.value || 0);
@@ -4749,10 +5671,16 @@
       }
       const formLancamento = ev.target.closest("#form-lancamento");
       if (formLancamento && ev.target.matches('[name="tipo"]')) {
-        filtrarOpcoesPorTipoLancamento(formLancamento, ev.target.value);
-        configurarFormularioPorTipo(formLancamento, ev.target.value);
+        const tipoAtual = ev.target.value;
+        const personalizadosAtuais = coletarCamposPersonalizadosFinanceiro(formLancamento);
+        restaurarLayoutNativoFormularioFinanceiro(formLancamento);
+        filtrarOpcoesPorTipoLancamento(formLancamento, tipoAtual);
+        configurarFormularioPorTipo(formLancamento, tipoAtual);
         atualizarExigenciaEntidadeEmissora(formLancamento);
         atualizarCampoStatusLancamento(formLancamento);
+        const modulo = moduloFormularioFinanceiro(tipoAtual);
+        if (!state.formulariosFinanceiros.carregados.has(modulo)) await carregarFormularioFinanceiro(modulo);
+        aplicarFormularioFinanceiro(formLancamento, tipoAtual, personalizadosAtuais);
         return;
       }
       if (formLancamento && ev.target.matches('[name="data_vencimento"], [name="valor_total"]')) {
@@ -4808,6 +5736,7 @@
 
   document.addEventListener("DOMContentLoaded", async () => {
     bind();
+    await carregarFormulariosFinanceiros();
     await recarregar();
   });
 })();

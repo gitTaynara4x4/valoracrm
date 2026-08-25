@@ -711,6 +711,11 @@ class LancamentoIn(BaseModel):
     intervalo_parcelas_meses: Optional[int] = 1
     modo_parcelamento: Optional[str] = "dividir_total"
 
+    # Valores dos campos criados em Configurações > Formulários para
+    # Contas a Receber / Contas a Pagar. A chave é o ID estável do
+    # FormularioCampo, portanto renomear o campo não perde dados.
+    campos_personalizados: Optional[Dict[str, Any]] = None
+
 
 class BaixaIn(BaseModel):
     # Chave gerada pelo front e reaproveitada em retentativas. Evita que um
@@ -959,13 +964,121 @@ LEFT JOIN public.financeiro_cobrancas_externas ce
 """
 
 
+def modulo_formulario_financeiro(tipo: str) -> str:
+    return "contas_pagar" if str(tipo or "").strip().lower() == "pagar" else "contas_receber"
+
+
+def _campo_financeiro_valor_normalizado(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, (list, dict, bool, int, float)):
+        return value
+    return str(value)
+
+
+def salvar_campos_personalizados_financeiro(
+    db: Session,
+    *,
+    empresa_id: int,
+    lancamento_id: int,
+    tipo: str,
+    valores: Optional[Dict[str, Any]],
+) -> None:
+    """Valida e grava campos personalizados do formulário financeiro ativo."""
+    if valores is None:
+        return
+
+    modulo = modulo_formulario_financeiro(tipo)
+    rows = db.execute(text("""
+        SELECT fc.id, fc.label, fc.tipo_campo, fc.obrigatorio
+        FROM public.formularios_campos fc
+        JOIN public.formularios_modelos fm ON fm.id = fc.formulario_id
+        WHERE fm.empresa_id = :empresa_id
+          AND fm.modulo = :modulo
+          AND fm.ativo = TRUE
+          AND fc.origem = 'personalizado'
+          AND fc.ativo = TRUE
+          AND fm.id = (
+              SELECT fm2.id
+              FROM public.formularios_modelos fm2
+              WHERE fm2.empresa_id = :empresa_id
+                AND fm2.modulo = :modulo
+                AND fm2.ativo = TRUE
+              ORDER BY fm2.usar_como_ficha_principal DESC, fm2.padrao DESC, fm2.id ASC
+              LIMIT 1
+          )
+        ORDER BY fc.ordem, fc.id
+    """), {"empresa_id": empresa_id, "modulo": modulo}).mappings().all()
+
+    permitidos = {int(row["id"]): row for row in rows}
+    normalizados: Dict[int, Any] = {}
+    for raw_id, value in dict(valores or {}).items():
+        try:
+            campo_id = int(str(raw_id).replace("campo_", "").replace("custom__", ""))
+        except (TypeError, ValueError):
+            continue
+        if campo_id in permitidos:
+            normalizados[campo_id] = _campo_financeiro_valor_normalizado(value)
+
+    for campo_id, campo in permitidos.items():
+        value = normalizados.get(campo_id)
+        vazio = value is None or value == "" or value == []
+        if bool(campo["obrigatorio"]) and vazio:
+            raise HTTPException(status_code=422, detail=f"Preencha o campo personalizado: {campo['label']}.")
+
+        if vazio:
+            db.execute(text("""
+                DELETE FROM public.financeiro_formulario_valores
+                WHERE empresa_id=:empresa_id AND lancamento_id=:lancamento_id
+                  AND formulario_campo_id=:campo_id
+            """), {"empresa_id": empresa_id, "lancamento_id": lancamento_id, "campo_id": campo_id})
+            continue
+
+        db.execute(text("""
+            INSERT INTO public.financeiro_formulario_valores
+                (empresa_id, lancamento_id, formulario_campo_id, valor_json, criado_em, atualizado_em)
+            VALUES
+                (:empresa_id, :lancamento_id, :campo_id, CAST(:valor AS jsonb), NOW(), NOW())
+            ON CONFLICT (lancamento_id, formulario_campo_id)
+            DO UPDATE SET valor_json=EXCLUDED.valor_json, atualizado_em=NOW()
+        """), {
+            "empresa_id": empresa_id,
+            "lancamento_id": lancamento_id,
+            "campo_id": campo_id,
+            "valor": json.dumps(value, ensure_ascii=False, default=str),
+        })
+
+
+def carregar_campos_personalizados_financeiro(db: Session, empresa_id: int, lancamento_id: int) -> Dict[str, Any]:
+    rows = db.execute(text("""
+        SELECT v.formulario_campo_id, v.valor_json
+        FROM public.financeiro_formulario_valores v
+        WHERE v.empresa_id=:empresa_id AND v.lancamento_id=:lancamento_id
+        ORDER BY v.formulario_campo_id
+    """), {"empresa_id": empresa_id, "lancamento_id": lancamento_id}).mappings().all()
+    out: Dict[str, Any] = {}
+    for row in rows:
+        value = row["valor_json"]
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except Exception:
+                pass
+        out[str(int(row["formulario_campo_id"]))] = value
+    return out
+
+
 def obter_lancamento_dict(db: Session, empresa_id: int, lancamento_id: int) -> Dict[str, Any]:
     row = db.execute(text(LANCAMENTO_SELECT + """
         WHERE l.empresa_id = :empresa_id AND l.id = :id LIMIT 1
     """), {"empresa_id": empresa_id, "id": lancamento_id}).first()
     if not row:
         raise HTTPException(status_code=404, detail="Lançamento não encontrado.")
-    return row_to_dict(row)
+    out = row_to_dict(row)
+    out["campos_personalizados"] = carregar_campos_personalizados_financeiro(
+        db, empresa_id, lancamento_id
+    )
+    return out
 
 
 def obter_lancamento_para_update(db: Session, empresa_id: int, lancamento_id: int) -> Dict[str, Any]:
@@ -2201,6 +2314,10 @@ def criar_lancamento(
         row = db.execute(text(LANCAMENTO_INSERT_SQL), params).first()
         lancamento_id = int(row[0])
         ids.append(lancamento_id)
+        salvar_campos_personalizados_financeiro(
+            db, empresa_id=empresa_id, lancamento_id=lancamento_id,
+            tipo=params["tipo"], valores=payload.campos_personalizados,
+        )
         novo = obter_lancamento_dict(db, empresa_id, lancamento_id)
         registrar_auditoria(
             db,
@@ -2780,6 +2897,10 @@ def atualizar_lancamento(
                atualizado_em = NOW()
          WHERE empresa_id = :empresa_id AND id = :id
     """), params)
+    salvar_campos_personalizados_financeiro(
+        db, empresa_id=empresa_id, lancamento_id=lancamento_id,
+        tipo=params["tipo"], valores=payload.campos_personalizados,
+    )
     novo = obter_lancamento_dict(db, empresa_id, lancamento_id)
     registrar_auditoria(
         db, empresa_id=empresa_id, usuario_id=int(usuario.id), acao="editar",
@@ -3735,6 +3856,244 @@ def fluxo_caixa(
         "saldos_diarios": saldos_diarios,
         "resumo_periodo": resumo_periodo,
         "items": items,
+    }
+
+
+@router.get("/fluxo-caixa/projecao")
+def fluxo_caixa_projecao(
+    data_inicio: Optional[date] = Query(default=None),
+    data_fim: Optional[date] = Query(default=None),
+    agrupar_por: str = Query(default="dia"),
+    conta_banco_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    """Fluxo de caixa projetado para decisão financeira.
+
+    A projeção parte do saldo financeiro REAL apurado até hoje e aplica os
+    títulos ainda em aberto pela data de vencimento. Títulos vencidos e ainda
+    abertos são tratados como compromisso/recebimento imediato (hoje), pois
+    continuam impactando a decisão de caixa.
+
+    O endpoint não altera nenhum lançamento. A seleção de contas a pagar usada
+    pela tela de Simulação é feita no cliente sobre ``movimentos`` e serve
+    apenas para recalcular cenários temporários.
+    """
+    empresa_id = empresa_do(usuario)
+    hoje = date.today()
+    inicio_solicitado = data_inicio or hoje
+    inicio = max(inicio_solicitado, hoje)
+    fim = data_fim or (hoje + timedelta(days=30))
+
+    if fim < inicio:
+        raise HTTPException(status_code=422, detail="A data final deve ser igual ou posterior à data inicial da projeção.")
+    if (fim - inicio).days > 730:
+        raise HTTPException(status_code=422, detail="O período da projeção pode ter no máximo 730 dias.")
+
+    agrupamento = str(agrupar_por or "dia").strip().lower()
+    if agrupamento not in {"dia", "semana", "mes"}:
+        raise HTTPException(status_code=422, detail="Agrupamento inválido. Use dia, semana ou mes.")
+
+    if conta_banco_id is not None:
+        validar_id_empresa(
+            db,
+            table_name="financeiro_contas_bancos",
+            item_id=conta_banco_id,
+            empresa_id=empresa_id,
+            label="Conta Corrente/Banco",
+        )
+
+    params = {
+        "empresa_id": empresa_id,
+        "hoje": hoje,
+        "data_inicio": inicio,
+        "data_fim": fim,
+        "conta_banco_id": conta_banco_id,
+    }
+    filtro_conta_cb = "AND cb.id = :conta_banco_id" if conta_banco_id is not None else ""
+    filtro_conta_l = "AND l.conta_banco_id = :conta_banco_id" if conta_banco_id is not None else ""
+
+    # 1) Saldo REAL disponível hoje. É a base da projeção e nunca nasce de um
+    # número digitado especificamente nesta tela. Cada conta respeita a sua
+    # própria data de saldo inicial para não somar movimentos anteriores duas vezes.
+    saldo_base_atual = Decimal(str(db.execute(text(f"""
+        SELECT COALESCE(SUM(
+            COALESCE(CASE WHEN cb.data_saldo_inicial IS NULL OR cb.data_saldo_inicial <= :hoje
+                 THEN cb.saldo_inicial ELSE 0 END, 0)
+            + COALESCE((
+                SELECT SUM(
+                    CASE
+                        WHEN l.tipo='receber' THEN CASE WHEN m.tipo_movimentacao='baixa' THEN m.valor ELSE -m.valor END
+                        ELSE -1 * CASE WHEN m.tipo_movimentacao='baixa' THEN m.valor ELSE -m.valor END
+                    END
+                )
+                FROM public.financeiro_movimentacoes m
+                JOIN public.financeiro_lancamentos l
+                  ON l.id=m.lancamento_id AND l.empresa_id=m.empresa_id
+                WHERE m.empresa_id=cb.empresa_id
+                  AND m.conta_banco_id=cb.id
+                  AND (cb.data_saldo_inicial IS NULL OR m.data_movimentacao >= cb.data_saldo_inicial)
+                  AND m.data_movimentacao <= :hoje
+            ), 0)
+            + COALESCE((
+                SELECT SUM(CASE WHEN cm.tipo='credito' THEN cm.valor ELSE -cm.valor END)
+                FROM public.financeiro_caixa_movimentos cm
+                WHERE cm.empresa_id=cb.empresa_id
+                  AND cm.conta_banco_id=cb.id
+                  AND cm.status='ativo'
+                  AND (cb.data_saldo_inicial IS NULL OR cm.data_movimentacao >= cb.data_saldo_inicial)
+                  AND cm.data_movimentacao <= :hoje
+            ), 0)
+            + COALESCE((
+                SELECT SUM(
+                    CASE
+                        WHEN t.conta_destino_id=cb.id THEN t.valor
+                        WHEN t.conta_origem_id=cb.id THEN -t.valor
+                        ELSE 0
+                    END
+                )
+                FROM public.financeiro_transferencias t
+                WHERE t.empresa_id=cb.empresa_id
+                  AND t.status='ativo'
+                  AND cb.id IN (t.conta_origem_id, t.conta_destino_id)
+                  AND (cb.data_saldo_inicial IS NULL OR t.data_transferencia >= cb.data_saldo_inicial)
+                  AND t.data_transferencia <= :hoje
+            ), 0)
+        ), 0)
+        FROM public.financeiro_contas_bancos cb
+        WHERE cb.empresa_id=:empresa_id
+          {filtro_conta_cb}
+    """), params).scalar() or 0))
+
+    # 2) Tudo que continua aberto até o fim do horizonte. Vencidos são
+    # projetados para hoje, preservando a data original para auditoria visual.
+    rows = db.execute(text(f"""
+        SELECT
+            l.id,
+            l.tipo,
+            l.status,
+            l.documento,
+            l.descricao,
+            l.data_vencimento,
+            CASE WHEN l.data_vencimento < :hoje THEN :hoje ELSE l.data_vencimento END AS data_projecao,
+            GREATEST(l.valor_total-l.valor_pago, 0) AS valor,
+            l.conta_banco_id,
+            COALESCE(cb.nome, '') AS conta_banco_nome,
+            l.conta_contabil_id,
+            COALESCE(pc.codigo, '') AS conta_contabil_codigo,
+            COALESCE(pc.nome, '') AS conta_contabil_nome,
+            COALESCE(c.nome, f.nome, 'Não informado') AS parceiro,
+            CASE WHEN l.data_vencimento < :hoje THEN TRUE ELSE FALSE END AS vencido
+        FROM public.financeiro_lancamentos l
+        LEFT JOIN public.clientes c ON c.id=l.cliente_id AND c.empresa_id=l.empresa_id
+        LEFT JOIN public.fornecedores f ON f.id=l.fornecedor_id AND f.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_contas_bancos cb ON cb.id=l.conta_banco_id AND cb.empresa_id=l.empresa_id
+        LEFT JOIN public.financeiro_contas_contabeis pc ON pc.id=l.conta_contabil_id AND pc.empresa_id=l.empresa_id
+        WHERE l.empresa_id=:empresa_id
+          AND l.status <> 'cancelado'
+          AND GREATEST(l.valor_total-l.valor_pago, 0) > 0
+          AND l.data_vencimento <= :data_fim
+          {filtro_conta_l}
+        ORDER BY data_projecao ASC, l.data_vencimento ASC, l.tipo DESC, l.id ASC
+    """), params).fetchall()
+
+    movimentos = []
+    saldo_abertura_baseline = saldo_base_atual
+    entradas_periodo = Decimal("0")
+    saidas_periodo = Decimal("0")
+    movimentos_por_dia: Dict[date, Dict[str, Decimal]] = {}
+
+    for row in rows:
+        item = row_to_dict(row)
+        valor = arredondar_moeda(item.get("valor"))
+        data_projecao = item.get("data_projecao")
+        if not isinstance(data_projecao, date):
+            data_projecao = date.fromisoformat(str(data_projecao)[:10])
+        impacta_abertura = data_projecao < inicio
+
+        item["valor"] = float(valor)
+        item["data_projecao"] = data_projecao.isoformat()
+        item["impacta_saldo_abertura"] = impacta_abertura
+        movimentos.append(item)
+
+        sinal = valor if item.get("tipo") == "receber" else -valor
+        if impacta_abertura:
+            saldo_abertura_baseline += sinal
+            continue
+        if data_projecao > fim:
+            continue
+        bucket = movimentos_por_dia.setdefault(data_projecao, {"entradas": Decimal("0"), "saidas": Decimal("0")})
+        if item.get("tipo") == "receber":
+            bucket["entradas"] += valor
+            entradas_periodo += valor
+        else:
+            bucket["saidas"] += valor
+            saidas_periodo += valor
+
+    # 3) Baseline diário. A interface reagrupará por semana/mês quando o usuário
+    # pedir, mas o menor saldo sempre é medido dia a dia para não esconder um
+    # buraco de caixa dentro de uma semana ou mês positivo.
+    saldo = saldo_abertura_baseline
+    menor_saldo = saldo
+    data_menor_saldo = inicio
+    primeiro_dia_negativo = None
+    dias_negativos = 0
+    serie_diaria = []
+    cursor = inicio
+    while cursor <= fim:
+        bucket = movimentos_por_dia.get(cursor, {"entradas": Decimal("0"), "saidas": Decimal("0")})
+        saldo_inicio_dia = saldo
+        saldo += bucket["entradas"] - bucket["saidas"]
+        if saldo < menor_saldo:
+            menor_saldo = saldo
+            data_menor_saldo = cursor
+        if saldo < 0:
+            dias_negativos += 1
+            if primeiro_dia_negativo is None:
+                primeiro_dia_negativo = cursor
+        serie_diaria.append({
+            "data": cursor.isoformat(),
+            "saldo_inicial": float(saldo_inicio_dia),
+            "entradas": float(bucket["entradas"]),
+            "saidas": float(bucket["saidas"]),
+            "saldo_final": float(saldo),
+        })
+        cursor += timedelta(days=1)
+
+    titulos_pagar = [item for item in movimentos if item.get("tipo") == "pagar"]
+    titulos_receber = [item for item in movimentos if item.get("tipo") == "receber"]
+
+    return {
+        "hoje": hoje.isoformat(),
+        "periodo": {
+            "data_inicio_solicitada": inicio_solicitado.isoformat(),
+            "data_inicio": inicio.isoformat(),
+            "data_fim": fim.isoformat(),
+            "ajustado_para_hoje": inicio != inicio_solicitado,
+        },
+        "agrupar_por": agrupamento,
+        "conta_banco_id": conta_banco_id,
+        "saldo_base_atual": float(saldo_base_atual),
+        "saldo_abertura": float(saldo_abertura_baseline),
+        "totais": {
+            "entradas_previstas": float(entradas_periodo),
+            "saidas_previstas": float(saidas_periodo),
+            "saldo_final_projetado": float(saldo),
+        },
+        "risco": {
+            "menor_saldo": float(menor_saldo),
+            "data_menor_saldo": data_menor_saldo.isoformat(),
+            "dias_negativos": dias_negativos,
+            "primeiro_dia_negativo": primeiro_dia_negativo.isoformat() if primeiro_dia_negativo else None,
+        },
+        "serie_diaria": serie_diaria,
+        "movimentos": movimentos,
+        "titulos_pagar": titulos_pagar,
+        "titulos_receber": titulos_receber,
+        "simulacao": {
+            "persistente": False,
+            "mensagem": "A seleção da simulação não altera, baixa, cancela ou posterga nenhum título real.",
+        },
     }
 
 

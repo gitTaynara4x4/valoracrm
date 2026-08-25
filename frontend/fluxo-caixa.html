@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Controle de Caixa | Valora CRM</title>
+  <title>Fluxo de Caixa | Valora CRM</title>
   <script>(() => { const t = localStorage.getItem("valora_theme") || "light"; document.documentElement.setAttribute("data-theme", t); })();</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,27 +14,28 @@
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
   <script src="/frontend/js/shared/menu-global.js?v=20260819-financeiro-organizado-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260821-caixa-jcc-v1" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260824-fluxo-projetado-v1" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260821-caixa-jcc-v1" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260824-fluxo-projetado-v1" />
 </head>
 <body class="financeiro-theme-valora">
   <div class="layout">
     <div id="valora-menu-root" aria-label="Menu Valora"></div>
     <iframe
       class="financeiro-sidebar-frame"
-      src="/frontend/partials/sidebar-financeiro.html?v=20260824-v4-native-nav"
+      src="/frontend/partials/sidebar-financeiro.html?v=20260823-v3-nav-top"
       title="Navegação do Financeiro"
       scrolling="no"
       loading="eager"
       style="display:block;width:100%;height:44px;min-height:44px;border:0;margin:0;padding:0;background:transparent;overflow:hidden;"
     ></iframe>
-    <main class="main financeiro-page financeiro-page--valora" data-financeiro-page="fluxo">
+
+    <main class="main financeiro-page financeiro-page--valora financeiro-page--fluxo" data-financeiro-page="fluxo">
       <header class="topbar">
         <div class="topbar-title">
           <span class="eyebrow">Financeiro</span>
-          <h1>Controle de Caixa</h1>
-          <p class="topbar-subtitle">Registros, edição, saldos diários e resumo por período.</p>
+          <h1>Fluxo de Caixa</h1>
+          <p class="topbar-subtitle">Projete entradas e saídas por vencimento e simule quais contas pagar sem alterar os lançamentos reais.</p>
         </div>
         <div class="topbar-actions">
           <button class="btn btn-secondary" type="button" id="btn-exportar-financeiro"><i class="fa-solid fa-file-export"></i> Exportar CSV</button>
@@ -43,102 +44,216 @@
         </div>
       </header>
 
-      
-      <div class="financeiro-sidebar-status-source" hidden><span data-financeiro-sidebar-status class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando dados reais...</span></div>
+      <div class="financeiro-sidebar-status-source" hidden>
+        <span data-financeiro-sidebar-status class="financeiro-muted financeiro-toolbar-status" id="financeiro-status-text">Carregando fluxo...</span>
+      </div>
 
-      <section class="financeiro-panel financeiro-filter-panel is-open" id="financeiro-filtros">
-        <div class="financeiro-filters-grid financeiro-caixa-filters">
+      <section class="financeiro-fluxo-modebar" aria-label="Modo do fluxo de caixa">
+        <button type="button" class="is-active" data-fluxo-mode="projecao"><i class="fa-solid fa-chart-line"></i><span>Fluxo projetado</span></button>
+        <button type="button" data-fluxo-mode="simulacao"><i class="fa-solid fa-sliders"></i><span>Simulação</span></button>
+        <button type="button" data-fluxo-mode="realizado"><i class="fa-solid fa-receipt"></i><span>Controle realizado</span></button>
+      </section>
+
+      <section class="financeiro-panel financeiro-filter-panel is-open financeiro-fluxo-filter-panel" id="financeiro-filtros">
+        <div class="financeiro-filters-grid financeiro-fluxo-filters">
           <div class="financeiro-field">
             <label>Conta Corrente / Banco</label>
             <select id="filtro-caixa-conta"><option value="">Todas as contas</option></select>
           </div>
+          <div class="financeiro-field">
+            <label>Período</label>
+            <select id="filtro-fluxo-periodo">
+              <option value="hoje">Hoje</option>
+              <option value="7">Próximos 7 dias</option>
+              <option value="30" selected>Próximos 30 dias</option>
+              <option value="fim_mes">Até o fim do mês</option>
+              <option value="proximo_mes">Próximo mês</option>
+              <option value="personalizado">Personalizado</option>
+            </select>
+          </div>
+          <div class="financeiro-field">
+            <label>Agrupar por</label>
+            <select id="filtro-fluxo-agrupar">
+              <option value="dia" selected>Dia</option>
+              <option value="semana">Semana</option>
+              <option value="mes">Mês</option>
+            </select>
+          </div>
           <div class="financeiro-field"><label>Data inicial</label><input id="filtro-data-inicio" type="date"></div>
           <div class="financeiro-field"><label>Data final</label><input id="filtro-data-fim" type="date"></div>
         </div>
-        <div class="financeiro-toolbar" style="margin:14px 0 0;">
-          <span class="financeiro-muted">O saldo anterior considera tudo que ocorreu antes da data inicial.</span>
+        <div class="financeiro-toolbar financeiro-fluxo-filter-actions">
+          <span class="financeiro-muted" id="fluxo-filtro-ajuda">A projeção parte do saldo real de hoje, usa os vencimentos ainda em aberto e considera títulos vencidos como compromisso de hoje.</span>
           <div><button class="btn btn-secondary" type="button" id="btn-limpar-filtros">Limpar</button> <button class="btn btn-primary" type="button" id="btn-aplicar-filtros">Aplicar</button></div>
         </div>
       </section>
 
-      <section class="financeiro-grid-4 financeiro-caixa-kpis">
-        <article class="financeiro-card">
-          <div class="financeiro-card-top"><div><h3>Saldo anterior</h3><p>Antes do período</p></div><span class="financeiro-icon blue"><i class="fa-solid fa-clock-rotate-left"></i></span></div>
-          <div><div class="financeiro-value" data-kpi="caixa-saldo-anterior">R$ 0,00</div><div class="financeiro-meta">Base para o saldo acumulado</div></div>
-        </article>
-        <article class="financeiro-card">
-          <div class="financeiro-card-top"><div><h3>Créditos</h3><p>Entradas no período</p></div><span class="financeiro-icon ok"><i class="fa-solid fa-arrow-down"></i></span></div>
-          <div><div class="financeiro-value" data-kpi="caixa-creditos">R$ 0,00</div><div class="financeiro-meta">Recebimentos e créditos manuais</div></div>
-        </article>
-        <article class="financeiro-card">
-          <div class="financeiro-card-top"><div><h3>Débitos</h3><p>Saídas no período</p></div><span class="financeiro-icon danger"><i class="fa-solid fa-arrow-up"></i></span></div>
-          <div><div class="financeiro-value" data-kpi="caixa-debitos">R$ 0,00</div><div class="financeiro-meta">Pagamentos e débitos manuais</div></div>
-        </article>
-        <article class="financeiro-card">
-          <div class="financeiro-card-top"><div><h3>Saldo</h3><p>Saldo ao fim do período</p></div><span class="financeiro-icon warn"><i class="fa-solid fa-wallet"></i></span></div>
-          <div><div class="financeiro-value" data-kpi="caixa-saldo-final">R$ 0,00</div><div class="financeiro-meta">Saldo anterior + créditos - débitos</div></div>
-        </article>
+      <section data-fluxo-projecao-area>
+        <div class="financeiro-fluxo-notice" id="fluxo-periodo-aviso" hidden></div>
+
+        <section class="financeiro-fluxo-kpis">
+          <article class="financeiro-card financeiro-fluxo-kpi">
+            <div class="financeiro-card-top"><div><h3>Saldo de abertura</h3><p>No início do período</p></div><span class="financeiro-icon blue"><i class="fa-solid fa-wallet"></i></span></div>
+            <div><div class="financeiro-value" data-kpi="fluxo-saldo-abertura">R$ 0,00</div><div class="financeiro-meta" id="fluxo-saldo-abertura-meta">Saldo real + compromissos anteriores ao período</div></div>
+          </article>
+          <article class="financeiro-card financeiro-fluxo-kpi">
+            <div class="financeiro-card-top"><div><h3>Entradas previstas</h3><p>Contas a receber</p></div><span class="financeiro-icon ok"><i class="fa-solid fa-arrow-down"></i></span></div>
+            <div><div class="financeiro-value" data-kpi="fluxo-entradas">R$ 0,00</div><div class="financeiro-meta">Títulos em aberto pela data de vencimento</div></div>
+          </article>
+          <article class="financeiro-card financeiro-fluxo-kpi">
+            <div class="financeiro-card-top"><div><h3 id="fluxo-saidas-titulo">Saídas previstas</h3><p id="fluxo-saidas-subtitulo">Contas a pagar</p></div><span class="financeiro-icon danger"><i class="fa-solid fa-arrow-up"></i></span></div>
+            <div><div class="financeiro-value" data-kpi="fluxo-saidas">R$ 0,00</div><div class="financeiro-meta" id="fluxo-saidas-meta">Todos os pagamentos do período</div></div>
+          </article>
+          <article class="financeiro-card financeiro-fluxo-kpi">
+            <div class="financeiro-card-top"><div><h3>Saldo final projetado</h3><p>Ao fim do período</p></div><span class="financeiro-icon warn"><i class="fa-solid fa-chart-line"></i></span></div>
+            <div><div class="financeiro-value" data-kpi="fluxo-saldo-final">R$ 0,00</div><div class="financeiro-meta" id="fluxo-saldo-final-meta">Abertura + entradas - saídas</div></div>
+          </article>
+          <article class="financeiro-card financeiro-fluxo-kpi financeiro-fluxo-kpi--risk" id="fluxo-menor-saldo-card">
+            <div class="financeiro-card-top"><div><h3>Menor saldo</h3><p>Momento mais apertado</p></div><span class="financeiro-icon"><i class="fa-solid fa-triangle-exclamation"></i></span></div>
+            <div><div class="financeiro-value" data-kpi="fluxo-menor-saldo">R$ 0,00</div><div class="financeiro-meta" id="fluxo-menor-saldo-meta">Sem risco identificado</div></div>
+          </article>
+        </section>
+
+        <div class="financeiro-fluxo-riskbar" id="fluxo-riskbar" role="status">
+          <i class="fa-regular fa-circle-check"></i>
+          <span id="fluxo-riskbar-text">Carregando projeção...</span>
+        </div>
+
+        <section class="financeiro-fluxo-main-grid" id="fluxo-main-grid">
+          <article class="financeiro-panel financeiro-fluxo-chart-card">
+            <div class="financeiro-panel-head">
+              <div>
+                <h3 id="fluxo-chart-title">Evolução do saldo projetado</h3>
+                <p id="fluxo-chart-subtitle">Entradas, saídas e saldo ao longo do período.</p>
+              </div>
+              <div class="financeiro-fluxo-legend" aria-hidden="true">
+                <span><i class="is-entrada"></i> Entradas</span>
+                <span><i class="is-saida"></i> Saídas</span>
+                <span><i class="is-saldo"></i> Saldo</span>
+              </div>
+            </div>
+            <div class="financeiro-fluxo-chart" id="fluxo-projecao-chart">
+              <div class="financeiro-empty-chart">Carregando gráfico...</div>
+            </div>
+          </article>
+
+          <aside class="financeiro-panel financeiro-simulacao-panel" id="fluxo-simulacao-panel" hidden>
+            <div class="financeiro-simulacao-head">
+              <div>
+                <span class="eyebrow">Decisão manual</span>
+                <h3>O que pretende pagar?</h3>
+                <p>Desmarque uma conta para retirá-la somente deste cenário.</p>
+              </div>
+              <span class="financeiro-simulacao-safe"><i class="fa-solid fa-lock"></i> Não altera o financeiro</span>
+            </div>
+            <div class="financeiro-simulacao-toolbar">
+              <label class="financeiro-simulacao-search"><i class="fa-solid fa-magnifying-glass"></i><input id="fluxo-simulacao-busca" placeholder="Buscar fornecedor ou documento"></label>
+              <div>
+                <button class="financeiro-mini-btn" type="button" id="btn-simulacao-marcar-todos">Marcar todos</button>
+                <button class="financeiro-mini-btn" type="button" id="btn-simulacao-limpar">Desmarcar</button>
+              </div>
+            </div>
+            <div class="financeiro-simulacao-resumo" id="fluxo-simulacao-resumo">Carregando contas...</div>
+            <div class="financeiro-simulacao-list" id="fluxo-simulacao-list">
+              <div class="financeiro-empty-soft">Carregando contas a pagar...</div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="financeiro-panel financeiro-fluxo-table-card">
+          <div class="financeiro-panel-head">
+            <div><h3 id="fluxo-table-title">Fluxo projetado por dia</h3><p>Saldo calculado após as entradas e saídas previstas de cada período.</p></div>
+            <span class="financeiro-jcc-note" id="fluxo-table-note"><i class="fa-solid fa-calculator"></i> Baseado na data de vencimento</span>
+          </div>
+          <div class="financeiro-table-wrap">
+            <table class="financeiro-table financeiro-table--fluxo">
+              <thead><tr><th>Período</th><th>Saldo inicial</th><th>Entradas previstas</th><th>Saídas previstas</th><th>Variação</th><th>Saldo projetado</th></tr></thead>
+              <tbody id="tbody-fluxo-projecao"><tr><td class="financeiro-empty" colspan="6">Carregando projeção...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
       </section>
 
-      <section class="financeiro-panel financeiro-caixa-workspace">
-        <div class="financeiro-caixa-tabs" role="tablist" aria-label="Controle de Caixa">
-          <button type="button" class="is-active" data-caixa-tab="registros"><i class="fa-regular fa-rectangle-list"></i> Registros</button>
-          <button type="button" data-caixa-tab="edicao"><i class="fa-regular fa-pen-to-square"></i> Edição</button>
-          <button type="button" data-caixa-tab="saldos"><i class="fa-solid fa-calendar-days"></i> Saldos Diários</button>
-          <button type="button" data-caixa-tab="resumo"><i class="fa-solid fa-chart-line"></i> Resumo por Período</button>
-        </div>
+      <section data-fluxo-realizado-area hidden>
+        <section class="financeiro-grid-4 financeiro-caixa-kpis">
+          <article class="financeiro-card">
+            <div class="financeiro-card-top"><div><h3>Saldo anterior</h3><p>Antes do período</p></div><span class="financeiro-icon blue"><i class="fa-solid fa-clock-rotate-left"></i></span></div>
+            <div><div class="financeiro-value" data-kpi="caixa-saldo-anterior">R$ 0,00</div><div class="financeiro-meta">Base para o saldo acumulado</div></div>
+          </article>
+          <article class="financeiro-card">
+            <div class="financeiro-card-top"><div><h3>Créditos</h3><p>Entradas realizadas</p></div><span class="financeiro-icon ok"><i class="fa-solid fa-arrow-down"></i></span></div>
+            <div><div class="financeiro-value" data-kpi="caixa-creditos">R$ 0,00</div><div class="financeiro-meta">Recebimentos e créditos manuais</div></div>
+          </article>
+          <article class="financeiro-card">
+            <div class="financeiro-card-top"><div><h3>Débitos</h3><p>Saídas realizadas</p></div><span class="financeiro-icon danger"><i class="fa-solid fa-arrow-up"></i></span></div>
+            <div><div class="financeiro-value" data-kpi="caixa-debitos">R$ 0,00</div><div class="financeiro-meta">Pagamentos e débitos manuais</div></div>
+          </article>
+          <article class="financeiro-card">
+            <div class="financeiro-card-top"><div><h3>Saldo realizado</h3><p>Saldo ao fim do período</p></div><span class="financeiro-icon warn"><i class="fa-solid fa-wallet"></i></span></div>
+            <div><div class="financeiro-value" data-kpi="caixa-saldo-final">R$ 0,00</div><div class="financeiro-meta">Saldo anterior + créditos - débitos</div></div>
+          </article>
+        </section>
 
-        <div class="financeiro-caixa-pane is-active" data-caixa-pane="registros">
-          <div class="financeiro-panel-head">
-            <div><h3>Registros</h3><p>Movimentos que efetivamente alteraram caixa ou conta corrente.</p></div>
-            <span class="financeiro-jcc-note"><i class="fa-solid fa-lock"></i> Baixas automáticas são protegidas</span>
+        <section class="financeiro-panel financeiro-caixa-workspace">
+          <div class="financeiro-caixa-tabs" role="tablist" aria-label="Controle realizado">
+            <button type="button" class="is-active" data-caixa-tab="registros"><i class="fa-regular fa-rectangle-list"></i> Registros</button>
+            <button type="button" data-caixa-tab="edicao"><i class="fa-regular fa-pen-to-square"></i> Edição</button>
+            <button type="button" data-caixa-tab="saldos"><i class="fa-solid fa-calendar-days"></i> Saldos Diários</button>
+            <button type="button" data-caixa-tab="resumo"><i class="fa-solid fa-chart-line"></i> Resumo por Período</button>
           </div>
-          <div class="financeiro-table-wrap"><table class="financeiro-table" id="financeiro-table">
-            <thead><tr><th>Data</th><th>Documento</th><th>Operação</th><th>Histórico</th><th>Conta</th><th>Plano de Contas</th><th>Crédito</th><th>Débito</th><th>Ações</th></tr></thead>
-            <tbody id="tbody-caixa-registros"><tr><td class="financeiro-empty" colspan="9">Carregando...</td></tr></tbody>
-          </table></div>
-        </div>
 
-        <div class="financeiro-caixa-pane" data-caixa-pane="edicao" hidden>
-          <div class="financeiro-panel-head"><div><h3 id="caixa-edicao-titulo">Novo movimento</h3><p>Registre ajustes manuais de caixa. Recebimentos e pagamentos de títulos entram automaticamente.</p></div></div>
-          <form id="form-caixa-movimento" class="financeiro-caixa-editor">
-            <input type="hidden" name="id">
-            <div class="financeiro-form-grid cols-3">
-              <div class="financeiro-field"><label>Data</label><input name="data_movimentacao" type="date" required></div>
-              <div class="financeiro-field"><label>Operação</label><select name="tipo" required><option value="credito">Crédito</option><option value="debito">Débito</option></select></div>
-              <div class="financeiro-field"><label>Documento</label><input name="documento" maxlength="120" placeholder="NF, recibo, ajuste..."></div>
-              <div class="financeiro-field full"><label>Histórico</label><input name="historico" maxlength="1000" required placeholder="Descreva o motivo do movimento"></div>
-              <div class="financeiro-field"><label>Valor</label><input name="valor" class="financeiro-money-input" data-money-input inputmode="decimal" required placeholder="R$ 0,00"></div>
-              <div class="financeiro-field"><label>Conta Corrente / Banco</label><select name="conta_banco_id" data-caixa-select="contas" required><option value="">Selecione...</option></select></div>
-              <div class="financeiro-field"><label>Plano de Contas</label><select name="conta_contabil_id" data-caixa-select="plano" required><option value="">Selecione...</option></select></div>
-              <div class="financeiro-field"><label>Centro de Custo</label><select name="centro_custo_principal_id" data-caixa-select="centro-principal"><option value="">Sem centro...</option></select></div>
-              <div class="financeiro-field"><label>Centro Secundário</label><select name="centro_custo_secundario_id" data-caixa-select="centro-secundario"><option value="">Sem secundário...</option></select></div>
+          <div class="financeiro-caixa-pane is-active" data-caixa-pane="registros">
+            <div class="financeiro-panel-head">
+              <div><h3>Registros</h3><p>Movimentos que efetivamente alteraram caixa ou conta corrente.</p></div>
+              <span class="financeiro-jcc-note"><i class="fa-solid fa-lock"></i> Baixas automáticas são protegidas</span>
             </div>
-            <div class="financeiro-caixa-editor-actions">
-              <button class="btn btn-secondary" type="button" id="btn-cancelar-edicao-caixa">Cancelar edição</button>
-              <button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Salvar movimento</button>
-            </div>
-          </form>
-        </div>
-
-        <div class="financeiro-caixa-pane" data-caixa-pane="saldos" hidden>
-          <div class="financeiro-panel-head"><div><h3>Saldos Diários</h3><p>Crédito, débito e saldo acumulado por dia.</p></div></div>
-          <div class="financeiro-table-wrap"><table class="financeiro-table">
-            <thead><tr><th>Data</th><th>Crédito</th><th>Débito</th><th>Saldo</th></tr></thead>
-            <tbody id="tbody-caixa-saldos"><tr><td class="financeiro-empty" colspan="4">Carregando...</td></tr></tbody>
-          </table></div>
-        </div>
-
-        <div class="financeiro-caixa-pane" data-caixa-pane="resumo" hidden>
-          <div class="financeiro-panel-head">
-            <div><h3>Resumo por Período</h3><p>Extrato financeiro com saldo anterior e saldo acumulado movimento a movimento.</p></div>
-            <div class="financeiro-caixa-saldo-anterior"><span>Saldo anterior</span><strong id="caixa-resumo-saldo-anterior">R$ 0,00</strong></div>
+            <div class="financeiro-table-wrap"><table class="financeiro-table" id="financeiro-table">
+              <thead><tr><th>Data</th><th>Documento</th><th>Operação</th><th>Histórico</th><th>Conta</th><th>Plano de Contas</th><th>Crédito</th><th>Débito</th><th>Ações</th></tr></thead>
+              <tbody id="tbody-caixa-registros"><tr><td class="financeiro-empty" colspan="9">Carregando...</td></tr></tbody>
+            </table></div>
           </div>
-          <div class="financeiro-table-wrap"><table class="financeiro-table">
-            <thead><tr><th>Data</th><th>Documento</th><th>Cliente / Fornecedor</th><th>Histórico</th><th>Crédito</th><th>Débito</th><th>Saldo</th></tr></thead>
-            <tbody id="tbody-caixa-resumo"><tr><td class="financeiro-empty" colspan="7">Carregando...</td></tr></tbody>
-          </table></div>
-        </div>
+
+          <div class="financeiro-caixa-pane" data-caixa-pane="edicao" hidden>
+            <div class="financeiro-panel-head"><div><h3 id="caixa-edicao-titulo">Novo movimento</h3><p>Registre ajustes manuais de caixa. Recebimentos e pagamentos de títulos entram automaticamente.</p></div></div>
+            <form id="form-caixa-movimento" class="financeiro-caixa-editor">
+              <input type="hidden" name="id">
+              <div class="financeiro-form-grid cols-3">
+                <div class="financeiro-field"><label>Data</label><input name="data_movimentacao" type="date" required></div>
+                <div class="financeiro-field"><label>Operação</label><select name="tipo" required><option value="credito">Crédito</option><option value="debito">Débito</option></select></div>
+                <div class="financeiro-field"><label>Documento</label><input name="documento" maxlength="120" placeholder="NF, recibo, ajuste..."></div>
+                <div class="financeiro-field full"><label>Histórico</label><input name="historico" maxlength="1000" required placeholder="Descreva o motivo do movimento"></div>
+                <div class="financeiro-field"><label>Valor</label><input name="valor" class="financeiro-money-input" data-money-input inputmode="decimal" required placeholder="R$ 0,00"></div>
+                <div class="financeiro-field"><label>Conta Corrente / Banco</label><select name="conta_banco_id" data-caixa-select="contas" required><option value="">Selecione...</option></select></div>
+                <div class="financeiro-field"><label>Plano de Contas</label><select name="conta_contabil_id" data-caixa-select="plano" required><option value="">Selecione...</option></select></div>
+                <div class="financeiro-field"><label>Centro de Custo</label><select name="centro_custo_principal_id" data-caixa-select="centro-principal"><option value="">Sem centro...</option></select></div>
+                <div class="financeiro-field"><label>Centro Secundário</label><select name="centro_custo_secundario_id" data-caixa-select="centro-secundario"><option value="">Sem secundário...</option></select></div>
+              </div>
+              <div class="financeiro-caixa-editor-actions">
+                <button class="btn btn-secondary" type="button" id="btn-cancelar-edicao-caixa">Cancelar edição</button>
+                <button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Salvar movimento</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="financeiro-caixa-pane" data-caixa-pane="saldos" hidden>
+            <div class="financeiro-panel-head"><div><h3>Saldos Diários</h3><p>Crédito, débito e saldo acumulado por dia.</p></div></div>
+            <div class="financeiro-table-wrap"><table class="financeiro-table">
+              <thead><tr><th>Data</th><th>Crédito</th><th>Débito</th><th>Saldo</th></tr></thead>
+              <tbody id="tbody-caixa-saldos"><tr><td class="financeiro-empty" colspan="4">Carregando...</td></tr></tbody>
+            </table></div>
+          </div>
+
+          <div class="financeiro-caixa-pane" data-caixa-pane="resumo" hidden>
+            <div class="financeiro-panel-head">
+              <div><h3>Resumo por Período</h3><p>Extrato financeiro com saldo anterior e saldo acumulado movimento a movimento.</p></div>
+              <div class="financeiro-caixa-saldo-anterior"><span>Saldo anterior</span><strong id="caixa-resumo-saldo-anterior">R$ 0,00</strong></div>
+            </div>
+            <div class="financeiro-table-wrap"><table class="financeiro-table">
+              <thead><tr><th>Data</th><th>Documento</th><th>Cliente / Fornecedor</th><th>Histórico</th><th>Crédito</th><th>Débito</th><th>Saldo</th></tr></thead>
+              <tbody id="tbody-caixa-resumo"><tr><td class="financeiro-empty" colspan="7">Carregando...</td></tr></tbody>
+            </table></div>
+          </div>
+        </section>
       </section>
     </main>
   </div>

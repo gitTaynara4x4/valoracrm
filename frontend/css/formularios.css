@@ -6367,3 +6367,49 @@ html[data-theme="dark"] #modal-campo .field-optional {
 html[data-theme="dark"] #modal-campo .field-flat-divider {
   background: rgba(255, 255, 255, 0.10) !important;
 }
+
+
+/* =========================================================
+   FORMULÁRIOS | DIVISÃO FINANCEIRO | 2026-08-24
+   Separa visualmente os formulários financeiros dos demais.
+   ========================================================= */
+.formularios-workspace .module-group-label {
+  width: 100%;
+  margin: 8px 0 2px;
+  padding: 13px 12px 5px;
+  border-top: 1px solid rgba(100, 116, 139, 0.16);
+  color: #7a879b;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.formularios-workspace .module-group-label span {
+  display: block;
+}
+
+html[data-theme="dark"] .formularios-workspace .module-group-label {
+  border-top-color: rgba(255, 255, 255, 0.10);
+  color: #929292;
+}
+
+@media (max-width: 860px) {
+  .formularios-workspace .module-group-label {
+    width: auto;
+    min-width: max-content;
+    align-self: stretch;
+    margin: 0 2px 0 8px;
+    padding: 0 12px;
+    border-top: 0;
+    border-left: 1px solid rgba(100, 116, 139, 0.18);
+    display: inline-flex;
+    align-items: center;
+  }
+
+  html[data-theme="dark"] .formularios-workspace .module-group-label {
+    border-left-color: rgba(255, 255, 255, 0.10);
+  }
+}

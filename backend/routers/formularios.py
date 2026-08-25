@@ -62,9 +62,37 @@ MODULOS_PERMITIDOS = {
     "cotacoes",
     "propostas",
     "contratos",
+    "contas_receber",
+    "contas_pagar",
     "dados_contrato",
     "area_cliente",
 }
+
+MODULOS_FINANCEIROS = {"contas_receber", "contas_pagar"}
+
+# Estes campos são estruturais para o lançamento. Podem ser renomeados e
+# reposicionados no construtor, mas não podem ser removidos/desativados, pois
+# o cálculo, as baixas e a conciliação dependem deles.
+CAMPOS_FINANCEIROS_PROTEGIDOS_BASE = {
+    "tipo", "status", "descricao", "valor_total", "data_vencimento",
+}
+CAMPOS_FINANCEIROS_PROTEGIDOS_POR_MODULO = {
+    "contas_receber": CAMPOS_FINANCEIROS_PROTEGIDOS_BASE | {"cliente_id", "forma_cobranca_id"},
+    "contas_pagar": CAMPOS_FINANCEIROS_PROTEGIDOS_BASE | {"fornecedor_id"},
+}
+
+def campo_financeiro_protegido(modulo: str, campo_sistema: Optional[str]) -> bool:
+    return str(campo_sistema or "") in CAMPOS_FINANCEIROS_PROTEGIDOS_POR_MODULO.get(str(modulo or ""), set())
+
+SECOES_FINANCEIRAS_PADRAO = [
+    ("lancamento", "Lançamento", "Dados principais do título.", "fa-clipboard-list"),
+    ("envolvidos", "Envolvidos", "Cliente, fornecedor e classificação básica.", "fa-user-group"),
+    ("cobranca", "Cobrança", "Dados usados na cobrança do cliente.", "fa-receipt"),
+    ("pagamento", "Pagamento", "Forma e conta bancária do lançamento.", "fa-credit-card"),
+    ("classificacao", "Classificação", "Plano de contas, centros de custo e regras financeiras.", "fa-sitemap"),
+    ("parcelamento", "Parcelamento", "Configuração de geração de parcelas.", "fa-layer-group"),
+    ("observacoes", "Observações", "Informações internas do lançamento.", "fa-comment-dots"),
+]
 
 ORIGENS_PERMITIDAS = {"sistema", "personalizado", "visual"}
 TIPOS_VISUAIS_PERMITIDOS = {"titulo", "subtitulo", "separador", "texto", "aviso"}
@@ -434,6 +462,85 @@ CAMPOS_SISTEMA_POR_MODULO: Dict[str, List[Dict[str, Any]]] = {
         {"campo": "indicacao", "label": "Indicação", "tipo": "texto"},
         {"campo": "observacoes", "label": "Observações", "tipo": "textarea"},
     ],
+    "contas_receber": [
+        {"campo": "tipo", "label": "Tipo", "tipo": "select", "secao": "lancamento", "somente_leitura": True},
+        {"campo": "status", "label": "Status", "tipo": "select", "secao": "lancamento", "somente_leitura": True},
+        {"campo": "documento", "label": "Documento", "tipo": "texto", "secao": "lancamento"},
+        {"campo": "descricao", "label": "Descrição", "tipo": "texto", "secao": "lancamento", "obrigatorio": True},
+        {"campo": "moeda", "label": "Moeda", "tipo": "select", "secao": "lancamento"},
+        {"campo": "valor_total", "label": "Valor total", "tipo": "moeda", "secao": "lancamento", "obrigatorio": True},
+        {"campo": "valor_pago", "label": "Valor recebido", "tipo": "moeda", "secao": "lancamento", "somente_leitura": True},
+        {"campo": "data_emissao", "label": "Emissão", "tipo": "data", "secao": "lancamento"},
+        {"campo": "data_vencimento", "label": "Vencimento", "tipo": "data", "secao": "lancamento", "obrigatorio": True},
+        {"campo": "data_pagamento", "label": "Recebimento", "tipo": "data", "secao": "lancamento", "somente_leitura": True},
+        {"campo": "cliente_id", "label": "Cliente", "tipo": "relacao_cliente", "secao": "envolvidos", "obrigatorio": True},
+        {"campo": "categoria_id", "label": "Categoria", "tipo": "select", "secao": "envolvidos"},
+        {"campo": "contato_cobranca", "label": "Contato financeiro", "tipo": "texto", "secao": "cobranca"},
+        {"campo": "email_cobranca", "label": "E-mail de cobrança", "tipo": "email", "secao": "cobranca"},
+        {"campo": "whatsapp_cobranca", "label": "WhatsApp de cobrança", "tipo": "telefone", "secao": "cobranca"},
+        {"campo": "modalidade_pagamento", "label": "Modalidade cadastrada", "tipo": "texto", "secao": "cobranca"},
+        {"campo": "nosso_numero", "label": "Nosso número", "tipo": "texto", "secao": "cobranca"},
+        {"campo": "nota_fiscal_numero", "label": "Nota fiscal nº", "tipo": "texto", "secao": "cobranca"},
+        {"campo": "nota_fiscal_data_emissao", "label": "Data de emissão da NF", "tipo": "data", "secao": "cobranca"},
+        {"campo": "forma_pagamento_id", "label": "Forma de recebimento", "tipo": "select", "secao": "pagamento"},
+        {"campo": "conta_banco_id", "label": "Conta de destino", "tipo": "select", "secao": "pagamento"},
+        {"campo": "tipo_documento_id", "label": "Tipo de documento", "tipo": "select", "secao": "classificacao"},
+        {"campo": "natureza_operacao_id", "label": "Natureza da operação", "tipo": "select", "secao": "classificacao"},
+        {"campo": "entidade_emissora_id", "label": "Entidade emissora", "tipo": "select", "secao": "classificacao"},
+        {"campo": "centro_custo_principal_id", "label": "Centro de custo principal", "tipo": "select", "secao": "classificacao"},
+        {"campo": "centro_custo_secundario_id", "label": "Centro de custo secundário", "tipo": "select", "secao": "classificacao"},
+        {"campo": "conta_contabil_id", "label": "Plano de Contas", "tipo": "select", "secao": "classificacao"},
+        {"campo": "unidade_consumo_principal_id", "label": "Unidade de consumo principal", "tipo": "select", "secao": "classificacao"},
+        {"campo": "unidade_consumo_secundaria_id", "label": "Unidade de consumo secundária", "tipo": "select", "secao": "classificacao"},
+        {"campo": "forma_cobranca_id", "label": "Forma de cobrança", "tipo": "select", "secao": "classificacao", "obrigatorio": True},
+        {"campo": "regua_cobranca_id", "label": "Régua de cobrança", "tipo": "select", "secao": "classificacao"},
+        {"campo": "regra_encargos_id", "label": "Regra de multa e mora", "tipo": "select", "secao": "classificacao"},
+        {"campo": "possui_multa", "label": "Possui multa?", "tipo": "select", "secao": "classificacao"},
+        {"campo": "indice_multa_percent", "label": "Índice de multa (%)", "tipo": "percentual", "secao": "classificacao"},
+        {"campo": "possui_mora_diaria", "label": "Possui mora diária?", "tipo": "select", "secao": "classificacao"},
+        {"campo": "indice_mora_diaria_percent", "label": "Índice de mora diária (%)", "tipo": "percentual", "secao": "classificacao"},
+        {"campo": "parcelado", "label": "Gerar parcelas?", "tipo": "select", "secao": "parcelamento"},
+        {"campo": "parcelas_gerar", "label": "Quantidade de parcelas", "tipo": "numero", "secao": "parcelamento"},
+        {"campo": "intervalo_parcelas_meses", "label": "Intervalo", "tipo": "select", "secao": "parcelamento"},
+        {"campo": "modo_parcelamento", "label": "Como aplicar o valor", "tipo": "select", "secao": "parcelamento"},
+        {"campo": "observacoes", "label": "Observações", "tipo": "textarea", "secao": "observacoes", "largura": "100"},
+    ],
+    "contas_pagar": [
+        {"campo": "tipo", "label": "Tipo", "tipo": "select", "secao": "lancamento", "somente_leitura": True},
+        {"campo": "status", "label": "Status", "tipo": "select", "secao": "lancamento", "somente_leitura": True},
+        {"campo": "documento", "label": "Documento", "tipo": "texto", "secao": "lancamento"},
+        {"campo": "descricao", "label": "Descrição", "tipo": "texto", "secao": "lancamento", "obrigatorio": True},
+        {"campo": "moeda", "label": "Moeda", "tipo": "select", "secao": "lancamento"},
+        {"campo": "valor_total", "label": "Valor total", "tipo": "moeda", "secao": "lancamento", "obrigatorio": True},
+        {"campo": "valor_pago", "label": "Valor pago", "tipo": "moeda", "secao": "lancamento", "somente_leitura": True},
+        {"campo": "data_emissao", "label": "Emissão", "tipo": "data", "secao": "lancamento"},
+        {"campo": "data_vencimento", "label": "Vencimento", "tipo": "data", "secao": "lancamento", "obrigatorio": True},
+        {"campo": "data_pagamento", "label": "Pagamento", "tipo": "data", "secao": "lancamento", "somente_leitura": True},
+        {"campo": "fornecedor_id", "label": "Fornecedor / Sacado", "tipo": "relacao_fornecedor", "secao": "envolvidos", "obrigatorio": True},
+        {"campo": "categoria_id", "label": "Categoria", "tipo": "select", "secao": "envolvidos"},
+        {"campo": "forma_pagamento_id", "label": "Forma de pagamento", "tipo": "select", "secao": "pagamento"},
+        {"campo": "conta_banco_id", "label": "Conta/Banco", "tipo": "select", "secao": "pagamento"},
+        {"campo": "tipo_documento_id", "label": "Tipo de documento", "tipo": "select", "secao": "classificacao"},
+        {"campo": "natureza_operacao_id", "label": "Natureza da operação", "tipo": "select", "secao": "classificacao"},
+        {"campo": "tipo_gasto_id", "label": "Tipo de gasto", "tipo": "select", "secao": "classificacao"},
+        {"campo": "entidade_emissora_id", "label": "Entidade emissora", "tipo": "select", "secao": "classificacao"},
+        {"campo": "centro_custo_principal_id", "label": "Centro de custo principal", "tipo": "select", "secao": "classificacao"},
+        {"campo": "centro_custo_secundario_id", "label": "Centro de custo secundário", "tipo": "select", "secao": "classificacao"},
+        {"campo": "conta_contabil_id", "label": "Plano de Contas", "tipo": "select", "secao": "classificacao"},
+        {"campo": "unidade_consumo_principal_id", "label": "Unidade de consumo principal", "tipo": "select", "secao": "classificacao"},
+        {"campo": "unidade_consumo_secundaria_id", "label": "Unidade de consumo secundária", "tipo": "select", "secao": "classificacao"},
+        {"campo": "forma_cobranca_id", "label": "Forma de cobrança", "tipo": "select", "secao": "classificacao"},
+        {"campo": "regra_encargos_id", "label": "Regra de multa e mora", "tipo": "select", "secao": "classificacao"},
+        {"campo": "possui_multa", "label": "Possui multa?", "tipo": "select", "secao": "classificacao"},
+        {"campo": "indice_multa_percent", "label": "Índice de multa (%)", "tipo": "percentual", "secao": "classificacao"},
+        {"campo": "possui_mora_diaria", "label": "Possui mora diária?", "tipo": "select", "secao": "classificacao"},
+        {"campo": "indice_mora_diaria_percent", "label": "Índice de mora diária (%)", "tipo": "percentual", "secao": "classificacao"},
+        {"campo": "parcelado", "label": "Gerar parcelas?", "tipo": "select", "secao": "parcelamento"},
+        {"campo": "parcelas_gerar", "label": "Quantidade de parcelas", "tipo": "numero", "secao": "parcelamento"},
+        {"campo": "intervalo_parcelas_meses", "label": "Intervalo", "tipo": "select", "secao": "parcelamento"},
+        {"campo": "modo_parcelamento", "label": "Como aplicar o valor", "tipo": "select", "secao": "parcelamento"},
+        {"campo": "observacoes", "label": "Observações", "tipo": "textarea", "secao": "observacoes", "largura": "100"},
+    ],
     "dados_contrato": [
         {"campo": "cliente_id", "label": "Cliente", "tipo": "texto"},
         {"campo": "status", "label": "Status", "tipo": "select"},
@@ -472,6 +579,8 @@ CAMPO_DATA_CADASTRO_SISTEMA = {
 }
 
 for _modulo, _campos in CAMPOS_SISTEMA_POR_MODULO.items():
+    if _modulo in MODULOS_FINANCEIROS:
+        continue
     if not any(str(c.get("campo") or "") == "data_cadastro" for c in _campos):
         _insert_at = 1 if _campos and str(_campos[0].get("campo") or "") in {"codigo", "numero_contrato"} else 0
         _campos.insert(_insert_at, dict(CAMPO_DATA_CADASTRO_SISTEMA))
@@ -844,7 +953,9 @@ def garantir_data_cadastro_no_modelo(db: Session, modelo) -> None:
         .first()
     )
 
-    if not secao:
+    if modulo in MODULOS_FINANCEIROS and secoes_financeiras:
+        secao = secoes_financeiras["lancamento"]
+    elif not secao:
         secao = models.FormularioSecao(
             formulario_id=modelo.id,
             titulo="Dados principais",
@@ -892,8 +1003,9 @@ def sincronizar_modelo_apos_escrita(db: Session, modelo) -> None:
     Leituras apenas serializam o estado atual. Criação/edição de modelos e
     campos é o momento correto para persistir campos auxiliares e vínculos.
     """
-    garantir_data_cadastro_no_modelo(db, modelo)
     modulo = str(getattr(modelo, "modulo", ""))
+    if modulo not in MODULOS_FINANCEIROS:
+        garantir_data_cadastro_no_modelo(db, modelo)
     if modulo == "clientes":
         from backend.routers.clientes import sincronizar_campos_clientes_do_formulario
         sincronizar_campos_clientes_do_formulario(
@@ -1277,6 +1389,15 @@ def aplicar_campo(campo, dados: Dict[str, Any], db: Session, modelo, criando: bo
     campo.obrigatorio = bool(dados.get("obrigatorio", campo.obrigatorio if not criando else False))
     campo.somente_leitura = bool(dados.get("somente_leitura", campo.somente_leitura if not criando else False))
     campo.ativo = bool(dados.get("ativo", campo.ativo if not criando else True))
+
+    if (
+        modelo.modulo in MODULOS_FINANCEIROS
+        and origem == "sistema"
+        and campo_financeiro_protegido(modelo.modulo, campo_sistema)
+    ):
+        campo.ativo = True
+        if campo_sistema in {"descricao", "valor_total", "data_vencimento"}:
+            campo.obrigatorio = True
     campo.largura = largura
     campo.ordem = to_int(dados.get("ordem", campo.ordem if not criando else 0), 0)
     campo.visibilidade = visibilidade
@@ -1951,6 +2072,16 @@ def excluir_campo(
     campo = campo_ou_404(db, campo_id, empresa_id)
     modelo = modelo_ou_404(db, int(campo.formulario_id), empresa_id)
 
+    if (
+        modelo.modulo in MODULOS_FINANCEIROS
+        and str(campo.origem or "") == "sistema"
+        and campo_financeiro_protegido(modelo.modulo, campo.campo_sistema)
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Este é um campo estrutural do Financeiro. Você pode renomear ou mover o campo, mas não removê-lo.",
+        )
+
     db.delete(campo)
     db.flush()
     sincronizar_modelo_apos_escrita(db, modelo)
@@ -1974,6 +2105,25 @@ def garantir_estrutura_padrao(db: Session, modelo, modulo: str) -> None:
     Aí Nova seção, Campo do sistema e Novo campo pareciam não funcionar.
     """
     modulo = validar_modulo(modulo)
+
+    secoes_financeiras: Dict[str, Any] = {}
+    if modulo in MODULOS_FINANCEIROS:
+        existentes = (
+            db.query(models.FormularioSecao)
+            .filter(models.FormularioSecao.formulario_id == modelo.id)
+            .all()
+        )
+        por_titulo = {str(row.titulo or "").strip().casefold(): row for row in existentes}
+        for ordem_secao, (chave, titulo, descricao, icone) in enumerate(SECOES_FINANCEIRAS_PADRAO, start=1):
+            secao_fin = por_titulo.get(titulo.casefold())
+            if secao_fin is None:
+                secao_fin = models.FormularioSecao(
+                    formulario_id=modelo.id, titulo=titulo, descricao=descricao,
+                    icone=icone, ordem=ordem_secao, ativo=True,
+                )
+                db.add(secao_fin)
+                db.flush()
+            secoes_financeiras[chave] = secao_fin
 
     secao = (
         db.query(models.FormularioSecao)
@@ -2030,9 +2180,25 @@ def garantir_estrutura_padrao(db: Session, modelo, modulo: str) -> None:
 
         ordem_atual += 1
 
+        secao_item = secao
+        if modulo in MODULOS_FINANCEIROS and secoes_financeiras:
+            secao_item = secoes_financeiras.get(str(item.get("secao") or "lancamento"), secao)
+
+        largura_item = str(item.get("largura") or "").strip()
+        if not largura_item and modulo in MODULOS_FINANCEIROS:
+            secao_chave = str(item.get("secao") or "lancamento")
+            if campo_sistema in {"descricao", "observacoes", "modo_parcelamento"}:
+                largura_item = "100"
+            elif secao_chave in {"envolvidos", "pagamento"}:
+                largura_item = "50"
+            else:
+                largura_item = "33"
+        if not largura_item:
+            largura_item = "50"
+
         campo = models.FormularioCampo(
             formulario_id=modelo.id,
-            secao_id=secao.id,
+            secao_id=secao_item.id,
             origem="sistema",
             campo_sistema=campo_sistema,
             campo_personalizado_id=None,
@@ -2045,7 +2211,7 @@ def garantir_estrutura_padrao(db: Session, modelo, modulo: str) -> None:
             obrigatorio=bool(item.get("obrigatorio", False)),
             somente_leitura=bool(item.get("somente_leitura", False)),
             ativo=True,
-            largura=str(item.get("largura") or "50"),
+            largura=largura_item,
             ordem=ordem_atual,
             visibilidade="todos",
             condicao_json=None,
@@ -2086,11 +2252,19 @@ def criar_modelo_padrao(
 
     limpar_padrao_anterior(db, empresa_id, modulo)
 
+    nomes_financeiros = {
+        "contas_receber": "Contas a receber",
+        "contas_pagar": "Contas a pagar",
+    }
     modelo = models.FormularioModelo(
         empresa_id=empresa_id,
         modulo=modulo,
-        nome=f"Cadastro padrão - {modulo.replace('_', ' ')}",
-        descricao="Modelo padrão gerado automaticamente pelo ValoraCRM.",
+        nome=nomes_financeiros.get(modulo, f"Cadastro padrão - {modulo.replace('_', ' ')}"),
+        descricao=(
+            "Estrutura da ficha financeira usada no cadastro e edição dos lançamentos."
+            if modulo in MODULOS_FINANCEIROS
+            else "Modelo padrão gerado automaticamente pelo ValoraCRM."
+        ),
         ativo=True,
         padrao=True,
         usar_como_ficha_principal=False,
