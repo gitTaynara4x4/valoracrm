@@ -3708,6 +3708,21 @@
     contas_pagar: new Set(["tipo", "status", "descricao", "valor_total", "data_vencimento", "fornecedor_id"]),
   };
 
+  // Ao ativar "Ficha simplificada" em Formulários, o Financeiro mantém
+  // somente o núcleo necessário para lançar o título + os campos personalizados.
+  // Campos opcionais continuam disponíveis no construtor e voltam a aparecer
+  // imediatamente ao desativar a ficha simplificada.
+  const FINANCEIRO_CAMPOS_SIMPLIFICADOS = {
+    contas_receber: new Set([
+      "tipo", "status", "descricao", "valor_total", "data_emissao",
+      "data_vencimento", "cliente_id", "forma_cobranca_id",
+    ]),
+    contas_pagar: new Set([
+      "tipo", "status", "descricao", "valor_total", "data_emissao",
+      "data_vencimento", "fornecedor_id",
+    ]),
+  };
+
   const moduloFormularioFinanceiro = (tipo = "") =>
     String(tipo || "").toLowerCase() === "pagar" ? "contas_pagar" : "contas_receber";
 
@@ -4014,6 +4029,8 @@
     const secoes = Array.isArray(config?.secoes) ? config.secoes.filter(s => s.ativo !== false) : [];
     const semSecao = Array.isArray(config?.campos_sem_secao) ? config.campos_sem_secao : [];
     if (!modelo) return;
+    const fichaSimplificada = Boolean(modelo.usar_como_ficha_principal);
+    const camposSimplificados = FINANCEIRO_CAMPOS_SIMPLIFICADOS[modulo] || new Set();
 
     const body = $(".financeiro-modal-body--ficha", form);
     const nav = $(".financeiro-ficha-nav", form);
@@ -4043,7 +4060,18 @@
 
     sectionEntries.forEach((secao, secIndex) => {
       const campos = [...(secao.campos || [])].sort((a, b) => Number(a.ordem || 0) - Number(b.ordem || 0));
-      const ativos = campos.filter(c => c.ativo !== false || (c.origem === "sistema" && campoFinanceiroProtegido(modulo, c.campo_sistema)));
+      const ativos = campos.filter((c) => {
+        const protegido = c.origem === "sistema" && campoFinanceiroProtegido(modulo, c.campo_sistema);
+        if (protegido) return true;
+        if (c.ativo === false) return false;
+
+        // Na ficha simplificada somem apenas os campos nativos opcionais.
+        // Personalizados e blocos visuais continuam exatamente como o usuário montou.
+        if (fichaSimplificada && c.origem === "sistema") {
+          return camposSimplificados.has(String(c.campo_sistema || ""));
+        }
+        return true;
+      });
       if (!ativos.length) return;
 
       const section = document.createElement("section");

@@ -1923,7 +1923,9 @@
         }
 
         if (modelo.usar_como_ficha_principal) {
-          flags.push('ficha principal do cadastro');
+          flags.push(['contas_receber', 'contas_pagar'].includes(String(modelo.modulo || ''))
+            ? 'ficha simplificada'
+            : 'ficha principal do cadastro');
         }
 
         const fallback = modelo.padrao
@@ -2371,6 +2373,24 @@
     atualizarCampoPreview();
   }
 
+  function syncModeloFichaPrincipalCopy() {
+    const checkbox = qs('modelo-ficha-principal');
+    const card = checkbox?.closest('.check-card');
+    if (!checkbox || !card) return;
+
+    const modulo = String(qs('modelo-modulo')?.value || state.modulo || '');
+    const financeiro = ['contas_receber', 'contas_pagar'].includes(modulo);
+    const title = card.querySelector('strong');
+    const help = card.querySelector('small');
+
+    if (title) title.textContent = financeiro ? 'Ficha simplificada' : 'Ficha principal';
+    if (help) {
+      help.textContent = financeiro
+        ? 'Mostra os campos essenciais do financeiro e os personalizados; campos opcionais do sistema ficam ocultos.'
+        : 'Mostra só o código do sistema e as seções deste formulário no cadastro.';
+    }
+  }
+
   function resetModeloForm(edit = false) {
     state.modeloEditando = edit ? state.modeloAtual?.modelo : null;
 
@@ -2382,6 +2402,7 @@
     qs('modelo-ativo').checked = edit && state.modeloEditando ? state.modeloEditando.ativo !== false : true;
     qs('modelo-padrao').checked = edit && state.modeloEditando ? !!state.modeloEditando.padrao : false;
     qs('modelo-ficha-principal').checked = edit && state.modeloEditando ? !!state.modeloEditando.usar_como_ficha_principal : false;
+    syncModeloFichaPrincipalCopy();
   }
 
   function resetSecaoForm(secao = null) {
@@ -3019,6 +3040,7 @@
       openModal('modal-modelo');
     });
 
+    qs('modelo-modulo')?.addEventListener('change', syncModeloFichaPrincipalCopy);
     qs('btn-salvar-modelo')?.addEventListener('click', salvarModelo);
     qs('btn-nova-secao')?.addEventListener('click', abrirNovaSecao);
     qs('btn-salvar-secao')?.addEventListener('click', salvarSecao);
