@@ -735,6 +735,170 @@ def _comparison(current: dict[str, int], previous: dict[str, int]) -> dict[str, 
     return result
 
 
+
+def _hourly_heatmap(activity_rows: list[Any], change_rows: list[Any]) -> list[dict[str, Any]]:
+    """Agrega atividade por hora local sem materializar eventos completos."""
+    hours = {hour: {"hora": hour, "atividades": 0, "alteracoes": 0, "total": 0} for hour in range(24)}
+    for row in activity_rows:
+        tipo = str(row.get("tipo") or "")
+        if not _event_countable(tipo) or tipo == "presenca":
+            continue
+        dt = _as_utc(row.get("criado_em"))
+        if not dt:
+            continue
+        hour = dt.astimezone(LOCAL_TZ).hour
+        hours[hour]["atividades"] += 1
+        hours[hour]["total"] += 1
+    for row in change_rows:
+        dt = _as_utc(row.get("criado_em"))
+        if not dt:
+            continue
+        hour = dt.astimezone(LOCAL_TZ).hour
+        hours[hour]["alteracoes"] += 1
+        hours[hour]["total"] += 1
+    return [hours[hour] for hour in range(24)]
+
+
+def _light_session_highlights(activity_rows: list[Any]) -> dict[str, Any]:
+    """Resume sessões em O(n), sem anexar eventos/alterações a cada sessão."""
+    rows = [r for r in activity_rows if _as_utc(r.get("criado_em")) and str(r.get("tipo") or "") != "login_falhou"]
+    rows.sort(key=lambda r: (_as_utc(r.get("criado_em")), int(r.get("id") or 0)))
+    groups: list[list[Any]] = []
+    current: list[Any] = []
+    closed = False
+    for row in rows:
+        dt = _as_utc(row.get("criado_em"))
+        tipo = str(row.get("tipo") or "")
+        if current:
+            previous = _as_utc(current[-1].get("criado_em"))
+            gap = (dt - previous).total_seconds() if dt and previous else 0
+            if tipo == "login" or closed or gap > SESSION_GAP_SECONDS:
+                groups.append(current)
+                current = []
+                closed = False
+        current.append(row)
+        if tipo == "logout":
+            closed = True
+    if current:
+        groups.append(current)
+
+    summaries: list[dict[str, Any]] = []
+    for idx, group in enumerate(groups):
+        first = _as_utc(group[0].get("criado_em"))
+        last = _as_utc(group[-1].get("criado_em"))
+        if not first or not last:
+            continue
+        count = sum(1 for r in group if _event_countable(str(r.get("tipo") or "")) and str(r.get("tipo") or "") != "presenca")
+        duration = max(0, int((last - first).total_seconds()))
+        summaries.append({
+            "id": f"sessao-{int(first.timestamp())}-{int(group[0].get('id') or idx)}",
+            "inicio": first.isoformat(),
+            "fim": last.isoformat(),
+            "duracao_segundos": duration,
+            "quantidade_acoes": count,
+            "pagina_inicial": group[0].get("pagina"),
+            "pagina_final": group[-1].get("pagina"),
+            "ip": group[-1].get("ip") or group[0].get("ip") or "",
+            "dispositivo": _device_info(str(group[-1].get("user_agent") or group[0].get("user_agent") or "")),
+        })
+    longest = max(summaries, key=lambda item: (item["duracao_segundos"], item["quantidade_acoes"]), default=None)
+    return {"quantidade": len(summaries), "mais_longa": longest}
+
+
+def _dashboard_anomalies(current: dict[str, int], previous: dict[str, int], activity_rows: list[Any]) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    def add(kind: str, title: str, detail: str, severity: str = "atencao") -> None:
+        result.append({"tipo": kind, "titulo": title, "detalhe": detail, "severidade": severity})
+
+    cur_errors = int(current.get("erros") or 0)
+    old_errors = int(previous.get("erros") or 0)
+    if cur_errors >= 3 and cur_errors >= max(old_errors + 2, old_errors * 1.5):
+        add("erros", "Erros acima do padrão", f"{cur_errors} erros no período contra {old_errors} no comparativo.", "alta")
+
+    cur_deletes = int(current.get("exclusoes") or 0)
+    old_deletes = int(previous.get("exclusoes") or 0)
+    if cur_deletes >= 2 and cur_deletes >= max(old_deletes + 2, old_deletes * 2):
+        add("exclusoes", "Exclusões acima do padrão", f"{cur_deletes} exclusões no período contra {old_deletes} no comparativo.", "alta")
+
+    cur_changes = int(current.get("alteracoes") or 0)
+    old_changes = int(previous.get("alteracoes") or 0)
+    if cur_changes >= 10 and cur_changes >= max(old_changes + 8, old_changes * 1.8):
+        add("alteracoes", "Volume alto de alterações", f"{cur_changes} alterações, acima das {old_changes} do período comparado.")
+
+    active = int(current.get("tempo_ativo_segundos") or 0)
+    idle = int(current.get("tempo_ocioso_segundos") or 0)
+    if active + idle >= 3600 and idle / max(1, active + idle) >= 0.60:
+        pct = round((idle / max(1, active + idle)) * 100)
+        add("ociosidade", "Ociosidade elevada", f"{pct}% do tempo acompanhado ficou ocioso.")
+
+    off_hours = 0
+    failed_logins = 0
+    for row in activity_rows:
+        dt = _as_utc(row.get("criado_em"))
+        if not dt:
+            continue
+        tipo = str(row.get("tipo") or "")
+        if tipo == "login_falhou":
+            failed_logins += 1
+        if _event_countable(tipo) and tipo != "presenca":
+            hour = dt.astimezone(LOCAL_TZ).hour
+            if hour < 6 or hour >= 22:
+                off_hours += 1
+    if failed_logins >= 3:
+        add("login", "Múltiplas falhas de login", f"Foram registradas {failed_logins} tentativas de login com falha.", "alta")
+    if off_hours >= 5:
+        add("horario", "Atividade fora do horário comum", f"{off_hours} ações ocorreram entre 22h e 6h.")
+    return result[:8]
+
+
+def _critical_change_lists(activity_rows: list[Any], change_rows: list[Any], email: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    critical_changes: list[dict[str, Any]] = []
+    deletions: list[dict[str, Any]] = []
+    for row in change_rows:
+        event = _change_to_event(row, email, "", "")
+        action = str(row.get("acao") or "").lower()
+        if event.get("severidade") == "importante":
+            critical_changes.append(event)
+        if action in {"removido", "excluido", "excluído", "apagado", "excluir", "delete", "deleted"}:
+            deletions.append(event)
+    for row in activity_rows:
+        tipo = str(row.get("tipo") or "")
+        details = _activity_detail(row)
+        if _operation_from_activity(tipo, details) == "excluir":
+            deletions.append(_activity_to_event(row))
+    critical_changes.sort(key=lambda item: item.get("criado_em") or "", reverse=True)
+    deletions.sort(key=lambda item: item.get("criado_em") or "", reverse=True)
+    return critical_changes[:10], deletions[:10]
+
+
+def _dashboard_summary_text(
+    period_days: int,
+    current: dict[str, int],
+    ranking_modules: list[dict[str, Any]],
+    most_active_day: Optional[dict[str, Any]],
+    peak_hour: Optional[dict[str, Any]],
+    longest_session: Optional[dict[str, Any]],
+    anomalies: list[dict[str, Any]],
+) -> str:
+    parts = [
+        f"No período de {period_days} dia{'s' if period_days != 1 else ''}, foram registradas {int(current.get('atividades') or 0)} ações e {int(current.get('alteracoes') or 0)} alterações.",
+    ]
+    if ranking_modules:
+        top = ranking_modules[0]
+        parts.append(f"O módulo com mais tempo foi {str(top.get('modulo') or 'Valora')}.")
+    if most_active_day:
+        parts.append(f"O dia mais ativo teve {int(most_active_day.get('total') or 0)} registros.")
+    if peak_hour:
+        parts.append(f"O pico de atividade ocorreu às {int(peak_hour.get('hora') or 0):02d}h, com {int(peak_hour.get('total') or 0)} registros.")
+    if longest_session:
+        minutes = max(1, round(int(longest_session.get('duracao_segundos') or 0) / 60))
+        parts.append(f"A sessão mais longa durou aproximadamente {minutes} minuto{'s' if minutes != 1 else ''}.")
+    if anomalies:
+        parts.append(f"Foram identificados {len(anomalies)} ponto{'s' if len(anomalies) != 1 else ''} fora do padrão para revisão.")
+    else:
+        parts.append("Nenhum comportamento relevante fora do padrão foi identificado pelos critérios atuais.")
+    return " ".join(parts)
+
 def _login_history(activity_rows: list[Any]) -> list[dict[str, Any]]:
     result = []
     for row in sorted(activity_rows, key=lambda r: _as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc), reverse=True):
@@ -755,11 +919,83 @@ def _login_history(activity_rows: list[Any]) -> list[dict[str, Any]]:
     return result
 
 
-def _fetch_activity_rows(db: Session, email: str, *, since: Optional[datetime] = None, limit: int = 20000) -> list[Any]:
+def _recent_inactivity_light(activity_rows: list[Any], limit: int = 80) -> list[dict[str, Any]]:
+    """Calcula períodos recentes de inatividade sem montar sessões/eventos completos."""
+    rows = [r for r in activity_rows if _as_utc(r.get("criado_em"))]
+    rows.sort(key=lambda r: (_as_utc(r.get("criado_em")), int(r.get("id") or 0)))
+    periods: list[dict[str, Any]] = []
+    explicit_start: Optional[tuple[datetime, str]] = None
+
+    for pos, row in enumerate(rows):
+        dt = _as_utc(row.get("criado_em"))
+        if not dt:
+            continue
+        tipo = str(row.get("tipo") or "")
+        page = str(row.get("pagina") or "Valora").strip("/") or "Valora"
+
+        if tipo == "inatividade":
+            explicit_start = (dt, page)
+        elif tipo == "retorno_atividade" and explicit_start and dt > explicit_start[0]:
+            start_dt, start_page = explicit_start
+            periods.append({
+                "inicio": start_dt.isoformat(),
+                "fim": dt.isoformat(),
+                "segundos": int((dt - start_dt).total_seconds()),
+                "pagina": start_page or page,
+                "origem": "cliente",
+            })
+            explicit_start = None
+
+        if pos + 1 >= len(rows):
+            continue
+        next_dt = _as_utc(rows[pos + 1].get("criado_em"))
+        if not next_dt or next_dt <= dt:
+            continue
+        gap = (next_dt - dt).total_seconds()
+        if gap <= ACTIVE_GAP_SECONDS or gap > SESSION_GAP_SECONDS or _is_idle_row(row):
+            continue
+        implicit_start = dt + timedelta(seconds=min(ACTIVE_SLICE_SECONDS, gap))
+        if explicit_start and explicit_start[0] <= implicit_start <= next_dt:
+            continue
+        idle_seconds = int((next_dt - implicit_start).total_seconds())
+        if idle_seconds >= 60:
+            periods.append({
+                "inicio": implicit_start.isoformat(),
+                "fim": next_dt.isoformat(),
+                "segundos": idle_seconds,
+                "pagina": page,
+                "origem": "intervalo",
+            })
+
+    # Remove duplicatas aproximadas e devolve só os períodos mais recentes.
+    unique: dict[tuple[int, str], dict[str, Any]] = {}
+    for item in periods:
+        start_dt = _as_utc(item.get("inicio"))
+        if not start_dt:
+            continue
+        key = (int(start_dt.timestamp() // 30), str(item.get("pagina") or ""))
+        current = unique.get(key)
+        if current is None or int(item.get("segundos") or 0) > int(current.get("segundos") or 0):
+            unique[key] = item
+    result = sorted(unique.values(), key=lambda item: item.get("inicio") or "", reverse=True)
+    return result[:max(1, min(int(limit), 200))]
+
+
+def _fetch_activity_rows(
+    db: Session,
+    email: str,
+    *,
+    since: Optional[datetime] = None,
+    until: Optional[datetime] = None,
+    limit: int = 20000,
+) -> list[Any]:
     where_since = "AND criado_em >= :since" if since else ""
+    where_until = "AND criado_em < :until" if until else ""
     params: dict[str, Any] = {"email": email, "limit": max(20, min(int(limit), 30000))}
     if since:
         params["since"] = since
+    if until:
+        params["until"] = until
     return list(db.execute(
         text(f"""
             SELECT id, usuario_id, empresa_id, usuario_email, usuario_nome,
@@ -768,6 +1004,7 @@ def _fetch_activity_rows(db: Session, email: str, *, since: Optional[datetime] =
             FROM auditoria_usuario_atividade
             WHERE LOWER(usuario_email) = :email
               {where_since}
+              {where_until}
             ORDER BY criado_em DESC, id DESC
             LIMIT :limit
         """),
@@ -775,11 +1012,21 @@ def _fetch_activity_rows(db: Session, email: str, *, since: Optional[datetime] =
     ).mappings().all())
 
 
-def _fetch_change_rows(db: Session, email: str, *, since: Optional[datetime] = None, limit: int = 10000) -> list[Any]:
+def _fetch_change_rows(
+    db: Session,
+    email: str,
+    *,
+    since: Optional[datetime] = None,
+    until: Optional[datetime] = None,
+    limit: int = 10000,
+) -> list[Any]:
     where_since = "AND a.criado_em >= :since" if since else ""
+    where_until = "AND a.criado_em < :until" if until else ""
     params: dict[str, Any] = {"email": email, "limit": max(20, min(int(limit), 15000))}
     if since:
         params["since"] = since
+    if until:
+        params["until"] = until
     return list(db.execute(
         text(f"""
             SELECT a.id, a.empresa_id, a.modulo, a.entidade_tipo, a.entidade_id,
@@ -790,6 +1037,7 @@ def _fetch_change_rows(db: Session, email: str, *, since: Optional[datetime] = N
             JOIN usuarios u ON u.id = a.usuario_id
             WHERE LOWER(u.email) = :email
               {where_since}
+              {where_until}
             ORDER BY a.criado_em DESC, a.id DESC
             LIMIT :limit
         """),
@@ -1008,34 +1256,261 @@ def events(
 @router.get("/analise")
 def analytics(
     dias: int = 60,
+    secao: str = "resumo",
+    inicio: Optional[date] = None,
+    fim: Optional[date] = None,
+    comparar_inicio: Optional[date] = None,
+    comparar_fim: Optional[date] = None,
     current_user=Depends(_require_unlock),
     db: Session = Depends(get_db),
 ):
+    """Entrega a auditoria em partes para não carregar/renderizar tudo de uma vez.
+
+    resumo: cards, comparações, calendário e rankings.
+    timeline: histórico detalhado somente quando a aba é aberta.
+    alteracoes: alterações/cadastros/exclusões somente quando a aba é aberta.
+    sessoes: sessões, logins e inatividades somente quando a aba é aberta.
+    """
     days = max(7, min(int(dias), 120))
+    section = str(secao or "resumo").strip().lower()
+    if section not in {"resumo", "dashboard", "timeline", "alteracoes", "sessoes"}:
+        section = "resumo"
+
     email = TARGET_EMAIL
     now = datetime.now(timezone.utc)
     now_local = now.astimezone(LOCAL_TZ)
     start_day = now_local.date() - timedelta(days=days - 1)
     since, _ = _day_bounds_utc(start_day)
 
+    if section == "dashboard":
+        # Dashboard usa intervalos exatos. O período selecionado e o comparativo
+        # são consultados separadamente para permitir comparação manual sem
+        # buscar todos os dias existentes entre os dois intervalos.
+        today_local = now_local.date()
+        requested_start_day = inicio or fim or today_local
+        requested_end_day = fim or inicio or today_local
+        start_selected = min(requested_start_day, today_local)
+        end_day = min(requested_end_day, today_local)
+        if start_selected > end_day:
+            start_selected, end_day = end_day, start_selected
+        max_span_days = 90
+        requested_span = (end_day - start_selected).days + 1
+        span_days = requested_span
+        if span_days > max_span_days:
+            start_selected = end_day - timedelta(days=max_span_days - 1)
+            span_days = max_span_days
+
+        custom_compare = bool(comparar_inicio or comparar_fim)
+        if custom_compare:
+            requested_compare_start = comparar_inicio or comparar_fim or today_local
+            requested_compare_end = comparar_fim or comparar_inicio or today_local
+            compare_start = min(requested_compare_start, today_local)
+            compare_end = min(requested_compare_end, today_local)
+            if compare_start > compare_end:
+                compare_start, compare_end = compare_end, compare_start
+            compare_span = (compare_end - compare_start).days + 1
+            if compare_span > max_span_days:
+                compare_start = compare_end - timedelta(days=max_span_days - 1)
+                compare_span = max_span_days
+        else:
+            compare_end = start_selected - timedelta(days=1)
+            compare_start = compare_end - timedelta(days=span_days - 1)
+            compare_span = span_days
+
+        selected_start_utc, _ = _day_bounds_utc(start_selected)
+        _, selected_end_utc = _day_bounds_utc(end_day)
+        compare_start_utc, _ = _day_bounds_utc(compare_start)
+        _, compare_end_utc = _day_bounds_utc(compare_end)
+
+        selected_activity = _fetch_activity_rows(db, email, since=selected_start_utc, until=selected_end_utc, limit=30000)
+        selected_changes = _fetch_change_rows(db, email, since=selected_start_utc, until=selected_end_utc, limit=15000)
+        previous_activity = _fetch_activity_rows(db, email, since=compare_start_utc, until=compare_end_utc, limit=30000)
+        previous_changes = _fetch_change_rows(db, email, since=compare_start_utc, until=compare_end_utc, limit=15000)
+
+        selected_page_seconds, selected_module_seconds, selected_daily_time, _ = _compute_time_analytics(selected_activity)
+        _, _, previous_daily_time, _ = _compute_time_analytics(previous_activity)
+        selected_anchor = datetime.combine(end_day, time.max, tzinfo=LOCAL_TZ)
+        previous_anchor = datetime.combine(compare_end, time.max, tzinfo=LOCAL_TZ)
+        selected_daily = _daily_metrics(selected_activity, selected_changes, span_days, selected_anchor, selected_daily_time)
+        previous_daily = _daily_metrics(previous_activity, previous_changes, compare_span, previous_anchor, previous_daily_time)
+        selected_sum = _sum_daily(selected_daily, start_selected, end_day)
+        previous_sum = _sum_daily(previous_daily, compare_start, compare_end)
+
+        page_counts: dict[str, int] = defaultdict(int)
+        module_counts: dict[str, int] = defaultdict(int)
+        for row in selected_activity:
+            tipo = str(row.get("tipo") or "")
+            if tipo == "presenca":
+                continue
+            page = str(row.get("pagina") or "Valora").strip("/") or "Valora"
+            details = _activity_detail(row)
+            module = str(details.get("modulo") or page).strip("/") or page
+            page_counts[page] += 1
+            module_counts[module] += 1
+        for row in selected_changes:
+            module = str(row.get("modulo") or row.get("entidade_tipo") or "Valora").strip("/") or "Valora"
+            module_counts[module] += 1
+
+        ranking_pages = [
+            {"pagina": key, "segundos": int(round(selected_page_seconds.get(key, 0))), "acoes": int(page_counts.get(key, 0))}
+            for key in sorted(set(page_counts) | set(selected_page_seconds), key=lambda k: (selected_page_seconds.get(k, 0), page_counts.get(k, 0)), reverse=True)
+        ][:20]
+        ranking_modules = [
+            {"modulo": key, "segundos": int(round(selected_module_seconds.get(key, 0))), "acoes": int(module_counts.get(key, 0))}
+            for key in sorted(set(module_counts) | set(selected_module_seconds), key=lambda k: (selected_module_seconds.get(k, 0), module_counts.get(k, 0)), reverse=True)
+        ][:20]
+
+        critical_events: list[dict[str, Any]] = []
+        for row in selected_activity:
+            event = _activity_to_event(row)
+            if event.get("severidade") in {"erro", "importante"}:
+                critical_events.append(event)
+        for row in selected_changes:
+            event = _change_to_event(row, email, str(row.get("modulo") or ""), "")
+            if event.get("severidade") == "importante":
+                critical_events.append(event)
+        critical_events.sort(key=lambda item: item.get("criado_em") or "", reverse=True)
+
+        heatmap = _hourly_heatmap(selected_activity, selected_changes)
+        peak_hour = max(heatmap, key=lambda item: item.get("total") or 0, default=None)
+        if peak_hour and not int(peak_hour.get("total") or 0):
+            peak_hour = None
+
+        day_candidates = []
+        for item in selected_daily:
+            copy = dict(item)
+            copy["total"] = int(copy.get("atividades") or 0) + int(copy.get("alteracoes") or 0)
+            day_candidates.append(copy)
+        most_active_day = max(day_candidates, key=lambda item: item.get("total") or 0, default=None)
+        if most_active_day and not int(most_active_day.get("total") or 0):
+            most_active_day = None
+
+        session_highlights = _light_session_highlights(selected_activity)
+        anomalies = _dashboard_anomalies(selected_sum, previous_sum, selected_activity)
+        critical_changes, deletions = _critical_change_lists(selected_activity, selected_changes, email)
+        summary_text = _dashboard_summary_text(
+            span_days,
+            selected_sum,
+            ranking_modules,
+            most_active_day,
+            peak_hour,
+            session_highlights.get("mais_longa"),
+            anomalies,
+        )
+
+        return {
+            "ok": True,
+            "secao": section,
+            "periodo": {
+                "dias": span_days,
+                "inicio": start_selected.isoformat(),
+                "fim": end_day.isoformat(),
+                "timezone": str(LOCAL_TZ),
+                "limitado": requested_span > max_span_days,
+            },
+            "periodo_anterior": {
+                "inicio": compare_start.isoformat(),
+                "fim": compare_end.isoformat(),
+                "dias": compare_span,
+                "personalizado": custom_compare,
+            },
+            "atual": selected_sum,
+            "comparacao": _comparison(selected_sum, previous_sum),
+            "resumo_diario": selected_daily,
+            "ranking_paginas": ranking_pages,
+            "ranking_modulos": ranking_modules,
+            "criticos": critical_events[:12],
+            "mapa_horario": heatmap,
+            "horario_pico": peak_hour,
+            "dia_mais_ativo": most_active_day,
+            "sessoes_destaque": session_highlights,
+            "anomalias": anomalies,
+            "alteracoes_criticas": critical_changes,
+            "exclusoes_recentes": deletions,
+            "resumo_automatico": summary_text,
+        }
+
+    # Histórico detalhado é carregado sob demanda. Assim a abertura da tela não
+    # transporta milhares de eventos que estão em abas escondidas.
+    if section == "timeline":
+        activity_rows = _fetch_activity_rows(db, email, since=since, limit=8000)
+        change_rows = _fetch_change_rows(db, email, since=since, limit=3000)
+        activity_asc = sorted(activity_rows, key=lambda r: _as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc))
+        activity_ts = [(_as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc)).timestamp() for r in activity_asc]
+        change_events: list[dict[str, Any]] = []
+        for row in change_rows:
+            page, route = _nearest_activity_context(row.get("criado_em"), activity_asc, activity_ts)
+            change_events.append(_change_to_event(row, email, page, route))
+
+        period_events = [
+            _activity_to_event(row)
+            for row in activity_rows
+            if str(row.get("tipo") or "") != "presenca"
+        ] + change_events
+        period_events.sort(key=lambda item: item.get("criado_em") or "", reverse=True)
+        period_events = period_events[:5000]
+        filters_pages = sorted({_event_page(event) for event in period_events if _event_page(event)})
+        filters_modules = sorted({_module_name(event) for event in period_events if _module_name(event)})
+        return {
+            "ok": True,
+            "secao": section,
+            "periodo": {"dias": days, "inicio": start_day.isoformat(), "fim": now_local.date().isoformat(), "timezone": str(LOCAL_TZ)},
+            "eventos_periodo": period_events,
+            "filtros": {"paginas": filters_pages, "modulos": filters_modules},
+        }
+
+    if section == "alteracoes":
+        activity_rows = _fetch_activity_rows(db, email, since=since, limit=6000)
+        change_rows = _fetch_change_rows(db, email, since=since, limit=3000)
+        activity_asc = sorted(activity_rows, key=lambda r: _as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc))
+        activity_ts = [(_as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc)).timestamp() for r in activity_asc]
+        change_events: list[dict[str, Any]] = []
+        for row in change_rows:
+            page, route = _nearest_activity_context(row.get("criado_em"), activity_asc, activity_ts)
+            change_events.append(_change_to_event(row, email, page, route))
+        change_events.sort(key=lambda item: item.get("criado_em") or "", reverse=True)
+        changes = change_events[:1500]
+        filters_pages = sorted({_event_page(event) for event in changes if _event_page(event)})
+        filters_modules = sorted({_module_name(event) for event in changes if _module_name(event)})
+        return {
+            "ok": True,
+            "secao": section,
+            "periodo": {"dias": days, "inicio": start_day.isoformat(), "fim": now_local.date().isoformat(), "timezone": str(LOCAL_TZ)},
+            "alteracoes": changes,
+            "filtros": {"paginas": filters_pages, "modulos": filters_modules},
+        }
+
+    if section == "sessoes":
+        activity_rows = _fetch_activity_rows(db, email, since=since, limit=15000)
+        change_rows = _fetch_change_rows(db, email, since=since, limit=3000)
+        activity_asc = sorted(activity_rows, key=lambda r: _as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc))
+        activity_ts = [(_as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc)).timestamp() for r in activity_asc]
+        change_events: list[dict[str, Any]] = []
+        for row in change_rows:
+            page, route = _nearest_activity_context(row.get("criado_em"), activity_asc, activity_ts)
+            change_events.append(_change_to_event(row, email, page, route))
+        sessions, _session_pages, inactivity = _build_sessions(activity_rows, change_events, now)
+        return {
+            "ok": True,
+            "secao": section,
+            "periodo": {"dias": days, "inicio": start_day.isoformat(), "fim": now_local.date().isoformat(), "timezone": str(LOCAL_TZ)},
+            "sessoes": sessions[:30],
+            "historico_login": _login_history(activity_rows),
+            "inatividades": [item for item in inactivity if int(item.get("segundos") or 0) >= 60][:80],
+        }
+
+    # Resumo/estatísticas: mantém os cálculos dos 60 dias, mas não serializa
+    # eventos, alterações nem sessões completos.
     activity_rows = _fetch_activity_rows(db, email, since=since, limit=30000)
     change_rows = _fetch_change_rows(db, email, since=since, limit=15000)
-    activity_asc = sorted(activity_rows, key=lambda r: _as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc))
-    activity_ts = [(_as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc)).timestamp() for r in activity_asc]
 
-    change_events: list[dict[str, Any]] = []
-    for row in change_rows:
-        page, route = _nearest_activity_context(row.get("criado_em"), activity_asc, activity_ts)
-        change_events.append(_change_to_event(row, email, page, route))
-
-    page_seconds, module_seconds, daily_time, daily_page = _compute_time_analytics(activity_rows)
+    page_seconds, module_seconds, daily_time, _daily_page = _compute_time_analytics(activity_rows)
     today_start_utc, tomorrow_start_utc = _day_bounds_utc(now_local.date())
     today_activity_rows = [
         row for row in activity_rows
         if (_as_utc(row.get("criado_em")) and today_start_utc <= _as_utc(row.get("criado_em")) < tomorrow_start_utc)
     ]
     today_page_seconds, today_module_seconds, _today_daily_time, _today_daily_page = _compute_time_analytics(today_activity_rows)
-    sessions, _session_pages, inactivity = _build_sessions(activity_rows, change_events, now)
     daily = _daily_metrics(activity_rows, change_rows, days, now_local, daily_time)
 
     today = now_local.date()
@@ -1057,19 +1532,18 @@ def analytics(
         tipo = str(row.get("tipo") or "")
         if tipo == "presenca":
             continue
-        event = _activity_to_event(row)
-        page = _event_page(event)
-        module = _module_name(event)
+        page = str(row.get("pagina") or "Valora").strip("/") or "Valora"
+        details = _activity_detail(row)
+        module = str(details.get("modulo") or page).strip("/") or page
         page_counts[page] += 1
         module_counts[module] += 1
         filters_pages.add(page)
         filters_modules.add(module)
-    for event in change_events:
-        page = _event_page(event)
-        module = _module_name(event)
-        page_counts[page] += 1
+    # Para o resumo não precisamos procurar a página exata de cada alteração.
+    # Contabilizar pelo módulo evita milhares de cruzamentos desnecessários.
+    for row in change_rows:
+        module = str(row.get("modulo") or row.get("entidade_tipo") or "Valora").strip("/") or "Valora"
         module_counts[module] += 1
-        filters_pages.add(page)
         filters_modules.add(module)
 
     ranking_pages = [
@@ -1094,18 +1568,9 @@ def analytics(
             "intensidade": intensity,
         })
 
-    recent_changes = sorted(change_events, key=lambda item: item.get("criado_em") or "", reverse=True)[:800]
-    recent_inactivity = [item for item in inactivity if int(item.get("segundos") or 0) >= 60][:80]
-    period_events = [
-        _activity_to_event(row)
-        for row in activity_rows
-        if str(row.get("tipo") or "") != "presenca"
-    ] + change_events
-    period_events.sort(key=lambda item: item.get("criado_em") or "", reverse=True)
-    period_events = period_events[:5000]
-
     return {
         "ok": True,
+        "secao": section,
         "periodo": {"dias": days, "inicio": start_day.isoformat(), "fim": today.isoformat(), "timezone": str(LOCAL_TZ)},
         "hoje": {
             **today_item,
@@ -1138,15 +1603,12 @@ def analytics(
             for key, value in sorted(module_seconds.items(), key=lambda pair: pair[1], reverse=True)
             if value >= 1
         ][:30],
-        "sessoes": sessions[:30],
-        "historico_login": _login_history(activity_rows),
-        "inatividades": recent_inactivity,
+        "inatividades": _recent_inactivity_light(activity_rows, 20),
         "calendario": calendar,
         "resumo_diario": list(reversed(daily[-30:])),
-        "alteracoes": recent_changes,
-        "eventos_periodo": period_events,
         "filtros": {
             "paginas": sorted(filters_pages),
             "modulos": sorted(filters_modules),
         },
     }
+
