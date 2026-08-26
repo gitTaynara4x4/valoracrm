@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import bisect
 import hmac
 import json
 import os
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -26,6 +28,11 @@ DEV_COOKIE = "valora_dev_audit"
 DEV_PURPOSE = "valora_dev_audit"
 DEV_PASSWORD = str(os.getenv("VALORA_DEV_AUDIT_PASSWORD") or "1015")
 DEV_UNLOCK_SECONDS = 8 * 60 * 60
+LOCAL_TZ = ZoneInfo(os.getenv("VALORA_AUDIT_TIMEZONE") or "America/Sao_Paulo")
+ONLINE_SECONDS = 75
+SESSION_GAP_SECONDS = 30 * 60
+ACTIVE_GAP_SECONDS = 75
+ACTIVE_SLICE_SECONDS = 45
 
 _SENSITIVE_KEYS = ("senha", "password", "passwd", "token", "secret", "authorization", "challenge")
 
@@ -112,12 +119,38 @@ def _parse_details(raw: Any) -> Any:
         return str(raw)
 
 
-def _iso(value: Any) -> Optional[str]:
+def _as_utc(value: Any) -> Optional[datetime]:
     if value is None:
         return None
-    if hasattr(value, "isoformat"):
-        return value.isoformat()
-    return str(value)
+    if not isinstance(value, datetime):
+        try:
+            value = datetime.fromisoformat(str(value))
+        except Exception:
+            return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _iso(value: Any) -> Optional[str]:
+    dt = _as_utc(value)
+    return dt.isoformat() if dt else (str(value) if value is not None else None)
+
+
+def _local(value: Any) -> Optional[datetime]:
+    dt = _as_utc(value)
+    return dt.astimezone(LOCAL_TZ) if dt else None
+
+
+def _local_day(value: Any) -> Optional[str]:
+    dt = _local(value)
+    return dt.date().isoformat() if dt else None
+
+
+def _day_bounds_utc(day: date) -> tuple[datetime, datetime]:
+    start_local = datetime.combine(day, time.min, tzinfo=LOCAL_TZ)
+    end_local = start_local + timedelta(days=1)
+    return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
 
 
 def _device_info(user_agent: str) -> dict[str, str]:
@@ -163,13 +196,13 @@ def _device_info(user_agent: str) -> dict[str, str]:
 def _severity_for_activity(tipo: str, status_code: Optional[int], details: Any) -> str:
     if int(status_code or 0) >= 400 or str(tipo).startswith("erro") or tipo == "login_falhou":
         return "erro"
-    if tipo in {"download", "download_exportacao"}:
+    if tipo in {"download", "download_exportacao", "exclusao_api"}:
         return "importante"
     if tipo == "click" and isinstance(details, dict):
         category = str(details.get("categoria") or "").lower()
         if category in {"excluir", "remover", "finalizar", "permissao", "financeiro"}:
             return "importante"
-    if tipo in {"alteracao_api"}:
+    if tipo in {"alteracao_api", "cadastro_api", "edicao_api"}:
         return "alteracao"
     return "normal"
 
@@ -177,66 +210,620 @@ def _severity_for_activity(tipo: str, status_code: Optional[int], details: Any) 
 def _severity_for_change(row: Any) -> str:
     action = str(row.get("acao") or "").lower()
     module = str(row.get("modulo") or "").lower()
+    field = str(row.get("campo") or row.get("campo_nome") or "").lower()
     if action in {"removido", "excluido", "excluído", "apagado"}:
         return "importante"
     if module in {"usuarios", "empresa", "financeiro", "contas-pagar", "contas-receber"}:
         return "importante"
+    if any(marker in field for marker in ("valor", "saldo", "permiss", "status", "vencimento", "cnpj", "cpf")):
+        return "importante"
     return "alteracao"
 
 
-def _module_times(rows: list[Any], now: datetime, state: Any) -> list[dict[str, Any]]:
-    totals: dict[str, float] = defaultdict(float)
-    clean_rows = [row for row in rows if row.get("criado_em") and row.get("pagina")]
-    for index, row in enumerate(clean_rows):
-        current = row.get("criado_em")
-        if current is None:
+def _operation_from_activity(tipo: str, details: Any) -> str:
+    details = details if isinstance(details, dict) else {}
+    operation = str(details.get("operacao") or "").strip().lower()
+    if operation:
+        return operation
+    if tipo == "cadastro_api":
+        return "criar"
+    if tipo == "edicao_api":
+        return "editar"
+    if tipo == "exclusao_api":
+        return "excluir"
+    return ""
+
+
+def _activity_to_event(row: Any) -> dict[str, Any]:
+    details = _parse_details(row.get("detalhes_json"))
+    tipo = str(row.get("tipo") or "")
+    return {
+        "key": f"atividade:{row['id']}",
+        "fonte": "atividade",
+        "tipo": tipo,
+        "severidade": _severity_for_activity(tipo, row.get("status_code"), details),
+        "usuario_nome": row.get("usuario_nome"),
+        "usuario_email": row.get("usuario_email"),
+        "pagina": row.get("pagina"),
+        "rota": row.get("rota"),
+        "metodo": row.get("metodo"),
+        "status_code": row.get("status_code"),
+        "ip": row.get("ip"),
+        "dispositivo": _device_info(str(row.get("user_agent") or "")),
+        "detalhes": details,
+        "operacao": _operation_from_activity(tipo, details),
+        "criado_em": _iso(row.get("criado_em")),
+    }
+
+
+def _nearest_activity_context(change_dt: Any, activity_rows_asc: list[Any], activity_timestamps: list[float]) -> tuple[str, str]:
+    dt = _as_utc(change_dt)
+    if not dt or not activity_rows_asc:
+        return "", ""
+    ts = dt.timestamp()
+    pos = bisect.bisect_left(activity_timestamps, ts)
+    candidates: list[Any] = []
+    for idx in (pos - 2, pos - 1, pos, pos + 1):
+        if 0 <= idx < len(activity_rows_asc):
+            candidates.append(activity_rows_asc[idx])
+    best = None
+    best_delta = 999999.0
+    for row in candidates:
+        row_dt = _as_utc(row.get("criado_em"))
+        if not row_dt:
             continue
-        if current.tzinfo is None:
-            current = current.replace(tzinfo=timezone.utc)
-        else:
-            current = current.astimezone(timezone.utc)
-
-        if index + 1 < len(clean_rows):
-            nxt = clean_rows[index + 1].get("criado_em")
-            if nxt is None:
-                continue
-            if nxt.tzinfo is None:
-                nxt = nxt.replace(tzinfo=timezone.utc)
-            else:
-                nxt = nxt.astimezone(timezone.utc)
-            seconds = max(0.0, min((nxt - current).total_seconds(), 45.0))
-        else:
-            online = bool(state and state.get("sessao_ativa"))
-            seconds = max(0.0, min((now - current).total_seconds(), 45.0)) if online else 0.0
-
-        page = str(row.get("pagina") or "").strip("/") or "inicio"
-        totals[page] += seconds
-
-    result = [
-        {"pagina": page, "segundos": int(round(seconds))}
-        for page, seconds in totals.items()
-        if seconds >= 1
-    ]
-    result.sort(key=lambda item: item["segundos"], reverse=True)
-    return result[:10]
+        delta = abs((row_dt - dt).total_seconds())
+        if delta <= 45 and delta < best_delta and row.get("pagina"):
+            best = row
+            best_delta = delta
+    if not best:
+        return "", ""
+    return str(best.get("pagina") or ""), str(best.get("rota") or "")
 
 
-def _build_session_events(rows: list[Any]) -> list[dict[str, Any]]:
-    result: list[dict[str, Any]] = []
-    for row in rows:
-        ua = str(row.get("user_agent") or "")
+def _change_to_event(row: Any, email: str, page: str = "", route: str = "") -> dict[str, Any]:
+    field_name = str(row.get("campo") or row.get("campo_nome") or "")
+    return {
+        "key": f"alteracao:{row['id']}",
+        "fonte": "alteracao_dados",
+        "tipo": "alteracao_campo",
+        "severidade": _severity_for_change(row),
+        "usuario_nome": row.get("usuario_nome"),
+        "usuario_email": email,
+        "pagina": page or None,
+        "pagina_origem": page or None,
+        "rota_origem": route or None,
+        "modulo": row.get("modulo"),
+        "entidade_tipo": row.get("entidade_tipo"),
+        "entidade_id": row.get("entidade_id"),
+        "secao": row.get("secao"),
+        "campo": row.get("campo"),
+        "campo_nome": row.get("campo_nome"),
+        "acao": row.get("acao"),
+        "origem": row.get("origem"),
+        "valor_anterior": _mask_sensitive(json_load(row.get("valor_anterior_json")), field_name),
+        "valor_novo": _mask_sensitive(json_load(row.get("valor_novo_json")), field_name),
+        "criado_em": _iso(row.get("criado_em")),
+    }
+
+
+def _module_name(event: dict[str, Any]) -> str:
+    details = event.get("detalhes") if isinstance(event.get("detalhes"), dict) else {}
+    value = event.get("modulo") or details.get("modulo") or event.get("pagina") or "Valora"
+    return str(value or "Valora").strip("/") or "Valora"
+
+
+def _event_page(event: dict[str, Any]) -> str:
+    return str(event.get("pagina") or event.get("pagina_origem") or _module_name(event) or "Valora").strip("/") or "Valora"
+
+
+def _event_countable(tipo: str) -> bool:
+    return tipo not in {"presenca", "pagina_saida"}
+
+
+def _build_activity_count_summary(activity_rows: list[Any], change_rows: list[Any], start_utc: datetime, end_utc: datetime) -> dict[str, int]:
+    counts = defaultdict(int)
+    for row in activity_rows:
+        dt = _as_utc(row.get("criado_em"))
+        if not dt or not (start_utc <= dt < end_utc):
+            continue
+        tipo = str(row.get("tipo") or "")
         details = _parse_details(row.get("detalhes_json"))
-        result.append(
-            {
-                "tipo": row.get("tipo"),
-                "criado_em": _iso(row.get("criado_em")),
-                "ip": row.get("ip"),
-                "status_code": row.get("status_code"),
-                "detalhes": details,
-                **_device_info(ua),
-            }
-        )
+        if _event_countable(tipo):
+            counts["atividades"] += 1
+        if tipo == "click":
+            counts["cliques"] += 1
+        elif tipo == "pesquisa":
+            counts["pesquisas"] += 1
+        elif tipo == "filtro":
+            counts["filtros"] += 1
+        elif tipo == "modal_aberto":
+            counts["modais"] += 1
+        elif tipo in {"download", "download_exportacao"}:
+            counts["downloads"] += 1
+            if tipo == "download_exportacao":
+                counts["exportacoes"] += 1
+        elif tipo == "login":
+            counts["entradas"] += 1
+        elif tipo == "logout":
+            counts["saidas"] += 1
+        elif tipo == "login_falhou":
+            counts["login_falhou"] += 1
+        elif tipo.startswith("erro") or int(row.get("status_code") or 0) >= 400:
+            counts["erros"] += 1
+
+        operation = _operation_from_activity(tipo, details)
+        if operation == "criar":
+            counts["cadastros"] += 1
+        elif operation == "editar":
+            counts["edicoes_api"] += 1
+        elif operation == "excluir":
+            counts["exclusoes"] += 1
+
+    for row in change_rows:
+        dt = _as_utc(row.get("criado_em"))
+        if dt and start_utc <= dt < end_utc:
+            counts["alteracoes"] += 1
+    return {key: int(value) for key, value in counts.items()}
+
+
+def _latest_presence_state(activity_rows: list[Any]) -> str:
+    for row in sorted(activity_rows, key=lambda r: _as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc), reverse=True):
+        if str(row.get("tipo") or "") != "presenca":
+            continue
+        details = _parse_details(row.get("detalhes_json"))
+        if isinstance(details, dict):
+            state = str(details.get("estado_atividade") or "").lower()
+            if state in {"ativo", "ocioso"}:
+                return state
+    return ""
+
+
+def _current_page_since(activity_rows: list[Any], page: str, fallback: Any) -> Optional[datetime]:
+    page = str(page or "").strip("/")
+    candidates: list[datetime] = []
+    for row in activity_rows:
+        if str(row.get("pagina") or "").strip("/") != page:
+            continue
+        if str(row.get("tipo") or "") in {"navegacao", "navegacao_cliente"}:
+            dt = _as_utc(row.get("criado_em"))
+            if dt:
+                candidates.append(dt)
+    if candidates:
+        return max(candidates)
+    return _as_utc(fallback)
+
+
+def _split_seconds_by_day(start: datetime, end: datetime) -> list[tuple[str, float]]:
+    if end <= start:
+        return []
+    result: list[tuple[str, float]] = []
+    cursor = start.astimezone(LOCAL_TZ)
+    local_end = end.astimezone(LOCAL_TZ)
+    while cursor < local_end:
+        next_midnight = datetime.combine(cursor.date() + timedelta(days=1), time.min, tzinfo=LOCAL_TZ)
+        segment_end = min(local_end, next_midnight)
+        result.append((cursor.date().isoformat(), max(0.0, (segment_end - cursor).total_seconds())))
+        cursor = segment_end
     return result
+
+
+def _activity_detail(row: Any) -> dict[str, Any]:
+    details = _parse_details(row.get("detalhes_json"))
+    return details if isinstance(details, dict) else {}
+
+
+def _is_idle_row(row: Any) -> bool:
+    tipo = str(row.get("tipo") or "")
+    if tipo == "inatividade":
+        return True
+    if tipo == "retorno_atividade":
+        return False
+    details = _activity_detail(row)
+    return str(details.get("estado_atividade") or "").lower() == "ocioso"
+
+
+def _build_sessions(activity_rows: list[Any], change_events: list[dict[str, Any]], now: datetime) -> tuple[list[dict[str, Any]], dict[str, float], list[dict[str, Any]]]:
+    rows = [r for r in activity_rows if _as_utc(r.get("criado_em")) and str(r.get("tipo") or "") != "login_falhou"]
+    rows.sort(key=lambda r: (_as_utc(r.get("criado_em")), int(r.get("id") or 0)))
+
+    sessions_raw: list[list[Any]] = []
+    current: list[Any] = []
+    closed = False
+    for row in rows:
+        dt = _as_utc(row.get("criado_em"))
+        tipo = str(row.get("tipo") or "")
+        if current:
+            prev_dt = _as_utc(current[-1].get("criado_em"))
+            gap = (dt - prev_dt).total_seconds() if dt and prev_dt else 0
+            if tipo == "login" or closed or gap > SESSION_GAP_SECONDS:
+                sessions_raw.append(current)
+                current = []
+                closed = False
+        current.append(row)
+        if tipo == "logout":
+            closed = True
+    if current:
+        sessions_raw.append(current)
+
+    global_page_seconds: dict[str, float] = defaultdict(float)
+    inactivity: list[dict[str, Any]] = []
+    sessions: list[dict[str, Any]] = []
+
+    for index, group in enumerate(sessions_raw):
+        if not group:
+            continue
+        first_dt = _as_utc(group[0].get("criado_em"))
+        last_dt = _as_utc(group[-1].get("criado_em"))
+        if not first_dt or not last_dt:
+            continue
+        session_id = f"sessao-{int(first_dt.timestamp())}-{int(group[0].get('id') or index)}"
+        active_seconds = 0.0
+        idle_seconds = 0.0
+        page_seconds: dict[str, float] = defaultdict(float)
+        module_seconds: dict[str, float] = defaultdict(float)
+        session_inactivity: list[dict[str, Any]] = []
+
+        explicit_idle_start: Optional[datetime] = None
+        for pos, row in enumerate(group):
+            dt = _as_utc(row.get("criado_em"))
+            tipo = str(row.get("tipo") or "")
+            if tipo == "inatividade" and dt:
+                explicit_idle_start = dt
+            elif tipo == "retorno_atividade" and dt and explicit_idle_start and dt > explicit_idle_start:
+                period = {
+                    "inicio": explicit_idle_start.isoformat(),
+                    "fim": dt.isoformat(),
+                    "segundos": int((dt - explicit_idle_start).total_seconds()),
+                    "pagina": row.get("pagina") or group[max(0, pos - 1)].get("pagina"),
+                    "sessao_id": session_id,
+                    "origem": "cliente",
+                }
+                session_inactivity.append(period)
+                explicit_idle_start = None
+
+            if pos + 1 >= len(group):
+                continue
+            nxt = group[pos + 1]
+            nxt_dt = _as_utc(nxt.get("criado_em"))
+            if not dt or not nxt_dt or nxt_dt <= dt:
+                continue
+            gap = min((nxt_dt - dt).total_seconds(), SESSION_GAP_SECONDS)
+            page = str(row.get("pagina") or "Valora").strip("/") or "Valora"
+            details = _activity_detail(row)
+            module = str(details.get("modulo") or page).strip("/") or page
+
+            row_idle = _is_idle_row(row)
+            if row_idle:
+                active_part = 0.0
+                idle_part = gap
+            elif gap <= ACTIVE_GAP_SECONDS:
+                active_part = gap
+                idle_part = 0.0
+            else:
+                active_part = min(ACTIVE_SLICE_SECONDS, gap)
+                idle_part = max(0.0, gap - active_part)
+                gap_idle_start = dt + timedelta(seconds=active_part)
+                # Só cria período implícito quando não há um explícito cobrindo o mesmo trecho.
+                if not any(abs((_as_utc(p["inicio"]) - gap_idle_start).total_seconds()) < 90 for p in session_inactivity if _as_utc(p.get("inicio"))):
+                    session_inactivity.append({
+                        "inicio": gap_idle_start.isoformat(),
+                        "fim": nxt_dt.isoformat(),
+                        "segundos": int(idle_part),
+                        "pagina": page,
+                        "sessao_id": session_id,
+                        "origem": "intervalo",
+                    })
+
+            active_seconds += active_part
+            idle_seconds += idle_part
+            page_seconds[page] += active_part
+            module_seconds[module] += active_part
+            global_page_seconds[page] += active_part
+
+        if explicit_idle_start and last_dt > explicit_idle_start:
+            session_inactivity.append({
+                "inicio": explicit_idle_start.isoformat(),
+                "fim": last_dt.isoformat(),
+                "segundos": int((last_dt - explicit_idle_start).total_seconds()),
+                "pagina": group[-1].get("pagina"),
+                "sessao_id": session_id,
+                "origem": "cliente",
+            })
+
+        inactivity.extend(session_inactivity)
+        start_ts = first_dt.timestamp() - 1
+        end_ts = last_dt.timestamp() + 1
+        seq = []
+        for row in group:
+            if str(row.get("tipo") or "") == "presenca":
+                continue
+            event = _activity_to_event(row)
+            event["sessao_id"] = session_id
+            seq.append(event)
+        for change in change_events:
+            change_dt = _as_utc(change.get("criado_em"))
+            if change_dt and start_ts <= change_dt.timestamp() <= end_ts:
+                copied = dict(change)
+                copied["sessao_id"] = session_id
+                seq.append(copied)
+        seq.sort(key=lambda item: item.get("criado_em") or "")
+
+        user_agent = str(group[-1].get("user_agent") or group[0].get("user_agent") or "")
+        ip_values = []
+        for row in group:
+            ip = str(row.get("ip") or "").strip()
+            if ip and ip not in ip_values:
+                ip_values.append(ip)
+        duration = max(0, int((last_dt - first_dt).total_seconds()))
+        sessions.append({
+            "id": session_id,
+            "inicio": first_dt.isoformat(),
+            "fim": last_dt.isoformat(),
+            "duracao_segundos": duration,
+            "tempo_ativo_segundos": int(round(active_seconds)),
+            "tempo_ocioso_segundos": int(round(idle_seconds)),
+            "login_registrado": any(str(r.get("tipo") or "") == "login" for r in group),
+            "logout_registrado": any(str(r.get("tipo") or "") == "logout" for r in group),
+            "ip": ip_values[-1] if ip_values else "",
+            "ips": ip_values,
+            "dispositivo": _device_info(user_agent),
+            "pagina_inicial": group[0].get("pagina"),
+            "pagina_final": group[-1].get("pagina"),
+            "quantidade_acoes": len([r for r in group if _event_countable(str(r.get("tipo") or ""))]),
+            "tempo_paginas": [
+                {"pagina": key, "segundos": int(round(value))}
+                for key, value in sorted(page_seconds.items(), key=lambda pair: pair[1], reverse=True)
+                if value >= 1
+            ],
+            "tempo_modulos": [
+                {"modulo": key, "segundos": int(round(value))}
+                for key, value in sorted(module_seconds.items(), key=lambda pair: pair[1], reverse=True)
+                if value >= 1
+            ],
+            "inatividades": sorted(session_inactivity, key=lambda item: item.get("inicio") or ""),
+            "eventos": seq[-160:],
+        })
+
+    sessions.sort(key=lambda item: item.get("inicio") or "", reverse=True)
+    inactivity.sort(key=lambda item: item.get("inicio") or "", reverse=True)
+    return sessions, global_page_seconds, inactivity
+
+
+def _compute_time_analytics(activity_rows: list[Any]) -> tuple[dict[str, float], dict[str, float], dict[str, dict[str, float]], dict[str, dict[str, float]]]:
+    rows = [r for r in activity_rows if _as_utc(r.get("criado_em")) and str(r.get("tipo") or "") != "login_falhou"]
+    rows.sort(key=lambda r: (_as_utc(r.get("criado_em")), int(r.get("id") or 0)))
+    page_seconds: dict[str, float] = defaultdict(float)
+    module_seconds: dict[str, float] = defaultdict(float)
+    daily_time: dict[str, dict[str, float]] = defaultdict(lambda: {"ativo": 0.0, "ocioso": 0.0})
+    daily_page: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+
+    for i in range(len(rows) - 1):
+        row = rows[i]
+        nxt = rows[i + 1]
+        dt = _as_utc(row.get("criado_em"))
+        nxt_dt = _as_utc(nxt.get("criado_em"))
+        if not dt or not nxt_dt or nxt_dt <= dt:
+            continue
+        raw_gap = (nxt_dt - dt).total_seconds()
+        if raw_gap > SESSION_GAP_SECONDS:
+            continue
+        gap = raw_gap
+        page = str(row.get("pagina") or "Valora").strip("/") or "Valora"
+        details = _activity_detail(row)
+        module = str(details.get("modulo") or page).strip("/") or page
+        if _is_idle_row(row):
+            active_part = 0.0
+            idle_part = gap
+        elif gap <= ACTIVE_GAP_SECONDS:
+            active_part = gap
+            idle_part = 0.0
+        else:
+            active_part = min(ACTIVE_SLICE_SECONDS, gap)
+            idle_part = max(0.0, gap - active_part)
+
+        if active_part > 0:
+            page_seconds[page] += active_part
+            module_seconds[module] += active_part
+            active_end = dt + timedelta(seconds=active_part)
+            for day_key, seconds in _split_seconds_by_day(dt, active_end):
+                daily_time[day_key]["ativo"] += seconds
+                daily_page[day_key][page] += seconds
+        if idle_part > 0:
+            idle_start = dt + timedelta(seconds=active_part)
+            for day_key, seconds in _split_seconds_by_day(idle_start, nxt_dt):
+                daily_time[day_key]["ocioso"] += seconds
+
+    return page_seconds, module_seconds, daily_time, daily_page
+
+
+def _daily_metrics(activity_rows: list[Any], change_rows: list[Any], days: int, now_local: datetime, daily_time: dict[str, dict[str, float]]) -> list[dict[str, Any]]:
+    start_day = now_local.date() - timedelta(days=days - 1)
+    metrics: dict[str, dict[str, Any]] = {}
+    for offset in range(days):
+        key = (start_day + timedelta(days=offset)).isoformat()
+        metrics[key] = {
+            "data": key,
+            "atividades": 0,
+            "cliques": 0,
+            "pesquisas": 0,
+            "filtros": 0,
+            "alteracoes": 0,
+            "cadastros": 0,
+            "exclusoes": 0,
+            "downloads": 0,
+            "modais": 0,
+            "erros": 0,
+            "entradas": 0,
+            "saidas": 0,
+            "primeira_atividade": None,
+            "ultima_atividade": None,
+            "tempo_ativo_segundos": int(round(daily_time.get(key, {}).get("ativo", 0))),
+            "tempo_ocioso_segundos": int(round(daily_time.get(key, {}).get("ocioso", 0))),
+        }
+
+    for row in activity_rows:
+        key = _local_day(row.get("criado_em"))
+        if key not in metrics:
+            continue
+        item = metrics[key]
+        tipo = str(row.get("tipo") or "")
+        dt = _iso(row.get("criado_em"))
+        if dt and (item["primeira_atividade"] is None or dt < item["primeira_atividade"]):
+            item["primeira_atividade"] = dt
+        if dt and (item["ultima_atividade"] is None or dt > item["ultima_atividade"]):
+            item["ultima_atividade"] = dt
+        if _event_countable(tipo):
+            item["atividades"] += 1
+        if tipo == "click":
+            item["cliques"] += 1
+        elif tipo == "pesquisa":
+            item["pesquisas"] += 1
+        elif tipo == "filtro":
+            item["filtros"] += 1
+        elif tipo == "modal_aberto":
+            item["modais"] += 1
+        elif tipo in {"download", "download_exportacao"}:
+            item["downloads"] += 1
+        elif tipo == "login":
+            item["entradas"] += 1
+        elif tipo == "logout":
+            item["saidas"] += 1
+        elif tipo.startswith("erro") or int(row.get("status_code") or 0) >= 400:
+            item["erros"] += 1
+        operation = _operation_from_activity(tipo, _parse_details(row.get("detalhes_json")))
+        if operation == "criar":
+            item["cadastros"] += 1
+        elif operation == "excluir":
+            item["exclusoes"] += 1
+
+    for row in change_rows:
+        key = _local_day(row.get("criado_em"))
+        if key in metrics:
+            metrics[key]["alteracoes"] += 1
+
+    return [metrics[key] for key in sorted(metrics)]
+
+
+def _sum_daily(items: list[dict[str, Any]], start_day: date, end_day: date) -> dict[str, int]:
+    numeric_keys = (
+        "atividades", "cliques", "pesquisas", "filtros", "alteracoes", "cadastros",
+        "exclusoes", "downloads", "modais", "erros", "entradas", "saidas",
+        "tempo_ativo_segundos", "tempo_ocioso_segundos",
+    )
+    result = {key: 0 for key in numeric_keys}
+    for item in items:
+        try:
+            current = date.fromisoformat(str(item.get("data")))
+        except Exception:
+            continue
+        if start_day <= current <= end_day:
+            for key in numeric_keys:
+                result[key] += int(item.get(key) or 0)
+    return result
+
+
+def _comparison(current: dict[str, int], previous: dict[str, int]) -> dict[str, Any]:
+    result: dict[str, Any] = {"atual": current, "anterior": previous, "variacao": {}}
+    for key, value in current.items():
+        old = int(previous.get(key) or 0)
+        if old == 0:
+            pct = 100.0 if value > 0 else 0.0
+        else:
+            pct = ((value - old) / old) * 100.0
+        result["variacao"][key] = round(pct, 1)
+    return result
+
+
+def _login_history(activity_rows: list[Any]) -> list[dict[str, Any]]:
+    result = []
+    for row in sorted(activity_rows, key=lambda r: _as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc), reverse=True):
+        tipo = str(row.get("tipo") or "")
+        if tipo not in {"login", "logout", "login_falhou"}:
+            continue
+        details = _parse_details(row.get("detalhes_json"))
+        result.append({
+            "tipo": tipo,
+            "criado_em": _iso(row.get("criado_em")),
+            "ip": row.get("ip"),
+            "status_code": row.get("status_code"),
+            "dispositivo": _device_info(str(row.get("user_agent") or "")),
+            "detalhes": details,
+        })
+        if len(result) >= 60:
+            break
+    return result
+
+
+def _fetch_activity_rows(db: Session, email: str, *, since: Optional[datetime] = None, limit: int = 20000) -> list[Any]:
+    where_since = "AND criado_em >= :since" if since else ""
+    params: dict[str, Any] = {"email": email, "limit": max(20, min(int(limit), 30000))}
+    if since:
+        params["since"] = since
+    return list(db.execute(
+        text(f"""
+            SELECT id, usuario_id, empresa_id, usuario_email, usuario_nome,
+                   tipo, pagina, rota, metodo, status_code, ip, user_agent,
+                   detalhes_json, criado_em
+            FROM auditoria_usuario_atividade
+            WHERE LOWER(usuario_email) = :email
+              {where_since}
+            ORDER BY criado_em DESC, id DESC
+            LIMIT :limit
+        """),
+        params,
+    ).mappings().all())
+
+
+def _fetch_change_rows(db: Session, email: str, *, since: Optional[datetime] = None, limit: int = 10000) -> list[Any]:
+    where_since = "AND a.criado_em >= :since" if since else ""
+    params: dict[str, Any] = {"email": email, "limit": max(20, min(int(limit), 15000))}
+    if since:
+        params["since"] = since
+    return list(db.execute(
+        text(f"""
+            SELECT a.id, a.empresa_id, a.modulo, a.entidade_tipo, a.entidade_id,
+                   a.secao, a.campo, a.campo_nome, a.acao,
+                   a.valor_anterior_json, a.valor_novo_json,
+                   a.usuario_id, a.usuario_nome, a.origem, a.criado_em
+            FROM auditoria_alteracoes a
+            JOIN usuarios u ON u.id = a.usuario_id
+            WHERE LOWER(u.email) = :email
+              {where_since}
+            ORDER BY a.criado_em DESC, a.id DESC
+            LIMIT :limit
+        """),
+        params,
+    ).mappings().all())
+
+
+def _get_state(db: Session, email: str) -> Any:
+    return db.execute(
+        text("""
+            SELECT s.usuario_id, s.empresa_id, s.usuario_email, s.usuario_nome,
+                   s.pagina_atual, s.rota_atual, s.metodo, s.status_code,
+                   s.ultimo_ip, s.user_agent, s.sessao_ativa, s.ultima_atividade,
+                   s.ultimo_login, s.ultimo_logout
+            FROM auditoria_usuario_estado s
+            WHERE LOWER(s.usuario_email) = :email
+            ORDER BY s.ultima_atividade DESC
+            LIMIT 1
+        """),
+        {"email": email},
+    ).mappings().first()
+
+
+def _get_target_user(db: Session, email: str) -> Any:
+    return db.execute(
+        text("""
+            SELECT id, empresa_id, nome, email, cargo, papel, ativo, criado_em, atualizado_em
+            FROM usuarios
+            WHERE LOWER(email)=:email
+            ORDER BY ativo DESC, id ASC
+            LIMIT 1
+        """),
+        {"email": email},
+    ).mappings().first()
 
 
 @router.post("/desbloquear")
@@ -301,7 +888,7 @@ def telemetry(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Recebe somente interações explícitas do Valora; nunca recebe senha ou formulário comum."""
+    """Recebe somente telemetria explícita do Valora; senhas e formulários comuns não são capturados."""
     if not is_target_user(current_user):
         return {"ok": True, "recorded": False}
     try:
@@ -321,197 +908,49 @@ def telemetry(
 
 @router.get("/eventos")
 def events(
-    limit: int = 300,
+    limit: int = 700,
     current_user=Depends(_require_unlock),
     db: Session = Depends(get_db),
 ):
-    limit = max(20, min(int(limit), 500))
+    limit = max(50, min(int(limit), 1200))
     email = TARGET_EMAIL
+    now = datetime.now(timezone.utc)
+    now_local = now.astimezone(LOCAL_TZ)
+    today_start, tomorrow_start = _day_bounds_utc(now_local.date())
 
-    state = db.execute(
-        text(
-            """
-            SELECT s.usuario_id, s.empresa_id, s.usuario_email, s.usuario_nome,
-                   s.pagina_atual, s.rota_atual, s.metodo, s.status_code,
-                   s.ultimo_ip, s.user_agent, s.sessao_ativa, s.ultima_atividade,
-                   s.ultimo_login, s.ultimo_logout
-            FROM auditoria_usuario_estado s
-            WHERE LOWER(s.usuario_email) = :email
-            ORDER BY s.ultima_atividade DESC
-            LIMIT 1
-            """
-        ),
-        {"email": email},
-    ).mappings().first()
+    state = _get_state(db, email)
+    target_user = _get_target_user(db, email)
+    # Busca um pouco mais do que o limite porque presença é usada no estado, mas não entra na timeline.
+    activity_rows = _fetch_activity_rows(db, email, since=now - timedelta(days=14), limit=min(limit * 4, 5000))
+    change_rows = _fetch_change_rows(db, email, since=now - timedelta(days=14), limit=min(limit * 2, 2400))
 
-    activity_rows = db.execute(
-        text(
-            """
-            SELECT id, usuario_id, empresa_id, usuario_email, usuario_nome,
-                   tipo, pagina, rota, metodo, status_code, ip, user_agent,
-                   detalhes_json, criado_em
-            FROM auditoria_usuario_atividade
-            WHERE LOWER(usuario_email) = :email
-              AND tipo <> 'presenca'
-            ORDER BY criado_em DESC, id DESC
-            LIMIT :activity_limit
-            """
-        ),
-        {"email": email, "activity_limit": min(limit * 2, 1000)},
-    ).mappings().all()
-
-    change_rows = db.execute(
-        text(
-            """
-            SELECT a.id, a.empresa_id, a.modulo, a.entidade_tipo, a.entidade_id,
-                   a.secao, a.campo, a.campo_nome, a.acao,
-                   a.valor_anterior_json, a.valor_novo_json,
-                   a.usuario_id, a.usuario_nome, a.origem, a.criado_em
-            FROM auditoria_alteracoes a
-            JOIN usuarios u ON u.id = a.usuario_id
-            WHERE LOWER(u.email) = :email
-            ORDER BY a.criado_em DESC, a.id DESC
-            LIMIT :limit
-            """
-        ),
-        {"email": email, "limit": limit},
-    ).mappings().all()
+    activity_asc = sorted(activity_rows, key=lambda r: _as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc))
+    activity_ts = [(_as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc)).timestamp() for r in activity_asc]
 
     merged: list[dict[str, Any]] = []
     for row in activity_rows:
-        details = _parse_details(row.get("detalhes_json"))
-        merged.append(
-            {
-                "key": f"atividade:{row['id']}",
-                "fonte": "atividade",
-                "tipo": row.get("tipo"),
-                "severidade": _severity_for_activity(str(row.get("tipo") or ""), row.get("status_code"), details),
-                "usuario_nome": row.get("usuario_nome"),
-                "usuario_email": row.get("usuario_email"),
-                "pagina": row.get("pagina"),
-                "rota": row.get("rota"),
-                "metodo": row.get("metodo"),
-                "status_code": row.get("status_code"),
-                "ip": row.get("ip"),
-                "dispositivo": _device_info(str(row.get("user_agent") or "")),
-                "detalhes": details,
-                "criado_em": _iso(row.get("criado_em")),
-            }
-        )
-
+        if str(row.get("tipo") or "") == "presenca":
+            continue
+        merged.append(_activity_to_event(row))
     for row in change_rows:
-        field_name = str(row.get("campo") or row.get("campo_nome") or "")
-        merged.append(
-            {
-                "key": f"alteracao:{row['id']}",
-                "fonte": "alteracao_dados",
-                "tipo": "alteracao_campo",
-                "severidade": _severity_for_change(row),
-                "usuario_nome": row.get("usuario_nome"),
-                "usuario_email": email,
-                "modulo": row.get("modulo"),
-                "entidade_tipo": row.get("entidade_tipo"),
-                "entidade_id": row.get("entidade_id"),
-                "secao": row.get("secao"),
-                "campo": row.get("campo"),
-                "campo_nome": row.get("campo_nome"),
-                "acao": row.get("acao"),
-                "origem": row.get("origem"),
-                "valor_anterior": _mask_sensitive(json_load(row.get("valor_anterior_json")), field_name),
-                "valor_novo": _mask_sensitive(json_load(row.get("valor_novo_json")), field_name),
-                "criado_em": _iso(row.get("criado_em")),
-            }
-        )
+        page, route = _nearest_activity_context(row.get("criado_em"), activity_asc, activity_ts)
+        merged.append(_change_to_event(row, email, page, route))
 
     merged.sort(key=lambda item: item.get("criado_em") or "", reverse=True)
     merged = merged[:limit]
 
-    counts = db.execute(
-        text(
-            """
-            SELECT
-              (SELECT COUNT(*)
-                 FROM auditoria_usuario_atividade aa
-                WHERE LOWER(aa.usuario_email)=:email
-                  AND aa.tipo <> 'presenca'
-                  AND aa.criado_em >= date_trunc('day', NOW())) AS atividades_hoje,
-              (SELECT COUNT(*)
-                 FROM auditoria_alteracoes ac
-                 JOIN usuarios u2 ON u2.id=ac.usuario_id
-                WHERE LOWER(u2.email)=:email
-                  AND ac.criado_em >= date_trunc('day', NOW())) AS alteracoes_hoje,
-              (SELECT COUNT(*)
-                 FROM auditoria_usuario_atividade ae
-                WHERE LOWER(ae.usuario_email)=:email
-                  AND (ae.status_code >= 400 OR ae.tipo IN ('erro_api','erro_pagina','login_falhou'))
-                  AND ae.criado_em >= date_trunc('day', NOW())) AS erros_hoje,
-              (SELECT COUNT(*)
-                 FROM auditoria_usuario_atividade al
-                WHERE LOWER(al.usuario_email)=:email
-                  AND al.tipo='login'
-                  AND al.criado_em >= date_trunc('day', NOW())) AS entradas_hoje,
-              (SELECT COUNT(*)
-                 FROM auditoria_usuario_atividade ad
-                WHERE LOWER(ad.usuario_email)=:email
-                  AND ad.tipo IN ('download','download_exportacao')
-                  AND ad.criado_em >= date_trunc('day', NOW())) AS downloads_hoje
-            """
-        ),
-        {"email": email},
-    ).mappings().first()
+    counts = _build_activity_count_summary(activity_rows, change_rows, today_start, tomorrow_start)
 
-    target_user = db.execute(
-        text(
-            """
-            SELECT id, empresa_id, nome, email, cargo, papel, ativo, criado_em, atualizado_em
-            FROM usuarios
-            WHERE LOWER(email)=:email
-            ORDER BY ativo DESC, id ASC
-            LIMIT 1
-            """
-        ),
-        {"email": email},
-    ).mappings().first()
-
-    session_rows = db.execute(
-        text(
-            """
-            SELECT tipo, status_code, ip, user_agent, detalhes_json, criado_em
-            FROM auditoria_usuario_atividade
-            WHERE LOWER(usuario_email)=:email
-              AND tipo IN ('login','logout','login_falhou')
-            ORDER BY criado_em DESC, id DESC
-            LIMIT 24
-            """
-        ),
-        {"email": email},
-    ).mappings().all()
-
-    today_rows = db.execute(
-        text(
-            """
-            SELECT pagina, tipo, criado_em
-            FROM auditoria_usuario_atividade
-            WHERE LOWER(usuario_email)=:email
-              AND criado_em >= date_trunc('day', NOW())
-              AND tipo IN ('presenca','navegacao','click','pesquisa','filtro','alteracao_api','download','download_exportacao')
-              AND pagina IS NOT NULL AND pagina <> ''
-            ORDER BY criado_em ASC, id ASC
-            """
-        ),
-        {"email": email},
-    ).mappings().all()
-
-    now = datetime.now(timezone.utc)
     online = False
-    if state and state.get("ultima_atividade"):
-        last = state.get("ultima_atividade")
-        try:
-            if last.tzinfo is None:
-                last = last.replace(tzinfo=timezone.utc)
-            online = bool(state.get("sessao_ativa")) and (now - last.astimezone(timezone.utc)).total_seconds() <= 75
-        except Exception:
-            online = False
+    last_activity = _as_utc(state.get("ultima_atividade")) if state else None
+    if state and last_activity:
+        online = bool(state.get("sessao_ativa")) and (now - last_activity).total_seconds() <= ONLINE_SECONDS
+
+    activity_state = _latest_presence_state(activity_rows)
+    current_since = _current_page_since(activity_rows, state.get("pagina_atual") if state else "", state.get("ultima_atividade") if state else None)
+    page_elapsed = 0
+    if online and current_since:
+        page_elapsed = max(0, int((now - current_since).total_seconds()))
 
     state_data = None
     if state:
@@ -524,6 +963,9 @@ def events(
             "ultimo_login": _iso(state.get("ultimo_login")),
             "ultimo_logout": _iso(state.get("ultimo_logout")),
             "online": online,
+            "estado_atividade": activity_state or ("ativo" if online else "offline"),
+            "pagina_desde": current_since.isoformat() if current_since else None,
+            "segundos_pagina_atual": page_elapsed,
             "dispositivo": _device_info(str(state.get("user_agent") or "")),
         }
 
@@ -535,8 +977,8 @@ def events(
             "atualizado_em": _iso(target_user.get("atualizado_em")),
         }
 
-    last_action = next((item for item in merged if item.get("tipo") not in {"navegacao"}), None)
-    critical = [item for item in merged if item.get("severidade") in {"erro", "importante"}][:8]
+    last_action = next((item for item in merged if item.get("tipo") not in {"navegacao", "navegacao_cliente", "pagina_saida"}), None)
+    critical = [item for item in merged if item.get("severidade") in {"erro", "importante"}][:12]
 
     return {
         "ok": True,
@@ -544,16 +986,167 @@ def events(
         "usuario": user_data,
         "estado": state_data,
         "resumo": {
-            "atividades_hoje": int((counts or {}).get("atividades_hoje") or 0),
-            "alteracoes_hoje": int((counts or {}).get("alteracoes_hoje") or 0),
-            "erros_hoje": int((counts or {}).get("erros_hoje") or 0),
-            "entradas_hoje": int((counts or {}).get("entradas_hoje") or 0),
-            "downloads_hoje": int((counts or {}).get("downloads_hoje") or 0),
+            "atividades_hoje": counts.get("atividades", 0),
+            "alteracoes_hoje": counts.get("alteracoes", 0),
+            "erros_hoje": counts.get("erros", 0) + counts.get("login_falhou", 0),
+            "entradas_hoje": counts.get("entradas", 0),
+            "downloads_hoje": counts.get("downloads", 0),
+            "cliques_hoje": counts.get("cliques", 0),
+            "pesquisas_hoje": counts.get("pesquisas", 0),
+            "filtros_hoje": counts.get("filtros", 0),
+            "cadastros_hoje": counts.get("cadastros", 0),
+            "exclusoes_hoje": counts.get("exclusoes", 0),
+            "modais_hoje": counts.get("modais", 0),
             "eventos_retornados": len(merged),
         },
         "ultima_acao": last_action,
-        "tempo_modulos": _module_times(list(today_rows), now, state),
-        "sessoes": _build_session_events(list(session_rows)),
         "criticos": critical,
         "eventos": merged,
+    }
+
+
+@router.get("/analise")
+def analytics(
+    dias: int = 60,
+    current_user=Depends(_require_unlock),
+    db: Session = Depends(get_db),
+):
+    days = max(7, min(int(dias), 120))
+    email = TARGET_EMAIL
+    now = datetime.now(timezone.utc)
+    now_local = now.astimezone(LOCAL_TZ)
+    start_day = now_local.date() - timedelta(days=days - 1)
+    since, _ = _day_bounds_utc(start_day)
+
+    activity_rows = _fetch_activity_rows(db, email, since=since, limit=30000)
+    change_rows = _fetch_change_rows(db, email, since=since, limit=15000)
+    activity_asc = sorted(activity_rows, key=lambda r: _as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc))
+    activity_ts = [(_as_utc(r.get("criado_em")) or datetime.min.replace(tzinfo=timezone.utc)).timestamp() for r in activity_asc]
+
+    change_events: list[dict[str, Any]] = []
+    for row in change_rows:
+        page, route = _nearest_activity_context(row.get("criado_em"), activity_asc, activity_ts)
+        change_events.append(_change_to_event(row, email, page, route))
+
+    page_seconds, module_seconds, daily_time, daily_page = _compute_time_analytics(activity_rows)
+    today_start_utc, tomorrow_start_utc = _day_bounds_utc(now_local.date())
+    today_activity_rows = [
+        row for row in activity_rows
+        if (_as_utc(row.get("criado_em")) and today_start_utc <= _as_utc(row.get("criado_em")) < tomorrow_start_utc)
+    ]
+    today_page_seconds, today_module_seconds, _today_daily_time, _today_daily_page = _compute_time_analytics(today_activity_rows)
+    sessions, _session_pages, inactivity = _build_sessions(activity_rows, change_events, now)
+    daily = _daily_metrics(activity_rows, change_rows, days, now_local, daily_time)
+
+    today = now_local.date()
+    yesterday = today - timedelta(days=1)
+    current_week_start = today - timedelta(days=today.weekday())
+    previous_week_end = current_week_start - timedelta(days=1)
+    previous_week_start = previous_week_end - timedelta(days=6)
+
+    today_sum = _sum_daily(daily, today, today)
+    yesterday_sum = _sum_daily(daily, yesterday, yesterday)
+    current_week_sum = _sum_daily(daily, current_week_start, today)
+    previous_week_sum = _sum_daily(daily, previous_week_start, previous_week_end)
+
+    page_counts: dict[str, int] = defaultdict(int)
+    module_counts: dict[str, int] = defaultdict(int)
+    filters_pages: set[str] = set()
+    filters_modules: set[str] = set()
+    for row in activity_rows:
+        tipo = str(row.get("tipo") or "")
+        if tipo == "presenca":
+            continue
+        event = _activity_to_event(row)
+        page = _event_page(event)
+        module = _module_name(event)
+        page_counts[page] += 1
+        module_counts[module] += 1
+        filters_pages.add(page)
+        filters_modules.add(module)
+    for event in change_events:
+        page = _event_page(event)
+        module = _module_name(event)
+        page_counts[page] += 1
+        module_counts[module] += 1
+        filters_pages.add(page)
+        filters_modules.add(module)
+
+    ranking_pages = [
+        {"pagina": key, "segundos": int(round(page_seconds.get(key, 0))), "acoes": int(page_counts.get(key, 0))}
+        for key in sorted(set(page_counts) | set(page_seconds), key=lambda k: (page_seconds.get(k, 0), page_counts.get(k, 0)), reverse=True)
+    ][:20]
+    ranking_modules = [
+        {"modulo": key, "segundos": int(round(module_seconds.get(key, 0))), "acoes": int(module_counts.get(key, 0))}
+        for key in sorted(set(module_counts) | set(module_seconds), key=lambda k: (module_seconds.get(k, 0), module_counts.get(k, 0)), reverse=True)
+    ][:20]
+
+    today_item = next((item for item in daily if item.get("data") == today.isoformat()), None) or {}
+    calendar = []
+    max_activity = max([int(item.get("atividades") or 0) for item in daily] or [0])
+    for item in daily:
+        count = int(item.get("atividades") or 0)
+        intensity = 0 if count <= 0 or max_activity <= 0 else max(1, min(4, int(round((count / max_activity) * 4))))
+        calendar.append({
+            "data": item.get("data"),
+            "atividades": count,
+            "tempo_ativo_segundos": int(item.get("tempo_ativo_segundos") or 0),
+            "intensidade": intensity,
+        })
+
+    recent_changes = sorted(change_events, key=lambda item: item.get("criado_em") or "", reverse=True)[:800]
+    recent_inactivity = [item for item in inactivity if int(item.get("segundos") or 0) >= 60][:80]
+    period_events = [
+        _activity_to_event(row)
+        for row in activity_rows
+        if str(row.get("tipo") or "") != "presenca"
+    ] + change_events
+    period_events.sort(key=lambda item: item.get("criado_em") or "", reverse=True)
+    period_events = period_events[:5000]
+
+    return {
+        "ok": True,
+        "periodo": {"dias": days, "inicio": start_day.isoformat(), "fim": today.isoformat(), "timezone": str(LOCAL_TZ)},
+        "hoje": {
+            **today_item,
+            "primeiro_acesso": today_item.get("primeira_atividade"),
+            "ultima_atividade": today_item.get("ultima_atividade"),
+        },
+        "comparacoes": {
+            "hoje_ontem": _comparison(today_sum, yesterday_sum),
+            "semana_atual_anterior": _comparison(current_week_sum, previous_week_sum),
+        },
+        "ranking_paginas": ranking_pages,
+        "ranking_modulos": ranking_modules,
+        "tempo_modulos_hoje": [
+            {"modulo": key, "segundos": int(round(value))}
+            for key, value in sorted(today_module_seconds.items(), key=lambda pair: pair[1], reverse=True)
+            if value >= 1
+        ][:20],
+        "tempo_paginas_hoje": [
+            {"pagina": key, "segundos": int(round(value))}
+            for key, value in sorted(today_page_seconds.items(), key=lambda pair: pair[1], reverse=True)
+            if value >= 1
+        ][:20],
+        "tempo_paginas": [
+            {"pagina": key, "segundos": int(round(value))}
+            for key, value in sorted(page_seconds.items(), key=lambda pair: pair[1], reverse=True)
+            if value >= 1
+        ][:30],
+        "tempo_modulos": [
+            {"modulo": key, "segundos": int(round(value))}
+            for key, value in sorted(module_seconds.items(), key=lambda pair: pair[1], reverse=True)
+            if value >= 1
+        ][:30],
+        "sessoes": sessions[:30],
+        "historico_login": _login_history(activity_rows),
+        "inatividades": recent_inactivity,
+        "calendario": calendar,
+        "resumo_diario": list(reversed(daily[-30:])),
+        "alteracoes": recent_changes,
+        "eventos_periodo": period_events,
+        "filtros": {
+            "paginas": sorted(filters_pages),
+            "modulos": sorted(filters_modules),
+        },
     }

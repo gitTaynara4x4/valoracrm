@@ -6801,3 +6801,81 @@ body.financeiro-theme-valora .financeiro-ficha-nav button[hidden],
 body.financeiro-theme-valora .financeiro-editor-card[hidden] {
   display: none !important;
 }
+
+
+/* =========================================
+   FINANCEIRO — TOGGLE DA FICHA SIMPLIFICADA NO MODAL
+   Igual ao controle usado nos cadastros, mas com regras seguras do Financeiro.
+   ========================================= */
+body.financeiro-theme-valora .financeiro-sidebar-bottom .financeiro-ficha-toggle {
+  padding: 11px 12px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  background: var(--panel) !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 9px !important;
+  cursor: pointer;
+  user-select: none;
+}
+
+body.financeiro-theme-valora .financeiro-sidebar-bottom .financeiro-ficha-toggle input {
+  width: 15px !important;
+  height: 15px !important;
+  margin: 2px 0 0 !important;
+  flex: 0 0 auto;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+
+body.financeiro-theme-valora .financeiro-sidebar-bottom .financeiro-ficha-toggle strong {
+  display: block;
+  color: var(--text) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1.25 !important;
+}
+
+body.financeiro-theme-valora .financeiro-sidebar-bottom .financeiro-ficha-toggle small {
+  display: block;
+  margin-top: 3px !important;
+  color: var(--muted) !important;
+  font-size: 10.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.35 !important;
+}
+
+body.financeiro-theme-valora .financeiro-sidebar-bottom .financeiro-ficha-toggle.is-saving,
+body.financeiro-theme-valora .financeiro-sidebar-bottom .financeiro-ficha-toggle.is-disabled {
+  opacity: .62;
+}
+
+body.financeiro-theme-valora .financeiro-sidebar-bottom .financeiro-ficha-toggle.is-disabled {
+  cursor: not-allowed;
+}
+
+/* =========================================================
+   2026-08-24 | RESPIRO ENTRE SUBNAVEGAÇÃO E CONTEÚDO
+   A subnavegação financeira agora vive em um iframe próprio.
+   Regras antigas zeravam o padding-top do main para a barra interna,
+   fazendo títulos e ações encostarem na navegação. Restauramos o
+   espaçamento vertical do padrão Valora sem alterar a subnavegação.
+   ========================================================= */
+@media (min-width: 761px) {
+  html body.financeiro-theme-valora .financeiro-sidebar-frame + main.financeiro-page,
+  html body.financeiro-theme-valora main.financeiro-page.financeiro-page--overview {
+    padding-top: 24px !important;
+  }
+
+  html body.financeiro-theme-valora main.financeiro-page > .topbar,
+  html body.financeiro-theme-valora main.financeiro-page > .financeiro-saas-header {
+    margin-top: 0 !important;
+    margin-bottom: 24px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  html body.financeiro-theme-valora .financeiro-sidebar-frame + main.financeiro-page {
+    padding-top: 18px !important;
+  }
+}

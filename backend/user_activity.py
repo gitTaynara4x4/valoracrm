@@ -44,6 +44,11 @@ _ALLOWED_CLIENT_EVENT_TYPES = {
     "filtro",
     "download",
     "presenca",
+    "navegacao_cliente",
+    "modal_aberto",
+    "inatividade",
+    "retorno_atividade",
+    "pagina_saida",
 }
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _DOWNLOAD_MARKERS = (
@@ -170,6 +175,9 @@ def _safe_client_details(details: Any) -> dict[str, Any]:
         "href": 500,
         "request_id_cliente": 80,
         "sessao_cliente": 100,
+        "modal_id": 140,
+        "estado_atividade": 40,
+        "origem_evento": 80,
     }
     result: dict[str, Any] = {}
     for key, limit in allowed.items():
@@ -179,7 +187,43 @@ def _safe_client_details(details: Any) -> dict[str, Any]:
         if value is None:
             continue
         result[key] = _safe_client_text(value, limit)
+
+    for numeric_key in ("duracao_segundos", "duracao_inatividade_segundos", "duracao_ociosa_segundos"):
+        if numeric_key not in details:
+            continue
+        try:
+            result[numeric_key] = max(0, min(int(float(details.get(numeric_key) or 0)), 86400))
+        except (TypeError, ValueError):
+            pass
     return result
+
+
+_ACTION_SEGMENTS = {
+    "baixa", "baixar", "estorno", "estornar", "enviar", "emitir", "gerar",
+    "aprovar", "reprovar", "cancelar", "finalizar", "concluir", "duplicar",
+    "transferir", "conciliar", "recalcular", "simular", "faturar", "renovar",
+    "ativar", "desativar", "assinar", "desbloquear", "bloquear", "upload",
+}
+
+
+def _infer_write_operation(request: Request) -> str:
+    method = str(request.method or "").upper()
+    if method == "DELETE":
+        return "excluir"
+    if method in {"PUT", "PATCH"}:
+        return "editar"
+    if method != "POST":
+        return ""
+
+    parts = [part.lower() for part in str(request.url.path or "").strip("/").split("/") if part]
+    api_parts = parts[1:] if parts[:1] == ["api"] else parts
+    if any(part in _ACTION_SEGMENTS for part in api_parts[-2:]):
+        return "acao"
+    # POST em uma coleção, sem ID numérico no final, normalmente cria um registro.
+    # Endpoints de ação são filtrados acima para evitar chamar baixa/estorno de cadastro.
+    if api_parts and not any(part.isdigit() for part in api_parts[-2:]):
+        return "criar"
+    return "acao"
 
 
 def _infer_request_context(request: Request) -> dict[str, Any]:
@@ -347,9 +391,11 @@ def record_authenticated_request(user: Any, request: Request, status_code: int) 
         lower_path = path.lower()
         is_download = method in {"GET", "POST"} and any(marker in lower_path for marker in _DOWNLOAD_MARKERS)
         context = _infer_request_context(request)
+        operation = _infer_write_operation(request) if is_write else ""
         details = {
             "resultado": "ok" if int(status_code) < 400 else "erro",
             "request_id": _request_id(request),
+            "operacao": operation or None,
             **context,
         }
 
@@ -387,11 +433,16 @@ def record_authenticated_request(user: Any, request: Request, status_code: int) 
                 "O corpo da requisição não é armazenado; alterações de campos aparecem "
                 "na auditoria de dados quando o módulo as registra."
             )
+            event_type = {
+                "criar": "cadastro_api",
+                "editar": "edicao_api",
+                "excluir": "exclusao_api",
+            }.get(operation, "alteracao_api")
             _insert_event(
                 db,
                 user=user,
                 request=request,
-                tipo="alteracao_api",
+                tipo=event_type,
                 status_code=status_code,
                 details=details,
             )

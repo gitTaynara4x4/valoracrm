@@ -13,10 +13,10 @@
   <link rel="stylesheet" href="/frontend/css/financeiro.css?v=20260723-financeiro-base-v1" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260629-financeiro-clear-dashboard" />
   <script src="/frontend/js/shared/menu-global.js?v=20260822-jcc-financeiro-v1" defer></script>
-  <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
-  <script src="/frontend/js/pages/financeiro.js?v=20260824-ficha-simplificada-v3" defer></script>
+  <script src="/frontend/js/pages/app.js?v=20260826-audit-60-v1" defer></script>
+  <script src="/frontend/js/pages/financeiro.js?v=20260824-ficha-toggle-modal-v4" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260824-formularios-financeiro-v1" />
+  <link rel="stylesheet" href="/frontend/css/financeiro-valora.css?v=20260824-ficha-toggle-modal-v4" />
 </head>
 <body class="financeiro-theme-valora">
   <div class="layout">
@@ -211,6 +211,13 @@
         </nav>
 
         <div class="financeiro-sidebar-bottom">
+          <label class="financeiro-ficha-toggle" id="financeiro-ficha-toggle-box">
+            <input type="checkbox" id="toggle-ficha-simplificada-financeiro" data-financeiro-ficha-toggle />
+            <span>
+              <strong>Usar ficha simplificada</strong>
+              <small>Mostra apenas os campos essenciais e os personalizados.</small>
+            </span>
+          </label>
         </div>
       </aside>
 

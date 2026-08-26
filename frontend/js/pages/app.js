@@ -1075,8 +1075,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ==========================================
 // AUDITORIA DE USO - usuário monitorado
-// Registra somente interações do Valora: cliques, buscas, filtros,
-// downloads e presença. Não captura senha nem conteúdo comum de formulários.
+// Registra somente interações do Valora: navegação, cliques, buscas, filtros,
+// modais, downloads, presença e períodos de inatividade. Não captura senhas
+// nem o conteúdo de formulários comuns.
 // ==========================================
 (() => {
   'use strict';
@@ -1095,12 +1096,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const SAVE_RE = /(salvar|cadastrar|criar|adicionar|atualizar|editar|registrar)/i;
   const PERMISSION_RE = /(permiss|colaborador|usuário|usuario|membro|acesso)/i;
   const FINANCE_RE = /(finance|receber|pagar|pagamento|recebimento|baixa)/i;
+  const IDLE_AFTER_MS = 2 * 60 * 1000;
+  const HEARTBEAT_MS = 30 * 1000;
 
   let enabled = false;
   let heartbeatTimer = null;
   let searchTimer = null;
   let lastFingerprint = '';
   let lastFingerprintAt = 0;
+  let lastHumanActivityAt = Date.now();
+  let idleSince = null;
+  let isIdle = false;
+  let wasActivePage = false;
+  let activePageSince = Date.now();
+  let modalObserver = null;
+  const modalVisibilityState = new WeakMap();
 
   function readEmail() {
     try {
@@ -1193,6 +1203,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'acao';
   }
 
+  function pageIsActive() {
+    if (document.visibilityState !== 'visible') return false;
+    if (window.frameElement) {
+      try {
+        const style = window.parent.getComputedStyle(window.frameElement);
+        const rect = window.frameElement.getBoundingClientRect();
+        if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 1) === 0 || rect.width < 2 || rect.height < 2) return false;
+      } catch (_) {
+        return false;
+      }
+    }
+    if (typeof document.hasFocus === 'function' && !document.hasFocus()) return false;
+    return true;
+  }
+
   async function send(tipo, detalhes = {}) {
     if (!enabled) return;
     if (document.documentElement?.dataset?.page === 'auditoria-programadora') return;
@@ -1216,7 +1241,7 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify(payload),
       });
     } catch (_) {
-      // Auditoria nunca pode interferir no uso da aplicação.
+      // A auditoria jamais deve interferir no uso normal do sistema.
     }
   }
 
@@ -1229,7 +1254,24 @@ document.addEventListener('DOMContentLoaded', () => {
     return false;
   }
 
+  function markHumanActivity() {
+    const now = Date.now();
+    lastHumanActivityAt = now;
+    if (isIdle) {
+      const duration = Math.max(0, Math.round((now - (idleSince || now)) / 1000));
+      isIdle = false;
+      idleSince = null;
+      void send('retorno_atividade', {
+        categoria: 'atividade',
+        rotulo: 'Retomou a atividade',
+        estado_atividade: 'ativo',
+        duracao_inatividade_segundos: duration,
+      });
+    }
+  }
+
   function onClick(event) {
+    markHumanActivity();
     const el = event.target?.closest?.('button, a, [role="button"], input[type="button"], input[type="submit"]');
     if (!el) return;
     if (el.closest?.('[data-audit-ignore]')) return;
@@ -1252,6 +1294,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     if (dedupe(tipo, details)) return;
     void send(tipo, details);
+    setTimeout(scanVisibleModals, 70);
   }
 
   function isSearchInput(el) {
@@ -1262,6 +1305,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function onInput(event) {
+    markHumanActivity();
     const el = event.target;
     if (!isSearchInput(el)) return;
     clearTimeout(searchTimer);
@@ -1279,6 +1323,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function onChange(event) {
+    markHumanActivity();
     const el = event.target;
     if (!(el instanceof HTMLSelectElement)) return;
     const descriptorText = [el.id, el.name, el.getAttribute('aria-label'), el.closest('label')?.textContent].filter(Boolean).join(' ');
@@ -1294,17 +1339,121 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!dedupe('filtro', details)) void send('filtro', details);
   }
 
+  function modalLabel(modal) {
+    if (!modal) return 'Modal';
+    const labelledBy = modal.getAttribute?.('aria-labelledby');
+    const labelledEl = labelledBy ? document.getElementById(labelledBy) : null;
+    return cleanText(
+      labelledEl?.textContent ||
+      modal.getAttribute?.('aria-label') ||
+      modal.querySelector?.('h1,h2,h3,.modal-title,[data-modal-title]')?.textContent ||
+      modal.id ||
+      'Modal',
+      220,
+    );
+  }
+
+  function modalIsVisible(modal) {
+    if (!(modal instanceof Element)) return false;
+    if (modal.hidden || modal.getAttribute('aria-hidden') === 'true') return false;
+    const style = getComputedStyle(modal);
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 1) === 0) return false;
+    const rect = modal.getBoundingClientRect();
+    return rect.width > 2 && rect.height > 2;
+  }
+
+  function registerModal(modal) {
+    if (!(modal instanceof Element)) return;
+    const visible = modalIsVisible(modal);
+    const wasVisible = modalVisibilityState.get(modal) === true;
+    modalVisibilityState.set(modal, visible);
+    if (!visible || wasVisible) return;
+    const label = modalLabel(modal);
+    if (SENSITIVE_RE.test(label)) return;
+    void send('modal_aberto', {
+      categoria: 'modal',
+      rotulo: label,
+      modal_id: cleanText(modal.id || modal.getAttribute('data-modal') || modal.className || '', 140),
+      elemento: elementDescriptor(modal),
+    });
+  }
+
+  function scanVisibleModals(root = document) {
+    const selector = 'dialog[open], [role="dialog"], .modal, .modal-overlay, .modal-backdrop + *, [data-modal]';
+    try {
+      if (root instanceof Element && root.matches(selector)) registerModal(root);
+      root.querySelectorAll?.(selector).forEach(registerModal);
+    } catch (_) {}
+  }
+
+  function startModalObserver() {
+    if (!window.MutationObserver || !document.body) return;
+    modalObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'attributes') registerModal(mutation.target);
+        for (const node of mutation.addedNodes || []) {
+          if (node instanceof Element) scanVisibleModals(node);
+        }
+      }
+    });
+    modalObserver.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['class', 'style', 'hidden', 'open', 'aria-hidden'],
+    });
+  }
+
   function heartbeat() {
-    if (document.visibilityState !== 'visible') return;
-    if (window.frameElement) {
-      try {
-        const style = window.parent.getComputedStyle(window.frameElement);
-        const rect = window.frameElement.getBoundingClientRect();
-        if (style.display === 'none' || style.visibility === 'hidden' || rect.width < 2 || rect.height < 2) return;
-      } catch (_) {}
+    const active = pageIsActive();
+    if (!active) {
+      wasActivePage = false;
+      return;
     }
-    if (typeof document.hasFocus === 'function' && !document.hasFocus()) return;
-    void send('presenca', { categoria: 'atividade', rotulo: 'Página ativa' });
+
+    const now = Date.now();
+    if (!wasActivePage) {
+      wasActivePage = true;
+      activePageSince = now;
+      lastHumanActivityAt = now;
+      void send('navegacao_cliente', {
+        categoria: 'navegacao',
+        rotulo: 'Abriu a página',
+        estado_atividade: 'ativo',
+      });
+    }
+
+    const idleFor = Math.max(0, now - lastHumanActivityAt);
+    if (idleFor >= IDLE_AFTER_MS && !isIdle) {
+      isIdle = true;
+      idleSince = lastHumanActivityAt + IDLE_AFTER_MS;
+      void send('inatividade', {
+        categoria: 'atividade',
+        rotulo: 'Ficou inativo',
+        estado_atividade: 'ocioso',
+        duracao_ociosa_segundos: Math.round(idleFor / 1000),
+      });
+    }
+
+    void send('presenca', {
+      categoria: 'atividade',
+      rotulo: isIdle ? 'Página aberta sem interação' : 'Página ativa',
+      estado_atividade: isIdle ? 'ocioso' : 'ativo',
+      duracao_ociosa_segundos: isIdle ? Math.round(idleFor / 1000) : 0,
+    });
+  }
+
+  function onPageHide() {
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    if (modalObserver) modalObserver.disconnect();
+    if (!enabled || !wasActivePage) return;
+    const duration = Math.max(0, Math.round((Date.now() - activePageSince) / 1000));
+    void send('pagina_saida', {
+      categoria: 'navegacao',
+      rotulo: 'Saiu da página',
+      duracao_segundos: duration,
+      estado_atividade: isIdle ? 'ocioso' : 'ativo',
+    });
   }
 
   function start() {
@@ -1315,13 +1464,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click', onClick, true);
     document.addEventListener('input', onInput, true);
     document.addEventListener('change', onChange, true);
+    document.addEventListener('keydown', markHumanActivity, true);
+    document.addEventListener('pointerdown', markHumanActivity, true);
+    window.addEventListener('focus', markHumanActivity, true);
 
-    setTimeout(heartbeat, 1200);
-    heartbeatTimer = setInterval(heartbeat, 30000);
-
-    window.addEventListener('pagehide', () => {
-      if (heartbeatTimer) clearInterval(heartbeatTimer);
-    }, { once: true });
+    startModalObserver();
+    setTimeout(() => {
+      heartbeat();
+      scanVisibleModals();
+    }, 900);
+    heartbeatTimer = setInterval(heartbeat, HEARTBEAT_MS);
+    window.addEventListener('pagehide', onPageHide, { once: true });
   }
 
   if (document.readyState === 'loading') {

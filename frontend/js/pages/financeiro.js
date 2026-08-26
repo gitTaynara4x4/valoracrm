@@ -3730,6 +3730,70 @@
     return FINANCEIRO_CAMPOS_PROTEGIDOS[modulo]?.has(String(campoSistema || "")) || false;
   }
 
+  function sincronizarToggleFichaSimplificadaFinanceiro(form, tipo = "") {
+    if (!form) return;
+    const toggle = form.querySelector('[data-financeiro-ficha-toggle]');
+    const box = toggle?.closest('.financeiro-ficha-toggle');
+    if (!toggle) return;
+
+    const tipoAtual = tipo || form.querySelector('[name="tipo"]')?.value || (state.page === "pagar" ? "pagar" : "receber");
+    const modulo = moduloFormularioFinanceiro(tipoAtual);
+    const config = state.formulariosFinanceiros[modulo];
+    const modelo = config?.modelo || null;
+
+    toggle.checked = Boolean(modelo?.usar_como_ficha_principal);
+    toggle.disabled = !modelo?.id;
+    if (box) {
+      box.classList.toggle('is-disabled', !modelo?.id);
+      box.title = modelo?.id
+        ? 'Ative para mostrar somente os campos essenciais e os personalizados deste formulário.'
+        : 'Crie ou ative um formulário deste módulo em Formulários para usar a ficha simplificada.';
+    }
+  }
+
+  async function salvarToggleFichaSimplificadaFinanceiro(toggle, form) {
+    if (!toggle || !form) return;
+
+    const tipoAtual = form.querySelector('[name="tipo"]')?.value || (state.page === "pagar" ? "pagar" : "receber");
+    const modulo = moduloFormularioFinanceiro(tipoAtual);
+    const config = state.formulariosFinanceiros[modulo];
+    const modelo = config?.modelo || null;
+
+    if (!modelo?.id) {
+      toggle.checked = false;
+      alertBox('Crie ou ative um formulário financeiro antes de usar a ficha simplificada.', 'warn');
+      sincronizarToggleFichaSimplificadaFinanceiro(form, tipoAtual);
+      return;
+    }
+
+    const desejado = Boolean(toggle.checked);
+    const anterior = Boolean(modelo.usar_como_ficha_principal);
+    const box = toggle.closest('.financeiro-ficha-toggle');
+    toggle.disabled = true;
+    box?.classList.add('is-saving');
+
+    try {
+      const salvo = await request(`/api/formularios/modelos/${modelo.id}`, {
+        method: 'PUT',
+        body: { usar_como_ficha_principal: desejado },
+      });
+
+      config.modelo = { ...modelo, ...(salvo || {}), usar_como_ficha_principal: desejado };
+      const personalizadosAtuais = coletarCamposPersonalizadosFinanceiro(form);
+      restaurarLayoutNativoFormularioFinanceiro(form);
+      aplicarFormularioFinanceiro(form, tipoAtual, personalizadosAtuais);
+      sincronizarToggleFichaSimplificadaFinanceiro(form, tipoAtual);
+    } catch (err) {
+      config.modelo = { ...modelo, usar_como_ficha_principal: anterior };
+      toggle.checked = anterior;
+      alertBox(err.message || 'Não foi possível alterar a ficha simplificada.', 'danger');
+    } finally {
+      toggle.disabled = false;
+      box?.classList.remove('is-saving');
+      sincronizarToggleFichaSimplificadaFinanceiro(form, tipoAtual);
+    }
+  }
+
   async function carregarFormularioFinanceiro(modulo) {
     if (!modulo || !Object.prototype.hasOwnProperty.call(state.formulariosFinanceiros, modulo)) return null;
     if (state.formulariosFinanceiros.carregados.has(modulo)) return state.formulariosFinanceiros[modulo];
@@ -4026,9 +4090,13 @@
     const modulo = moduloFormularioFinanceiro(tipo);
     const config = state.formulariosFinanceiros[modulo];
     const modelo = config?.modelo;
+    sincronizarToggleFichaSimplificadaFinanceiro(form, tipo);
     const secoes = Array.isArray(config?.secoes) ? config.secoes.filter(s => s.ativo !== false) : [];
     const semSecao = Array.isArray(config?.campos_sem_secao) ? config.campos_sem_secao : [];
-    if (!modelo) return;
+    if (!modelo) {
+      sincronizarToggleFichaSimplificadaFinanceiro(form, tipo);
+      return;
+    }
     const fichaSimplificada = Boolean(modelo.usar_como_ficha_principal);
     const camposSimplificados = FINANCEIRO_CAMPOS_SIMPLIFICADOS[modulo] || new Set();
 
@@ -5698,6 +5766,10 @@
         return;
       }
       const formLancamento = ev.target.closest("#form-lancamento");
+      if (formLancamento && ev.target.matches('[data-financeiro-ficha-toggle]')) {
+        await salvarToggleFichaSimplificadaFinanceiro(ev.target, formLancamento);
+        return;
+      }
       if (formLancamento && ev.target.matches('[name="tipo"]')) {
         const tipoAtual = ev.target.value;
         const personalizadosAtuais = coletarCamposPersonalizadosFinanceiro(formLancamento);
