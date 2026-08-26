@@ -1865,38 +1865,45 @@
     return Number.isNaN(value.getTime()) ? new Date() : value;
   }
 
-  function normalizeDavLines(rawLines) {
-    let nextNumber = 0;
-    return rawLines
-      .map((line) => String(line || '').trim())
-      .filter(Boolean)
-      .map((line) => {
-        const match = line.match(/^(\d+)\s*[-.)]\s*(.*)$/);
-        if (match) {
-          nextNumber = Math.max(nextNumber, Number(match[1]) || 0);
-          return `${match[1]}- ${match[2]}`;
-        }
-        nextNumber += 1;
-        return `${nextNumber}- ${line}`;
-      });
+  function davTextLines(value) {
+    return String(value || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
   }
 
-  function davObservationLines() {
-    const conditions = $('orcamento-condicoes').value.split(/\r?\n/);
-    const notes = $('orcamento-observacoes').value.split(/\r?\n/);
-    const raw = [...conditions, ...notes].map((line) => line.trim()).filter(Boolean);
+  function davObservationGroups() {
+    const groups = [];
+    const conditions = davTextLines($('orcamento-condicoes').value);
+    const notes = davTextLines($('orcamento-observacoes').value);
+    const executionDeadline = $('orcamento-prazo-execucao').value.trim();
 
-    if ($('orcamento-prazo-execucao').value.trim() && !raw.some((line) => /prazo/i.test(line))) {
-      raw.push(`Prazo de entrega/execução: ${$('orcamento-prazo-execucao').value.trim()}`);
+    if (conditions.length) {
+      groups.push({ title: 'CONDIÇÕES GERAIS:', lines: conditions });
+    }
+
+    if (notes.length) {
+      groups.push({ title: 'OBSERVAÇÕES ESPECÍFICAS:', lines: notes });
+    }
+
+    if (executionDeadline) {
+      groups.push({ title: 'PRAZO DE ENTREGA/EXECUÇÃO:', lines: [executionDeadline] });
     }
 
     if (state.payments.length) {
-      const paymentText = state.payments
-        .map((payment) => `${payment.nome}: ${paymentDescription(payment)}`)
-        .join(' / ');
-      raw.push(`Formas de pagamento: ${paymentText}`);
+      groups.push({
+        title: 'FORMAS DE PAGAMENTO:',
+        lines: state.payments.map((payment) => `${payment.nome}: ${paymentDescription(payment)}`),
+      });
     }
-    return normalizeDavLines(raw);
+
+    return groups;
+  }
+
+  function davObservationGroupsHtml() {
+    return davObservationGroups()
+      .map((group) => `<div class="dav-observation-group" style="margin-top:8px"><strong>${escapeHtml(group.title)}</strong>${group.lines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}</div>`)
+      .join('');
   }
 
   function buildDavPreviewHtml() {
@@ -1929,9 +1936,7 @@
       </tr>`;
     }).join('');
 
-    const observationLines = davObservationLines()
-      .map((line) => `<div>${escapeHtml(line)}</div>`)
-      .join('');
+    const observationGroups = davObservationGroupsHtml();
     const contactText = [client.contato, client.whatsapp || client.telefone].filter(Boolean).join(' ');
     const sellerText = [seller.nome || state.current?.consultor_nome, seller.telefone || state.current?.consultor_telefone].filter(Boolean).join(' ');
     const address = $('orcamento-logradouro').value || '—';
@@ -1977,7 +1982,7 @@
         <td class="dav-note-total"><div><b>Total Produtos:</b><strong>${formatDavQuantity(totalQuantity)}</strong></div><div><b>Total da Nota:</b><strong>${formatDavValue(totals.total)}</strong></div></td>
       </tr></tbody></table>
 
-      <section class="dav-observations"><h2>OBSERVAÇÃO:</h2><div class="dav-observation-lines">${observationLines || '<div>—</div>'}</div></section>
+      <section class="dav-observations"><h2>OBSERVAÇÕES E CONDIÇÕES:</h2><div class="dav-observation-lines">${observationGroups || '<div>—</div>'}</div></section>
       <footer class="dav-footer">${escapeHtml(company.rodape)}</footer>
     </section>`;
   }
