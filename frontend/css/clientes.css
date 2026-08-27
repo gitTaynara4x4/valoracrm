@@ -569,6 +569,33 @@
   border-bottom: 1px solid var(--border);
 }
 
+.cliente-section-head--actions,
+.custom-section-head--actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.custom-section-head--actions .custom-section-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cliente-google-maps-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.cliente-google-maps-btn i {
+  margin-right: 6px;
+}
+
+.cliente-google-maps-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .cliente-section-head h4,
 #modal-cliente-backdrop .section-card > h4 {
   margin: 0;
@@ -1333,6 +1360,19 @@ html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-ta
 /* =========================================
    RESPONSIVO
    ========================================= */
+
+@media (max-width: 680px) {
+  .cliente-section-head--actions,
+  .custom-section-head--actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cliente-google-maps-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
 
 @media (max-width: 1180px) {
   #modal-cliente-backdrop {

@@ -560,6 +560,197 @@ export async function abrirClienteNoZapsChat(clienteId, options = {}) {
   }
 }
 
+const GOOGLE_MAPS_ADDRESS_PARTS = ['cep', 'endereco', 'numero', 'bairro', 'cidade', 'estado', 'pais'];
+
+function isCustomLocationSection(card) {
+  if (!card) return false;
+
+  const title = normalizeFichaKey(
+    card.dataset.customSectionTitle ||
+    card.querySelector('.custom-section-head h4')?.textContent ||
+    card.querySelector('h4')?.textContent ||
+    ''
+  );
+
+  if (!title) return false;
+
+  return (
+    (title.includes('localizacao') && title.includes('imovel')) ||
+    (title.includes('endereco') && title.includes('imovel'))
+  );
+}
+
+function getCustomLocationSection() {
+  return Array.from(document.querySelectorAll('#custom-fields-container .custom-section-card'))
+    .find(isCustomLocationSection) || null;
+}
+
+function addressFieldMatches(part, rawKey) {
+  const key = normalizeFichaKey(rawKey);
+  if (!key) return false;
+
+  if (part === 'cep') {
+    return key === 'cep' || key.startsWith('cep_') || key.includes('codigo_postal');
+  }
+
+  if (part === 'endereco') {
+    return /^(endereco|logradouro|rua|avenida)(_|$)/.test(key);
+  }
+
+  if (part === 'numero') {
+    return key === 'numero' || key.startsWith('numero_');
+  }
+
+  if (part === 'bairro') {
+    return key === 'bairro' || key.startsWith('bairro_');
+  }
+
+  if (part === 'cidade') {
+    return key === 'cidade' || key === 'municipio' || key.startsWith('cidade_') || key.startsWith('municipio_');
+  }
+
+  if (part === 'estado') {
+    return key === 'uf' || key === 'estado' || key.startsWith('uf_') || key.startsWith('estado_');
+  }
+
+  if (part === 'pais') {
+    return key === 'pais' || key.startsWith('pais_');
+  }
+
+  return false;
+}
+
+function getAddressPartFromCustomLocation(part) {
+  const section = getCustomLocationSection();
+  if (!section) return { found: false, value: '' };
+
+  const records = Array.from(section.querySelectorAll('[data-custom-field]'))
+    .map((el, index) => {
+      const wrapper = el.closest('[data-custom-field-wrapper="true"]');
+      const keys = [
+        wrapper?.dataset.systemField,
+        el.dataset.customField,
+        el.dataset.customLabel,
+        wrapper?.dataset.customLabel,
+      ].filter(Boolean);
+
+      return { el, index, keys };
+    })
+    .filter((record) => record.keys.some((key) => addressFieldMatches(part, key)));
+
+  const selected = chooseRenderedField(records);
+  if (!selected) return { found: false, value: '' };
+
+  return { found: true, value: getRenderedFieldValue(selected.el) };
+}
+
+function getNativeAddressParts() {
+  return {
+    cep: String(getValue('campo-cep') || '').trim(),
+    endereco: String(getValue('campo-endereco') || '').trim(),
+    numero: String(getValue('campo-numero') || '').trim(),
+    bairro: String(getValue('campo-bairro') || '').trim(),
+    cidade: String(getValue('campo-cidade') || '').trim(),
+    estado: String(getValue('campo-estado') || '').trim(),
+    pais: String(getValue('campo-pais') || '').trim(),
+  };
+}
+
+function getCurrentAddressPartsForMaps() {
+  const address = getNativeAddressParts();
+
+  if (!state.usarFichaPrincipalClientes) return address;
+
+  GOOGLE_MAPS_ADDRESS_PARTS.forEach((part) => {
+    const custom = getAddressPartFromCustomLocation(part);
+    if (custom.found) address[part] = custom.value;
+  });
+
+  return address;
+}
+
+function buildGoogleMapsAddressQuery() {
+  const address = getCurrentAddressPartsForMaps();
+  const cityState = [address.cidade, address.estado].filter(Boolean).join(' - ');
+
+  return [
+    address.endereco,
+    address.numero,
+    address.bairro,
+    cityState,
+    address.cep,
+    address.pais,
+  ]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+function hasUsefulGoogleMapsAddress() {
+  const address = getCurrentAddressPartsForMaps();
+  return !!(address.endereco || address.cep || address.cidade);
+}
+
+function createGoogleMapsAddressButton() {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn btn-secondary btn-sm cliente-google-maps-btn cliente-google-maps-btn--generated';
+  button.dataset.openGoogleMapsClientAddress = '';
+  button.innerHTML = '<i class="fa-solid fa-location-dot" aria-hidden="true"></i><span>Abrir no Google Maps</span>';
+  return button;
+}
+
+function ensureGoogleMapsButtonInCustomLocation() {
+  document
+    .querySelectorAll('#custom-fields-container .cliente-google-maps-btn--generated')
+    .forEach((button) => button.remove());
+
+  if (!state.usarFichaPrincipalClientes) return;
+
+  const section = getCustomLocationSection();
+  const head = section?.querySelector('.custom-section-head');
+  if (!head) return;
+
+  head.classList.add('custom-section-head--actions');
+  head.appendChild(createGoogleMapsAddressButton());
+}
+
+function updateGoogleMapsAddressButtons() {
+  const enabled = hasUsefulGoogleMapsAddress();
+  const title = enabled
+    ? 'Abrir este endereço no Google Maps'
+    : 'Preencha o endereço para abrir no Google Maps';
+
+  document
+    .querySelectorAll('#modal-cliente-backdrop [data-open-google-maps-client-address]')
+    .forEach((button) => {
+      button.disabled = !enabled;
+      button.title = title;
+      button.setAttribute('aria-label', title);
+    });
+}
+
+function syncGoogleMapsAddressActions() {
+  ensureGoogleMapsButtonInCustomLocation();
+  updateGoogleMapsAddressButtons();
+}
+
+function openCurrentClientAddressInGoogleMaps() {
+  const query = buildGoogleMapsAddressQuery();
+
+  if (!query || !hasUsefulGoogleMapsAddress()) {
+    toast('Preencha o endereço do imóvel antes de abrir o Google Maps.', 'error');
+    return;
+  }
+
+  const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.click();
+}
+
 function bindResumoSidebarCliente() {
   [
     'campo-nome',
@@ -1073,6 +1264,7 @@ async function fillClientForm(cliente = {}) {
   setValue('campo-observacoes', data.observacoes);
 
   await renderCustomFieldsInputs(state.camposClientes, buildFichaRenderValues(data));
+  syncGoogleMapsAddressActions();
 
   syncFichaPrincipalCode(data.codigo || getValue('campo-codigo'));
   setFichaPrincipalMode(state.usarFichaPrincipalClientes);
@@ -1857,6 +2049,7 @@ async function salvarToggleFichaPrincipalCliente(event) {
     };
 
     await renderCustomFieldsInputs(state.camposClientes, buildFichaRenderValues(currentDetail || {}));
+    syncGoogleMapsAddressActions();
     setFichaPrincipalMode(checked);
     bindResumoSidebarCliente();
     agendarResumoSidebarCliente(currentDetail);
@@ -1920,6 +2113,19 @@ export function bindClientModal({ afterSave } = {}) {
   $('btn-fechar-modal-cliente')?.addEventListener('click', closeClientModal);
   $('btn-cancelar-cliente')?.addEventListener('click', closeClientModal);
   $('formCliente')?.addEventListener('submit', saveCliente);
+
+  $('formCliente')?.addEventListener('input', updateGoogleMapsAddressButtons);
+  $('formCliente')?.addEventListener('change', updateGoogleMapsAddressButtons);
+
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-open-google-maps-client-address]');
+    if (!button || !$('modal-cliente-backdrop')?.contains(button)) return;
+
+    event.preventDefault();
+    openCurrentClientAddressInGoogleMaps();
+  });
+
+  syncGoogleMapsAddressActions();
 
   // A Agenda fica dentro do <form> principal do cliente. Sem este bloqueio,
   // Enter em um campo da Agenda pode disparar o submit de "Salvar cliente".

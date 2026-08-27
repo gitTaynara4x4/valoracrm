@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="/frontend/css/exportacoes.css?v=20260713-exportacoes-completas-v1" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260717-busca-relacao-v1" />
-  <link rel="stylesheet" href="/frontend/css/clientes.css?v=20260811-cliente-native-icons-v45" />
+  <link rel="stylesheet" href="/frontend/css/clientes.css?v=20260827-google-maps-v46" />
   <link rel="stylesheet" href="/frontend/css/localizar-personalizado.css?v=20260715-localizar-arrastar-restaurado-v8" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
@@ -44,7 +44,7 @@
   <script src="/frontend/js/shared/ficha-principal.js?v=20260729-clientes-gravacao-v2" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script src="/frontend/js/shared/localizar-personalizado.js?v=20260723-produtos-multiselect-relacoes-v9" defer></script>
-  <script type="module" src="/frontend/js/pages/clientes/index.js?v=20260809-performance-v28"></script>
+  <script type="module" src="/frontend/js/pages/clientes/index.js?v=20260827-google-maps-v29"></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260810-cliente-agenda-dark-v43" />
 </head>
 
@@ -481,8 +481,18 @@
 
                 <section class="cliente-tab" id="tab-enderecos">
                   <article class="section-card cliente-main-card">
-                    <div class="cliente-section-head">
+                    <div class="cliente-section-head cliente-section-head--actions">
                       <h4>Endereço principal</h4>
+                      <button
+                        type="button"
+                        class="btn btn-secondary btn-sm cliente-google-maps-btn"
+                        data-open-google-maps-client-address
+                        disabled
+                        title="Preencha o endereço para abrir no Google Maps"
+                      >
+                        <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                        Abrir no Google Maps
+                      </button>
                     </div>
 
                     <div class="form-row">
