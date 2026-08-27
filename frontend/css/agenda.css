@@ -1997,13 +1997,25 @@ html:not([data-theme="dark"]) .agenda-push-test:hover:not(:disabled) {
 .valora-agenda-maximize:active { transform: scale(.96); }
 
 .valora-agenda-overlay.is-maximized .valora-agenda-drawer {
+  position: absolute !important;
   inset: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
   width: 100% !important;
   height: 100% !important;
-  border: 0 !important;
-  border-radius: 0 !important;
   max-width: none !important;
   max-height: none !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  transform: none !important;
+  transform-origin: center center !important;
+}
+
+.valora-agenda-overlay.is-open.is-maximized .valora-agenda-drawer {
+  transform: none !important;
 }
 
 @media (max-width: 760px) {
