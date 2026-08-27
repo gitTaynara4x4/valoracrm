@@ -385,6 +385,226 @@ window.showToast = function(message, type = 'success') {
 })();
 
 // ==========================================
+// VALORA | MAXIMIZAR JANELAS GLOBAIS
+// Adiciona Maximizar/Restaurar aos modais grandes do CRM sem alterar o formulário.
+// Confirmações e alertas permanecem compactos.
+// ==========================================
+(() => {
+  'use strict';
+
+  const PANEL_SELECTOR = '.modal-overlay > .modal-content, .financeiro-modal-backdrop .financeiro-modal';
+  const MAX_CLASS = 'valora-is-maximized';
+  const HOST_MAX_CLASS = 'valora-has-maximized-window';
+  const BUTTON_ATTR = 'data-valora-maximize';
+
+  function ensureStyles() {
+    if (document.getElementById('valora-window-maximize-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'valora-window-maximize-styles';
+    style.textContent = `
+      .valora-window-size-toggle {
+        width: 36px;
+        height: 36px;
+        flex: 0 0 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border, var(--border-color, rgba(15, 23, 42, .14)));
+        border-radius: 10px;
+        background: var(--surface, var(--card-bg, transparent));
+        color: var(--text, var(--text-primary, inherit));
+        font: inherit;
+        cursor: pointer;
+        box-shadow: none;
+        transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+      }
+      .valora-window-size-toggle:hover {
+        background: rgba(101, 172, 222, .09);
+        border-color: rgba(101, 172, 222, .38);
+        color: #3f8fc8;
+      }
+      .valora-window-size-toggle:active { transform: scale(.96); }
+      .valora-window-size-toggle i { pointer-events: none; }
+      html[data-theme="dark"] .valora-window-size-toggle {
+        border-color: rgba(255, 255, 255, .12);
+        background: transparent;
+        color: #e7e7e7;
+      }
+      html[data-theme="dark"] .valora-window-size-toggle:hover {
+        background: rgba(255, 255, 255, .07);
+        border-color: rgba(255, 255, 255, .2);
+        color: #fff;
+      }
+
+      .modal-overlay.${HOST_MAX_CLASS},
+      .financeiro-modal-backdrop.${HOST_MAX_CLASS} {
+        padding: 0 !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+      }
+
+      .modal-overlay.${HOST_MAX_CLASS} > .modal-content.${MAX_CLASS},
+      .financeiro-modal-backdrop.${HOST_MAX_CLASS} .financeiro-modal.${MAX_CLASS} {
+        width: 100vw !important;
+        max-width: none !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        max-height: 100dvh !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        transform: none !important;
+      }
+
+      .modal-overlay.${HOST_MAX_CLASS} > .modal-content.${MAX_CLASS} > .modal-body,
+      .modal-overlay.${HOST_MAX_CLASS} > .modal-content.${MAX_CLASS} .premium-modal-body {
+        max-height: none !important;
+      }
+
+      .financeiro-modal-backdrop.${HOST_MAX_CLASS} .financeiro-modal.${MAX_CLASS} > form,
+      .financeiro-modal-backdrop.${HOST_MAX_CLASS} .financeiro-modal.${MAX_CLASS} .financeiro-ficha-form {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+      }
+
+      .financeiro-modal-backdrop.${HOST_MAX_CLASS} .financeiro-modal.${MAX_CLASS} .financeiro-modal-body,
+      .financeiro-modal-backdrop.${HOST_MAX_CLASS} .financeiro-modal.${MAX_CLASS} .financeiro-modal-body--ficha {
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: auto !important;
+      }
+
+      @media (max-width: 760px) {
+        .valora-window-size-toggle {
+          width: 34px;
+          height: 34px;
+          flex-basis: 34px;
+          border-radius: 9px;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function hostFor(panel) {
+    return panel?.closest('.modal-overlay, .financeiro-modal-backdrop') || null;
+  }
+
+  function isConfirmation(panel) {
+    if (!panel) return true;
+    const host = hostFor(panel);
+    const signature = `${panel.id || ''} ${panel.className || ''} ${host?.id || ''} ${host?.className || ''}`.toLowerCase();
+    return /(^|[\\s_-])(confirm|confirmation|alert)([\\s_-]|$)/.test(signature)
+      || panel.matches('.modal-content-confirm, .confirm-content');
+  }
+
+  function headerFor(panel) {
+    if (!panel) return null;
+    return panel.querySelector(
+      ':scope > .modal-header, :scope > .financeiro-modal-head, :scope > form > .financeiro-modal-head, .modal-header, .financeiro-modal-head, .cliente-modal-topbar, .fornecedor-modal-topbar, .price-history-header'
+    );
+  }
+
+  function updateButton(button, active) {
+    if (!button) return;
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    button.setAttribute('aria-label', active ? 'Restaurar tela' : 'Maximizar tela');
+    button.title = active ? 'Restaurar tela' : 'Maximizar tela';
+    const icon = button.querySelector('i');
+    if (icon) icon.className = active ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+  }
+
+  function setMaximized(panel, active) {
+    if (!panel) return;
+    const host = hostFor(panel);
+    const button = panel.querySelector(`[${BUTTON_ATTR}]`);
+
+    panel.classList.toggle(MAX_CLASS, active);
+    host?.classList.toggle(HOST_MAX_CLASS, active);
+
+    const panelProps = ['width', 'max-width', 'height', 'min-height', 'max-height', 'margin', 'border-radius', 'transform'];
+    const hostProps = ['padding', 'align-items', 'justify-content'];
+
+    if (active) {
+      panel.style.setProperty('width', '100vw', 'important');
+      panel.style.setProperty('max-width', 'none', 'important');
+      panel.style.setProperty('height', '100dvh', 'important');
+      panel.style.setProperty('min-height', '100dvh', 'important');
+      panel.style.setProperty('max-height', '100dvh', 'important');
+      panel.style.setProperty('margin', '0', 'important');
+      panel.style.setProperty('border-radius', '0', 'important');
+      panel.style.setProperty('transform', 'none', 'important');
+      host?.style.setProperty('padding', '0', 'important');
+      host?.style.setProperty('align-items', 'stretch', 'important');
+      host?.style.setProperty('justify-content', 'stretch', 'important');
+    } else {
+      panelProps.forEach((property) => panel.style.removeProperty(property));
+      hostProps.forEach((property) => host?.style.removeProperty(property));
+    }
+
+    updateButton(button, active);
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  }
+
+  function addButton(panel) {
+    if (!(panel instanceof HTMLElement) || isConfirmation(panel)) return;
+    if (panel.querySelector(`[${BUTTON_ATTR}], [data-toggle-modal-size], #btn-toggle-budget-maximize`)) return;
+
+    const header = headerFor(panel);
+    if (!header) return;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'valora-window-size-toggle';
+    button.setAttribute(BUTTON_ATTR, 'true');
+    button.innerHTML = '<i class="fa-solid fa-expand" aria-hidden="true"></i>';
+    updateButton(button, panel.classList.contains(MAX_CLASS));
+
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setMaximized(panel, !panel.classList.contains(MAX_CLASS));
+    });
+
+    const actionArea = header.querySelector(':scope > .modal-window-actions, :scope > .financeiro-modal-head-actions, :scope > .cliente-modal-top-actions, :scope > .fornecedor-modal-top-actions, :scope > .budget-modal-top-actions') || header;
+    const closeButton = actionArea.querySelector(
+      ':scope > [data-modal-close], :scope > [data-close-modal], :scope > .modal-close, :scope > .btn-close, :scope > .financeiro-close, :scope > .financeiro-modal-close, :scope > [aria-label="Fechar"]'
+    );
+
+    if (closeButton) actionArea.insertBefore(button, closeButton);
+    else actionArea.appendChild(button);
+  }
+
+  function scan(root = document) {
+    if (!root) return;
+    if (root instanceof Element && root.matches(PANEL_SELECTOR)) addButton(root);
+    root.querySelectorAll?.(PANEL_SELECTOR).forEach(addButton);
+  }
+
+  function start() {
+    ensureStyles();
+    scan(document);
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node instanceof Element) scan(node);
+        });
+      });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+})();
+
+// ==========================================
 // FOOTER GLOBAL AUTOMÁTICO (NOVO E COMPLETO)
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {

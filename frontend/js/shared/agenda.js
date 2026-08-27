@@ -1397,7 +1397,10 @@
               <h3 id="valora-agenda-title">Agenda</h3>
               <p>Retornos, propostas, ordens de serviço e tarefas programadas.</p>
             </div>
-            <button class="valora-agenda-close" type="button" data-agenda-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+            <div class="valora-agenda-window-actions">
+              <button class="valora-agenda-maximize" type="button" data-agenda-maximize aria-label="Maximizar agenda" title="Maximizar agenda" aria-pressed="false"><i class="fa-solid fa-expand"></i></button>
+              <button class="valora-agenda-close" type="button" data-agenda-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+            </div>
           </div>
           <div class="agenda-shell-toolbar">
             <div class="agenda-view-switch">
@@ -1451,6 +1454,10 @@
     renderPushControl();
     const overlay = document.getElementById('valora-agenda-overlay');
     overlay?.addEventListener('click', (event) => {
+      if (event.target.closest('[data-agenda-maximize]')) {
+        togglePanelMaximized();
+        return;
+      }
       if (event.target === overlay || event.target.closest('[data-agenda-close]')) {
         closePanel();
         return;
@@ -1502,6 +1509,31 @@
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && overlay?.classList.contains('is-open')) closePanel();
     });
+  }
+
+  function setPanelMaximized(active) {
+    const overlay = document.getElementById('valora-agenda-overlay');
+    if (!overlay) return;
+
+    const maximized = Boolean(active);
+    overlay.classList.toggle('is-maximized', maximized);
+
+    const button = overlay.querySelector('[data-agenda-maximize]');
+    if (button) {
+      button.setAttribute('aria-pressed', maximized ? 'true' : 'false');
+      button.setAttribute('aria-label', maximized ? 'Restaurar agenda' : 'Maximizar agenda');
+      button.title = maximized ? 'Restaurar agenda' : 'Maximizar agenda';
+      const icon = button.querySelector('i');
+      if (icon) icon.className = maximized ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+    }
+
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  }
+
+  function togglePanelMaximized() {
+    const overlay = document.getElementById('valora-agenda-overlay');
+    if (!overlay) return;
+    setPanelMaximized(!overlay.classList.contains('is-maximized'));
   }
 
   function openPanel() {

@@ -1958,3 +1958,60 @@ html:not([data-theme="dark"]) .agenda-push-test:hover:not(:disabled) {
     justify-content: flex-end;
   }
 }
+
+
+/* =========================================================
+   AGENDA | MAXIMIZAR / RESTAURAR
+   ========================================================= */
+.valora-agenda-window-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.valora-agenda-maximize {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--agenda-border);
+  border-radius: 10px;
+  background: var(--agenda-surface);
+  color: var(--agenda-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font: inherit;
+  box-shadow: none;
+  transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+}
+
+.valora-agenda-maximize:hover,
+.valora-agenda-close:hover {
+  background: color-mix(in srgb, var(--agenda-brand) 8%, var(--agenda-surface));
+  border-color: color-mix(in srgb, var(--agenda-brand) 35%, var(--agenda-border));
+  color: var(--agenda-brand);
+}
+
+.valora-agenda-maximize:active { transform: scale(.96); }
+
+.valora-agenda-overlay.is-maximized .valora-agenda-drawer {
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+@media (max-width: 760px) {
+  .valora-agenda-window-actions { gap: 6px; }
+  .valora-agenda-maximize,
+  .valora-agenda-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+  }
+}
