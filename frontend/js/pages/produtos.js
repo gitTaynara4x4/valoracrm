@@ -7,7 +7,7 @@
 
   const API_PRODUTOS = '/api/produtos';
   const MODULO_FORMULARIO = 'produtos';
-  const ATUALIZACAO_PRECOS_LIMITE_PAGINA = 25;
+  const ATUALIZACAO_PRECOS_LIMITE_PAGINA = 10;
   const ATUALIZACAO_PRECOS_COLUNAS_STORAGE = 'valora:produtos:atualizacao-precos:colunas-v1';
 
   const SYSTEM_FIELD_SLUGS = new Set([
@@ -1474,6 +1474,7 @@
             >
               <strong>${escapeHtml(produto.nome || '-')}</strong>
               ${produto.descricao ? `<span>${escapeHtml(produto.descricao)}</span>` : ''}
+              ${renderCostValidityBadge(produto)}
             </button>
           </td>
         `;
@@ -2338,6 +2339,84 @@
     setPriceFilterOptions('preco-filtro-fabricante', filters.fabricante, 'Todos');
   }
 
+  function renderResumoValidadeCusto() {
+    const resumo = atualizacaoPrecosMeta?.resumo_validade_custo || {};
+    const validade = Number(atualizacaoPrecosMeta?.validade_custo_dias || resumo.validade_dias || 90);
+    const vencidos = Number(resumo.vencidos || 0);
+    const semCusto = Number(resumo.sem_custo || 0);
+    const emDia = Number(resumo.em_dia || 0);
+    const precisam = Number(resumo.precisam_revisao ?? (vencidos + semCusto));
+
+    const input = $('validade-custo-dias');
+    if (input) input.value = String(validade);
+
+    const titulo = $('validade-custo-titulo');
+    const mensagem = $('validade-custo-mensagem');
+    const stats = $('validade-custo-stats');
+
+    if (titulo) {
+      titulo.textContent = precisam
+        ? `${precisam} produto${precisam === 1 ? '' : 's'} precisam de revisão de custo`
+        : 'Custos dos produtos estão dentro da validade';
+    }
+    if (mensagem) {
+      mensagem.textContent = `O VALORA alerta quando o preço de compra fica ${validade} dias sem alteração real.`;
+    }
+    if (stats) {
+      stats.innerHTML = `
+        <span class="price-validity-stat ${vencidos ? 'is-danger' : 'is-ok'}"><i class="fa-solid fa-triangle-exclamation"></i>${vencidos} desatualizado${vencidos === 1 ? '' : 's'}</span>
+        <span class="price-validity-stat ${semCusto ? 'is-warning' : 'is-ok'}"><i class="fa-solid fa-circle-minus"></i>${semCusto} sem custo</span>
+        <span class="price-validity-stat is-ok"><i class="fa-solid fa-circle-check"></i>${emDia} em dia</span>
+      `;
+    }
+  }
+
+  function renderCostValidityBadge(produto, { showOk = false, compact = false } = {}) {
+    const info = produto?.validade_custo || {};
+    const status = String(info.status || '');
+    const dias = Number(info.dias_desde_atualizacao);
+    const validade = Number(info.validade_dias || atualizacaoPrecosMeta?.validade_custo_dias || 90);
+
+    if (status === 'sem_custo') {
+      return `<span class="cost-validity-badge is-warning${compact ? ' is-compact' : ''}"><i class="fa-solid fa-circle-minus"></i>Sem custo informado</span>`;
+    }
+    if (status === 'vencido') {
+      const textoDias = Number.isFinite(dias) ? `Revisar há ${dias} dias` : `Revisar acima de ${validade} dias`;
+      return `<span class="cost-validity-badge is-danger${compact ? ' is-compact' : ''}" title="Preço de compra precisa ser revisado"><i class="fa-solid fa-triangle-exclamation"></i>${escapeHtml(textoDias)}</span>`;
+    }
+    if (showOk && status === 'ok') {
+      return `<span class="cost-validity-badge is-ok${compact ? ' is-compact' : ''}"><i class="fa-solid fa-circle-check"></i>Em dia</span>`;
+    }
+    return '';
+  }
+
+  async function salvarValidadeCusto() {
+
+    const input = $('validade-custo-dias');
+    const button = $('btn-salvar-validade-custo');
+    const dias = Number(input?.value || 0);
+    if (!Number.isInteger(dias) || dias < 1 || dias > 3650) {
+      toast('Informe uma validade entre 1 e 3650 dias.', { error: true });
+      input?.focus();
+      return;
+    }
+
+    if (button) button.disabled = true;
+    try {
+      const result = await apiJson(`${API_PRODUTOS}/atualizacao-precos/configuracao`, {
+        method: 'PUT',
+        body: JSON.stringify({ validade_custo_dias: dias }),
+      });
+      await carregarMetaAtualizacaoPrecos();
+      await carregarAtualizacaoPrecos({ offset: 0, silent: true });
+      toast(result?.message || 'Validade do custo atualizada.', { ms: 2600 });
+    } catch (error) {
+      toast(error.message || 'Não foi possível salvar a validade do custo.', { error: true, ms: 4500 });
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
   async function carregarMetaAtualizacaoPrecos() {
     const [meta, me] = await Promise.all([
       apiJson(`${API_PRODUTOS}/atualizacao-precos/meta`),
@@ -2346,7 +2425,10 @@
 
     atualizacaoPrecosMeta = meta || { campos_preco: [], filtros: {} };
     podeEditarPrecos = !!me?.permissoes?.produtos?.pode_editar;
+    if ($('validade-custo-dias')) $('validade-custo-dias').disabled = !podeEditarPrecos;
+    if ($('btn-salvar-validade-custo')) $('btn-salvar-validade-custo').disabled = !podeEditarPrecos;
     preencherFiltrosAtualizacaoPrecos();
+    renderResumoValidadeCusto();
     prepararColunasPrecosVisiveis(atualizacaoPrecosMeta?.campos_preco || []);
     renderSeletorColunasPrecos();
   }
@@ -2368,6 +2450,7 @@
       categoria: 'preco-filtro-categoria',
       fornecedor: 'preco-filtro-fornecedor',
       fabricante: 'preco-filtro-fabricante',
+      revisao_custo: 'preco-filtro-revisao-custo',
     };
 
     Object.entries(fields).forEach(([key, id]) => {
@@ -2381,7 +2464,7 @@
   function setAtualizacaoPrecosLoading(message = 'Carregando produtos e campos de preço...') {
     const tbody = $('tbody-atualizacao-precos');
     if (!tbody) return;
-    const colspan = Math.max(3, 2 + camposVisiveisAtualizacaoPrecos().length);
+    const colspan = Math.max(5, 4 + camposVisiveisAtualizacaoPrecos().length);
     tbody.innerHTML = `<tr><td colspan="${colspan}" class="empty-state">${escapeHtml(message)}</td></tr>`;
   }
 
@@ -2430,7 +2513,17 @@
     return ['select', 'lista', 'dropdown', 'radio'].includes(type);
   }
 
-  function renderPriceCell(product, field) {
+  function getPriceFieldRole(field) {
+    const key = String(field?.key || '').toLowerCase();
+    const slug = String(field?.slug || '').toLowerCase();
+    const label = String(field?.label || '').toLowerCase();
+    const text = `${key} ${slug} ${label}`;
+    if (key === 'custo' || /(^|[_\s-])custo([_\s-]|$)/.test(text) || text.includes('preço de compra') || text.includes('preco de compra')) return 'cost';
+    if (key === 'preco_venda' || key === 'preço_venda' || text.includes('preço de venda') || text.includes('preco de venda') || text.includes('valor de venda')) return 'sale';
+    return 'other';
+  }
+
+  function renderPriceCell(product, field, role = 'other') {
     const original = String(product?.valores?.[field.key] ?? '');
     const effective = getPendingValue(product.id, field.key, original);
     const pending = getPendingProduct(product.id)?.valores.has(String(field.key));
@@ -2456,6 +2549,7 @@
       aria-label="${escapeHtml(`${field.label} de ${product.nome}`)}"
     `;
 
+    const isCurrency = String(field?.tipo || '').toLowerCase() === 'moeda' || ['cost', 'sale'].includes(role);
     const editor = usesSelect
       ? `
         <select class="price-inline-input price-inline-select" ${commonAttributes} ${readonly ? 'disabled' : ''}>
@@ -2466,8 +2560,9 @@
         </select>
       `
       : `
+        ${isCurrency ? '<span class="price-currency-prefix">R$</span>' : ''}
         <input
-          class="price-inline-input"
+          class="price-inline-input ${isCurrency ? 'has-currency-prefix' : ''}"
           type="text"
           inputmode="${fieldInputMode(field)}"
           value="${escapeHtml(formatPriceInputValue(effective))}"
@@ -2478,7 +2573,7 @@
       `;
 
     return `
-      <td class="price-value-cell ${pending ? 'is-price-changed' : ''}" data-price-cell="${escapeHtml(product.id)}:${escapeHtml(field.key)}">
+      <td class="price-value-cell price-value-${escapeHtml(role)} ${pending ? 'is-price-changed' : ''}" data-price-cell="${escapeHtml(product.id)}:${escapeHtml(field.key)}">
         <div class="price-input-wrap">
           ${editor}
           ${readonly ? '<i class="fa-solid fa-lock price-field-lock" aria-hidden="true"></i>' : ''}
@@ -2493,13 +2588,39 @@
     const count = $('contagem-atualizacao-precos');
     if (!thead || !tbody) return;
 
-    const fields = camposVisiveisAtualizacaoPrecos();
+    const visibleFields = camposVisiveisAtualizacaoPrecos();
+    const costFields = visibleFields.filter((field) => getPriceFieldRole(field) === 'cost');
+    const saleFields = visibleFields.filter((field) => getPriceFieldRole(field) === 'sale');
+    const otherFields = visibleFields.filter((field) => getPriceFieldRole(field) === 'other');
+    const orderedFields = [...costFields, ...otherFields, ...saleFields];
+    const defaultCompactLayout = costFields.length === 1 && saleFields.length === 1 && otherFields.length === 0;
+    const table = $('tabela-atualizacao-precos');
+    table?.classList.toggle('is-default-price-layout', defaultCompactLayout);
+    table?.classList.toggle('has-extra-price-columns', !defaultCompactLayout);
+
     thead.innerHTML = `
       <tr>
+        <th class="price-select-col"><input type="checkbox" id="selecionar-todos-precos" aria-label="Selecionar todos os produtos desta página" /></th>
         <th class="price-sticky-code">Código</th>
-        <th class="price-sticky-name">Nome oficial do produto</th>
-        ${fields.map((field) => `
-          <th title="${escapeHtml(field.secao || 'Formação de preços')}">
+        <th class="price-sticky-name">Produto</th>
+        ${costFields.map((field) => `
+          <th class="price-cost-col" title="${escapeHtml(field.secao || 'Formação de preços')}">
+            <span>${escapeHtml(field.label)}</span>
+            ${field.editable ? '' : '<i class="fa-solid fa-lock" title="Somente leitura"></i>'}
+          </th>
+        `).join('')}
+        <th class="price-status-col" title="Situação do custo com base na validade configurada">
+          <span>Situação do custo</span>
+          <i class="fa-solid fa-circle-question" title="Mostra se o custo está em dia, sem custo ou precisando de revisão"></i>
+        </th>
+        ${otherFields.map((field) => `
+          <th class="price-extra-col" title="${escapeHtml(field.secao || 'Formação de preços')}">
+            <span>${escapeHtml(field.label)}</span>
+            ${field.editable ? '' : '<i class="fa-solid fa-lock" title="Somente leitura"></i>'}
+          </th>
+        `).join('')}
+        ${saleFields.map((field) => `
+          <th class="price-sale-col" title="${escapeHtml(field.secao || 'Formação de preços')}">
             <span>${escapeHtml(field.label)}</span>
             ${field.editable ? '' : '<i class="fa-solid fa-lock" title="Somente leitura"></i>'}
           </th>
@@ -2507,11 +2628,13 @@
       </tr>
     `;
 
+    const extraCols = 4 + orderedFields.length; // seleção, código, produto, situação + campos
     if (!atualizacaoPrecosItens.length) {
-      tbody.innerHTML = `<tr><td colspan="${Math.max(2, 2 + fields.length)}" class="empty-state">Nenhum produto encontrado.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${Math.max(4, extraCols)}" class="empty-state">Nenhum produto encontrado.</td></tr>`;
     } else {
       tbody.innerHTML = atualizacaoPrecosItens.map((product) => `
         <tr data-price-row="${escapeHtml(product.id)}" class="${getPendingProduct(product.id) ? 'has-price-changes' : ''}">
+          <td class="price-select-cell"><input type="checkbox" class="price-row-select" data-product-select="${escapeHtml(product.id)}" aria-label="Selecionar ${escapeHtml(product.nome || 'produto')}" /></td>
           <td class="price-sticky-code"><span class="badge-codigo">${escapeHtml(product.codigo || '-')}</span></td>
           <td class="price-sticky-name">
             <div class="price-product-name">
@@ -2519,7 +2642,10 @@
               <span>${escapeHtml(product.categoria || (product.ativo ? 'Ativo' : 'Inativo'))}</span>
             </div>
           </td>
-          ${fields.map((field) => renderPriceCell(product, field)).join('')}
+          ${costFields.map((field) => renderPriceCell(product, field, 'cost')).join('')}
+          <td class="price-status-cell">${renderCostValidityBadge(product, { showOk: true, compact: true }) || '<span class="cost-validity-badge is-neutral is-compact">Sem status</span>'}</td>
+          ${otherFields.map((field) => renderPriceCell(product, field, 'other')).join('')}
+          ${saleFields.map((field) => renderPriceCell(product, field, 'sale')).join('')}
         </tr>
       `).join('');
     }
@@ -2528,12 +2654,19 @@
     const start = total ? Number(atualizacaoPrecosPage.offset || 0) + 1 : 0;
     const end = Math.min(Number(atualizacaoPrecosPage.offset || 0) + atualizacaoPrecosItens.length, total);
     if (count) count.textContent = total ? `${start}-${end} de ${total} produtos` : '0 produtos';
+    const resumoRegistros = $('resumo-registros-precos');
+    if (resumoRegistros) resumoRegistros.textContent = total
+      ? `Mostrando ${start} a ${end} de ${total} registros`
+      : 'Mostrando 0 registros';
+    const pageSize = $('quantidade-pagina-precos');
+    if (pageSize) pageSize.value = String(atualizacaoPrecosPage.limit || ATUALIZACAO_PRECOS_LIMITE_PAGINA);
 
     renderPaginacaoAtualizacaoPrecos();
     atualizarResumoAlteracoesPrecos();
   }
 
   function renderPaginacaoAtualizacaoPrecos() {
+
     const wraps = document.querySelectorAll('[data-pagination="atualizacao-precos"]');
     if (!wraps.length) return;
 
@@ -2763,6 +2896,20 @@
 
   function bindEventosAtualizacaoPrecos() {
     $('btn-atualizacao-precos')?.addEventListener('click', abrirTelaAtualizacaoPrecos);
+    $('btn-toggle-filtros-precos')?.addEventListener('click', () => {
+      const panel = $('painel-filtros-precos');
+      const button = $('btn-toggle-filtros-precos');
+      if (!panel || !button) return;
+      const willOpen = panel.hidden;
+      panel.hidden = !willOpen;
+      button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      button.classList.toggle('is-active', willOpen);
+    });
+    $('quantidade-pagina-precos')?.addEventListener('change', (event) => {
+      const limit = Number(event.target.value || ATUALIZACAO_PRECOS_LIMITE_PAGINA);
+      atualizacaoPrecosPage.limit = [10, 25, 50, 100].includes(limit) ? limit : ATUALIZACAO_PRECOS_LIMITE_PAGINA;
+      carregarAtualizacaoPrecos({ offset: 0 });
+    });
     $('btn-voltar-catalogo-produtos')?.addEventListener('click', fecharTelaAtualizacaoPrecos);
     $('btn-salvar-precos')?.addEventListener('click', salvarAlteracoesPrecos);
     $('btn-salvar-precos-barra')?.addEventListener('click', salvarAlteracoesPrecos);
@@ -2771,6 +2918,7 @@
     $('btn-historico-precos')?.addEventListener('click', abrirHistoricoPrecos);
     $('btn-fechar-historico-precos')?.addEventListener('click', fecharHistoricoPrecos);
     $('historico-preco-produto')?.addEventListener('change', carregarHistoricoPrecos);
+    $('btn-salvar-validade-custo')?.addEventListener('click', salvarValidadeCusto);
 
     const historyModal = $('modal-historico-precos');
     historyModal?.addEventListener('click', (event) => {
@@ -2828,12 +2976,12 @@
     };
 
     $('preco-filtro-busca')?.addEventListener('input', () => reloadPriceFilters(350));
-    ['preco-filtro-situacao', 'preco-filtro-tipo', 'preco-filtro-origem', 'preco-filtro-categoria', 'preco-filtro-fornecedor', 'preco-filtro-fabricante']
+    ['preco-filtro-situacao', 'preco-filtro-tipo', 'preco-filtro-origem', 'preco-filtro-categoria', 'preco-filtro-fornecedor', 'preco-filtro-fabricante', 'preco-filtro-revisao-custo']
       .forEach((id) => $(id)?.addEventListener('change', () => reloadPriceFilters(0)));
 
     $('btn-filtrar-precos')?.addEventListener('click', () => carregarAtualizacaoPrecos({ offset: 0 }));
     $('btn-limpar-filtros-precos')?.addEventListener('click', () => {
-      ['preco-filtro-busca', 'preco-filtro-situacao', 'preco-filtro-tipo', 'preco-filtro-origem', 'preco-filtro-categoria', 'preco-filtro-fornecedor', 'preco-filtro-fabricante']
+      ['preco-filtro-busca', 'preco-filtro-situacao', 'preco-filtro-tipo', 'preco-filtro-origem', 'preco-filtro-categoria', 'preco-filtro-fornecedor', 'preco-filtro-fabricante', 'preco-filtro-revisao-custo']
         .forEach((id) => { if ($(id)) $(id).value = ''; });
       carregarAtualizacaoPrecos({ offset: 0 });
     });
@@ -2845,6 +2993,12 @@
     };
     priceTableBody?.addEventListener('input', handlePriceInput);
     priceTableBody?.addEventListener('change', handlePriceInput);
+    $('thead-atualizacao-precos')?.addEventListener('change', (event) => {
+      if (event.target?.id !== 'selecionar-todos-precos') return;
+      document.querySelectorAll('#tbody-atualizacao-precos .price-row-select').forEach((checkbox) => {
+        checkbox.checked = event.target.checked;
+      });
+    });
 
     document.querySelectorAll('[data-pagination="atualizacao-precos"]').forEach((wrap) => {
       wrap.addEventListener('click', (event) => {

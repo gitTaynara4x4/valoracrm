@@ -82,6 +82,29 @@ function getCampoSlug(campo) {
     slugify(campo?.nome || campo?.label || '')
   ).trim();
 }
+function parseMaybeJson(value, fallback = null) {
+  if (value == null || value === '') return fallback;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(String(value));
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function isFlagOn(value) {
+  return value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true' || String(value).toLowerCase() === 'sim';
+}
+
+function getCampoCondicao(campo) {
+  return parseMaybeJson(campo?.condicao, null) || parseMaybeJson(campo?.condicao_json, null) || {};
+}
+
+function getCampoIntegracoes(campo) {
+  const condicao = getCampoCondicao(campo);
+  return parseMaybeJson(condicao.integracoes, null) || {};
+}
+
 
 /* =========================================
    ÍCONES DAS SEÇÕES
@@ -361,6 +384,7 @@ function montarCampoFinal(campoCliente, campoFormulario = null) {
 
   return {
     id: campoCliente?.id || campoFormulario?.id || null,
+    formulario_campo_id: campoFormulario?.id || null,
     nome,
     slug,
     tipo: normalizarTipo(campoCliente?.tipo || campoFormulario?.tipo_campo || 'texto'),
@@ -374,6 +398,8 @@ function montarCampoFinal(campoCliente, campoFormulario = null) {
     largura: campoFormulario?.largura || campoCliente?.largura || '50',
     ajuda: campoFormulario?.ajuda || campoCliente?.ajuda || '',
     placeholder: campoFormulario?.placeholder || campoCliente?.placeholder || '',
+    condicao: campoFormulario?.condicao || campoCliente?.condicao || null,
+    condicao_json: campoFormulario?.condicao_json || campoCliente?.condicao_json || null,
   };
 }
 
@@ -512,13 +538,40 @@ function getCampoClass(campo) {
   return '';
 }
 
+function getValorCampoPorOrigem(campo, values = {}) {
+  const slug = String(campo?.slug || '').trim();
+  if (!slug) return '';
+
+  const origem = String(campo?.origem || '').trim().toLowerCase();
+  const campoSistema = String(campo?.campo_sistema || '').trim();
+  const customValues = values?.__custom_fields && typeof values.__custom_fields === 'object'
+    ? values.__custom_fields
+    : null;
+  const systemValues = values?.__system_fields && typeof values.__system_fields === 'object'
+    ? values.__system_fields
+    : null;
+
+  if (origem === 'personalizado' && customValues && Object.prototype.hasOwnProperty.call(customValues, slug)) {
+    return customValues[slug] ?? '';
+  }
+
+  if (origem === 'sistema' && systemValues) {
+    const key = campoSistema || slug;
+    if (Object.prototype.hasOwnProperty.call(systemValues, key)) {
+      return systemValues[key] ?? '';
+    }
+  }
+
+  return values?.[slug] ?? '';
+}
+
 function renderInputCampo(campo, values = {}, context = {}) {
   const slug = campo.slug;
   const instanceKey = slugify(context?.instanceKey || '') || 'campo';
   const id = `custom-field-${slug}-${instanceKey}`;
   const label = campo.nome || slug;
   const tipo = normalizarTipo(campo.tipo);
-  const valor = values?.[slug] ?? '';
+  const valor = getValorCampoPorOrigem(campo, values);
   const required = campo.obrigatorio ? ' *' : '';
   const placeholder = campo.placeholder || '';
   const disabled = campo.somente_leitura ? 'disabled' : '';
@@ -526,7 +579,11 @@ function renderInputCampo(campo, values = {}, context = {}) {
   const origem = String(campo?.origem || '').trim().toLowerCase();
   const campoSistema = String(campo?.campo_sistema || '').trim();
   const sectionTitle = String(context?.sectionTitle || '').trim();
-  const wrapperMeta = `data-custom-field-wrapper="true" data-custom-slug="${escapeHtml(slug)}" data-custom-origin="${escapeHtml(origem)}" data-system-field="${escapeHtml(campoSistema)}" data-custom-section="${escapeHtml(sectionTitle)}"`;
+  const integracoes = getCampoIntegracoes(campo);
+  const cep = parseMaybeJson(integracoes.cep, null) || {};
+  const mapas = parseMaybeJson(integracoes.mapas, null) || {};
+  const destinos = parseMaybeJson(cep.destinos, null) || {};
+  const wrapperMeta = `data-custom-field-wrapper="true" data-custom-slug="${escapeHtml(slug)}" data-custom-origin="${escapeHtml(origem)}" data-system-field="${escapeHtml(campoSistema)}" data-form-field-id="${escapeHtml(campo?.formulario_campo_id || '')}" data-custom-section="${escapeHtml(sectionTitle)}" data-cep-source="${isFlagOn(cep.buscar_endereco ?? cep.buscarEndereco ?? cep.buscar) ? 'true' : 'false'}" data-cep-fill-logradouro="${isFlagOn(cep.preencher_logradouro ?? cep.logradouro) ? 'true' : 'false'}" data-cep-fill-bairro="${isFlagOn(cep.preencher_bairro ?? cep.bairro) ? 'true' : 'false'}" data-cep-fill-cidade="${isFlagOn(cep.preencher_cidade ?? cep.cidade) ? 'true' : 'false'}" data-cep-fill-estado="${isFlagOn(cep.preencher_estado ?? cep.estado) ? 'true' : 'false'}" data-cep-provider="${escapeHtml(cep.provedor || 'viacep')}" data-cep-fallback="${escapeHtml(cep.fallback || '')}" data-cep-destinations-configured="${isFlagOn(cep.destinos_configurados) || Object.prototype.hasOwnProperty.call(cep, 'destinos') ? 'true' : 'false'}" data-cep-target-logradouro="${escapeHtml(destinos.logradouro || '')}" data-cep-target-bairro="${escapeHtml(destinos.bairro || '')}" data-cep-target-cidade="${escapeHtml(destinos.cidade || '')}" data-cep-target-estado="${escapeHtml(destinos.estado || '')}" data-google-maps-enabled="${isFlagOn(mapas.abrir_google_maps ?? mapas.google_maps ?? mapas.ativo) ? 'true' : 'false'}"`;
 
   let html = `<div class="form-group custom-field-item ${fieldClass}" ${wrapperMeta}>`;
 

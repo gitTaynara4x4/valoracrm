@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/frontend/css/exportacoes.css?v=20260713-exportacoes-completas-v1" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260717-busca-relacao-v1" />
-  <link rel="stylesheet" href="/frontend/css/produtos.css?v=20260805-kit-composicao-v1" />
+  <link rel="stylesheet" href="/frontend/css/produtos.css?v=20260829-price-layout-v17" />
   <link rel="stylesheet" href="/frontend/css/localizar-personalizado.css?v=20260715-localizar-arrastar-restaurado-v8" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
@@ -35,7 +35,7 @@
   <script src="/frontend/js/shared/ficha-principal.js?v=20260717-busca-relacao-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script src="/frontend/js/shared/localizar-personalizado.js?v=20260723-produtos-multiselect-relacoes-v9" defer></script>
-  <script src="/frontend/js/pages/produtos.js?v=20260809-performance-v28" defer></script>
+  <script src="/frontend/js/pages/produtos.js?v=20260829-price-layout-v17" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 </head>
 
@@ -152,32 +152,83 @@
 
       <section id="tela-atualizacao-precos" class="price-update-screen" hidden>
         <header class="price-update-header">
-          <div>
+          <div class="price-update-heading">
             <button class="price-back-button" type="button" id="btn-voltar-catalogo-produtos">
               <i class="fa-solid fa-arrow-left"></i> Voltar para produtos
             </button>
             <span class="eyebrow">Produtos</span>
-            <h2>Atualização rápida de preços</h2>
-            <p>Custo e preço de venda aparecem por padrão. Abra Colunas somente quando precisar de outros campos.</p>
+            <h2>Atualização de preços dos produtos</h2>
+            <p>Revise e atualize os custos e preços de venda de forma mais rápida e organizada.</p>
+            <div class="price-header-meta">
+              <span id="contagem-atualizacao-precos" class="counter-text price-counter-pill" aria-live="polite">0 produtos</span>
+              <button class="btn btn-secondary" type="button" id="btn-historico-precos">
+                <i class="fa-solid fa-clock-rotate-left"></i> Histórico
+              </button>
+            </div>
           </div>
 
           <div class="price-update-header-actions">
-            <button class="btn btn-secondary" type="button" id="btn-historico-precos">
-              <i class="fa-solid fa-clock-rotate-left"></i> Histórico
+            <button class="btn btn-secondary" type="button" id="btn-toggle-filtros-precos" aria-expanded="false" aria-controls="painel-filtros-precos">
+              <i class="fa-solid fa-sliders"></i> Filtros e revisão
+            </button>
+            <div class="price-column-selector" id="seletor-colunas-precos">
+              <button class="btn btn-secondary" type="button" id="btn-colunas-precos" aria-expanded="false" aria-controls="painel-colunas-precos">
+                <i class="fa-solid fa-table-columns"></i>
+                Colunas
+                <span class="price-column-count" id="contador-colunas-precos">2</span>
+              </button>
+
+              <div class="price-column-panel" id="painel-colunas-precos" hidden>
+                <div class="price-column-panel-head">
+                  <div>
+                    <strong>Colunas exibidas</strong>
+                    <span>Menos colunas deixam a edição mais rápida.</span>
+                  </div>
+                </div>
+                <div class="price-column-list" id="lista-colunas-precos"></div>
+                <button class="price-column-reset" type="button" id="btn-restaurar-colunas-precos">
+                  Mostrar somente Custo e Preço de venda
+                </button>
+              </div>
+            </div>
+
+            <button class="btn btn-secondary" type="button" id="btn-descartar-precos" disabled>
+              Descartar alterações
             </button>
             <button class="btn btn-primary" type="button" id="btn-salvar-precos" disabled>
-              <i class="fa-solid fa-floppy-disk"></i> Salvar alterações
+              <i class="fa-solid fa-floppy-disk"></i> Confirmar alterações
             </button>
           </div>
         </header>
 
+        <div class="price-config-panel" id="painel-filtros-precos" hidden>
+        <article class="panel-card price-validity-card" id="card-validade-custo">
+          <div class="price-validity-main">
+            <span class="price-validity-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+            <div>
+              <span class="eyebrow">Regra de revisão do custo</span>
+              <h3 id="validade-custo-titulo">Verificando validade dos custos...</h3>
+              <p id="validade-custo-mensagem">Produtos com custo antigo serão destacados para revisão.</p>
+              <div class="price-validity-stats" id="validade-custo-stats" aria-live="polite"></div>
+            </div>
+          </div>
+          <div class="price-validity-config">
+            <label for="validade-custo-dias">Alertar após</label>
+            <div class="price-validity-config-row">
+              <input id="validade-custo-dias" type="number" min="1" max="3650" value="90" inputmode="numeric" />
+              <span>dias</span>
+              <button class="btn btn-secondary btn-sm" type="button" id="btn-salvar-validade-custo">Salvar regra</button>
+            </div>
+            <small>A contagem reinicia somente quando o custo é realmente alterado.</small>
+          </div>
+        </article>
+
         <article class="panel-card price-filter-card">
-          <div class="panel-head price-filter-head">
+          <div class="price-filter-headline">
             <div>
               <h3>Localizar produtos</h3>
-              <p>Os filtros podem ser combinados. A lista permanece em ordem alfabética.</p>
+              <p>Use os filtros abaixo para encontrar rapidamente o item que deseja revisar.</p>
             </div>
-            <span id="contagem-atualizacao-precos" class="counter-text" aria-live="polite">0 produtos</span>
           </div>
 
           <div class="price-filter-grid">
@@ -187,8 +238,23 @@
             </div>
 
             <div class="form-group">
+              <label for="preco-filtro-revisao-custo">Revisão do custo</label>
+              <select id="preco-filtro-revisao-custo">
+                <option value="">Todos</option>
+                <option value="pendentes">Precisam de revisão</option>
+                <option value="vencidos">Custo desatualizado</option>
+                <option value="sem_custo">Sem custo informado</option>
+              </select>
+            </div>
+
+            <div class="form-group">
               <label for="preco-filtro-situacao">Situação comercial</label>
               <select id="preco-filtro-situacao"><option value="">Todas</option></select>
+            </div>
+
+            <div class="form-group">
+              <label for="preco-filtro-categoria">Categoria</label>
+              <select id="preco-filtro-categoria"><option value="">Todas</option></select>
             </div>
 
             <div class="form-group">
@@ -199,11 +265,6 @@
             <div class="form-group">
               <label for="preco-filtro-origem">Origem do produto</label>
               <select id="preco-filtro-origem"><option value="">Todas</option></select>
-            </div>
-
-            <div class="form-group">
-              <label for="preco-filtro-categoria">Categoria</label>
-              <select id="preco-filtro-categoria"><option value="">Todas</option></select>
             </div>
 
             <div class="form-group">
@@ -230,40 +291,14 @@
           </div>
         </article>
 
+        </div>
+
+        <div class="price-table-help-banner">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>Campos alterados ficam destacados. Nada é salvo até você confirmar as alterações.</span>
+        </div>
+
         <article class="panel-card price-table-card">
-          <div class="price-table-toolbar">
-            <div class="price-table-help">
-              <i class="fa-solid fa-circle-info"></i>
-              <span>Campos alterados ficam destacados. Nada é salvo até confirmar.</span>
-            </div>
-            <div class="price-table-toolbar-actions">
-              <div class="price-column-selector" id="seletor-colunas-precos">
-                <button class="btn btn-secondary btn-sm" type="button" id="btn-colunas-precos" aria-expanded="false" aria-controls="painel-colunas-precos">
-                  <i class="fa-solid fa-table-columns"></i>
-                  Colunas
-                  <span class="price-column-count" id="contador-colunas-precos">2</span>
-                </button>
-
-                <div class="price-column-panel" id="painel-colunas-precos" hidden>
-                  <div class="price-column-panel-head">
-                    <div>
-                      <strong>Colunas exibidas</strong>
-                      <span>Menos colunas deixam a edição mais rápida.</span>
-                    </div>
-                  </div>
-                  <div class="price-column-list" id="lista-colunas-precos"></div>
-                  <button class="price-column-reset" type="button" id="btn-restaurar-colunas-precos">
-                    Mostrar somente Custo e Preço de venda
-                  </button>
-                </div>
-              </div>
-
-              <button class="btn btn-secondary btn-sm" type="button" id="btn-descartar-precos" disabled>
-                Descartar alterações
-              </button>
-            </div>
-          </div>
-
           <div class="table-pagination price-pagination price-pagination-top" data-pagination="atualizacao-precos" aria-label="Paginação superior"></div>
 
           <div class="price-table-wrapper">
@@ -276,6 +311,17 @@
           </div>
 
           <div class="table-pagination price-pagination" data-pagination="atualizacao-precos" aria-label="Paginação inferior"></div>
+          <div class="price-table-footer-meta">
+            <span id="resumo-registros-precos">Mostrando 0 registros</span>
+            <label>
+              <select id="quantidade-pagina-precos" aria-label="Quantidade de produtos por página">
+                <option value="10">10 por página</option>
+                <option value="25">25 por página</option>
+                <option value="50">50 por página</option>
+                <option value="100">100 por página</option>
+              </select>
+            </label>
+          </div>
         </article>
 
         <div class="price-save-bar" id="barra-salvar-precos" hidden>

@@ -722,6 +722,25 @@
     ).trim();
   }
 
+  function parseMaybeJson(value, fallback = null) {
+    if (value == null || value === '') return fallback;
+    if (typeof value === 'object') return value;
+    try {
+      return JSON.parse(String(value));
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function isFlagOn(value) {
+    return value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true' || String(value).toLowerCase() === 'sim';
+  }
+
+  function getCampoIntegracoes(campo) {
+    const condicao = parseMaybeJson(campo?.condicao, null) || parseMaybeJson(campo?.condicao_json, null) || {};
+    return parseMaybeJson(condicao.integracoes, null) || {};
+  }
+
   function indexarCamposAvulsos(camposAvulsos = []) {
     const byId = new Map();
     const bySlug = new Map();
@@ -761,6 +780,7 @@
 
     return {
       id: campoAvulso?.id || campoFormulario?.campo_personalizado_id || campoFormulario?.id || null,
+      formulario_campo_id: campoFormulario?.id || null,
       nome,
       slug,
       // O tipo salvo no formulário é a fonte principal.
@@ -777,6 +797,8 @@
       largura: campoFormulario?.largura || campoAvulso?.largura || '50',
       ajuda: campoFormulario?.ajuda || campoAvulso?.ajuda || '',
       placeholder: campoFormulario?.placeholder || campoAvulso?.placeholder || '',
+      condicao: campoFormulario?.condicao || campoAvulso?.condicao || null,
+      condicao_json: campoFormulario?.condicao_json || campoAvulso?.condicao_json || null,
     };
   }
 
@@ -984,7 +1006,11 @@
     const origem = String(campo?.origem || '').trim().toLowerCase();
     const campoSistema = String(campo?.campo_sistema || '').trim();
     const sectionTitle = String(context?.sectionTitle || '').trim();
-    const wrapperMeta = `data-custom-field-wrapper="true" data-custom-slug="${escapeHtml(slug)}" data-custom-origin="${escapeHtml(origem)}" data-system-field="${escapeHtml(campoSistema)}" data-custom-section="${escapeHtml(sectionTitle)}"`;
+    const integracoes = getCampoIntegracoes(campo);
+    const cep = parseMaybeJson(integracoes.cep, null) || {};
+    const mapas = parseMaybeJson(integracoes.mapas, null) || {};
+    const destinos = parseMaybeJson(cep.destinos, null) || {};
+    const wrapperMeta = `data-custom-field-wrapper="true" data-custom-slug="${escapeHtml(slug)}" data-custom-origin="${escapeHtml(origem)}" data-system-field="${escapeHtml(campoSistema)}" data-form-field-id="${escapeHtml(campo?.formulario_campo_id || '')}" data-custom-section="${escapeHtml(sectionTitle)}" data-cep-source="${isFlagOn(cep.buscar_endereco ?? cep.buscarEndereco ?? cep.buscar) ? 'true' : 'false'}" data-cep-fill-logradouro="${isFlagOn(cep.preencher_logradouro ?? cep.logradouro) ? 'true' : 'false'}" data-cep-fill-bairro="${isFlagOn(cep.preencher_bairro ?? cep.bairro) ? 'true' : 'false'}" data-cep-fill-cidade="${isFlagOn(cep.preencher_cidade ?? cep.cidade) ? 'true' : 'false'}" data-cep-fill-estado="${isFlagOn(cep.preencher_estado ?? cep.estado) ? 'true' : 'false'}" data-cep-provider="${escapeHtml(cep.provedor || 'viacep')}" data-cep-fallback="${escapeHtml(cep.fallback || '')}" data-cep-destinations-configured="${isFlagOn(cep.destinos_configurados) || Object.prototype.hasOwnProperty.call(cep, 'destinos') ? 'true' : 'false'}" data-cep-target-logradouro="${escapeHtml(destinos.logradouro || '')}" data-cep-target-bairro="${escapeHtml(destinos.bairro || '')}" data-cep-target-cidade="${escapeHtml(destinos.cidade || '')}" data-cep-target-estado="${escapeHtml(destinos.estado || '')}" data-google-maps-enabled="${isFlagOn(mapas.abrir_google_maps ?? mapas.google_maps ?? mapas.ativo) ? 'true' : 'false'}"`;
 
     if (tipo === 'checkbox') {
       const checked =

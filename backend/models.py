@@ -915,6 +915,42 @@ class ProdutoPrecoHistorico(Base):
         )
 
 
+class ProdutoPrecoConfiguracao(Base):
+    __tablename__ = "produtos_precos_configuracoes"
+    __allow_unmapped__ = True
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True, autoincrement=True)
+
+    empresa_id = Column(
+        BigInteger,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    validade_custo_dias = Column(Integer, nullable=False, server_default="90")
+
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    atualizado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ProdutoPrecoConfiguracao id={self.id} empresa_id={self.empresa_id} "
+            f"validade_custo_dias={self.validade_custo_dias}>"
+        )
+
+
 class Patrimonio(Base):
     __tablename__ = "patrimonios"
     __allow_unmapped__ = True

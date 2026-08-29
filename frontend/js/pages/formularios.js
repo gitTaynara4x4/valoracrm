@@ -513,6 +513,7 @@
     if (window.ValoraModal) {
       window.ValoraModal.open(id);
       if (modal) atualizarContadoresCaracteres(modal);
+      if (id === 'modal-campo') scheduleCampoModalIntegrity();
       return;
     }
 
@@ -522,7 +523,10 @@
     modal.style.display = 'flex';
     atualizarContadoresCaracteres(modal);
 
-    requestAnimationFrame(() => modal.classList.add('show'));
+    requestAnimationFrame(() => {
+      modal.classList.add('show');
+      if (id === 'modal-campo') scheduleCampoModalIntegrity();
+    });
   }
 
   function closeModal(id) {
@@ -796,6 +800,672 @@
   function isFlagOn(value) {
     return value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true' || String(value).toLowerCase() === 'sim';
   }
+  const RELACAO_ENTIDADES = ['cliente', 'fornecedor', 'produto', 'patrimonio', 'cotacao', 'proposta', 'contrato'];
+
+  function getCampoIntegracoes(campo) {
+    const condicao = getCampoCondicao(campo);
+    return parseMaybeJson(condicao.integracoes, null) || {};
+  }
+
+  function getRelacaoConfigFromTipo(tipo) {
+    const normalizado = normalizarTipoCampoFrontend(tipo || '');
+    if (!String(normalizado).startsWith('relacao_')) {
+      return { entidade: '', multiplo: false };
+    }
+
+    const multiplo = String(normalizado).endsWith('_multi');
+    const entidade = String(normalizado)
+      .replace(/^relacao_/, '')
+      .replace(/_multi$/, '')
+      .trim();
+
+    return {
+      entidade: RELACAO_ENTIDADES.includes(entidade) ? entidade : '',
+      multiplo,
+    };
+  }
+
+  function getTipoCampoBaseSelect(tipo) {
+    const normalizado = normalizarTipoCampoFrontend(tipo || 'texto');
+    return String(normalizado).startsWith('relacao_') ? 'texto' : normalizado;
+  }
+
+  function buildRelacaoTipo(entidade = '', multiplo = false) {
+    const key = String(entidade || '').trim().toLowerCase();
+    if (!RELACAO_ENTIDADES.includes(key)) return '';
+    return `relacao_${key}${multiplo ? '_multi' : ''}`;
+  }
+
+  function getTipoCampoEfetivo() {
+    const entidade = qs('campo-relacao-entidade')?.value || '';
+    const multiplo = !!qs('campo-relacao-multiplo')?.checked;
+    const relacaoTipo = buildRelacaoTipo(entidade, multiplo);
+    return relacaoTipo || normalizarTipoCampoFrontend(qs('campo-tipo-campo')?.value || 'texto');
+  }
+
+  function getFieldAutomationProfile() {
+    const secaoTextoRaw = String(qs('campo-secao')?.selectedOptions?.[0]?.textContent || '').toLowerCase();
+    const labelRaw = String(qs('campo-label')?.value || '').toLowerCase();
+    const sistemaRaw = String(qs('campo-sistema')?.value || '').toLowerCase();
+    const normalize = (value) => String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const secaoTexto = normalize(secaoTextoRaw);
+    const label = normalize(labelRaw);
+    const sistema = normalize(sistemaRaw);
+    const textoCampo = [label, sistema].filter(Boolean).join(' ');
+
+    const isCep = /(^| )cep( |$)/.test(textoCampo) || sistema === 'cep';
+    const isEndereco = /(^| )(endereco|logradouro|rua|avenida)( |$)/.test(textoCampo) || ['endereco', 'logradouro'].includes(sistema);
+    const isBairro = /(^| )bairro( |$)/.test(textoCampo) || sistema === 'bairro';
+    const isCidade = /(^| )(cidade|municipio)( |$)/.test(textoCampo) || ['cidade', 'municipio'].includes(sistema);
+    const isEstado = /(^| )(estado|uf)( |$)/.test(textoCampo) || ['estado', 'uf'].includes(sistema);
+    const isLocationField = isCep || isEndereco || isBairro || isCidade || isEstado;
+    const isLocationSection = /(localizacao|endereco|imovel|logradouro)/.test(secaoTexto);
+
+    return {
+      isCep,
+      isEndereco,
+      isBairro,
+      isCidade,
+      isEstado,
+      isLocationField,
+      isLocationSection,
+      isLocationContext: isLocationField || isLocationSection,
+    };
+  }
+
+  function getCampoLocationFlags() {
+    return {
+      buscar: !!qs('campo-cep-buscar')?.checked,
+      logradouro: !!qs('campo-cep-preencher-logradouro')?.checked,
+      bairro: !!qs('campo-cep-preencher-bairro')?.checked,
+      cidade: !!qs('campo-cep-preencher-cidade')?.checked,
+      estado: !!qs('campo-cep-preencher-estado')?.checked,
+      mapas: !!qs('campo-google-maps-ativo')?.checked,
+    };
+  }
+
+  function hasCampoLocationAutomation(flags = getCampoLocationFlags()) {
+    return Object.values(flags).some(Boolean);
+  }
+
+  function getActiveLocationPreset(profile = getFieldAutomationProfile(), flags = getCampoLocationFlags()) {
+    // A função escolhida deve funcionar mesmo quando o cliente dá um nome livre
+    // ao campo (ex.: "R" para Logradouro). Por isso a automação salva é a
+    // autoridade; o nome serve apenas como sugestão inicial.
+    if (flags.buscar) return 'cep';
+    if (flags.logradouro || flags.mapas) return 'endereco';
+    if (flags.cidade) return 'cidade';
+    if (flags.estado) return 'estado';
+    return '';
+  }
+
+  function getLocationPurposeCopy(preset = '') {
+    const copy = {
+      cep: {
+        title: 'CEP — buscar endereço automaticamente',
+        text: 'Quando este campo for preenchido com um CEP válido, o Valora consulta ViaCEP/BrasilAPI e envia Logradouro, Bairro, Cidade e Estado para os campos que você mapear abaixo.',
+      },
+      endereco: {
+        title: 'Endereço / Logradouro',
+        text: 'Identifica este campo como endereço. O nome pode ser livre — por exemplo, “R”. Também libera recursos de localização, como abrir no Google Maps.',
+      },
+      cidade: {
+        title: 'Cidade / Município',
+        text: 'Identifica este campo como destino de cidade. O nome exibido do campo pode ser qualquer um.',
+      },
+      estado: {
+        title: 'Estado / UF',
+        text: 'Identifica este campo como destino de Estado/UF. O nome exibido do campo pode ser qualquer um.',
+      },
+      '': {
+        title: 'Nenhuma função especial',
+        text: 'Use para campos comuns que não precisam de automação de localização.',
+      },
+    };
+    return copy[preset] || copy[''];
+  }
+
+  function syncLocationPurposeControl(profile = getFieldAutomationProfile(), flags = getCampoLocationFlags()) {
+    const preset = getActiveLocationPreset(profile, flags);
+    const select = qs('campo-location-purpose');
+    const title = qs('campo-location-purpose-help-title');
+    const text = qs('campo-location-purpose-help-text');
+    const copy = getLocationPurposeCopy(preset);
+
+    if (select && select.value !== preset) select.value = preset;
+    if (title) title.textContent = copy.title;
+    if (text) text.textContent = copy.text;
+  }
+
+  let campoModalIntegrityLock = false;
+
+  function forceVisibleElement(el, display = '') {
+    if (!el) return;
+    el.hidden = false;
+    el.removeAttribute('aria-hidden');
+    el.style.setProperty('visibility', 'visible', 'important');
+    el.style.setProperty('opacity', '1', 'important');
+    el.style.setProperty('content-visibility', 'visible', 'important');
+    if (display) el.style.setProperty('display', display, 'important');
+  }
+
+  function ensureCampoModalIntegrity() {
+    const modal = qs('modal-campo');
+    const content = modal?.querySelector(':scope > .modal-content.modal-field-editor, :scope > .modal-content');
+    if (!modal || !content || campoModalIntegrityLock) return;
+
+    campoModalIntegrityLock = true;
+    try {
+      forceVisibleElement(content, 'flex');
+
+      // O contêiner externo do modal nunca deve rolar. Chromium pode alterar
+      // scrollTop automaticamente ao focar/abrir um <select>, mesmo quando o
+      // CSS usa overflow:hidden. Isso era a causa da tela branca.
+      content.scrollTop = 0;
+      content.scrollLeft = 0;
+      content.style.setProperty('overflow', 'clip', 'important');
+      content.style.setProperty('overscroll-behavior', 'none', 'important');
+
+      const header = content.querySelector(':scope > .modal-header');
+      const body = content.querySelector(':scope > .modal-body');
+      const footer = content.querySelector(':scope > .modal-footer');
+      const form = body?.querySelector(':scope > form');
+
+      forceVisibleElement(header, 'flex');
+      forceVisibleElement(body, 'block');
+      forceVisibleElement(footer, 'flex');
+      // premium-form-grid foi desenhado para fluxo em bloco; não forçamos grid
+      // aqui para não aumentar artificialmente a área rolável do modal.
+      forceVisibleElement(form, 'block');
+      forceVisibleElement(form?.querySelector(':scope > .field-main-section'), 'block');
+      forceVisibleElement(form?.querySelector(':scope > .field-config-section'), 'block');
+      forceVisibleElement(form?.querySelector(':scope > #campo-preview'), 'flex');
+    } finally {
+      campoModalIntegrityLock = false;
+    }
+  }
+
+  function scheduleCampoModalIntegrity() {
+    ensureCampoModalIntegrity();
+    requestAnimationFrame(() => ensureCampoModalIntegrity());
+    [0, 50, 160].forEach((delay) => setTimeout(() => ensureCampoModalIntegrity(), delay));
+  }
+
+  function setElementHidden(id, hidden) {
+    const el = qs(id);
+    if (el) el.hidden = !!hidden;
+  }
+
+  function normalizeCepDestinationText(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function getCampoDestinationSearchText(campo) {
+    return [
+      campo?.campo_sistema,
+      campo?.campo_personalizado_slug,
+      campo?.slug,
+      campo?.label,
+      campo?.nome,
+    ]
+      .map(normalizeCepDestinationText)
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  function campoMatchesCepDestination(campo, part) {
+    const text = ` ${getCampoDestinationSearchText(campo)} `;
+    if (!text.trim()) return false;
+
+    if (part === 'logradouro') {
+      return / (endereco|logradouro|rua|avenida) /.test(text);
+    }
+    if (part === 'bairro') return / bairro /.test(text);
+    if (part === 'cidade') return / (cidade|municipio) /.test(text);
+    if (part === 'estado') return / (estado|uf) /.test(text);
+    if (part === 'cep') return / cep /.test(text);
+    return false;
+  }
+
+  function getCamposDaSecaoSelecionada() {
+    const secaoId = String(qs('campo-secao')?.value || '');
+    if (!secaoId) return [];
+
+    const currentId = Number(qs('campo-id')?.value || 0) || null;
+    const secao = getSecoes().find((item) => String(item?.id || '') === secaoId);
+    const candidates = [
+      ...(Array.isArray(secao?.campos) ? secao.campos : []),
+      ...getAllCampos().filter((campo) => String(campo?.secao_id || '') === secaoId),
+    ];
+
+    const unique = new Map();
+    candidates.forEach((campo, index) => {
+      if (!campo) return;
+      if (String(campo?.origem || '').toLowerCase() === 'visual') return;
+      if (currentId && Number(campo.id || 0) === currentId) return;
+      const key = campo.id != null
+        ? `id:${campo.id}`
+        : `tmp:${getCampoDestinationSearchText(campo)}:${index}`;
+      if (!unique.has(key)) unique.set(key, campo);
+    });
+
+    return [...unique.values()];
+  }
+
+  function getCampoDestinationLabel(campo) {
+    return String(
+      campo?.label ||
+      campo?.nome ||
+      campo?.campo_sistema ||
+      campo?.campo_personalizado_slug ||
+      campo?.slug ||
+      'Campo'
+    ).trim();
+  }
+
+  function getCampoDestinationOrigin(campo) {
+    const origem = String(campo?.origem || '').toLowerCase();
+    if (origem === 'sistema') return 'Sistema';
+    if (origem === 'personalizado') return 'Personalizado';
+    return 'Campo';
+  }
+
+  function getCampoDestinationRef(campo) {
+    if (!campo) return '';
+    const formId = Number(campo?.id || 0) || 0;
+    if (formId) return `form:${formId}`;
+
+    const systemField = String(campo?.campo_sistema || '').trim();
+    if (systemField) return `system:${systemField}`;
+
+    const slug = String(campo?.campo_personalizado_slug || campo?.slug || '').trim();
+    if (slug) return `slug:${slug}`;
+
+    const label = normalizeCepDestinationText(campo?.label || campo?.nome || '');
+    return label ? `label:${label}` : '';
+  }
+
+  function getSavedCepDestinationConfig() {
+    const integracoes = getCampoIntegracoes(state.campoEditando);
+    const cep = parseMaybeJson(integracoes.cep, null) || {};
+    const destinos = parseMaybeJson(cep.destinos, null) || {};
+    const configured = isFlagOn(cep.destinos_configurados) || Object.prototype.hasOwnProperty.call(cep, 'destinos');
+    return { destinos, configured };
+  }
+
+  function getCepDestinationDraft() {
+    const draft = {};
+    document.querySelectorAll('#campo-cep-destination-list [data-cep-destination-select]').forEach((select) => {
+      const key = String(select.dataset.cepDestinationSelect || '').trim();
+      if (key) draft[key] = String(select.value || '');
+    });
+    return draft;
+  }
+
+  function findCepDestinationField(campos, part) {
+    return campos.find((campo) => campoMatchesCepDestination(campo, part)) || null;
+  }
+
+  function renderCepDestinationPreview(profile = getFieldAutomationProfile(), flags = getCampoLocationFlags()) {
+    const wrap = qs('campo-cep-destinations');
+    const list = qs('campo-cep-destination-list');
+    const sectionBadge = qs('campo-cep-destination-section');
+    if (!wrap || !list) return;
+
+    const enabled = profile.isCep || flags.buscar;
+    wrap.hidden = !enabled;
+    if (!enabled) return;
+
+    const sectionSelect = qs('campo-secao');
+    const sectionId = String(sectionSelect?.value || '');
+    const sectionName = String(sectionSelect?.selectedOptions?.[0]?.textContent || '').trim();
+    if (sectionBadge) {
+      sectionBadge.textContent = sectionId && sectionName ? sectionName : 'Selecione uma seção';
+      sectionBadge.title = sectionBadge.textContent;
+    }
+
+    if (!sectionId) {
+      list.innerHTML = `
+        <div class="cep-destination-row is-missing" style="grid-column:1/-1;">
+          <span class="cep-destination-status"><i class="fa-solid fa-triangle-exclamation"></i></span>
+          <span class="cep-destination-copy">
+            <strong>Selecione a seção do campo CEP</strong>
+            <small>Depois disso você poderá escolher exatamente quais campos receberão cada informação.</small>
+          </span>
+        </div>
+      `;
+      return;
+    }
+
+    const draftBeforeRender = getCepDestinationDraft();
+    const saved = getSavedCepDestinationConfig();
+    const campos = getCamposDaSecaoSelecionada();
+    const mappings = [
+      { key: 'logradouro', label: 'Logradouro', icon: 'fa-road' },
+      { key: 'bairro', label: 'Bairro', icon: 'fa-location-dot' },
+      { key: 'cidade', label: 'Cidade', icon: 'fa-city' },
+      { key: 'estado', label: 'Estado / UF', icon: 'fa-map' },
+    ];
+
+    const optionMap = new Map();
+    campos.forEach((campo) => {
+      const ref = getCampoDestinationRef(campo);
+      if (ref && !optionMap.has(ref)) optionMap.set(ref, campo);
+    });
+
+    const rows = mappings.map((item) => {
+      const inferred = findCepDestinationField(campos, item.key);
+      const inferredRef = getCampoDestinationRef(inferred);
+      let selectedRef = '';
+      let selectedBy = 'manual';
+
+      if (Object.prototype.hasOwnProperty.call(draftBeforeRender, item.key)) {
+        selectedRef = String(draftBeforeRender[item.key] || '');
+        selectedBy = 'rascunho';
+      } else if (saved.configured) {
+        selectedRef = String(saved.destinos?.[item.key] || '');
+        selectedBy = 'salvo';
+      } else {
+        selectedRef = inferredRef;
+        selectedBy = inferredRef ? 'sugerido' : 'manual';
+      }
+
+      if (selectedRef && !optionMap.has(selectedRef)) {
+        selectedRef = saved.configured ? '' : inferredRef;
+      }
+
+      const options = [
+        '<option value="">Não preencher automaticamente</option>',
+        ...campos.map((campo) => {
+          const ref = getCampoDestinationRef(campo);
+          if (!ref) return '';
+          const selected = ref === selectedRef ? 'selected' : '';
+          const origin = getCampoDestinationOrigin(campo);
+          return `<option value="${escapeHtml(ref)}" ${selected}>${escapeHtml(getCampoDestinationLabel(campo))} — ${escapeHtml(origin)}</option>`;
+        }),
+      ].join('');
+
+      const target = selectedRef ? optionMap.get(selectedRef) : null;
+      const rowClass = target ? 'is-found' : 'is-manual';
+      const icon = target ? 'fa-check' : 'fa-minus';
+      const targetLabel = target ? getCampoDestinationLabel(target) : 'Não preencher automaticamente';
+      const targetOrigin = target ? getCampoDestinationOrigin(target) : '';
+      const helper = target
+        ? (selectedBy === 'sugerido' ? 'Sugestão automática — você pode trocar' : 'Destino definido manualmente')
+        : 'Não preencher este dado';
+
+      return `
+        <div class="cep-destination-row ${rowClass}" data-cep-destination-row="${escapeHtml(item.key)}">
+          <span class="cep-destination-status"><i class="fa-solid ${icon}"></i></span>
+          <span class="cep-destination-copy cep-destination-copy--select">
+            <strong>${escapeHtml(item.label)}</strong>
+
+            <div class="cep-destination-current">
+              <span class="cep-destination-current-value">
+                ${target ? `<span class="cep-destination-arrow">→</span> ${escapeHtml(targetLabel)}` : escapeHtml(targetLabel)}
+                ${targetOrigin ? `<span class="cep-destination-origin">${escapeHtml(targetOrigin)}</span>` : ''}
+              </span>
+              <button
+                type="button"
+                class="cep-destination-edit-btn"
+                data-cep-destination-edit="${escapeHtml(item.key)}"
+                aria-label="Alterar campo que receberá ${escapeHtml(item.label)}"
+              >
+                <i class="fa-solid fa-pen"></i>
+                <span>Alterar</span>
+              </button>
+            </div>
+
+            <div class="cep-destination-editor" hidden>
+              <select class="cep-destination-select" data-cep-destination-select="${escapeHtml(item.key)}" aria-label="Campo que receberá ${escapeHtml(item.label)}">
+                ${options}
+              </select>
+            </div>
+            <small>${escapeHtml(helper)}</small>
+          </span>
+        </div>
+      `;
+    });
+
+    rows.push(`
+      <div class="cep-destination-row is-manual">
+        <span class="cep-destination-status"><i class="fa-solid fa-keyboard"></i></span>
+        <span class="cep-destination-copy">
+          <strong>Número</strong>
+          <small>Preenchimento manual</small>
+        </span>
+      </div>
+    `);
+    rows.push(`
+      <div class="cep-destination-row is-manual">
+        <span class="cep-destination-status"><i class="fa-solid fa-keyboard"></i></span>
+        <span class="cep-destination-copy">
+          <strong>Complemento</strong>
+          <small>Preenchimento manual</small>
+        </span>
+      </div>
+    `);
+
+    list.innerHTML = rows.join('');
+  }
+
+  function syncCampoAutomationState() {
+    const origem = qs('campo-origem')?.value || 'personalizado';
+    const isPersonalizado = origem === 'personalizado';
+    const isVisual = origem === 'visual';
+    const profile = getFieldAutomationProfile();
+    const flags = getCampoLocationFlags();
+    const relationEntity = qs('campo-relacao-entidade')?.value || '';
+    const locationConfigured = hasCampoLocationAutomation(flags);
+
+    const automationSection = document.querySelector('#modal-campo .field-flat-automation');
+    const presetPanel = qs('campo-location-presets');
+    const automationGrid = qs('campo-automation-grid');
+    const relacaoCard = qs('automation-card-relacao');
+    const cepCard = qs('automation-card-cep');
+    const mapsCard = qs('automation-card-maps');
+
+    if (automationSection) automationSection.hidden = isVisual;
+    if (isVisual) {
+      ensureCampoModalIntegrity();
+      return;
+    }
+
+    if (presetPanel) {
+      presetPanel.hidden = !isPersonalizado || !!relationEntity;
+    }
+
+    const showRelacao = isPersonalizado && (
+      !!relationEntity || (!profile.isLocationField && !locationConfigured)
+    );
+    const showCep = profile.isLocationField || flags.buscar || flags.logradouro || flags.bairro || flags.cidade || flags.estado;
+    const showMaps = profile.isEndereco || flags.mapas;
+
+    if (relacaoCard) relacaoCard.hidden = !showRelacao;
+    if (cepCard) cepCard.hidden = !showCep;
+    if (mapsCard) mapsCard.hidden = !showMaps;
+
+    const visibleCards = [relacaoCard, cepCard, mapsCard].filter((card) => card && !card.hidden);
+    if (automationGrid) {
+      automationGrid.hidden = visibleCards.length === 0;
+      automationGrid.classList.toggle('is-single', visibleCards.length === 1);
+    }
+    if (automationSection) {
+      // Para campos personalizados comuns, mantenha o bloco disponível.
+      // Nunca escondemos a seção inteira por causa de uma troca de tipo
+      // (ex.: Texto -> Lista com múltipla seleção).
+      automationSection.hidden = false;
+    }
+
+    setElementHidden('row-campo-cep-buscar', !(profile.isCep || flags.buscar));
+    setElementHidden('row-campo-cep-preencher-logradouro', !(profile.isEndereco || flags.logradouro));
+    setElementHidden('row-campo-cep-preencher-bairro', !(profile.isBairro || flags.bairro));
+    setElementHidden('row-campo-cep-preencher-cidade', !(profile.isCidade || flags.cidade));
+    setElementHidden('row-campo-cep-preencher-estado', !(profile.isEstado || flags.estado));
+    setElementHidden('row-campo-cep-providers', !(profile.isCep || flags.buscar));
+    setElementHidden('campo-cep-auto-hint', !(profile.isCep || flags.buscar));
+    renderCepDestinationPreview(profile, flags);
+
+    syncLocationPurposeControl(profile, flags);
+
+    ensureCampoModalIntegrity();
+  }
+
+  function clearCampoLocationAutomation() {
+    [
+      'campo-cep-buscar',
+      'campo-cep-preencher-logradouro',
+      'campo-cep-preencher-bairro',
+      'campo-cep-preencher-cidade',
+      'campo-cep-preencher-estado',
+      'campo-google-maps-ativo',
+    ].forEach((id) => {
+      const input = qs(id);
+      if (input) input.checked = false;
+    });
+  }
+
+  function applyLocationPreset(preset) {
+    const key = String(preset || '').trim().toLowerCase();
+    const presets = {
+      cep: {
+        label: 'CEP',
+        placeholder: '00000-000',
+        largura: '50',
+        flag: 'campo-cep-buscar',
+      },
+      endereco: {
+        label: 'Endereço',
+        placeholder: 'Rua, avenida ou logradouro',
+        largura: '100',
+        flag: 'campo-cep-preencher-logradouro',
+        maps: true,
+      },
+      cidade: {
+        label: 'Cidade',
+        placeholder: 'Cidade',
+        largura: '50',
+        flag: 'campo-cep-preencher-cidade',
+      },
+      estado: {
+        label: 'Estado',
+        placeholder: 'UF',
+        largura: '25',
+        flag: 'campo-cep-preencher-estado',
+      },
+    };
+
+    const config = presets[key];
+    if (!config) return;
+
+    if (qs('campo-origem')) qs('campo-origem').value = 'personalizado';
+    if (qs('campo-tipo-campo')) qs('campo-tipo-campo').value = 'texto';
+    if (qs('campo-relacao-entidade')) qs('campo-relacao-entidade').value = '';
+    if (qs('campo-relacao-multiplo')) qs('campo-relacao-multiplo').checked = false;
+
+    clearCampoLocationAutomation();
+
+    // A função não manda no nome do campo. Se o usuário chamou de "R",
+    // continua "R". Só sugerimos nome/placeholder quando ainda estão vazios.
+    if (qs('campo-label') && !String(qs('campo-label').value || '').trim()) {
+      qs('campo-label').value = config.label;
+    }
+    if (qs('campo-placeholder') && !String(qs('campo-placeholder').value || '').trim()) {
+      qs('campo-placeholder').value = config.placeholder;
+    }
+    if (qs(config.flag)) qs(config.flag).checked = true;
+    if (config.maps && qs('campo-google-maps-ativo')) qs('campo-google-maps-ativo').checked = true;
+    if (qs('campo-cep-provedor')) qs('campo-cep-provedor').value = 'viacep';
+    if (qs('campo-cep-fallback')) qs('campo-cep-fallback').value = 'brasilapi';
+
+    syncCampoOpcoesVisibility();
+    syncCampoAutomationState();
+    atualizarCampoPreview();
+  }
+
+  function applyCampoRelationConfig(tipo) {
+    const relacao = getRelacaoConfigFromTipo(tipo || '');
+    const select = qs('campo-relacao-entidade');
+    const check = qs('campo-relacao-multiplo');
+    if (select) select.value = relacao.entidade || '';
+    if (check) check.checked = !!relacao.multiplo;
+  }
+
+  function applyCampoIntegracoesConfig(campo = null) {
+    const integracoes = getCampoIntegracoes(campo);
+    const cep = parseMaybeJson(integracoes.cep, null) || {};
+    const mapas = parseMaybeJson(integracoes.mapas, null) || {};
+
+    if (qs('campo-cep-buscar')) qs('campo-cep-buscar').checked = isFlagOn(cep.buscar_endereco ?? cep.buscarEndereco ?? cep.buscar);
+    if (qs('campo-cep-preencher-logradouro')) qs('campo-cep-preencher-logradouro').checked = isFlagOn(cep.preencher_logradouro ?? cep.logradouro);
+    if (qs('campo-cep-preencher-bairro')) qs('campo-cep-preencher-bairro').checked = isFlagOn(cep.preencher_bairro ?? cep.bairro);
+    if (qs('campo-cep-preencher-cidade')) qs('campo-cep-preencher-cidade').checked = isFlagOn(cep.preencher_cidade ?? cep.cidade);
+    if (qs('campo-cep-preencher-estado')) qs('campo-cep-preencher-estado').checked = isFlagOn(cep.preencher_estado ?? cep.estado);
+    if (qs('campo-cep-provedor')) qs('campo-cep-provedor').value = cep.provedor || 'viacep';
+    if (qs('campo-cep-fallback')) qs('campo-cep-fallback').value = cep.fallback || '';
+    if (qs('campo-google-maps-ativo')) qs('campo-google-maps-ativo').checked = isFlagOn(mapas.abrir_google_maps ?? mapas.google_maps ?? mapas.ativo);
+    if (qs('campo-google-maps-destino')) qs('campo-google-maps-destino').value = mapas.destino || 'nova_aba';
+
+    syncCampoAutomationState();
+  }
+
+  function buildCampoIntegracoesPayload() {
+    const integracoes = {};
+    const entidade = qs('campo-relacao-entidade')?.value || '';
+    if (entidade) {
+      integracoes.relacao = {
+        entidade,
+        multiplo: !!qs('campo-relacao-multiplo')?.checked,
+      };
+    }
+
+    const cepDestinos = getCepDestinationDraft();
+    const cep = {
+      buscar_endereco: !!qs('campo-cep-buscar')?.checked,
+      preencher_logradouro: !!qs('campo-cep-preencher-logradouro')?.checked,
+      preencher_bairro: !!qs('campo-cep-preencher-bairro')?.checked,
+      preencher_cidade: !!qs('campo-cep-preencher-cidade')?.checked,
+      preencher_estado: !!qs('campo-cep-preencher-estado')?.checked,
+      provedor: qs('campo-cep-provedor')?.value || 'viacep',
+      fallback: qs('campo-cep-fallback')?.value || '',
+    };
+    if (cep.buscar_endereco) {
+      cep.destinos_configurados = true;
+      cep.destinos = {
+        logradouro: String(cepDestinos.logradouro || ''),
+        bairro: String(cepDestinos.bairro || ''),
+        cidade: String(cepDestinos.cidade || ''),
+        estado: String(cepDestinos.estado || ''),
+      };
+    }
+    const cepAtivo = cep.buscar_endereco || cep.preencher_logradouro || cep.preencher_bairro || cep.preencher_cidade || cep.preencher_estado;
+    if (cepAtivo) {
+      integracoes.cep = cep;
+    }
+
+    const mapasAtivo = !!qs('campo-google-maps-ativo')?.checked;
+    if (mapasAtivo) {
+      integracoes.mapas = {
+        abrir_google_maps: true,
+        destino: qs('campo-google-maps-destino')?.value || 'nova_aba',
+      };
+    }
+
+    return integracoes;
+  }
+
 
   function normalizarTextoIcone(value) {
     return String(value || '')
@@ -2216,9 +2886,12 @@
     } else {
       texto = qs('campo-label')?.value || '';
       const selectTipo = qs('campo-tipo-campo');
-      const tipoValue = selectTipo?.value || 'texto';
-      const tipo = selectTipo?.selectedOptions?.[0]?.textContent || 'Texto';
-      dica = `Novo campo personalizado • Tipo: ${tipo}`;
+      const tipoValue = getTipoCampoEfetivo();
+      const relacao = getRelacaoConfigFromTipo(tipoValue);
+      const tipoBase = relacao.entidade
+        ? `Vinculado a ${relacao.entidade}${relacao.multiplo ? ' (múltiplo)' : ''}`
+        : (selectTipo?.selectedOptions?.[0]?.textContent || 'Texto');
+      dica = `Novo campo personalizado • Tipo: ${tipoBase}`;
 
       if (tipoValue === 'multiselect') {
         icon = 'fa-list-check';
@@ -2247,7 +2920,7 @@
   }
 
   function syncCampoOpcoesVisibility() {
-    const tipo = qs('campo-tipo-campo')?.value || 'texto';
+    const tipo = getTipoCampoEfetivo();
     const row = qs('campo-opcoes')?.closest('.form-group');
     const hint = row?.querySelector('.field-hint');
     if (!row) return;
@@ -2272,6 +2945,8 @@
       const input = qs('campo-opcoes');
       if (input) input.value = '';
     }
+
+    ensureCampoModalIntegrity();
   }
 
   function aplicarModoCampo(origem) {
@@ -2335,6 +3010,7 @@
     }
 
     syncCampoOpcoesVisibility();
+    syncCampoAutomationState();
     atualizarCampoPreview();
   }
 
@@ -2352,9 +3028,11 @@
     const nomeLimpo = label.replace(/\s*\(.+\)\s*$/, '').trim();
 
     if (nomeLimpo) qs('campo-label').value = nomeLimpo;
-    qs('campo-tipo-campo').value = tipo || 'texto';
+    qs('campo-tipo-campo').value = getTipoCampoBaseSelect(tipo || 'texto');
+    applyCampoRelationConfig(tipo || '');
 
     syncCampoOpcoesVisibility();
+    syncCampoAutomationState();
     atualizarCampoPreview();
   }
 
@@ -2367,9 +3045,11 @@
     const nomeLimpo = label.replace(/\s*\(.+\)\s*$/, '').trim();
 
     if (nomeLimpo) qs('campo-label').value = nomeLimpo;
-    qs('campo-tipo-campo').value = tipo || 'texto';
+    qs('campo-tipo-campo').value = getTipoCampoBaseSelect(tipo || 'texto');
+    applyCampoRelationConfig(tipo || '');
 
     syncCampoOpcoesVisibility();
+    syncCampoAutomationState();
     atualizarCampoPreview();
   }
 
@@ -2444,7 +3124,8 @@
     qs('campo-sistema').value = campo?.campo_sistema || '';
     qs('campo-personalizado').value = campo?.campo_personalizado_id || '';
     qs('campo-tipo-visual').value = campo?.tipo_visual || 'titulo';
-    qs('campo-tipo-campo').value = normalizarTipoCampoFrontend(campo?.tipo_campo || 'texto');
+    qs('campo-tipo-campo').value = getTipoCampoBaseSelect(campo?.tipo_campo || 'texto');
+    applyCampoRelationConfig(campo?.tipo_campo || '');
     qs('campo-label').value = campo?.label || '';
     qs('campo-placeholder').value = campo?.placeholder || '';
     qs('campo-ajuda').value = campo?.ajuda || '';
@@ -2468,6 +3149,7 @@
     }
 
     qs('campo-ativo').checked = campo ? campo.ativo !== false : true;
+    applyCampoIntegracoesConfig(campo);
     qs('btn-excluir-campo').style.display = campo ? '' : 'none';
 
     const avancado = qs('campo-avancado');
@@ -2547,7 +3229,7 @@
       campo_sistema: null,
       campo_personalizado_id: null,
       tipo_visual: null,
-      tipo_campo: normalizarTipoCampoFrontend(qs('campo-tipo-campo').value || 'texto'),
+      tipo_campo: getTipoCampoEfetivo(),
       label: qs('campo-label').value.trim(),
       placeholder: qs('campo-placeholder').value.trim() || null,
       ajuda: qs('campo-ajuda').value.trim() || null,
@@ -2565,6 +3247,7 @@
           usar_no_localizar: !!qs('campo-usar-localizar')?.checked,
           mostrar_na_tabela: !!qs('campo-mostrar-tabela')?.checked,
         },
+        integracoes: buildCampoIntegracoesPayload(),
       },
     };
 
@@ -2813,21 +3496,53 @@
     if (!id) return;
 
     const modeloId = state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
-
     if (!modeloId) return;
 
-    const ok = confirm('Excluir este campo do formulário?');
-    if (!ok) return;
-
     try {
-      await apiJson(`${API_BASE}/campos/${id}`, {
+      const uso = await apiJson(`${API_BASE}/campos/${id}/uso`);
+      const label = String(uso?.label || 'este campo').trim();
+      const total = Number(uso?.cadastros_com_dados || 0);
+      const personalizado = String(uso?.origem || '') === 'personalizado';
+
+      let mensagem = '';
+      if (personalizado && total > 0) {
+        mensagem = [
+          `O campo "${label}" possui dados salvos em ${total} cadastro${total === 1 ? '' : 's'}.`,
+          '',
+          'Ao excluir, o campo e todos esses dados serão apagados definitivamente.',
+          'Essa ação não pode ser desfeita.',
+          '',
+          'Tem certeza que deseja excluir?'
+        ].join('\n');
+      } else if (personalizado) {
+        mensagem = [
+          `Excluir o campo "${label}" definitivamente?`,
+          '',
+          'O campo será removido por completo do cadastro.'
+        ].join('\n');
+      } else {
+        mensagem = [
+          `Remover o campo "${label}" deste formulário?`,
+          '',
+          'Dados nativos do sistema não serão apagados.'
+        ].join('\n');
+      }
+
+      if (!confirm(mensagem)) return;
+
+      const query = personalizado ? '?excluir_dados=true' : '';
+      const resultado = await apiJson(`${API_BASE}/campos/${id}${query}`, {
         method: 'DELETE',
       });
 
       await carregarModeloCompleto(modeloId);
-
       closeModal('modal-campo');
-      toast('Campo removido do formulário.');
+
+      if (personalizado && total > 0) {
+        toast(`Campo excluído definitivamente. ${total} cadastro${total === 1 ? '' : 's'} tinha${total === 1 ? '' : 'm'} dados nesse campo.`);
+      } else {
+        toast(resultado?.message || 'Campo excluído.');
+      }
     } catch (err) {
       console.error(err);
       toast(err.message || 'Erro ao excluir campo.', true);
@@ -2983,6 +3698,22 @@
       });
     });
 
+    // Proteção específica do editor de campos: ao interagir com selects,
+    // mantenha o scroll somente no .modal-body. O wrapper externo deve ficar
+    // sempre em scrollTop 0 para não desaparecer visualmente.
+    const campoModal = qs('modal-campo');
+    ['focusin', 'pointerdown', 'change'].forEach((eventName) => {
+      campoModal?.addEventListener(eventName, (event) => {
+        if (!event.target?.closest?.('select')) return;
+        const content = campoModal.querySelector(':scope > .modal-content.modal-field-editor');
+        if (content) {
+          content.scrollTop = 0;
+          content.scrollLeft = 0;
+        }
+        scheduleCampoModalIntegrity();
+      }, true);
+    });
+
     document.querySelectorAll('.module-card').forEach((btn) => {
       btn.addEventListener('click', () => trocarModulo(btn.dataset.modulo));
     });
@@ -3091,10 +3822,105 @@
     qs('campo-origem')?.addEventListener('change', toggleCampoOrigem);
     qs('campo-sistema')?.addEventListener('change', preencherLabelPorSistema);
     qs('campo-personalizado')?.addEventListener('change', preencherLabelPorPersonalizado);
-    qs('campo-label')?.addEventListener('input', atualizarCampoPreview);
-    qs('campo-tipo-campo')?.addEventListener('change', () => {
-      syncCampoOpcoesVisibility();
+    qs('campo-label')?.addEventListener('input', () => {
+      syncCampoAutomationState();
       atualizarCampoPreview();
+    });
+    qs('campo-secao')?.addEventListener('change', syncCampoAutomationState);
+    qs('campo-tipo-campo')?.addEventListener('change', () => {
+      try {
+        const tipoSelecionado = qs('campo-tipo-campo')?.value || 'texto';
+        const optionsRow = qs('campo-opcoes')?.closest('.campo-options-control, .form-group');
+
+        // Select e multiselect só alternam a área de opções.
+        // Eles não podem fechar, ocultar ou reconstruir o modal.
+        if (optionsRow && (tipoSelecionado === 'select' || tipoSelecionado === 'multiselect')) {
+          optionsRow.hidden = false;
+          optionsRow.classList.remove('is-hidden');
+        }
+
+        syncCampoOpcoesVisibility();
+        syncCampoAutomationState();
+        atualizarCampoPreview();
+      } catch (error) {
+        console.error('[Formulários] erro ao trocar tipo do campo:', error);
+      } finally {
+        scheduleCampoModalIntegrity();
+      }
+    });
+    qs('campo-relacao-entidade')?.addEventListener('change', () => {
+      try {
+        syncCampoOpcoesVisibility();
+        syncCampoAutomationState();
+        atualizarCampoPreview();
+      } finally {
+        scheduleCampoModalIntegrity();
+      }
+    });
+    qs('campo-relacao-multiplo')?.addEventListener('change', () => {
+      try {
+        syncCampoOpcoesVisibility();
+        syncCampoAutomationState();
+        atualizarCampoPreview();
+      } finally {
+        scheduleCampoModalIntegrity();
+      }
+    });
+    [
+      'campo-cep-buscar',
+      'campo-cep-preencher-logradouro',
+      'campo-cep-preencher-bairro',
+      'campo-cep-preencher-cidade',
+      'campo-cep-preencher-estado',
+      'campo-google-maps-ativo'
+    ].forEach((id) => qs(id)?.addEventListener('change', syncCampoAutomationState));
+    qs('campo-location-purpose')?.addEventListener('change', (event) => {
+      const preset = String(event.target.value || '').trim();
+
+      if (!preset) {
+        clearCampoLocationAutomation();
+        syncCampoAutomationState();
+        atualizarCampoPreview();
+        scheduleCampoModalIntegrity();
+        return;
+      }
+
+      applyLocationPreset(preset);
+    });
+    qs('campo-cep-destination-list')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-cep-destination-edit]');
+      if (!button) return;
+
+      event.preventDefault();
+      const row = button.closest('[data-cep-destination-row]');
+      const editor = row?.querySelector('.cep-destination-editor');
+      const select = editor?.querySelector('[data-cep-destination-select]');
+      if (!editor || !select) return;
+
+      document.querySelectorAll('#campo-cep-destination-list .cep-destination-editor').forEach((other) => {
+        if (other !== editor) other.hidden = true;
+      });
+
+      editor.hidden = !editor.hidden;
+      if (!editor.hidden) {
+        requestAnimationFrame(() => select.focus());
+      }
+    });
+    qs('campo-cep-destination-list')?.addEventListener('change', (event) => {
+      const select = event.target.closest('[data-cep-destination-select]');
+      if (!select) return;
+
+      const value = String(select.value || '');
+      if (value) {
+        const duplicate = Array.from(document.querySelectorAll('#campo-cep-destination-list [data-cep-destination-select]'))
+          .find((other) => other !== select && String(other.value || '') === value);
+        if (duplicate) {
+          select.value = '';
+          toast('Este campo já está sendo usado por outro dado do CEP. Escolha outro destino.', true);
+        }
+      }
+      renderCepDestinationPreview();
+      scheduleCampoModalIntegrity();
     });
     qs('campo-tipo-visual')?.addEventListener('change', atualizarCampoPreview);
 

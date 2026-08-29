@@ -2116,6 +2116,13 @@ html[data-theme="dark"] .secao-head {
   }
 }
 
+@media (max-width: 1100px) {
+  #modal-campo .field-automation-grid,
+  #modal-campo .field-automation-subgrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 980px) {
   .formularios-page {
     padding: 18px !important;
@@ -2708,6 +2715,18 @@ html[data-theme="dark"] .localizar-preview-col em {
 }
 
 @media (max-width: 760px) {
+  #modal-campo .field-preset-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #modal-campo .field-preset-actions {
+    justify-content: flex-start;
+  }
+
+  #modal-campo .field-preset-btn {
+    flex: 1 1 calc(50% - 8px);
+  }
   .localizar-preview-head {
     flex-direction: column;
   }
@@ -6215,6 +6234,366 @@ html[data-theme="dark"] #modal-secao .modal-title-icon {
   padding-bottom: 20px;
 }
 
+#modal-campo .field-flat-automation[hidden],
+#modal-campo .field-preset-panel[hidden],
+#modal-campo #campo-automation-grid[hidden],
+#modal-campo .automation-card[hidden],
+#modal-campo .field-automation-list > [hidden],
+#modal-campo #row-campo-cep-providers[hidden] {
+  display: none !important;
+}
+
+#modal-campo .field-preset-panel {
+  margin: 14px 0 16px;
+  padding: 14px;
+  border: 1px solid #dbe7f5;
+  border-radius: 16px;
+  background: #f8fbff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+#modal-campo .field-preset-copy {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+#modal-campo .field-preset-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: #2563eb;
+  background: #eaf3ff;
+}
+
+#modal-campo .field-preset-copy strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+#modal-campo .field-preset-copy small {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+#modal-campo .field-preset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#modal-campo .field-preset-btn {
+  appearance: none;
+  border: 1px solid #cbd9ea;
+  border-radius: 11px;
+  background: #ffffff;
+  color: #334155;
+  min-height: 38px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+
+#modal-campo .field-preset-btn:hover {
+  border-color: #93b9ef;
+  background: #f5f9ff;
+  color: #1d4ed8;
+}
+
+#modal-campo .field-preset-btn.is-active {
+  border-color: #70a9ee;
+  background: #edf5ff;
+  color: #1558b0;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.08);
+}
+
+#modal-campo .field-automation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+#modal-campo .field-automation-grid.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#modal-campo .automation-card {
+  border: 1px solid #d8e2f0;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+#modal-campo .automation-card-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+#modal-campo .automation-card-title > span {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.10);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  flex-shrink: 0;
+}
+
+#modal-campo .automation-card-title strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+#modal-campo .automation-card-title small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+#modal-campo .field-automation-subgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#modal-campo .automation-smart-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f2f8ff;
+  color: #48627f;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+#modal-campo .automation-smart-note i {
+  margin-top: 2px;
+  color: #2f7fd8;
+}
+
+#modal-campo .automation-smart-note[hidden] {
+  display: none !important;
+}
+
+#modal-campo .cep-destination-preview {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dbe7f4;
+  border-radius: 14px;
+  background: #fbfdff;
+}
+
+#modal-campo .cep-destination-preview[hidden] {
+  display: none !important;
+}
+
+#modal-campo .cep-destination-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#modal-campo .cep-destination-head strong {
+  display: block;
+  color: #172033;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+#modal-campo .cep-destination-head small {
+  display: block;
+  margin-top: 3px;
+  color: #718096;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+#modal-campo .cep-destination-section {
+  max-width: 42%;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #2f6fae;
+  font-size: 10.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#modal-campo .cep-destination-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+#modal-campo .cep-destination-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid #e3ebf5;
+  border-radius: 11px;
+  background: #fff;
+}
+
+#modal-campo .cep-destination-status {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 24px;
+  font-size: 10px;
+}
+
+#modal-campo .cep-destination-row.is-found .cep-destination-status {
+  background: #eaf8f0;
+  color: #218552;
+}
+
+#modal-campo .cep-destination-row.is-manual .cep-destination-status {
+  background: #f3f5f8;
+  color: #667085;
+}
+
+#modal-campo .cep-destination-row.is-missing .cep-destination-status {
+  background: #fff5e8;
+  color: #b36a0a;
+}
+
+#modal-campo .cep-destination-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+#modal-campo .cep-destination-copy strong {
+  display: block;
+  color: #263246;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+#modal-campo .cep-destination-copy small {
+  display: block;
+  margin-top: 2px;
+  color: #7a8799;
+  font-size: 10.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+#modal-campo .cep-destination-copy--select {
+  min-width: 0;
+}
+
+#modal-campo .cep-destination-select {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  margin-top: 7px;
+  padding: 0 34px 0 10px;
+  border: 1px solid #d7e1ee;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+}
+
+#modal-campo .cep-destination-select:hover {
+  border-color: #b9cae0;
+}
+
+#modal-campo .cep-destination-select:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.10);
+}
+
+html[data-theme="dark"] #modal-campo .cep-destination-select {
+  background: #111827;
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #e5eefc;
+}
+
+#modal-campo .cep-destination-origin {
+  font-size: 9.5px;
+  color: #718096;
+  background: #f3f6fa;
+  padding: 3px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+#modal-campo .field-automation-list {
+  display: grid;
+  gap: 10px;
+}
+
+#modal-campo .premium-toggle-card--compact {
+  min-height: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+#modal-campo .premium-toggle-card--compact strong {
+  font-size: 13px;
+}
+
+#modal-campo .premium-toggle-card--compact small {
+  margin-top: 3px;
+}
+
+#modal-campo .automation-card.is-muted {
+  opacity: 0.72;
+}
+
+#modal-campo .automation-card.is-muted .field-automation-list,
+#modal-campo .automation-card.is-muted .field-automation-subgrid {
+  pointer-events: none;
+}
+
 #modal-campo .field-flat-help .premium-control {
   margin: 0 !important;
   gap: 6px !important;
@@ -6269,11 +6648,124 @@ html[data-theme="dark"] #modal-campo .field-toggle-grid-simple .premium-toggle-c
   border: 0 !important;
 }
 
+html[data-theme="dark"] #modal-campo .field-preset-panel {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #262626;
+}
+
+html[data-theme="dark"] #modal-campo .field-preset-icon {
+  color: #d4d4d4;
+  background: #303030;
+}
+
+html[data-theme="dark"] #modal-campo .field-preset-copy strong {
+  color: #ececec;
+}
+
+html[data-theme="dark"] #modal-campo .field-preset-copy small {
+  color: #a3a3a3;
+}
+
+html[data-theme="dark"] #modal-campo .field-preset-btn {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #2b2b2b;
+  color: #d4d4d4;
+}
+
+html[data-theme="dark"] #modal-campo .field-preset-btn:hover,
+html[data-theme="dark"] #modal-campo .field-preset-btn.is-active {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: #333333;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+html[data-theme="dark"] #modal-campo .automation-smart-note {
+  background: #2a2a2a;
+  color: #b7b7b7;
+}
+
+html[data-theme="dark"] #modal-campo .automation-smart-note i {
+  color: #d4d4d4;
+}
+
+html[data-theme="dark"] #modal-campo .cep-destination-preview {
+  border-color: rgba(255,255,255,.10);
+  background: #252525;
+}
+
+html[data-theme="dark"] #modal-campo .cep-destination-head strong,
+html[data-theme="dark"] #modal-campo .cep-destination-copy strong {
+  color: #ececec;
+}
+
+html[data-theme="dark"] #modal-campo .cep-destination-head small,
+html[data-theme="dark"] #modal-campo .cep-destination-copy small {
+  color: #a3a3a3;
+}
+
+html[data-theme="dark"] #modal-campo .cep-destination-section,
+html[data-theme="dark"] #modal-campo .cep-destination-origin {
+  background: #303030;
+  color: #c7c7c7;
+}
+
+html[data-theme="dark"] #modal-campo .cep-destination-row {
+  border-color: rgba(255,255,255,.09);
+  background: #2a2a2a;
+}
+
+html[data-theme="dark"] #modal-campo .cep-destination-row.is-found .cep-destination-status {
+  background: rgba(34,197,94,.13);
+  color: #86efac;
+}
+
+html[data-theme="dark"] #modal-campo .cep-destination-row.is-manual .cep-destination-status {
+  background: #333;
+  color: #bdbdbd;
+}
+
+html[data-theme="dark"] #modal-campo .cep-destination-row.is-missing .cep-destination-status {
+  background: rgba(245,158,11,.13);
+  color: #fbbf24;
+}
+
+html[data-theme="dark"] #modal-campo .automation-card {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.78) 0%, rgba(15, 23, 42, 0.92) 100%);
+}
+
+html[data-theme="dark"] #modal-campo .automation-card-title > span {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(96, 165, 250, 0.22);
+  color: #93c5fd;
+}
+
+html[data-theme="dark"] #modal-campo .automation-card-title strong {
+  color: #e5eefc;
+}
+
+html[data-theme="dark"] #modal-campo .automation-card-title small {
+  color: #94a3b8;
+}
+
 html[data-theme="dark"] #modal-campo .field-flat-help {
   padding-bottom: 18px !important;
 }
 
 @media (max-width: 760px) {
+  #modal-campo .cep-destination-list {
+    grid-template-columns: 1fr;
+  }
+
+  #modal-campo .cep-destination-head {
+    flex-direction: column;
+  }
+
+  #modal-campo .cep-destination-section {
+    max-width: 100%;
+  }
+
   #modal-campo .field-config-flat {
     padding-left: 18px !important;
     padding-right: 18px !important;
@@ -6412,4 +6904,280 @@ html[data-theme="dark"] .formularios-workspace .module-group-label {
   html[data-theme="dark"] .formularios-workspace .module-group-label {
     border-left-color: rgba(255, 255, 255, 0.10);
   }
+}
+
+/* =========================================================
+   CORREÇÃO V4 — ESTRUTURA BLINDADA DO EDITOR DE CAMPOS
+   O estado de tipo/automação só pode esconder linhas internas.
+   Cabeçalho, corpo, formulário e rodapé permanecem renderizados.
+   ========================================================= */
+#modal-campo:not([hidden]) > .modal-content.modal-field-editor {
+  display: flex !important;
+  flex-direction: column !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  content-visibility: visible !important;
+  /*
+    IMPORTANTE: overflow:hidden ainda cria um scroll container programático.
+    Ao abrir/trocar um <select>, Chromium pode alterar scrollTop do próprio
+    modal-content e "empurrar" header/body/footer para fora, deixando o modal
+    inteiro branco. overflow:clip impede essa rolagem externa; somente o
+    .modal-body abaixo deve rolar.
+  */
+  overflow: clip !important;
+  overscroll-behavior: none !important;
+}
+
+#modal-campo:not([hidden]) > .modal-content.modal-field-editor > .modal-header {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  content-visibility: visible !important;
+  flex: 0 0 auto !important;
+}
+
+#modal-campo:not([hidden]) > .modal-content.modal-field-editor > .modal-body {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  content-visibility: visible !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+}
+
+#modal-campo:not([hidden]) > .modal-content.modal-field-editor > .modal-body > .premium-form-grid {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  content-visibility: visible !important;
+}
+
+#modal-campo:not([hidden]) > .modal-content.modal-field-editor > .modal-body > .premium-form-grid > .field-main-section,
+#modal-campo:not([hidden]) > .modal-content.modal-field-editor > .modal-body > .premium-form-grid > .field-config-section {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  content-visibility: visible !important;
+}
+
+#modal-campo:not([hidden]) > .modal-content.modal-field-editor > .modal-body > .premium-form-grid > #campo-preview {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  content-visibility: visible !important;
+}
+
+#modal-campo:not([hidden]) > .modal-content.modal-field-editor > .modal-footer {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  content-visibility: visible !important;
+  flex: 0 0 auto !important;
+}
+
+/* hidden continua autorizado apenas nos componentes condicionais internos. */
+#modal-campo .campo-options-control[hidden],
+#modal-campo .field-flat-automation[hidden],
+#modal-campo .field-preset-panel[hidden],
+#modal-campo #campo-automation-grid[hidden],
+#modal-campo .automation-card[hidden],
+#modal-campo .field-automation-list > [hidden],
+#modal-campo #row-campo-cep-providers[hidden],
+#modal-campo #campo-cep-auto-hint[hidden] {
+  display: none !important;
+}
+
+/* =========================================
+   V8 — Função do campo (localização)
+   ========================================= */
+#modal-campo .field-purpose-panel[hidden] {
+  display: none !important;
+}
+
+#modal-campo .field-purpose-panel {
+  margin: 14px 0 16px;
+  padding: 16px;
+  border: 1px solid #dbe7f5;
+  border-radius: 16px;
+  background: #f8fbff;
+  display: grid;
+  gap: 14px;
+}
+
+#modal-campo .field-purpose-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+#modal-campo .field-purpose-head strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+#modal-campo .field-purpose-head small {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+#modal-campo .field-purpose-control {
+  margin: 0;
+}
+
+#modal-campo .field-purpose-control label {
+  margin-bottom: 7px;
+}
+
+#modal-campo .field-purpose-control select {
+  min-height: 44px;
+  font-weight: 600;
+}
+
+#modal-campo .field-purpose-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 13px;
+  border: 1px solid #dce8f6;
+  border-radius: 13px;
+  background: #ffffff;
+}
+
+#modal-campo .field-purpose-help-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: #2563eb;
+  background: #eaf3ff;
+}
+
+#modal-campo .field-purpose-help strong {
+  display: block;
+  color: #1e293b;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+#modal-campo .field-purpose-help small {
+  display: block;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+html[data-theme="dark"] #modal-campo .field-purpose-panel {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #262626;
+}
+
+html[data-theme="dark"] #modal-campo .field-purpose-head strong,
+html[data-theme="dark"] #modal-campo .field-purpose-help strong {
+  color: #ececec;
+}
+
+html[data-theme="dark"] #modal-campo .field-purpose-head small,
+html[data-theme="dark"] #modal-campo .field-purpose-help small {
+  color: #a3a3a3;
+}
+
+html[data-theme="dark"] #modal-campo .field-purpose-help {
+  border-color: rgba(255, 255, 255, 0.10);
+  background: #2b2b2b;
+}
+
+html[data-theme="dark"] #modal-campo .field-purpose-help-icon {
+  color: #d4d4d4;
+  background: #333333;
+}
+
+
+/* =========================================
+   V9 — Mapeamento CEP compacto
+   Mantém o visual limpo e abre o select somente ao clicar em Alterar.
+   ========================================= */
+#modal-campo .cep-destination-current {
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+#modal-campo .cep-destination-current-value {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #607086;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#modal-campo .cep-destination-arrow {
+  color: #3b82f6;
+  font-weight: 700;
+}
+
+#modal-campo .cep-destination-edit-btn {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #dbe5f0;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #3b6f9f;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+#modal-campo .cep-destination-edit-btn:hover {
+  background: #eef6ff;
+  border-color: #c8daee;
+}
+
+#modal-campo .cep-destination-editor {
+  margin-top: 7px;
+}
+
+#modal-campo .cep-destination-editor[hidden] {
+  display: none !important;
+}
+
+#modal-campo .cep-destination-editor .cep-destination-select {
+  margin-top: 0;
+}
+
+html[data-theme="dark"] #modal-campo .cep-destination-current-value {
+  color: #a3a3a3;
+}
+
+html[data-theme="dark"] #modal-campo .cep-destination-edit-btn {
+  background: #2b2b2b;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #d4d4d4;
+}
+
+html[data-theme="dark"] #modal-campo .cep-destination-edit-btn:hover {
+  background: #333333;
 }

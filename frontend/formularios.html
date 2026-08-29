@@ -15,14 +15,14 @@
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/formularios.js?v=20260824-financeiro-ficha-simplificada-v3" defer></script>
+  <script src="/frontend/js/pages/formularios.js?v=20260829-exclusao-definitiva-v12" defer></script>
 
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260824-financeiro-grupo-v2" />
+  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260828-funcao-campo-v9" />
 </head>
 
 <body>
@@ -547,24 +547,6 @@
                   <option value="telefone">Telefone</option>
                   <option value="moeda">Moeda</option>
                   <option value="percentual">Percentual</option>
-                  <optgroup label="Puxar dados do sistema — escolha única">
-                    <option value="relacao_cliente">Puxar Cliente</option>
-                    <option value="relacao_fornecedor">Puxar Fornecedor</option>
-                    <option value="relacao_produto">Puxar Produto</option>
-                    <option value="relacao_patrimonio">Puxar Patrimônio</option>
-                    <option value="relacao_cotacao">Puxar Cotação</option>
-                    <option value="relacao_proposta">Puxar Proposta</option>
-                    <option value="relacao_contrato">Puxar Contrato</option>
-                  </optgroup>
-                  <optgroup label="Puxar dados do sistema — múltipla escolha">
-                    <option value="relacao_cliente_multi">Puxar vários Clientes</option>
-                    <option value="relacao_fornecedor_multi">Puxar vários Fornecedores</option>
-                    <option value="relacao_produto_multi">Puxar vários Produtos</option>
-                    <option value="relacao_patrimonio_multi">Puxar vários Patrimônios</option>
-                    <option value="relacao_cotacao_multi">Puxar várias Cotações</option>
-                    <option value="relacao_proposta_multi">Puxar várias Propostas</option>
-                    <option value="relacao_contrato_multi">Puxar vários Contratos</option>
-                  </optgroup>
                 </select>
               </div>
 
@@ -694,6 +676,205 @@
                     <option value="aviso">Aviso</option>
                   </select>
                 </div>
+              </div>
+            </div>
+
+            <div class="field-flat-divider" aria-hidden="true"></div>
+
+            <div class="field-flat-block field-flat-automation">
+              <div class="field-flat-heading">
+                <div>
+                  <h4>Automações e integrações</h4>
+                  <p>O Valora mostra somente as opções que combinam com este campo.</p>
+                </div>
+              </div>
+
+              <div class="field-purpose-panel" id="campo-location-presets">
+                <div class="field-purpose-head">
+                  <span class="field-preset-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                  <div>
+                    <strong>Função deste campo</strong>
+                    <small>Informe o que este campo representa. Isso ativa somente as automações relacionadas.</small>
+                  </div>
+                </div>
+
+                <div class="form-group premium-control field-purpose-control">
+                  <label for="campo-location-purpose">O que este campo representa?</label>
+                  <select id="campo-location-purpose">
+                    <option value="">Nenhuma função especial</option>
+                    <option value="cep">CEP — buscar endereço automaticamente</option>
+                    <option value="endereco">Endereço / Logradouro — localização e Google Maps</option>
+                    <option value="cidade">Cidade / Município</option>
+                    <option value="estado">Estado / UF</option>
+                  </select>
+                </div>
+
+                <div class="field-purpose-help" id="campo-location-purpose-help" aria-live="polite">
+                  <span class="field-purpose-help-icon"><i class="fa-solid fa-circle-info"></i></span>
+                  <div>
+                    <strong id="campo-location-purpose-help-title">Nenhuma função especial</strong>
+                    <small id="campo-location-purpose-help-text">Use para campos comuns que não precisam de automação de localização.</small>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-automation-grid" id="campo-automation-grid">
+                <article class="automation-card" id="automation-card-relacao">
+                  <div class="automation-card-title">
+                    <span><i class="fa-solid fa-link"></i></span>
+                    <div>
+                      <strong>Vinculação com cadastros do sistema</strong>
+                      <small>Use quando o campo deve puxar clientes, fornecedores, produtos e outros registros.</small>
+                    </div>
+                  </div>
+
+                  <div class="field-automation-subgrid">
+                    <div class="form-group premium-control is-wide">
+                      <label for="campo-relacao-entidade">Cadastro vinculado</label>
+                      <select id="campo-relacao-entidade">
+                        <option value="">Nenhum</option>
+                        <option value="cliente">Cliente</option>
+                        <option value="fornecedor">Fornecedor</option>
+                        <option value="produto">Produto</option>
+                        <option value="patrimonio">Patrimônio</option>
+                        <option value="cotacao">Cotação</option>
+                        <option value="proposta">Proposta</option>
+                        <option value="contrato">Contrato</option>
+                      </select>
+                    </div>
+
+                    <label class="premium-toggle-card premium-toggle-card--compact is-wide">
+                      <input id="campo-relacao-multiplo" type="checkbox" />
+                      <span class="toggle-switch" aria-hidden="true"></span>
+                      <span>
+                        <strong>Permitir múltipla seleção</strong>
+                        <small>Ex.: selecionar vários fornecedores em vez de somente um.</small>
+                      </span>
+                    </label>
+                  </div>
+                </article>
+
+                <article class="automation-card" id="automation-card-cep">
+                  <div class="automation-card-title">
+                    <span><i class="fa-solid fa-location-dot"></i></span>
+                    <div>
+                      <strong>Preenchimento automático via CEP</strong>
+                      <small>Ideal para CEP, endereço, bairro, cidade e estado.</small>
+                    </div>
+                  </div>
+
+                  <div class="automation-smart-note" id="campo-cep-auto-hint">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Ao consultar o CEP, o Valora reconhece e preenche automaticamente Endereço, Bairro, Cidade e Estado da mesma seção.</span>
+                  </div>
+
+                  <div class="cep-destination-preview" id="campo-cep-destinations" hidden>
+                    <div class="cep-destination-head">
+                      <div>
+                        <strong>Para onde os dados do CEP vão?</strong>
+                        <small>Escolha exatamente qual campo desta seção receberá cada informação retornada pelo CEP.</small>
+                      </div>
+                      <span class="cep-destination-section" id="campo-cep-destination-section"></span>
+                    </div>
+                    <div class="cep-destination-list" id="campo-cep-destination-list"></div>
+                  </div>
+
+                  <div class="field-automation-list">
+                    <label class="premium-toggle-card premium-toggle-card--compact is-wide" id="row-campo-cep-buscar">
+                      <input id="campo-cep-buscar" type="checkbox" />
+                      <span class="toggle-switch" aria-hidden="true"></span>
+                      <span>
+                        <strong>Buscar endereço pelo CEP</strong>
+                        <small>Use no campo de CEP para consultar o endereço automaticamente.</small>
+                      </span>
+                    </label>
+
+                    <label class="premium-toggle-card premium-toggle-card--compact is-wide" id="row-campo-cep-preencher-logradouro">
+                      <input id="campo-cep-preencher-logradouro" type="checkbox" />
+                      <span class="toggle-switch" aria-hidden="true"></span>
+                      <span>
+                        <strong>Preencher logradouro automaticamente</strong>
+                        <small>Use em um campo de endereço, rua ou logradouro.</small>
+                      </span>
+                    </label>
+
+                    <label class="premium-toggle-card premium-toggle-card--compact is-wide" id="row-campo-cep-preencher-bairro">
+                      <input id="campo-cep-preencher-bairro" type="checkbox" />
+                      <span class="toggle-switch" aria-hidden="true"></span>
+                      <span>
+                        <strong>Preencher bairro automaticamente</strong>
+                        <small>Use em um campo que representa o bairro.</small>
+                      </span>
+                    </label>
+
+                    <label class="premium-toggle-card premium-toggle-card--compact is-wide" id="row-campo-cep-preencher-cidade">
+                      <input id="campo-cep-preencher-cidade" type="checkbox" />
+                      <span class="toggle-switch" aria-hidden="true"></span>
+                      <span>
+                        <strong>Preencher cidade automaticamente</strong>
+                        <small>Use em um campo que representa a cidade.</small>
+                      </span>
+                    </label>
+
+                    <label class="premium-toggle-card premium-toggle-card--compact is-wide" id="row-campo-cep-preencher-estado">
+                      <input id="campo-cep-preencher-estado" type="checkbox" />
+                      <span class="toggle-switch" aria-hidden="true"></span>
+                      <span>
+                        <strong>Preencher estado automaticamente</strong>
+                        <small>Use em um campo que representa o estado / UF.</small>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div class="field-automation-subgrid" id="row-campo-cep-providers">
+                    <div class="form-group premium-control">
+                      <label for="campo-cep-provedor">Provedor principal</label>
+                      <select id="campo-cep-provedor">
+                        <option value="viacep">ViaCEP</option>
+                        <option value="brasilapi">BrasilAPI</option>
+                      </select>
+                    </div>
+
+                    <div class="form-group premium-control">
+                      <label for="campo-cep-fallback">Fallback</label>
+                      <select id="campo-cep-fallback">
+                        <option value="">Nenhum</option>
+                        <option value="brasilapi">BrasilAPI</option>
+                        <option value="viacep">ViaCEP</option>
+                      </select>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="automation-card" id="automation-card-maps">
+                  <div class="automation-card-title">
+                    <span><i class="fa-solid fa-map-location-dot"></i></span>
+                    <div>
+                      <strong>Localização e mapas</strong>
+                      <small>Mostre ações prontas para abrir o endereço no mapa.</small>
+                    </div>
+                  </div>
+
+                  <div class="field-automation-list">
+                    <label class="premium-toggle-card premium-toggle-card--compact is-wide">
+                      <input id="campo-google-maps-ativo" type="checkbox" />
+                      <span class="toggle-switch" aria-hidden="true"></span>
+                      <span>
+                        <strong>Exibir botão “Abrir no Google Maps”</strong>
+                        <small>O botão aparece quando houver endereço suficiente para montar a pesquisa.</small>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div class="field-automation-subgrid">
+                    <div class="form-group premium-control">
+                      <label for="campo-google-maps-destino">Abrir em</label>
+                      <select id="campo-google-maps-destino">
+                        <option value="nova_aba">Nova aba</option>
+                      </select>
+                    </div>
+                  </div>
+                </article>
               </div>
             </div>
 

@@ -612,6 +612,138 @@ def normalizar_texto_busca(value: Any) -> str:
     return " ".join(text.replace("/", " ").replace("-", " ").split())
 
 
+def slugify_campo_personalizado(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    chars = []
+    ultimo_underscore = False
+    for ch in text:
+        if ch.isalnum():
+            chars.append(ch)
+            ultimo_underscore = False
+        elif not ultimo_underscore:
+            chars.append("_")
+            ultimo_underscore = True
+    return "".join(chars).strip("_")[:120]
+
+
+def _meta_campo_personalizado(modulo: str):
+    mapa = {
+        "clientes": (getattr(models, "CampoCliente", None), getattr(models, "ClienteCampoValor", None)),
+        "fornecedores": (getattr(models, "CampoFornecedor", None), getattr(models, "FornecedorCampoValor", None)),
+        "produtos": (getattr(models, "CampoProduto", None), getattr(models, "ProdutoCampoValor", None)),
+        "patrimonio": (getattr(models, "CampoPatrimonio", None), getattr(models, "PatrimonioCampoValor", None)),
+        "cotacoes": (getattr(models, "CampoCotacao", None), getattr(models, "CotacaoCampoValor", None)),
+        "propostas": (getattr(models, "CampoProposta", None), getattr(models, "PropostaCampoValor", None)),
+    }
+    campo_model, valor_model = mapa.get(str(modulo or ""), (None, None))
+    if campo_model is None or valor_model is None:
+        return None
+    return campo_model, valor_model
+
+
+def _resolver_campo_personalizado_vinculado(db: Session, modelo, campo):
+    if str(getattr(campo, "origem", "") or "") != "personalizado":
+        return None
+
+    meta = _meta_campo_personalizado(str(getattr(modelo, "modulo", "") or ""))
+    if meta is None:
+        return None
+
+    campo_model, valor_model = meta
+    empresa_id = int(getattr(modelo, "empresa_id"))
+
+    linked_id = getattr(campo, "campo_personalizado_id", None)
+    try:
+        linked_id = int(linked_id) if linked_id is not None else None
+    except (TypeError, ValueError):
+        linked_id = None
+
+    campo_personalizado = None
+    if linked_id is not None:
+        campo_personalizado = (
+            db.query(campo_model)
+            .filter(campo_model.id == linked_id)
+            .filter(campo_model.empresa_id == empresa_id)
+            .first()
+        )
+
+    # Compatibilidade para fichas antigas que ainda não tinham o vínculo por ID.
+    # Só usamos o slug exato do rótulo; não fazemos aproximação por nome.
+    if campo_personalizado is None:
+        slug = slugify_campo_personalizado(getattr(campo, "label", None))
+        if slug:
+            candidatos = (
+                db.query(campo_model)
+                .filter(campo_model.empresa_id == empresa_id)
+                .filter(campo_model.slug == slug)
+                .all()
+            )
+            if len(candidatos) == 1:
+                campo_personalizado = candidatos[0]
+
+    if campo_personalizado is None:
+        return None
+
+    return campo_personalizado, valor_model
+
+
+def _contar_valores_campo_personalizado(db: Session, modelo, campo) -> int:
+    resolvido = _resolver_campo_personalizado_vinculado(db, modelo, campo)
+    if resolvido is None:
+        return 0
+
+    campo_personalizado, valor_model = resolvido
+    query = (
+        db.query(func.count(valor_model.id))
+        .filter(valor_model.campo_id == int(campo_personalizado.id))
+        .filter(valor_model.valor.isnot(None))
+        .filter(func.trim(cast(valor_model.valor, String)) != "")
+        .filter(func.trim(cast(valor_model.valor, String)) != "[]")
+    )
+    return int(query.scalar() or 0)
+
+
+def _excluir_campo_personalizado_e_valores(db: Session, modelo, campo) -> int:
+    resolvido = _resolver_campo_personalizado_vinculado(db, modelo, campo)
+    if resolvido is None:
+        return 0
+
+    campo_personalizado, valor_model = resolvido
+    campo_personalizado_id = int(campo_personalizado.id)
+
+    # Exclusão explícita dos valores, além do ON DELETE CASCADE, para o
+    # comportamento ser idêntico em PostgreSQL e em bancos locais de teste.
+    apagados = (
+        db.query(valor_model)
+        .filter(valor_model.campo_id == campo_personalizado_id)
+        .delete(synchronize_session=False)
+    )
+
+    # Desvincula referências legadas somente em formulários do mesmo módulo e
+    # da mesma empresa. IDs de campos personalizados podem coincidir entre
+    # tabelas de módulos diferentes, então não podemos atualizar globalmente.
+    formularios_mesmo_modulo = [
+        int(row[0])
+        for row in (
+            db.query(models.FormularioModelo.id)
+            .filter(models.FormularioModelo.empresa_id == int(modelo.empresa_id))
+            .filter(models.FormularioModelo.modulo == str(modelo.modulo))
+            .all()
+        )
+    ]
+    if formularios_mesmo_modulo:
+        db.query(models.FormularioCampo).filter(
+            models.FormularioCampo.formulario_id.in_(formularios_mesmo_modulo),
+            models.FormularioCampo.campo_personalizado_id == campo_personalizado_id,
+            models.FormularioCampo.id != int(campo.id),
+        ).update({models.FormularioCampo.campo_personalizado_id: None}, synchronize_session=False)
+
+    db.delete(campo_personalizado)
+    return int(apagados or 0)
+
+
 def normalizar_tipo_campo(value: Any) -> str:
     raw = norm_lower(value)
     if not raw:
@@ -2062,10 +2194,33 @@ def atualizar_campo(
     return campo_dict(campo)
 
 
+@router.get("/campos/{campo_id}/uso")
+def uso_campo(
+    campo_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    empresa_id = validar_usuario_empresa(request, db)
+    campo = campo_ou_404(db, campo_id, empresa_id)
+    modelo = modelo_ou_404(db, int(campo.formulario_id), empresa_id)
+    total = _contar_valores_campo_personalizado(db, modelo, campo)
+
+    return {
+        "campo_id": int(campo.id),
+        "label": str(campo.label or "Campo"),
+        "origem": str(campo.origem or ""),
+        "modulo": str(modelo.modulo or ""),
+        "cadastros_com_dados": total,
+        "tem_dados": total > 0,
+        "exclusao_definitiva": str(campo.origem or "") == "personalizado",
+    }
+
+
 @router.delete("/campos/{campo_id}")
 def excluir_campo(
     campo_id: int,
     request: Request,
+    excluir_dados: bool = Query(default=False),
     db: Session = Depends(get_db),
 ):
     empresa_id = validar_usuario_empresa(request, db)
@@ -2082,12 +2237,37 @@ def excluir_campo(
             detail="Este é um campo estrutural do Financeiro. Você pode renomear ou mover o campo, mas não removê-lo.",
         )
 
+    origem = str(campo.origem or "")
+    total_com_dados = _contar_valores_campo_personalizado(db, modelo, campo)
+
+    if origem == "personalizado" and total_com_dados > 0 and not excluir_dados:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f'Este campo possui dados salvos em {total_com_dados} cadastro(s). '
+                'Confirme a exclusão definitiva para apagar o campo e todos esses valores.'
+            ),
+        )
+
+    valores_excluidos = 0
+    if origem == "personalizado":
+        valores_excluidos = _excluir_campo_personalizado_e_valores(db, modelo, campo)
+
     db.delete(campo)
     db.flush()
     sincronizar_modelo_apos_escrita(db, modelo)
     db.commit()
 
-    return {"ok": True, "message": "Campo removido do formulário com sucesso."}
+    return {
+        "ok": True,
+        "message": (
+            "Campo e dados excluídos definitivamente."
+            if origem == "personalizado"
+            else "Campo removido do formulário com sucesso."
+        ),
+        "cadastros_com_dados": total_com_dados,
+        "valores_excluidos": valores_excluidos,
+    }
 
 
 # =========================================================

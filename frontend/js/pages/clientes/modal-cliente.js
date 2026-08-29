@@ -6,7 +6,7 @@ import {
   renderCustomFieldsInputs,
   normalizeCustomFieldsPayload,
   validateRequiredCustomFields,
-} from './custom-fields.js?v=20260729-clientes-gravacao-v2';
+} from './custom-fields.js?v=20260829-campos-independentes-v11';
 
 let _afterSave = async () => {};
 let _bound = false;
@@ -581,8 +581,11 @@ function isCustomLocationSection(card) {
 }
 
 function getCustomLocationSection() {
-  return Array.from(document.querySelectorAll('#custom-fields-container .custom-section-card'))
-    .find(isCustomLocationSection) || null;
+  const sections = Array.from(document.querySelectorAll('#custom-fields-container .custom-section-card'));
+  return sections.find((section) =>
+    Array.from(section.querySelectorAll('[data-custom-field-wrapper="true"]'))
+      .some((wrapper) => isFlagEnabled(wrapper.dataset.googleMapsEnabled))
+  ) || sections.find(isCustomLocationSection) || null;
 }
 
 function addressFieldMatches(part, rawKey) {
@@ -622,10 +625,14 @@ function addressFieldMatches(part, rawKey) {
 
 function getAddressPartFromCustomLocation(part) {
   const section = getCustomLocationSection();
-  if (!section) return { found: false, value: '' };
+  const roots = [section, document.querySelector('#custom-fields-container')].filter(Boolean);
+  const seen = new Set();
+  const records = [];
 
-  const records = Array.from(section.querySelectorAll('[data-custom-field]'))
-    .map((el, index) => {
+  roots.forEach((root) => {
+    Array.from(root.querySelectorAll('[data-custom-field]')).forEach((el, index) => {
+      if (seen.has(el)) return;
+      seen.add(el);
       const wrapper = el.closest('[data-custom-field-wrapper="true"]');
       const keys = [
         wrapper?.dataset.systemField,
@@ -633,10 +640,10 @@ function getAddressPartFromCustomLocation(part) {
         el.dataset.customLabel,
         wrapper?.dataset.customLabel,
       ].filter(Boolean);
-
-      return { el, index, keys };
-    })
-    .filter((record) => record.keys.some((key) => addressFieldMatches(part, key)));
+      if (!keys.some((key) => addressFieldMatches(part, key))) return;
+      records.push({ el, index: records.length + index, keys });
+    });
+  });
 
   const selected = chooseRenderedField(records);
   if (!selected) return { found: false, value: '' };
@@ -711,6 +718,10 @@ function ensureGoogleMapsButtonInCustomLocation() {
   const head = section?.querySelector('.custom-section-head');
   if (!head) return;
 
+  const mapsEnabled = Array.from(section.querySelectorAll('[data-custom-field-wrapper="true"]'))
+    .some((wrapper) => isFlagEnabled(wrapper.dataset.googleMapsEnabled));
+  if (!mapsEnabled) return;
+
   head.classList.add('custom-section-head--actions');
   head.appendChild(createGoogleMapsAddressButton());
 }
@@ -749,6 +760,225 @@ function openCurrentClientAddressInGoogleMaps() {
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
   link.click();
+}
+
+function maskCepValue(value) {
+  const digits = String(value || '').replace(/\D+/g, '').slice(0, 8);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
+async function fetchCepProvider(provider, cep) {
+  if (provider === 'brasilapi') {
+    const response = await fetch(`https://brasilapi.com.br/api/cep/v1/${cep}`);
+    if (!response.ok) throw new Error('BrasilAPI indisponível');
+    const data = await response.json();
+    return {
+      cep: data.cep || cep,
+      logradouro: data.street || '',
+      bairro: data.neighborhood || '',
+      cidade: data.city || '',
+      estado: data.state || '',
+    };
+  }
+
+  const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+  if (!response.ok) throw new Error('ViaCEP indisponível');
+  const data = await response.json();
+  if (data.erro) throw new Error('CEP não encontrado');
+  return {
+    cep: data.cep || cep,
+    logradouro: data.logradouro || '',
+    bairro: data.bairro || '',
+    cidade: data.localidade || '',
+    estado: data.uf || '',
+  };
+}
+
+async function buscarEnderecoPorCep(cep, provider = 'viacep', fallback = '') {
+  const clean = String(cep || '').replace(/\D+/g, '');
+  if (clean.length !== 8) return null;
+
+  try {
+    return await fetchCepProvider(provider || 'viacep', clean);
+  } catch (error) {
+    if (fallback && fallback !== provider) {
+      return fetchCepProvider(fallback, clean);
+    }
+    throw error;
+  }
+}
+
+function findCustomCepSourceField() {
+  const records = Array.from(document.querySelectorAll('#custom-fields-container [data-custom-field]'))
+    .map((el, index) => ({
+      el,
+      index,
+      wrapper: el.closest('[data-custom-field-wrapper="true"]'),
+    }))
+    .filter((record) => isFlagEnabled(record.wrapper?.dataset.cepSource));
+
+  return chooseRenderedField(records) || null;
+}
+
+function getCustomCepTargets() {
+  return Array.from(document.querySelectorAll('#custom-fields-container [data-custom-field]'))
+    .map((el, index) => ({
+      el,
+      index,
+      wrapper: el.closest('[data-custom-field-wrapper="true"]'),
+    }));
+}
+
+function cepTargetRefMatches(record, ref) {
+  if (!record?.el || !record?.wrapper || !ref) return false;
+  const value = String(ref || '').trim();
+  if (!value) return false;
+
+  if (value.startsWith('form:')) {
+    return String(record.wrapper.dataset.formFieldId || '') === value.slice(5);
+  }
+  if (value.startsWith('system:')) {
+    return normalizeFichaKey(record.wrapper.dataset.systemField || '') === normalizeFichaKey(value.slice(7));
+  }
+  if (value.startsWith('slug:')) {
+    return normalizeFichaKey(record.el.dataset.customField || record.wrapper.dataset.customSlug || '') === normalizeFichaKey(value.slice(5));
+  }
+  if (value.startsWith('label:')) {
+    return normalizeFichaKey(record.el.dataset.customLabel || '') === normalizeFichaKey(value.slice(6));
+  }
+
+  return false;
+}
+
+function getExplicitCepTargetRefs(sourceWrapper) {
+  return {
+    logradouro: String(sourceWrapper?.dataset.cepTargetLogradouro || ''),
+    bairro: String(sourceWrapper?.dataset.cepTargetBairro || ''),
+    cidade: String(sourceWrapper?.dataset.cepTargetCidade || ''),
+    estado: String(sourceWrapper?.dataset.cepTargetEstado || ''),
+  };
+}
+
+function fillCustomCepTargets(address = {}, sourceField = null) {
+  const sourceSection = sourceField?.closest?.('.custom-section-card') || null;
+  const sourceWrapper = sourceField?.closest?.('[data-custom-field-wrapper="true"]') || null;
+  const records = getCustomCepTargets().filter(({ el, wrapper }) => {
+    if (!wrapper || el === sourceField) return false;
+    if (!sourceSection) return true;
+    return el.closest('.custom-section-card') === sourceSection;
+  });
+
+  const explicitlyConfigured = isFlagEnabled(sourceWrapper?.dataset.cepDestinationsConfigured);
+  if (explicitlyConfigured) {
+    const refs = getExplicitCepTargetRefs(sourceWrapper);
+    const parts = [
+      ['logradouro', address.logradouro || ''],
+      ['bairro', address.bairro || ''],
+      ['cidade', address.cidade || ''],
+      ['estado', address.estado || ''],
+    ];
+
+    parts.forEach(([part, value]) => {
+      const ref = refs[part];
+      if (!ref) return;
+      const target = records.find((record) => cepTargetRefMatches(record, ref));
+      if (target?.el) {
+        setRenderedFieldValue(target.el, value);
+      } else {
+        console.warn(`[Clientes] destino do CEP não encontrado para ${part}:`, ref);
+      }
+    });
+    return;
+  }
+
+  // Compatibilidade com configurações antigas: quando ainda não existe um
+  // mapeamento manual salvo, mantemos a detecção automática pelo nome/campo.
+  records.forEach(({ el, wrapper }) => {
+    const keys = [
+      wrapper.dataset.systemField,
+      el.dataset.customField,
+      el.dataset.customLabel,
+    ].filter(Boolean);
+    const inferred = (part) => keys.some((key) => addressFieldMatches(part, key));
+
+    if (isFlagEnabled(wrapper.dataset.cepFillLogradouro) || inferred('endereco')) {
+      setRenderedFieldValue(el, address.logradouro || '');
+    }
+    if (isFlagEnabled(wrapper.dataset.cepFillBairro) || inferred('bairro')) {
+      setRenderedFieldValue(el, address.bairro || '');
+    }
+    if (isFlagEnabled(wrapper.dataset.cepFillCidade) || inferred('cidade')) {
+      setRenderedFieldValue(el, address.cidade || '');
+    }
+    if (isFlagEnabled(wrapper.dataset.cepFillEstado) || inferred('estado')) {
+      setRenderedFieldValue(el, address.estado || '');
+    }
+  });
+}
+
+function fillNativeCepTargets(address = {}) {
+  if (address.logradouro) setValue('campo-endereco', address.logradouro || '');
+  if (address.bairro) setValue('campo-bairro', address.bairro || '');
+  if (address.cidade) setValue('campo-cidade', address.cidade || '');
+  if (address.estado) setValue('campo-estado', address.estado || '');
+  if (address.cep) setValue('campo-cep', maskCepValue(address.cep));
+}
+
+async function handleCepAutomationFromField(field) {
+  if (!field) return;
+
+  const wrapper = field.closest('[data-custom-field-wrapper="true"]');
+  const cepDigits = String(getRenderedFieldValue(field) || '').replace(/\D+/g, '');
+  if (cepDigits.length !== 8) return;
+  if (field.dataset.cepLookupInFlight === cepDigits) return;
+
+  const provider = wrapper?.dataset.cepProvider || 'viacep';
+  const fallback = wrapper?.dataset.cepFallback || '';
+  field.dataset.cepLookupInFlight = cepDigits;
+
+  try {
+    const address = await buscarEnderecoPorCep(cepDigits, provider, fallback);
+    if (!address) return;
+    setRenderedFieldValue(field, maskCepValue(address.cep || cepDigits));
+    fillCustomCepTargets(address, field);
+    updateGoogleMapsAddressButtons();
+    toast('Endereço preenchido automaticamente pelo CEP.', 'success');
+  } catch (error) {
+    console.error('[Clientes] erro ao buscar CEP personalizado:', error);
+    toast('Não foi possível localizar o CEP informado.', 'error');
+  } finally {
+    delete field.dataset.cepLookupInFlight;
+  }
+}
+
+async function handleNativeCepAutomation() {
+  const input = $('campo-cep');
+  const cepDigits = String(getValue('campo-cep') || '').replace(/\D+/g, '');
+  if (!input || cepDigits.length !== 8) return;
+  if (input.dataset.cepLookupInFlight === cepDigits) return;
+  input.dataset.cepLookupInFlight = cepDigits;
+
+  try {
+    const address = await buscarEnderecoPorCep(cepDigits, 'viacep', 'brasilapi');
+    if (!address) return;
+    fillNativeCepTargets(address);
+    updateGoogleMapsAddressButtons();
+    toast('Endereço preenchido automaticamente pelo CEP.', 'success');
+  } catch (error) {
+    console.error('[Clientes] erro ao buscar CEP nativo:', error);
+    toast('Não foi possível localizar o CEP informado.', 'error');
+  } finally {
+    delete input.dataset.cepLookupInFlight;
+  }
+}
+
+function handleCepFieldInputMask(event) {
+  const target = event.target;
+  if (!target) return;
+  if (target.id === 'campo-cep' || isFlagEnabled(target.closest?.('[data-custom-field-wrapper="true"]')?.dataset.cepSource)) {
+    target.value = maskCepValue(target.value);
+  }
 }
 
 function bindResumoSidebarCliente() {
@@ -956,6 +1186,23 @@ function getRenderedFieldValue(el) {
 
   return String(el.value ?? '').trim();
 }
+function setRenderedFieldValue(el, value) {
+  if (!el || el.disabled || el.dataset.customReadonly === 'true') return;
+
+  if (el.type === 'checkbox') {
+    el.checked = value === true || String(value).toLowerCase() === 'true' || String(value).toLowerCase() === 'sim';
+  } else {
+    el.value = value ?? '';
+  }
+
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function isFlagEnabled(value) {
+  return value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true' || String(value).toLowerCase() === 'sim';
+}
+
 
 function isRenderedFieldVisible(el) {
   if (!el || el.hidden) return false;
@@ -1012,12 +1259,9 @@ function collectFichaValues() {
     let key = slug;
 
     if (declaredSystemField || origin === 'sistema') {
+      // Só um vínculo explícito do construtor pode alimentar um campo nativo.
       bucket = 'system';
       key = declaredSystemField || normalizedSlug;
-    } else if (!validCustomSlugs.has(slug) && CLIENT_SYSTEM_FIELDS.has(normalizedSlug)) {
-      // Compatibilidade com fichas antigas que não gravavam a origem do campo.
-      bucket = 'system';
-      key = normalizedSlug;
     }
 
     if (bucket === 'system' && !CLIENT_SYSTEM_FIELDS.has(key)) return;
@@ -1067,22 +1311,6 @@ function buildFichaRenderValues(data = {}) {
   };
 }
 
-function getCustomValue(custom, keys, fallback = '') {
-  let found = false;
-
-  for (const key of keys) {
-    if (!Object.prototype.hasOwnProperty.call(custom || {}, key)) continue;
-    found = true;
-    const value = custom?.[key];
-
-    if (value !== undefined && value !== null && String(value).trim() !== '') {
-      return String(value).trim();
-    }
-  }
-
-  return found ? '' : fallback;
-}
-
 function normalizeTipoPessoa(value, fallback = 'PF') {
   const normalized = normalizeFichaKey(value);
   if (normalized === 'pj' || normalized.includes('juridica')) return 'PJ';
@@ -1102,118 +1330,6 @@ function applySystemFieldsToPayload(payload, systemFields = {}) {
 
     payload[key] = value;
   });
-}
-
-function buildBaseFromFichaPrincipal(customFields, fallback = {}) {
-  const custom = customFields || {};
-
-  const tipoCliente = getCustomValue(
-    custom,
-    ['tipo_pessoa', 'tipo_cliente', 'pessoa_fisica_juridica', 'tipo_de_pessoa'],
-    fallback.tipo_pessoa || 'PF'
-  );
-
-  const tipoPessoa = normalizeTipoPessoa(tipoCliente, fallback.tipo_pessoa || 'PF');
-
-  const nome = getCustomValue(
-    custom,
-    [
-      'cliente',
-      'nome',
-      'nome_razao_social',
-      'razao_social',
-      'nome_completo',
-      'nome_fantasia',
-    ],
-    fallback.nome || ''
-  );
-
-  const telefoneContato = getCustomValue(
-    custom,
-    [
-      'telefone_contato_whatsapp',
-      'telefone_contato',
-      'telefone_principal',
-      'telefone_celular',
-      'telefone',
-      'whatsapp',
-    ],
-    fallback.telefone || ''
-  );
-
-  const email = getCustomValue(
-    custom,
-    [
-      'e_mail',
-      'email',
-      'email_principal',
-      'e_mail_principal',
-    ],
-    fallback.email || ''
-  );
-
-  return {
-    codigo:
-      onlyDigits(fallback.codigo) ||
-      onlyDigits(getValue('campo-codigo')) ||
-      onlyDigits(getValue('campo-codigo-ficha-principal')) ||
-      '',
-
-    tipo_pessoa: tipoPessoa,
-    situacao: getCustomValue(custom, ['situacao', 'status'], fallback.situacao || 'ativo'),
-
-    nome,
-    nome_fantasia: getCustomValue(custom, ['nome_fantasia'], fallback.nome_fantasia || ''),
-    cpf_cnpj: getCustomValue(custom, tipoPessoa === 'PJ'
-      ? ['cpf_cnpj', 'cnpj', 'cnpj_pessoa_juridica', 'cnpj_pj', 'documento']
-      : ['cpf_cnpj', 'cpf', 'cpf_pessoa_fisica', 'cpf_pf', 'documento'], fallback.cpf_cnpj || ''),
-    rg_ie: getCustomValue(custom, tipoPessoa === 'PJ'
-      ? ['rg_ie', 'inscricao_estadual', 'ie']
-      : ['rg_ie', 'rg', 'registro_geral'], fallback.rg_ie || ''),
-    inscricao_municipal: getCustomValue(custom, ['inscricao_municipal'], fallback.inscricao_municipal || ''),
-    suframa: getCustomValue(custom, ['suframa'], fallback.suframa || ''),
-    data_nascimento: getCustomValue(custom, ['data_nascimento', 'nascimento'], fallback.data_nascimento || ''),
-    codigo_referencia: getCustomValue(custom, ['codigo_referencia', 'referencia'], fallback.codigo_referencia || ''),
-    retencao_percentual: getCustomValue(custom, ['retencao_percentual', 'percentual_retencao', 'retencao'], fallback.retencao_percentual || ''),
-
-    telefone: telefoneContato,
-    whatsapp: getCustomValue(
-      custom,
-      ['whatsapp', 'telefone_contato_whatsapp', 'telefone_celular'],
-      fallback.whatsapp || telefoneContato
-    ),
-
-    fax: getCustomValue(custom, ['fax'], fallback.fax || ''),
-    contato: getCustomValue(custom, ['contato', 'responsavel', 'nome_completo_responsavel'], fallback.contato || ''),
-    email,
-    email_nfe: getCustomValue(custom, ['email_nfe', 'e_mail_nfe'], fallback.email_nfe || ''),
-    email_cobranca: getCustomValue(custom, ['email_cobranca', 'e_mail_cobranca'], fallback.email_cobranca || ''),
-    email_fiscal: getCustomValue(custom, ['email_fiscal', 'e_mail_fiscal'], fallback.email_fiscal || ''),
-
-    site: getCustomValue(custom, ['home_page', 'homepage', 'site'], fallback.site || ''),
-
-    cep: getCustomValue(custom, ['cep'], fallback.cep || ''),
-    endereco: getCustomValue(custom, ['endereco', 'logradouro'], fallback.endereco || ''),
-    numero: getCustomValue(custom, ['numero'], fallback.numero || ''),
-    complemento: getCustomValue(custom, ['complemento'], fallback.complemento || ''),
-    bairro: getCustomValue(custom, ['bairro'], fallback.bairro || ''),
-    cidade: getCustomValue(custom, ['cidade'], fallback.cidade || ''),
-    estado: getCustomValue(custom, ['uf', 'estado'], fallback.estado || ''),
-    pais: getCustomValue(custom, ['pais'], fallback.pais || 'Brasil'),
-    codigo_ibge_cidade: getCustomValue(custom, ['codigo_ibge_cidade', 'ibge_cidade'], fallback.codigo_ibge_cidade || ''),
-    codigo_ibge_uf: getCustomValue(custom, ['codigo_ibge_uf', 'ibge_uf'], fallback.codigo_ibge_uf || ''),
-
-    parceiro_comercial: getCustomValue(custom, ['parceiro_comercial', 'parceiro', 'vendedor'], fallback.parceiro_comercial || ''),
-    percentual_comissao: getCustomValue(custom, ['percentual_comissao', 'comissao_percentual', 'comissao'], fallback.percentual_comissao || ''),
-    percentual_desconto: getCustomValue(custom, ['percentual_desconto', 'desconto_percentual', 'desconto'], fallback.percentual_desconto || ''),
-    modalidade_pagamento: getCustomValue(custom, ['modalidade_pagamento', 'forma_pagamento', 'condicao_pagamento'], fallback.modalidade_pagamento || ''),
-
-    regiao: getCustomValue(custom, ['regiao'], fallback.regiao || ''),
-    segmento: getCustomValue(custom, ['tipo_de_imovel', 'tipo_imovel', 'segmento'], fallback.segmento || ''),
-    classificacao: getCustomValue(custom, ['classificacao', 'tipo_cliente'], fallback.classificacao || ''),
-
-    observacoes: getCustomValue(custom, ['observacoes', 'observacao'], fallback.observacoes || ''),
-  };
 }
 
 async function fillClientForm(cliente = {}) {
@@ -1352,10 +1468,8 @@ function buildPayload() {
   };
 
   if (state.usarFichaPrincipalClientes) {
-    // Primeiro aplica os aliases de fichas antigas/personalizadas e depois os
-    // campos do sistema identificados de forma exata. Assim, CPF/CNPJ e os
-    // demais dados nativos sempre refletem o campo realmente editado.
-    Object.assign(payload, buildBaseFromFichaPrincipal(customFields, payload));
+    // Campo personalizado é sempre independente. Somente "Campo do sistema"
+    // explicitamente configurado pode atualizar as colunas nativas.
     applySystemFieldsToPayload(payload, systemFields);
   }
 
@@ -2114,8 +2228,22 @@ export function bindClientModal({ afterSave } = {}) {
   $('btn-cancelar-cliente')?.addEventListener('click', closeClientModal);
   $('formCliente')?.addEventListener('submit', saveCliente);
 
-  $('formCliente')?.addEventListener('input', updateGoogleMapsAddressButtons);
+  $('formCliente')?.addEventListener('input', (event) => {
+    handleCepFieldInputMask(event);
+    updateGoogleMapsAddressButtons();
+  });
   $('formCliente')?.addEventListener('change', updateGoogleMapsAddressButtons);
+  $('formCliente')?.addEventListener('focusout', (event) => {
+    const target = event.target;
+    if (!target) return;
+    if (target.id === 'campo-cep') {
+      handleNativeCepAutomation();
+      return;
+    }
+    if (isFlagEnabled(target.closest?.('[data-custom-field-wrapper="true"]')?.dataset.cepSource)) {
+      handleCepAutomationFromField(target);
+    }
+  });
 
   document.addEventListener('click', (event) => {
     const button = event.target.closest('[data-open-google-maps-client-address]');

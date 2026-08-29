@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 import json
 import re
@@ -699,6 +700,10 @@ class AtualizacaoPrecoItem(BaseModel):
 class AtualizacaoPrecosLote(BaseModel):
     itens: List[AtualizacaoPrecoItem]
     motivo: Optional[str] = None
+
+
+class AtualizacaoPrecosConfiguracaoIn(BaseModel):
+    validade_custo_dias: int = Field(default=90, ge=1, le=3650)
 
 
 class CampoProdutoBase(BaseModel):
@@ -1443,6 +1448,175 @@ def garantir_tabela_historico_precos(db: Session) -> None:
     models.ProdutoPrecoHistorico.__table__.create(bind=db.get_bind(), checkfirst=True)
 
 
+VALIDADE_CUSTO_PADRAO_DIAS = 90
+
+
+def garantir_tabela_configuracao_precos(db: Session) -> None:
+    models.ProdutoPrecoConfiguracao.__table__.create(bind=db.get_bind(), checkfirst=True)
+
+
+def obter_validade_custo_dias(db: Session, empresa_id: int) -> int:
+    garantir_tabela_configuracao_precos(db)
+    row = (
+        db.query(models.ProdutoPrecoConfiguracao)
+        .filter(models.ProdutoPrecoConfiguracao.empresa_id == empresa_id)
+        .first()
+    )
+    if not row:
+        return VALIDADE_CUSTO_PADRAO_DIAS
+    try:
+        value = int(row.validade_custo_dias or VALIDADE_CUSTO_PADRAO_DIAS)
+    except Exception:
+        value = VALIDADE_CUSTO_PADRAO_DIAS
+    return max(1, min(3650, value))
+
+
+def chaves_historico_custo(campos_preco: List[dict]) -> List[str]:
+    keys = {"custo"}
+    for campo in campos_preco or []:
+        if campo.get("kind") == "custom" and campo_representa_custo(campo.get("slug"), campo.get("label")):
+            keys.add(str(campo.get("key") or "").strip())
+    return sorted(key for key in keys if key)
+
+
+def ultima_atualizacao_custo_subquery(db: Session, empresa_id: int, cost_keys: List[str]):
+    keys = cost_keys or ["custo"]
+    return (
+        db.query(func.max(models.ProdutoPrecoHistorico.criado_em))
+        .filter(models.ProdutoPrecoHistorico.empresa_id == empresa_id)
+        .filter(models.ProdutoPrecoHistorico.produto_id == models.Produto.id)
+        .filter(models.ProdutoPrecoHistorico.campo_chave.in_(keys))
+        .correlate(models.Produto)
+        .scalar_subquery()
+    )
+
+
+def normalizar_datetime_utc(value):
+    if value is None:
+        return None
+    if getattr(value, "tzinfo", None) is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def info_validade_custo(produto, ultima_atualizacao, validade_dias: int, custo_efetivo: Optional[str] = None) -> dict:
+    # Para bases antigas, antes deste recurso não havia histórico quando o custo
+    # era alterado pelo cadastro comum. Usamos atualizado_em apenas como referência
+    # inicial de legado; depois da V14 toda alteração real de custo entra no histórico.
+    fonte = "historico" if ultima_atualizacao is not None else "legado_produto"
+    referencia = ultima_atualizacao or getattr(produto, "atualizado_em", None) or getattr(produto, "criado_em", None)
+    referencia = normalizar_datetime_utc(referencia)
+    now = datetime.now(timezone.utc)
+    dias = max(0, (now - referencia).days) if referencia else None
+    custo_referencia = custo_efetivo if custo_efetivo is not None else getattr(produto, "custo", None)
+    custo_preenchido = bool(norm_str(custo_referencia))
+    vencido = bool(custo_preenchido and dias is not None and dias >= int(validade_dias))
+    sem_custo = not custo_preenchido
+
+    if sem_custo:
+        status_validade = "sem_custo"
+    elif vencido:
+        status_validade = "vencido"
+    else:
+        status_validade = "ok"
+
+    return {
+        "status": status_validade,
+        "vencido": vencido,
+        "sem_custo": sem_custo,
+        "dias_desde_atualizacao": dias,
+        "ultima_atualizacao_custo": iso_datetime(referencia),
+        "fonte": fonte,
+        "validade_dias": int(validade_dias),
+    }
+
+
+def registrar_historico_preco(
+    db: Session,
+    *,
+    empresa_id: int,
+    produto_id: int,
+    usuario_id: Optional[int],
+    campo_chave: str,
+    campo_nome: str,
+    valor_anterior: Optional[str],
+    valor_novo: Optional[str],
+    motivo: Optional[str] = None,
+) -> None:
+    garantir_tabela_historico_precos(db)
+    db.add(models.ProdutoPrecoHistorico(
+        empresa_id=empresa_id,
+        produto_id=int(produto_id),
+        usuario_id=usuario_id,
+        campo_chave=str(campo_chave),
+        campo_nome=str(campo_nome),
+        valor_anterior=valor_anterior,
+        valor_novo=valor_novo,
+        motivo=motivo,
+    ))
+
+
+def carregar_ultimas_atualizacoes_custo(
+    db: Session, empresa_id: int, produto_ids: List[int], cost_keys: List[str]
+) -> Dict[int, Any]:
+    if not produto_ids:
+        return {}
+    garantir_tabela_historico_precos(db)
+    rows = (
+        db.query(
+            models.ProdutoPrecoHistorico.produto_id,
+            func.max(models.ProdutoPrecoHistorico.criado_em).label("ultima"),
+        )
+        .filter(models.ProdutoPrecoHistorico.empresa_id == empresa_id)
+        .filter(models.ProdutoPrecoHistorico.produto_id.in_(produto_ids))
+        .filter(models.ProdutoPrecoHistorico.campo_chave.in_(cost_keys or ["custo"]))
+        .group_by(models.ProdutoPrecoHistorico.produto_id)
+        .all()
+    )
+    return {int(produto_id): ultima for produto_id, ultima in rows}
+
+
+def resumo_validade_custo_empresa(
+    db: Session, empresa_id: int, validade_dias: int, cost_keys: List[str]
+) -> dict:
+    garantir_tabela_historico_precos(db)
+    last_sq = (
+        db.query(
+            models.ProdutoPrecoHistorico.produto_id.label("produto_id"),
+            func.max(models.ProdutoPrecoHistorico.criado_em).label("ultima"),
+        )
+        .filter(models.ProdutoPrecoHistorico.empresa_id == empresa_id)
+        .filter(models.ProdutoPrecoHistorico.campo_chave.in_(cost_keys or ["custo"]))
+        .group_by(models.ProdutoPrecoHistorico.produto_id)
+        .subquery()
+    )
+    rows = (
+        db.query(models.Produto, last_sq.c.ultima)
+        .outerjoin(last_sq, last_sq.c.produto_id == models.Produto.id)
+        .filter(models.Produto.empresa_id == empresa_id)
+        .all()
+    )
+    vencidos = 0
+    sem_custo = 0
+    ok = 0
+    for produto, ultima in rows:
+        info = info_validade_custo(produto, ultima, validade_dias)
+        if info["status"] == "vencido":
+            vencidos += 1
+        elif info["status"] == "sem_custo":
+            sem_custo += 1
+        else:
+            ok += 1
+    return {
+        "validade_dias": int(validade_dias),
+        "vencidos": vencidos,
+        "sem_custo": sem_custo,
+        "em_dia": ok,
+        "total": len(rows),
+        "precisam_revisao": vencidos + sem_custo,
+    }
+
+
 def parse_field_options(raw_options) -> List[str]:
     if raw_options is None:
         return []
@@ -2012,6 +2186,19 @@ def listar_produtos(
             )
             for p in rows
         ]
+        if rows:
+            campos_preco_validade = obter_campos_formacao_preco(db, empresa_id, sincronizar=False)
+            cost_keys_validade = chaves_historico_custo(campos_preco_validade)
+            validade_dias = obter_validade_custo_dias(db, empresa_id)
+            ultimas = carregar_ultimas_atualizacoes_custo(
+                db, empresa_id, [int(p.id) for p in rows], cost_keys_validade
+            )
+            row_map = {int(p.id): p for p in rows}
+            for item in items:
+                pid = int(item["id"])
+                item["validade_custo"] = info_validade_custo(
+                    row_map[pid], ultimas.get(pid), validade_dias, item.get("custo")
+                )
         return {
             "items": items,
             "total": total,
@@ -2024,7 +2211,7 @@ def listar_produtos(
     custom_fields_por_produto = buscar_custom_fields_produtos_em_lote(
         db, empresa_id, [int(p.id) for p in rows]
     )
-    return [
+    items = [
         produto_to_list_out(
             db,
             p,
@@ -2033,6 +2220,58 @@ def listar_produtos(
         )
         for p in rows
     ]
+    if rows:
+        campos_preco_validade = obter_campos_formacao_preco(db, empresa_id, sincronizar=False)
+        cost_keys_validade = chaves_historico_custo(campos_preco_validade)
+        validade_dias = obter_validade_custo_dias(db, empresa_id)
+        ultimas = carregar_ultimas_atualizacoes_custo(
+            db, empresa_id, [int(p.id) for p in rows], cost_keys_validade
+        )
+        row_map = {int(p.id): p for p in rows}
+        for item in items:
+            pid = int(item["id"])
+            item["validade_custo"] = info_validade_custo(
+                row_map[pid], ultimas.get(pid), validade_dias, item.get("custo")
+            )
+    return items
+
+
+@router.get("/atualizacao-precos/configuracao")
+def obter_configuracao_atualizacao_precos(request: Request, db: Session = Depends(get_db)):
+    empresa_id, _ = validar_permissao_produtos(request, db, "ver")
+    return {"validade_custo_dias": obter_validade_custo_dias(db, empresa_id)}
+
+
+@router.put("/atualizacao-precos/configuracao")
+def salvar_configuracao_atualizacao_precos(
+    payload: AtualizacaoPrecosConfiguracaoIn,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    empresa_id, _ = validar_permissao_produtos(request, db, "editar")
+    garantir_tabela_configuracao_precos(db)
+    row = (
+        db.query(models.ProdutoPrecoConfiguracao)
+        .filter(models.ProdutoPrecoConfiguracao.empresa_id == empresa_id)
+        .first()
+    )
+    if not row:
+        row = models.ProdutoPrecoConfiguracao(
+            empresa_id=empresa_id,
+            validade_custo_dias=int(payload.validade_custo_dias),
+        )
+        db.add(row)
+    else:
+        row.validade_custo_dias = int(payload.validade_custo_dias)
+    try:
+        db.commit()
+        return {
+            "validade_custo_dias": int(payload.validade_custo_dias),
+            "message": "Validade do custo atualizada com sucesso.",
+        }
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Não foi possível salvar a validade do custo.")
 
 
 @router.get("/atualizacao-precos/meta")
@@ -2041,6 +2280,12 @@ def obter_meta_atualizacao_precos(request: Request, db: Session = Depends(get_db
 
     campos_preco = obter_campos_formacao_preco(db, empresa_id, sincronizar=False)
     campos_filtro = obter_campos_filtro_produtos(db, empresa_id, sincronizar=False)
+    garantir_tabela_historico_precos(db)
+    validade_custo_dias = obter_validade_custo_dias(db, empresa_id)
+    cost_keys = chaves_historico_custo(campos_preco)
+    resumo_validade_custo = resumo_validade_custo_empresa(
+        db, empresa_id, validade_custo_dias, cost_keys
+    )
 
     categorias_rows = (
         db.query(models.Produto.categoria)
@@ -2099,6 +2344,8 @@ def obter_meta_atualizacao_precos(request: Request, db: Session = Depends(get_db
         "campos_preco": campos_preco,
         "filtros": filtros,
         "limite_lote": 500,
+        "validade_custo_dias": validade_custo_dias,
+        "resumo_validade_custo": resumo_validade_custo,
     }
 
 
@@ -2112,6 +2359,7 @@ def listar_atualizacao_precos(
     categoria: Optional[str] = Query(default=None),
     fornecedor: Optional[str] = Query(default=None),
     fabricante: Optional[str] = Query(default=None),
+    revisao_custo: Optional[str] = Query(default=None),
     campos: Optional[str] = Query(default=None),
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -2120,6 +2368,15 @@ def listar_atualizacao_precos(
     empresa_id, _ = validar_permissao_produtos(request, db, "ver")
     todos_campos_preco = obter_campos_formacao_preco(db, empresa_id, sincronizar=False)
     campos_filtro = obter_campos_filtro_produtos(db, empresa_id, sincronizar=False)
+    garantir_tabela_historico_precos(db)
+    validade_custo_dias = obter_validade_custo_dias(db, empresa_id)
+    cost_history_keys = chaves_historico_custo(todos_campos_preco)
+    last_cost_expr = ultima_atualizacao_custo_subquery(db, empresa_id, cost_history_keys)
+    cost_reference_expr = func.coalesce(
+        last_cost_expr,
+        models.Produto.atualizado_em,
+        models.Produto.criado_em,
+    )
 
     chaves_solicitadas = {
         chave.strip()
@@ -2173,17 +2430,40 @@ def listar_atualizacao_precos(
     ):
         query = aplicar_filtro_campo_produto(query, db, empresa_id, campos_filtro[key], value)
 
-    query = query.order_by(func.lower(models.Produto.nome).asc(), models.Produto.nome.asc(), models.Produto.id.asc())
+    revisao = normalizar_token(revisao_custo)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=int(validade_custo_dias))
+    custo_preenchido = func.length(func.trim(func.coalesce(models.Produto.custo, ""))) > 0
+    if revisao in {"vencidos", "vencido", "desatualizados", "desatualizado"}:
+        query = query.filter(custo_preenchido).filter(cost_reference_expr <= cutoff)
+    elif revisao in {"sem_custo", "semcusto"}:
+        query = query.filter(~custo_preenchido)
+    elif revisao in {"pendentes", "revisao", "precisam_revisao"}:
+        query = query.filter(or_(~custo_preenchido, cost_reference_expr <= cutoff))
+
+    # Produtos com custo mais antigo aparecem primeiro. Assim os vencidos ficam
+    # naturalmente no topo, sem esconder os demais quando o filtro está em Todos.
+    query = query.order_by(cost_reference_expr.asc(), func.lower(models.Produto.nome).asc(), models.Produto.id.asc())
     total = query.count()
     rows = query.offset(offset).limit(limit).all()
 
     produto_ids = [int(row.id) for row in rows]
+    # Um campo pode representar custo pelo label/nome mesmo quando o slug não é
+    # um alias literal de PRODUCT_COST_ALIASES (ex.: "Custo fornecedor", slug
+    # legado, ou slug com sufixo). Usar tuple.index(slug) aqui fazia a API cair
+    # com ValueError apesar de campo_representa_custo() ter aceitado o campo.
+    # A própria prioridade_campo_custo() concentra todas as regras compatíveis.
     cost_custom_fields = sorted(
         [
             item for item in todos_campos_preco
             if item["kind"] == "custom" and campo_representa_custo(item.get("slug"), item.get("label"))
         ],
-        key=lambda item: PRODUCT_COST_ALIASES.index(normalizar_slug_custo(item.get("slug"))),
+        key=lambda item: (
+            prioridade_campo_custo(item.get("slug"), item.get("label"))
+            if prioridade_campo_custo(item.get("slug"), item.get("label")) is not None
+            else 10_000,
+            int(item.get("ordem") or 0),
+            int(item.get("campo_id") or 0),
+        ),
     )
     cost_custom_field_ids = [int(item["campo_id"]) for item in cost_custom_fields]
     custom_field_ids = sorted({
@@ -2191,11 +2471,24 @@ def listar_atualizacao_precos(
         *cost_custom_field_ids,
     })
     custom_values = carregar_valores_custom_lote(db, produto_ids, custom_field_ids)
+    ultimas_atualizacoes_custo = carregar_ultimas_atualizacoes_custo(
+        db, empresa_id, produto_ids, cost_history_keys
+    )
 
     items = []
     for produto in rows:
         pid = int(produto.id)
         valores_produto = custom_values.get(pid, {})
+        custo_efetivo_validade = norm_str(getattr(produto, "custo", None))
+        if custo_efetivo_validade is None:
+            for field_id in cost_custom_field_ids:
+                custom_cost = norm_str(valores_produto.get(int(field_id)))
+                if custom_cost is not None:
+                    custo_efetivo_validade = custom_cost
+                    break
+        validade_info = info_validade_custo(
+            produto, ultimas_atualizacoes_custo.get(pid), validade_custo_dias, custo_efetivo_validade
+        )
         items.append({
             "id": pid,
             "codigo": produto.codigo or "",
@@ -2203,6 +2496,7 @@ def listar_atualizacao_precos(
             "categoria": produto.categoria or "",
             "ativo": bool(produto.ativo),
             "atualizado_em": iso_datetime(getattr(produto, "atualizado_em", None)),
+            "validade_custo": validade_info,
             "valores": {
                 campo["key"]: valor_atual_campo_preco(
                     produto,
@@ -2221,6 +2515,7 @@ def listar_atualizacao_precos(
         "limit": limit,
         "offset": offset,
         "has_more": offset + len(items) < total,
+        "validade_custo_dias": validade_custo_dias,
     }
 
 
@@ -2355,10 +2650,11 @@ def salvar_atualizacao_precos(
                         db.add(row)
                         custom_map[map_key] = row
 
-                if (
+                is_custo_campo = (
                     (campo["kind"] == "native" and campo.get("key") == "custo")
                     or (campo["kind"] == "custom" and campo_representa_custo(campo.get("slug"), campo.get("label")))
-                ):
+                )
+                if is_custo_campo:
                     sincronizar_fontes_custo(produto, novo_valor)
 
                 if (
@@ -2371,7 +2667,7 @@ def salvar_atualizacao_precos(
                     empresa_id=empresa_id,
                     produto_id=int(produto.id),
                     usuario_id=usuario_id,
-                    campo_chave=str(campo["key"]),
+                    campo_chave="custo" if is_custo_campo else str(campo["key"]),
                     campo_nome=str(campo["label"]),
                     valor_anterior=valor_anterior,
                     valor_novo=novo_valor,
@@ -2505,7 +2801,8 @@ def obter_proximo_codigo_produto(request: Request, db: Session = Depends(get_db)
 
 @router.post("", response_model=ProdutoOut, status_code=status.HTTP_201_CREATED)
 def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depends(get_db)):
-    empresa_id = validar_usuario_empresa(request, db)
+    usuario = get_request_user(request, db)
+    empresa_id = int(usuario.empresa_id)
     # Código de produto é gerado pelo sistema, único e imutável.
     # Não confiar em payload.codigo vindo do front/importação.
     codigo = gerar_codigo_produto(db, empresa_id)
@@ -2530,6 +2827,19 @@ def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depend
     try:
         db.add(p)
         db.flush()
+
+        if norm_str(custo) is not None:
+            registrar_historico_preco(
+                db,
+                empresa_id=empresa_id,
+                produto_id=int(p.id),
+                usuario_id=int(usuario.id),
+                campo_chave="custo",
+                campo_nome="Custo",
+                valor_anterior=None,
+                valor_novo=norm_str(custo),
+                motivo="Cadastro inicial do produto",
+            )
 
         salvar_custom_fields_produto(
             db=db,
@@ -2688,11 +2998,14 @@ def atualizar_produto(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    empresa_id = validar_usuario_empresa(request, db)
+    usuario = get_request_user(request, db)
+    empresa_id = int(usuario.empresa_id)
 
     p = buscar_produto_empresa(db, produto_id, empresa_id)
     if not p:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    custo_anterior = norm_str(getattr(p, "custo", None))
 
     # Código de produto é imutável: edição nunca altera p.codigo.
 
@@ -2734,6 +3047,20 @@ def atualizar_produto(
                 empresa_id=empresa_id,
                 produto_id=int(p.id),
                 custom_fields=payload.custom_fields,
+            )
+
+        custo_novo = norm_str(getattr(p, "custo", None))
+        if custo_anterior != custo_novo:
+            registrar_historico_preco(
+                db,
+                empresa_id=empresa_id,
+                produto_id=int(p.id),
+                usuario_id=int(usuario.id),
+                campo_chave="custo",
+                campo_nome="Custo",
+                valor_anterior=custo_anterior,
+                valor_novo=custo_novo,
+                motivo="Alteração no cadastro do produto",
             )
 
         if payload.itens_kit is not None:
