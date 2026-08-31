@@ -744,6 +744,120 @@ def _excluir_campo_personalizado_e_valores(db: Session, modelo, campo) -> int:
     return int(apagados or 0)
 
 
+def _lista_opcoes_configuradas(value: Any) -> List[str]:
+    """Normaliza as opções configuradas sem transformar nomes parecidos."""
+    if value is None or value == "":
+        return []
+
+    parsed = value
+    if isinstance(value, str):
+        text_value = value.strip()
+        if not text_value:
+            return []
+        try:
+            parsed = json.loads(text_value)
+        except Exception:
+            parsed = [line.strip() for line in text_value.splitlines() if line.strip()]
+
+    if isinstance(parsed, (list, tuple, set)):
+        out: List[str] = []
+        seen: set[str] = set()
+        for item in parsed:
+            text_item = str(item or "").strip()
+            if not text_item or text_item in seen:
+                continue
+            seen.add(text_item)
+            out.append(text_item)
+        return out
+
+    text_item = str(parsed or "").strip()
+    return [text_item] if text_item else []
+
+
+def _valores_multiselect_salvos(value: Any) -> List[str]:
+    raw = str(value or "").strip()
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except Exception:
+        parsed = None
+
+    if isinstance(parsed, list):
+        return [str(item or "").strip() for item in parsed if str(item or "").strip()]
+
+    # Compatibilidade com registros muito antigos que guardavam um único valor.
+    return [raw]
+
+
+def _limpar_valores_opcoes_invalidas(
+    db: Session,
+    modelo,
+    campo,
+    opcoes_validas: List[str],
+    tipo_campo: str,
+    *,
+    executar: bool = False,
+) -> Dict[str, int]:
+    """Localiza e opcionalmente remove valores que não existem mais na lista.
+
+    Para lista simples, o valor inteiro é apagado. Para múltipla seleção, apenas
+    as opções removidas são retiradas e o restante é preservado.
+    """
+    resolvido = _resolver_campo_personalizado_vinculado(db, modelo, campo)
+    if resolvido is None:
+        return {"cadastros_afetados": 0, "valores_removidos": 0}
+
+    campo_personalizado, valor_model = resolvido
+    permitidas = {str(item).strip() for item in opcoes_validas if str(item).strip()}
+    tipo = normalizar_tipo_campo(tipo_campo)
+
+    rows = (
+        db.query(valor_model)
+        .filter(valor_model.campo_id == int(campo_personalizado.id))
+        .filter(valor_model.valor.isnot(None))
+        .all()
+    )
+
+    cadastros_afetados = 0
+    valores_removidos = 0
+
+    for row in rows:
+        raw = str(getattr(row, "valor", "") or "").strip()
+        if not raw or raw == "[]":
+            continue
+
+        if tipo == "multiselect":
+            atuais = _valores_multiselect_salvos(raw)
+            invalidas = [item for item in atuais if item not in permitidas]
+            if not invalidas:
+                continue
+
+            cadastros_afetados += 1
+            valores_removidos += len(invalidas)
+            if executar:
+                restantes = [item for item in atuais if item in permitidas]
+                if restantes:
+                    row.valor = json.dumps(restantes, ensure_ascii=False)
+                else:
+                    db.delete(row)
+            continue
+
+        if raw not in permitidas:
+            cadastros_afetados += 1
+            valores_removidos += 1
+            if executar:
+                db.delete(row)
+
+    if executar and cadastros_afetados:
+        db.flush()
+
+    return {
+        "cadastros_afetados": int(cadastros_afetados),
+        "valores_removidos": int(valores_removidos),
+    }
+
+
 def normalizar_tipo_campo(value: Any) -> str:
     raw = norm_lower(value)
     if not raw:
@@ -2178,6 +2292,7 @@ def atualizar_campo(
     campo_id: int,
     payload: FormularioCampoUpdate,
     request: Request,
+    excluir_valores_opcoes_removidas: bool = Query(default=False),
     db: Session = Depends(get_db),
 ):
     empresa_id = validar_usuario_empresa(request, db)
@@ -2185,13 +2300,41 @@ def atualizar_campo(
     modelo = modelo_ou_404(db, int(campo.formulario_id), empresa_id)
     dados = dump_model(payload, exclude_unset=True)
 
+    origem_final = str(dados.get("origem", campo.origem or "") or "")
+    tipo_final = normalizar_tipo_campo(dados.get("tipo_campo", campo.tipo_campo or "texto"))
+    opcoes_foram_enviadas = "opcoes" in dados or "opcoes_json" in dados
+    limpeza_opcoes = {"cadastros_afetados": 0, "valores_removidos": 0}
+
+    if origem_final == "personalizado" and tipo_final in {"select", "multiselect"} and opcoes_foram_enviadas:
+        opcoes_raw = dados.get("opcoes", dados.get("opcoes_json"))
+        opcoes_validas = _lista_opcoes_configuradas(opcoes_raw)
+        limpeza_opcoes = _limpar_valores_opcoes_invalidas(
+            db, modelo, campo, opcoes_validas, tipo_final, executar=False
+        )
+
+        if limpeza_opcoes["cadastros_afetados"] > 0 and not excluir_valores_opcoes_removidas:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f'OPCOES_REMOVIDAS|{limpeza_opcoes["cadastros_afetados"]}|'
+                    f'{limpeza_opcoes["valores_removidos"]}'
+                ),
+            )
+
+        if limpeza_opcoes["cadastros_afetados"] > 0:
+            limpeza_opcoes = _limpar_valores_opcoes_invalidas(
+                db, modelo, campo, opcoes_validas, tipo_final, executar=True
+            )
+
     aplicar_campo(campo, dados, db, modelo, criando=False)
     sincronizar_modelo_apos_escrita(db, modelo)
 
     db.commit()
     db.refresh(campo)
 
-    return campo_dict(campo)
+    out = campo_dict(campo)
+    out["limpeza_opcoes"] = limpeza_opcoes
+    return out
 
 
 @router.get("/campos/{campo_id}/uso")

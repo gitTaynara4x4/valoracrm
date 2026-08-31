@@ -1,12 +1,12 @@
 import { state } from './state.js';
-import { obterClienteNoServidor, salvarClienteNoServidor, apiJson } from './api.js?v=20260715-cliente-erro-estruturado-v10';
+import { obterClienteNoServidor, obterClienteNaPosicaoDaLista, salvarClienteNoServidor, apiJson } from './api.js?v=20260830-modal-funcional-v22';
 import { $, $$, escapeHtml, toast, openModal, closeModal } from './utils.js';
 import { confirmDialog } from './confirm.js';
 import {
   renderCustomFieldsInputs,
   normalizeCustomFieldsPayload,
   validateRequiredCustomFields,
-} from './custom-fields.js?v=20260829-campos-independentes-v11';
+} from './custom-fields.js?v=20260827-clientes-gravacao-v4';
 
 let _afterSave = async () => {};
 let _bound = false;
@@ -14,6 +14,11 @@ let currentDetail = null;
 let originalClienteTabsHtml = '';
 let fichaClienteController = null;
 let clienteModalSomenteLeitura = false;
+let clienteModalDirty = false;
+let clienteModalHydrating = false;
+let clienteModalListPosition = null;
+let clienteModalListPositionOverride = null;
+let clienteModalListTotal = 0;
 let fichaFieldDirtySequence = 0;
 
 async function syncAgendaCliente(cliente = null, readonly = false) {
@@ -830,77 +835,19 @@ function getCustomCepTargets() {
     }));
 }
 
-function cepTargetRefMatches(record, ref) {
-  if (!record?.el || !record?.wrapper || !ref) return false;
-  const value = String(ref || '').trim();
-  if (!value) return false;
-
-  if (value.startsWith('form:')) {
-    return String(record.wrapper.dataset.formFieldId || '') === value.slice(5);
-  }
-  if (value.startsWith('system:')) {
-    return normalizeFichaKey(record.wrapper.dataset.systemField || '') === normalizeFichaKey(value.slice(7));
-  }
-  if (value.startsWith('slug:')) {
-    return normalizeFichaKey(record.el.dataset.customField || record.wrapper.dataset.customSlug || '') === normalizeFichaKey(value.slice(5));
-  }
-  if (value.startsWith('label:')) {
-    return normalizeFichaKey(record.el.dataset.customLabel || '') === normalizeFichaKey(value.slice(6));
-  }
-
-  return false;
-}
-
-function getExplicitCepTargetRefs(sourceWrapper) {
-  return {
-    logradouro: String(sourceWrapper?.dataset.cepTargetLogradouro || ''),
-    bairro: String(sourceWrapper?.dataset.cepTargetBairro || ''),
-    cidade: String(sourceWrapper?.dataset.cepTargetCidade || ''),
-    estado: String(sourceWrapper?.dataset.cepTargetEstado || ''),
-  };
-}
-
 function fillCustomCepTargets(address = {}, sourceField = null) {
   const sourceSection = sourceField?.closest?.('.custom-section-card') || null;
-  const sourceWrapper = sourceField?.closest?.('[data-custom-field-wrapper="true"]') || null;
-  const records = getCustomCepTargets().filter(({ el, wrapper }) => {
-    if (!wrapper || el === sourceField) return false;
-    if (!sourceSection) return true;
-    return el.closest('.custom-section-card') === sourceSection;
-  });
 
-  const explicitlyConfigured = isFlagEnabled(sourceWrapper?.dataset.cepDestinationsConfigured);
-  if (explicitlyConfigured) {
-    const refs = getExplicitCepTargetRefs(sourceWrapper);
-    const parts = [
-      ['logradouro', address.logradouro || ''],
-      ['bairro', address.bairro || ''],
-      ['cidade', address.cidade || ''],
-      ['estado', address.estado || ''],
-    ];
+  getCustomCepTargets().forEach(({ el, wrapper }) => {
+    if (!wrapper || el === sourceField) return;
 
-    parts.forEach(([part, value]) => {
-      const ref = refs[part];
-      if (!ref) return;
-      const target = records.find((record) => cepTargetRefMatches(record, ref));
-      if (target?.el) {
-        setRenderedFieldValue(target.el, value);
-      } else {
-        console.warn(`[Clientes] destino do CEP não encontrado para ${part}:`, ref);
-      }
-    });
-    return;
-  }
-
-  // Compatibilidade com configurações antigas: quando ainda não existe um
-  // mapeamento manual salvo, mantemos a detecção automática pelo nome/campo.
-  records.forEach(({ el, wrapper }) => {
     const keys = [
       wrapper.dataset.systemField,
       el.dataset.customField,
       el.dataset.customLabel,
     ].filter(Boolean);
-    const inferred = (part) => keys.some((key) => addressFieldMatches(part, key));
+    const sameSection = !!sourceSection && el.closest('.custom-section-card') === sourceSection;
+    const inferred = (part) => sameSection && keys.some((key) => addressFieldMatches(part, key));
 
     if (isFlagEnabled(wrapper.dataset.cepFillLogradouro) || inferred('endereco')) {
       setRenderedFieldValue(el, address.logradouro || '');
@@ -1259,9 +1206,12 @@ function collectFichaValues() {
     let key = slug;
 
     if (declaredSystemField || origin === 'sistema') {
-      // Só um vínculo explícito do construtor pode alimentar um campo nativo.
       bucket = 'system';
       key = declaredSystemField || normalizedSlug;
+    } else if (!validCustomSlugs.has(slug) && CLIENT_SYSTEM_FIELDS.has(normalizedSlug)) {
+      // Compatibilidade com fichas antigas que não gravavam a origem do campo.
+      bucket = 'system';
+      key = normalizedSlug;
     }
 
     if (bucket === 'system' && !CLIENT_SYSTEM_FIELDS.has(key)) return;
@@ -1311,6 +1261,22 @@ function buildFichaRenderValues(data = {}) {
   };
 }
 
+function getCustomValue(custom, keys, fallback = '') {
+  let found = false;
+
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(custom || {}, key)) continue;
+    found = true;
+    const value = custom?.[key];
+
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return String(value).trim();
+    }
+  }
+
+  return found ? '' : fallback;
+}
+
 function normalizeTipoPessoa(value, fallback = 'PF') {
   const normalized = normalizeFichaKey(value);
   if (normalized === 'pj' || normalized.includes('juridica')) return 'PJ';
@@ -1332,7 +1298,120 @@ function applySystemFieldsToPayload(payload, systemFields = {}) {
   });
 }
 
+function buildBaseFromFichaPrincipal(customFields, fallback = {}) {
+  const custom = customFields || {};
+
+  const tipoCliente = getCustomValue(
+    custom,
+    ['tipo_pessoa', 'tipo_cliente', 'pessoa_fisica_juridica', 'tipo_de_pessoa'],
+    fallback.tipo_pessoa || 'PF'
+  );
+
+  const tipoPessoa = normalizeTipoPessoa(tipoCliente, fallback.tipo_pessoa || 'PF');
+
+  const nome = getCustomValue(
+    custom,
+    [
+      'cliente',
+      'nome',
+      'nome_razao_social',
+      'razao_social',
+      'nome_completo',
+      'nome_fantasia',
+    ],
+    fallback.nome || ''
+  );
+
+  const telefoneContato = getCustomValue(
+    custom,
+    [
+      'telefone_contato_whatsapp',
+      'telefone_contato',
+      'telefone_principal',
+      'telefone_celular',
+      'telefone',
+      'whatsapp',
+    ],
+    fallback.telefone || ''
+  );
+
+  const email = getCustomValue(
+    custom,
+    [
+      'e_mail',
+      'email',
+      'email_principal',
+      'e_mail_principal',
+    ],
+    fallback.email || ''
+  );
+
+  return {
+    codigo:
+      onlyDigits(fallback.codigo) ||
+      onlyDigits(getValue('campo-codigo')) ||
+      onlyDigits(getValue('campo-codigo-ficha-principal')) ||
+      '',
+
+    tipo_pessoa: tipoPessoa,
+    situacao: getCustomValue(custom, ['situacao', 'status'], fallback.situacao || 'ativo'),
+
+    nome,
+    nome_fantasia: getCustomValue(custom, ['nome_fantasia'], fallback.nome_fantasia || ''),
+    cpf_cnpj: getCustomValue(custom, tipoPessoa === 'PJ'
+      ? ['cpf_cnpj', 'cnpj', 'cnpj_pessoa_juridica', 'cnpj_pj', 'documento']
+      : ['cpf_cnpj', 'cpf', 'cpf_pessoa_fisica', 'cpf_pf', 'documento'], fallback.cpf_cnpj || ''),
+    rg_ie: getCustomValue(custom, tipoPessoa === 'PJ'
+      ? ['rg_ie', 'inscricao_estadual', 'ie']
+      : ['rg_ie', 'rg', 'registro_geral'], fallback.rg_ie || ''),
+    inscricao_municipal: getCustomValue(custom, ['inscricao_municipal'], fallback.inscricao_municipal || ''),
+    suframa: getCustomValue(custom, ['suframa'], fallback.suframa || ''),
+    data_nascimento: getCustomValue(custom, ['data_nascimento', 'nascimento'], fallback.data_nascimento || ''),
+    codigo_referencia: getCustomValue(custom, ['codigo_referencia', 'referencia'], fallback.codigo_referencia || ''),
+    retencao_percentual: getCustomValue(custom, ['retencao_percentual', 'percentual_retencao', 'retencao'], fallback.retencao_percentual || ''),
+
+    telefone: telefoneContato,
+    whatsapp: getCustomValue(
+      custom,
+      ['whatsapp', 'telefone_contato_whatsapp', 'telefone_celular'],
+      fallback.whatsapp || telefoneContato
+    ),
+
+    fax: getCustomValue(custom, ['fax'], fallback.fax || ''),
+    contato: getCustomValue(custom, ['contato', 'responsavel', 'nome_completo_responsavel'], fallback.contato || ''),
+    email,
+    email_nfe: getCustomValue(custom, ['email_nfe', 'e_mail_nfe'], fallback.email_nfe || ''),
+    email_cobranca: getCustomValue(custom, ['email_cobranca', 'e_mail_cobranca'], fallback.email_cobranca || ''),
+    email_fiscal: getCustomValue(custom, ['email_fiscal', 'e_mail_fiscal'], fallback.email_fiscal || ''),
+
+    site: getCustomValue(custom, ['home_page', 'homepage', 'site'], fallback.site || ''),
+
+    cep: getCustomValue(custom, ['cep'], fallback.cep || ''),
+    endereco: getCustomValue(custom, ['endereco', 'logradouro'], fallback.endereco || ''),
+    numero: getCustomValue(custom, ['numero'], fallback.numero || ''),
+    complemento: getCustomValue(custom, ['complemento'], fallback.complemento || ''),
+    bairro: getCustomValue(custom, ['bairro'], fallback.bairro || ''),
+    cidade: getCustomValue(custom, ['cidade'], fallback.cidade || ''),
+    estado: getCustomValue(custom, ['uf', 'estado'], fallback.estado || ''),
+    pais: getCustomValue(custom, ['pais'], fallback.pais || 'Brasil'),
+    codigo_ibge_cidade: getCustomValue(custom, ['codigo_ibge_cidade', 'ibge_cidade'], fallback.codigo_ibge_cidade || ''),
+    codigo_ibge_uf: getCustomValue(custom, ['codigo_ibge_uf', 'ibge_uf'], fallback.codigo_ibge_uf || ''),
+
+    parceiro_comercial: getCustomValue(custom, ['parceiro_comercial', 'parceiro', 'vendedor'], fallback.parceiro_comercial || ''),
+    percentual_comissao: getCustomValue(custom, ['percentual_comissao', 'comissao_percentual', 'comissao'], fallback.percentual_comissao || ''),
+    percentual_desconto: getCustomValue(custom, ['percentual_desconto', 'desconto_percentual', 'desconto'], fallback.percentual_desconto || ''),
+    modalidade_pagamento: getCustomValue(custom, ['modalidade_pagamento', 'forma_pagamento', 'condicao_pagamento'], fallback.modalidade_pagamento || ''),
+
+    regiao: getCustomValue(custom, ['regiao'], fallback.regiao || ''),
+    segmento: getCustomValue(custom, ['tipo_de_imovel', 'tipo_imovel', 'segmento'], fallback.segmento || ''),
+    classificacao: getCustomValue(custom, ['classificacao', 'tipo_cliente'], fallback.classificacao || ''),
+
+    observacoes: getCustomValue(custom, ['observacoes', 'observacao'], fallback.observacoes || ''),
+  };
+}
+
 async function fillClientForm(cliente = {}) {
+  clienteModalHydrating = true;
   const data = { ...defaultCliente(), ...(cliente || {}) };
   currentDetail = data;
   syncZapsChatButton(data);
@@ -1393,10 +1472,16 @@ async function fillClientForm(cliente = {}) {
   renderAnexos(data.anexos || []);
   renderHistorico(data.historico || {});
 
+  syncClienteStatusPill(data.situacao);
+  syncClienteBudgetActions();
+  closeClienteActionsMenu();
   switchTab(state.usarFichaPrincipalClientes ? 'tab-campos-personalizados' : 'tab-cadastro');
 
   bindResumoSidebarCliente();
   agendarResumoSidebarCliente(data);
+  clienteModalHydrating = false;
+  setClienteModalDirty(false);
+  syncClienteRecordNavigation();
 }
 
 function getRowsData(containerId) {
@@ -1468,8 +1553,10 @@ function buildPayload() {
   };
 
   if (state.usarFichaPrincipalClientes) {
-    // Campo personalizado é sempre independente. Somente "Campo do sistema"
-    // explicitamente configurado pode atualizar as colunas nativas.
+    // Primeiro aplica os aliases de fichas antigas/personalizadas e depois os
+    // campos do sistema identificados de forma exata. Assim, CPF/CNPJ e os
+    // demais dados nativos sempre refletem o campo realmente editado.
+    Object.assign(payload, buildBaseFromFichaPrincipal(customFields, payload));
     applySystemFieldsToPayload(payload, systemFields);
   }
 
@@ -1927,23 +2014,256 @@ function getClienteAtualId() {
   return Number(state.clienteEditandoId || currentDetail?.id || 0);
 }
 
+function clienteModalEstaAberto() {
+  const backdrop = $('modal-cliente-backdrop');
+  return !!backdrop && !backdrop.hidden;
+}
+
+function setClienteModalDirty(dirty) {
+  clienteModalDirty = Boolean(dirty);
+  const pill = $('cliente-unsaved-pill');
+  if (pill) pill.hidden = !clienteModalDirty;
+}
+
+function markClienteModalDirty() {
+  if (clienteModalHydrating || clienteModalSomenteLeitura) return;
+  setClienteModalDirty(true);
+}
+
+function deriveClienteListPosition(clientId) {
+  const items = Array.isArray(state.clientes) ? state.clientes : [];
+  const index = items.findIndex((item) => Number(item?.id) === Number(clientId || 0));
+  if (index < 0) return null;
+  return Number(state.clientesPage?.offset || 0) + index;
+}
+
+function prepareClienteListPosition(clientId) {
+  if (clienteModalListPositionOverride !== null) {
+    clienteModalListPosition = Number(clienteModalListPositionOverride);
+    clienteModalListPositionOverride = null;
+  } else {
+    clienteModalListPosition = deriveClienteListPosition(clientId);
+  }
+  clienteModalListTotal = Number(state.clientesPage?.total || state.clientes?.length || 0);
+}
+
+function syncClienteRecordNavigation() {
+  const navigation = $('cliente-record-navigation');
+  const previous = $('btn-cliente-anterior');
+  const next = $('btn-cliente-proximo');
+  const position = $('cliente-record-position');
+  if (!navigation || !previous || !next || !position) return;
+
+  const clientId = getClienteAtualId();
+  const currentPosition = Number(clienteModalListPosition);
+  const total = Number(clienteModalListTotal || state.clientesPage?.total || 0);
+
+  if (!clientId || clienteModalListPosition === null || !Number.isFinite(currentPosition) || total <= 0) {
+    navigation.hidden = true;
+    return;
+  }
+
+  navigation.hidden = false;
+  position.textContent = `${currentPosition + 1} de ${total}`;
+  previous.disabled = currentPosition <= 0;
+  next.disabled = currentPosition >= total - 1;
+  previous.dataset.targetListOffset = currentPosition > 0 ? String(currentPosition - 1) : '';
+  next.dataset.targetListOffset = currentPosition < total - 1 ? String(currentPosition + 1) : '';
+}
+
+async function confirmarDescarteAlteracoesCliente(message = 'Existem alterações não salvas. Deseja continuar e descartar essas alterações?') {
+  if (!clienteModalDirty) return true;
+  return confirmDialog({
+    title: 'Alterações não salvas',
+    message,
+    confirmText: 'Descartar e continuar',
+    cancelText: 'Continuar editando',
+  });
+}
+
+async function requestCloseClientModal() {
+  const canClose = await confirmarDescarteAlteracoesCliente(
+    'Existem alterações não salvas neste cliente. Deseja fechar mesmo assim?'
+  );
+  if (!canClose) return false;
+  closeClientModal();
+  return true;
+}
+
+async function navegarParaClienteAdjacente(targetOffset) {
+  const offset = Number(targetOffset);
+  if (!Number.isFinite(offset) || offset < 0) return;
+
+  const canNavigate = await confirmarDescarteAlteracoesCliente(
+    'Existem alterações não salvas. Deseja descartá-las e abrir outro cliente?'
+  );
+  if (!canNavigate) return;
+
+  try {
+    const result = await obterClienteNaPosicaoDaLista(offset);
+    const nextId = Number(result?.item?.id || 0);
+    if (!nextId) {
+      toast('Não foi possível localizar o cliente nessa posição da lista.', 'error');
+      return;
+    }
+
+    setClienteModalDirty(false);
+    clienteModalListPositionOverride = Number(result.offset ?? offset);
+    clienteModalListTotal = Number(result.total || clienteModalListTotal || 0);
+    if (clienteModalSomenteLeitura) await openClientModalView(nextId);
+    else await openClientModalEdit(nextId);
+  } catch (error) {
+    toast(error.message || 'Não foi possível abrir o próximo cliente.', 'error');
+  }
+}
+
+function setClienteActionsMenuOpen(open) {
+  const trigger = $('btn-cliente-acoes');
+  const menu = $('cliente-actions-menu');
+  const dropdown = $('cliente-actions-dropdown');
+  if (!trigger || !menu) return;
+
+  const active = Boolean(open);
+  menu.hidden = !active;
+  trigger.setAttribute('aria-expanded', active ? 'true' : 'false');
+  dropdown?.classList.toggle('is-open', active);
+}
+
+function closeClienteActionsMenu() {
+  setClienteActionsMenuOpen(false);
+}
+
+function hasClienteDraftForDuplicate() {
+  try {
+    const payload = buildPayload();
+    return Boolean(
+      payload.nome ||
+      payload.nome_fantasia ||
+      payload.cpf_cnpj ||
+      payload.email ||
+      payload.telefone ||
+      payload.whatsapp ||
+      (Array.isArray(payload.enderecos) && payload.enderecos.length)
+    );
+  } catch (_) {
+    return Boolean(currentDetail?.nome || currentDetail?.nome_fantasia || currentDetail?.cpf_cnpj);
+  }
+}
+
+function syncClienteStatusPill(situacao = null) {
+  const pill = $('cliente-status-pill');
+  if (!pill) return;
+
+  const normalized = String(situacao ?? getValue('campo-situacao') ?? currentDetail?.situacao ?? 'ativo')
+    .trim()
+    .toLowerCase();
+
+  let label = 'Ativo';
+  let stateKey = 'ativo';
+
+  if (['inativo', 'inativa', 'desativado', 'desativada'].includes(normalized)) {
+    label = 'Inativo';
+    stateKey = 'inativo';
+  } else if (['bloqueado', 'bloqueada', 'suspenso', 'suspensa'].includes(normalized)) {
+    label = 'Bloqueado';
+    stateKey = 'bloqueado';
+  }
+
+  pill.classList.toggle('is-inativo', stateKey === 'inativo');
+  pill.classList.toggle('is-bloqueado', stateKey === 'bloqueado');
+  pill.dataset.tooltip = label;
+  pill.setAttribute('aria-label', `Status: ${label}`);
+  const labelEl = pill.querySelector('.cliente-top-status-text');
+  if (labelEl) labelEl.textContent = label;
+}
+
+function setClienteActionAvailability(action, enabled, disabledMessage = '') {
+  const button = document.querySelector(`[data-cliente-action="${action}"]`);
+  if (!button) return;
+  button.disabled = !enabled;
+  if (!enabled && disabledMessage) {
+    button.title = disabledMessage;
+    button.setAttribute('aria-label', `${button.textContent.trim()}. ${disabledMessage}`);
+  } else {
+    button.removeAttribute('title');
+    button.setAttribute('aria-label', button.textContent.trim());
+  }
+}
+
 function syncClienteBudgetActions() {
   const clientId = getClienteAtualId();
-  const topButton = $('btn-fazer-orcamento-cliente');
-  const historyButton = $('btn-novo-orcamento-cliente');
-  const arquivosButton = $('btn-arquivos-tecnicos-cliente');
+  const hasDraft = hasClienteDraftForDuplicate();
 
-  if (arquivosButton) {
-    arquivosButton.hidden = !clientId;
-    arquivosButton.disabled = !clientId;
+  setClienteActionAvailability('arquivos', !!clientId, 'Salve o cliente antes de acessar os arquivos técnicos.');
+  setClienteActionAvailability('orcamento', !!clientId, 'Salve o cliente antes de criar um orçamento.');
+  setClienteActionAvailability('duplicar', !!clientId || hasDraft, 'Preencha ou salve um cliente antes de duplicar.');
+  setClienteActionAvailability('agenda', true);
+
+  const trigger = $('btn-cliente-acoes');
+  if (trigger) {
+    trigger.disabled = false;
+  }
+}
+
+function buildClienteDuplicadoPayload() {
+  const payload = buildPayload();
+  return {
+    ...defaultCliente(),
+    ...payload,
+    id: null,
+    codigo: '',
+    cpf_cnpj: '',
+    rg_ie: '',
+    inscricao_municipal: '',
+    suframa: '',
+    ocorrencias: [],
+    anexos: [],
+    historico: {},
+    criado_em: '',
+    atualizado_em: '',
+  };
+}
+
+async function duplicarClienteAtual() {
+  const clientId = getClienteAtualId();
+  if (!clientId && !hasClienteDraftForDuplicate()) {
+    toast('Preencha ou salve um cliente antes de duplicar.', 'error');
+    return;
   }
 
-  if (topButton) {
-    topButton.hidden = !clientId;
-    topButton.disabled = !clientId;
-  }
+  const confirmed = await confirmDialog({
+    title: 'Duplicar cliente',
+    message: 'Deseja criar um novo cadastro com base neste cliente? Os dados serão carregados para revisão antes de salvar.',
+    confirmText: 'Duplicar cadastro',
+    cancelText: 'Cancelar',
+  });
 
-  if (historyButton) historyButton.disabled = !clientId;
+  if (!confirmed) return;
+
+  const proximoCodigo = await obterProximoCodigoClienteServidor();
+  const duplicado = buildClienteDuplicadoPayload();
+
+  setClienteModalReadonly(false);
+  state.clienteEditandoId = null;
+  clienteModalListPosition = null;
+  clienteModalListPositionOverride = null;
+  clienteModalListTotal = 0;
+  syncZapsChatButton(null);
+  $('modal-cliente-titulo').textContent = 'Duplicar cliente';
+
+  await fillClientForm({
+    ...duplicado,
+    codigo: proximoCodigo,
+  });
+
+  syncFichaPrincipalCadastro('', true);
+  syncClienteBudgetActions();
+  syncClienteStatusPill(duplicado.situacao || 'ativo');
+  await syncAgendaCliente(null, false);
+  setClienteModalDirty(true);
+  closeClienteActionsMenu();
+  switchTab(state.usarFichaPrincipalClientes ? 'tab-campos-personalizados' : 'tab-cadastro');
+  toast('Cópia carregada. Revise os dados e clique em salvar.', 'success');
 }
 
 function abrirArquivosTecnicosDoCliente() {
@@ -2224,15 +2544,19 @@ export function bindClientModal({ afterSave } = {}) {
     agendarResumoSidebarCliente(currentDetail);
   });
 
-  $('btn-fechar-modal-cliente')?.addEventListener('click', closeClientModal);
-  $('btn-cancelar-cliente')?.addEventListener('click', closeClientModal);
+  $('btn-fechar-modal-cliente')?.addEventListener('click', () => { void requestCloseClientModal(); });
+  $('btn-cancelar-cliente')?.addEventListener('click', () => { void requestCloseClientModal(); });
   $('formCliente')?.addEventListener('submit', saveCliente);
 
   $('formCliente')?.addEventListener('input', (event) => {
     handleCepFieldInputMask(event);
     updateGoogleMapsAddressButtons();
+    if (event.target?.id !== 'toggle-ficha-principal-cliente') markClienteModalDirty();
   });
-  $('formCliente')?.addEventListener('change', updateGoogleMapsAddressButtons);
+  $('formCliente')?.addEventListener('change', (event) => {
+    updateGoogleMapsAddressButtons();
+    if (event.target?.id !== 'toggle-ficha-principal-cliente') markClienteModalDirty();
+  });
   $('formCliente')?.addEventListener('focusout', (event) => {
     const target = event.target;
     if (!target) return;
@@ -2265,21 +2589,68 @@ export function bindClientModal({ afterSave } = {}) {
     event.stopPropagation();
   });
   $('btn-abrir-zapschat-cliente')?.addEventListener('click', (event) => abrirClienteNoZapsChat(state.clienteEditandoId || currentDetail?.id, { button: event.currentTarget }));
-  $('btn-arquivos-tecnicos-cliente')?.addEventListener('click', abrirArquivosTecnicosDoCliente);
-  $('btn-fazer-orcamento-cliente')?.addEventListener('click', abrirOrcamentoDoCliente);
   $('btn-novo-orcamento-cliente')?.addEventListener('click', abrirOrcamentoDoCliente);
   $('toggle-ficha-principal-cliente')?.addEventListener('change', salvarToggleFichaPrincipalCliente);
+  $('btn-cliente-acoes')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+    setClienteActionsMenuOpen(!expanded);
+  });
+  $('cliente-actions-menu')?.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-cliente-action]');
+    if (!button || button.disabled) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const action = button.dataset.clienteAction;
+    if (action === 'arquivos') abrirArquivosTecnicosDoCliente();
+    if (action === 'orcamento') abrirOrcamentoDoCliente();
+    if (action === 'agenda') abrirAgendaClienteParaCorrecao();
+    if (action === 'duplicar') await duplicarClienteAtual();
+    if (action !== 'duplicar') closeClienteActionsMenu();
+  });
+  $('formCliente')?.addEventListener('change', (event) => {
+    const wrapper = event.target?.closest?.('[data-custom-field-wrapper="true"]');
+    if (event.target?.id === 'campo-situacao' || wrapper?.dataset.systemField === 'situacao') {
+      try { syncClienteStatusPill(buildPayload().situacao); } catch (_) { syncClienteStatusPill(event.target?.value); }
+    }
+    syncClienteBudgetActions();
+  });
+  $('formCliente')?.addEventListener('input', () => {
+    syncClienteBudgetActions();
+  });
+  document.addEventListener('click', (event) => {
+    const dropdown = $('cliente-actions-dropdown');
+    if (!dropdown || dropdown.contains(event.target)) return;
+    closeClienteActionsMenu();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeClienteActionsMenu();
+
+    const isSaveShortcut = (event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 's';
+    if (!isSaveShortcut || !clienteModalEstaAberto() || clienteModalSomenteLeitura) return;
+    if (!$('Valora-confirm-backdrop')?.hidden) return;
+    event.preventDefault();
+    $('formCliente')?.requestSubmit?.();
+  });
+  $('btn-cliente-anterior')?.addEventListener('click', (event) => {
+    void navegarParaClienteAdjacente(event.currentTarget.dataset.targetListOffset);
+  });
+  $('btn-cliente-proximo')?.addEventListener('click', (event) => {
+    void navegarParaClienteAdjacente(event.currentTarget.dataset.targetListOffset);
+  });
   bindResumoSidebarCliente();
 
   $('modal-cliente-backdrop')?.addEventListener('click', (e) => {
     if (e.target === $('modal-cliente-backdrop')) {
-      closeClientModal();
+      void requestCloseClientModal();
     }
   });
 
   $('btn-add-endereco')?.addEventListener('click', () => {
     currentDetail ??= defaultCliente();
     currentDetail.enderecos.push(enderecoVazio());
+    markClienteModalDirty();
     renderEnderecos(currentDetail.enderecos);
     agendarResumoSidebarCliente(currentDetail);
   });
@@ -2287,6 +2658,7 @@ export function bindClientModal({ afterSave } = {}) {
   $('btn-add-ref-comercial')?.addEventListener('click', () => {
     currentDetail ??= defaultCliente();
     currentDetail.referencias_comerciais.push(refComercialVazia());
+    markClienteModalDirty();
     renderRefsComerciais(currentDetail.referencias_comerciais);
     agendarResumoSidebarCliente(currentDetail);
   });
@@ -2294,6 +2666,7 @@ export function bindClientModal({ afterSave } = {}) {
   $('btn-add-ref-bancaria')?.addEventListener('click', () => {
     currentDetail ??= defaultCliente();
     currentDetail.referencias_bancarias.push(refBancariaVazia());
+    markClienteModalDirty();
     renderRefsBancarias(currentDetail.referencias_bancarias);
     agendarResumoSidebarCliente(currentDetail);
   });
@@ -2301,6 +2674,7 @@ export function bindClientModal({ afterSave } = {}) {
   $('btn-add-socio')?.addEventListener('click', () => {
     currentDetail ??= defaultCliente();
     currentDetail.socios.push(socioVazio());
+    markClienteModalDirty();
     renderSocios(currentDetail.socios);
     agendarResumoSidebarCliente(currentDetail);
   });
@@ -2347,6 +2721,7 @@ export function bindClientModal({ afterSave } = {}) {
     if (!key || !Array.isArray(currentDetail[key])) return;
 
     currentDetail[key].splice(index, 1);
+    markClienteModalDirty();
 
     if (key === 'enderecos') {
       renderEnderecos(currentDetail.enderecos);
@@ -2377,8 +2752,12 @@ export function bindClientModal({ afterSave } = {}) {
 
 export async function openClientModalNew() {
   setClienteModalReadonly(false);
+  clienteModalListPosition = null;
+  clienteModalListPositionOverride = null;
+  clienteModalListTotal = 0;
   state.clienteEditandoId = null;
   syncZapsChatButton(null);
+  closeClienteActionsMenu();
   syncClienteBudgetActions();
 
   $('modal-cliente-titulo').textContent = 'Novo cliente';
@@ -2390,6 +2769,7 @@ export async function openClientModalNew() {
   openModal('modal-cliente-backdrop');
   setClienteModalReadonly(false);
   await syncAgendaCliente(null, false);
+  setClienteModalDirty(false);
 
   bindResumoSidebarCliente();
   agendarResumoSidebarCliente(currentDetail);
@@ -2401,6 +2781,7 @@ export async function openClientModalEdit(id) {
     const cliente = await obterClienteNoServidor(id);
 
     state.clienteEditandoId = cliente.id;
+    prepareClienteListPosition(cliente.id);
     syncClienteBudgetActions();
     $('modal-cliente-titulo').textContent = 'Editar cliente';
 
@@ -2409,6 +2790,7 @@ export async function openClientModalEdit(id) {
     openModal('modal-cliente-backdrop');
     setClienteModalReadonly(false);
     await syncAgendaCliente(cliente, false);
+    setClienteModalDirty(false);
 
     bindResumoSidebarCliente();
     agendarResumoSidebarCliente(cliente);
@@ -2424,6 +2806,7 @@ export async function openClientModalView(id) {
     const cliente = await obterClienteNoServidor(id);
 
     state.clienteEditandoId = cliente.id;
+    prepareClienteListPosition(cliente.id);
     syncClienteBudgetActions();
     $('modal-cliente-titulo').textContent = 'Visualizar cliente';
 
@@ -2432,6 +2815,7 @@ export async function openClientModalView(id) {
     openModal('modal-cliente-backdrop');
     setClienteModalReadonly(true);
     await syncAgendaCliente(cliente, true);
+    setClienteModalDirty(false);
 
     bindResumoSidebarCliente();
     agendarResumoSidebarCliente(cliente);
@@ -2442,6 +2826,8 @@ export async function openClientModalView(id) {
 
 export function closeClientModal() {
   setClienteModalReadonly(false);
+  setClienteModalDirty(false);
+  closeClienteActionsMenu();
   closeModal('modal-cliente-backdrop');
 }
 
@@ -2738,6 +3124,7 @@ export async function saveCliente(e) {
       }
     }
 
+    setClienteModalDirty(false);
     closeClientModal();
 
     toast(

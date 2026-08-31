@@ -780,7 +780,6 @@
 
     return {
       id: campoAvulso?.id || campoFormulario?.campo_personalizado_id || campoFormulario?.id || null,
-      formulario_campo_id: campoFormulario?.id || null,
       nome,
       slug,
       // O tipo salvo no formulário é a fonte principal.
@@ -1009,8 +1008,7 @@
     const integracoes = getCampoIntegracoes(campo);
     const cep = parseMaybeJson(integracoes.cep, null) || {};
     const mapas = parseMaybeJson(integracoes.mapas, null) || {};
-    const destinos = parseMaybeJson(cep.destinos, null) || {};
-    const wrapperMeta = `data-custom-field-wrapper="true" data-custom-slug="${escapeHtml(slug)}" data-custom-origin="${escapeHtml(origem)}" data-system-field="${escapeHtml(campoSistema)}" data-form-field-id="${escapeHtml(campo?.formulario_campo_id || '')}" data-custom-section="${escapeHtml(sectionTitle)}" data-cep-source="${isFlagOn(cep.buscar_endereco ?? cep.buscarEndereco ?? cep.buscar) ? 'true' : 'false'}" data-cep-fill-logradouro="${isFlagOn(cep.preencher_logradouro ?? cep.logradouro) ? 'true' : 'false'}" data-cep-fill-bairro="${isFlagOn(cep.preencher_bairro ?? cep.bairro) ? 'true' : 'false'}" data-cep-fill-cidade="${isFlagOn(cep.preencher_cidade ?? cep.cidade) ? 'true' : 'false'}" data-cep-fill-estado="${isFlagOn(cep.preencher_estado ?? cep.estado) ? 'true' : 'false'}" data-cep-provider="${escapeHtml(cep.provedor || 'viacep')}" data-cep-fallback="${escapeHtml(cep.fallback || '')}" data-cep-destinations-configured="${isFlagOn(cep.destinos_configurados) || Object.prototype.hasOwnProperty.call(cep, 'destinos') ? 'true' : 'false'}" data-cep-target-logradouro="${escapeHtml(destinos.logradouro || '')}" data-cep-target-bairro="${escapeHtml(destinos.bairro || '')}" data-cep-target-cidade="${escapeHtml(destinos.cidade || '')}" data-cep-target-estado="${escapeHtml(destinos.estado || '')}" data-google-maps-enabled="${isFlagOn(mapas.abrir_google_maps ?? mapas.google_maps ?? mapas.ativo) ? 'true' : 'false'}"`;
+    const wrapperMeta = `data-custom-field-wrapper="true" data-custom-slug="${escapeHtml(slug)}" data-custom-origin="${escapeHtml(origem)}" data-system-field="${escapeHtml(campoSistema)}" data-custom-section="${escapeHtml(sectionTitle)}" data-cep-source="${isFlagOn(cep.buscar_endereco ?? cep.buscarEndereco ?? cep.buscar) ? 'true' : 'false'}" data-cep-fill-logradouro="${isFlagOn(cep.preencher_logradouro ?? cep.logradouro) ? 'true' : 'false'}" data-cep-fill-bairro="${isFlagOn(cep.preencher_bairro ?? cep.bairro) ? 'true' : 'false'}" data-cep-fill-cidade="${isFlagOn(cep.preencher_cidade ?? cep.cidade) ? 'true' : 'false'}" data-cep-fill-estado="${isFlagOn(cep.preencher_estado ?? cep.estado) ? 'true' : 'false'}" data-cep-provider="${escapeHtml(cep.provedor || 'viacep')}" data-cep-fallback="${escapeHtml(cep.fallback || '')}" data-google-maps-enabled="${isFlagOn(mapas.abrir_google_maps ?? mapas.google_maps ?? mapas.ativo) ? 'true' : 'false'}"`;
 
     if (tipo === 'checkbox') {
       const checked =
@@ -1086,7 +1084,7 @@
       const opcoes = parseCampoOpcoes(campo);
       const valorAtual = String(valor ?? '').trim();
       const opcoesAtuais = new Set(opcoes.map((opcao) => String(opcao ?? '').trim()));
-      const valorRemovido = valorAtual && !opcoesAtuais.has(valorAtual) ? valorAtual : '';
+      const valorValido = opcoesAtuais.has(valorAtual) ? valorAtual : '';
 
       html += `
         <select
@@ -1094,51 +1092,26 @@
           data-custom-field="${escapeHtml(slug)}"
           data-custom-label="${escapeHtml(label)}"
           data-required="${campo.obrigatorio ? 'true' : 'false'}"
-          ${valorRemovido ? 'data-has-legacy-value="true"' : ''}
           ${disabled}
         >
           <option value="">Selecione</option>
-          ${valorRemovido
-            ? `<option value="${escapeHtml(valorRemovido)}" selected data-legacy-option="true">${escapeHtml(valorRemovido)} — opção removida</option>`
-            : ''}
           ${opcoes
             .map((opcao) => {
-              const selected = String(opcao).trim() === valorAtual ? 'selected' : '';
+              const selected = String(opcao).trim() === valorValido ? 'selected' : '';
               return `<option value="${escapeHtml(opcao)}" ${selected}>${escapeHtml(opcao)}</option>`;
             })
             .join('')}
         </select>
-        ${valorRemovido
-          ? `<small class="field-hint custom-field-legacy-warning"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>Este cadastro ainda usa uma opção que foi removida da lista. O valor foi preservado; escolha uma opção atual para substituí-lo.</span></small>`
-          : ''}
       `;
     } else if (tipo === 'multiselect') {
       const opcoes = parseCampoOpcoes(campo);
+      const opcoesAtuais = new Set(opcoes.map((opcao) => String(opcao ?? '').trim()));
       const valoresSelecionados = parseMultiValor(valor)
         .map((item) => String(item ?? '').trim())
-        .filter(Boolean);
+        .filter((item) => item && opcoesAtuais.has(item));
       const selecionados = new Set(valoresSelecionados);
-      const opcoesAtuais = new Set(opcoes.map((opcao) => String(opcao ?? '').trim()));
-      const valoresRemovidos = valoresSelecionados.filter((item) => !opcoesAtuais.has(item));
       const initialValue = JSON.stringify(Array.from(selecionados));
       const disabledAttr = disabled ? 'disabled' : '';
-
-      const opcoesRemovidasHtml = valoresRemovidos.map((opcao, index) => {
-        const optionId = `${id}-opcao-removida-${index}`;
-        return `
-          <label class="custom-multiselect-option is-legacy-option" for="${escapeHtml(optionId)}" data-option-text="${escapeHtml(opcao)}" data-legacy-option="true">
-            <input
-              type="checkbox"
-              id="${escapeHtml(optionId)}"
-              value="${escapeHtml(opcao)}"
-              data-multiselect-option="${escapeHtml(slug)}"
-              checked
-              ${disabledAttr}
-            />
-            <span><span class="custom-multiselect-option-label">${escapeHtml(opcao)}</span><small class="custom-multiselect-option-badge">Opção removida</small></span>
-          </label>
-        `;
-      }).join('');
 
       const opcoesAtuaisHtml = opcoes.map((opcao, index) => {
         const checked = selecionados.has(String(opcao).trim()) ? 'checked' : '';
@@ -1158,7 +1131,7 @@
         `;
       }).join('');
 
-      const opcoesMultiselectHtml = `${opcoesRemovidasHtml}${opcoesAtuaisHtml}`
+      const opcoesMultiselectHtml = opcoesAtuaisHtml
         || '<div class="custom-multiselect-empty">Nenhuma opção cadastrada.</div>';
 
       html += `
@@ -1231,9 +1204,6 @@
             </div>
           </div>
         </div>
-        ${valoresRemovidos.length
-          ? `<small class="field-hint custom-field-legacy-warning"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>${valoresRemovidos.length === 1 ? 'Uma opção selecionada foi removida da lista' : `${valoresRemovidos.length} opções selecionadas foram removidas da lista`}. Os valores foram preservados até você escolher novas opções ou clicar em Limpar.</span></small>`
-          : ''}
       `;
     } else if (isTipoRelacao(tipo)) {
       if (isTipoRelacaoMultipla(tipo)) {

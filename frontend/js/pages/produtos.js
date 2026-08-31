@@ -1578,7 +1578,11 @@
       refreshProdutosAposModalIniciado = true;
       listaProdutosAdiadaAteFecharModal = false;
       window.setTimeout(() => {
-        void carregarProdutos({ offset: 0, silent: true })
+        const refreshPromise = telaPrecosAberta
+          ? carregarAtualizacaoPrecos({ offset: atualizacaoPrecosPage.offset || 0, silent: true })
+          : carregarProdutos({ offset: 0, silent: true });
+
+        void refreshPromise
           .catch((err) => console.warn('[Produtos] lista após fechar cadastro:', err))
           .finally(() => { refreshProdutosAposModalIniciado = false; });
       }, 80);
@@ -2638,7 +2642,13 @@
           <td class="price-sticky-code"><span class="badge-codigo">${escapeHtml(product.codigo || '-')}</span></td>
           <td class="price-sticky-name">
             <div class="price-product-name">
-              <strong>${escapeHtml(product.nome || '-')}</strong>
+              <button
+                type="button"
+                class="price-product-link"
+                data-price-open-product="${escapeHtml(product.id)}"
+                title="Abrir ficha de ${escapeHtml(product.nome || 'produto')}"
+                aria-label="Abrir ficha de ${escapeHtml(product.nome || 'produto')}"
+              >${escapeHtml(product.nome || '-')}</button>
               <span>${escapeHtml(product.categoria || (product.ativo ? 'Ativo' : 'Inativo'))}</span>
             </div>
           </td>
@@ -2993,6 +3003,33 @@
     };
     priceTableBody?.addEventListener('input', handlePriceInput);
     priceTableBody?.addEventListener('change', handlePriceInput);
+    priceTableBody?.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-price-open-product]');
+      if (!button) return;
+
+      const produtoId = Number(button.dataset.priceOpenProduct || 0);
+      if (!produtoId || button.disabled) return;
+
+      const originalHtml = button.innerHTML;
+      button.disabled = true;
+      button.classList.add('is-loading');
+
+      try {
+        const full = await obterProdutoNoServidor(produtoId);
+        if (podeEditarPrecos) {
+          await abrirModalProdutoEditar(full);
+        } else {
+          await abrirModalProdutoVisualizar(full);
+        }
+      } catch (err) {
+        console.error('[Produtos] erro ao abrir ficha pela atualização de preços:', err);
+        toast(err.message || 'Não foi possível abrir a ficha do produto.', { error: true, ms: 5000 });
+      } finally {
+        button.disabled = false;
+        button.classList.remove('is-loading');
+        button.innerHTML = originalHtml;
+      }
+    });
     $('thead-atualizacao-precos')?.addEventListener('change', (event) => {
       if (event.target?.id !== 'selecionar-todos-precos') return;
       document.querySelectorAll('#tbody-atualizacao-precos .price-row-select').forEach((checkbox) => {

@@ -309,44 +309,171 @@
 .cliente-sidebar-bottom {
   flex: 0 0 auto;
   margin-top: auto;
-  padding: 14px 14px 18px;
+  padding: 12px 14px 16px;
 }
 
 .cliente-sidebar-bottom .cliente-ficha-toggle {
-  padding: 11px 12px;
+  position: relative;
+  min-height: 56px;
+  padding: 10px 12px;
 
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #ffffff;
+  border: 1px solid #dbe3ee;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
 
   display: flex;
-  align-items: flex-start;
-  gap: 9px;
+  align-items: center;
+  gap: 10px;
+
+  cursor: pointer;
+  transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
+}
+
+.cliente-sidebar-bottom .cliente-ficha-toggle:hover {
+  border-color: #cdd8e6;
+  background: #ffffff;
+}
+
+.cliente-sidebar-bottom .cliente-ficha-toggle:focus-within {
+  border-color: rgba(75, 195, 199, .45);
+  box-shadow: 0 0 0 3px rgba(75, 195, 199, .10);
 }
 
 .cliente-sidebar-bottom .cliente-ficha-toggle input {
-  width: 15px;
-  height: 15px;
-  margin-top: 2px;
-  accent-color: var(--brand);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.cliente-sidebar-bottom .cliente-ficha-toggle-check {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  border-radius: 8px;
+  border: 1px solid #d6e0ec;
+  background: #f8fafc;
+  color: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .18s ease;
+}
+
+.cliente-sidebar-bottom .cliente-ficha-toggle-check svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.cliente-sidebar-bottom .cliente-ficha-toggle-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .cliente-sidebar-bottom .cliente-ficha-toggle strong {
   display: block;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.25;
+  color: #0f172a;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.2;
 }
 
 .cliente-sidebar-bottom .cliente-ficha-toggle small {
   display: block;
-  margin-top: 3px;
-
-  color: var(--muted);
-  font-size: 11px;
+  color: #667085;
+  font-size: 10.5px;
   font-weight: 400;
-  line-height: 1.35;
+  line-height: 1.28;
+}
+
+.cliente-sidebar-bottom .cliente-ficha-toggle input:checked + .cliente-ficha-toggle-check {
+  border-color: rgba(75, 195, 199, .25);
+  background: linear-gradient(180deg, #55cfd2 0%, #45c0c5 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(75, 195, 199, .18);
+}
+
+.cliente-sidebar-bottom .cliente-ficha-toggle input:checked + .cliente-ficha-toggle-check + .cliente-ficha-toggle-copy strong {
+  color: #0f172a;
+}
+
+.cliente-sidebar-bottom .cliente-ficha-toggle input:checked + .cliente-ficha-toggle-check + .cliente-ficha-toggle-copy small {
+  color: #5d6b82;
+}
+
+html[data-theme="dark"] .cliente-sidebar-bottom .cliente-ficha-toggle {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+html[data-theme="dark"] .cliente-sidebar-bottom .cliente-ficha-toggle:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+html[data-theme="dark"] .cliente-sidebar-bottom .cliente-ficha-toggle-check {
+  border-color: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+html[data-theme="dark"] .cliente-sidebar-bottom .cliente-ficha-toggle strong {
+  color: #f5f7fb;
+}
+
+html[data-theme="dark"] .cliente-sidebar-bottom .cliente-ficha-toggle small {
+  color: #aab4c5;
+}
+
+
+/* =========================================================
+   CLIENTE — MODAL MAIS LARGO E MAIS LEVE
+   Abre mais espaço útil no desktop para reduzir sensação de
+   layout “gordo” na ficha do cliente.
+   ========================================================= */
+@media (min-width: 1181px) {
+  #modal-cliente-backdrop .cliente-modal-content {
+    width: min(1460px, calc(100vw - 28px)) !important;
+    height: calc(100dvh - 28px) !important;
+    max-height: calc(100dvh - 28px) !important;
+  }
+
+  #modal-cliente-backdrop .cliente-modal-shell {
+    grid-template-columns: 206px minmax(0, 1fr) !important;
+  }
+
+  #modal-cliente-backdrop .cliente-modal-topbar {
+    padding: 22px 30px 18px !important;
+    min-height: 92px !important;
+  }
+
+  #modal-cliente-backdrop .cliente-modal-workbar {
+    padding-left: 30px !important;
+    padding-right: 30px !important;
+  }
+
+  #modal-cliente-backdrop .cliente-modal-scroll {
+    padding: 18px 30px 24px !important;
+  }
+
+  #modal-cliente-backdrop .modal-client-footer {
+    padding-left: 30px !important;
+    padding-right: 30px !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-top {
+    padding: 22px 18px 14px !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-bottom {
+    padding: 10px 12px 14px !important;
+  }
 }
 
 /* =========================================
@@ -1461,6 +1588,11 @@ html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-ta
     padding: 0 10px 10px;
   }
 
+  .cliente-sidebar-bottom .cliente-ficha-toggle {
+    min-height: 50px;
+    padding: 9px 11px;
+  }
+
   #modal-cliente-backdrop .form-row,
   .custom-fields-grid,
   .custom-section-card .custom-fields-grid {
@@ -2028,6 +2160,210 @@ html[data-theme="dark"] #modal-cliente-backdrop .cliente-top-status {
 }
 
 /* =========================================================
+   CLIENTE — TOPO COM AÇÕES MAIS VISÍVEIS
+   ========================================================= */
+#modal-cliente-backdrop .cliente-modal-top-actions {
+  position: relative;
+  gap: 10px;
+}
+
+#modal-cliente-backdrop .cliente-actions-dropdown {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+#modal-cliente-backdrop .cliente-actions-trigger {
+  min-width: 132px;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  border-radius: 11px !important;
+  border: 1px solid #e4eaf0 !important;
+  background: #ffffff !important;
+  color: #253247 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  box-shadow: 0 4px 13px rgba(15, 23, 42, 0.035) !important;
+}
+
+#modal-cliente-backdrop .cliente-actions-trigger:hover {
+  border-color: #d5dee8 !important;
+  background: #fbfcfd !important;
+  color: #1f2c40 !important;
+}
+
+#modal-cliente-backdrop .cliente-actions-trigger:focus-visible,
+#modal-cliente-backdrop .cliente-actions-menu-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(101, 172, 222, 0.16) !important;
+}
+
+#modal-cliente-backdrop .cliente-actions-trigger-icon {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.5;
+}
+
+#modal-cliente-backdrop .cliente-actions-trigger-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+#modal-cliente-backdrop .cliente-actions-chevron {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform .16s ease;
+}
+
+#modal-cliente-backdrop .cliente-actions-dropdown.is-open .cliente-actions-chevron {
+  transform: rotate(180deg);
+}
+
+#modal-cliente-backdrop .cliente-actions-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10025;
+  width: min(240px, calc(100vw - 42px));
+  padding: 8px;
+  border: 1px solid #e6ebf1;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
+  display: grid;
+  gap: 4px;
+}
+
+#modal-cliente-backdrop .cliente-actions-menu[hidden] {
+  display: none !important;
+}
+
+#modal-cliente-backdrop .cliente-actions-menu-item {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #253247;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 11px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease;
+}
+
+#modal-cliente-backdrop .cliente-actions-menu-item:hover {
+  border-color: #e7edf3;
+  background: #f8fbfd;
+  color: #132033;
+}
+
+#modal-cliente-backdrop .cliente-actions-menu-item svg {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.55;
+}
+
+#modal-cliente-backdrop .cliente-actions-menu-item span {
+  min-width: 0;
+  line-height: 1.25;
+}
+
+#modal-cliente-backdrop .cliente-actions-menu-item[disabled] {
+  opacity: .48;
+  cursor: not-allowed;
+  background: transparent !important;
+}
+
+#modal-cliente-backdrop .cliente-top-status {
+  width: auto !important;
+  min-width: auto !important;
+  padding: 0 14px !important;
+  gap: 10px;
+}
+
+#modal-cliente-backdrop .cliente-top-status .cliente-top-status-text {
+  display: inline-block !important;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+@media (max-width: 900px) {
+  #modal-cliente-backdrop .cliente-actions-trigger {
+    min-width: 122px;
+  }
+}
+
+@media (max-width: 760px) {
+  #modal-cliente-backdrop .cliente-modal-topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  #modal-cliente-backdrop .cliente-modal-top-actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  #modal-cliente-backdrop .cliente-actions-trigger {
+    min-width: 118px;
+  }
+
+  #modal-cliente-backdrop .cliente-actions-menu {
+    right: auto;
+    left: 0;
+    width: min(260px, calc(100vw - 40px));
+  }
+
+  .cliente-status-pill {
+    display: inline-flex;
+  }
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-actions-trigger {
+  border-color: #334554 !important;
+  background: #17232d !important;
+  color: #e4edf4 !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-actions-trigger:hover {
+  border-color: #415566 !important;
+  background: #1b2a35 !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-actions-menu {
+  border-color: #334554;
+  background: #17232d;
+  box-shadow: 0 18px 34px rgba(2, 8, 16, 0.46);
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-actions-menu-item {
+  color: #dbe7f0;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-actions-menu-item:hover {
+  border-color: #31414e;
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffffff;
+}
+
+/* =========================================================
    LISTA DE CLIENTES — AÇÕES DA TABELA
    IMPORTANTE: totalmente separado dos ícones do modal/card.
    Mantém as dimensões originais da tabela: 34x34.
@@ -2206,5 +2542,360 @@ html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-ta
     left: 50% !important;
     top: 9px !important;
     transform: translateX(-50%) !important;
+  }
+}
+
+/* =========================================================
+   CLIENTE — MODAL MAIS FUNCIONAL V22
+   Mais espaço útil, aviso de alterações e navegação entre registros.
+   ========================================================= */
+@media (min-width: 1181px) {
+  #modal-cliente-backdrop .cliente-modal-content {
+    width: min(1360px, calc(100vw - 48px)) !important;
+  }
+
+  #modal-cliente-backdrop .cliente-modal-shell {
+    grid-template-columns: 220px minmax(0, 1fr) !important;
+  }
+}
+
+#modal-cliente-backdrop .cliente-modal-main {
+  grid-template-rows: auto auto minmax(0, 1fr) auto !important;
+}
+
+#modal-cliente-backdrop .cliente-modal-workbar {
+  min-height: 54px;
+  padding: 9px 30px;
+  border-bottom: 1px solid var(--border);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+#modal-cliente-backdrop .cliente-workbar-state,
+#modal-cliente-backdrop .cliente-record-navigation,
+#modal-cliente-backdrop .cliente-save-shortcut {
+  display: inline-flex;
+  align-items: center;
+}
+
+#modal-cliente-backdrop .cliente-workbar-state {
+  min-width: 0;
+  gap: 12px;
+}
+
+#modal-cliente-backdrop .cliente-unsaved-pill {
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid rgba(234, 179, 8, .30);
+  border-radius: 9px;
+  background: rgba(234, 179, 8, .09);
+  color: #a16207;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#modal-cliente-backdrop .cliente-unsaved-pill[hidden] {
+  display: none !important;
+}
+
+#modal-cliente-backdrop .cliente-unsaved-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #eab308;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, .11);
+}
+
+#modal-cliente-backdrop .cliente-save-shortcut {
+  gap: 4px;
+  color: var(--muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+#modal-cliente-backdrop .cliente-save-shortcut kbd {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border: 1px solid #e4eaf0;
+  border-bottom-color: #d2dae3;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #526274;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-size: 9.5px;
+  font-weight: 600;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, .04);
+}
+
+#modal-cliente-backdrop .cliente-record-navigation {
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+#modal-cliente-backdrop .cliente-record-navigation[hidden] {
+  display: none !important;
+}
+
+#modal-cliente-backdrop .cliente-record-navigation .btn {
+  min-height: 34px;
+  padding: 0 12px;
+  gap: 7px;
+  border-radius: 9px;
+  font-size: 11.5px;
+}
+
+#modal-cliente-backdrop .cliente-record-position {
+  min-width: 86px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  #modal-cliente-backdrop .cliente-modal-shell {
+    grid-template-columns: 205px minmax(0, 1fr) !important;
+  }
+
+  #modal-cliente-backdrop .cliente-modal-workbar {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+@media (max-width: 900px) {
+  #modal-cliente-backdrop .cliente-modal-shell {
+    grid-template-columns: 1fr !important;
+  }
+
+  #modal-cliente-backdrop .cliente-modal-workbar {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 760px) {
+  #modal-cliente-backdrop .cliente-modal-workbar {
+    padding: 9px 14px;
+    align-items: stretch;
+  }
+
+  #modal-cliente-backdrop .cliente-workbar-state {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  #modal-cliente-backdrop .cliente-record-navigation {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  #modal-cliente-backdrop .cliente-record-position {
+    min-width: 0;
+  }
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-modal-workbar {
+  background: #17232d;
+  border-color: #2c3d49;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-save-shortcut kbd {
+  border-color: #334554;
+  border-bottom-color: #405463;
+  background: #1d2b36;
+  color: #c8d4dd;
+}
+
+
+/* =========================================================
+   CLIENTE | FICHA PRINCIPAL NO MESMO PADRÃO DOS ÍCONES NATIVOS
+   Remove a "bolinha/quadrado" dos ícones das seções personalizadas
+   para ficar igual ao menu nativo da sidebar.
+   ========================================================= */
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] {
+  position: relative !important;
+  width: calc(100% - 14px) !important;
+  min-height: 44px !important;
+  margin: 0 0 2px 0 !important;
+  padding: 0 14px 0 58px !important;
+  border: 1px solid transparent !important;
+  border-radius: 0 10px 10px 0 !important;
+  background: transparent !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  grid-template-columns: none !important;
+  column-gap: 0 !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon {
+  position: absolute !important;
+  left: 29px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: #667085 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 1 !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon i {
+  font-size: 14px !important;
+  line-height: 1 !important;
+  color: inherit !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-label {
+  grid-column: auto !important;
+  display: block !important;
+  min-width: 0 !important;
+  color: inherit !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.25 !important;
+  -webkit-line-clamp: unset !important;
+  -webkit-box-orient: initial !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section]:hover .ficha-section-tab-icon {
+  color: #344054 !important;
+  background: transparent !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon {
+  color: #1A7EEE !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon {
+  color: #b8bdc7 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section]:hover .ficha-section-tab-icon {
+  color: #e4e7ec !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon {
+  color: #1A7EEE !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 780px) {
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] {
+    padding: 44px 8px 10px !important;
+    justify-content: center !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon {
+    left: 50% !important;
+    top: 9px !important;
+    transform: translateX(-50%) !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-label {
+    text-align: center !important;
+  }
+}
+
+
+
+/* =========================================================
+   CLIENTES — MODAL DESKTOP EXTRA WIDE | v30
+   Mantém o layout atual do VALORA e altera somente a proporção
+   do modal em telas grandes para aproveitar melhor o espaço.
+   ========================================================= */
+@media (min-width: 1181px) {
+  #modal-cliente-backdrop {
+    padding: 10px !important;
+  }
+
+  #modal-cliente-backdrop .cliente-modal-content {
+    width: min(1920px, 94vw) !important;
+    max-width: none !important;
+    height: calc(100dvh - 24px) !important;
+    max-height: calc(100dvh - 24px) !important;
+  }
+
+  #modal-cliente-backdrop .cliente-modal-shell {
+    grid-template-columns: 210px minmax(0, 1fr) !important;
+  }
+}
+
+
+/* =========================================================
+   CLIENTES — SIDEBAR MAIS LARGA | v31
+   O ajuste é na navegação/títulos da esquerda. O modal cresce
+   apenas o necessário para não apertar o formulário da direita.
+   ========================================================= */
+@media (min-width: 1181px) {
+  #modal-cliente-backdrop {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  #modal-cliente-backdrop .cliente-modal-content {
+    width: min(1860px, 93vw) !important;
+    max-width: none !important;
+  }
+
+  #modal-cliente-backdrop .cliente-modal-shell {
+    grid-template-columns: 270px minmax(0, 1fr) !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-top {
+    padding-left: 28px !important;
+    padding-right: 24px !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn {
+    width: calc(100% - 16px) !important;
+    padding-right: 18px !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn .cliente-native-icon,
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn .cliente-tab-icon,
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn > i,
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon {
+    left: 30px !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn > span:last-child,
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn .ficha-section-tab-label {
+    max-width: 190px !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-bottom {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
   }
 }

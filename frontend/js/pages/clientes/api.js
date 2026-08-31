@@ -119,6 +119,25 @@ export async function obterClienteNoServidor(id) {
   return apiJson(`${API_CLIENTES}/${id}`);
 }
 
+export async function obterClienteNaPosicaoDaLista(offset) {
+  const safeOffset = Math.max(0, Number(offset || 0));
+  const data = await apiJson(montarUrlClientes({ offset: safeOffset, limit: 1 }));
+
+  if (Array.isArray(data)) {
+    return {
+      item: data[0] || null,
+      offset: safeOffset,
+      total: data.length,
+    };
+  }
+
+  return {
+    item: Array.isArray(data?.items) ? (data.items[0] || null) : null,
+    offset: Number(data?.offset ?? safeOffset),
+    total: Number(data?.total || 0),
+  };
+}
+
 export async function salvarClienteNoServidor(payload, editandoId) {
   const url = editandoId == null ? API_CLIENTES : `${API_CLIENTES}/${editandoId}`;
 

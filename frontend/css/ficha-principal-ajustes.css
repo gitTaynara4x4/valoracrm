@@ -180,6 +180,89 @@
   font-weight: 600 !important;
 }
 
+
+
+/* =========================================================
+   CLIENTES | FICHA PRINCIPAL | CÓDIGO DO SISTEMA MINIMALISTA
+   Compacta o card de código/data no modal de clientes.
+   ========================================================= */
+#modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card {
+  grid-template-columns: minmax(260px, 1.05fr) minmax(360px, .95fr) !important;
+  gap: 16px !important;
+  align-items: center !important;
+  margin: 0 0 14px !important;
+  padding: 12px 16px !important;
+  border-radius: 14px !important;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.03) !important;
+}
+
+#modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card > div:first-child {
+  grid-template-columns: 34px minmax(0, 1fr) !important;
+  grid-template-rows: auto auto !important;
+  column-gap: 10px !important;
+}
+
+#modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card > div:first-child::before {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 10px !important;
+  grid-row: 1 / 3 !important;
+  font-size: 13px !important;
+}
+
+#modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card .section-kicker {
+  margin: 0 0 2px !important;
+  font-size: 10px !important;
+}
+
+#modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card h4 {
+  margin: 0 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+#modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card p {
+  display: none !important;
+}
+
+#modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields {
+  grid-template-columns: minmax(110px, 150px) minmax(170px, 1fr) !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+#modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields label {
+  margin: 0 0 5px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: #64748b !important;
+}
+
+#modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card .ficha-principal-system-fields input {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 11px !important;
+  border-radius: 9px !important;
+  background: #f8fafc !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+#modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card .ficha-principal-code-field input {
+  font-weight: 600 !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card {
+  box-shadow: none !important;
+}
+
+@media (max-width: 980px) {
+  #modal-cliente-backdrop .cliente-ficha-code-card.ficha-principal-code-card {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+
 /* Ícones personalizados também aparecem nas abas laterais quando a ficha principal está ligada. */
 .cliente-tab-btn[data-ficha-section],
 .fornecedor-tab-btn[data-ficha-section],
@@ -194,22 +277,25 @@
 }
 
 .ficha-section-tab-icon {
-  width: 26px;
-  height: 26px;
-  min-width: 26px;
-  border-radius: 9px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border-radius: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #4bc3c7;
-  background: rgba(75, 195, 199, .12);
+  color: #667085;
+  background: transparent;
+  background-image: none;
+  box-shadow: none;
   line-height: 1;
 }
 
 .ficha-section-tab-icon i {
   color: inherit;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
+  font-weight: 400;
 }
 
 .ficha-section-tab-label {
@@ -223,13 +309,34 @@
 .patrimonio-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
 .cotacao-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
 .ficha-section-tab-btn[data-ficha-section].active .ficha-section-tab-icon {
-  color: #ffffff;
-  background: #4bc3c7;
+  color: #1A7EEE;
+  background: transparent;
+  background-image: none;
+  box-shadow: none;
 }
 
 .custom-section-icon i,
 .ficha-section-tab-icon i {
   display: inline-block;
+}
+
+html[data-theme="dark"] .ficha-section-tab-icon {
+  color: #b8bdc7;
+  background: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+html[data-theme="dark"] .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+html[data-theme="dark"] .fornecedor-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+html[data-theme="dark"] .produto-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+html[data-theme="dark"] .patrimonio-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+html[data-theme="dark"] .cotacao-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+html[data-theme="dark"] .ficha-section-tab-btn[data-ficha-section].active .ficha-section-tab-icon {
+  color: #1A7EEE;
+  background: transparent;
+  background-image: none;
+  box-shadow: none;
 }
 
 html[data-theme="dark"] .ficha-principal-code-card,
@@ -508,5 +615,147 @@ html[data-theme="dark"] .ficha-principal-code-card .ficha-principal-system-field
   .valora-form.is-ficha-principal.patrimonio-modal-shell,
   .valora-form.is-ficha-principal.cotacao-modal-shell {
     grid-template-columns: 1fr !important;
+  }
+}
+
+
+/* =========================================================
+   CLIENTES | FICHA PRINCIPAL | ÍCONE IGUAL AO NATIVO
+   Remove o fundo/quadrado dos itens personalizados na sidebar.
+   ========================================================= */
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] {
+  position: relative !important;
+  width: calc(100% - 14px) !important;
+  min-height: 44px !important;
+  margin: 0 0 2px 0 !important;
+  padding: 0 14px 0 58px !important;
+  border-radius: 0 10px 10px 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  grid-template-columns: none !important;
+  column-gap: 0 !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon {
+  position: absolute !important;
+  left: 30px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: #667085 !important;
+  opacity: .92 !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon i {
+  font-size: 14px !important;
+  line-height: 1 !important;
+  color: inherit !important;
+  background: transparent !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-label {
+  grid-column: auto !important;
+  min-width: 0 !important;
+  display: block !important;
+  color: #526274 !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0 !important;
+  -webkit-line-clamp: unset !important;
+  -webkit-box-orient: initial !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section]:hover .ficha-section-tab-label {
+  color: #344054 !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-label {
+  color: #078f96 !important;
+  font-weight: 500 !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-label {
+  color: #b8c5d1 !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section]:hover .ficha-section-tab-label {
+  color: #e4e7ec !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-label {
+  color: #69d4dc !important;
+  font-weight: 500 !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn:hover .ficha-section-tab-icon {
+  color: #344054 !important;
+  background: transparent !important;
+}
+
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn.active .ficha-section-tab-icon,
+#modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon {
+  color: #1A7EEE !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 780px) {
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] {
+    padding: 44px 8px 10px !important;
+    justify-content: center !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon {
+    left: 50% !important;
+    top: 9px !important;
+    transform: translateX(-50%) !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-label {
+    text-align: center !important;
+  }
+}
+
+
+/* =========================================================
+   CLIENTES | FICHA PRINCIPAL | SIDEBAR MAIS LARGA | v31
+   Aumenta somente a navegação da esquerda. O modal externo
+   compensa a largura para preservar o formulário da direita.
+   ========================================================= */
+@media (min-width: 1181px) {
+  #modal-cliente-backdrop .valora-form.is-ficha-principal.cliente-modal-shell,
+  #modal-cliente-backdrop .cliente-modal-shell.is-ficha-principal,
+  .valora-form.is-ficha-principal.cliente-modal-shell {
+    grid-template-columns: 320px minmax(0, 1fr) !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] {
+    width: calc(100% - 16px) !important;
+    padding-left: 58px !important;
+    padding-right: 20px !important;
+  }
+
+  #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-label {
+    width: auto !important;
+    max-width: 236px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 }

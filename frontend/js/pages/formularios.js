@@ -3406,11 +3406,35 @@
 
     try {
       if (id) {
-        await apiJson(`${API_BASE}/campos/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        const salvarEdicao = async (confirmarExclusaoOpcoes = false) => {
+          const query = confirmarExclusaoOpcoes ? '?excluir_valores_opcoes_removidas=true' : '';
+          return apiJson(`${API_BASE}/campos/${id}${query}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        };
+
+        try {
+          await salvarEdicao(false);
+        } catch (err) {
+          const message = String(err?.message || '');
+          if (!message.startsWith('OPCOES_REMOVIDAS|')) throw err;
+
+          const [, cadastrosRaw, valoresRaw] = message.split('|');
+          const cadastros = Number(cadastrosRaw || 0);
+          const valores = Number(valoresRaw || 0);
+          const texto = [
+            `Existem ${cadastros} cadastro${cadastros === 1 ? '' : 's'} usando opção${valores === 1 ? '' : 'ões'} que não existe${valores === 1 ? '' : 'm'} mais neste campo.`,
+            '',
+            `Ao continuar, ${valores} valor${valores === 1 ? '' : 'es'} antigo${valores === 1 ? '' : 's'} ser${valores === 1 ? 'á' : 'ão'} apagado${valores === 1 ? '' : 's'} definitivamente.`,
+            '',
+            'Deseja remover esses valores e salvar a nova lista de opções?'
+          ].join('\n');
+
+          if (!confirm(texto)) return;
+          await salvarEdicao(true);
+        }
       } else {
         await apiJson(`${API_BASE}/modelos/${modeloId}/campos`, {
           method: 'POST',

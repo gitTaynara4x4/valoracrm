@@ -2685,3 +2685,31 @@ html[data-theme="dark"] #modal-cliente-backdrop .cliente-budget-action.btn-prima
   color: #ffffff !important;
   box-shadow: none !important;
 }
+
+
+/* =========================================================
+   CLIENTES | FICHA PRINCIPAL | DARK | ÍCONE IGUAL AO NATIVO
+   Garante que os itens personalizados não recebam fundo no dark.
+   ========================================================= */
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon,
+html[data-theme="dark"] .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section] .ficha-section-tab-icon {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  color: #b8bdc7 !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section]:hover .ficha-section-tab-icon,
+html[data-theme="dark"] .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section]:hover .ficha-section-tab-icon {
+  background: transparent !important;
+  color: #e4e7ec !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+html[data-theme="dark"] .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section].active .ficha-section-tab-icon {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: #1A7EEE !important;
+}

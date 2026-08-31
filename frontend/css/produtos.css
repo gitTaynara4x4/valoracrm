@@ -1863,7 +1863,7 @@ html[data-theme="dark"] #tbody-produtos .produto-warning-chip {
 .price-product-name strong {
   color: var(--text);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.24;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1876,6 +1876,63 @@ html[data-theme="dark"] #tbody-produtos .produto-warning-chip {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.price-product-link {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 1.24;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.14s ease, text-decoration-color 0.14s ease;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+}
+
+.price-product-link:hover,
+.price-product-link:focus-visible {
+  color: var(--brand);
+  text-decoration-color: color-mix(in srgb, var(--brand) 45%, transparent);
+  outline: none;
+}
+
+.price-product-link:focus-visible {
+  border-radius: 4px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 12%, transparent);
+}
+
+.price-product-link:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.price-product-link.is-loading::after {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 7px;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -1px;
+  animation: price-product-link-spin 0.7s linear infinite;
+}
+
+@keyframes price-product-link-spin {
+  to { transform: rotate(360deg); }
 }
 
 .price-value-cell {
@@ -2697,7 +2754,8 @@ html[data-theme="dark"] .produto-kit-summary > div {
   max-width: none;
 }
 
-.price-update-table.is-default-price-layout .price-product-name strong {
+.price-update-table.is-default-price-layout .price-product-name strong,
+.price-update-table.is-default-price-layout .price-product-link {
   max-width: 100%;
 }
 
@@ -2883,9 +2941,10 @@ html[data-theme="dark"] .produto-kit-summary > div {
 .price-update-table.is-default-price-layout .price-product-name {
   max-width: 100% !important;
 }
-.price-update-table.is-default-price-layout .price-product-name strong {
+.price-update-table.is-default-price-layout .price-product-name strong,
+.price-update-table.is-default-price-layout .price-product-link {
   font-size: 13px !important;
-  font-weight: 700 !important;
+  font-weight: 550 !important;
 }
 .price-update-table.is-default-price-layout .price-product-name span {
   font-size: 10.5px !important;

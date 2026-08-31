@@ -29,23 +29,23 @@
   <link rel="stylesheet" href="/frontend/css/exportacoes.css?v=20260713-exportacoes-completas-v1" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <link rel="stylesheet" href="/frontend/css/ficha-principal.css?v=20260717-busca-relacao-v1" />
-  <link rel="stylesheet" href="/frontend/css/clientes.css?v=20260827-google-maps-v46" />
+  <link rel="stylesheet" href="/frontend/css/clientes.css?v=20260831-sidebar-wide-v32" />
   <link rel="stylesheet" href="/frontend/css/localizar-personalizado.css?v=20260715-localizar-arrastar-restaurado-v8" />
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout" />
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
-  <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260630-ficha-sidebar-v5" />
+  <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260831-sidebar-wide-v9" />
 
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260809-performance-v28" defer></script>
   <script src="/frontend/js/shared/exportacoes.js?v=20260715-filtros-exatos-v2" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/shared/ficha-principal.js?v=20260828-automacoes-localizacao-v2" defer></script>
+  <script src="/frontend/js/shared/ficha-principal.js?v=20260827-automacoes-localizacao-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script src="/frontend/js/shared/localizar-personalizado.js?v=20260723-produtos-multiselect-relacoes-v9" defer></script>
-  <script type="module" src="/frontend/js/pages/clientes/index.js?v=20260829-campos-independentes-v11"></script>
-  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260810-cliente-agenda-dark-v43" />
+  <script type="module" src="/frontend/js/pages/clientes/index.js?v=20260830-modal-funcional-v22"></script>
+  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260830-ficha-native-v45" />
 </head>
 
 <body>
@@ -229,10 +229,14 @@
               </nav>
 
               <div class="cliente-sidebar-bottom">
-                <label class="cliente-ficha-toggle ficha-principal-toggle">
+                <label class="cliente-ficha-toggle ficha-principal-toggle" for="toggle-ficha-principal-cliente">
                   <input type="checkbox" id="toggle-ficha-principal-cliente" />
-
-                  <span>
+                  <span class="cliente-ficha-toggle-check" aria-hidden="true">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3.25 8.25 6.35 11.35 12.75 4.95"></path>
+                    </svg>
+                  </span>
+                  <span class="cliente-ficha-toggle-copy">
                     <strong>Usar ficha principal</strong>
                     <small>Mostrar somente código e campos personalizados.</small>
                   </span>
@@ -248,57 +252,70 @@
                 </div>
 
                 <div class="cliente-modal-top-actions">
-                  <button
-                    type="button"
-                    class="btn btn-secondary btn-sm cliente-top-icon-action"
-                    id="btn-arquivos-tecnicos-cliente"
-                    aria-label="Arquivos técnicos"
-                    data-tooltip="Arquivos técnicos"
-                    hidden>
-                    <svg class="cliente-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                      <path d="M3.75 7.2h5.2l1.75 2.05h7.55a2 2 0 0 1 2 2v5.95a2 2 0 0 1-2 2H5.75a2 2 0 0 1-2-2v-10Z"></path>
-                      <path d="M3.75 9.25h6.95"></path>
-                    </svg>
-                    <span class="cliente-top-action-label">Arquivos técnicos</span>
-                  </button>
+                  <div class="cliente-actions-dropdown" id="cliente-actions-dropdown">
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm cliente-actions-trigger"
+                      id="btn-cliente-acoes"
+                      aria-label="Abrir ações rápidas do cliente"
+                      aria-haspopup="menu"
+                      aria-expanded="false"
+                      aria-controls="cliente-actions-menu">
+                      <svg class="cliente-top-svg-icon cliente-actions-trigger-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M4.75 6.5h14.5"></path>
+                        <path d="M4.75 12h14.5"></path>
+                        <path d="M4.75 17.5h14.5"></path>
+                        <circle cx="8" cy="6.5" r=".7" class="cliente-calendar-dot"></circle>
+                        <circle cx="12" cy="12" r=".7" class="cliente-calendar-dot"></circle>
+                        <circle cx="16" cy="17.5" r=".7" class="cliente-calendar-dot"></circle>
+                      </svg>
+                      <span class="cliente-actions-trigger-label">Ações</span>
+                      <svg class="cliente-actions-chevron" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                        <path d="m5.5 7.5 4.5 4.5 4.5-4.5"></path>
+                      </svg>
+                    </button>
 
-                  <button
-                    type="button"
-                    class="btn btn-primary btn-sm cliente-budget-action cliente-top-icon-action"
-                    id="btn-fazer-orcamento-cliente"
-                    aria-label="Fazer orçamento"
-                    data-tooltip="Fazer orçamento"
-                    hidden>
-                    <svg class="cliente-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                      <path d="M7.25 4.25h7.1l2.4 2.4v9.1a2 2 0 0 1-2 2h-7.5a2 2 0 0 1-2-2v-9.5a2 2 0 0 1 2-2Z"></path>
-                      <path d="M14.25 4.35v2.4h2.4"></path>
-                      <path d="M10.25 8.25h6.5l2.25 2.25v7.25a2 2 0 0 1-2 2h-6.75a2 2 0 0 1-2-2V10.25a2 2 0 0 1 2-2Z"></path>
-                    </svg>
-                    <span class="cliente-top-action-label">Fazer orçamento</span>
-                  </button>
+                    <div class="cliente-actions-menu" id="cliente-actions-menu" role="menu" hidden>
+                      <button type="button" class="cliente-actions-menu-item" data-cliente-action="arquivos" role="menuitem">
+                        <svg class="cliente-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <path d="M3.75 7.2h5.2l1.75 2.05h7.55a2 2 0 0 1 2 2v5.95a2 2 0 0 1-2 2H5.75a2 2 0 0 1-2-2v-10Z"></path>
+                          <path d="M3.75 9.25h6.95"></path>
+                        </svg>
+                        <span>Arquivos técnicos</span>
+                      </button>
 
-                  <button
-                    type="button"
-                    class="agenda-fixed-top-btn cliente-top-icon-action"
-                    data-agenda-fixed-open="tab-historico"
-                    data-agenda-scope="#formCliente"
-                    data-agenda-panel-selector=".cliente-tab"
-                    data-agenda-tab-selector=".cliente-tab-btn"
-                    aria-label="Agenda"
-                    aria-pressed="false"
-                    data-tooltip="Agenda">
-                    <svg class="cliente-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                      <rect x="4" y="5.5" width="16" height="14.25" rx="2.25"></rect>
-                      <path d="M8 3.75v3.5M16 3.75v3.5M4 9.5h16"></path>
-                      <circle class="cliente-calendar-dot" cx="8.25" cy="13.25" r=".7"></circle>
-                      <circle class="cliente-calendar-dot" cx="12" cy="13.25" r=".7"></circle>
-                      <circle class="cliente-calendar-dot" cx="15.75" cy="13.25" r=".7"></circle>
-                      <circle class="cliente-calendar-dot" cx="8.25" cy="16.5" r=".7"></circle>
-                      <circle class="cliente-calendar-dot" cx="12" cy="16.5" r=".7"></circle>
-                      <circle class="cliente-calendar-dot" cx="15.75" cy="16.5" r=".7"></circle>
-                    </svg>
-                    <span class="cliente-top-action-label">Agenda</span>
-                  </button>
+                      <button type="button" class="cliente-actions-menu-item" data-cliente-action="orcamento" role="menuitem">
+                        <svg class="cliente-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <path d="M7.25 4.25h7.1l2.4 2.4v9.1a2 2 0 0 1-2 2h-7.5a2 2 0 0 1-2-2v-9.5a2 2 0 0 1 2-2Z"></path>
+                          <path d="M14.25 4.35v2.4h2.4"></path>
+                          <path d="M10.25 8.25h6.5l2.25 2.25v7.25a2 2 0 0 1-2 2h-6.75a2 2 0 0 1-2-2V10.25a2 2 0 0 1 2-2Z"></path>
+                        </svg>
+                        <span>Fazer orçamento</span>
+                      </button>
+
+                      <button type="button" class="cliente-actions-menu-item" data-cliente-action="duplicar" role="menuitem">
+                        <svg class="cliente-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <rect x="8" y="8" width="10" height="10" rx="2"></rect>
+                          <path d="M6.25 14.5H5.7A1.95 1.95 0 0 1 3.75 12.55V5.7A1.95 1.95 0 0 1 5.7 3.75h6.85A1.95 1.95 0 0 1 14.5 5.7v.55"></path>
+                        </svg>
+                        <span>Duplicar cadastro</span>
+                      </button>
+
+                      <button type="button" class="cliente-actions-menu-item" data-cliente-action="agenda" role="menuitem">
+                        <svg class="cliente-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <rect x="4" y="5.5" width="16" height="14.25" rx="2.25"></rect>
+                          <path d="M8 3.75v3.5M16 3.75v3.5M4 9.5h16"></path>
+                          <circle class="cliente-calendar-dot" cx="8.25" cy="13.25" r=".7"></circle>
+                          <circle class="cliente-calendar-dot" cx="12" cy="13.25" r=".7"></circle>
+                          <circle class="cliente-calendar-dot" cx="15.75" cy="13.25" r=".7"></circle>
+                          <circle class="cliente-calendar-dot" cx="8.25" cy="16.5" r=".7"></circle>
+                          <circle class="cliente-calendar-dot" cx="12" cy="16.5" r=".7"></circle>
+                          <circle class="cliente-calendar-dot" cx="15.75" cy="16.5" r=".7"></circle>
+                        </svg>
+                        <span>Abrir agenda</span>
+                      </button>
+                    </div>
+                  </div>
 
                   <span
                     class="cliente-status-pill cliente-top-status"
@@ -307,7 +324,7 @@
                     data-tooltip="Ativo"
                     tabindex="0">
                     <span class="cliente-top-status-dot" aria-hidden="true"></span>
-                    <span class="cliente-top-action-label">Ativo</span>
+                    <span class="cliente-top-status-text">Ativo</span>
                   </span>
 
                   <button
@@ -321,6 +338,28 @@
                   </button>
                 </div>
               </header>
+
+              <div class="cliente-modal-workbar" id="cliente-modal-workbar">
+                <div class="cliente-workbar-state">
+                  <span class="cliente-unsaved-pill" id="cliente-unsaved-pill" hidden>
+                    <span class="cliente-unsaved-dot" aria-hidden="true"></span>
+                    Alterações não salvas
+                  </span>
+                  <span class="cliente-save-shortcut"><kbd>Ctrl</kbd><span>+</span><kbd>S</kbd><span>para salvar</span></span>
+                </div>
+
+                <div class="cliente-record-navigation" id="cliente-record-navigation" hidden>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-cliente-anterior">
+                    <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                    Anterior
+                  </button>
+                  <span class="cliente-record-position" id="cliente-record-position">—</span>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-cliente-proximo">
+                    Próximo
+                    <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </div>
 
               <div class="cliente-modal-scroll">
                 <section class="cliente-tab active" id="tab-cadastro">
@@ -629,7 +668,7 @@
                     <div>
                       <span class="section-kicker">Código do sistema</span>
                       <h4>Código do cliente</h4>
-                      <p>Este código é gerado pelo próprio sistema e não pode ser removido da ficha.</p>
+                      
                     </div>
 
                     <div class="ficha-principal-system-fields">

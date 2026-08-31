@@ -1,10 +1,10 @@
 import { state } from './state.js';
-import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js?v=20260715-cliente-erro-estruturado-v10';
+import { carregarClientes, carregarCamposClientes, excluirClienteNoServidor } from './api.js?v=20260830-modal-funcional-v22';
 import { $, toast } from './utils.js';
 import { renderTabelaClientes } from './table.js?v=20260807-icones-lista-separados-v6';
 import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js?v=20260715-filtros-exatos-v2';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
-import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260829-campos-independentes-v11';
+import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260830-modal-funcional-v22';
 import { bindImportExport, exportarClientesJSON } from './import-export.js';
 
 function renderAll() {
