@@ -368,7 +368,10 @@
                       <h4 id="service-proposal-editor-title">Monitoramento 24h</h4>
                       <p id="service-proposal-editor-description"></p>
                     </div>
-                    <button class="btn btn-secondary btn-small" id="btn-reset-service-proposal" type="button"><i class="fa-solid fa-arrow-rotate-left"></i> Restaurar padrão</button>
+                    <div class="service-proposal-editor-actions">
+                      <button class="btn btn-secondary btn-small" id="btn-manage-service-proposal-template" type="button"><i class="fa-solid fa-pen-to-square"></i> Personalizar modelo</button>
+                      <button class="btn btn-secondary btn-small" id="btn-reset-service-proposal" type="button"><i class="fa-solid fa-arrow-rotate-left"></i> Restaurar nesta proposta</button>
+                    </div>
                   </div>
                   <div class="form-group service-proposal-introduction-field">
                     <label for="service-proposal-introduction">Texto de apresentação</label>
@@ -705,6 +708,53 @@
         <span id="kit-picker-count" class="counter-text">0 kits disponíveis</span>
         <button class="btn btn-secondary" id="btn-cancelar-kit-picker" type="button">Fechar</button>
       </footer>
+    </div>
+  </div>
+
+  <!-- PERSONALIZAÇÃO GLOBAL DOS MODELOS EXCLUSIVOS DO NILSON -->
+  <div class="modal-overlay service-proposal-template-overlay" id="service-proposal-template-modal" hidden data-nilson-proposal-only>
+    <div class="modal-content modal-xl service-proposal-template-modal" data-close-target="false">
+      <div class="service-proposal-template-shell">
+        <header class="service-proposal-template-header">
+          <div>
+            <span class="service-proposal-kicker">Padrão geral</span>
+            <h3 id="service-proposal-template-title">Personalizar modelo</h3>
+            <p>Edite grupos e serviços. O conteúdo salvo passa a ser o padrão deste modelo para as próximas propostas.</p>
+          </div>
+          <button class="btn-close" id="btn-close-service-proposal-template" type="button" title="Fechar" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+
+        <div class="service-proposal-template-body">
+          <div class="service-proposal-template-notice">
+            <i class="fa-solid fa-circle-info"></i>
+            <div><strong>Personalização exclusiva do Nilson</strong><p>Você pode criar, editar, excluir e reorganizar grupos e serviços. Orçamentos já salvos não são reescritos automaticamente.</p></div>
+          </div>
+
+          <section class="budget-section-card">
+            <div class="budget-section-heading"><div><h4>Textos padrão do modelo</h4><p>Estes textos serão carregados automaticamente nas novas propostas.</p></div></div>
+            <div class="budget-form-grid grid-2">
+              <div class="form-group span-2"><label for="service-template-introduction">Texto de apresentação</label><textarea id="service-template-introduction" rows="5"></textarea></div>
+              <div class="form-group span-2"><label for="service-template-conditions">Condições e observações padrão</label><textarea id="service-template-conditions" rows="8"></textarea></div>
+            </div>
+          </section>
+
+          <section class="budget-section-card">
+            <div class="budget-section-heading service-template-groups-heading">
+              <div><h4>Grupos e serviços</h4><p>O nome do grupo e cada serviço podem ser alterados. Use as setas para mudar a ordem.</p></div>
+              <button class="btn btn-primary btn-small" id="btn-add-service-template-section" type="button"><i class="fa-solid fa-plus"></i> Novo grupo</button>
+            </div>
+            <div class="service-template-sections" id="service-template-sections"></div>
+          </section>
+        </div>
+
+        <footer class="service-proposal-template-footer">
+          <button class="btn btn-secondary" id="btn-reset-service-template-global" type="button"><i class="fa-solid fa-arrow-rotate-left"></i> Restaurar modelo original</button>
+          <div>
+            <button class="btn btn-secondary" id="btn-cancel-service-template" type="button">Cancelar</button>
+            <button class="btn btn-primary" id="btn-save-service-template" type="button"><i class="fa-solid fa-floppy-disk"></i> Salvar padrão para todos</button>
+          </div>
+        </footer>
+      </div>
     </div>
   </div>
 

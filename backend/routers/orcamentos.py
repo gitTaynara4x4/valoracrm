@@ -316,6 +316,106 @@ def validate_nilson_proposal_model_access(user: models.Usuario, model_key: Any) 
         )
 
 
+def _proposal_model_slug(value: Any, prefix: str, index: int) -> str:
+    raw = unicodedata.normalize("NFKD", str(value or ""))
+    raw = "".join(ch for ch in raw if not unicodedata.combining(ch)).lower().strip()
+    raw = re.sub(r"[^a-z0-9]+", "_", raw).strip("_")
+    return (raw[:72] or f"{prefix}_{index + 1}")
+
+
+def sanitize_nilson_proposal_customization(payload: ProposalModelCustomizationIn) -> Dict[str, Any]:
+    """Normaliza a estrutura editável dos modelos sem permitir payloads ilimitados."""
+    if len(payload.sections or []) > 24:
+        raise HTTPException(status_code=422, detail="O modelo pode ter no máximo 24 grupos de serviços.")
+
+    sections: List[Dict[str, Any]] = []
+    used_section_ids: set[str] = set()
+    total_services = 0
+
+    for section_index, raw_section in enumerate(payload.sections or []):
+        if not isinstance(raw_section, dict):
+            raise HTTPException(status_code=422, detail="Grupo de serviços inválido.")
+        title = str(raw_section.get("title") or "").strip()
+        if not title:
+            raise HTTPException(status_code=422, detail="Todos os grupos precisam de um título.")
+        if len(title) > 180:
+            raise HTTPException(status_code=422, detail="O título de um grupo é muito longo.")
+
+        base_section_id = _proposal_model_slug(raw_section.get("id") or title, "grupo", section_index)
+        section_id = base_section_id
+        suffix = 2
+        while section_id in used_section_ids:
+            section_id = f"{base_section_id[:64]}_{suffix}"
+            suffix += 1
+        used_section_ids.add(section_id)
+
+        raw_services = raw_section.get("services") or []
+        if not isinstance(raw_services, list):
+            raise HTTPException(status_code=422, detail=f"Os serviços de '{title}' são inválidos.")
+        if len(raw_services) > 80:
+            raise HTTPException(status_code=422, detail=f"O grupo '{title}' pode ter no máximo 80 serviços.")
+
+        services: List[Dict[str, Any]] = []
+        used_service_ids: set[str] = set()
+        for service_index, raw_service in enumerate(raw_services):
+            if not isinstance(raw_service, dict):
+                raise HTTPException(status_code=422, detail=f"Serviço inválido no grupo '{title}'.")
+            label = str(raw_service.get("label") or "").strip()
+            if not label:
+                raise HTTPException(status_code=422, detail=f"Existe um serviço sem descrição no grupo '{title}'.")
+            if len(label) > 260:
+                raise HTTPException(status_code=422, detail=f"Existe um serviço muito longo no grupo '{title}'.")
+
+            base_service_id = _proposal_model_slug(raw_service.get("id") or label, "servico", service_index)
+            service_id = base_service_id
+            suffix = 2
+            while service_id in used_service_ids:
+                service_id = f"{base_service_id[:64]}_{suffix}"
+                suffix += 1
+            used_service_ids.add(service_id)
+            services.append({
+                "id": service_id,
+                "label": label,
+                "checked": bool(raw_service.get("checked", True)),
+            })
+            total_services += 1
+
+        sections.append({"id": section_id, "title": title, "services": services})
+
+    if total_services > 360:
+        raise HTTPException(status_code=422, detail="O modelo pode ter no máximo 360 serviços.")
+
+    introduction = str(payload.introduction or "").strip()
+    conditions = str(payload.conditions or "").strip()
+    if len(introduction) > 12000 or len(conditions) > 20000:
+        raise HTTPException(status_code=422, detail="Os textos do modelo ultrapassam o limite permitido.")
+
+    return {
+        "introduction": introduction,
+        "conditions": conditions,
+        "sections": sections,
+    }
+
+
+def load_nilson_proposal_customizations(db: Session, company_id: int) -> Dict[str, Dict[str, Any]]:
+    exists = db.execute(text("SELECT to_regclass('public.orcamento_modelos_proposta_personalizados') IS NOT NULL")).scalar()
+    if not exists:
+        return {}
+    rows = db.execute(text("""
+        SELECT modelo_key, definicao_json
+        FROM orcamento_modelos_proposta_personalizados
+        WHERE empresa_id=:empresa_id
+        ORDER BY modelo_key
+    """), {"empresa_id": company_id}).mappings().all()
+    result: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        key = str(row.get("modelo_key") or "").strip()
+        definition = json_load(row.get("definicao_json"), {})
+        if key in NILSON_PROPOSAL_MODELS and isinstance(definition, dict):
+            result[key] = definition
+    return result
+
+
 def can_manage_settings(user: models.Usuario) -> bool:
     return is_owner(user) or is_admin(user)
 
@@ -683,6 +783,12 @@ class BudgetBase(BaseModel):
     subtitulo_capa: Optional[str] = None
     escala_documento: Optional[int] = Field(default=None, ge=70, le=125)
     itens: List[BudgetItemIn] = Field(default_factory=list)
+
+
+class ProposalModelCustomizationIn(BaseModel):
+    introduction: Optional[str] = None
+    conditions: Optional[str] = None
+    sections: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class BudgetCreate(BudgetBase):
@@ -1458,14 +1564,75 @@ def meta(
         WHERE empresa_id=:empresa_id AND ativo=TRUE
         ORDER BY padrao DESC, nome ASC, id ASC
     """), {"empresa_id": company_id}).mappings().all()
+    nilson_enabled = can_use_nilson_proposal_models(current_user)
     return {
         "pode_ver_custos": can_view_costs(current_user, db),
         "pode_configurar": can_manage_settings(current_user),
         "usuario": {"id": int(current_user.id), "nome": current_user.nome, "papel": current_user.papel, "email": current_user.email},
-        "modelos_proposta_monitoramento_habilitados": can_use_nilson_proposal_models(current_user),
+        "modelos_proposta_monitoramento_habilitados": nilson_enabled,
+        "modelos_proposta_personalizados": load_nilson_proposal_customizations(db, company_id) if nilson_enabled else {},
         "configuracao": config_out,
         "emitentes": [serialize_emitter(dict(row)) for row in emitters],
     }
+
+
+@router.put("/modelos-proposta-servicos/{model_key}")
+def save_nilson_proposal_model_customization(
+    model_key: str,
+    payload: ProposalModelCustomizationIn,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    key = str(model_key or "").strip()
+    validate_nilson_proposal_model_access(current_user, key)
+    if key not in NILSON_PROPOSAL_MODELS:
+        raise HTTPException(status_code=404, detail="Modelo de proposta não encontrado.")
+
+    table_exists = db.execute(text("SELECT to_regclass('public.orcamento_modelos_proposta_personalizados') IS NOT NULL")).scalar()
+    if not table_exists:
+        raise HTTPException(status_code=503, detail="Atualize o banco com `alembic upgrade head` para habilitar a personalização dos modelos.")
+
+    definition = sanitize_nilson_proposal_customization(payload)
+    company_id = int(current_user.empresa_id)
+    db.execute(text("""
+        INSERT INTO orcamento_modelos_proposta_personalizados (
+            empresa_id, modelo_key, definicao_json, atualizado_por, criado_em, atualizado_em
+        ) VALUES (
+            :empresa_id, :modelo_key, :definicao_json, :atualizado_por, NOW(), NOW()
+        )
+        ON CONFLICT (empresa_id, modelo_key) DO UPDATE SET
+            definicao_json=EXCLUDED.definicao_json,
+            atualizado_por=EXCLUDED.atualizado_por,
+            atualizado_em=NOW()
+    """), {
+        "empresa_id": company_id,
+        "modelo_key": key,
+        "definicao_json": json_dump(definition),
+        "atualizado_por": int(current_user.id),
+    })
+    db.commit()
+    return {"modelo_key": key, "definicao": definition}
+
+
+@router.delete("/modelos-proposta-servicos/{model_key}", status_code=204)
+def reset_nilson_proposal_model_customization(
+    model_key: str,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    key = str(model_key or "").strip()
+    validate_nilson_proposal_model_access(current_user, key)
+    if key not in NILSON_PROPOSAL_MODELS:
+        raise HTTPException(status_code=404, detail="Modelo de proposta não encontrado.")
+
+    table_exists = db.execute(text("SELECT to_regclass('public.orcamento_modelos_proposta_personalizados') IS NOT NULL")).scalar()
+    if table_exists:
+        db.execute(text("""
+            DELETE FROM orcamento_modelos_proposta_personalizados
+            WHERE empresa_id=:empresa_id AND modelo_key=:modelo_key
+        """), {"empresa_id": int(current_user.empresa_id), "modelo_key": key})
+        db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/proximo-codigo")

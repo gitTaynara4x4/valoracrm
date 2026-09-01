@@ -55,6 +55,7 @@
     budgetDirty: false,
     serviceProposalModel: 'padrao',
     serviceProposalData: {},
+    serviceProposalTemplateDraft: null,
   };
 
   const statusMeta = {
@@ -220,10 +221,21 @@
 
   function serviceProposalDefinition(key) {
     const model = SERVICE_PROPOSAL_MODELS[key] || SERVICE_PROPOSAL_MODELS.padrao;
-    const sections = model.copySectionsFrom
+    const baseSections = model.copySectionsFrom
       ? SERVICE_PROPOSAL_MODELS[model.copySectionsFrom].sections
       : model.sections;
-    return { ...model, sections: JSON.parse(JSON.stringify(sections || [])) };
+    const custom = state.meta?.modelos_proposta_personalizados?.[key];
+    const sections = Array.isArray(custom?.sections) ? custom.sections : (baseSections || []);
+    return {
+      ...model,
+      ...(custom && typeof custom === 'object' ? {
+        introduction: custom.introduction ?? model.introduction ?? '',
+        conditions: custom.conditions ?? model.conditions ?? '',
+      } : {}),
+      sections: JSON.parse(JSON.stringify(sections || [])),
+      values: JSON.parse(JSON.stringify(model.values || [])),
+      customized: Boolean(custom),
+    };
   }
 
   function defaultServiceProposalData(key) {
@@ -1013,6 +1025,282 @@
     toast('Modelo restaurado para o padrão.');
   }
 
+  function serviceTemplateId(prefix = 'item') {
+    const random = Math.random().toString(36).slice(2, 7);
+    return `${prefix}_${Date.now().toString(36)}_${random}`;
+  }
+
+  function syncServiceTemplateDraftFromForm() {
+    const draft = state.serviceProposalTemplateDraft;
+    if (!draft) return;
+    draft.introduction = $('service-template-introduction')?.value ?? draft.introduction ?? '';
+    draft.conditions = $('service-template-conditions')?.value ?? draft.conditions ?? '';
+    $$('#service-template-sections [data-service-template-section-title]').forEach((input) => {
+      const sectionIndex = Number(input.dataset.serviceTemplateSectionTitle);
+      if (draft.sections?.[sectionIndex]) draft.sections[sectionIndex].title = input.value;
+    });
+    $$('#service-template-sections [data-service-template-service-label]').forEach((input) => {
+      const sectionIndex = Number(input.dataset.sectionIndex);
+      const serviceIndex = Number(input.dataset.serviceIndex);
+      const service = draft.sections?.[sectionIndex]?.services?.[serviceIndex];
+      if (service) service.label = input.value;
+    });
+    $$('#service-template-sections [data-service-template-service-checked]').forEach((input) => {
+      const sectionIndex = Number(input.dataset.sectionIndex);
+      const serviceIndex = Number(input.dataset.serviceIndex);
+      const service = draft.sections?.[sectionIndex]?.services?.[serviceIndex];
+      if (service) service.checked = Boolean(input.checked);
+    });
+  }
+
+  function renderServiceTemplateEditor() {
+    const draft = state.serviceProposalTemplateDraft;
+    const root = $('service-template-sections');
+    if (!draft || !root) return;
+    if ($('service-proposal-template-title')) $('service-proposal-template-title').textContent = `Personalizar • ${draft.name}`;
+    if ($('service-template-introduction')) $('service-template-introduction').value = draft.introduction || '';
+    if ($('service-template-conditions')) $('service-template-conditions').value = draft.conditions || '';
+
+    root.innerHTML = (draft.sections || []).map((section, sectionIndex) => {
+      const services = (section.services || []).map((service, serviceIndex) => `
+        <div class="service-template-service-row">
+          <span class="service-template-drag-hint"><i class="fa-solid fa-grip-vertical"></i></span>
+          <input type="text" value="${escapeHtml(service.label || '')}" data-service-template-service-label data-section-index="${sectionIndex}" data-service-index="${serviceIndex}" aria-label="Descrição do serviço" />
+          <label class="service-template-default-check" title="Marcado por padrão nas novas propostas">
+            <input type="checkbox" data-service-template-service-checked data-section-index="${sectionIndex}" data-service-index="${serviceIndex}" ${service.checked !== false ? 'checked' : ''} />
+            <span>Padrão</span>
+          </label>
+          <div class="service-template-row-actions">
+            <button type="button" data-service-template-action="service-up" data-section-index="${sectionIndex}" data-service-index="${serviceIndex}" title="Mover para cima" ${serviceIndex === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+            <button type="button" data-service-template-action="service-down" data-section-index="${sectionIndex}" data-service-index="${serviceIndex}" title="Mover para baixo" ${serviceIndex === (section.services || []).length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+            <button type="button" class="danger" data-service-template-action="service-delete" data-section-index="${sectionIndex}" data-service-index="${serviceIndex}" title="Excluir serviço"><i class="fa-regular fa-trash-can"></i></button>
+          </div>
+        </div>`).join('');
+
+      return `<article class="service-template-section-card">
+        <header class="service-template-section-head">
+          <div class="service-template-section-title-field">
+            <span>${String(sectionIndex + 1).padStart(2, '0')}</span>
+            <input type="text" value="${escapeHtml(section.title || '')}" data-service-template-section-title="${sectionIndex}" aria-label="Título do grupo" />
+          </div>
+          <div class="service-template-row-actions">
+            <button type="button" data-service-template-action="section-up" data-section-index="${sectionIndex}" title="Mover grupo para cima" ${sectionIndex === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+            <button type="button" data-service-template-action="section-down" data-section-index="${sectionIndex}" title="Mover grupo para baixo" ${sectionIndex === (draft.sections || []).length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+            <button type="button" class="danger" data-service-template-action="section-delete" data-section-index="${sectionIndex}" title="Excluir grupo"><i class="fa-regular fa-trash-can"></i></button>
+          </div>
+        </header>
+        <div class="service-template-service-list">${services || '<div class="service-template-empty">Nenhum serviço neste grupo.</div>'}</div>
+        <button type="button" class="service-template-add-service" data-service-template-action="service-add" data-section-index="${sectionIndex}"><i class="fa-solid fa-plus"></i> Adicionar serviço</button>
+      </article>`;
+    }).join('') || '<div class="service-template-empty service-template-empty-large"><strong>Nenhum grupo criado</strong><span>Clique em “Novo grupo” para começar.</span></div>';
+  }
+
+  function openServiceProposalTemplateManager() {
+    const key = serviceProposalSelectedModel();
+    if (key === 'padrao' || !canUseNilsonProposalModels()) return;
+    const model = serviceProposalDefinition(key);
+    state.serviceProposalTemplateDraft = {
+      key,
+      name: model.name,
+      introduction: model.introduction || '',
+      conditions: model.conditions || '',
+      sections: JSON.parse(JSON.stringify(model.sections || [])),
+    };
+    renderServiceTemplateEditor();
+    openOverlay('service-proposal-template-modal');
+  }
+
+  function closeServiceProposalTemplateManager() {
+    state.serviceProposalTemplateDraft = null;
+    closeOverlay('service-proposal-template-modal');
+  }
+
+  function moveArrayItem(list, from, to) {
+    if (!Array.isArray(list) || from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return;
+    const [item] = list.splice(from, 1);
+    list.splice(to, 0, item);
+  }
+
+  async function handleServiceTemplateAction(button) {
+    const draft = state.serviceProposalTemplateDraft;
+    if (!draft || !button) return;
+    syncServiceTemplateDraftFromForm();
+    const action = button.dataset.serviceTemplateAction;
+    const sectionIndex = Number(button.dataset.sectionIndex);
+    const serviceIndex = Number(button.dataset.serviceIndex);
+    const section = draft.sections?.[sectionIndex];
+
+    if (action === 'section-up') moveArrayItem(draft.sections, sectionIndex, sectionIndex - 1);
+    if (action === 'section-down') moveArrayItem(draft.sections, sectionIndex, sectionIndex + 1);
+    if (action === 'service-up' && section) moveArrayItem(section.services, serviceIndex, serviceIndex - 1);
+    if (action === 'service-down' && section) moveArrayItem(section.services, serviceIndex, serviceIndex + 1);
+    if (action === 'service-add' && section) {
+      section.services = Array.isArray(section.services) ? section.services : [];
+      section.services.push({ id: serviceTemplateId('servico'), label: 'Novo serviço', checked: true });
+    }
+    if (action === 'section-delete' && section) {
+      const ok = await budgetConfirm({
+        title: 'Excluir grupo',
+        message: `Excluir o grupo “${section.title || 'Sem título'}” e todos os serviços dele?`,
+        confirmText: 'Excluir grupo',
+        cancelText: 'Cancelar',
+        tone: 'danger',
+      });
+      if (!ok) return;
+      draft.sections.splice(sectionIndex, 1);
+    }
+    if (action === 'service-delete' && section?.services?.[serviceIndex]) {
+      const service = section.services[serviceIndex];
+      const ok = await budgetConfirm({
+        title: 'Excluir serviço',
+        message: `Excluir “${service.label || 'este serviço'}” do modelo padrão?`,
+        confirmText: 'Excluir serviço',
+        cancelText: 'Cancelar',
+        tone: 'danger',
+      });
+      if (!ok) return;
+      section.services.splice(serviceIndex, 1);
+    }
+    renderServiceTemplateEditor();
+  }
+
+  function addServiceTemplateSection() {
+    const draft = state.serviceProposalTemplateDraft;
+    if (!draft) return;
+    syncServiceTemplateDraftFromForm();
+    draft.sections.push({
+      id: serviceTemplateId('grupo'),
+      title: 'Novo grupo de serviços',
+      services: [{ id: serviceTemplateId('servico'), label: 'Novo serviço', checked: true }],
+    });
+    renderServiceTemplateEditor();
+    const cards = $$('.service-template-section-card', $('service-template-sections'));
+    cards[cards.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function validateServiceTemplateDraft(draft) {
+    if (!draft) throw new Error('Modelo não carregado.');
+    for (const section of draft.sections || []) {
+      if (!String(section.title || '').trim()) throw new Error('Preencha o nome de todos os grupos.');
+      for (const service of section.services || []) {
+        if (!String(service.label || '').trim()) throw new Error(`Existe um serviço sem descrição no grupo “${section.title}”.`);
+      }
+    }
+  }
+
+  function reconcileProposalDataAfterTemplateChange(oldModel, newModel, currentData) {
+    if (!currentData || typeof currentData !== 'object') return defaultServiceProposalData(newModel.key);
+    const next = { ...currentData, selected_services: {}, values: { ...(currentData.values || {}) } };
+    const oldSectionMap = new Map((oldModel.sections || []).map((section) => [section.id, section]));
+    (newModel.sections || []).forEach((section) => {
+      const oldSection = oldSectionMap.get(section.id);
+      const oldIds = new Set((oldSection?.services || []).map((service) => service.id));
+      const currentSelected = new Set(Array.isArray(currentData.selected_services?.[section.id]) ? currentData.selected_services[section.id] : []);
+      next.selected_services[section.id] = (section.services || []).filter((service) => {
+        if (currentSelected.has(service.id)) return true;
+        return !oldIds.has(service.id) && service.checked !== false;
+      }).map((service) => service.id);
+      if (!oldSection) next.selected_services[section.id] = (section.services || []).filter((service) => service.checked !== false).map((service) => service.id);
+    });
+    if (String(currentData.introduction ?? '') === String(oldModel.introduction ?? '')) next.introduction = newModel.introduction || '';
+    if (String(currentData.conditions ?? '') === String(oldModel.conditions ?? '')) next.conditions = newModel.conditions || '';
+    return next;
+  }
+
+  async function saveServiceProposalTemplate() {
+    const draft = state.serviceProposalTemplateDraft;
+    if (!draft) return;
+    syncServiceTemplateDraftFromForm();
+    try {
+      validateServiceTemplateDraft(draft);
+    } catch (error) {
+      toast(error.message || 'Revise os campos do modelo.', 'error');
+      return;
+    }
+
+    const button = $('btn-save-service-template');
+    const oldModel = serviceProposalDefinition(draft.key);
+    const activeSameModel = serviceProposalSelectedModel() === draft.key;
+    const currentData = activeSameModel ? collectServiceProposalData() : null;
+    const payload = {
+      introduction: String(draft.introduction || '').trim(),
+      conditions: String(draft.conditions || '').trim(),
+      sections: (draft.sections || []).map((section) => ({
+        id: section.id,
+        title: String(section.title || '').trim(),
+        services: (section.services || []).map((service) => ({
+          id: service.id,
+          label: String(service.label || '').trim(),
+          checked: service.checked !== false,
+        })),
+      })),
+    };
+
+    try {
+      setButtonLoading(button, true, 'Salvando padrão...');
+      const response = await api(`${API}/modelos-proposta-servicos/${encodeURIComponent(draft.key)}`, { method: 'PUT', body: JSON.stringify(payload) });
+      state.meta.modelos_proposta_personalizados = state.meta.modelos_proposta_personalizados || {};
+      state.meta.modelos_proposta_personalizados[draft.key] = response?.definicao || payload;
+      const newModel = serviceProposalDefinition(draft.key);
+      if (activeSameModel) {
+        const reconciled = reconcileProposalDataAfterTemplateChange(oldModel, newModel, currentData);
+        renderServiceProposal(draft.key, reconciled);
+        markBudgetDirty();
+      }
+      state.serviceProposalTemplateDraft = {
+        key: draft.key,
+        name: newModel.name,
+        introduction: newModel.introduction || '',
+        conditions: newModel.conditions || '',
+        sections: JSON.parse(JSON.stringify(newModel.sections || [])),
+      };
+      renderServiceTemplateEditor();
+      toast('Modelo padrão salvo. As próximas propostas já usarão esta estrutura.');
+    } catch (error) {
+      toast(error.message || 'Não foi possível salvar o modelo.', 'error');
+    } finally {
+      setButtonLoading(button, false);
+    }
+  }
+
+  async function resetGlobalServiceProposalTemplate() {
+    const draft = state.serviceProposalTemplateDraft;
+    if (!draft) return;
+    const ok = await budgetConfirm({
+      title: 'Restaurar modelo original',
+      message: 'Remover todas as personalizações globais e voltar exatamente ao modelo original enviado pela SEG?',
+      confirmText: 'Restaurar original',
+      cancelText: 'Cancelar',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    const oldModel = serviceProposalDefinition(draft.key);
+    const activeSameModel = serviceProposalSelectedModel() === draft.key;
+    const currentData = activeSameModel ? collectServiceProposalData() : null;
+    try {
+      await api(`${API}/modelos-proposta-servicos/${encodeURIComponent(draft.key)}`, { method: 'DELETE' });
+      if (state.meta.modelos_proposta_personalizados) delete state.meta.modelos_proposta_personalizados[draft.key];
+      const newModel = serviceProposalDefinition(draft.key);
+      if (activeSameModel) {
+        const reconciled = reconcileProposalDataAfterTemplateChange(oldModel, newModel, currentData);
+        renderServiceProposal(draft.key, reconciled);
+        markBudgetDirty();
+      }
+      state.serviceProposalTemplateDraft = {
+        key: draft.key,
+        name: newModel.name,
+        introduction: newModel.introduction || '',
+        conditions: newModel.conditions || '',
+        sections: JSON.parse(JSON.stringify(newModel.sections || [])),
+      };
+      renderServiceTemplateEditor();
+      toast('Modelo original restaurado.');
+    } catch (error) {
+      toast(error.message || 'Não foi possível restaurar o modelo original.', 'error');
+    }
+  }
+
   function toggleServiceProposalSection(sectionId) {
     const inputs = $$(`input[data-service-proposal-section="${CSS.escape(sectionId)}"]`, $('service-proposal-services'));
     if (!inputs.length) return;
@@ -1133,7 +1421,9 @@
     };
   }
 
-  function nilsonProposalSection(model, sectionId) {
+  function nilsonProposalSection(model, sectionOrId) {
+    if (sectionOrId && typeof sectionOrId === 'object') return sectionOrId;
+    const sectionId = String(sectionOrId || '');
     return (model.sections || []).find((section) => section.id === sectionId) || { id: sectionId, title: '', services: [] };
   }
 
@@ -1142,18 +1432,19 @@
     return ids.includes(serviceId);
   }
 
-  function nilsonMonitorServicesHtml(model, data, sectionId) {
-    const section = nilsonProposalSection(model, sectionId);
+  function nilsonMonitorServicesHtml(model, data, sectionOrId) {
+    const section = nilsonProposalSection(model, sectionOrId);
+    if (!section?.title) return '';
     return `<section class="nilson-monitor-group">
-      <h3>${escapeHtml(section.title)}:</h3>
+      <h3>${escapeHtml(section.title)}${String(section.title || '').trim().endsWith(':') ? '' : ':'}</h3>
       <div class="nilson-monitor-services">
         ${(section.services || []).map((service) => `<div><b>${nilsonProposalSelected(data, section.id, service.id) ? '(X)' : '(*)'}</b><span>${escapeHtml(service.label)}</span></div>`).join('')}
       </div>
     </section>`;
   }
 
-  function nilsonBulletServicesHtml(model, data, sectionId) {
-    const section = nilsonProposalSection(model, sectionId);
+  function nilsonBulletServicesHtml(model, data, sectionOrId) {
+    const section = nilsonProposalSection(model, sectionOrId);
     const selected = (section.services || []).filter((service) => nilsonProposalSelected(data, section.id, service.id));
     return `<ul>${selected.map((service) => `<li>${escapeHtml(service.label)}</li>`).join('')}</ul>`;
   }
@@ -1241,6 +1532,10 @@
     const footnoteLines = blocks.join('\n').split(/\r?\n/).filter(Boolean);
     const colorMode = key === 'monitoramento_24h_comodato' ? 'all' : 'partial';
     const values = data.values || {};
+    const sections = model.sections || [];
+    const leftCount = Math.ceil(sections.length / 2);
+    const leftSections = sections.slice(0, leftCount);
+    const rightSections = sections.slice(leftCount);
 
     return `${nilsonProposalStyles()}
       <section class="nilson-proposal-sheet nilson-monitor-sheet">
@@ -1252,9 +1547,7 @@
         </div>
         <div class="nilson-monitor-columns">
           <div class="nilson-monitor-column">
-            ${nilsonMonitorServicesHtml(model, data, 'gerenciamento_padrao')}
-            ${nilsonMonitorServicesHtml(model, data, 'controle_acesso')}
-            ${nilsonMonitorServicesHtml(model, data, 'ocorrencias_alarme')}
+            ${leftSections.map((section) => nilsonMonitorServicesHtml(model, data, section)).join('')}
             <div class="nilson-reference-observations">
               <h4>Observações:</h4>
               ${observationLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}
@@ -1265,9 +1558,7 @@
             </div>
           </div>
           <div class="nilson-monitor-column">
-            ${nilsonMonitorServicesHtml(model, data, 'servicos_apoio')}
-            ${nilsonMonitorServicesHtml(model, data, 'aplicativo')}
-            ${nilsonMonitorServicesHtml(model, data, 'pre_programados')}
+            ${rightSections.map((section) => nilsonMonitorServicesHtml(model, data, section)).join('')}
             <img src="/frontend/img/propostas/my-security-modelo.png" class="nilson-reference-promo" alt="Aplicativo My Security">
           </div>
         </div>
@@ -1285,6 +1576,14 @@
     const split = conditionText.split(/Condições Gerais:\s*/i);
     const leftObservationLines = (split[0] || '').split(/\r?\n/).filter(Boolean);
     const generalLines = (split.slice(1).join('Condições Gerais:') || '').split(/\r?\n/).filter(Boolean);
+    const sections = model.sections || [];
+    const emergencySection = sections.find((section) => section.id === 'monitoramento_emergencial') || sections[0] || null;
+    const rightSections = sections.filter((section) => section !== emergencySection);
+    const cftvClientSection = rightSections.find((section) => section.id === 'cftv_cliente') || rightSections[0] || null;
+    const extraRightSections = rightSections.filter((section) => section !== cftvClientSection);
+    const emergencyTitle = emergencySection?.title || '1- Monitoramento Emergencial';
+    const cftvTitle = cftvClientSection?.title || '2- Sistema de CFTV com Monitoramento via Aplicativo';
+    const cftvHeading = String(cftvTitle).replace(/\s*-\s*Para o Cliente\s*:??\s*$/i, '');
 
     return `${nilsonProposalStyles()}
       <section class="nilson-proposal-sheet nilson-tele-sheet">
@@ -1296,10 +1595,9 @@
         </div>
         <div class="nilson-tele-grid">
           <section class="nilson-tele-box">
-            <h3>1- Monitoramento Emergencial:</h3>
-            <p>Sistema de Monitoramento Eletrônico 24 horas para Recebimentos de Eventos Emergenciais através do Acionamento de Botão de Ajuda.</p>
-            <h4>Serviços:</h4>
-            ${nilsonBulletServicesHtml(model, data, 'monitoramento_emergencial')}
+            <h3>${escapeHtml(emergencyTitle)}${String(emergencyTitle).trim().endsWith(':') ? '' : ':'}</h3>
+            ${emergencySection?.id === 'monitoramento_emergencial' ? '<p>Sistema de Monitoramento Eletrônico 24 horas para Recebimentos de Eventos Emergenciais através do Acionamento de Botão de Ajuda.</p><h4>Serviços:</h4>' : ''}
+            ${emergencySection ? nilsonBulletServicesHtml(model, data, emergencySection) : ''}
             <div class="nilson-reference-value"><span class="label">&gt;&gt;&gt; Implantação</span><span class="dots"></span><span class="amount">${escapeHtml(proposalMoneyReference(values.implantacao_emergencial || 0))}</span></div>
             <div class="nilson-tele-observations">
               <strong>Observações:</strong>
@@ -1307,13 +1605,16 @@
             </div>
           </section>
           <section class="nilson-tele-box">
-            <h3>2- Sistema de CFTV com Monitoramento via Aplicativo:</h3>
-            <p>Sistema de CFTV composto por DVR e 04 Cameras de Alta Resolução, Full HD (1080P).</p>
-            <h4>Para o Cliente:</h4>
-            ${nilsonBulletServicesHtml(model, data, 'cftv_cliente')}
-            <h4>Suporte Central Monitoramento:</h4>
-            <p>Monitoramento 24 horas para os Eventos:</p>
-            ${nilsonBulletServicesHtml(model, data, 'cftv_central')}
+            ${cftvClientSection ? `
+              <h3>${escapeHtml(cftvHeading)}${String(cftvHeading).trim().endsWith(':') ? '' : ':'}</h3>
+              ${cftvClientSection.id === 'cftv_cliente' ? '<p>Sistema de CFTV composto por DVR e 04 Cameras de Alta Resolução, Full HD (1080P).</p><h4>Para o Cliente:</h4>' : ''}
+              ${nilsonBulletServicesHtml(model, data, cftvClientSection)}
+            ` : ''}
+            ${extraRightSections.map((section) => `
+              <h4>${escapeHtml(section.title)}${String(section.title || '').trim().endsWith(':') ? '' : ':'}</h4>
+              ${section.id === 'cftv_central' ? '<p>Monitoramento 24 horas para os Eventos:</p>' : ''}
+              ${nilsonBulletServicesHtml(model, data, section)}
+            `).join('')}
             <div class="nilson-reference-value"><span class="label">&gt;&gt;&gt; Implantação</span><span class="dots"></span><span class="amount">${escapeHtml(proposalMoneyReference(values.implantacao_cftv || 0))}</span></div>
             <div class="nilson-reference-value"><span class="label">&gt;&gt;&gt; Mensal</span><span class="dots"></span><span class="amount">${escapeHtml(proposalMoneyReference(values.mensalidade_cftv || 0))}</span></div>
             <div class="nilson-tele-observations">
@@ -4538,6 +4839,17 @@
       applyServiceProposalModel(nextModel, { preserveDocumentName: false, markDirty: true });
     });
     $('btn-reset-service-proposal')?.addEventListener('click', resetCurrentServiceProposal);
+    $('btn-manage-service-proposal-template')?.addEventListener('click', openServiceProposalTemplateManager);
+    $('btn-close-service-proposal-template')?.addEventListener('click', closeServiceProposalTemplateManager);
+    $('btn-cancel-service-template')?.addEventListener('click', closeServiceProposalTemplateManager);
+    $('btn-add-service-template-section')?.addEventListener('click', addServiceTemplateSection);
+    $('btn-save-service-template')?.addEventListener('click', saveServiceProposalTemplate);
+    $('btn-reset-service-template-global')?.addEventListener('click', resetGlobalServiceProposalTemplate);
+    $('service-template-sections')?.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-service-template-action]');
+      if (!button || button.disabled) return;
+      await handleServiceTemplateAction(button);
+    });
     $('service-proposal-services')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-service-proposal-toggle-section]');
       if (!button) return;
