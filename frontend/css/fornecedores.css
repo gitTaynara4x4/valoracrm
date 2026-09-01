@@ -1375,3 +1375,542 @@ html[data-theme="dark"] #formFornecedor .custom-section-card {
     grid-column: 1 / -1 !important;
   }
 }
+/* =========================================================
+   FORNECEDORES — PADRÃO VISUAL DO MODAL DE CLIENTES | v37
+   Mantém os campos/regras do fornecedor e iguala estrutura,
+   proporções, sidebar, ícones, topo, scroll e rodapé.
+   ========================================================= */
+@media (min-width: 1181px) {
+  #modal-fornecedor-backdrop {
+    padding: 10px 8px !important;
+  }
+
+  #modal-fornecedor-backdrop .fornecedor-modal-content {
+    width: min(1660px, 85vw) !important;
+    max-width: none !important;
+    height: calc(100dvh - 24px) !important;
+    max-height: calc(100dvh - 24px) !important;
+  }
+
+  #modal-fornecedor-backdrop .fornecedor-modal-shell {
+    grid-template-columns: 270px minmax(0, 1fr) !important;
+  }
+
+  #modal-fornecedor-backdrop .fornecedor-sidebar-top {
+    padding: 22px 24px 14px 28px !important;
+  }
+
+  #modal-fornecedor-backdrop .fornecedor-modal-topbar {
+    min-height: 92px !important;
+    padding: 22px 30px 18px !important;
+  }
+
+  #modal-fornecedor-backdrop .fornecedor-modal-scroll {
+    padding: 18px 30px 24px !important;
+  }
+
+  #modal-fornecedor-backdrop .modal-client-footer {
+    padding-left: 30px !important;
+    padding-right: 30px !important;
+  }
+
+  #modal-fornecedor-backdrop .fornecedor-sidebar-bottom {
+    padding: 10px 16px 14px !important;
+  }
+}
+
+/* Ícones nativos slim, iguais aos do Cliente. */
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn {
+  font-weight: 500 !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn .fornecedor-native-icon {
+  position: absolute !important;
+  left: 30px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: .92 !important;
+  pointer-events: none !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn .fornecedor-native-icon svg {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  display: block !important;
+  overflow: visible !important;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 1.9 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn:hover .fornecedor-native-icon {
+  color: #344054 !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn.active .fornecedor-native-icon {
+  color: #078f96 !important;
+}
+
+@media (min-width: 1181px) {
+  #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn {
+    width: calc(100% - 16px) !important;
+    padding-right: 18px !important;
+  }
+
+  #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn > span:last-child {
+    max-width: 190px !important;
+  }
+}
+
+/* Toggle "Usar ficha principal" no mesmo acabamento minimalista. */
+.fornecedor-sidebar-bottom .fornecedor-ficha-toggle {
+  position: relative !important;
+  min-height: 56px !important;
+  padding: 10px 12px !important;
+  border: 1px solid #dbe3ee !important;
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, .92) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  cursor: pointer !important;
+  transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease !important;
+}
+
+.fornecedor-sidebar-bottom .fornecedor-ficha-toggle:hover {
+  border-color: #cdd8e6 !important;
+  background: #ffffff !important;
+}
+
+.fornecedor-sidebar-bottom .fornecedor-ficha-toggle:focus-within {
+  border-color: rgba(75, 195, 199, .45) !important;
+  box-shadow: 0 0 0 3px rgba(75, 195, 199, .10) !important;
+}
+
+.fornecedor-sidebar-bottom .fornecedor-ficha-toggle input {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  clip: rect(0, 0, 0, 0) !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+}
+
+.fornecedor-sidebar-bottom .fornecedor-ficha-toggle-check {
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  border-radius: 8px !important;
+  border: 1px solid #d6e0ec !important;
+  background: #f8fafc !important;
+  color: transparent !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all .18s ease !important;
+}
+
+.fornecedor-sidebar-bottom .fornecedor-ficha-toggle-check svg {
+  width: 14px !important;
+  height: 14px !important;
+  display: block !important;
+}
+
+.fornecedor-sidebar-bottom .fornecedor-ficha-toggle-copy {
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+.fornecedor-sidebar-bottom .fornecedor-ficha-toggle strong {
+  color: #0f172a !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+}
+
+.fornecedor-sidebar-bottom .fornecedor-ficha-toggle small {
+  margin-top: 0 !important;
+  color: #667085 !important;
+  font-size: 10.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.28 !important;
+}
+
+.fornecedor-sidebar-bottom .fornecedor-ficha-toggle input:checked + .fornecedor-ficha-toggle-check {
+  border-color: rgba(75, 195, 199, .25) !important;
+  background: linear-gradient(180deg, #55cfd2 0%, #45c0c5 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 10px rgba(75, 195, 199, .18) !important;
+}
+
+/* Topo: mesmas proporções dos controles do Cliente. */
+#modal-fornecedor-backdrop .fornecedor-modal-top-actions {
+  gap: 8px !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-modal-top-actions .agenda-fixed-top-btn {
+  min-height: 40px !important;
+  height: 40px !important;
+  padding: 0 14px !important;
+  border-radius: 11px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 13px rgba(15, 23, 42, .035) !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-modal-top-actions .agenda-fixed-top-btn i {
+  font-size: 14px !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-status-pill {
+  min-height: 40px !important;
+  height: 40px !important;
+  padding: 0 14px !important;
+  border-radius: 11px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-status-pill.is-inativo {
+  border-color: rgba(100, 116, 139, .18) !important;
+  background: rgba(100, 116, 139, .09) !important;
+  color: #64748b !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-status-pill.is-bloqueado {
+  border-color: rgba(239, 68, 68, .22) !important;
+  background: rgba(239, 68, 68, .09) !important;
+  color: #dc2626 !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-modal-top-actions .btn-close {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  border-radius: 11px !important;
+}
+
+/* Rodapé igual ao Cliente. */
+#modal-fornecedor-backdrop > .fornecedor-modal-content .modal-client-footer {
+  min-height: 66px !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  gap: 10px !important;
+}
+
+#modal-fornecedor-backdrop > .fornecedor-modal-content .modal-client-footer .btn {
+  min-height: 40px !important;
+  height: 40px !important;
+  padding: 0 18px !important;
+  border-radius: 9px !important;
+  font-size: 12.5px !important;
+}
+
+@media (max-width: 900px) {
+  #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn .fornecedor-native-icon {
+    left: 14px !important;
+  }
+}
+
+/* Ações do topo: mesmo padrão do Cliente. */
+#modal-fornecedor-backdrop .fornecedor-modal-topbar,
+#modal-fornecedor-backdrop .fornecedor-modal-top-actions {
+  overflow: visible !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-actions-dropdown {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+#modal-fornecedor-backdrop .fornecedor-actions-trigger {
+  min-width: 132px;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  border-radius: 11px !important;
+  border: 1px solid #e4eaf0 !important;
+  background: #ffffff !important;
+  color: #253247 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  box-shadow: 0 4px 13px rgba(15, 23, 42, .035) !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-actions-trigger:hover {
+  border-color: #d5dee8 !important;
+  background: #fbfcfd !important;
+  color: #1f2c40 !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-top-svg-icon,
+#modal-fornecedor-backdrop .fornecedor-actions-chevron {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#modal-fornecedor-backdrop .fornecedor-actions-trigger-icon {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.5;
+}
+
+#modal-fornecedor-backdrop .fornecedor-actions-trigger-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+#modal-fornecedor-backdrop .fornecedor-actions-chevron {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.9;
+  transition: transform .16s ease;
+}
+
+#modal-fornecedor-backdrop .fornecedor-actions-dropdown.is-open .fornecedor-actions-chevron {
+  transform: rotate(180deg);
+}
+
+#modal-fornecedor-backdrop .fornecedor-actions-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10025;
+  width: min(240px, calc(100vw - 42px));
+  padding: 8px;
+  border: 1px solid #e6ebf1;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, .14);
+  display: grid;
+  gap: 4px;
+}
+
+#modal-fornecedor-backdrop .fornecedor-actions-menu[hidden] {
+  display: none !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-actions-menu-item {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #253247;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 11px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+#modal-fornecedor-backdrop .fornecedor-actions-menu-item:hover {
+  border-color: #e7edf3;
+  background: #f8fbfd;
+  color: #132033;
+}
+
+#modal-fornecedor-backdrop .fornecedor-actions-menu-item i {
+  width: 18px;
+  text-align: center;
+  color: #667085;
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   FORNECEDORES — WORKBAR IGUAL AO CLIENTE | v38
+   ========================================================= */
+#modal-fornecedor-backdrop .fornecedor-modal-main {
+  grid-template-rows: auto auto minmax(0, 1fr) auto !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-modal-workbar {
+  min-height: 54px;
+  padding: 9px 30px;
+  border-bottom: 1px solid var(--border);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+#modal-fornecedor-backdrop .fornecedor-workbar-state,
+#modal-fornecedor-backdrop .fornecedor-save-shortcut {
+  display: inline-flex;
+  align-items: center;
+}
+
+#modal-fornecedor-backdrop .fornecedor-workbar-state {
+  min-width: 0;
+  gap: 12px;
+}
+
+#modal-fornecedor-backdrop .fornecedor-unsaved-pill {
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid rgba(234, 179, 8, .30);
+  border-radius: 9px;
+  background: rgba(234, 179, 8, .09);
+  color: #a16207;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#modal-fornecedor-backdrop .fornecedor-unsaved-pill[hidden] {
+  display: none !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-unsaved-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #eab308;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, .11);
+}
+
+#modal-fornecedor-backdrop .fornecedor-save-shortcut {
+  gap: 4px;
+  color: var(--muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+#modal-fornecedor-backdrop .fornecedor-save-shortcut kbd {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border: 1px solid #e4eaf0;
+  border-bottom-color: #d2dae3;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #526274;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-size: 9.5px;
+  font-weight: 600;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, .04);
+}
+
+@media (max-width: 1180px) {
+  #modal-fornecedor-backdrop .fornecedor-modal-workbar {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+@media (max-width: 760px) {
+  #modal-fornecedor-backdrop .fornecedor-modal-workbar {
+    padding: 9px 14px;
+  }
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-modal-workbar {
+  background: #17232d;
+  border-color: #2c3d49;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-save-shortcut kbd {
+  border-color: #334554;
+  border-bottom-color: #405463;
+  background: #1d2b36;
+  color: #c8d4dd;
+}
+
+
+/* =========================================================
+   FORNECEDORES | ÍCONES SVG ROBUSTOS NA FICHA PRINCIPAL | v39
+   Não depende do glifo do Font Awesome para as seções dinâmicas.
+   ========================================================= */
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .fornecedor-custom-svg-icon {
+  position: absolute !important;
+  left: 30px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: #667085 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: .95 !important;
+  overflow: visible !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .fornecedor-custom-svg-icon > i {
+  display: none !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .fornecedor-custom-svg-icon svg {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  display: block !important;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 1.8 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  overflow: visible !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section]:hover .fornecedor-custom-svg-icon {
+  color: #344054 !important;
+}
+
+#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section].active .fornecedor-custom-svg-icon {
+  color: #078f96 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .fornecedor-custom-svg-icon {
+  color: #b8bdc7 !important;
+  background: transparent !important;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section].active .fornecedor-custom-svg-icon {
+  color: #4bc3c7 !important;
+}

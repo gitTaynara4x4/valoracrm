@@ -17,6 +17,9 @@ let camposExtrasConfig = [];
 let campoConfigId = null;
 let campoSlugTouched = false;
 
+let propostaDirty = false;
+let propostaHydrating = false;
+
 function qs(id){ return document.getElementById(id); }
 
 function escapeHtml(v){
@@ -307,6 +310,7 @@ function selecionarCliente(cliente){
 
   fecharResultadosClientes();
   updateWhatsAppModalButton();
+  markPropostaDirty();
 }
 
 function renderResultadosClientes(termo = ''){
@@ -601,18 +605,102 @@ function renderPaginacaoPropostas(){
 }
 
 // ==========================================
+// PROPOSTAS - UI PADRONIZADA
+// ==========================================
+function setPropostaDirty(dirty){
+  propostaDirty = !!dirty;
+  const pill = qs('proposal-unsaved-pill');
+  if(pill) pill.hidden = !propostaDirty;
+}
+
+function markPropostaDirty(){
+  if(propostaHydrating || !isModalOpen('proposal-modal')) return;
+  setPropostaDirty(true);
+}
+
+function setProposalActionsMenuOpen(open){
+  const trigger = qs('btn-proposta-acoes');
+  const menu = qs('proposal-actions-menu');
+  const dropdown = qs('proposal-actions-dropdown');
+  if(!trigger || !menu) return;
+  const active = !!open;
+  menu.hidden = !active;
+  trigger.setAttribute('aria-expanded', active ? 'true' : 'false');
+  dropdown?.classList.toggle('is-open', active);
+}
+
+function closeProposalActionsMenu(){
+  setProposalActionsMenuOpen(false);
+}
+
+function syncProposalSidebarMeta(){
+  const modalTitle = qs('proposal-modal-title')?.textContent?.trim() || 'Nova proposta';
+  const typedTitle = qs('proposta-titulo')?.value?.trim() || '';
+  const sidebarTitle = qs('proposal-sidebar-title');
+  const sidebarCode = qs('proposal-sidebar-code');
+  if(sidebarTitle) sidebarTitle.textContent = typedTitle || modalTitle;
+  if(sidebarCode){
+    const codigo = onlyDigits(qs('proposta-codigo')?.value || '');
+    sidebarCode.textContent = codigo ? `Código ${codigo}` : 'Código não gerado';
+  }
+}
+
+function syncProposalSidebarTotal(){
+  const target = qs('proposal-sidebar-total');
+  if(!target) return;
+  target.textContent = `R$ ${formatarValorBRL(qs('proposta-total')?.value || '0,00')}`;
+}
+
+function syncProposalTopStatus(){
+  const status = String(qs('proposta-status')?.value || 'rascunho').toLowerCase();
+  const top = qs('proposal-top-status');
+  if(!top) return;
+  top.classList.remove('is-rascunho', 'is-enviada', 'is-aprovada', 'is-rejeitada');
+  top.classList.add(`is-${status}`);
+  const text = top.querySelector('.proposal-top-status-text');
+  if(text) text.textContent = capitalizeStatus(status);
+}
+
+function toggleProposalMaximize(){
+  const modal = document.querySelector('#proposal-modal .proposal-modal-content');
+  const btn = qs('btn-maximizar-proposta');
+  if(!modal || !btn) return;
+  const active = modal.classList.toggle('is-maximized');
+  btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  btn.setAttribute('aria-label', active ? 'Restaurar tamanho da proposta' : 'Maximizar proposta');
+  btn.title = active ? 'Restaurar' : 'Maximizar';
+}
+
+// ==========================================
 // PROPOSTAS - MODAL
 // ==========================================
 function openModal(){
   if (window.ValoraModal) window.ValoraModal.open('proposal-modal');
   else qs('proposal-modal')?.classList.add('show');
+  closeProposalActionsMenu();
   updateWhatsAppModalButton();
+  syncProposalSidebarMeta();
+  syncProposalSidebarTotal();
+  syncProposalTopStatus();
 }
 
-function closeModal(){
+async function closeModal({ force = false } = {}){
+  if(!force && propostaDirty){
+    const ok = await confirmDialog({
+      title: 'Alterações não salvas',
+      message: 'Existem alterações não salvas nesta proposta. Deseja fechar mesmo assim?',
+      confirmText: 'Descartar e continuar',
+      cancelText: 'Continuar editando',
+    });
+    if(!ok) return false;
+  }
+
   if (window.ValoraModal) window.ValoraModal.close('proposal-modal');
   else qs('proposal-modal')?.classList.remove('show');
   fecharResultadosClientes();
+  closeProposalActionsMenu();
+  setPropostaDirty(false);
+  return true;
 }
 
 function switchPropostaTab(targetId){
@@ -635,9 +723,10 @@ async function abrirConfiguracaoCamposProposta(){
 }
 
 function updateStatusChip(){
+  const status = qs('proposta-status')?.value || 'rascunho';
   const chip = qs('proposal-chip-status');
-  if(!chip) return;
-  chip.textContent = capitalizeStatus(qs('proposta-status')?.value || 'rascunho');
+  if(chip) chip.textContent = capitalizeStatus(status);
+  syncProposalTopStatus();
 }
 
 async function carregarConfiguracaoCamposExtras(){
@@ -748,6 +837,7 @@ function snapshotCamposExtrasAtuais(){
 }
 
 function resetFormulario(){
+  propostaHydrating = true;
   propostaId = null;
   itens = [];
 
@@ -768,6 +858,11 @@ function resetFormulario(){
   addItemRow({});
   fecharResultadosClientes();
   updateWhatsAppModalButton();
+  syncProposalSidebarMeta();
+  syncProposalSidebarTotal();
+  syncProposalTopStatus();
+  propostaHydrating = false;
+  setPropostaDirty(false);
 }
 
 async function openNovaProposta(){
@@ -781,12 +876,13 @@ async function openEditarProposta(id){
   switchPropostaTab('tab-proposta-dados');
   openModal();
   qs('proposal-modal-title').textContent = 'Editar proposta';
+  syncProposalSidebarMeta();
 
   try{
     await carregarProposta(id);
   }catch(err){
     console.error('[propostas] erro ao carregar proposta:', err);
-    closeModal();
+    await closeModal({ force: true });
     toast('Erro ao carregar proposta.', true);
   }
 }
@@ -815,6 +911,7 @@ function addItemRow(item = {}){
 function removeItemRow(index){
   itens.splice(index, 1);
   renderItens();
+  markPropostaDirty();
 }
 
 function renderItens(){
@@ -938,8 +1035,9 @@ async function salvarProposta(){
       propostaId = criada?.id || null;
     }
 
+    setPropostaDirty(false);
     await carregarPropostas();
-    closeModal();
+    await closeModal({ force: true });
     toast('Proposta salva com sucesso!');
   }catch(err){
     console.error('[propostas] erro ao salvar:', err);
@@ -952,6 +1050,7 @@ async function salvarProposta(){
 }
 
 async function carregarProposta(id){
+  propostaHydrating = true;
   const p = await apiJson(`${API_PROPOSTAS}/${id}`);
   propostaId = id;
 
@@ -971,6 +1070,10 @@ async function carregarProposta(id){
   renderCamposExtras(p.campos_extras || []);
   updateStatusChip();
   updateWhatsAppModalButton();
+  syncProposalSidebarMeta();
+  syncProposalSidebarTotal();
+  propostaHydrating = false;
+  setPropostaDirty(false);
 }
 
 // ==========================================
@@ -1236,7 +1339,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   qs('btn-nova-proposta')?.addEventListener('click', openNovaProposta);
   qs('btn-fechar-modal')?.addEventListener('click', closeModal);
-  qs('btn-whatsapp-proposta')?.addEventListener('click', enviarPropostaAtualNoWhatsApp);
+  qs('btn-whatsapp-proposta')?.addEventListener('click', async () => {
+    closeProposalActionsMenu();
+    await enviarPropostaAtualNoWhatsApp();
+  });
+  qs('btn-proposta-acoes')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const expanded = e.currentTarget.getAttribute('aria-expanded') === 'true';
+    setProposalActionsMenuOpen(!expanded);
+  });
+  qs('btn-maximizar-proposta')?.addEventListener('click', toggleProposalMaximize);
 
   qs('proposta-cliente-busca')?.addEventListener('focus', async () => {
     const termo = qs('proposta-cliente-busca')?.value || '';
@@ -1264,9 +1377,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   qs('proposta-titulo')?.addEventListener('input', updateWhatsAppModalButton);
 
   qs('btn-configurar-campos')?.addEventListener('click', abrirConfiguracaoCamposProposta);
-  qs('btn-configurar-campos-proposta')?.addEventListener('click', abrirConfiguracaoCamposProposta);
+  qs('btn-configurar-campos-proposta')?.addEventListener('click', async () => { closeProposalActionsMenu(); await abrirConfiguracaoCamposProposta(); });
   qs('btn-configurar-campos-proposta-atalho')?.addEventListener('click', abrirConfiguracaoCamposProposta);
   qs('btn-cancelar-proposta-footer')?.addEventListener('click', closeModal);
+
+  qs('proposal-modal')?.addEventListener('input', (e) => {
+    if(e.target?.closest('#form-proposta')) markPropostaDirty();
+    if(e.target?.id === 'proposta-titulo') syncProposalSidebarMeta();
+    if(e.target?.id === 'proposta-total') syncProposalSidebarTotal();
+  });
+  qs('proposal-modal')?.addEventListener('change', (e) => {
+    if(e.target?.closest('#form-proposta')) markPropostaDirty();
+    if(e.target?.id === 'proposta-status') updateStatusChip();
+  });
 
   document.querySelectorAll('.proposal-tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => switchPropostaTab(btn.dataset.tab));
@@ -1383,10 +1506,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(!picker){
       fecharResultadosClientes();
     }
+    const dropdown = qs('proposal-actions-dropdown');
+    if(dropdown && !dropdown.contains(e.target)) closeProposalActionsMenu();
   });
 
   document.addEventListener('keydown', (e) => {
+    if((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 's' && isModalOpen('proposal-modal')){
+      e.preventDefault();
+      salvarProposta();
+      return;
+    }
+
     if(e.key !== 'Escape') return;
+    closeProposalActionsMenu();
 
     if(isModalOpen('Valora-confirm-backdrop')){
       closeConfirm(false);
@@ -1403,7 +1535,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  qs('btn-add-item')?.addEventListener('click', () => addItemRow({}));
+  qs('btn-add-item')?.addEventListener('click', () => { addItemRow({}); markPropostaDirty(); });
   qs('btn-salvar-proposta')?.addEventListener('click', salvarProposta);
   qs('proposta-status')?.addEventListener('change', updateStatusChip);
 

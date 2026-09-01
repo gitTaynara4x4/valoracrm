@@ -2713,3 +2713,121 @@ html[data-theme="dark"] .cliente-sidebar-nav .cliente-tab-btn[data-ficha-section
   box-shadow: none !important;
   color: #1A7EEE !important;
 }
+
+/* =========================================================
+   FORNECEDORES | PARIDADE VISUAL COM CLIENTES | DARK | v37
+   ========================================================= */
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn .fornecedor-native-icon,
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .ficha-section-tab-icon {
+  border: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: #b8bdc7 !important;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn:hover .fornecedor-native-icon,
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section]:hover .ficha-section-tab-icon {
+  color: #e4e7ec !important;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn.active .fornecedor-native-icon,
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section].active .ficha-section-tab-icon,
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section].active .ficha-section-tab-label {
+  color: #69d4dc !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .fornecedor-sidebar-bottom .fornecedor-ficha-toggle {
+  border-color: rgba(255, 255, 255, .08) !important;
+  background: rgba(255, 255, 255, .02) !important;
+}
+
+html[data-theme="dark"] .fornecedor-sidebar-bottom .fornecedor-ficha-toggle:hover {
+  background: rgba(255, 255, 255, .035) !important;
+}
+
+html[data-theme="dark"] .fornecedor-sidebar-bottom .fornecedor-ficha-toggle-check {
+  border-color: rgba(255, 255, 255, .10) !important;
+  background: rgba(255, 255, 255, .03) !important;
+}
+
+html[data-theme="dark"] .fornecedor-sidebar-bottom .fornecedor-ficha-toggle strong {
+  color: #f5f7fb !important;
+}
+
+html[data-theme="dark"] .fornecedor-sidebar-bottom .fornecedor-ficha-toggle small {
+  color: #aab4c5 !important;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-ficha-code-card.ficha-principal-code-card {
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-actions-trigger {
+  border-color: #334554 !important;
+  background: #17232d !important;
+  color: #e4edf4 !important;
+}
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-actions-trigger:hover {
+  border-color: #415566 !important;
+  background: #1b2a35 !important;
+}
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-actions-menu {
+  border-color: #334554 !important;
+  background: #17232d !important;
+  box-shadow: 0 18px 34px rgba(2, 8, 16, .46) !important;
+}
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-actions-menu-item {
+  color: #dbe7f0 !important;
+}
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-actions-menu-item:hover {
+  border-color: #31414e !important;
+  background: rgba(255, 255, 255, .04) !important;
+  color: #ffffff !important;
+}
+
+
+/* =========================================================
+   FORNECEDORES | PARIDADE REAL COM CLIENTES | DARK | v38
+   ========================================================= */
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .ficha-section-tab-icon {
+  border: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: #b8bdc7 !important;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section] .ficha-section-tab-label {
+  color: #b8c5d1 !important;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section]:hover .ficha-section-tab-icon,
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section]:hover .ficha-section-tab-label {
+  color: #e4e7ec !important;
+  background: transparent !important;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section].active {
+  background: transparent !important;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section].active .ficha-section-tab-icon {
+  color: #1A7EEE !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section].active .ficha-section-tab-label {
+  color: #69d4dc !important;
+  font-weight: 500 !important;
+}

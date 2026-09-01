@@ -69,6 +69,7 @@
   let fichaProdutoController = null;
   let produtoAtualDetalhe = null;
   let produtoModalSomenteLeitura = false;
+  let produtoModalDirty = false;
   let produtoKitItens = [];
   let produtoKitBuscaResultados = [];
   let produtoKitBuscaTimer = null;
@@ -108,6 +109,78 @@
 
   function $$(selector, root = document) {
     return Array.from(root.querySelectorAll(selector));
+  }
+
+  function setProdutoModalDirty(dirty) {
+    produtoModalDirty = Boolean(dirty);
+    const pill = $('produto-unsaved-pill');
+    if (pill) pill.hidden = !produtoModalDirty;
+  }
+
+  function markProdutoModalDirty() {
+    const backdrop = $('modal-produto-backdrop');
+    if (produtoModalSomenteLeitura || !backdrop || backdrop.hidden) return;
+    setProdutoModalDirty(true);
+  }
+
+  function setProdutoActionsMenuOpen(open) {
+    const trigger = $('btn-produto-acoes');
+    const menu = $('produto-actions-menu');
+    const dropdown = $('produto-actions-dropdown');
+    if (!trigger || !menu) return;
+    const active = Boolean(open);
+    menu.hidden = !active;
+    trigger.setAttribute('aria-expanded', active ? 'true' : 'false');
+    dropdown?.classList.toggle('is-open', active);
+  }
+
+  function closeProdutoActionsMenu() {
+    setProdutoActionsMenuOpen(false);
+  }
+
+  function produtoSectionIconSvg(label = '') {
+    const value = slugify(label);
+    if (/preco|custo|valor|finance/.test(value)) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5c-.8-.7-1.9-1.1-3.1-1.1-1.7 0-3 .8-3 2 0 3 5.8 1.5 5.8 4.6 0 1.3-1.2 2.2-3 2.2-1.4 0-2.7-.5-3.6-1.4"></path><path d="M12 5.5v13"></path></svg>';
+    }
+    if (/estoque|armazen|deposito/.test(value)) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4.25v9.5L12 21l-8-4.25v-9.5L12 3Z"></path><path d="m4.5 7.5 7.5 4 7.5-4"></path><path d="M12 11.5V21"></path></svg>';
+    }
+    if (/fornecedor|fabricante|origem|transporte/.test(value)) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v10H3z"></path><path d="M14 10h3l4 4v3h-7z"></path><circle cx="7" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>';
+    }
+    if (/kit|composicao|itens/.test(value)) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4-8 4-8-4 8-4Z"></path><path d="m4 11 8 4 8-4"></path><path d="m4 15 8 4 8-4"></path></svg>';
+    }
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path><circle cx="9" cy="6" r="2"></circle><circle cx="15" cy="12" r="2"></circle><circle cx="11" cy="18" r="2"></circle></svg>';
+  }
+
+  function normalizarIconesSidebarProduto() {
+    $$('.produto-sidebar-nav .produto-tab-btn[data-ficha-section]').forEach((button) => {
+      const icon = button.querySelector('.ficha-section-tab-icon');
+      if (!icon) return;
+      const label = button.querySelector('.ficha-section-tab-label')?.textContent || button.textContent || '';
+      icon.innerHTML = produtoSectionIconSvg(label);
+    });
+  }
+
+  function syncProdutoModalIdentity(produto = null) {
+    const nome = String(getValue('campo-nome-produto') || produto?.nome || '').trim();
+    const codigo = onlyDigits(getValue('campo-codigo-produto') || getValue('campo-codigo-ficha-principal-produto') || produto?.codigo || '');
+    const ativo = String(getValue('campo-ativo-produto') || (produto?.ativo === false ? 'false' : 'true')) !== 'false';
+
+    const nomeEl = $('produto-sidebar-nome');
+    const codigoEl = $('produto-sidebar-codigo');
+    if (nomeEl) nomeEl.textContent = nome || 'Novo produto';
+    if (codigoEl) codigoEl.textContent = codigo ? `Código ${codigo}` : 'Código não gerado';
+
+    const pill = $('produto-status-pill');
+    if (pill) {
+      pill.classList.toggle('is-inativo', !ativo);
+      pill.setAttribute('aria-label', `Status: ${ativo ? 'Ativo' : 'Inativo'}`);
+      const text = pill.querySelector('.produto-top-status-text');
+      if (text) text.textContent = ativo ? 'Ativo' : 'Inativo';
+    }
   }
 
   function slugify(value) {
@@ -1012,6 +1085,7 @@
     setValue('campo-custo-produto', produto.custo || '');
     setValue('campo-estoque-atual-produto', produto.estoque_atual || '');
     setValue('campo-ativo-produto', produto.ativo === false ? 'false' : 'true');
+    syncProdutoModalIdentity(produto);
   }
 
   function focusProdutoNativeNome() {
@@ -1077,6 +1151,7 @@
 
     if (controller) {
       controller.setMode(usarFichaPrincipalProdutos);
+      requestAnimationFrame(normalizarIconesSidebarProduto);
       return;
     }
 
@@ -1091,6 +1166,7 @@
     if (usarFichaPrincipalProdutos) {
       switchProdutoTab('tab-produto-ficha');
     }
+    requestAnimationFrame(normalizarIconesSidebarProduto);
   }
 
   function renderFormularioCabecalho() {
@@ -1104,7 +1180,7 @@
 
     if (nomeEl) nomeEl.textContent = nome;
     if (descEl) descEl.textContent = modelo ? descricao : 'Nenhum formulário de produtos carregado.';
-    if (descTopEl) descTopEl.textContent = modelo ? descricao : 'Crie um formulário para Produtos em Configurações > Formulários.';
+    if (descTopEl) descTopEl.textContent = 'Cadastre e organize as informações principais do produto.';
   }
 
   async function carregarFormularioProdutos({ loadingContainer = null, forceRefresh = false } = {}) {
@@ -1176,6 +1252,7 @@
     });
 
     aplicarModoFichaProduto();
+    requestAnimationFrame(normalizarIconesSidebarProduto);
 
     if (!usarFichaPrincipalProdutos) {
       const activeTab = $('formProduto')?.querySelector('.produto-tab.active');
@@ -1620,13 +1697,26 @@
     openModal('modal-produto-backdrop');
   }
 
-  function fecharModalProduto() {
+  async function fecharModalProduto(force = false) {
+    if (!force && produtoModalDirty && !produtoModalSomenteLeitura) {
+      const ok = await confirmDialog({
+        title: 'Alterações não salvas',
+        message: 'Existem alterações não salvas neste produto. Deseja fechar mesmo assim?',
+        confirmText: 'Descartar e continuar',
+        cancelText: 'Continuar editando',
+      });
+      if (!ok) return false;
+    }
+
+    setProdutoModalDirty(false);
+    closeProdutoActionsMenu();
     setProdutoModalReadonly(false);
     limparBuscaKitProduto();
     closeModal('modal-produto-backdrop');
     produtoEditandoId = null;
     produtoAtualDetalhe = null;
     produtoKitItens = [];
+    return true;
   }
 
   async function abrirModalProdutoNovo() {
@@ -1650,6 +1740,9 @@
     abrirModalProduto();
     setProdutoModalReadonly(false);
     await syncAgendaProduto(null, false);
+    syncProdutoModalIdentity({ codigo: proximoCodigo, ativo: true });
+    setProdutoModalDirty(false);
+    closeProdutoActionsMenu();
 
     setTimeout(() => {
       if (usarFichaPrincipalProdutos) {
@@ -1681,6 +1774,9 @@
     abrirModalProduto();
     setProdutoModalReadonly(false);
     await syncAgendaProduto(produto, false);
+    syncProdutoModalIdentity(produto);
+    setProdutoModalDirty(false);
+    closeProdutoActionsMenu();
 
     setTimeout(() => {
       switchProdutoTab(usarFichaPrincipalProdutos ? 'tab-produto-ficha' : 'tab-produto-dados');
@@ -1708,6 +1804,9 @@
       abrirModalProduto();
       setProdutoModalReadonly(true);
       await syncAgendaProduto(produto, true);
+      syncProdutoModalIdentity(produto);
+      setProdutoModalDirty(false);
+      closeProdutoActionsMenu();
 
       setTimeout(() => {
         switchProdutoTab(usarFichaPrincipalProdutos ? 'tab-produto-ficha' : 'tab-produto-dados');
@@ -1800,11 +1899,12 @@
       }
 
       await salvarProdutoNoServidor(payload, produtoEditandoId);
+      setProdutoModalDirty(false);
       if (!listaProdutosAdiadaAteFecharModal) {
         listaProdutosAdiadaAteFecharModal = true;
         agendarListaProdutosParaDepoisDoModal();
       }
-      fecharModalProduto();
+      void fecharModalProduto(true);
       toast('Produto salvo com sucesso.', { ms: 1800 });
     } catch (err) {
       console.error('[Produtos] erro ao salvar:', err);
@@ -3083,15 +3183,24 @@
     });
 
     document.addEventListener('keydown', (event) => {
+      const modalOpen = modalProdutoBackdrop?.classList.contains('show') && !modalProdutoBackdrop.hidden;
+
+      if (modalOpen && (event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 's') {
+        event.preventDefault();
+        if (!produtoModalSomenteLeitura) void salvarProduto();
+        return;
+      }
+
       if (event.key !== 'Escape') return;
+      closeProdutoActionsMenu();
 
       if (confirmBackdrop?.classList.contains('show')) {
         closeConfirm(false);
         return;
       }
 
-      if (modalProdutoBackdrop?.classList.contains('show')) {
-        fecharModalProduto();
+      if (modalOpen) {
+        void fecharModalProduto();
       }
     });
 
@@ -3139,12 +3248,68 @@
     });
 
     $('btn-novo-produto')?.addEventListener('click', abrirModalProdutoNovo);
-    $('btn-fechar-modal-produto')?.addEventListener('click', fecharModalProduto);
-    $('btn-cancelar-produto')?.addEventListener('click', fecharModalProduto);
+    $('btn-fechar-modal-produto')?.addEventListener('click', () => void fecharModalProduto());
+    $('btn-cancelar-produto')?.addEventListener('click', () => void fecharModalProduto());
     $('btn-salvar-produto')?.addEventListener('click', salvarProduto);
     $('toggle-ficha-principal-produto')?.addEventListener('change', salvarToggleFichaPrincipalProduto);
     $('btn-atualizar-formulario-produto')?.addEventListener('click', atualizarFormularioProduto);
     $('btn-gerenciar-formulario-produto')?.addEventListener('click', abrirGerenciadorFormulario);
+
+    $('btn-produto-acoes')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+      setProdutoActionsMenuOpen(!expanded);
+    });
+
+    $('produto-actions-menu')?.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-produto-action]');
+      if (!button) return;
+      const action = button.dataset.produtoAction;
+      if (action === 'formulario') {
+        event.preventDefault();
+        if (produtoModalDirty && !produtoModalSomenteLeitura) {
+          const ok = await confirmDialog({
+            title: 'Alterações não salvas',
+            message: 'Existem alterações não salvas neste produto. Deseja abrir o gerenciador de formulários e descartar essas alterações?',
+            confirmText: 'Abrir formulário',
+            cancelText: 'Continuar editando',
+          });
+          if (!ok) return;
+        }
+        abrirGerenciadorFormulario();
+      }
+      closeProdutoActionsMenu();
+    });
+
+    $('formProduto')?.addEventListener('input', (event) => {
+      const target = event.target;
+      if (target?.id === 'toggle-ficha-principal-produto' || target?.id === 'busca-item-kit-produto' || target?.closest?.('#agenda-produto')) return;
+      if (target?.id === 'campo-nome-produto' || target?.id === 'campo-codigo-produto') {
+        syncProdutoModalIdentity(produtoAtualDetalhe);
+      } else if (usarFichaPrincipalProdutos && target?.matches?.('[data-custom-field]')) {
+        const base = buildProdutoBaseFromCustom(collectCustomFieldsValues(), produtoAtualDetalhe || {});
+        syncProdutoModalIdentity(base);
+      }
+      markProdutoModalDirty();
+    });
+
+    $('formProduto')?.addEventListener('change', (event) => {
+      const target = event.target;
+      if (target?.id === 'toggle-ficha-principal-produto' || target?.id === 'busca-item-kit-produto' || target?.closest?.('#agenda-produto')) return;
+      if (target?.id === 'campo-ativo-produto') {
+        syncProdutoModalIdentity(produtoAtualDetalhe);
+      } else if (usarFichaPrincipalProdutos && target?.matches?.('[data-custom-field]')) {
+        const base = buildProdutoBaseFromCustom(collectCustomFieldsValues(), produtoAtualDetalhe || {});
+        syncProdutoModalIdentity(base);
+      }
+      markProdutoModalDirty();
+    });
+
+    document.addEventListener('click', (event) => {
+      const dropdown = $('produto-actions-dropdown');
+      if (dropdown && !dropdown.contains(event.target)) closeProdutoActionsMenu();
+    });
 
     $('formProduto')?.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -3165,6 +3330,7 @@
       const button = event.target.closest('[data-kit-search-id]');
       if (!button || produtoModalSomenteLeitura) return;
       adicionarComponenteKit(Number(button.dataset.kitSearchId));
+      markProdutoModalDirty();
     });
 
     $('tbody-itens-kit-produto')?.addEventListener('change', (event) => {
@@ -3183,6 +3349,7 @@
       }
       if (button.dataset.kitAction === 'up') moverItemKit(index, -1);
       if (button.dataset.kitAction === 'down') moverItemKit(index, 1);
+      markProdutoModalDirty();
     });
 
     document.addEventListener('click', (event) => {
@@ -3190,7 +3357,7 @@
     });
 
     modalProdutoBackdrop?.addEventListener('click', (event) => {
-      if (event.target === modalProdutoBackdrop) fecharModalProduto();
+      if (event.target === modalProdutoBackdrop) void fecharModalProduto();
     });
 
     $('btn-exportar-produtos-json')?.addEventListener('click', exportarProdutosJSON);

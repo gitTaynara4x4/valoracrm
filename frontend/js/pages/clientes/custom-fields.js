@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { carregarFormularioClientes } from './api.js';
+import { carregarFormularioClientes } from './api.js?v=20260831-client-nav-perf-v36';
 import { escapeHtml, slugify } from './utils.js';
 
 function parseCampoOpcoes(campo) {
@@ -419,11 +419,12 @@ function indexarCamposClientes(camposClientes = []) {
 }
 
 async function carregarFormularioPadraoClientes({ loadingContainer = null } = {}) {
-  if (window.ValoraFichaPrincipal?.carregarFormularioModulo) {
-    return carregarFormularioClientes({ loadingContainer });
-  }
-
-  if (state.formularioClientes?.modelo) {
+  // Durante a navegação entre clientes, reaproveita a estrutura já validada.
+  // carregarFormularioClientes possui TTL e volta a conferir a versão periodicamente.
+  if (
+    state.formularioClientesCheckedAt &&
+    (Date.now() - Number(state.formularioClientesCheckedAt)) < 45_000
+  ) {
     return state.formularioClientes;
   }
 

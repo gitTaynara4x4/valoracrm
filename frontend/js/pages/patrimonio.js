@@ -77,6 +77,7 @@
     fichaController: null,
     detalheAtual: null,
     modalSomenteLeitura: false,
+    modalDirty: false,
   };
 
   function qs(id) {
@@ -85,6 +86,134 @@
 
   function qsa(selector, root = document) {
     return Array.from(root.querySelectorAll(selector));
+  }
+
+
+  function slugify(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 120);
+  }
+
+  function setPatrimonioModalDirty(dirty) {
+    state.modalDirty = Boolean(dirty);
+    const pill = qs('patrimonio-unsaved-pill');
+    if (pill) pill.hidden = !state.modalDirty;
+  }
+
+  function markPatrimonioModalDirty() {
+    const modal = qs('modal-patrimonio');
+    if (state.modalSomenteLeitura || !modal || modal.hidden) return;
+    setPatrimonioModalDirty(true);
+  }
+
+  function setPatrimonioActionsMenuOpen(open) {
+    const trigger = qs('btn-patrimonio-acoes');
+    const menu = qs('patrimonio-actions-menu');
+    const dropdown = qs('patrimonio-actions-dropdown');
+    if (!trigger || !menu) return;
+    const active = Boolean(open);
+    menu.hidden = !active;
+    trigger.setAttribute('aria-expanded', active ? 'true' : 'false');
+    dropdown?.classList.toggle('is-open', active);
+  }
+
+  function closePatrimonioActionsMenu() {
+    setPatrimonioActionsMenuOpen(false);
+  }
+
+  function patrimonioSectionIconSvg(label = '') {
+    const value = slugify(label);
+    if (/finance|valor|aquisicao|custo/.test(value)) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5c-.8-.7-1.9-1.1-3.1-1.1-1.7 0-3 .8-3 2 0 3 5.8 1.5 5.8 4.6 0 1.3-1.2 2.2-3 2.2-1.4 0-2.7-.5-3.6-1.4"></path><path d="M12 5.5v13"></path></svg>';
+    }
+    if (/local|setor|sala|endereco/.test(value)) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>';
+    }
+    if (/responsavel|pessoa|usuario|colaborador/.test(value)) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"></circle><path d="M5.5 20c.7-4 3-6 6.5-6s5.8 2 6.5 6"></path></svg>';
+    }
+    if (/manutenc|garantia|tecnico/.test(value)) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5l-3 3-3-3 3-3Z"></path></svg>';
+    }
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path><circle cx="9" cy="6" r="2"></circle><circle cx="15" cy="12" r="2"></circle><circle cx="11" cy="18" r="2"></circle></svg>';
+  }
+
+  function normalizarIconesSidebarPatrimonio() {
+    qsa('.patrimonio-sidebar-nav .patrimonio-tab-btn[data-ficha-section]').forEach((button) => {
+      let icon = button.querySelector('.ficha-section-tab-icon');
+      if (!icon) {
+        icon = document.createElement('span');
+        icon.className = 'ficha-section-tab-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        button.prepend(icon);
+      }
+
+      const label = button.querySelector('.ficha-section-tab-label')?.textContent || button.textContent || '';
+      const iconKey = slugify(label) || 'padrao';
+      if (icon.dataset.patrimonioIconKey === iconKey && icon.querySelector('svg')) return;
+
+      icon.dataset.patrimonioIconKey = iconKey;
+      icon.innerHTML = patrimonioSectionIconSvg(label);
+    });
+  }
+
+  function observarIconesSidebarPatrimonio() {
+    const nav = document.querySelector('.patrimonio-sidebar-nav');
+    if (!nav || nav.dataset.patrimonioIconObserver === '1') return;
+    nav.dataset.patrimonioIconObserver = '1';
+
+    let pending = false;
+    const observer = new MutationObserver(() => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        normalizarIconesSidebarPatrimonio();
+      });
+    });
+
+    observer.observe(nav, { childList: true, subtree: true });
+    normalizarIconesSidebarPatrimonio();
+  }
+
+  function syncPatrimonioModalIdentity(item = null) {
+    const nome = normalizeText(getValue('patrimonio-nome') || item?.nome || '');
+    const codigo = onlyDigits(getValue('patrimonio-codigo') || getValue('campo-codigo-ficha-principal-patrimonio') || item?.codigo || '');
+    const status = normalizeText(getValue('patrimonio-status') || item?.status || 'ativo').toLowerCase();
+    const labels = { ativo: 'Ativo', manutencao: 'Em manutenção', baixado: 'Baixado', extraviado: 'Extraviado' };
+
+    const nomeEl = qs('patrimonio-sidebar-nome');
+    const codigoEl = qs('patrimonio-sidebar-codigo');
+    if (nomeEl) nomeEl.textContent = nome || 'Novo patrimônio';
+    if (codigoEl) codigoEl.textContent = codigo ? `Código ${codigo}` : 'Código não gerado';
+
+    const pill = qs('patrimonio-status-pill');
+    if (pill) {
+      pill.classList.toggle('is-manutencao', status === 'manutencao');
+      pill.classList.toggle('is-baixado', status === 'baixado');
+      pill.classList.toggle('is-extraviado', status === 'extraviado');
+      const label = labels[status] || 'Ativo';
+      pill.setAttribute('aria-label', `Status: ${label}`);
+      const text = pill.querySelector('.patrimonio-top-status-text');
+      if (text) text.textContent = label;
+    }
+  }
+
+  async function requestClosePatrimonio() {
+    closePatrimonioActionsMenu();
+    if (state.modalDirty && !state.modalSomenteLeitura) {
+      const ok = window.confirm('Existem alterações não salvas neste patrimônio. Deseja descartar e fechar?');
+      if (!ok) return false;
+    }
+    setPatrimonioModalDirty(false);
+    setPatrimonioModalReadonly(false);
+    closeModal('modal-patrimonio');
+    return true;
   }
 
   function escapeHtml(value) {
@@ -734,6 +863,7 @@
     setValue('patrimonio-data-aquisicao', item.data_aquisicao || '');
     setValue('patrimonio-observacoes', item.observacoes || '');
     setValue('patrimonio-ativo', item.ativo === false ? 'false' : 'true');
+    syncPatrimonioModalIdentity(item);
   }
 
   function switchPatrimonioTab(targetId) {
@@ -900,6 +1030,7 @@
     });
 
     aplicarModoFicha();
+    normalizarIconesSidebarPatrimonio();
 
     if (!state.usarFichaPrincipal) {
       const activeTab = qs('formPatrimonio')?.querySelector('.patrimonio-tab.active');
@@ -1161,6 +1292,7 @@
       }
       aplicarModoFicha();
     }
+    syncPatrimonioModalIdentity(item);
   }
 
   function buildPayload() {
@@ -1297,6 +1429,7 @@
       }
 
       await salvarItem(payload, state.editandoId);
+      setPatrimonioModalDirty(false);
       closeModal('modal-patrimonio');
       await carregar({ silent: true });
       toast('Patrimônio salvo com sucesso.', { ms: 1800 });
@@ -1338,24 +1471,30 @@
 
     document.querySelectorAll('[data-close-modal]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        if (btn.dataset.closeModal === 'modal-patrimonio') setPatrimonioModalReadonly(false);
+        if (btn.dataset.closeModal === 'modal-patrimonio') return;
         closeModal(btn.dataset.closeModal);
       });
     });
 
     document.querySelectorAll('.modal-overlay').forEach((modal) => {
       modal.addEventListener('mousedown', (event) => {
-        if (event.target === modal) {
-          if (modal.id === 'modal-patrimonio') setPatrimonioModalReadonly(false);
-          closeModal(modal.id);
-        }
+        if (event.target !== modal) return;
+        if (modal.id === 'modal-patrimonio') { void requestClosePatrimonio(); return; }
+        closeModal(modal.id);
       });
     });
 
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        setPatrimonioModalReadonly(false);
-        closeModal('modal-patrimonio');
+      const modal = qs('modal-patrimonio');
+      const modalOpen = modal && !modal.hidden;
+      if (modalOpen && (event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 's') {
+        event.preventDefault();
+        if (!state.modalSomenteLeitura) salvar();
+        return;
+      }
+      if (event.key === 'Escape' && modalOpen) {
+        event.preventDefault();
+        void requestClosePatrimonio();
       }
     });
 
@@ -1392,9 +1531,41 @@
     qs('btn-atualizar-patrimonio')?.addEventListener('click', () => carregar());
     qs('btn-salvar-patrimonio')?.addEventListener('click', salvar);
     qs('btn-excluir-patrimonio')?.addEventListener('click', () => excluir());
-    qs('btn-cancelar-patrimonio')?.addEventListener('click', () => {
-      setPatrimonioModalReadonly(false);
-      closeModal('modal-patrimonio');
+    qs('btn-cancelar-patrimonio')?.addEventListener('click', () => { void requestClosePatrimonio(); });
+    qs('btn-fechar-modal-patrimonio')?.addEventListener('click', () => { void requestClosePatrimonio(); });
+
+    qs('btn-patrimonio-acoes')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+      setPatrimonioActionsMenuOpen(!expanded);
+    });
+
+    qs('patrimonio-actions-menu')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-patrimonio-action]');
+      if (!button) return;
+      if (button.dataset.patrimonioAction === 'formulario') {
+        if (window.ValoraNavigate) window.ValoraNavigate('/formularios?modulo=patrimonio');
+        else window.location.href = '/formularios?modulo=patrimonio';
+      }
+      closePatrimonioActionsMenu();
+    });
+
+    qs('formPatrimonio')?.addEventListener('input', (event) => {
+      if (event.target?.id === 'toggle-ficha-principal-patrimonio') return;
+      if (event.target?.id === 'patrimonio-nome' || event.target?.id === 'patrimonio-codigo') syncPatrimonioModalIdentity(state.detalheAtual);
+      markPatrimonioModalDirty();
+    });
+
+    qs('formPatrimonio')?.addEventListener('change', (event) => {
+      if (event.target?.id === 'toggle-ficha-principal-patrimonio') return;
+      if (event.target?.id === 'patrimonio-status' || event.target?.id === 'patrimonio-ativo') syncPatrimonioModalIdentity(state.detalheAtual);
+      markPatrimonioModalDirty();
+    });
+
+    document.addEventListener('click', (event) => {
+      const dropdown = qs('patrimonio-actions-dropdown');
+      if (dropdown && !dropdown.contains(event.target)) closePatrimonioActionsMenu();
     });
 
     qs('btn-gerenciar-formulario-patrimonio')?.addEventListener('click', () => {
@@ -1437,4 +1608,5 @@
 
     await carregar();
   });
+  observarIconesSidebarPatrimonio();
 })();

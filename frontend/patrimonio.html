@@ -34,8 +34,9 @@
   <script src="/frontend/js/shared/validacao.js?v=20260617-patrimonio" defer></script>
   <script src="/frontend/js/shared/ficha-principal.js?v=20260717-busca-relacao-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
-  <script src="/frontend/js/pages/patrimonio.js?v=20260630-readonly-v5" defer></script>
+  <script src="/frontend/js/pages/patrimonio.js?v=20260831-icons-v43" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
+  <link rel="stylesheet" href="/frontend/css/patrimonio-modal-paridade.css?v=20260831-icons-v43" />
 </head>
 
 <body>
@@ -130,29 +131,32 @@
                 </div>
 
                 <div class="cliente-sidebar-user patrimonio-sidebar-user">
-                  <strong>Patrimônio</strong>
-                  <span>Bens e equipamentos</span>
+                  <strong id="patrimonio-sidebar-nome">Novo patrimônio</strong>
+                  <span id="patrimonio-sidebar-codigo">Código não gerado</span>
                 </div>
               </div>
 
               <nav class="cliente-tabs cliente-sidebar-nav patrimonio-tabs patrimonio-sidebar-nav" aria-label="Seções do patrimônio">
                 <button type="button" class="cliente-tab-btn patrimonio-tab-btn active" data-tab="tab-patrimonio-dados">
-                  <i class="fa-solid fa-tags"></i>
-                  <span>Dados nativos</span>
+                  <span class="patrimonio-native-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4.25v9.5L12 21l-8-4.25v-9.5L12 3Z"></path><path d="m4.5 7.5 7.5 4 7.5-4"></path><path d="M12 11.5V21"></path></svg></span>
+                  <span>Dados do patrimônio</span>
                 </button>
 
                 <button type="button" class="cliente-tab-btn patrimonio-tab-btn" data-tab="tab-patrimonio-ficha">
-                  <i class="fa-solid fa-layer-group"></i>
-                  <span>Campos personalizados</span>
+                  <span class="patrimonio-native-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path><circle cx="9" cy="6" r="2"></circle><circle cx="15" cy="12" r="2"></circle><circle cx="11" cy="18" r="2"></circle></svg></span>
+                  <span>Personalizados</span>
                 </button>
               </nav>
 
               <div class="cliente-sidebar-bottom patrimonio-sidebar-bottom">
-                <label class="patrimonio-ficha-toggle ficha-principal-toggle">
+                <label class="patrimonio-ficha-toggle ficha-principal-toggle" for="toggle-ficha-principal-patrimonio">
                   <input type="checkbox" id="toggle-ficha-principal-patrimonio" />
-                  <span>
+                  <span class="patrimonio-ficha-toggle-check" aria-hidden="true">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.25 8.25 6.35 11.35 12.75 4.95"></path></svg>
+                  </span>
+                  <span class="patrimonio-ficha-toggle-copy">
                     <strong>Usar ficha principal</strong>
-                    <small>Marcar o formulário de Patrimônio como ficha principal.</small>
+                    <small>Mostrar somente código e campos personalizados.</small>
                   </span>
                 </label>
               </div>
@@ -161,22 +165,42 @@
             <section class="cliente-modal-main patrimonio-modal-main">
               <header class="cliente-modal-topbar patrimonio-modal-topbar">
                 <div>
-                  <span class="section-kicker">Cadastro de patrimônio</span>
                   <h3 id="modal-patrimonio-title">Novo patrimônio</h3>
-                  <p id="patrimonio-formulario-descricao-topo">Ficha carregada do construtor de formulários.</p>
+                  <p id="patrimonio-formulario-descricao-topo">Cadastre e organize as informações principais do patrimônio.</p>
                 </div>
 
                 <div class="cliente-modal-top-actions patrimonio-modal-top-actions">
-                  <span class="cliente-status-pill patrimonio-status-pill">
-                    <i class="fa-solid fa-circle"></i>
-                    Cadastro
+                  <div class="patrimonio-actions-dropdown" id="patrimonio-actions-dropdown">
+                    <button type="button" class="btn btn-secondary btn-sm patrimonio-actions-trigger" id="btn-patrimonio-acoes" aria-label="Abrir ações rápidas do patrimônio" aria-haspopup="menu" aria-expanded="false" aria-controls="patrimonio-actions-menu">
+                      <svg class="patrimonio-top-svg-icon patrimonio-actions-trigger-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.75 6.5h14.5"></path><path d="M4.75 12h14.5"></path><path d="M4.75 17.5h14.5"></path><circle cx="8" cy="6.5" r=".7"></circle><circle cx="12" cy="12" r=".7"></circle><circle cx="16" cy="17.5" r=".7"></circle></svg>
+                      <span>Ações</span>
+                      <svg class="patrimonio-actions-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 7.5 4.5 4.5 4.5-4.5"></path></svg>
+                    </button>
+                    <div class="patrimonio-actions-menu" id="patrimonio-actions-menu" role="menu" hidden>
+                      <button type="button" class="patrimonio-actions-menu-item" data-patrimonio-action="formulario" role="menuitem">
+                        <svg class="patrimonio-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path><circle cx="9" cy="6" r="2"></circle><circle cx="15" cy="12" r="2"></circle><circle cx="11" cy="18" r="2"></circle></svg>
+                        <span>Gerenciar formulário</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <span class="cliente-status-pill patrimonio-status-pill patrimonio-top-status" id="patrimonio-status-pill" aria-label="Status: Ativo" tabindex="0">
+                    <span class="patrimonio-top-status-dot" aria-hidden="true"></span>
+                    <span class="patrimonio-top-status-text">Ativo</span>
                   </span>
 
-                  <button class="btn-close" type="button" id="btn-fechar-modal-patrimonio" data-close-modal="modal-patrimonio" title="Fechar">
-                    <i class="fa-solid fa-xmark"></i>
+                  <button class="btn-close" type="button" id="btn-fechar-modal-patrimonio" title="Fechar" aria-label="Fechar">
+                    <svg class="patrimonio-top-close-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 7.5 16.5 16.5M16.5 7.5 7.5 16.5"></path></svg>
                   </button>
                 </div>
               </header>
+
+              <div class="patrimonio-modal-workbar" id="patrimonio-modal-workbar">
+                <div class="patrimonio-workbar-state">
+                  <span class="patrimonio-unsaved-pill" id="patrimonio-unsaved-pill" hidden><span class="patrimonio-unsaved-dot" aria-hidden="true"></span>Alterações não salvas</span>
+                  <span class="patrimonio-save-shortcut"><kbd>Ctrl</kbd><span>+</span><kbd>S</kbd><span>para salvar</span></span>
+                </div>
+              </div>
 
               <div class="cliente-modal-scroll patrimonio-modal-scroll">
                 <input type="hidden" id="patrimonio-id" />
@@ -278,7 +302,7 @@
                     <div>
                       <span class="section-kicker">Código do sistema</span>
                       <h4>Código do patrimônio</h4>
-                      <p>Este código é gerado pelo próprio sistema e pode ser usado na ficha do patrimônio.</p>
+                      
                     </div>
 
                     <div class="ficha-principal-system-fields">
@@ -323,7 +347,7 @@
 
                 <div class="footer-spacer"></div>
 
-                <button class="btn btn-secondary" type="button" id="btn-cancelar-patrimonio" data-close-modal="modal-patrimonio">
+                <button class="btn btn-secondary" type="button" id="btn-cancelar-patrimonio">
                   Cancelar
                 </button>
 

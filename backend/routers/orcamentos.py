@@ -294,6 +294,28 @@ def status_norm(value: Any) -> str:
     return current if current in STATUS_VALIDOS else "rascunho"
 
 
+NILSON_PROPOSAL_EMAIL = "nlsgv2010@gmail.com"
+NILSON_PROPOSAL_MODELS = {
+    "monitoramento_24h",
+    "monitoramento_24h_comodato",
+    "teleassistencia_idosos",
+}
+
+
+def can_use_nilson_proposal_models(user: models.Usuario) -> bool:
+    return str(getattr(user, "email", "") or "").strip().lower() == NILSON_PROPOSAL_EMAIL
+
+
+def validate_nilson_proposal_model_access(user: models.Usuario, model_key: Any) -> None:
+    """Valida no backend a exclusividade dos modelos comerciais do Nilson."""
+    key = norm_str(model_key) or "padrao"
+    if key in NILSON_PROPOSAL_MODELS and not can_use_nilson_proposal_models(user):
+        raise HTTPException(
+            status_code=403,
+            detail="Este modelo de proposta comercial é exclusivo do usuário autorizado.",
+        )
+
+
 def can_manage_settings(user: models.Usuario) -> bool:
     return is_owner(user) or is_admin(user)
 
@@ -653,6 +675,8 @@ class BudgetBase(BaseModel):
     prazo_execucao: Optional[str] = None
     condicoes: Optional[str] = None
     observacoes: Optional[str] = None
+    proposta_modelo: str = "padrao"
+    proposta_comercial: Dict[str, Any] = Field(default_factory=dict)
     pagamentos: List[PaymentOption] = Field(default_factory=list)
     usar_capa: bool = False
     titulo_capa: Optional[str] = None
@@ -1293,6 +1317,8 @@ def serialize_budget(
     for key in ("data_solicitacao", "data_emissao", "data_validade", "data_aprovacao", "aprovado_em", "criado_em", "atualizado_em"):
         out[key] = iso(out.get(key))
     out["pagamentos"] = json_load(out.pop("pagamentos_json", None), [])
+    out["proposta_modelo"] = norm_str(out.get("proposta_modelo")) or "padrao"
+    out["proposta_comercial"] = json_load(out.pop("proposta_comercial_json", None), {})
     out["preparacao_cliente"] = {
         "preparada": bool(out.pop("proposta_cliente_preparada", False)),
         "natureza": out.pop("proposta_cliente_natureza", None),
@@ -1393,6 +1419,7 @@ def serialize_budget(
 def base_select() -> str:
     return """
         SELECT o.*,
+               c.codigo AS cliente_codigo,
                COALESCE(c.nome_fantasia, c.nome) AS cliente_nome,
                COALESCE(o.cliente_nome_documento, c.nome) AS cliente_razao_social,
                COALESCE(o.cliente_nome_fantasia_documento, c.nome_fantasia) AS cliente_nome_fantasia,
@@ -1434,7 +1461,8 @@ def meta(
     return {
         "pode_ver_custos": can_view_costs(current_user, db),
         "pode_configurar": can_manage_settings(current_user),
-        "usuario": {"id": int(current_user.id), "nome": current_user.nome, "papel": current_user.papel},
+        "usuario": {"id": int(current_user.id), "nome": current_user.nome, "papel": current_user.papel, "email": current_user.email},
+        "modelos_proposta_monitoramento_habilitados": can_use_nilson_proposal_models(current_user),
         "configuracao": config_out,
         "emitentes": [serialize_emitter(dict(row)) for row in emitters],
     }
@@ -2483,6 +2511,8 @@ def payload_params(
         "prazo_execucao": norm_str(payload.prazo_execucao) or norm_str(config.get("prazo_execucao_padrao")),
         "condicoes": norm_str(payload.condicoes) or norm_str(config.get("condicoes_padrao")),
         "observacoes": norm_str(payload.observacoes) or norm_str(config.get("observacoes_padrao")),
+        "proposta_modelo": norm_str(payload.proposta_modelo) or "padrao",
+        "proposta_comercial_json": json_dump(payload.proposta_comercial or {}),
         "pagamentos_json": json_dump([p.model_dump(mode="json") if hasattr(p, "model_dump") else p.dict() for p in payload.pagamentos]),
         "usar_capa": bool(payload.usar_capa),
         "titulo_capa": norm_str(payload.titulo_capa) or norm_str(config.get("titulo_capa")),
@@ -2499,6 +2529,7 @@ def create_budget(
 ):
     company_id = int(current_user.empresa_id)
     prepare_write(db, company_id)
+    validate_nilson_proposal_model_access(current_user, payload.proposta_modelo)
     for table, row_id, label in (
         ("clientes", payload.cliente_id, "Cliente"),
         ("usuarios", payload.consultor_id, "Consultor"),
@@ -2550,6 +2581,7 @@ def create_budget(
                 emitente_telefone_documento, emitente_endereco_documento, emitente_logo_documento, emitente_rodape_documento,
                 desconto_tipo, desconto_valor, desconto_total, frete, acrescimo, subtotal, total,
                 custo_total, lucro_total, margem_percentual, itens_sem_custo, prazo_execucao, condicoes, observacoes,
+                proposta_modelo, proposta_comercial_json,
                 pagamentos_json, usar_capa, titulo_capa, subtitulo_capa, escala_documento, aprovacao_necessaria, aprovacao_status,
                 aprovado_por_id, aprovado_em
             ) VALUES (
@@ -2564,6 +2596,7 @@ def create_budget(
                 :emitente_telefone_documento, :emitente_endereco_documento, :emitente_logo_documento, :emitente_rodape_documento,
                 :desconto_tipo, :desconto_valor, :desconto_total, :frete, :acrescimo, :subtotal, :total,
                 :custo_total, :lucro_total, :margem_percentual, :itens_sem_custo, :prazo_execucao, :condicoes, :observacoes,
+                :proposta_modelo, :proposta_comercial_json,
                 :pagamentos_json, :usar_capa, :titulo_capa, :subtitulo_capa, :escala_documento, :aprovacao_necessaria, :aprovacao_status,
                 :aprovado_por_id, :aprovado_em
             ) RETURNING id
@@ -2601,6 +2634,8 @@ def budget_change_details(old: dict, new_params: dict, old_items: List[dict], ne
         "modelo_id": ("Dados gerais", "Modelo"),
         "titulo": ("Dados gerais", "Título"),
         "nome_documento": ("Condições", "Nome do documento"),
+        "proposta_modelo": ("Proposta comercial", "Modelo de proposta"),
+        "proposta_comercial_json": ("Proposta comercial", "Configuração da proposta"),
         "status": ("Dados gerais", "Status"),
         "data_solicitacao": ("Dados gerais", "Data da solicitação"),
         "data_emissao": ("Dados gerais", "Data de emissão"),
@@ -2693,7 +2728,10 @@ def update_budget(
     merged = {**{k: data.get(k) for k in base_fields}, **incoming}
     merged["itens"] = incoming.get("itens", current_items)
     merged["pagamentos"] = incoming.get("pagamentos", json_load(data.get("pagamentos_json"), []))
+    merged["proposta_comercial"] = incoming.get("proposta_comercial", json_load(data.get("proposta_comercial_json"), {}))
+    merged["proposta_modelo"] = incoming.get("proposta_modelo", data.get("proposta_modelo") or "padrao")
     effective = BudgetCreate(**merged)
+    validate_nilson_proposal_model_access(current_user, effective.proposta_modelo)
     if atualizar_precos and not any(item.produto_id for item in effective.itens):
         raise HTTPException(
             status_code=422,
@@ -2787,6 +2825,7 @@ def update_budget(
             custo_total=:custo_total, lucro_total=:lucro_total, margem_percentual=:margem_percentual,
             itens_sem_custo=:itens_sem_custo,
             prazo_execucao=:prazo_execucao, condicoes=:condicoes, observacoes=:observacoes,
+            proposta_modelo=:proposta_modelo, proposta_comercial_json=:proposta_comercial_json,
             pagamentos_json=:pagamentos_json, usar_capa=:usar_capa, titulo_capa=:titulo_capa,
             subtitulo_capa=:subtitulo_capa, escala_documento=:escala_documento, aprovacao_necessaria=:aprovacao_necessaria,
             aprovacao_status=CASE
@@ -2978,6 +3017,10 @@ def _proposal_snapshot(db: Session, budget_id: int, company_id: int) -> tuple[di
             "endereco": norm_str(data.get("emitente_endereco_documento")),
         },
         "itens": public_items,
+        "modelo_servico": {
+            "tipo": norm_str(data.get("proposta_modelo")) or "padrao",
+            "dados": json_load(data.get("proposta_comercial_json"), {}),
+        },
         "comercial": {
             "natureza": {"codigo": natureza, "label": PROPOSTA_CLIENTE_NATUREZA_LABELS.get(natureza or "", natureza)},
             "servicos": [{"codigo": item, "label": PROPOSTA_CLIENTE_SERVICO_LABELS.get(item, item)} for item in services],
@@ -3600,7 +3643,9 @@ def duplicate_budget(
         endereco_complemento=source.get("endereco_complemento"), endereco_bairro=source.get("endereco_bairro"), endereco_cidade=source.get("endereco_cidade"), endereco_estado=source.get("endereco_estado"),
         desconto_tipo=source.get("desconto_tipo") or "valor", desconto_valor=money(source.get("desconto_valor")),
         frete=money(source.get("frete")), acrescimo=money(source.get("acrescimo")), prazo_execucao=source.get("prazo_execucao"),
-        condicoes=source.get("condicoes"), observacoes=source.get("observacoes"), pagamentos=source.get("pagamentos") or [],
+        condicoes=source.get("condicoes"), observacoes=source.get("observacoes"),
+        proposta_modelo=source.get("proposta_modelo") or "padrao", proposta_comercial=source.get("proposta_comercial") or {},
+        pagamentos=source.get("pagamentos") or [],
         usar_capa=bool(source.get("usar_capa")), titulo_capa=source.get("titulo_capa"), subtitulo_capa=source.get("subtitulo_capa"),
         escala_documento=int(source.get("escala_documento") or 100),
         itens=source.get("itens") or [],

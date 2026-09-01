@@ -12,6 +12,7 @@ let usarFichaPrincipalFornecedores = false;
 let fichaFornecedorController = null;
 let fornecedorAtualDetalhe = null;
 let fornecedorModalSomenteLeitura = false;
+let fornecedorModalDirty = false;
 
 const API_FORNECEDORES = '/api/fornecedores';
 const API_CAMPOS_PRIMARY = '/api/fornecedores/campos';
@@ -42,6 +43,93 @@ function $$(selector, root = document) {
 
 function onlyDigits(value) {
   return String(value || '').replace(/\D+/g, '');
+}
+
+function syncFornecedorSidebar(data = {}) {
+  const nome = String(data?.nome || data?.nome_fantasia || getValue('campo-nome-fornecedor') || '').trim();
+  const codigo = onlyDigits(data?.codigo || getValue('campo-codigo-fornecedor'));
+  const nomeEl = $('fornecedor-sidebar-nome');
+  const codigoEl = $('fornecedor-sidebar-codigo');
+
+  if (nomeEl) nomeEl.textContent = nome || (fornecedorEditandoId ? 'Fornecedor' : 'Novo fornecedor');
+  if (codigoEl) codigoEl.textContent = codigo ? `Código ${codigo}` : 'Código não gerado';
+}
+
+function syncFornecedorStatusPill(situacao = null) {
+  const pill = $('fornecedor-status-pill');
+  if (!pill) return;
+
+  const normalized = String(situacao ?? getValue('campo-situacao-fornecedor') ?? fornecedorAtualDetalhe?.situacao ?? 'ativo')
+    .trim()
+    .toLowerCase();
+
+  let label = 'Ativo';
+  let key = 'ativo';
+  if (['inativo', 'inativa', 'desativado', 'desativada'].includes(normalized)) {
+    label = 'Inativo';
+    key = 'inativo';
+  } else if (['bloqueado', 'bloqueada', 'suspenso', 'suspensa'].includes(normalized)) {
+    label = 'Bloqueado';
+    key = 'bloqueado';
+  }
+
+  pill.classList.toggle('is-inativo', key === 'inativo');
+  pill.classList.toggle('is-bloqueado', key === 'bloqueado');
+  pill.setAttribute('aria-label', `Status: ${label}`);
+  const text = pill.querySelector('.fornecedor-status-text');
+  if (text) text.textContent = label;
+}
+
+function setFornecedorActionsMenuOpen(open) {
+  const trigger = $('btn-fornecedor-acoes');
+  const menu = $('fornecedor-actions-menu');
+  const dropdown = $('fornecedor-actions-dropdown');
+  if (!trigger || !menu) return;
+
+  const active = Boolean(open);
+  menu.hidden = !active;
+  trigger.setAttribute('aria-expanded', active ? 'true' : 'false');
+  dropdown?.classList.toggle('is-open', active);
+}
+
+function closeFornecedorActionsMenu() {
+  setFornecedorActionsMenuOpen(false);
+}
+
+function fornecedorModalEstaAberto() {
+  const backdrop = $('modal-fornecedor-backdrop');
+  return !!backdrop && !backdrop.hidden;
+}
+
+function setFornecedorModalDirty(dirty) {
+  fornecedorModalDirty = Boolean(dirty);
+  const pill = $('fornecedor-unsaved-pill');
+  if (pill) pill.hidden = !fornecedorModalDirty;
+}
+
+function markFornecedorModalDirty() {
+  if (fornecedorModalSomenteLeitura) return;
+  setFornecedorModalDirty(true);
+}
+
+async function confirmarDescarteAlteracoesFornecedor(message = 'Existem alterações não salvas. Deseja continuar e descartar essas alterações?') {
+  if (!fornecedorModalDirty) return true;
+  return confirmDialog({
+    title: 'Alterações não salvas',
+    message,
+    confirmText: 'Descartar e continuar',
+    cancelText: 'Continuar editando',
+  });
+}
+
+async function requestCloseFornecedorModal() {
+  const canClose = await confirmarDescarteAlteracoesFornecedor(
+    'Existem alterações não salvas neste fornecedor. Deseja fechar mesmo assim?'
+  );
+  if (!canClose) return false;
+  setFornecedorModalDirty(false);
+  fecharModalFornecedor();
+  return true;
 }
 
 function slugify(value) {
@@ -1019,6 +1107,7 @@ function syncFornecedorFichaCode(codigo) {
   setValue('campo-codigo-fornecedor', value);
   setValue('campo-codigo-ficha-principal-fornecedor', value);
   setCodigoFornecedorReadonly();
+  syncFornecedorSidebar({ ...(fornecedorAtualDetalhe || {}), codigo: value });
 }
 
 function ensureFichaFornecedorController() {
@@ -1043,8 +1132,79 @@ function ensureFichaFornecedorController() {
   return fichaFornecedorController;
 }
 
+function normalizeFornecedorSidebarIconLabel(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function fornecedorSidebarSvg(label) {
+  const t = normalizeFornecedorSidebarIconLabel(label);
+  const attrs = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"';
+
+  if (/(basico|cadastro|identificacao|principal)/.test(t)) {
+    return `<svg ${attrs}><rect x="4" y="5" width="16" height="14" rx="2"></rect><circle cx="9" cy="11" r="2"></circle><path d="M6.5 16c.7-1.6 1.7-2.4 2.5-2.4s1.8.8 2.5 2.4M14 10h3.5M14 14h3.5"></path></svg>`;
+  }
+
+  if (/(contato|telefone|email|comercial)/.test(t)) {
+    return `<svg ${attrs}><circle cx="9" cy="9" r="3"></circle><path d="M4.5 18c.8-3 2.4-4.5 4.5-4.5s3.7 1.5 4.5 4.5M15 7h4M15 11h4M16.5 15.5H19"></path></svg>`;
+  }
+
+  if (/(gerencia|administracao|administrativo|gestao)/.test(t)) {
+    return `<svg ${attrs}><circle cx="9" cy="8" r="3"></circle><path d="M4.5 17c.8-2.8 2.3-4.2 4.5-4.2 1.2 0 2.2.4 3 1.2"></path><circle cx="17" cy="16" r="2.5"></circle><path d="M17 12.5V14M17 18v1.5M13.5 16H15M19 16h1.5"></path></svg>`;
+  }
+
+  if (/(transporte|frete|entrega|logistica)/.test(t)) {
+    return `<svg ${attrs}><path d="M3.5 6.5h10v9h-10zM13.5 9h3.2l3 3v3.5h-6.2z"></path><circle cx="7" cy="17.5" r="1.7"></circle><circle cx="17" cy="17.5" r="1.7"></circle></svg>`;
+  }
+
+  if (/(credito|limite|financeiro|cobranca|pagamento)/.test(t)) {
+    return `<svg ${attrs}><rect x="3.5" y="6" width="17" height="12" rx="2"></rect><path d="M3.5 10h17M7 14h3"></path></svg>`;
+  }
+
+  if (/(garantia|rma|seguranca)/.test(t)) {
+    return `<svg ${attrs}><path d="M12 3.5 19 6v5.3c0 4.2-2.7 7.1-7 9.2-4.3-2.1-7-5-7-9.2V6z"></path><path d="m8.7 12 2.1 2.1 4.6-4.6"></path></svg>`;
+  }
+
+  if (/(contabil|contabeis|contabilidade|fiscal)/.test(t)) {
+    return `<svg ${attrs}><rect x="5" y="3.5" width="14" height="17" rx="2"></rect><path d="M8 7h8M8 11h2M14 11h2M8 15h2M14 15h2"></path></svg>`;
+  }
+
+  if (/(produto|linha de produtos|item|material)/.test(t)) {
+    return `<svg ${attrs}><path d="m12 3.5 7 3.7v9.6l-7 3.7-7-3.7V7.2z"></path><path d="m5.4 7.4 6.6 3.5 6.6-3.5M12 10.9v9.2"></path></svg>`;
+  }
+
+  if (/(relatorio|dashboard|indicador)/.test(t)) {
+    return `<svg ${attrs}><path d="M5 19V10M10 19V5M15 19v-7M20 19V8"></path></svg>`;
+  }
+
+  if (/(informacao|geral|observacao)/.test(t)) {
+    return `<svg ${attrs}><circle cx="12" cy="12" r="8.5"></circle><path d="M12 10.5V16M12 7.5h.01"></path></svg>`;
+  }
+
+  return `<svg ${attrs}><path d="m12 3.5 8 4.2-8 4.2-8-4.2z"></path><path d="m4 12 8 4.2 8-4.2M4 16.3l8 4.2 8-4.2"></path></svg>`;
+}
+
+function syncFornecedorSidebarSectionIcons() {
+  document
+    .querySelectorAll('#modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section]')
+    .forEach((btn) => {
+      const icon = btn.querySelector('.ficha-section-tab-icon');
+      if (!icon) return;
+      const label = btn.querySelector('.ficha-section-tab-label')?.textContent || btn.textContent || '';
+      icon.classList.add('fornecedor-native-icon', 'fornecedor-custom-svg-icon');
+      icon.innerHTML = fornecedorSidebarSvg(label);
+    });
+}
+
 function aplicarModoFichaFornecedor() {
   ensureFichaFornecedorController()?.setMode(usarFichaPrincipalFornecedores);
+  syncFornecedorSidebarSectionIcons();
+  window.requestAnimationFrame?.(syncFornecedorSidebarSectionIcons);
 }
 
 function getCustomValue(custom, keys, fallback = '') {
@@ -1188,6 +1348,8 @@ async function fillFornecedorForm(fornecedor = {}) {
 
   setValue('campo-nome-fornecedor', data.nome);
   setValue('campo-nome-fantasia-fornecedor', data.nome_fantasia);
+  syncFornecedorSidebar(data);
+  syncFornecedorStatusPill(data.situacao);
   setValue('campo-cpf-cnpj-fornecedor', pick(data, ['cpf_cnpj', 'cnpj_cpf', 'documento'], ''));
   setValue('campo-ie-fornecedor', pick(data, ['inscricao_estadual', 'ie'], ''));
   setValue('campo-im-fornecedor', pick(data, ['inscricao_municipal', 'im'], ''));
@@ -1219,6 +1381,7 @@ async function fillFornecedorForm(fornecedor = {}) {
   syncFornecedorFichaCode(onlyDigits(data.codigo) || onlyDigits(getValue('campo-codigo-fornecedor')));
   aplicarModoFichaFornecedor();
   switchFornecedorTab(usarFichaPrincipalFornecedores ? 'tab-fornecedor-campos' : 'tab-fornecedor-cadastro');
+  setFornecedorModalDirty(false);
 }
 
 function buildFornecedorPayload() {
@@ -1325,6 +1488,7 @@ function agendarListaFornecedoresParaDepoisDoModal() {
 
 
 async function abrirModalFornecedorNovo() {
+  closeFornecedorActionsMenu();
   setFornecedorModalReadonly(false);
   fornecedorEditandoId = null;
 
@@ -1343,11 +1507,13 @@ async function abrirModalFornecedorNovo() {
 }
 
 function fecharModalFornecedor() {
+  closeFornecedorActionsMenu();
   setFornecedorModalReadonly(false);
   closeModal('modal-fornecedor-backdrop');
 }
 
 async function abrirModalFornecedorEditar(id) {
+  closeFornecedorActionsMenu();
   setFornecedorModalReadonly(false);
   try {
     const full = await apiJson(`${API_FORNECEDORES}/${id}`);
@@ -1368,6 +1534,7 @@ async function abrirModalFornecedorEditar(id) {
 
 
 async function abrirModalFornecedorVisualizar(id) {
+  closeFornecedorActionsMenu();
   try {
     const full = await apiJson(`${API_FORNECEDORES}/${id}`);
 
@@ -1430,6 +1597,7 @@ async function salvarFornecedor(event) {
       listaFornecedoresAdiadaAteFecharModal = true;
       agendarListaFornecedoresParaDepoisDoModal();
     }
+    setFornecedorModalDirty(false);
     fecharModalFornecedor();
     toast('Fornecedor salvo com sucesso.', 'success');
   } catch (err) {
@@ -2062,10 +2230,46 @@ function bindCamposActions() {
 
 function bindTopActions() {
   $('btn-novo-fornecedor')?.addEventListener('click', abrirModalFornecedorNovo);
-  $('btn-fechar-modal-fornecedor')?.addEventListener('click', fecharModalFornecedor);
-  $('btn-cancelar-fornecedor')?.addEventListener('click', fecharModalFornecedor);
+  $('btn-fechar-modal-fornecedor')?.addEventListener('click', () => { void requestCloseFornecedorModal(); });
+  $('btn-cancelar-fornecedor')?.addEventListener('click', () => { void requestCloseFornecedorModal(); });
   $('formFornecedor')?.addEventListener('submit', salvarFornecedor);
+  $('formFornecedor')?.addEventListener('input', (event) => {
+    if (event.target?.id !== 'toggle-ficha-principal-fornecedor') markFornecedorModalDirty();
+  });
+  $('formFornecedor')?.addEventListener('change', (event) => {
+    if (event.target?.id !== 'toggle-ficha-principal-fornecedor') markFornecedorModalDirty();
+  });
   $('toggle-ficha-principal-fornecedor')?.addEventListener('change', salvarToggleFichaPrincipalFornecedor);
+  $('campo-nome-fornecedor')?.addEventListener('input', () => syncFornecedorSidebar());
+  $('campo-situacao-fornecedor')?.addEventListener('change', (event) => syncFornecedorStatusPill(event.target.value));
+  $('btn-fornecedor-acoes')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+    setFornecedorActionsMenuOpen(!expanded);
+  });
+  $('fornecedor-actions-menu')?.addEventListener('click', (event) => {
+    const action = event.target.closest('[data-fornecedor-action]');
+    if (action?.dataset.fornecedorAction === 'formulario') {
+      if (window.ValoraNavigate) window.ValoraNavigate('/formularios?modulo=fornecedores');
+      else window.location.href = '/formularios?modulo=fornecedores';
+    }
+    closeFornecedorActionsMenu();
+  });
+  document.addEventListener('click', (event) => {
+    const dropdown = $('fornecedor-actions-dropdown');
+    if (!dropdown || dropdown.contains(event.target)) return;
+    closeFornecedorActionsMenu();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeFornecedorActionsMenu();
+
+    const isSaveShortcut = (event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 's';
+    if (!isSaveShortcut || !fornecedorModalEstaAberto() || fornecedorModalSomenteLeitura) return;
+    if (!$('Valora-confirm-backdrop')?.hidden) return;
+    event.preventDefault();
+    $('formFornecedor')?.requestSubmit?.();
+  });
 
   $('btn-gerenciar-formulario-fornecedor')?.addEventListener('click', () => {
     if (window.ValoraNavigate) window.ValoraNavigate('/formularios?modulo=fornecedores');

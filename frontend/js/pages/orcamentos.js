@@ -6,6 +6,8 @@
   const API_PRODUCTS = '/api/produtos';
   const API_BUDGET_PRODUCTS = `${API}/produtos`;
   const API_USERS = '/api/usuarios';
+  const NILSON_PROPOSAL_EMAIL = 'nlsgv2010@gmail.com';
+  const NILSON_PROPOSAL_MODELS = new Set(['monitoramento_24h', 'monitoramento_24h_comodato', 'teleassistencia_idosos']);
   const API_COMPANY = '/api/empresa/atual';
 
   const state = {
@@ -50,6 +52,9 @@
     initialRouteHandled: false,
     kitPickerLayout: loadKitPickerLayout(),
     productPickerLayout: loadProductPickerLayout(),
+    budgetDirty: false,
+    serviceProposalModel: 'padrao',
+    serviceProposalData: {},
   };
 
   const statusMeta = {
@@ -79,6 +84,164 @@
     aprovado: ['Aprovada pelo cliente', 'status-aprovado'],
     desativado: ['Link desativado', 'status-desativado'],
   };
+
+  const SERVICE_PROPOSAL_MODELS = {
+    padrao: {
+      key: 'padrao',
+      name: 'Proposta padrão',
+      documentName: 'Orçamento',
+      description: 'Orçamento normal de produtos e serviços, sem blocos adicionais de monitoramento.',
+      introduction: '',
+      sections: [],
+      values: [],
+      conditions: '',
+    },
+    monitoramento_24h: {
+      key: 'monitoramento_24h',
+      name: 'Monitoramento 24h',
+      documentName: 'Proposta Comercial - Serviços de Monitoramento 24 Horas',
+      description: 'Modelo comercial de monitoramento 24 horas, gerenciamento, apoio e interação via aplicativo.',
+      introduction: 'No mercado desde 1996 somos uma empresa que atua nas Áreas de Segurança Eletrônica, Automação, Telecomunicações e Faciliteis.\n\nDentro da área de Segurança Eletrônica destacamos os Serviços de Monitoramento 24 horas o qual tem por finalidade Integrar os Equipamentos de Segurança e Controle de Acesso instalados nos imóveis monitorado com nossa Central de Operações.',
+      sections: [
+        { id: 'gerenciamento_padrao', title: '01- Gerenciamento Padrão', services: [
+          { id: 'plantao_24h', label: 'Plantão 24 horas p/ Atendimento de Ocorrências', checked: true },
+          { id: 'sinais_internet', label: 'Monitoramento/Recepção Sinais Via Internet.', checked: true },
+          { id: 'radio_gprs_opcao', label: 'Opção de Monitoramento via Tecnologias de Rádio e GPRS*', checked: false },
+          { id: 'rede_sem_fio', label: 'Rede de Monitoramento Sem Fio com Rede Própria (Rádio/GPRS)', checked: true },
+          { id: 'corte_energia_linha', label: 'Identificação de Corte de Energia / Corte de Linha Telefônica', checked: true },
+        ]},
+        { id: 'controle_acesso', title: '02- Gerenciamento de Controle de Acesso', services: [
+          { id: 'nao_ativado_horario', label: 'Notificação p/ Sistemas NÃO Ativado em Horário Programado', checked: true },
+          { id: 'desativado_antes_horario', label: 'Notificação p/ Sistemas Desativado Antes do Horário', checked: true },
+          { id: 'cerca_desativada', label: 'Notificação p/ Cerca Elétrica Desativada', checked: true },
+          { id: 'ativacao_remota', label: 'Ativação Remota de Sistemas em casos de Necessidade. *', checked: true },
+          { id: 'desativacao_fora_horario', label: 'Acompanhamento de Desativação Fora de Horário Programado.', checked: true },
+          { id: 'autoteste_comunicacao', label: 'Autoteste Comunicação Painel x Central 24hs em Tempo Real*', checked: true },
+        ]},
+        { id: 'ocorrencias_alarme', title: '03- Gerenciamento de Ocorrências - Alarme', services: [
+          { id: 'eventos_disparo', label: 'Análise e Tratamento de Eventos de Disparos de Alarme', checked: true },
+          { id: 'coacao_panico', label: 'Análise e Tratamento de Eventos de Coação / Pânico Silencioso', checked: true },
+          { id: 'pronta_resposta_virtual', label: 'Pronta Resposta Virtual c/ Acompanhamento Via CFTV*', checked: true },
+          { id: 'pronta_resposta_local', label: 'Envio de Atendimento de Pronta Resposta IN-LOCO*', checked: true },
+          { id: 'preservacao_local', label: 'Preservação de Local até Chegada do Responsável pelo Imóvel *', checked: true },
+          { id: 'autoridades', label: 'Notificação /Envio de Autoridades em Casos de Sinistro (Polícia 190)', checked: true },
+          { id: 'pessoas_avisadas', label: 'Notificação de Pessoas a serem avisadas em casos de Sinistros', checked: true },
+          { id: 'procedimentos_cliente', label: 'Execução de Procedimentos Definidos pelo Cliente em Sinistros', checked: true },
+        ]},
+        { id: 'servicos_apoio', title: '04- Serviços de Apoio', services: [
+          { id: 'my_security', label: 'Aplicativo MY Security para Acompanhamento/Interação Remota', checked: true },
+          { id: 'usuarios_remotos', label: 'Gerenciamento Remoto de Usuários (Criação/Bloqueio)', checked: true },
+          { id: 'visita_bimestral', label: 'Visita Técnica Bimestral para Revisão Preventiva', checked: true },
+          { id: 'assistencia_tecnica', label: 'Assistência Técnica p/ Alarme /Cerca Elétrica /CFTV/ Interfonia.', checked: true },
+          { id: 'relatorios', label: 'Relatórios Quinzenal ou Mensal Via E-mail', checked: true },
+        ]},
+        { id: 'aplicativo', title: '05- Funções e Serviços com Interação Via Aplicativo', services: [
+          { id: 'ativar_desativar', label: 'Ativação / Desativação de Sistema de Alarme / Eletrificador', checked: true },
+          { id: 'anulacao_setores', label: 'Anulação de Setores e Perímetros', checked: true },
+          { id: 'eventos_tempo_real', label: 'Acompanhamento Eventos Ativação/Desativação em Tempo Real', checked: true },
+          { id: 'sistemas_nao_ativados', label: 'Acompanhamento Sistemas Desativados Não Ativados no Horário', checked: true },
+          { id: 'ordens_servicos', label: 'Solicitação / Acompanhamento de Ordens de Serviços', checked: true },
+        ]},
+        { id: 'pre_programados', title: '06- Serviços Pré Programados (Habilitados mediante a Contratação)', services: [
+          { id: 'integracao_cftv', label: 'Possibilidade de Integração Sistema de CFTV *', checked: true },
+          { id: 'chegada_assistida', label: 'Acompanhamento de Chegada Assistida*', checked: false },
+          { id: 'portoes', label: 'Possibilidade de Abertura /Fechamento Portões Automáticos *', checked: false },
+          { id: 'automacao_processos', label: 'Automação de Processos (Iluminação / Outros) *', checked: false },
+          { id: 'care', label: 'Monitoramento /Acompanhamento Remoto de Idosos (CARE)*', checked: false },
+          { id: 'incendio_gas', label: 'Monitoramento de Sistemas de Incêndio ou Vazamento de Gás*', checked: false },
+          { id: 'panico_app', label: 'Botão de Pânico Silencioso Via Aplicativo*', checked: false },
+          { id: 'backup_cftv', label: 'Armazenamento /Backup Imagens CFTV em Nuvem*', checked: false },
+          { id: 'assistencia_24h', label: 'Assistência Técnica Emergencial 24 Horas *', checked: false },
+          { id: 'limpeza_perimetros', label: 'Serviços de Limpeza e Conservação de Perímetros Monitorado*', checked: false },
+          { id: 'faciliteis', label: 'Serviços e Faciliteis*', checked: false },
+        ]},
+      ],
+      values: [
+        { id: 'implantacao', label: 'Valor implantação (único)', default: 0 },
+        { id: 'mensalidade', label: 'Valor Serviços Monit24hs (mensal)', default: 0 },
+      ],
+      conditions: '1- Plano Comercial 12 Meses com Renovação Automática\n2- Equipamentos Instalados: Modulo Comunicação\n3- Mão de Obra de Serviços de Revisão /Manutenção Geral (Alarme/Cerca)\n4- Condições Gerais Descrito Contrato com Base em cada Serviço Contratado.\n\n* O Aplicativo My Security faz Parte Integrante dos Serviços de Monitoramento 24horas\n* Os Serviços apresentados dependem de Área de Cobertura Técnica /Operacional\n* Os Serviços podem depender de Hardware Específicos e Serviços de Terceiros\n* Todos os Serviços são regidos conforme clausulas contratual e seus Anexos.\n* O Aplicativo My Security Requer Smartphone c /Sistema Operacional IOS/Android 4.0',
+    },
+    monitoramento_24h_comodato: {
+      key: 'monitoramento_24h_comodato',
+      name: 'Monitoramento 24h - Comodato',
+      documentName: 'Proposta Comercial - Serviços de Monitoramento 24 Horas - Comodato',
+      description: 'Mesmo conjunto de serviços de monitoramento, com condições específicas da modalidade COMODATO.',
+      introduction: 'No mercado desde 1996 somos uma empresa que atua nas Áreas de Segurança Eletrônica, Automação, Telecomunicações e Faciliteis.\n\nDentro da área de Segurança Eletrônica destacamos os Serviços de Monitoramento 24 horas o qual tem por finalidade Integrar os Equipamentos de Segurança e Controle de Acesso instalados nos imóveis monitorado com nossa Central de Operações.',
+      copySectionsFrom: 'monitoramento_24h',
+      values: [
+        { id: 'implantacao', label: 'Valor implantação (único)', default: 0 },
+        { id: 'mensalidade', label: 'Valor Serviços Monit24hs (mensal)', default: 0 },
+      ],
+      conditions: '1- Para Plano Comodato - Fidelidade 12 (Doze) Meses. Renovação Automática\n2- Equipamentos: Vide Orçamento em Anexo (Orçamento Comodato).\n3- Mão de Obra de Serviços de Revisão /Manutenção Geral (Alarme/Cerca)\n4- Condições Gerais Descrito Contrato com Base em cada Serviço Contratado.\n\n* O Aplicativo My Security faz Parte Integrante dos Serviços de Monitoramento 24horas\n* Os Serviços apresentados dependem de Área de Cobertura Técnica /Operacional\n* Os Serviços podem depender de Hardware Específicos e Serviços de Terceiros\n* Todos os Serviços são regidos conforme clausulas contratual e seus Anexos.\n* O Aplicativo My Security Requer Smartphone c /Sistema Operacional IOS/Android 4.0',
+    },
+    teleassistencia_idosos: {
+      key: 'teleassistencia_idosos',
+      name: 'Tele Assistência - Idosos',
+      documentName: 'Proposta Comercial - Monitoramento 24 Horas - Tele Assistência',
+      description: 'Modelo para acompanhamento a distância de idosos e pessoas em processo de recuperação de saúde.',
+      introduction: 'Atuando no mercado desde 1996, somos uma empresa especializada nas áreas de Segurança Eletrônica, Automação, Telecomunicações e Gestão de Facilities.\n\nNa área de Segurança Eletrônica, destacamos o serviço de Monitoramento 24 Horas - Tele Assistência, que é formada por um conjunto de Serviços projetados para o acompanhamento a distância de idosos e Pessoas em processo de Recuperação de Saúde, garantindo sua Segurança e Bem-estar.',
+      sections: [
+        { id: 'monitoramento_emergencial', title: '1- Monitoramento Emergencial', services: [
+          { id: 'pedidos_ajuda', label: 'Monitoramento 24 horas Pedidos de Ajuda Solicitados.', checked: true },
+          { id: 'identificacao_solicitante', label: 'Identificação do Solicitante (Idoso/ Acompanhante).', checked: true },
+          { id: 'samu', label: 'Notificação Autoridades Emergenciais (SAMU 192).', checked: true },
+          { id: 'pessoas_avisadas', label: 'Notificação de Pessoas a serem Avisadas.', checked: true },
+          { id: 'procedimentos_cliente', label: 'Execução de Procedimentos Definidos pelo Cliente.', checked: true },
+          { id: 'falta_energia', label: 'Identificação de Falta de Energia Eletrica.', checked: true },
+          { id: 'perda_comunicacao', label: 'Identificação de Perda de Comunicação.', checked: true },
+          { id: 'relatorios_emergenciais', label: 'Relatórios Automáticos de Eventos Emergenciais.', checked: true },
+          { id: 'app_tempo_real', label: 'Aplicativo para Acompanhamento em Tempo Real.', checked: true },
+          { id: 'gprs_internet', label: 'Monitoramento com Comunicação Via GPRS e Internet.', checked: true },
+        ]},
+        { id: 'cftv_cliente', title: '2- Sistema de CFTV com Monitoramento via Aplicativo - Para o Cliente', services: [
+          { id: 'visualizacao_tempo_real', label: 'Visualização das Cameras em Tempo Real', checked: true },
+          { id: 'visao_noturna_audio', label: 'Visão Noturna e Captação de Audio', checked: true },
+          { id: 'armazenamento_15_dias', label: 'Armazenamento Vídeos com Áudio de até 15 (Quize)dias.', checked: true },
+          { id: 'acesso_aplicativo', label: 'Acesso as Imagens Via Aplicativo (Celular / PC Notbook)', checked: true },
+          { id: 'deteccao_movimentos', label: 'Monitoramento com Deteção de Movimentos no Imovel', checked: true },
+        ]},
+        { id: 'cftv_central', title: 'Suporte Central Monitoramento', services: [
+          { id: 'falha_internet', label: 'Falhas de Conexão com Internet', checked: true },
+          { id: 'falha_hd', label: 'Falta /Falhas / Erros de Disco HD', checked: true },
+          { id: 'perda_video', label: 'Perda de Vídeo', checked: true },
+          { id: 'mascaramento', label: 'Mascaramento de Cameras', checked: true },
+          { id: 'assistencia_24h', label: 'Assistência Tecnica 24 Horas.', checked: true },
+        ]},
+      ],
+      values: [
+        { id: 'implantacao_emergencial', label: 'Implantação - Monitoramento Emergencial', default: 750 },
+        { id: 'implantacao_cftv', label: 'Implantação - Sistema de CFTV', default: 980 },
+        { id: 'mensalidade_cftv', label: 'Mensalidade - CFTV / Monitoramento', default: 400 },
+      ],
+      conditions: '1- Disponibilização de 02 Acionadores Tipo Chaveiro\n2- Opção Rede Monitoramento em Locais sem Internet (Rádio/GPRS)\n\nCondições Gerais:\n1- Plano com Equipamentos instalados na Modalidade COMODATO com Fidelidade de 12 (Doze) Meses e Renovação Automática.\n3- Mão de Obra de Serviços de Revisão /Manutenção Geral já inclusos\n4- Condições Gerais Descrito Contrato com Base em cada Serviço Contratado.\n5- Sistema de Redundância para CFTV em Casos de Falta de Energia Eletrica é Opcional\n6- Aplicativos utilizados fazem Parte Integrante dos Serviços de Monit24hs. Requisitos Smartphone: Sistema Operacional IOS/Android 4.0\n7- Os Serviços apresentados dependem de Área de Cobertura Técnica e podem depender de Hardware Específicos e Serviços de Terceiros.\n8- Todos os Serviços são regidos conforme clausulas contratual e seus Anexos.',
+    },
+  };
+
+  function serviceProposalDefinition(key) {
+    const model = SERVICE_PROPOSAL_MODELS[key] || SERVICE_PROPOSAL_MODELS.padrao;
+    const sections = model.copySectionsFrom
+      ? SERVICE_PROPOSAL_MODELS[model.copySectionsFrom].sections
+      : model.sections;
+    return { ...model, sections: JSON.parse(JSON.stringify(sections || [])) };
+  }
+
+  function defaultServiceProposalData(key) {
+    const model = serviceProposalDefinition(key);
+    const selectedServices = {};
+    (model.sections || []).forEach((section) => {
+      selectedServices[section.id] = (section.services || []).filter((service) => service.checked !== false).map((service) => service.id);
+    });
+    const values = {};
+    (model.values || []).forEach((value) => { values[value.id] = Number(value.default || 0); });
+    return {
+      introduction: model.introduction || '',
+      selected_services: selectedServices,
+      values,
+      conditions: model.conditions || '',
+      notes: '',
+    };
+  }
 
   const DOCUMENT_SCALE_MIN = 70;
   const DOCUMENT_SCALE_MAX = 125;
@@ -240,6 +403,106 @@
     else alert(message);
   }
 
+
+  function isBudgetModalOpen() {
+    const modal = $('budget-modal');
+    return Boolean(modal && !modal.hidden && modal.getAttribute('aria-hidden') !== 'true');
+  }
+
+  function setBudgetDirty(dirty) {
+    state.budgetDirty = Boolean(dirty);
+    const pill = $('budget-unsaved-pill');
+    if (pill) pill.hidden = !state.budgetDirty;
+  }
+
+  function markBudgetDirty() {
+    if (!isBudgetModalOpen()) return;
+    setBudgetDirty(true);
+  }
+
+  function setBudgetActionsMenuOpen(open) {
+    const trigger = $('btn-budget-acoes');
+    const menu = $('budget-actions-menu');
+    const dropdown = $('budget-actions-dropdown');
+    if (!trigger || !menu) return;
+    const active = Boolean(open);
+    menu.hidden = !active;
+    trigger.setAttribute('aria-expanded', active ? 'true' : 'false');
+    dropdown?.classList.toggle('is-open', active);
+  }
+
+  function closeBudgetActionsMenu() {
+    setBudgetActionsMenuOpen(false);
+  }
+
+  let budgetConfirmResolver = null;
+
+  function closeBudgetConfirm(result = false) {
+    const backdrop = $('budget-confirm-backdrop');
+    if (backdrop) {
+      backdrop.classList.remove('show');
+      backdrop.setAttribute('aria-hidden', 'true');
+      window.setTimeout(() => { backdrop.hidden = true; }, 160);
+    }
+    if (typeof budgetConfirmResolver === 'function') {
+      const resolver = budgetConfirmResolver;
+      budgetConfirmResolver = null;
+      resolver(Boolean(result));
+    }
+  }
+
+  function budgetConfirm({
+    title = 'Confirmar ação',
+    message = 'Deseja continuar?',
+    confirmText = 'Confirmar',
+    cancelText = 'Cancelar',
+    tone = 'default',
+  } = {}) {
+    const backdrop = $('budget-confirm-backdrop');
+    const dialog = backdrop?.querySelector('.budget-confirm-dialog');
+    if (!backdrop || !dialog) return Promise.resolve(false);
+
+    $('budget-confirm-title').textContent = title;
+    $('budget-confirm-message').textContent = message;
+    $('budget-confirm-ok').textContent = confirmText;
+    $('budget-confirm-cancel').textContent = cancelText;
+    dialog.classList.toggle('is-danger', tone === 'danger');
+
+    if (typeof budgetConfirmResolver === 'function') {
+      const previous = budgetConfirmResolver;
+      budgetConfirmResolver = null;
+      previous(false);
+    }
+
+    backdrop.hidden = false;
+    backdrop.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => {
+      backdrop.classList.add('show');
+      $('budget-confirm-cancel')?.focus();
+    });
+
+    return new Promise((resolve) => {
+      budgetConfirmResolver = resolve;
+    });
+  }
+
+  async function requestCloseBudgetModal() {
+    if (state.budgetDirty) {
+      const ok = await budgetConfirm({
+        title: 'Alterações não salvas',
+        message: 'Existem alterações não salvas neste orçamento. Deseja fechar mesmo assim?',
+        confirmText: 'Descartar e fechar',
+        cancelText: 'Continuar editando',
+        tone: 'danger',
+      });
+      if (!ok) return false;
+    }
+    setBudgetDirty(false);
+    closeBudgetActionsMenu();
+    closeOverlay('budget-modal');
+    return true;
+  }
+
   async function api(url, options = {}) {
     const response = await fetch(url, {
       credentials: 'include',
@@ -366,6 +629,19 @@
     return proposalPublicStatusMeta[String(value || 'nao_gerado')] || [String(value || 'Não gerado'), ''];
   }
 
+  function canUseNilsonProposalModels() {
+    const email = String(state.meta?.usuario?.email || '').trim().toLowerCase();
+    return Boolean(state.meta?.modelos_proposta_monitoramento_habilitados || email === NILSON_PROPOSAL_EMAIL);
+  }
+
+  function applyExclusiveServiceProposalAccess() {
+    const enabled = canUseNilsonProposalModels();
+    $$('[data-nilson-proposal-only]').forEach((element) => {
+      element.classList.toggle('is-hidden', !enabled);
+    });
+    if (!enabled && state.activeTab === 'proposta-comercial') setTab('dados');
+  }
+
   async function bootstrap() {
     try {
       const [meta, categories, templates, kits, users, company, clientsResponse] = await Promise.all([
@@ -378,6 +654,7 @@
         api(`${API_CLIENTS}?paginated=true&limit=20&offset=0`).catch(() => ({ items: [] })),
       ]);
       state.meta = meta;
+      applyExclusiveServiceProposalAccess();
       state.categories = categories || [];
       state.templates = templates || [];
       state.kits = kits || [];
@@ -587,6 +864,484 @@
     popup.opener = null;
   }
 
+  function serviceProposalSelectedModel() {
+    return state.serviceProposalModel || 'padrao';
+  }
+
+  function serviceProposalModelName(key = serviceProposalSelectedModel()) {
+    return serviceProposalDefinition(key).name || 'Proposta padrão';
+  }
+
+  function renderServiceProposalSelectedCount() {
+    const target = $('service-proposal-selected-count');
+    if (!target) return;
+    const count = $$('#service-proposal-services input[type="checkbox"]:checked').length;
+    target.textContent = `${count} selecionado${count === 1 ? '' : 's'}`;
+  }
+
+  function renderServiceProposalServices(model, data) {
+    const root = $('service-proposal-services');
+    if (!root) return;
+    const selected = data?.selected_services || {};
+    root.innerHTML = (model.sections || []).map((section) => {
+      const selectedIds = new Set(Array.isArray(selected[section.id]) ? selected[section.id] : []);
+      const services = (section.services || []).map((service) => `
+        <label class="service-proposal-check">
+          <input type="checkbox" data-service-proposal-section="${escapeHtml(section.id)}" data-service-proposal-service="${escapeHtml(service.id)}" ${selectedIds.has(service.id) ? 'checked' : ''} />
+          <span>${escapeHtml(service.label)}</span>
+        </label>`).join('');
+      return `<section class="service-proposal-section" data-service-proposal-section-card="${escapeHtml(section.id)}">
+        <header class="service-proposal-section-header">
+          <strong>${escapeHtml(section.title)}</strong>
+          <button type="button" data-service-proposal-toggle-section="${escapeHtml(section.id)}">Marcar todos</button>
+        </header>
+        <div class="service-proposal-check-list">${services}</div>
+      </section>`;
+    }).join('');
+    renderServiceProposalSelectedCount();
+  }
+
+  function renderServiceProposalValues(model, data) {
+    const root = $('service-proposal-values');
+    if (!root) return;
+    const values = data?.values || {};
+    root.innerHTML = (model.values || []).map((value) => `
+      <div class="service-proposal-value-card">
+        <label for="service-proposal-value-${escapeHtml(value.id)}">${escapeHtml(value.label)}</label>
+        <div class="service-proposal-value-input">
+          <span>R$</span>
+          <input id="service-proposal-value-${escapeHtml(value.id)}" type="text" inputmode="decimal" data-service-proposal-value="${escapeHtml(value.id)}" value="${escapeHtml(inputMoney(values[value.id] ?? value.default ?? 0))}" />
+        </div>
+      </div>`).join('');
+  }
+
+  function renderServiceProposal(modelKey = serviceProposalSelectedModel(), data = null) {
+    const safeKey = SERVICE_PROPOSAL_MODELS[modelKey] ? modelKey : 'padrao';
+    const model = serviceProposalDefinition(safeKey);
+    const defaults = defaultServiceProposalData(safeKey);
+    const incoming = data && typeof data === 'object' ? data : {};
+    const normalized = {
+      ...defaults,
+      ...incoming,
+      selected_services: { ...(defaults.selected_services || {}), ...(incoming.selected_services || {}) },
+      values: { ...(defaults.values || {}), ...(incoming.values || {}) },
+    };
+    state.serviceProposalModel = safeKey;
+    state.serviceProposalData = normalized;
+
+    $$('[data-service-proposal-model]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.serviceProposalModel === safeKey);
+      button.setAttribute('aria-pressed', button.dataset.serviceProposalModel === safeKey ? 'true' : 'false');
+    });
+
+    const standard = safeKey === 'padrao';
+    $('service-proposal-standard-note')?.classList.toggle('is-hidden', !standard);
+    $('service-proposal-editor')?.classList.toggle('is-hidden', standard);
+    if (standard) {
+      renderPreviewIfVisible();
+      return;
+    }
+
+    if ($('service-proposal-editor-title')) $('service-proposal-editor-title').textContent = model.name;
+    if ($('service-proposal-editor-description')) $('service-proposal-editor-description').textContent = model.description || '';
+    if ($('service-proposal-introduction')) $('service-proposal-introduction').value = normalized.introduction ?? model.introduction ?? '';
+    if ($('service-proposal-conditions')) $('service-proposal-conditions').value = normalized.conditions ?? model.conditions ?? '';
+    if ($('service-proposal-notes')) $('service-proposal-notes').value = normalized.notes || '';
+    renderServiceProposalServices(model, normalized);
+    renderServiceProposalValues(model, normalized);
+    renderPreviewIfVisible();
+  }
+
+  function collectServiceProposalData() {
+    const key = serviceProposalSelectedModel();
+    if (key === 'padrao') return {};
+    const model = serviceProposalDefinition(key);
+    const selectedServices = {};
+    (model.sections || []).forEach((section) => {
+      selectedServices[section.id] = $$(`input[data-service-proposal-section="${CSS.escape(section.id)}"]:checked`, $('service-proposal-services'))
+        .map((input) => input.dataset.serviceProposalService)
+        .filter(Boolean);
+    });
+    const values = {};
+    $$('[data-service-proposal-value]', $('service-proposal-values')).forEach((input) => {
+      values[input.dataset.serviceProposalValue] = parseNumber(input.value);
+    });
+    return {
+      introduction: $('service-proposal-introduction')?.value?.trim() || '',
+      selected_services: selectedServices,
+      values,
+      conditions: $('service-proposal-conditions')?.value?.trim() || '',
+      notes: $('service-proposal-notes')?.value?.trim() || '',
+    };
+  }
+
+  function syncServiceProposalStateFromForm() {
+    state.serviceProposalData = collectServiceProposalData();
+    renderServiceProposalSelectedCount();
+    renderPreviewIfVisible();
+  }
+
+  function applyServiceProposalModel(modelKey, { preserveDocumentName = false, markDirty = true } = {}) {
+    const safeKey = SERVICE_PROPOSAL_MODELS[modelKey] ? modelKey : 'padrao';
+    const model = serviceProposalDefinition(safeKey);
+    const data = defaultServiceProposalData(safeKey);
+    renderServiceProposal(safeKey, data);
+    if (!preserveDocumentName && $('orcamento-nome-documento')) {
+      $('orcamento-nome-documento').value = safeKey === 'padrao'
+        ? (state.meta.configuracao?.nome_documento || 'Orçamento')
+        : (model.documentName || 'Proposta Comercial');
+    }
+    if (safeKey !== 'padrao' && $('orcamento-titulo') && !$('orcamento-titulo').value.trim()) {
+      $('orcamento-titulo').value = model.name;
+      if ($('budget-sidebar-title')) $('budget-sidebar-title').textContent = model.name;
+    }
+    if (markDirty) markBudgetDirty();
+  }
+
+  async function resetCurrentServiceProposal() {
+    const key = serviceProposalSelectedModel();
+    if (key === 'padrao') return;
+    const ok = await budgetConfirm({
+      title: 'Restaurar modelo',
+      message: 'Restaurar os serviços, textos e valores padrão deste modelo? As personalizações feitas nesta proposta serão perdidas.',
+      confirmText: 'Restaurar modelo',
+      cancelText: 'Cancelar',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    applyServiceProposalModel(key, { preserveDocumentName: true, markDirty: true });
+    toast('Modelo restaurado para o padrão.');
+  }
+
+  function toggleServiceProposalSection(sectionId) {
+    const inputs = $$(`input[data-service-proposal-section="${CSS.escape(sectionId)}"]`, $('service-proposal-services'));
+    if (!inputs.length) return;
+    const allChecked = inputs.every((input) => input.checked);
+    inputs.forEach((input) => { input.checked = !allChecked; });
+    const button = $('service-proposal-services')?.querySelector(`[data-service-proposal-toggle-section="${CSS.escape(sectionId)}"]`);
+    if (button) button.textContent = allChecked ? 'Marcar todos' : 'Desmarcar todos';
+    markBudgetDirty();
+    syncServiceProposalStateFromForm();
+  }
+
+  function serviceProposalPreviewHtml() {
+    const key = serviceProposalSelectedModel();
+    if (key === 'padrao') return '';
+    const model = serviceProposalDefinition(key);
+    const data = collectServiceProposalData();
+    const selected = data.selected_services || {};
+    const sectionsHtml = (model.sections || []).map((section) => {
+      const selectedIds = new Set(Array.isArray(selected[section.id]) ? selected[section.id] : []);
+      const items = (section.services || []).filter((service) => selectedIds.has(service.id));
+      if (!items.length) return '';
+      return `<section class="preview-service-proposal-section"><h5>${escapeHtml(section.title)}</h5><ul>${items.map((service) => `<li>${escapeHtml(service.label)}</li>`).join('')}</ul></section>`;
+    }).filter(Boolean).join('');
+    const valuesHtml = (model.values || []).map((value) => {
+      const amount = parseNumber(data.values?.[value.id] || 0);
+      return `<div class="preview-service-proposal-value"><span>${escapeHtml(value.label)}</span><strong>${formatMoney(amount)}</strong></div>`;
+    }).join('');
+    const intro = data.introduction ? `<div class="preview-service-proposal-intro"><h4>${escapeHtml(model.name)}</h4><p>${escapeHtml(data.introduction)}</p></div>` : '';
+    const conditions = data.conditions ? `<div class="preview-service-proposal-note"><h5>Condições gerais</h5><p>${escapeHtml(data.conditions)}</p></div>` : '';
+    const notes = data.notes ? `<div class="preview-service-proposal-note"><h5>Observações adicionais</h5><p>${escapeHtml(data.notes)}</p></div>` : '';
+    return `<section class="preview-service-proposal">${intro}${sectionsHtml ? `<div class="preview-service-proposal-grid">${sectionsHtml}</div>` : ''}${valuesHtml ? `<div class="preview-service-proposal-values">${valuesHtml}</div>` : ''}${conditions}${notes}</section>`;
+  }
+
+
+  function isNilsonServiceProposalModel(key = serviceProposalSelectedModel()) {
+    return NILSON_PROPOSAL_MODELS.has(String(key || ''));
+  }
+
+  function proposalMoneyWordsPtBr(value) {
+    const totalCents = Math.max(0, Math.round((parseNumber(value) + Number.EPSILON) * 100));
+    const reais = Math.floor(totalCents / 100);
+    const centavos = totalCents % 100;
+
+    const ate999 = (n) => {
+      const unidades = ['', 'Um', 'Dois', 'Três', 'Quatro', 'Cinco', 'Seis', 'Sete', 'Oito', 'Nove'];
+      const especiais = ['Dez', 'Onze', 'Doze', 'Treze', 'Quatorze', 'Quinze', 'Dezesseis', 'Dezessete', 'Dezoito', 'Dezenove'];
+      const dezenas = ['', '', 'Vinte', 'Trinta', 'Quarenta', 'Cinquenta', 'Sessenta', 'Setenta', 'Oitenta', 'Noventa'];
+      const centenas = ['', 'Cento', 'Duzentos', 'Trezentos', 'Quatrocentos', 'Quinhentos', 'Seiscentos', 'Setecentos', 'Oitocentos', 'Novecentos'];
+      n = Math.floor(n);
+      if (n === 0) return '';
+      if (n === 100) return 'Cem';
+      const parts = [];
+      if (n >= 100) {
+        parts.push(centenas[Math.floor(n / 100)]);
+        n %= 100;
+      }
+      if (n >= 10 && n < 20) {
+        parts.push(especiais[n - 10]);
+        n = 0;
+      } else if (n >= 20) {
+        parts.push(dezenas[Math.floor(n / 10)]);
+        n %= 10;
+      }
+      if (n > 0) parts.push(unidades[n]);
+      return parts.filter(Boolean).join(' e ');
+    };
+
+    const inteiro = (n) => {
+      n = Math.floor(n);
+      if (n === 0) return 'Zero';
+      const grupos = [
+        { divisor: 1000000000, singular: 'Bilhão', plural: 'Bilhões' },
+        { divisor: 1000000, singular: 'Milhão', plural: 'Milhões' },
+        { divisor: 1000, singular: 'Mil', plural: 'Mil' },
+      ];
+      const parts = [];
+      let resto = n;
+      grupos.forEach((group) => {
+        if (resto < group.divisor) return;
+        const quantidade = Math.floor(resto / group.divisor);
+        resto %= group.divisor;
+        if (group.divisor === 1000) {
+          parts.push(quantidade === 1 ? 'Mil' : `${ate999(quantidade)} Mil`);
+        } else {
+          parts.push(`${ate999(quantidade)} ${quantidade === 1 ? group.singular : group.plural}`);
+        }
+      });
+      if (resto) parts.push(ate999(resto));
+      return parts.join(' e ');
+    };
+
+    const reaisText = `${inteiro(reais)} ${reais === 1 ? 'Real' : 'Reais'}`;
+    if (!centavos) return reaisText;
+    return `${reaisText} e ${inteiro(centavos)} ${centavos === 1 ? 'Centavo' : 'Centavos'}`;
+  }
+
+  function proposalMoneyReference(value) {
+    return `${formatMoney(parseNumber(value))} (${proposalMoneyWordsPtBr(value)})`;
+  }
+
+  function nilsonProposalSellerData() {
+    const budget = state.current || {};
+    const selected = state.users.find((user) => String(user.id) === String($('orcamento-consultor')?.value || '')) || {};
+    return {
+      nome: selected.nome || budget.consultor_nome || state.meta?.usuario?.nome || 'Nilson',
+      telefone: selected.telefone || budget.consultor_telefone || '',
+    };
+  }
+
+  function nilsonProposalClientData() {
+    const budget = state.current || {};
+    const client = state.selectedClient || {};
+    return {
+      codigo: client.codigo || budget.cliente_codigo || '',
+      nome: client.nome || budget.cliente_razao_social || budget.cliente_nome || $('orcamento-cliente-busca')?.value || 'Cliente não selecionado',
+      telefone: client.whatsapp || client.telefone || budget.cliente_whatsapp || budget.cliente_telefone_documento || $('orcamento-contato-cliente')?.value || '',
+      endereco: budgetAddress() || '—',
+    };
+  }
+
+  function nilsonProposalSection(model, sectionId) {
+    return (model.sections || []).find((section) => section.id === sectionId) || { id: sectionId, title: '', services: [] };
+  }
+
+  function nilsonProposalSelected(data, sectionId, serviceId) {
+    const ids = Array.isArray(data.selected_services?.[sectionId]) ? data.selected_services[sectionId] : [];
+    return ids.includes(serviceId);
+  }
+
+  function nilsonMonitorServicesHtml(model, data, sectionId) {
+    const section = nilsonProposalSection(model, sectionId);
+    return `<section class="nilson-monitor-group">
+      <h3>${escapeHtml(section.title)}:</h3>
+      <div class="nilson-monitor-services">
+        ${(section.services || []).map((service) => `<div><b>${nilsonProposalSelected(data, section.id, service.id) ? '(X)' : '(*)'}</b><span>${escapeHtml(service.label)}</span></div>`).join('')}
+      </div>
+    </section>`;
+  }
+
+  function nilsonBulletServicesHtml(model, data, sectionId) {
+    const section = nilsonProposalSection(model, sectionId);
+    const selected = (section.services || []).filter((service) => nilsonProposalSelected(data, section.id, service.id));
+    return `<ul>${selected.map((service) => `<li>${escapeHtml(service.label)}</li>`).join('')}</ul>`;
+  }
+
+  function nilsonProposalHeaderHtml(client, seller, { colorMode = 'none' } = {}) {
+    const codeName = [client.codigo, client.nome].filter(Boolean).join('- ');
+    const dateLabel = localDate($('orcamento-data-emissao')?.value || new Date().toISOString().slice(0, 10));
+    const colorClass = colorMode === 'all' ? 'is-reference-red' : (colorMode === 'partial' ? 'is-reference-partial-red' : '');
+    return `
+      <header class="nilson-reference-header">
+        <img src="/frontend/img/propostas/segsis-modelo-logo.png" class="nilson-reference-logo" alt="SEG">
+        <div class="nilson-reference-company">
+          <h1>SISTEMAS E GERENCIAMENTOS INTEGRADOS</h1>
+          <strong>R. Francisco de Paula Simões, 131 - Vila Paulista - Taubaté SP 12031-050</strong>
+          <div><strong>Tel. (012) 974101924 * 3633-4871* E-mail:</strong> <u>callcenter.segsis@gmail.com</u></div>
+        </div>
+      </header>
+      <div class="nilson-reference-client-row ${colorClass}">
+        <div class="nilson-reference-client-main">
+          <strong><span class="nilson-reference-client-name">${escapeHtml(codeName || client.nome)}</span>${client.telefone ? `<span class="nilson-reference-client-phone">${escapeHtml(client.telefone)}</span>` : ''}</strong>
+          <span>${escapeHtml(client.endereco)}</span>
+        </div>
+        <div class="nilson-reference-client-side">
+          <strong>${escapeHtml(dateLabel)}</strong>
+          <strong>${escapeHtml(seller.nome || 'Nilson')}</strong>
+          <strong>${escapeHtml(seller.telefone || '')}</strong>
+        </div>
+      </div>`;
+  }
+
+  function nilsonProposalSignatureHtml() {
+    return `
+      <div class="nilson-reference-signature">
+        <div class="nilson-reference-consultant">ASS. CONSULTOR: ___________________________________</div>
+        <div class="nilson-reference-approval">
+          <strong>APROVAÇÃO:</strong>
+          <div>DATA: ____/____/____ <span>HORA: _____:_____</span></div>
+          <div>_______________________________________________________________</div>
+          <small>ASSINATURA CLIENTE</small>
+        </div>
+      </div>
+      <div class="nilson-reference-site">http://www.segsis.com.br</div>`;
+  }
+
+  function nilsonProposalStyles() {
+    return `<style>
+      .nilson-proposal-sheet{box-sizing:border-box;width:210mm;height:297mm;min-height:297mm;margin:0 auto;padding:9mm 9.5mm 36mm;background:#fff;color:#000;font-family:Calibri,Arial,sans-serif;font-size:8pt;line-height:1.22;position:relative;overflow:hidden}
+      .nilson-proposal-sheet *{box-sizing:border-box}.nilson-reference-header{height:29mm;position:relative;display:flex;align-items:flex-start;padding-left:34mm}
+      .nilson-reference-logo{position:absolute;left:3mm;top:0;width:29mm;height:29mm;object-fit:contain}
+      .nilson-reference-company{width:100%;padding-top:1.5mm;text-align:center;font-family:"Times New Roman",serif}
+      .nilson-reference-company h1{margin:0;font-size:16.6pt;line-height:1;font-weight:700;white-space:nowrap}
+      .nilson-reference-company strong,.nilson-reference-company div{font-size:10.5pt;line-height:1.12}.nilson-reference-company u{color:#0563c1}
+      .nilson-reference-client-row{height:13.5mm;border-top:.35mm solid #000;border-bottom:.35mm solid #000;display:grid;grid-template-columns:1fr 30mm;font-size:9.3pt}
+      .nilson-reference-client-main{padding:1.2mm 2mm;display:flex;flex-direction:column;gap:1mm;overflow:hidden}.nilson-reference-client-main strong,.nilson-reference-client-main>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nilson-reference-client-main strong{display:flex;gap:5mm}.nilson-reference-client-name,.nilson-reference-client-phone{display:inline-block}
+      .nilson-reference-client-side{border-left:.35mm solid #000;padding:.8mm 1.3mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5mm;font-size:8.5pt}
+      .nilson-reference-client-row.is-reference-red .nilson-reference-client-main strong,.nilson-reference-client-row.is-reference-red .nilson-reference-client-main>span,.nilson-reference-client-row.is-reference-red .nilson-reference-client-side strong{color:#f00}.nilson-reference-client-row.is-reference-red .nilson-reference-client-main>span,.nilson-reference-client-row.is-reference-partial-red .nilson-reference-client-main>span{font-weight:700}.nilson-reference-client-row.is-reference-partial-red .nilson-reference-client-name,.nilson-reference-client-row.is-reference-partial-red .nilson-reference-client-side strong:nth-child(2){color:#f00}
+      .nilson-reference-title{margin:4.2mm 0 3mm;text-align:center;font-size:12.5pt;font-weight:700}
+      .nilson-reference-intro{font-size:8.2pt;line-height:1.3;text-align:justify}.nilson-reference-intro p{margin:0 0 2.2mm}.nilson-reference-intro strong{text-decoration:underline}
+      .nilson-monitor-columns{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:1mm}.nilson-monitor-column{min-width:0}
+      .nilson-monitor-group{margin:0 0 2.4mm}.nilson-monitor-group h3{margin:0 0 1.3mm;font-size:8.2pt;font-weight:700}.nilson-monitor-services{display:grid;gap:.65mm}
+      .nilson-monitor-services>div{display:grid;grid-template-columns:7mm 1fr;gap:.3mm;font-size:7.75pt;line-height:1.2}.nilson-monitor-services b{font-weight:400}
+      .nilson-reference-observations{margin-top:1.3mm;font-size:7.15pt;line-height:1.25}.nilson-reference-observations h4{margin:0 0 .8mm;font-size:7.7pt}.nilson-reference-observations div{margin:.35mm 0}
+      .nilson-reference-footnotes{margin-top:2.2mm;font-size:6.35pt;line-height:1.22}.nilson-reference-footnotes div{margin:.28mm 0}
+      .nilson-reference-promo{display:block;width:100%;max-height:39mm;object-fit:contain;margin-top:1.2mm}
+      .nilson-reference-values{margin-top:2.7mm;font-size:9.5pt;font-weight:700}.nilson-monitor-sheet>.nilson-reference-values{position:absolute;left:9.5mm;right:9.5mm;bottom:31mm;margin:0}.nilson-reference-value{display:flex;align-items:flex-end;gap:1.5mm;margin:1.2mm 0}
+      .nilson-reference-value .label{white-space:nowrap}.nilson-reference-value .dots{flex:1;border-bottom:1px dotted #000;transform:translateY(-1.2mm)}.nilson-reference-value .amount{white-space:nowrap}
+      .nilson-reference-signature{position:absolute;left:9.5mm;right:9.5mm;bottom:10mm;height:18mm;border:.35mm solid #000;display:grid;grid-template-columns:44% 56%;font-size:7.4pt;font-weight:700}
+      .nilson-reference-consultant{display:flex;align-items:flex-end;padding:0 2mm 4.3mm}
+      .nilson-reference-approval{border-left:.35mm solid #000;padding:1.2mm 2mm;text-align:left;position:relative}.nilson-reference-approval>strong{display:block;margin-bottom:2mm}.nilson-reference-approval>div:nth-of-type(1){display:flex;justify-content:space-between;gap:5mm;text-align:left}.nilson-reference-approval>div:nth-of-type(1) span{float:none}.nilson-reference-approval>div:nth-of-type(2){margin-top:2.5mm;text-align:center}.nilson-reference-approval small{display:block;text-align:center;margin-top:.5mm;font-size:7.2pt}
+      .nilson-reference-site{position:absolute;left:0;right:0;bottom:4.2mm;text-align:center;font-size:10pt}
+      .nilson-tele-intro{margin:3.5mm 0 2.2mm;font-size:8.1pt;line-height:1.32;text-align:justify}.nilson-tele-intro p{margin:0 0 2.2mm}.nilson-tele-intro strong{text-decoration:underline}
+      .nilson-tele-grid{display:grid;grid-template-columns:1fr 1fr;border:.35mm solid #000}.nilson-tele-box{padding:1.3mm 1.6mm;font-size:7.55pt;line-height:1.25;min-height:116mm;display:flex;flex-direction:column}.nilson-tele-box+.nilson-tele-box{border-left:.35mm solid #000}
+      .nilson-tele-box h3{font-size:8pt;margin:0 0 1.5mm}.nilson-tele-box p{margin:0 0 1.7mm;text-align:justify}.nilson-tele-box h4{font-size:7.7pt;margin:0 0 1mm;text-decoration:underline}.nilson-tele-box ul{margin:0 0 2mm 5.5mm;padding-left:4mm}.nilson-tele-box li{margin:.45mm 0}
+      .nilson-tele-box .nilson-reference-value{font-size:8.1pt;margin-top:auto}.nilson-tele-observations{font-size:7.2pt;margin-top:1.8mm}.nilson-tele-observations strong{display:block;margin-bottom:.8mm}.nilson-tele-observations div{margin:.35mm 0}
+      .nilson-tele-general{margin:2.3mm .8mm 1.5mm;font-size:7.2pt;line-height:1.25}.nilson-tele-general h4{font-size:7.8pt;margin:0 0 1mm}.nilson-tele-general div{margin:.35mm 0}
+      @page{size:A4 portrait;margin:0}
+      @media print{html,body{margin:0!important;padding:0!important;background:#fff!important}.document-preview{padding:0!important;margin:0!important}.nilson-proposal-sheet{margin:0;width:210mm;min-height:297mm;box-shadow:none}}
+    </style>`;
+  }
+
+  function buildNilsonMonitorProposalHtml(key, model, data, client, seller) {
+    const conditions = String(data.conditions || model.conditions || '');
+    const blocks = conditions.split(/\n\s*\n/);
+    const observationLines = (blocks.shift() || '').split(/\r?\n/).filter(Boolean);
+    const footnoteLines = blocks.join('\n').split(/\r?\n/).filter(Boolean);
+    const colorMode = key === 'monitoramento_24h_comodato' ? 'all' : 'partial';
+    const values = data.values || {};
+
+    return `${nilsonProposalStyles()}
+      <section class="nilson-proposal-sheet nilson-monitor-sheet">
+        ${nilsonProposalHeaderHtml(client, seller, { colorMode })}
+        <h2 class="nilson-reference-title">SERVIÇOS DE MONITORAMENTO 24 HORAS</h2>
+        <div class="nilson-reference-intro">
+          ${String(data.introduction || model.introduction || '').split(/\n\s*\n/).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('')}
+          <strong>Serviços Oferecidos:</strong>
+        </div>
+        <div class="nilson-monitor-columns">
+          <div class="nilson-monitor-column">
+            ${nilsonMonitorServicesHtml(model, data, 'gerenciamento_padrao')}
+            ${nilsonMonitorServicesHtml(model, data, 'controle_acesso')}
+            ${nilsonMonitorServicesHtml(model, data, 'ocorrencias_alarme')}
+            <div class="nilson-reference-observations">
+              <h4>Observações:</h4>
+              ${observationLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}
+            </div>
+            <div class="nilson-reference-footnotes">
+              ${footnoteLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}
+              ${data.notes ? `<div>${escapeHtml(data.notes)}</div>` : ''}
+            </div>
+          </div>
+          <div class="nilson-monitor-column">
+            ${nilsonMonitorServicesHtml(model, data, 'servicos_apoio')}
+            ${nilsonMonitorServicesHtml(model, data, 'aplicativo')}
+            ${nilsonMonitorServicesHtml(model, data, 'pre_programados')}
+            <img src="/frontend/img/propostas/my-security-modelo.png" class="nilson-reference-promo" alt="Aplicativo My Security">
+          </div>
+        </div>
+        <div class="nilson-reference-values">
+          <div class="nilson-reference-value"><span class="label">&gt;&gt;&gt;&gt;&gt;&gt; VALOR IMPLANTAÇÃO (Único)</span><span class="dots"></span><span class="amount">${escapeHtml(proposalMoneyReference(values.implantacao || 0))}</span></div>
+          <div class="nilson-reference-value"><span class="label">&gt;&gt;&gt;&gt;&gt;&gt; VALOR SERVIÇOS MONIT24HS (Mensal)</span><span class="dots"></span><span class="amount">${escapeHtml(proposalMoneyReference(values.mensalidade || 0))}</span></div>
+        </div>
+        ${nilsonProposalSignatureHtml()}
+      </section>`;
+  }
+
+  function buildNilsonTeleProposalHtml(model, data, client, seller) {
+    const values = data.values || {};
+    const conditionText = String(data.conditions || model.conditions || '');
+    const split = conditionText.split(/Condições Gerais:\s*/i);
+    const leftObservationLines = (split[0] || '').split(/\r?\n/).filter(Boolean);
+    const generalLines = (split.slice(1).join('Condições Gerais:') || '').split(/\r?\n/).filter(Boolean);
+
+    return `${nilsonProposalStyles()}
+      <section class="nilson-proposal-sheet nilson-tele-sheet">
+        ${nilsonProposalHeaderHtml(client, seller)}
+        <h2 class="nilson-reference-title">SERVIÇOS DE MONITORAMENTO 24 HORAS - TELE ASSISTÊNCIA</h2>
+        <div class="nilson-tele-intro">
+          ${String(data.introduction || model.introduction || '').split(/\n\s*\n/).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('')}
+          <strong>Serviços Oferecidos:</strong>
+        </div>
+        <div class="nilson-tele-grid">
+          <section class="nilson-tele-box">
+            <h3>1- Monitoramento Emergencial:</h3>
+            <p>Sistema de Monitoramento Eletrônico 24 horas para Recebimentos de Eventos Emergenciais através do Acionamento de Botão de Ajuda.</p>
+            <h4>Serviços:</h4>
+            ${nilsonBulletServicesHtml(model, data, 'monitoramento_emergencial')}
+            <div class="nilson-reference-value"><span class="label">&gt;&gt;&gt; Implantação</span><span class="dots"></span><span class="amount">${escapeHtml(proposalMoneyReference(values.implantacao_emergencial || 0))}</span></div>
+            <div class="nilson-tele-observations">
+              <strong>Observações:</strong>
+              ${leftObservationLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}
+            </div>
+          </section>
+          <section class="nilson-tele-box">
+            <h3>2- Sistema de CFTV com Monitoramento via Aplicativo:</h3>
+            <p>Sistema de CFTV composto por DVR e 04 Cameras de Alta Resolução, Full HD (1080P).</p>
+            <h4>Para o Cliente:</h4>
+            ${nilsonBulletServicesHtml(model, data, 'cftv_cliente')}
+            <h4>Suporte Central Monitoramento:</h4>
+            <p>Monitoramento 24 horas para os Eventos:</p>
+            ${nilsonBulletServicesHtml(model, data, 'cftv_central')}
+            <div class="nilson-reference-value"><span class="label">&gt;&gt;&gt; Implantação</span><span class="dots"></span><span class="amount">${escapeHtml(proposalMoneyReference(values.implantacao_cftv || 0))}</span></div>
+            <div class="nilson-reference-value"><span class="label">&gt;&gt;&gt; Mensal</span><span class="dots"></span><span class="amount">${escapeHtml(proposalMoneyReference(values.mensalidade_cftv || 0))}</span></div>
+            <div class="nilson-tele-observations">
+              <strong>Observações:</strong>
+              <div>1- Sistema Requer Internet Banda Larga no Imovel e Visualizado remota.</div>
+              <div>2- Local Instalação Cameras: Quarto/Cozinha/Sala/Corredor</div>
+            </div>
+          </section>
+        </div>
+        <div class="nilson-tele-general">
+          <h4>Condições Gerais: Observações:</h4>
+          ${generalLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}
+          ${data.notes ? `<div>${escapeHtml(data.notes)}</div>` : ''}
+        </div>
+        ${nilsonProposalSignatureHtml()}
+      </section>`;
+  }
+
+  function buildNilsonServiceProposalHtml() {
+    const key = serviceProposalSelectedModel();
+    const model = serviceProposalDefinition(key);
+    const data = collectServiceProposalData();
+    const client = nilsonProposalClientData();
+    const seller = nilsonProposalSellerData();
+    if (key === 'teleassistencia_idosos') return buildNilsonTeleProposalHtml(model, data, client, seller);
+    return buildNilsonMonitorProposalHtml(key, model, data, client, seller);
+  }
+
   function resetBudgetForm() {
     state.currentId = null;
     state.current = null;
@@ -595,6 +1350,8 @@
     state.payments = [];
     state.selectedClient = null;
     state.calculation = null;
+    state.serviceProposalModel = 'padrao';
+    state.serviceProposalData = {};
     $('form-orcamento').reset();
     $('orcamento-cliente-id').value = '';
     syncClientEditButton();
@@ -637,6 +1394,9 @@
     updateStatusPreview();
     updateTotals();
     renderHistory([]);
+    renderServiceProposal('padrao', {});
+    setBudgetDirty(false);
+    closeBudgetActionsMenu();
   }
 
   async function openNewBudget() {
@@ -648,6 +1408,7 @@
       const result = await api(`${API}/proximo-codigo`);
       $('orcamento-codigo').value = result.codigo || '';
       if ($('budget-sidebar-code')) $('budget-sidebar-code').textContent = result.codigo || 'Código não gerado';
+      setBudgetDirty(false);
     } catch (_) {}
   }
 
@@ -660,6 +1421,7 @@
       state.payments = (budget.pagamentos || []).map(normalizePayment);
       state.selectedClient = budget.cliente_id ? {
         id: budget.cliente_id,
+        codigo: budget.cliente_codigo || '',
         nome: budget.cliente_razao_social || budget.cliente_nome,
         nome_fantasia: budget.cliente_nome_fantasia || budget.cliente_nome,
         cpf_cnpj: budget.cliente_documento,
@@ -692,6 +1454,8 @@
       syncFinanceiroActions(budget);
       setTab('dados');
       openOverlay('budget-modal');
+      setBudgetDirty(false);
+      closeBudgetActionsMenu();
     } catch (error) {
       toast(error.message, 'error');
     }
@@ -724,10 +1488,12 @@
       toast('Não há produtos vinculados ao cadastro neste orçamento.', 'error');
       return;
     }
-    const confirmed = confirm(
-      `Atualizar os preços de compra e venda de ${linkedItems.length} item(ns) pela tabela atual de produtos?\n\n` +
-      'Quantidade, desconto, descrição e observações serão mantidos. A alteração será salva no orçamento.'
-    );
+    const confirmed = await budgetConfirm({
+      title: 'Atualizar preços do orçamento',
+      message: `Atualizar os preços de compra e venda de ${linkedItems.length} item(ns) pela tabela atual de produtos?\n\nQuantidade, desconto, descrição e observações serão mantidos. A alteração será salva no orçamento.`,
+      confirmText: 'Atualizar preços',
+      cancelText: 'Cancelar',
+    });
     if (!confirmed) return;
 
     try {
@@ -813,6 +1579,7 @@
     if (!state.payments.length) addDefaultPayment();
     renderPayments();
     renderHistory(budget.historico || []);
+    renderServiceProposal(budget.proposta_modelo || 'padrao', budget.proposta_comercial || {});
     updateStatusPreview();
     syncRefreshPricesButton(budget.status);
     updateTotals();
@@ -1778,6 +2545,9 @@
         <td style="text-align:right">${formatMoney(itemTotal(item))}</td>
       </tr>`).join('');
     const payments = state.payments.map((payment) => `<li><strong>${escapeHtml(payment.nome)}</strong>: ${escapeHtml(paymentDescription(payment))}</li>`).join('');
+    const itemsAndSummary = state.items.length ? `
+      <table class="preview-items"><thead><tr>${state.meta.configuracao?.mostrar_codigo !== false ? '<th>Código</th>' : ''}<th>Descrição</th><th style="text-align:center">Qtd.</th><th style="text-align:center">Un.</th><th style="text-align:right">Unitário</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="preview-summary"><div class="preview-summary-row"><span>Subtotal</span><strong>${formatMoney(totals.subtotal)}</strong></div>${totals.discount > 0 ? `<div class="preview-summary-row"><span>Desconto</span><strong>-${formatMoney(totals.discount)}</strong></div>` : ''}${totals.freight > 0 ? `<div class="preview-summary-row"><span>Frete</span><strong>${formatMoney(totals.freight)}</strong></div>` : ''}${totals.addition > 0 ? `<div class="preview-summary-row"><span>Acréscimo</span><strong>${formatMoney(totals.addition)}</strong></div>` : ''}<div class="preview-summary-total"><span>VALOR TOTAL</span><strong>${formatMoney(totals.total)}</strong></div></div>` : '';
     const cover = $('orcamento-usar-capa').checked ? `
       <section class="preview-cover">
         <div class="preview-cover-brand">${logo}<div><strong>${escapeHtml(company.fantasia || company.razao || 'Sua empresa')}</strong><p>${escapeHtml(company.endereco || companyAddress())}</p></div></div>
@@ -1798,8 +2568,8 @@
           <div class="preview-field"><label>Endereço/local</label><span>${escapeHtml(budgetAddress() || '—')}</span></div>
           <div class="preview-field"><label>Consultor</label><span>${escapeHtml(state.users.find((u) => String(u.id) === $('orcamento-consultor').value)?.nome || '—')}</span></div>
         </div>
-        <table class="preview-items"><thead><tr>${state.meta.configuracao?.mostrar_codigo !== false ? '<th>Código</th>' : ''}<th>Descrição</th><th style="text-align:center">Qtd.</th><th style="text-align:center">Un.</th><th style="text-align:right">Unitário</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows || `<tr><td colspan="6">Nenhum item adicionado.</td></tr>`}</tbody></table>
-        <div class="preview-summary"><div class="preview-summary-row"><span>Subtotal</span><strong>${formatMoney(totals.subtotal)}</strong></div>${totals.discount > 0 ? `<div class="preview-summary-row"><span>Desconto</span><strong>-${formatMoney(totals.discount)}</strong></div>` : ''}${totals.freight > 0 ? `<div class="preview-summary-row"><span>Frete</span><strong>${formatMoney(totals.freight)}</strong></div>` : ''}${totals.addition > 0 ? `<div class="preview-summary-row"><span>Acréscimo</span><strong>${formatMoney(totals.addition)}</strong></div>` : ''}<div class="preview-summary-total"><span>VALOR TOTAL</span><strong>${formatMoney(totals.total)}</strong></div></div>
+        ${serviceProposalPreviewHtml()}
+        ${itemsAndSummary}
         ${payments ? `<section class="preview-section"><h4>Formas de pagamento</h4><ul class="preview-payments">${payments}</ul></section>` : ''}
         ${$('orcamento-prazo-execucao').value ? `<section class="preview-section"><h4>Prazo de entrega/execução</h4><p>${escapeHtml($('orcamento-prazo-execucao').value)}</p></section>` : ''}
         ${$('orcamento-condicoes').value ? `<section class="preview-section"><h4>Condições gerais</h4><p>${escapeHtml($('orcamento-condicoes').value)}</p></section>` : ''}
@@ -1810,6 +2580,7 @@
 
 
   function usesDavDocument() {
+    if (serviceProposalSelectedModel() !== 'padrao') return false;
     return String(state.meta.configuracao?.modelo_documento || 'padrao').toLowerCase() === 'dav';
   }
 
@@ -1988,6 +2759,7 @@
   }
 
   function buildPreviewHtml() {
+    if (isNilsonServiceProposalModel()) return buildNilsonServiceProposalHtml();
     return usesDavDocument() ? buildDavPreviewHtml() : buildStandardPreviewHtml();
   }
 
@@ -2372,12 +3144,25 @@
   }
 
   async function regenerateProposalClientLink() {
-    if (!window.confirm('Gerar uma nova versão? O link anterior deixará de funcionar.')) return;
+    if (!await budgetConfirm({
+      title: 'Gerar nova versão do link',
+      message: 'O link anterior deixará de funcionar. Deseja gerar uma nova versão?',
+      confirmText: 'Gerar nova versão',
+      cancelText: 'Cancelar',
+      tone: 'danger',
+    })) return;
     await saveProposalClientPreparation();
   }
 
   async function deactivateProposalClientLink() {
-    if (!state.currentId || !window.confirm('Desativar este link? O cliente não conseguirá mais abrir a proposta por ele.')) return;
+    if (!state.currentId) return;
+    if (!await budgetConfirm({
+      title: 'Desativar link da proposta',
+      message: 'O cliente não conseguirá mais abrir a proposta por este link. Deseja desativá-lo?',
+      confirmText: 'Desativar link',
+      cancelText: 'Cancelar',
+      tone: 'danger',
+    })) return;
     const button = $('btn-desativar-proposal-link');
     try {
       setButtonLoading(button, true, 'Desativando...');
@@ -2465,7 +3250,12 @@
     if (!state.currentId) return;
     const button = $('btn-gerar-contract-client');
     const regenerar = button.dataset.regenerar === 'true';
-    if (regenerar && !window.confirm('Gerar uma nova versão do contrato com os dados atuais do cliente? A versão anterior continuará registrada no histórico.')) return;
+    if (regenerar && !await budgetConfirm({
+      title: 'Gerar nova versão do contrato',
+      message: 'Gerar uma nova versão do contrato com os dados atuais do cliente? A versão anterior continuará registrada no histórico.',
+      confirmText: 'Gerar nova versão',
+      cancelText: 'Cancelar',
+    })) return;
     try {
       setButtonLoading(button, true, regenerar ? 'Gerando nova versão...' : 'Gerando contrato...');
       const info = await api(`${API}/${state.currentId}/contrato/gerar`, {
@@ -2556,7 +3346,12 @@
 
   async function sendContractToSignature() {
     if (!state.currentId) return;
-    if (!window.confirm('Disponibilizar esta versão do contrato na Área do Cliente SEG para assinatura? Enquanto estiver aguardando assinatura ela ficará bloqueada para regeneração.')) return;
+    if (!await budgetConfirm({
+      title: 'Enviar contrato para assinatura',
+      message: 'Disponibilizar esta versão do contrato na Área do Cliente SEG para assinatura? Enquanto estiver aguardando assinatura ela ficará bloqueada para regeneração.',
+      confirmText: 'Enviar para assinatura',
+      cancelText: 'Cancelar',
+    })) return;
     const button = $('btn-enviar-assinatura-contract-client');
     try {
       setButtonLoading(button, true, 'Enviando...');
@@ -2574,7 +3369,13 @@
 
   async function cancelContractSignature() {
     if (!state.currentId) return;
-    if (!window.confirm('Cancelar a solicitação de assinatura desta versão?')) return;
+    if (!await budgetConfirm({
+      title: 'Cancelar assinatura',
+      message: 'Cancelar a solicitação de assinatura desta versão?',
+      confirmText: 'Cancelar solicitação',
+      cancelText: 'Voltar',
+      tone: 'danger',
+    })) return;
     const button = $('btn-cancelar-assinatura-contract-client');
     try {
       setButtonLoading(button, true, 'Cancelando...');
@@ -2623,6 +3424,8 @@
       prazo_execucao: $('orcamento-prazo-execucao').value.trim() || null,
       condicoes: $('orcamento-condicoes').value.trim() || null,
       observacoes: $('orcamento-observacoes').value.trim() || null,
+      proposta_modelo: serviceProposalSelectedModel(),
+      proposta_comercial: collectServiceProposalData(),
       pagamentos: state.payments,
       usar_capa: $('orcamento-usar-capa').checked,
       titulo_capa: $('orcamento-titulo-capa').value.trim() || null,
@@ -2636,7 +3439,7 @@
     if (!payload.titulo) { setTab('dados'); $('orcamento-titulo').focus(); throw new Error('Informe o título do orçamento.'); }
     if (!payload.emitente_id) { setTab('dados'); $('orcamento-emitente-id')?.focus(); throw new Error('Selecione a empresa emitente.'); }
     if (!payload.cliente_id) { setTab('dados'); $('orcamento-cliente-busca').focus(); throw new Error('Selecione um cliente.'); }
-    if (!payload.itens.length) { setTab('itens'); throw new Error('Adicione pelo menos um produto ou serviço.'); }
+    if (!payload.itens.length && payload.proposta_modelo === 'padrao') { setTab('itens'); throw new Error('Adicione pelo menos um produto ou serviço.'); }
     if (payload.itens.some((item) => !String(item.descricao || '').trim())) { setTab('itens'); throw new Error('Preencha a descrição de todos os itens.'); }
   }
 
@@ -2659,7 +3462,12 @@
     const texto = state.current.financeiro_status === 'devolvido'
       ? `Reenviar a venda ${state.current.codigo} ao Financeiro com os dados atuais?`
       : `Fechar a venda ${state.current.codigo} e enviar ao Financeiro para conferência?`;
-    if (!confirm(`${texto}\n\nAs alterações abertas serão salvas e o orçamento ficará bloqueado enquanto estiver em conferência.`)) return;
+    if (!await budgetConfirm({
+      title: state.current.financeiro_status === 'devolvido' ? 'Reenviar ao Financeiro' : 'Fechar venda',
+      message: `${texto}\n\nAs alterações abertas serão salvas e o orçamento ficará bloqueado enquanto estiver em conferência.`,
+      confirmText: state.current.financeiro_status === 'devolvido' ? 'Reenviar' : 'Fechar e enviar',
+      cancelText: 'Cancelar',
+    })) return;
 
     const button = $('btn-enviar-financeiro');
     try {
@@ -2726,6 +3534,8 @@
       });
       state.currentId = budget.id;
       state.current = budget;
+      setBudgetDirty(false);
+      closeBudgetActionsMenu();
       toast('Orçamento salvo com sucesso.');
       closeOverlay('budget-modal');
       await loadBudgets();
@@ -2763,7 +3573,13 @@
 
     try {
       const template = await api(`${API}/modelos/${templateId}`);
-      if (state.items.length && !confirm('Aplicar o modelo substituirá os itens atuais. Continuar?')) {
+      if (state.items.length && !await budgetConfirm({
+        title: 'Aplicar modelo de orçamento',
+        message: 'Aplicar este modelo substituirá os itens atuais. Deseja continuar?',
+        confirmText: 'Aplicar modelo',
+        cancelText: 'Cancelar',
+        tone: 'danger',
+      })) {
         if (select) select.value = previousTemplateId ? String(previousTemplateId) : '';
         return;
       }
@@ -2789,7 +3605,13 @@
   }
 
   async function deleteBudget(id) {
-    if (!confirm('Excluir este orçamento permanentemente?')) return;
+    if (!await budgetConfirm({
+      title: 'Excluir orçamento',
+      message: 'Excluir este orçamento permanentemente? Esta ação não poderá ser desfeita.',
+      confirmText: 'Excluir orçamento',
+      cancelText: 'Cancelar',
+      tone: 'danger',
+    })) return;
     try {
       await api(`${API}/${id}`, { method: 'DELETE' });
       toast('Orçamento excluído.');
@@ -2910,7 +3732,7 @@
     if (usesDavDocument()) {
       return `*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;font-family:Arial,sans-serif;color:#000}.document-preview{width:auto;margin:0;background:#fff}.dav-document{width:100%;padding:0;background:#fff;color:#000;font-family:Arial,sans-serif;font-size:${s(9.5)}}.dav-header{position:relative;min-height:${s(18,'mm')};padding:0 31mm ${s(2,'mm')} 0;border-bottom:1px solid #000}.dav-company-title{text-align:center}.dav-company-title>strong{display:inline-block;padding:0 ${s(2,'mm')};border-bottom:1px solid #000;font-size:${s(13)};font-weight:600}.dav-company-title>span{display:block;margin-top:${s(1,'mm')};font-size:${s(9)}}.dav-company-title h1{margin:${s(3,'mm')} 0 0;font-size:${s(16)};line-height:1.1}.dav-document-meta{position:absolute;top:0;right:0;width:30mm;font-size:${s(8.5)}}.dav-document-meta div{display:grid;grid-template-columns:12mm 1fr;gap:${s(1,'mm')};min-height:${s(4,'mm')};align-items:center}.dav-document-meta b,.dav-document-meta span{text-align:right}.dav-client-table,.dav-items-table,.dav-totals-table{width:100%;border-collapse:collapse;table-layout:fixed}.dav-client-table td{min-height:${s(8,'mm')};padding:${s(1,'mm')} ${s(1.2,'mm')};border:1px solid #000;vertical-align:top}.dav-client-table label{display:block;font-size:${s(8)};font-weight:700;line-height:1.15}.dav-client-table strong{display:block;margin-top:${s(.6,'mm')};font-size:${s(9)};font-weight:400;line-height:1.25;overflow-wrap:anywhere}.dav-reference-line{min-height:${s(7,'mm')};padding:${s(1.5,'mm')} ${s(1,'mm')};border:1px solid #000;border-top:0;font-size:${s(9)};overflow-wrap:anywhere}.dav-items-table thead{display:table-header-group}.dav-items-table tr{break-inside:avoid;page-break-inside:avoid}.dav-items-table th{padding:${s(1.2,'mm')} ${s(.7,'mm')};border-bottom:1px solid #000;font-size:${s(8)};line-height:1.15;text-align:center;vertical-align:bottom}.dav-items-table th:nth-child(1){width:9%}.dav-items-table th:nth-child(2){width:35%;text-align:left}.dav-items-table th:nth-child(3){width:6%}.dav-items-table th:nth-child(4){width:7%}.dav-items-table th:nth-child(5){width:11%}.dav-items-table th:nth-child(6){width:10%}.dav-items-table th:nth-child(7){width:11%}.dav-items-table th:nth-child(8){width:11%}.dav-items-table td{padding:${s(1.5,'mm')} ${s(.8,'mm')};border-bottom:.25mm solid #aaa;font-size:${s(9)};line-height:1.25;vertical-align:top}.dav-description strong{font-weight:400}.dav-description small{display:block;margin-top:${s(.5,'mm')};font-size:${s(8)}}.dav-center{text-align:center}.dav-number{text-align:right;white-space:nowrap}.dav-empty{text-align:center}.dav-totals-table,.dav-observations,.dav-footer{break-inside:avoid;page-break-inside:avoid}.dav-totals-table td{min-height:${s(15,'mm')};border:1px solid #000;vertical-align:middle}.dav-total-spacer{width:13%}.dav-order-total{width:50%;padding:${s(1.5,'mm')} ${s(2,'mm')}}.dav-order-total>div{width:48%;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:${s(1,'mm')};vertical-align:middle}.dav-order-total b,.dav-note-total b{font-size:${s(8.5)}}.dav-order-total strong,.dav-note-total strong{font-size:${s(9.5)}}.dav-order-total span{font-size:${s(8)}}.dav-total-middle{width:15%}.dav-note-total{width:22%;padding:${s(1,'mm')} ${s(2,'mm')}}.dav-note-total div{display:flex;justify-content:space-between;gap:${s(2,'mm')};padding:${s(.7,'mm')} 0}.dav-observations{min-height:${s(35,'mm')};padding:${s(2.5,'mm')} ${s(2,'mm')};border:1px solid #000;border-top:0}.dav-observations h2{margin:0 0 ${s(4,'mm')};font-size:${s(9)}}.dav-observation-lines{font-size:${s(9)};line-height:1.45}.dav-footer{min-height:${s(5,'mm')};padding:${s(1,'mm')};border:1px solid #000;border-top:0;background:#edf7fc;text-align:center;font-size:${s(8)}}@page{size:A4 portrait;margin:8mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
     }
-    return `*{box-sizing:border-box}body{margin:0;background:#fff;font-family:Arial,sans-serif;color:#263746}.document-preview{width:auto;margin:0;background:#fff}.preview-cover{min-height:265mm;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always}.preview-cover-brand,.preview-doc-brand{display:flex;align-items:center;gap:${s(16,'px')}}.preview-cover-brand img{width:${s(76,'px')};max-height:${s(76,'px')};object-fit:contain}.preview-cover-title{margin:auto 0}.preview-cover-title h1{margin:0 0 ${s(14,'px')};color:var(--preview-color);font-size:${s(42,'px')}}.preview-cover-title p{color:#667783;font-size:${s(18,'px')}}.preview-cover-client{padding-top:${s(24,'px')};border-top:2px solid var(--preview-color)}.preview-doc-header{display:flex;justify-content:space-between;gap:${s(20,'px')};padding-bottom:${s(20,'px')};border-bottom:3px solid var(--preview-color)}.preview-doc-brand img{width:${s(58,'px')};max-height:${s(58,'px')};object-fit:contain}.preview-doc-brand h2{margin:0 0 ${s(4,'px')};font-size:${s(18,'px')}}.preview-doc-brand p,.preview-doc-meta p{margin:${s(2,'px')} 0;color:#687884;font-size:${s(10,'px')}}.preview-doc-meta{text-align:right}.preview-doc-meta h1{margin:0 0 ${s(6,'px')};color:var(--preview-color);font-size:${s(22,'px')}}.preview-title{margin:${s(22,'px')} 0 ${s(15,'px')}}.preview-title h3{margin:0 0 ${s(4,'px')};font-size:${s(17,'px')}}.preview-title p{margin:0;color:#71808b;font-size:${s(10,'px')}}.preview-client-box{display:grid;grid-template-columns:1fr 1fr;gap:${s(8,'px')} ${s(24,'px')};margin-bottom:${s(18,'px')};padding:${s(14,'px')} ${s(16,'px')};border:1px solid #dfe6ea;border-radius:8px;background:#f8fafb}.preview-field label{display:block;color:#82909a;font-size:${s(8,'px')};text-transform:uppercase}.preview-field strong,.preview-field span{font-size:${s(10,'px')}}.preview-items{width:100%;border-collapse:collapse}.preview-items thead{display:table-header-group}.preview-items tr{break-inside:avoid;page-break-inside:avoid}.preview-items th{padding:${s(8,'px')} ${s(7,'px')};color:#fff;background:#365465;font-size:${s(8,'px')};text-align:left}.preview-items td{padding:${s(9,'px')} ${s(7,'px')};border-bottom:1px solid #e2e8eb;font-size:${s(9,'px')};vertical-align:top}.preview-items td small{display:block;margin-top:${s(3,'px')};color:#84919a}.preview-summary{width:310px;margin:${s(18,'px')} 0 0 auto}.preview-summary-row{display:flex;justify-content:space-between;padding:${s(7,'px')} 0;border-bottom:1px solid #e2e8eb;font-size:${s(9,'px')}}.preview-summary-total{margin-top:${s(8,'px')};padding:${s(12,'px')} ${s(14,'px')};border-radius:7px;color:#fff;background:var(--preview-color)}.preview-summary-total span{font-size:${s(8,'px')}}.preview-summary-total strong{display:block;margin-top:${s(3,'px')};font-size:${s(17,'px')}}.preview-section{margin-top:${s(18,'px')};padding:${s(13,'px')} ${s(15,'px')};border:1px solid #dfe6ea;border-radius:8px;break-inside:avoid;page-break-inside:avoid}.preview-section h4{margin:0 0 ${s(7,'px')};font-size:${s(10,'px')}}.preview-section p,.preview-section li{font-size:${s(9,'px')};line-height:1.55;white-space:pre-line}.preview-footer{margin-top:${s(24,'px')};padding-top:${s(12,'px')};border-top:1px solid #e0e7eb;display:flex;justify-content:space-between;gap:${s(20,'px')};color:#88949c;font-size:${s(8,'px')}}@page{size:A4 portrait;margin:10mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+    return `*{box-sizing:border-box}body{margin:0;background:#fff;font-family:Arial,sans-serif;color:#263746}.document-preview{width:auto;margin:0;background:#fff}.preview-cover{min-height:265mm;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always}.preview-cover-brand,.preview-doc-brand{display:flex;align-items:center;gap:${s(16,'px')}}.preview-cover-brand img{width:${s(76,'px')};max-height:${s(76,'px')};object-fit:contain}.preview-cover-title{margin:auto 0}.preview-cover-title h1{margin:0 0 ${s(14,'px')};color:var(--preview-color);font-size:${s(42,'px')}}.preview-cover-title p{color:#667783;font-size:${s(18,'px')}}.preview-cover-client{padding-top:${s(24,'px')};border-top:2px solid var(--preview-color)}.preview-doc-header{display:flex;justify-content:space-between;gap:${s(20,'px')};padding-bottom:${s(20,'px')};border-bottom:3px solid var(--preview-color)}.preview-doc-brand img{width:${s(58,'px')};max-height:${s(58,'px')};object-fit:contain}.preview-doc-brand h2{margin:0 0 ${s(4,'px')};font-size:${s(18,'px')}}.preview-doc-brand p,.preview-doc-meta p{margin:${s(2,'px')} 0;color:#687884;font-size:${s(10,'px')}}.preview-doc-meta{text-align:right}.preview-doc-meta h1{margin:0 0 ${s(6,'px')};color:var(--preview-color);font-size:${s(22,'px')}}.preview-title{margin:${s(22,'px')} 0 ${s(15,'px')}}.preview-title h3{margin:0 0 ${s(4,'px')};font-size:${s(17,'px')}}.preview-title p{margin:0;color:#71808b;font-size:${s(10,'px')}}.preview-client-box{display:grid;grid-template-columns:1fr 1fr;gap:${s(8,'px')} ${s(24,'px')};margin-bottom:${s(18,'px')};padding:${s(14,'px')} ${s(16,'px')};border:1px solid #dfe6ea;border-radius:8px;background:#f8fafb}.preview-field label{display:block;color:#82909a;font-size:${s(8,'px')};text-transform:uppercase}.preview-field strong,.preview-field span{font-size:${s(10,'px')}}.preview-items{width:100%;border-collapse:collapse}.preview-items thead{display:table-header-group}.preview-items tr{break-inside:avoid;page-break-inside:avoid}.preview-items th{padding:${s(8,'px')} ${s(7,'px')};color:#fff;background:#365465;font-size:${s(8,'px')};text-align:left}.preview-items td{padding:${s(9,'px')} ${s(7,'px')};border-bottom:1px solid #e2e8eb;font-size:${s(9,'px')};vertical-align:top}.preview-items td small{display:block;margin-top:${s(3,'px')};color:#84919a}.preview-summary{width:310px;margin:${s(18,'px')} 0 0 auto}.preview-summary-row{display:flex;justify-content:space-between;padding:${s(7,'px')} 0;border-bottom:1px solid #e2e8eb;font-size:${s(9,'px')}}.preview-summary-total{margin-top:${s(8,'px')};padding:${s(12,'px')} ${s(14,'px')};border-radius:7px;color:#fff;background:var(--preview-color)}.preview-summary-total span{font-size:${s(8,'px')}}.preview-summary-total strong{display:block;margin-top:${s(3,'px')};font-size:${s(17,'px')}}.preview-section{margin-top:${s(18,'px')};padding:${s(13,'px')} ${s(15,'px')};border:1px solid #dfe6ea;border-radius:8px;break-inside:avoid;page-break-inside:avoid}.preview-section h4{margin:0 0 ${s(7,'px')};font-size:${s(10,'px')}}.preview-section p,.preview-section li{font-size:${s(9,'px')};line-height:1.55;white-space:pre-line}.preview-footer{margin-top:${s(24,'px')};padding-top:${s(12,'px')};border-top:1px solid #e0e7eb;display:flex;justify-content:space-between;gap:${s(20,'px')};color:#88949c;font-size:${s(8,'px')}}.preview-service-proposal{margin:${s(18,'px')} 0;display:grid;gap:${s(12,'px')}}.preview-service-proposal-intro{padding:${s(12,'px')} ${s(14,'px')};border:1px solid #e5eaf0;border-radius:8px;background:#fbfcfd;break-inside:avoid}.preview-service-proposal-intro h4{margin:0 0 ${s(6,'px')};color:var(--preview-color);font-size:${s(11,'px')}}.preview-service-proposal-intro p,.preview-service-proposal-note p{margin:0;white-space:pre-line;color:#445066;font-size:${s(8.5,'px')};line-height:1.5}.preview-service-proposal-grid{display:grid;grid-template-columns:1fr 1fr;gap:${s(8,'px')}}.preview-service-proposal-section{border:1px solid #dfe5eb;border-radius:8px;overflow:hidden;break-inside:avoid;page-break-inside:avoid}.preview-service-proposal-section h5{margin:0;padding:${s(7,'px')} ${s(9,'px')};background:#f6f8fa;color:#26354a;font-size:${s(9,'px')}}.preview-service-proposal-section ul{margin:0;padding:${s(7,'px')} ${s(9,'px')} ${s(8,'px')} ${s(22,'px')}}.preview-service-proposal-section li{margin:0 0 ${s(2,'px')};color:#3e4a5f;font-size:${s(8,'px')};line-height:1.35}.preview-service-proposal-values{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #dfe6ed;border-radius:8px;overflow:hidden;break-inside:avoid;page-break-inside:avoid}.preview-service-proposal-value{padding:${s(9,'px')} ${s(10,'px')};border-right:1px solid #e3e9ef}.preview-service-proposal-value:last-child{border-right:0}.preview-service-proposal-value span,.preview-service-proposal-value strong{display:block}.preview-service-proposal-value span{color:#78869a;font-size:${s(7,'px')};text-transform:uppercase}.preview-service-proposal-value strong{margin-top:${s(3,'px')};color:#1d2a3d;font-size:${s(10,'px')}}.preview-service-proposal-note{padding:${s(10,'px')} ${s(12,'px')};border-left:3px solid var(--preview-color);background:#fafcfd;break-inside:avoid;page-break-inside:avoid}.preview-service-proposal-note h5{margin:0 0 ${s(4,'px')};font-size:${s(8.5,'px')}}@page{size:A4 portrait;margin:10mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
   }
 
   async function sendWhatsApp(id) {
@@ -3263,7 +4085,13 @@
   }
 
   async function deleteEmitter(id) {
-    if (!confirm('Desativar esta empresa emitente? Orçamentos antigos manterão os dados gravados.')) return;
+    if (!await budgetConfirm({
+      title: 'Desativar empresa emitente',
+      message: 'Desativar esta empresa emitente? Orçamentos antigos manterão os dados gravados.',
+      confirmText: 'Desativar',
+      cancelText: 'Cancelar',
+      tone: 'danger',
+    })) return;
     try {
       await api(`${API}/emitentes/${id}`, { method: 'DELETE' });
       state.emitters = await api(`${API}/emitentes?incluir_inativos=true`);
@@ -3325,7 +4153,13 @@
   }
 
   async function deleteCategory(id) {
-    if (!confirm('Excluir esta categoria? Os orçamentos existentes continuarão salvos.')) return;
+    if (!await budgetConfirm({
+      title: 'Excluir categoria',
+      message: 'Excluir esta categoria? Os orçamentos existentes continuarão salvos.',
+      confirmText: 'Excluir categoria',
+      cancelText: 'Cancelar',
+      tone: 'danger',
+    })) return;
     try {
       await api(`${API}/categorias/${id}`, { method: 'DELETE' });
       state.categories = await api(`${API}/categorias?incluir_inativas=true`);
@@ -3455,7 +4289,13 @@
   }
 
   async function deleteKit(id) {
-    if (!confirm('Excluir este kit? Os produtos e orçamentos existentes não serão apagados.')) return;
+    if (!await budgetConfirm({
+      title: 'Excluir kit',
+      message: 'Excluir este kit? Os produtos e orçamentos existentes não serão apagados.',
+      confirmText: 'Excluir kit',
+      cancelText: 'Cancelar',
+      tone: 'danger',
+    })) return;
     try {
       await api(`${API}/kits/${id}`, { method: 'DELETE' });
       state.kits = await api(`${API}/kits?incluir_inativos=true`);
@@ -3549,7 +4389,13 @@
   }
 
   async function deleteTemplate(id) {
-    if (!confirm('Excluir este modelo?')) return;
+    if (!await budgetConfirm({
+      title: 'Excluir modelo',
+      message: 'Excluir este modelo de orçamento?',
+      confirmText: 'Excluir modelo',
+      cancelText: 'Cancelar',
+      tone: 'danger',
+    })) return;
     try {
       await api(`${API}/modelos/${id}`, { method: 'DELETE' });
       state.templates = await api(`${API}/modelos?incluir_inativos=true`);
@@ -3574,6 +4420,12 @@
   }
 
   function bindEvents() {
+    $('budget-confirm-cancel')?.addEventListener('click', () => closeBudgetConfirm(false));
+    $('budget-confirm-ok')?.addEventListener('click', () => closeBudgetConfirm(true));
+    $('budget-confirm-backdrop')?.addEventListener('click', (event) => {
+      if (event.target === $('budget-confirm-backdrop')) closeBudgetConfirm(false);
+    });
+
     $('btn-novo-orcamento').addEventListener('click', openNewBudget);
     $('btn-atualizar-orcamentos').addEventListener('click', () => loadBudgets());
     $('btn-configurar-orcamentos').addEventListener('click', openSettings);
@@ -3613,8 +4465,29 @@
       actions[button.dataset.action]?.(id);
     });
 
-    $('btn-fechar-budget-modal').addEventListener('click', () => closeOverlay('budget-modal'));
-    $('btn-cancelar-orcamento').addEventListener('click', () => closeOverlay('budget-modal'));
+    $('btn-fechar-budget-modal').addEventListener('click', requestCloseBudgetModal);
+    $('btn-cancelar-orcamento').addEventListener('click', requestCloseBudgetModal);
+    $('btn-budget-acoes')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+      setBudgetActionsMenuOpen(!expanded);
+    });
+    $('budget-actions-menu')?.addEventListener('click', (event) => {
+      const action = event.target.closest('button');
+      if (action && !action.disabled) closeBudgetActionsMenu();
+    });
+    $('form-orcamento')?.addEventListener('input', (event) => {
+      if (event.target?.readOnly || event.target?.disabled) return;
+      markBudgetDirty();
+    });
+    $('form-orcamento')?.addEventListener('change', (event) => {
+      if (event.target?.readOnly || event.target?.disabled) return;
+      markBudgetDirty();
+    });
+    $('form-orcamento')?.addEventListener('click', (event) => {
+      if (event.target.closest('#btn-adicionar-item, #btn-adicionar-pagamento, [data-remove-item], [data-move-item], [data-remove-payment], [data-add-kit]')) markBudgetDirty();
+    });
     $('btn-toggle-budget-maximize')?.addEventListener('click', toggleBudgetMaximized);
     $('btn-imprimir-analise-financeira')?.addEventListener('click', printFinancialAnalysis);
     $('btn-salvar-orcamento').addEventListener('click', saveBudget);
@@ -3643,6 +4516,41 @@
     $('btn-desativar-proposal-link')?.addEventListener('click', deactivateProposalClientLink);
     $('btn-aprovar-margem').addEventListener('click', approveMargin);
     $$('.budget-tab').forEach((button) => button.addEventListener('click', () => setTab(button.dataset.tab)));
+    $('service-proposal-model-grid')?.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-service-proposal-model]');
+      if (!button) return;
+      const nextModel = button.dataset.serviceProposalModel || 'padrao';
+      if (nextModel !== 'padrao' && !canUseNilsonProposalModels()) {
+        toast('Estes modelos de monitoramento são exclusivos da conta configurada.', 'error');
+        return;
+      }
+      if (nextModel === serviceProposalSelectedModel()) return;
+      if (serviceProposalSelectedModel() !== 'padrao') {
+        const ok = await budgetConfirm({
+          title: 'Trocar modelo de proposta',
+          message: 'Os serviços, textos e valores personalizados do modelo atual serão substituídos.',
+          confirmText: 'Trocar modelo',
+          cancelText: 'Cancelar',
+          tone: 'danger',
+        });
+        if (!ok) return;
+      }
+      applyServiceProposalModel(nextModel, { preserveDocumentName: false, markDirty: true });
+    });
+    $('btn-reset-service-proposal')?.addEventListener('click', resetCurrentServiceProposal);
+    $('service-proposal-services')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-service-proposal-toggle-section]');
+      if (!button) return;
+      toggleServiceProposalSection(button.dataset.serviceProposalToggleSection);
+    });
+    $('service-proposal-services')?.addEventListener('change', syncServiceProposalStateFromForm);
+    $('service-proposal-values')?.addEventListener('input', (event) => {
+      if (!event.target.matches('[data-service-proposal-value]')) return;
+      syncServiceProposalStateFromForm();
+    });
+    ['service-proposal-introduction', 'service-proposal-conditions', 'service-proposal-notes'].forEach((id) => {
+      $(id)?.addEventListener('input', syncServiceProposalStateFromForm);
+    });
     $('orcamento-status').addEventListener('change', () => { updateStatusPreview(); syncRefreshPricesButton(); syncFinanceiroActions(state.current); });
     $('orcamento-titulo').addEventListener('input', (event) => {
       if ($('budget-sidebar-title')) $('budget-sidebar-title').textContent = event.target.value.trim() || 'Novo orçamento';
@@ -3875,12 +4783,32 @@
         $('orcamento-cliente-resultados').hidden = true;
         $('orcamento-cliente-busca').setAttribute('aria-expanded', 'false');
       }
+      if (!event.target.closest('#budget-actions-dropdown')) closeBudgetActionsMenu();
     });
     document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !$('budget-confirm-backdrop')?.hidden) {
+        event.preventDefault();
+        closeBudgetConfirm(false);
+        return;
+      }
+      if (event.key === 'Enter' && !$('budget-confirm-backdrop')?.hidden) {
+        event.preventDefault();
+        closeBudgetConfirm(true);
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 's' && isBudgetModalOpen()) {
+        event.preventDefault();
+        saveBudget();
+        return;
+      }
       if (event.key === 'Escape') {
+        if ($('btn-budget-acoes')?.getAttribute('aria-expanded') === 'true') {
+          closeBudgetActionsMenu();
+          return;
+        }
         if (!$('kit-picker-modal').hidden) closeOverlay('kit-picker-modal');
         else if (!$('settings-modal').hidden) closeOverlay('settings-modal');
-        else if (!$('budget-modal').hidden) closeOverlay('budget-modal');
+        else if (!$('budget-modal').hidden) requestCloseBudgetModal();
       }
     });
   }

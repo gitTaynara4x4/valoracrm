@@ -27,7 +27,7 @@
   <link rel="stylesheet" href="/frontend/css/cotacoes.css?v=20260815-modal-padrao-v4" />
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
-  <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260630-ficha-sidebar-v5" />
+  <link rel="stylesheet" href="/frontend/css/ficha-principal-ajustes.css?v=20260831-sidebar-wide-v9" />
 
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
@@ -35,8 +35,9 @@
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
   <script src="/frontend/js/shared/ficha-principal.js?v=20260717-busca-relacao-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
-  <script src="/frontend/js/pages/cotacoes.js?v=20260815-modal-padrao-v2" defer></script>
+  <script src="/frontend/js/pages/cotacoes.js?v=20260831-paridade-v44" defer></script>
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
+  <link rel="stylesheet" href="/frontend/css/cotacoes-modal-paridade.css?v=20260831-sidebar-fix-v45" />
 </head>
 
 <body>
@@ -156,28 +157,30 @@
 
               <nav class="cliente-tabs cliente-sidebar-nav cotacao-tabs cotacao-sidebar-nav" aria-label="Seções da cotação">
                 <button type="button" class="cliente-tab-btn cotacao-tab-btn active" data-tab="tab-cotacao-identificacao">
-                  <i class="fa-solid fa-id-card" aria-hidden="true"></i>
+                  <span class="cotacao-native-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="M8 10h.01"></path><path d="M11 10h5"></path><path d="M8 14h8"></path></svg></span>
                   <span>Dados básicos</span>
                 </button>
 
                 <button type="button" class="cliente-tab-btn cotacao-tab-btn" data-tab="tab-cotacao-fornecedores">
-                  <i class="fa-solid fa-truck" aria-hidden="true"></i>
+                  <span class="cotacao-native-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v10H3z"></path><path d="M14 10h3l4 4v3h-7z"></path><circle cx="7" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg></span>
                   <span>Fornecedores</span>
                 </button>
 
                 <button type="button" class="cliente-tab-btn cotacao-tab-btn" data-tab="tab-cotacao-campos">
-                  <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+                  <span class="cotacao-native-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path><circle cx="9" cy="6" r="2"></circle><circle cx="15" cy="12" r="2"></circle><circle cx="11" cy="18" r="2"></circle></svg></span>
                   <span>Campos personalizados</span>
                 </button>
               </nav>
 
               <div class="cliente-sidebar-bottom cotacao-sidebar-bottom">
-                <label class="cliente-ficha-toggle cotacao-ficha-toggle ficha-principal-toggle">
+                <label class="cliente-ficha-toggle cotacao-ficha-toggle ficha-principal-toggle" for="toggle-ficha-principal-cotacao">
                   <input type="checkbox" id="toggle-ficha-principal-cotacao" />
-
-                  <span>
+                  <span class="cotacao-ficha-toggle-check" aria-hidden="true">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.25 8.25 6.35 11.35 12.75 4.95"></path></svg>
+                  </span>
+                  <span class="cotacao-ficha-toggle-copy">
                     <strong>Usar ficha principal</strong>
-                    <small>Mostrar somente código e campos do formulário.</small>
+                    <small>Mostrar somente código e campos personalizados.</small>
                   </span>
                 </label>
               </div>
@@ -186,34 +189,53 @@
             <section class="cliente-modal-main cotacao-modal-main">
               <header class="cliente-modal-topbar cotacao-modal-topbar">
                 <div>
-                  <span class="section-kicker">Cotação de compra</span>
                   <h3 id="modal-cotacao-titulo">Nova cotação</h3>
-                  <p>Compare fornecedores e transforme a melhor opção em produto.</p>
+                  <p>Compare fornecedores e organize as informações principais da cotação.</p>
                 </div>
 
                 <div class="cliente-modal-top-actions cotacao-modal-top-actions">
-                  <span class="cliente-status-pill cotacao-status-pill">
-                    <i class="fa-solid fa-circle"></i>
-                    Compra
+                  <div class="cotacao-actions-dropdown" id="cotacao-actions-dropdown">
+                    <button type="button" class="btn btn-secondary btn-sm cotacao-actions-trigger" id="btn-cotacao-acoes" aria-label="Abrir ações rápidas da cotação" aria-haspopup="menu" aria-expanded="false" aria-controls="cotacao-actions-menu">
+                      <svg class="cotacao-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.75 6.5h14.5M4.75 12h14.5M4.75 17.5h14.5"></path></svg>
+                      <span>Ações</span>
+                      <svg class="cotacao-actions-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 7.5 4.5 4.5 4.5-4.5"></path></svg>
+                    </button>
+                    <div class="cotacao-actions-menu" id="cotacao-actions-menu" role="menu" hidden>
+                      <button type="button" class="cotacao-actions-menu-item" data-cotacao-action="fornecedores" role="menuitem">
+                        <svg class="cotacao-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h11v10H3z"></path><path d="M14 10h3l4 4v3h-7z"></path><circle cx="7" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>
+                        <span>Fornecedores cotados</span>
+                      </button>
+                      <button type="button" class="cotacao-actions-menu-item" data-cotacao-action="formulario" role="menuitem">
+                        <svg class="cotacao-top-svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path><circle cx="9" cy="6" r="2"></circle><circle cx="15" cy="12" r="2"></circle><circle cx="11" cy="18" r="2"></circle></svg>
+                        <span>Gerenciar formulário</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <span class="cliente-status-pill cotacao-status-pill" id="cotacao-status-pill" aria-label="Status: Rascunho">
+                    <span class="cotacao-top-status-dot" aria-hidden="true"></span>
+                    <span class="cotacao-top-status-text">Rascunho</span>
                   </span>
 
-                  <button
-                    class="btn-close"
-                    type="button"
-                    id="btn-fechar-modal-cotacao"
-                    data-modal-close="modal-cotacao-backdrop"
-                    title="Fechar">
-                    <i class="fa-solid fa-xmark"></i>
+                  <button class="btn-close" type="button" id="btn-fechar-modal-cotacao" title="Fechar" aria-label="Fechar">
+                    <svg class="cotacao-top-close-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 7.5 16.5 16.5M16.5 7.5 7.5 16.5"></path></svg>
                   </button>
                 </div>
               </header>
+
+              <div class="cotacao-modal-workbar" id="cotacao-modal-workbar">
+                <div class="cotacao-workbar-state">
+                  <span class="cotacao-unsaved-pill" id="cotacao-unsaved-pill" hidden><span class="cotacao-unsaved-dot" aria-hidden="true"></span>Alterações não salvas</span>
+                  <span class="cotacao-save-shortcut"><kbd>Ctrl</kbd><span>+</span><kbd>S</kbd><span>para salvar</span></span>
+                </div>
+              </div>
 
               <div class="cliente-modal-scroll cotacao-modal-scroll">
                 <article class="cotacao-ficha-code-card ficha-principal-code-card cotacao-system-code-card">
                   <div>
                     <span class="section-kicker">Código do sistema</span>
                     <h4>Código da cotação</h4>
-                    <p>Este código é gerado pelo próprio sistema e não pode ser removido da ficha.</p>
+                    
                   </div>
 
                   <div class="ficha-principal-system-fields">

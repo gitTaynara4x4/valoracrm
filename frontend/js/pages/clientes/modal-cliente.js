@@ -1,12 +1,12 @@
 import { state } from './state.js';
-import { obterClienteNoServidor, obterClienteNaPosicaoDaLista, salvarClienteNoServidor, apiJson } from './api.js?v=20260830-modal-funcional-v22';
+import { obterClienteNoServidor, obterClienteNaPosicaoDaLista, prefetchClienteNoServidor, carregarFormularioClientes, salvarClienteNoServidor, apiJson } from './api.js?v=20260831-client-nav-perf-v36';
 import { $, $$, escapeHtml, toast, openModal, closeModal } from './utils.js';
 import { confirmDialog } from './confirm.js';
 import {
   renderCustomFieldsInputs,
   normalizeCustomFieldsPayload,
   validateRequiredCustomFields,
-} from './custom-fields.js?v=20260827-clientes-gravacao-v4';
+} from './custom-fields.js?v=20260831-client-nav-perf-v36';
 
 let _afterSave = async () => {};
 let _bound = false;
@@ -1482,6 +1482,7 @@ async function fillClientForm(cliente = {}) {
   clienteModalHydrating = false;
   setClienteModalDirty(false);
   syncClienteRecordNavigation();
+  prefetchClientesAdjacentes();
 }
 
 function getRowsData(containerId) {
@@ -2071,6 +2072,19 @@ function syncClienteRecordNavigation() {
   next.dataset.targetListOffset = currentPosition < total - 1 ? String(currentPosition + 1) : '';
 }
 
+function prefetchClientesAdjacentes() {
+  const items = Array.isArray(state.clientes) ? state.clientes : [];
+  const pageOffset = Number(state.clientesPage?.offset || 0);
+  const position = Number(clienteModalListPosition);
+  if (!items.length || clienteModalListPosition === null || !Number.isFinite(position)) return;
+
+  const localIndex = position - pageOffset;
+  [localIndex - 1, localIndex + 1].forEach((index) => {
+    const id = Number(items[index]?.id || 0);
+    if (id) void prefetchClienteNoServidor(id);
+  });
+}
+
 async function confirmarDescarteAlteracoesCliente(message = 'Existem alterações não salvas. Deseja continuar e descartar essas alterações?') {
   if (!clienteModalDirty) return true;
   return confirmDialog({
@@ -2481,6 +2495,7 @@ async function salvarToggleFichaPrincipalCliente(event) {
         usar_como_ficha_principal: checked,
       },
     };
+    state.formularioClientesCheckedAt = Date.now();
 
     await renderCustomFieldsInputs(state.camposClientes, buildFichaRenderValues(currentDetail || {}));
     syncGoogleMapsAddressActions();
@@ -2778,7 +2793,10 @@ export async function openClientModalNew() {
 export async function openClientModalEdit(id) {
   setClienteModalReadonly(false);
   try {
-    const cliente = await obterClienteNoServidor(id);
+    const [cliente] = await Promise.all([
+      obterClienteNoServidor(id),
+      carregarFormularioClientes().catch(() => null),
+    ]);
 
     state.clienteEditandoId = cliente.id;
     prepareClienteListPosition(cliente.id);
@@ -2803,7 +2821,10 @@ export async function openClientModalEdit(id) {
 
 export async function openClientModalView(id) {
   try {
-    const cliente = await obterClienteNoServidor(id);
+    const [cliente] = await Promise.all([
+      obterClienteNoServidor(id),
+      carregarFormularioClientes().catch(() => null),
+    ]);
 
     state.clienteEditandoId = cliente.id;
     prepareClienteListPosition(cliente.id);

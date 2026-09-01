@@ -25,11 +25,12 @@
   <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260820-assinatura-v5">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260804-listas-simples-v3">
+  <link rel="stylesheet" href="/frontend/css/orcamentos-modal-paridade.css?v=20260901-confirm-modal-v50">
 
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260820-assinatura-v5" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260901-nilson-reference-models-v52" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -127,6 +128,9 @@
             <button class="budget-tab" type="button" data-tab="condicoes">
               <svg class="budget-tab-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 2.5h9l5 5v14H5z"/><path d="M14 2.5v5h5"/><path d="M8 10.5h6M8 13.5h4"/><path d="M7.5 18.5c1.2-3.2 2.2-3.3 2.5-.6.2 1.8 1.4 1.4 2.2.1.9-1.4 1.6-1.3 2.1.1.5 1.4 1.3 1.4 2.2.2"/></svg><span>Condições</span>
             </button>
+            <button class="budget-tab is-hidden" type="button" data-tab="proposta-comercial" data-nilson-proposal-only>
+              <svg class="budget-tab-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3.5h12.5L20 7v13.5H4z"/><path d="M16.5 3.5V7H20"/><path d="M7.5 11h9M7.5 14.5h6"/><path d="M7.5 18h4"/></svg><span>Proposta comercial</span>
+            </button>
             <button class="budget-tab cost-only" type="button" data-tab="analise">
               <svg class="budget-tab-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v17h17"/><path d="m6.5 16 4-4 3 2.5 5-6"/><path d="M16.5 8.5h2.5V11"/></svg><span>Análise financeira</span>
             </button>
@@ -155,31 +159,35 @@
             </div>
 
             <div class="budget-modal-top-actions">
+              <div class="budget-actions-dropdown" id="budget-actions-dropdown">
+                <button class="btn btn-secondary budget-actions-trigger" id="btn-budget-acoes" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="budget-actions-menu">
+                  <i class="fa-solid fa-bars"></i><span>Ações</span><i class="fa-solid fa-chevron-down budget-actions-chevron"></i>
+                </button>
+                <div class="budget-actions-menu" id="budget-actions-menu" role="menu" hidden>
+                  <button class="budget-actions-menu-item is-hidden budget-head-action" id="btn-aprovar-margem" type="button" role="menuitem" title="Aprovar margem"><i class="fa-solid fa-user-check"></i><span>Aprovar margem</span></button>
+                  <button class="budget-actions-menu-item is-hidden budget-head-action" id="btn-imprimir-orcamento" type="button" role="menuitem" title="Imprimir ou salvar em PDF"><i class="fa-solid fa-print"></i><span>Imprimir / PDF</span></button>
+                  <button class="budget-actions-menu-item is-hidden budget-head-action" id="btn-whatsapp-orcamento" type="button" role="menuitem" title="Enviar pelo WhatsApp"><i class="fa-brands fa-whatsapp"></i><span>Enviar pelo WhatsApp</span></button>
+                  <button class="budget-actions-menu-item is-hidden budget-head-action" id="btn-gerar-link-cliente" type="button" role="menuitem" title="Preparar proposta para aprovação do cliente"><i class="fa-solid fa-link"></i><span>Gerar link para cliente</span></button>
+                  <button class="budget-actions-menu-item is-hidden budget-head-action" id="btn-gerar-contrato-cliente" type="button" role="menuitem" title="Gerar contrato a partir da proposta aprovada"><i class="fa-solid fa-file-signature"></i><span>Gerar contrato</span></button>
+                </div>
+              </div>
               <span id="budget-status-preview" class="budget-status status-rascunho">Em elaboração</span>
               <span id="budget-financeiro-status" class="budget-finance-status is-hidden">Não enviado ao Financeiro</span>
-              <button class="btn btn-secondary is-hidden budget-head-action" id="btn-aprovar-margem" type="button" title="Aprovar margem">
-                <i class="fa-solid fa-user-check"></i><span>Aprovar margem</span>
-              </button>
-              <button class="btn btn-secondary is-hidden budget-head-action" id="btn-imprimir-orcamento" type="button" title="Imprimir ou salvar em PDF">
-                <i class="fa-solid fa-print"></i><span>PDF</span>
-              </button>
-              <button class="btn btn-secondary is-hidden budget-head-action" id="btn-whatsapp-orcamento" type="button" title="Enviar pelo WhatsApp">
-                <i class="fa-brands fa-whatsapp"></i><span>WhatsApp</span>
-              </button>
-              <button class="btn btn-secondary is-hidden budget-head-action" id="btn-gerar-link-cliente" type="button" title="Preparar proposta para aprovação do cliente">
-                <i class="fa-solid fa-link"></i><span>Gerar link para cliente</span>
-              </button>
-              <button class="btn btn-secondary is-hidden budget-head-action" id="btn-gerar-contrato-cliente" type="button" title="Gerar contrato a partir da proposta aprovada">
-                <i class="fa-solid fa-file-signature"></i><span>Gerar contrato</span>
-              </button>
               <button class="btn btn-secondary budget-head-action budget-maximize-action" id="btn-toggle-budget-maximize" type="button" title="Maximizar orçamento" aria-label="Maximizar orçamento" aria-pressed="false">
                 <i class="fa-solid fa-expand"></i><span>Maximizar</span>
               </button>
-              <button class="btn-close" id="btn-fechar-budget-modal" type="button" title="Fechar">
+              <button class="btn-close" id="btn-fechar-budget-modal" type="button" title="Fechar" aria-label="Fechar">
                 <i class="fa-solid fa-xmark"></i>
               </button>
             </div>
           </header>
+
+          <div class="budget-modal-workbar">
+            <div class="budget-workbar-state">
+              <span class="budget-unsaved-pill" id="budget-unsaved-pill" hidden><span class="budget-unsaved-dot"></span>Alterações não salvas</span>
+              <span class="budget-save-shortcut"><kbd>Ctrl</kbd><span>+</span><kbd>S</kbd><span>para salvar</span></span>
+            </div>
+          </div>
 
           <div class="budget-modal-scroll">
           <section class="budget-panel active" data-panel="dados">
@@ -307,6 +315,87 @@
                 <div class="form-group"><label for="orcamento-nome-documento">Nome do documento</label><input id="orcamento-nome-documento" type="text" placeholder="Orçamento, proposta comercial, cotação..." /></div>
                 <div class="form-group span-2"><label for="orcamento-condicoes">Condições gerais</label><textarea id="orcamento-condicoes" rows="9" placeholder="Garantia, prazo, itens não inclusos, impostos..."></textarea></div>
                 <div class="form-group span-2"><label for="orcamento-observacoes">Observações específicas</label><textarea id="orcamento-observacoes" rows="5"></textarea></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="budget-panel is-hidden" data-panel="proposta-comercial" data-nilson-proposal-only>
+            <div class="service-proposal-stack">
+              <div class="budget-section-card service-proposal-intro-card">
+                <div class="budget-section-heading service-proposal-heading">
+                  <div>
+                    <span class="service-proposal-kicker">Proposta comercial</span>
+                    <h4>Modelo de serviços de monitoramento</h4>
+                    <p>Escolha um dos modelos padrão enviados pela empresa. O vendedor pode ajustar serviços, valores e observações para este cliente.</p>
+                  </div>
+                  <span class="service-proposal-source-badge">3 modelos padrão</span>
+                </div>
+
+                <div class="service-proposal-model-grid" id="service-proposal-model-grid">
+                  <button class="service-proposal-model-card active" type="button" data-service-proposal-model="padrao">
+                    <span class="service-proposal-model-icon"><i class="fa-regular fa-file-lines"></i></span>
+                    <span><strong>Proposta padrão</strong><small>Orçamento normal de produtos e serviços.</small></span>
+                    <i class="fa-solid fa-check service-proposal-model-check"></i>
+                  </button>
+                  <button class="service-proposal-model-card" type="button" data-service-proposal-model="monitoramento_24h">
+                    <span class="service-proposal-model-icon"><i class="fa-solid fa-shield-halved"></i></span>
+                    <span><strong>Monitoramento 24h</strong><small>Plano comercial de monitoramento e apoio.</small></span>
+                    <i class="fa-solid fa-check service-proposal-model-check"></i>
+                  </button>
+                  <button class="service-proposal-model-card" type="button" data-service-proposal-model="monitoramento_24h_comodato">
+                    <span class="service-proposal-model-icon"><i class="fa-solid fa-box-open"></i></span>
+                    <span><strong>Monitoramento 24h - Comodato</strong><small>Monitoramento com equipamentos em comodato.</small></span>
+                    <i class="fa-solid fa-check service-proposal-model-check"></i>
+                  </button>
+                  <button class="service-proposal-model-card" type="button" data-service-proposal-model="teleassistencia_idosos">
+                    <span class="service-proposal-model-icon"><i class="fa-solid fa-heart-pulse"></i></span>
+                    <span><strong>Tele Assistência - Idosos</strong><small>Atendimento emergencial e CFTV assistido.</small></span>
+                    <i class="fa-solid fa-check service-proposal-model-check"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div id="service-proposal-standard-note" class="service-proposal-standard-note">
+                <i class="fa-solid fa-circle-info"></i>
+                <div><strong>Orçamento padrão</strong><p>Nenhum bloco adicional de monitoramento será incluído no documento. Itens, condições e valores continuam funcionando como hoje.</p></div>
+              </div>
+
+              <div id="service-proposal-editor" class="service-proposal-editor is-hidden">
+                <div class="budget-section-card">
+                  <div class="service-proposal-editor-head">
+                    <div>
+                      <span class="service-proposal-kicker">Conteúdo do modelo</span>
+                      <h4 id="service-proposal-editor-title">Monitoramento 24h</h4>
+                      <p id="service-proposal-editor-description"></p>
+                    </div>
+                    <button class="btn btn-secondary btn-small" id="btn-reset-service-proposal" type="button"><i class="fa-solid fa-arrow-rotate-left"></i> Restaurar padrão</button>
+                  </div>
+                  <div class="form-group service-proposal-introduction-field">
+                    <label for="service-proposal-introduction">Texto de apresentação</label>
+                    <textarea id="service-proposal-introduction" rows="4"></textarea>
+                    <small class="form-help">Este texto aparece antes da relação de serviços no documento.</small>
+                  </div>
+                </div>
+
+                <div class="budget-section-card">
+                  <div class="budget-section-heading">
+                    <div><h4>Serviços incluídos</h4><p>Os itens marcados aparecem na proposta. Desmarque o que não fizer parte desta negociação.</p></div>
+                    <span class="service-proposal-selected-count" id="service-proposal-selected-count">0 selecionados</span>
+                  </div>
+                  <div id="service-proposal-services" class="service-proposal-services"></div>
+                </div>
+
+                <div class="budget-section-card">
+                  <div class="budget-section-heading"><div><h4>Valores do serviço</h4><p>Valores específicos do modelo. Os itens normais do orçamento continuam sendo calculados separadamente.</p></div></div>
+                  <div id="service-proposal-values" class="service-proposal-values"></div>
+                </div>
+
+                <div class="budget-section-card">
+                  <div class="budget-form-grid grid-2">
+                    <div class="form-group span-2"><label for="service-proposal-conditions">Condições e observações padrão do modelo</label><textarea id="service-proposal-conditions" rows="7"></textarea></div>
+                    <div class="form-group span-2"><label for="service-proposal-notes">Observações adicionais para este cliente</label><textarea id="service-proposal-notes" rows="4" placeholder="Ex.: necessidade específica do imóvel, condições negociadas, equipamentos adicionais..."></textarea></div>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
@@ -1006,5 +1095,28 @@
       </footer>
     </div>
   </div>
+
+  <div id="budget-confirm-backdrop" class="budget-confirm-backdrop" hidden aria-hidden="true">
+    <section class="budget-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="budget-confirm-title" aria-describedby="budget-confirm-message">
+      <header class="budget-confirm-header">
+        <span class="budget-confirm-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 8.2v4.7"></path>
+            <path d="M12 16.35h.01"></path>
+          </svg>
+        </span>
+        <div>
+          <h3 id="budget-confirm-title">Confirmar ação</h3>
+          <p id="budget-confirm-message">Tem certeza?</p>
+        </div>
+      </header>
+      <footer class="budget-confirm-footer">
+        <button type="button" class="btn btn-secondary" id="budget-confirm-cancel">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="budget-confirm-ok">Confirmar</button>
+      </footer>
+    </section>
+  </div>
+
 </body>
 </html>

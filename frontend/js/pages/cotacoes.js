@@ -51,6 +51,9 @@
     produtoBuscaSeq: 0,
   };
 
+  let cotacaoModalDirty = false;
+  let cotacaoModalHydrating = false;
+
   const STATUS_LABELS = {
     rascunho: 'Rascunho',
     em_cotacao: 'Em cotação',
@@ -75,6 +78,33 @@
 
   function $$(selector, root = document) {
     return Array.from(root.querySelectorAll(selector));
+  }
+
+  function setCotacaoModalDirty(dirty) {
+    cotacaoModalDirty = Boolean(dirty);
+    const pill = $('cotacao-unsaved-pill');
+    if (pill) pill.hidden = !cotacaoModalDirty;
+  }
+
+  function markCotacaoModalDirty() {
+    const backdrop = $('modal-cotacao-backdrop');
+    if (cotacaoModalHydrating || state.modalSomenteLeitura || !backdrop || backdrop.hidden) return;
+    setCotacaoModalDirty(true);
+  }
+
+  function setCotacaoActionsMenuOpen(open) {
+    const trigger = $('btn-cotacao-acoes');
+    const menu = $('cotacao-actions-menu');
+    const dropdown = $('cotacao-actions-dropdown');
+    if (!trigger || !menu) return;
+    const active = Boolean(open);
+    menu.hidden = !active;
+    trigger.setAttribute('aria-expanded', active ? 'true' : 'false');
+    dropdown?.classList.toggle('is-open', active);
+  }
+
+  function closeCotacaoActionsMenu() {
+    setCotacaoActionsMenuOpen(false);
   }
 
   function escapeHtml(value) {
@@ -102,6 +132,44 @@
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '')
       .slice(0, 120);
+  }
+
+
+  function cotacaoSectionIconSvg(label = '') {
+    const value = slugify(label);
+    if (/fornecedor|cotado|revenda/.test(value)) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v10H3z"></path><path d="M14 10h3l4 4v3h-7z"></path><circle cx="7" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>';
+    }
+    if (/preco|valor|custo|finance|pagamento/.test(value)) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5c-.8-.7-1.9-1.1-3.1-1.1-1.7 0-3 .8-3 2 0 3 5.8 1.5 5.8 4.6 0 1.3-1.2 2.2-3 2.2-1.4 0-2.7-.5-3.6-1.4"></path><path d="M12 5.5v13"></path></svg>';
+    }
+    if (/produto|item|material/.test(value)) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4-8 4-8-4 8-4Z"></path><path d="m4 11 8 4 8-4"></path><path d="m4 15 8 4 8-4"></path></svg>';
+    }
+    if (/prazo|data|validade|entrega/.test(value)) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.5" width="16" height="14" rx="2"></rect><path d="M8 3.75v3.5M16 3.75v3.5M4 9.5h16"></path></svg>';
+    }
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path><circle cx="9" cy="6" r="2"></circle><circle cx="15" cy="12" r="2"></circle><circle cx="11" cy="18" r="2"></circle></svg>';
+  }
+
+  function normalizarIconesSidebarCotacao() {
+    $$('.cotacao-sidebar-nav .cotacao-tab-btn[data-ficha-section]').forEach((button) => {
+      const icon = button.querySelector('.ficha-section-tab-icon');
+      if (!icon) return;
+      const label = button.querySelector('.ficha-section-tab-label')?.textContent || button.textContent || '';
+      icon.innerHTML = cotacaoSectionIconSvg(label);
+    });
+  }
+
+
+  function bindCotacaoSidebarIconObserver() {
+    const nav = document.querySelector('.cotacao-sidebar-nav');
+    if (!nav || nav.dataset.iconObserverBound === '1') return;
+    nav.dataset.iconObserverBound = '1';
+    const observer = new MutationObserver(() => {
+      requestAnimationFrame(() => normalizarIconesSidebarCotacao());
+    });
+    observer.observe(nav, { childList: true, subtree: true });
   }
 
   function parseNumber(value) {
@@ -568,6 +636,7 @@
   }
 
   function openModal() {
+    closeCotacaoActionsMenu();
     if (window.ValoraModal) {
       return window.ValoraModal.open('modal-cotacao-backdrop');
     }
@@ -584,21 +653,30 @@
     });
   }
 
-  function closeModal() {
+  function forceCloseModal() {
+    closeCotacaoActionsMenu();
+    setCotacaoModalDirty(false);
+
     if (window.ValoraModal) {
       return window.ValoraModal.close('modal-cotacao-backdrop');
     }
 
     const modal = $('modal-cotacao-backdrop');
-
     if (!modal) return;
-
     modal.classList.remove('show');
-
     setTimeout(() => {
       modal.hidden = true;
       modal.style.display = 'none';
     }, 160);
+  }
+
+  function closeModal({ force = false } = {}) {
+    if (!force && cotacaoModalDirty) {
+      const ok = window.confirm('Existem alterações não salvas nesta cotação. Deseja fechar mesmo assim?');
+      if (!ok) return false;
+    }
+    forceCloseModal();
+    return true;
   }
 
   function switchCotacaoTab(targetId) {
@@ -642,12 +720,15 @@
   }
 
   function atualizarStatusPillCotacao(status) {
-    const pill = document.querySelector('.cotacao-status-pill');
+    const pill = $('cotacao-status-pill') || document.querySelector('.cotacao-status-pill');
     if (!pill) return;
 
     const key = normalizeStatus(status);
+    const label = STATUS_LABELS[key] || 'Rascunho';
     pill.className = 'cliente-status-pill cotacao-status-pill is-' + key;
-    pill.innerHTML = `<i class="fa-solid fa-circle"></i> ${escapeHtml(STATUS_LABELS[key] || 'Rascunho')}`;
+    pill.setAttribute('aria-label', `Status: ${label}`);
+    const text = pill.querySelector('.cotacao-top-status-text');
+    if (text) text.textContent = label;
   }
 
   function syncCotacaoFichaCode(codigo) {
@@ -715,6 +796,7 @@
 
   function aplicarModoFichaCotacao() {
     ensureFichaCotacaoController()?.setMode(state.usarFichaPrincipalCotacoes);
+    requestAnimationFrame(() => normalizarIconesSidebarCotacao());
   }
 
   function getCustomValue(custom, keys, fallback = '') {
@@ -866,6 +948,7 @@
         ? 'Nenhum campo ativo neste formulário de cotações.'
         : 'Nenhum formulário de Cotações encontrado. Crie um formulário em Configurações > Formulários.',
     });
+    requestAnimationFrame(() => normalizarIconesSidebarCotacao());
   }
 
   function normalizeCustomFieldsPayloadRaw() {
@@ -951,6 +1034,7 @@
 
       await renderCustomFieldsInputs(buildCustomValuesForRender(state.cotacaoAtualDetalhe || {}));
       aplicarModoFichaCotacao();
+      normalizarIconesSidebarCotacao();
 
       toast(
         checked
@@ -1567,6 +1651,7 @@
   }
 
   async function fillCotacaoForm(cotacao = {}) {
+    cotacaoModalHydrating = true;
     const data = {
       codigo: '',
       status: 'rascunho',
@@ -1607,9 +1692,12 @@
     syncCotacaoFichaCode(data.codigo || getValue('cotacao-codigo'));
     aplicarModoFichaCotacao();
     switchCotacaoTab(state.usarFichaPrincipalCotacoes ? 'tab-cotacao-campos' : 'tab-cotacao-identificacao');
+    cotacaoModalHydrating = false;
+    setCotacaoModalDirty(false);
   }
 
   async function limparForm() {
+    cotacaoModalHydrating = true;
     setCotacaoModalReadonly(false);
     state.editandoId = null;
     state.fornecedorRows = [];
@@ -1644,6 +1732,8 @@
     switchCotacaoTab(state.usarFichaPrincipalCotacoes ? 'tab-cotacao-campos' : 'tab-cotacao-identificacao');
 
     window.ValoraRequired?.refresh?.(document);
+    cotacaoModalHydrating = false;
+    setCotacaoModalDirty(false);
   }
 
   async function novaCotacao() {
@@ -1683,7 +1773,7 @@
     } catch (err) {
       console.error(err);
       toast(err.message || 'Erro ao abrir cotação.', true);
-      closeModal();
+      closeModal({ force: true });
     }
   }
 
@@ -1856,7 +1946,8 @@
       await syncFornecedores(state.editandoId);
 
       toast('Cotação salva com sucesso.');
-      closeModal();
+      setCotacaoModalDirty(false);
+      closeModal({ force: true });
 
       await carregarCotacoes({ reset: wasNew });
     } catch (err) {
@@ -1945,6 +2036,7 @@
 
     state.editandoId = Number(saved.id);
     await syncFornecedores(state.editandoId);
+    setCotacaoModalDirty(false);
     return saved;
   }
 
@@ -1982,7 +2074,8 @@
       });
 
       toast(data?.message || 'Cotação convertida em produto.');
-      closeModal();
+      setCotacaoModalDirty(false);
+      closeModal({ force: true });
       await carregarCotacoes();
     } catch (err) {
       console.error(err);
@@ -2023,6 +2116,46 @@
     ensureFichaCotacaoController();
     bindCotacaoTabs();
     bindModalBackdropClose();
+    bindCotacaoSidebarIconObserver();
+    normalizarIconesSidebarCotacao();
+
+    $('btn-cotacao-acoes')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+      setCotacaoActionsMenuOpen(!expanded);
+    });
+
+    $('cotacao-actions-menu')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-cotacao-action]');
+      if (!button) return;
+      event.preventDefault();
+      const action = button.dataset.cotacaoAction;
+      if (action === 'fornecedores') switchCotacaoTab('tab-cotacao-fornecedores');
+      if (action === 'formulario') abrirGerenciarFormularioCotacoes();
+      closeCotacaoActionsMenu();
+    });
+
+    $('formCotacao')?.addEventListener('input', (event) => {
+      if (event.target?.id !== 'toggle-ficha-principal-cotacao') markCotacaoModalDirty();
+    });
+    $('formCotacao')?.addEventListener('change', (event) => {
+      if (event.target?.id !== 'toggle-ficha-principal-cotacao') markCotacaoModalDirty();
+    });
+
+    document.addEventListener('click', (event) => {
+      const dropdown = $('cotacao-actions-dropdown');
+      if (dropdown && !dropdown.contains(event.target)) closeCotacaoActionsMenu();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      const modal = $('modal-cotacao-backdrop');
+      if (!modal || modal.hidden) return;
+      if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 's') {
+        event.preventDefault();
+        if (!state.modalSomenteLeitura) salvarCotacao();
+      }
+    });
 
     $('btn-nova-cotacao')?.addEventListener('click', novaCotacao);
     $('btn-atualizar-cotacoes')?.addEventListener('click', () => carregarCotacoes({ reset: true }));

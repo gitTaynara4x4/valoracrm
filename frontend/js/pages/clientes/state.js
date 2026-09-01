@@ -4,6 +4,7 @@ export const state = {
   clientesLoading: false,
   camposClientes: [],
   formularioClientes: null,
+  formularioClientesCheckedAt: 0,
   usarFichaPrincipalClientes: false,
   clienteEditandoId: null,
   campoEditandoId: null,
