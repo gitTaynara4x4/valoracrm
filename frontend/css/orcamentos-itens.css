@@ -1,0 +1,325 @@
+/*
+ * ValoraCRM · Orçamentos · tabela de itens
+ * Versão v4 — layout compacto: ordem inline (grip + 01), tipografia leve e profissional.
+ */
+
+.budget-items-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+.budget-main-items-table {
+  width: 100%;
+  min-width: 1120px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  background: var(--panel, #fff);
+}
+
+.budget-main-items-table thead {
+  background: var(--bg-soft, #f7f9fb);
+}
+
+.budget-main-items-table th {
+  height: 40px;
+  padding: 0 10px;
+  color: var(--muted, #64748b);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  text-align: left;
+  white-space: nowrap;
+  background: var(--bg-soft, #f7f9fb);
+  border-bottom: 1px solid var(--border, #dfe6ec);
+}
+
+.budget-main-items-table td {
+  min-width: 0;
+  height: 56px;
+  padding: 8px 10px;
+  vertical-align: middle;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border, #e4e9ee);
+  background: var(--panel, #fff);
+  color: var(--text, #334155);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.budget-main-items-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* Larguras equivalentes ao mockup aprovado. */
+.budget-main-items-table th:nth-child(1),
+.budget-main-items-table td:nth-child(1) { width: 82px; }
+
+.budget-main-items-table th:nth-child(2),
+.budget-main-items-table td:nth-child(2) { width: 320px; }
+
+.budget-main-items-table th:nth-child(3),
+.budget-main-items-table td:nth-child(3) { width: 118px; }
+
+.budget-main-items-table th:nth-child(4),
+.budget-main-items-table td:nth-child(4) { width: 58px; }
+
+.budget-main-items-table th:nth-child(5),
+.budget-main-items-table td:nth-child(5) { width: 62px; }
+
+.budget-main-items-table th:nth-child(6),
+.budget-main-items-table td:nth-child(6) { width: 102px; }
+
+.budget-main-items-table th:nth-child(7),
+.budget-main-items-table td:nth-child(7) { width: 94px; }
+
+.budget-main-items-table th:nth-child(8),
+.budget-main-items-table td:nth-child(8) { width: 102px; }
+
+.budget-main-items-table th:nth-child(9),
+.budget-main-items-table td:nth-child(9) { width: 94px; }
+
+.budget-main-items-table th:nth-child(10),
+.budget-main-items-table td:nth-child(10) { width: 62px; text-align: center; }
+
+/*
+ * ORDEM — classes exclusivas para não herdar o layout antigo de setas.
+ * O grip e 01/02/03 ficam OBRIGATORIAMENTE lado a lado.
+ */
+.budget-main-items-table .budget-order-heading {
+  padding-left: 16px !important;
+}
+
+.budget-main-items-table #budget-items-body .budget-order-cell {
+  padding-left: 14px !important;
+  padding-right: 8px !important;
+  overflow: visible !important;
+}
+
+#budget-items-body .budget-order-inline {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#budget-items-body .budget-order-drag {
+  all: unset;
+  box-sizing: border-box;
+  flex: 0 0 18px !important;
+  width: 18px !important;
+  height: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: #7d91a4 !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  cursor: grab !important;
+  box-shadow: none !important;
+}
+
+#budget-items-body .budget-order-drag:hover {
+  color: #455d72 !important;
+  background: var(--bg-soft, #f4f7f9) !important;
+}
+
+#budget-items-body .budget-order-drag:active {
+  cursor: grabbing !important;
+}
+
+#budget-items-body .budget-order-drag i {
+  pointer-events: none;
+}
+
+#budget-items-body .budget-order-index {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-block !important;
+  flex: 0 0 auto !important;
+  min-width: 20px !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--text, #243447) !important;
+  box-shadow: none !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  font-variant-numeric: tabular-nums !important;
+  line-height: 1 !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+}
+
+/* Inputs editáveis com aparência de texto quando não estão em foco. */
+#budget-items-body input,
+#budget-items-body textarea,
+#budget-items-body select {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text, #243447);
+  font: inherit;
+  outline: none;
+  box-shadow: none;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+  position: static !important;
+  inset: auto !important;
+  float: none !important;
+  transform: none !important;
+}
+
+#budget-items-body input:hover,
+#budget-items-body textarea:hover {
+  background: var(--bg-soft, #f8fafb);
+}
+
+#budget-items-body input:focus,
+#budget-items-body textarea:focus {
+  border-color: rgba(101, 172, 222, .55);
+  background: var(--panel, #fff);
+  box-shadow: 0 0 0 3px rgba(101, 172, 222, .10);
+}
+
+/* Produto / serviço é a informação principal. */
+#budget-items-body .budget-item-description-cell > textarea {
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  padding: 2px 5px !important;
+  resize: none !important;
+  overflow: hidden !important;
+  color: var(--text, #22364a) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.3 !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* Código: discreto; ajuda só durante edição. */
+#budget-items-body .budget-item-code-input {
+  height: 34px !important;
+  padding: 5px 7px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+#budget-items-body .budget-item-code-help {
+  display: none !important;
+  margin: 3px 7px 0 !important;
+  color: var(--muted, #718096) !important;
+  font-size: 9px !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+}
+
+#budget-items-body .budget-item-code-input:focus + .budget-item-code-help {
+  display: block !important;
+}
+
+/* Demais dados compactos e alinhados. */
+#budget-items-body td:nth-child(n+4):nth-child(-n+7) input,
+#budget-items-body td:nth-child(9) input {
+  height: 30px !important;
+  padding: 3px 5px !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+}
+
+#budget-items-body td:nth-child(4) input,
+#budget-items-body td:nth-child(5) input {
+  text-align: center !important;
+}
+
+#budget-items-body td:nth-child(6) input,
+#budget-items-body td:nth-child(7) input,
+#budget-items-body td:nth-child(9) input {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+#budget-items-body .item-total-cell {
+  color: var(--text, #1f2937) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* Excluir: botão discreto e sério. */
+#budget-items-body .item-actions-cell {
+  text-align: center !important;
+  overflow: visible !important;
+}
+
+#budget-items-body .item-remove {
+  all: unset;
+  box-sizing: border-box;
+  width: 30px !important;
+  height: 30px !important;
+  margin: 0 auto !important;
+  border: 1px solid rgba(220, 38, 38, .18) !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: #dc5d5d !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background .15s ease, border-color .15s ease, color .15s ease !important;
+}
+
+#budget-items-body .item-remove:hover {
+  border-color: rgba(220, 38, 38, .30) !important;
+  background: rgba(220, 38, 38, .06) !important;
+  color: #dc2626 !important;
+}
+
+/* Feedback de arrastar. */
+#budget-items-body .budget-item-row.is-dragging td {
+  opacity: .42;
+}
+
+#budget-items-body .budget-item-row.drag-over-before td {
+  box-shadow: inset 0 2px 0 var(--brand, #4bc3c7);
+}
+
+#budget-items-body .budget-item-row.drag-over-after td {
+  box-shadow: inset 0 -2px 0 var(--brand, #4bc3c7);
+}
+
+@media (max-width: 1100px) {
+  .budget-main-items-table {
+    min-width: 1100px;
+  }
+}

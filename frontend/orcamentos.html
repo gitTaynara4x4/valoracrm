@@ -26,11 +26,12 @@
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260804-listas-simples-v3">
   <link rel="stylesheet" href="/frontend/css/orcamentos-modal-paridade.css?v=20260901-confirm-modal-v50">
+  <link rel="stylesheet" href="/frontend/css/orcamentos-itens.css?v=20260902-itens-compacto-v4">
 
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260901-nilson-reference-models-v52" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260902-orcamentos-organizado-v3" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -281,8 +282,8 @@
                 <div id="produto-search-results" class="product-results is-column-layout"></div>
               </div>
               <div class="budget-items-table-wrap">
-                <table class="budget-items-table">
-                  <thead><tr><th class="item-order">Ordem</th><th>Produto/serviço</th><th title="Altere o código e saia do campo para trocar o produto selecionado">Código</th><th>Un.</th><th>Qtd.</th><th>Valor unit.</th><th>Desconto</th><th>Total</th><th class="cost-only">Custo</th><th></th></tr></thead>
+                <table class="budget-items-table budget-main-items-table">
+                  <thead><tr><th class="budget-order-heading">Ordem</th><th>Produto / serviço</th><th title="Altere o código e saia do campo para trocar o produto selecionado">Código</th><th>Un.</th><th>Qtd.</th><th>Valor unit.</th><th>Desconto</th><th>Total</th><th class="cost-only">Custo unit.</th><th>Ações</th></tr></thead>
                   <tbody id="budget-items-body"></tbody>
                 </table>
               </div>
