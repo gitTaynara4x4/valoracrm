@@ -287,10 +287,28 @@
         </div>
         <div class="payment-option-grid">
           <div><label>Tipo</label><select data-payment-field="tipo"><option value="avista" ${payment.tipo === 'avista' ? 'selected' : ''}>À vista</option><option value="entrada_parcelas" ${payment.tipo === 'entrada_parcelas' ? 'selected' : ''}>Entrada + parcelas</option><option value="cartao" ${payment.tipo === 'cartao' ? 'selected' : ''}>Cartão</option><option value="pix" ${payment.tipo === 'pix' ? 'selected' : ''}>PIX</option><option value="boleto" ${payment.tipo === 'boleto' ? 'selected' : ''}>Boleto</option><option value="personalizado" ${payment.tipo === 'personalizado' ? 'selected' : ''}>Personalizado</option></select></div>
-          <div><label>Desconto %</label><input data-payment-field="desconto_percentual" value="${inputMoney(payment.desconto_percentual)}" inputmode="decimal" /></div>
-          <div><label>Entrada %</label><input data-payment-field="entrada_percentual" value="${inputMoney(payment.entrada_percentual)}" inputmode="decimal" ${locks.entryLocked ? 'disabled' : ''} /></div>
+          <div>
+            <label>Desconto</label>
+            <div class="payment-affix-field has-suffix">
+              <input data-payment-field="desconto_percentual" value="${inputMoney(payment.desconto_percentual)}" inputmode="decimal" data-percent-min="0" data-percent-max="100" title="Informe um percentual entre 0 e 100" />
+              <span class="payment-field-affix is-suffix" aria-hidden="true">%</span>
+            </div>
+          </div>
+          <div>
+            <label>Entrada</label>
+            <div class="payment-affix-field has-suffix">
+              <input data-payment-field="entrada_percentual" value="${inputMoney(payment.entrada_percentual)}" inputmode="decimal" data-percent-min="0" data-percent-max="100" title="Informe um percentual entre 0 e 100" ${locks.entryLocked ? 'disabled' : ''} />
+              <span class="payment-field-affix is-suffix" aria-hidden="true">%</span>
+            </div>
+          </div>
           <div><label>Parcelas</label><input type="number" min="1" max="120" data-payment-field="parcelas" value="${payment.parcelas}" ${locks.installmentsLocked ? 'disabled' : ''} /></div>
-          <div><label>Juros %</label><input data-payment-field="juros_percentual" value="${inputMoney(payment.juros_percentual)}" inputmode="decimal" ${locks.interestLocked ? 'disabled' : ''} /></div>
+          <div>
+            <label>Juros</label>
+            <div class="payment-affix-field has-suffix">
+              <input data-payment-field="juros_percentual" value="${inputMoney(payment.juros_percentual)}" inputmode="decimal" ${locks.interestLocked ? 'disabled' : ''} />
+              <span class="payment-field-affix is-suffix" aria-hidden="true">%</span>
+            </div>
+          </div>
         </div>
         <div class="form-group payment-description-field"><label>Descrição complementar</label><input data-payment-field="descricao" value="${escapeHtml(payment.descricao)}" placeholder="Ex.: Entrada no aceite e saldo em 30/60 dias" /></div>
         <div class="payment-simulation" data-payment-simulation>${paymentSimulationMarkup(payment, index)}</div>
@@ -306,8 +324,38 @@
 
     if (field === 'selecionada') {
       state.payments.forEach((item, index) => { item.selecionada = index === Number(card.dataset.paymentIndex); });
-    } else if (['desconto_percentual', 'entrada_percentual', 'juros_percentual'].includes(field)) {
-      payment[field] = parseNumber(input.value);
+    } else if (field === 'entrada_percentual') {
+      const previousEntryPercent = Math.min(Math.max(parseNumber(payment.entrada_percentual), 0), 100);
+      const requestedEntryPercent = parseNumber(input.value);
+
+      // Entrada é percentual: nunca aceitar valores negativos ou acima de 100%.
+      // Em vez de transformar 260% silenciosamente em pagamento à vista,
+      // mantemos o último valor válido e avisamos o usuário.
+      if (requestedEntryPercent < 0 || requestedEntryPercent > 100) {
+        input.value = inputMoney(previousEntryPercent);
+        input.classList.add('is-payment-percent-invalid');
+        input.setAttribute('aria-invalid', 'true');
+        toast('A entrada deve ficar entre 0% e 100%.', 'error');
+        return;
+      }
+
+      input.classList.remove('is-payment-percent-invalid');
+      input.removeAttribute('aria-invalid');
+      payment.entrada_percentual = requestedEntryPercent;
+    } else if (field === 'desconto_percentual') {
+      const requestedDiscountPercent = parseNumber(input.value);
+      if (requestedDiscountPercent < 0 || requestedDiscountPercent > 100) {
+        input.value = inputMoney(Math.min(Math.max(parseNumber(payment.desconto_percentual), 0), 100));
+        input.classList.add('is-payment-percent-invalid');
+        input.setAttribute('aria-invalid', 'true');
+        toast('O desconto da condição deve ficar entre 0% e 100%.', 'error');
+        return;
+      }
+      input.classList.remove('is-payment-percent-invalid');
+      input.removeAttribute('aria-invalid');
+      payment.desconto_percentual = requestedDiscountPercent;
+    } else if (field === 'juros_percentual') {
+      payment.juros_percentual = Math.max(parseNumber(input.value), 0);
     } else if (field === 'parcelas') {
       payment.parcelas = Math.max(Number(input.value || 1), 1);
     } else {

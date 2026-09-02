@@ -27,12 +27,12 @@
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260804-listas-simples-v3">
   <link rel="stylesheet" href="/frontend/css/orcamentos-modal-paridade.css?v=20260901-confirm-modal-v50">
   <link rel="stylesheet" href="/frontend/css/orcamentos-itens.css?v=20260902-itens-compacto-v4">
-  <link rel="stylesheet" href="/frontend/css/orcamentos-pagamento.css?v=20260902-pagamento-simulacao-v6">
+  <link rel="stylesheet" href="/frontend/css/orcamentos-pagamento.css?v=20260902-pagamento-unidades-v8">
 
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260808-agenda-cache-v16" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260902-orcamentos-pagamento-v6" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260902-orcamentos-pagamento-v8" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -302,8 +302,8 @@
                 <h4>Resumo financeiro</h4>
                 <div class="summary-line"><span>Subtotal</span><strong id="summary-subtotal">R$ 0,00</strong></div>
                 <div class="summary-edit-line"><label for="orcamento-desconto-tipo">Desconto</label><div><select id="orcamento-desconto-tipo"><option value="valor">R$</option><option value="percentual">%</option></select><input id="orcamento-desconto-valor" type="text" value="0,00" /></div></div>
-                <div class="summary-edit-line"><label for="orcamento-frete">Frete</label><input id="orcamento-frete" type="text" value="0,00" /></div>
-                <div class="summary-edit-line"><label for="orcamento-acrescimo">Acréscimo</label><input id="orcamento-acrescimo" type="text" value="0,00" /></div>
+                <div class="summary-edit-line"><label for="orcamento-frete">Frete</label><div class="summary-money-field"><span aria-hidden="true">R$</span><input id="orcamento-frete" type="text" value="0,00" inputmode="decimal" /></div></div>
+                <div class="summary-edit-line"><label for="orcamento-acrescimo">Acréscimo</label><div class="summary-money-field"><span aria-hidden="true">R$</span><input id="orcamento-acrescimo" type="text" value="0,00" inputmode="decimal" /></div></div>
                 <div class="summary-line summary-discount"><span>Desconto aplicado</span><strong id="summary-desconto">R$ 0,00</strong></div>
                 <div class="summary-total"><span>Total do orçamento</span><strong id="summary-total">R$ 0,00</strong></div>
               </aside>

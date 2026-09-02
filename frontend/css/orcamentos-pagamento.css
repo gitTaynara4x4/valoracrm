@@ -342,3 +342,77 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* Validação de percentuais da condição de pagamento */
+.payment-option-grid input.is-payment-percent-invalid {
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, .035) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, .08) !important;
+}
+
+
+/* v8 · unidades visíveis nos campos */
+.payment-affix-field,
+.summary-money-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.payment-affix-field > input,
+.summary-money-field > input {
+  width: 100%;
+}
+
+.payment-affix-field.has-suffix > input {
+  padding-right: 34px !important;
+}
+
+.payment-field-affix {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  color: var(--muted, #64748b);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+.payment-field-affix.is-suffix {
+  right: 12px;
+}
+
+.payment-affix-field:focus-within .payment-field-affix {
+  color: color-mix(in srgb, var(--brand, #4bc3c7) 78%, #17303b);
+}
+
+.payment-affix-field:has(input:disabled) .payment-field-affix {
+  opacity: .58;
+}
+
+.summary-money-field > span {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  color: var(--muted, #64748b);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.summary-money-field > input {
+  padding-left: 34px !important;
+  text-align: right;
+}
+
+.summary-money-field:focus-within > span {
+  color: color-mix(in srgb, var(--brand, #4bc3c7) 78%, #17303b);
+}
