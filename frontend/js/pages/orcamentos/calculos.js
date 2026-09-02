@@ -11,23 +11,36 @@
     return ['avista', 'pix'].includes(String(type || '').toLowerCase());
   }
 
+  function setPaymentEntryMode(payment, mode = 'valor') {
+    if (!payment) return 'valor';
+    const normalized = mode === 'percentual' ? 'percentual' : 'valor';
+    try {
+      Object.defineProperty(payment, 'entrada_modo', {
+        value: normalized,
+        writable: true,
+        configurable: true,
+        enumerable: false,
+      });
+    } catch (_) {
+      payment.entrada_modo = normalized;
+    }
+    return normalized;
+  }
+
+  function paymentEntryMode(payment) {
+    return payment?.entrada_modo === 'percentual' ? 'percentual' : 'valor';
+  }
+
   function normalizePaymentRules(payment, { changedField = '' } = {}) {
     if (!payment) return payment;
 
     payment.desconto_percentual = Math.min(Math.max(parseNumber(payment.desconto_percentual), 0), 100);
     payment.entrada_percentual = Math.min(Math.max(parseNumber(payment.entrada_percentual), 0), 100);
+    payment.entrada_valor = Math.max(parseNumber(payment.entrada_valor), 0);
     payment.juros_percentual = Math.max(parseNumber(payment.juros_percentual), 0);
     payment.parcelas = Math.min(Math.max(Math.trunc(Number(payment.parcelas || 1)), 1), 120);
 
-    const immediateType = isImmediatePaymentType(payment.tipo);
-    const fullEntry = payment.entrada_percentual >= 100;
-
-    if (immediateType) {
-      payment.entrada_percentual = 100;
-      payment.parcelas = 1;
-      payment.juros_percentual = 0;
-    } else if (fullEntry) {
-      // 100% de entrada quita a condição: não faz sentido manter parcelas ou juros.
+    if (isImmediatePaymentType(payment.tipo)) {
       payment.entrada_percentual = 100;
       payment.parcelas = 1;
       payment.juros_percentual = 0;
@@ -50,6 +63,13 @@
       total: parseNumber(payment.total),
       selecionada: Boolean(payment.selecionada),
     };
+
+    // O modo é apenas de interface. Não é enviado no payload porque a API já
+    // persiste entrada_percentual e entrada_valor.
+    const requestedMode = payment.entrada_modo === 'percentual'
+      ? 'percentual'
+      : 'valor';
+    setPaymentEntryMode(normalized, requestedMode);
     return normalizePaymentRules(normalized);
   }
 
@@ -90,16 +110,19 @@
 
     const budgetTotal = roundPaymentMoney(calculateTotals().total);
     const discountPercent = Math.min(Math.max(parseNumber(payment.desconto_percentual), 0), 100);
-    const interestPercent = Math.max(parseNumber(payment.juros_percentual), 0);
     const afterDiscount = roundPaymentMoney(budgetTotal * (1 - discountPercent / 100));
     const discountAmount = roundPaymentMoney(budgetTotal - afterDiscount);
+    const interestPercent = Math.max(parseNumber(payment.juros_percentual), 0);
     const finalTotal = roundPaymentMoney(payment.total);
     const interestAmount = roundPaymentMoney(finalTotal - afterDiscount);
-    const entryPercent = Math.min(Math.max(parseNumber(payment.entrada_percentual), 0), 100);
-    const singlePayment = isImmediatePaymentType(payment.tipo) || entryPercent >= 100;
-    const entry = singlePayment
-      ? finalTotal
-      : Math.min(roundPaymentMoney(payment.entrada_valor), finalTotal);
+    const entry = Math.min(roundPaymentMoney(payment.entrada_valor), afterDiscount);
+    const entryPercent = afterDiscount > 0
+      ? Math.min(roundPaymentMoney(entry / afterDiscount * 100), 100)
+      : 0;
+    const singlePayment = isImmediatePaymentType(payment.tipo)
+      || finalTotal <= 0
+      || (afterDiscount > 0 && entry >= afterDiscount - 0.004);
+    const effectiveEntry = singlePayment ? finalTotal : entry;
     const balance = singlePayment ? 0 : roundPaymentMoney(finalTotal - entry);
     const installments = singlePayment ? 1 : Math.max(Number(payment.parcelas || 1), 1);
     const installmentValue = singlePayment
@@ -120,12 +143,13 @@
       interestAmount,
       finalTotal,
       entryPercent,
-      entry,
+      entry: effectiveEntry,
       balance,
       installments,
       installmentValue,
       lastInstallmentValue,
       singlePayment,
+      entryMode: paymentEntryMode(payment),
     };
   }
 
@@ -162,7 +186,7 @@
           <div>
             <span>Como o cliente vai pagar</span>
             <small>${simulation.singlePayment
-              ? 'A condição foi tratada como pagamento à vista.'
+              ? 'Pagamento integral, sem saldo para parcelar.'
               : `${simulation.entry > 0 ? 'Entrada + ' : ''}${simulation.installments} ${simulation.installments === 1 ? 'parcela' : 'parcelas'}`}</small>
           </div>
           ${lastDiffers ? `<small class="payment-rounding-note">Última parcela ajustada em centavos para fechar o total.</small>` : ''}
@@ -200,8 +224,11 @@
           <strong>${hasDiscount ? `- ${formatMoney(simulation.discountAmount)}` : formatMoney(0)}</strong>
         </div>
         <div class="payment-sim-metric is-entry">
-          <span>${simulation.singlePayment ? 'Pagamento' : `Entrada ${simulation.entryPercent > 0 ? `(${formatPercent(simulation.entryPercent)})` : ''}`}</span>
+          <span>${simulation.singlePayment ? 'Pagamento' : 'Entrada'}</span>
           <strong>${formatMoney(simulation.entry)}</strong>
+          ${!simulation.singlePayment && simulation.entry > 0
+            ? `<small>${formatPercent(simulation.entryPercent)} do total da condição</small>`
+            : ''}
         </div>
         <div class="payment-sim-metric">
           <span>Saldo após entrada</span>
@@ -251,19 +278,35 @@
   function syncPaymentRuleControls(card, payment, { preserveField = '' } = {}) {
     if (!card || !payment) return;
     const locks = paymentControlLockedState(payment);
-    const entryInput = card.querySelector('[data-payment-field="entrada_percentual"]');
+    const entryInput = card.querySelector('[data-payment-field="entrada"]');
+    const entryModeSelect = card.querySelector('[data-payment-field="entrada_modo"]');
     const installmentsInput = card.querySelector('[data-payment-field="parcelas"]');
     const interestInput = card.querySelector('[data-payment-field="juros_percentual"]');
+    const mode = paymentEntryMode(payment);
+
+    if (entryModeSelect) {
+      entryModeSelect.value = mode;
+      entryModeSelect.disabled = locks.entryLocked;
+      entryModeSelect.title = locks.entryLocked ? 'Este tipo de pagamento é considerado à vista.' : 'Escolha se a entrada será informada em reais ou percentual.';
+    }
 
     if (entryInput) {
-      if (preserveField !== 'entrada_percentual' || locks.entryLocked) entryInput.value = inputMoney(payment.entrada_percentual);
+      if (preserveField !== 'entrada' || locks.entryLocked) {
+        entryInput.value = mode === 'percentual'
+          ? inputMoney(payment.entrada_percentual)
+          : inputMoney(payment.entrada_valor);
+      }
       entryInput.disabled = locks.entryLocked;
-      entryInput.title = locks.entryLocked ? 'Este tipo de pagamento é considerado à vista.' : '';
+      entryInput.title = locks.entryLocked
+        ? 'Este tipo de pagamento é considerado à vista.'
+        : (mode === 'percentual' ? 'Informe a entrada entre 0% e 100%.' : 'Informe o valor da entrada em reais.');
+      entryInput.dataset.entryMode = mode;
     }
+
     if (installmentsInput) {
       if (preserveField !== 'parcelas' || locks.installmentsLocked) installmentsInput.value = String(payment.parcelas);
       installmentsInput.disabled = locks.installmentsLocked;
-      installmentsInput.title = locks.installmentsLocked ? 'Com 100% pago na entrada não há saldo para parcelar.' : '';
+      installmentsInput.title = locks.installmentsLocked ? 'Não há saldo para parcelar.' : '';
     }
     if (interestInput) {
       if (preserveField !== 'juros_percentual' || locks.interestLocked) interestInput.value = inputMoney(payment.juros_percentual);
@@ -272,12 +315,29 @@
     }
   }
 
+  function bindPaymentFieldFormatting() {
+    const container = $('payment-options');
+    if (!container || container.dataset.paymentFormattingBound === '1') return;
+    container.dataset.paymentFormattingBound = '1';
+    container.addEventListener('focusout', (event) => {
+      const field = event.target?.dataset?.paymentField;
+      if (!['desconto_percentual', 'entrada', 'juros_percentual'].includes(field)) return;
+      event.target.value = inputMoney(event.target.value);
+      updatePaymentField(event.target);
+    });
+  }
+
   function renderPayments() {
     const container = $('payment-options');
+    bindPaymentFieldFormatting();
     if (!state.payments.length) addDefaultPayment();
     recalculatePayments();
     container.innerHTML = state.payments.map((payment, index) => {
       const locks = paymentControlLockedState(payment);
+      const entryMode = paymentEntryMode(payment);
+      const entryDisplay = entryMode === 'percentual'
+        ? inputMoney(payment.entrada_percentual)
+        : inputMoney(payment.entrada_valor);
       return `
       <article class="payment-option ${payment.selecionada ? 'is-selected' : ''}" data-payment-index="${index}">
         <div class="payment-option-head">
@@ -296,9 +356,12 @@
           </div>
           <div>
             <label>Entrada</label>
-            <div class="payment-affix-field has-suffix">
-              <input data-payment-field="entrada_percentual" value="${inputMoney(payment.entrada_percentual)}" inputmode="decimal" data-percent-min="0" data-percent-max="100" title="Informe um percentual entre 0 e 100" ${locks.entryLocked ? 'disabled' : ''} />
-              <span class="payment-field-affix is-suffix" aria-hidden="true">%</span>
+            <div class="payment-entry-field">
+              <select class="payment-entry-mode" data-payment-field="entrada_modo" ${locks.entryLocked ? 'disabled' : ''} aria-label="Formato da entrada">
+                <option value="valor" ${entryMode === 'valor' ? 'selected' : ''}>R$</option>
+                <option value="percentual" ${entryMode === 'percentual' ? 'selected' : ''}>%</option>
+              </select>
+              <input class="payment-entry-input" data-payment-field="entrada" data-entry-mode="${entryMode}" value="${entryDisplay}" inputmode="decimal" ${locks.entryLocked ? 'disabled' : ''} />
             </div>
           </div>
           <div><label>Parcelas</label><input type="number" min="1" max="120" data-payment-field="parcelas" value="${payment.parcelas}" ${locks.installmentsLocked ? 'disabled' : ''} /></div>
@@ -324,24 +387,50 @@
 
     if (field === 'selecionada') {
       state.payments.forEach((item, index) => { item.selecionada = index === Number(card.dataset.paymentIndex); });
-    } else if (field === 'entrada_percentual') {
-      const previousEntryPercent = Math.min(Math.max(parseNumber(payment.entrada_percentual), 0), 100);
-      const requestedEntryPercent = parseNumber(input.value);
-
-      // Entrada é percentual: nunca aceitar valores negativos ou acima de 100%.
-      // Em vez de transformar 260% silenciosamente em pagamento à vista,
-      // mantemos o último valor válido e avisamos o usuário.
-      if (requestedEntryPercent < 0 || requestedEntryPercent > 100) {
-        input.value = inputMoney(previousEntryPercent);
-        input.classList.add('is-payment-percent-invalid');
-        input.setAttribute('aria-invalid', 'true');
-        toast('A entrada deve ficar entre 0% e 100%.', 'error');
-        return;
+    } else if (field === 'entrada_modo') {
+      setPaymentEntryMode(payment, input.value);
+      const entryInput = card.querySelector('[data-payment-field="entrada"]');
+      if (entryInput) {
+        const mode = paymentEntryMode(payment);
+        entryInput.value = mode === 'percentual'
+          ? inputMoney(payment.entrada_percentual)
+          : inputMoney(payment.entrada_valor);
+        entryInput.dataset.entryMode = mode;
+        entryInput.classList.remove('is-payment-percent-invalid');
+        entryInput.removeAttribute('aria-invalid');
       }
+    } else if (field === 'entrada') {
+      const mode = paymentEntryMode(payment);
+      const requested = parseNumber(input.value);
 
-      input.classList.remove('is-payment-percent-invalid');
-      input.removeAttribute('aria-invalid');
-      payment.entrada_percentual = requestedEntryPercent;
+      if (mode === 'percentual') {
+        const previousPercent = Math.min(Math.max(parseNumber(payment.entrada_percentual), 0), 100);
+        if (requested < 0 || requested > 100) {
+          input.value = inputMoney(previousPercent);
+          input.classList.add('is-payment-percent-invalid');
+          input.setAttribute('aria-invalid', 'true');
+          toast('A entrada em percentual deve ficar entre 0% e 100%.', 'error');
+          return;
+        }
+        input.classList.remove('is-payment-percent-invalid');
+        input.removeAttribute('aria-invalid');
+        payment.entrada_percentual = requested;
+      } else {
+        const previousValue = Math.max(parseNumber(payment.entrada_valor), 0);
+        const budgetTotal = roundPaymentMoney(calculateTotals().total);
+        const discountPercent = Math.min(Math.max(parseNumber(payment.desconto_percentual), 0), 100);
+        const maxEntry = roundPaymentMoney(budgetTotal * (1 - discountPercent / 100));
+        if (requested < 0 || (maxEntry > 0 && requested > maxEntry + 0.004)) {
+          input.value = inputMoney(previousValue);
+          input.classList.add('is-payment-percent-invalid');
+          input.setAttribute('aria-invalid', 'true');
+          toast(`A entrada não pode ser maior que ${formatMoney(maxEntry)}.`, 'error');
+          return;
+        }
+        input.classList.remove('is-payment-percent-invalid');
+        input.removeAttribute('aria-invalid');
+        payment.entrada_valor = requested;
+      }
     } else if (field === 'desconto_percentual') {
       const requestedDiscountPercent = parseNumber(input.value);
       if (requestedDiscountPercent < 0 || requestedDiscountPercent > 100) {
@@ -365,8 +454,10 @@
     // Ao sair de um tipo obrigatoriamente à vista, libera uma condição nova para configuração.
     if (field === 'tipo' && isImmediatePaymentType(previousType) && !isImmediatePaymentType(payment.tipo)) {
       payment.entrada_percentual = 0;
+      payment.entrada_valor = 0;
       payment.parcelas = 1;
       payment.juros_percentual = 0;
+      setPaymentEntryMode(payment, 'valor');
     }
 
     normalizePaymentRules(payment, { changedField: field });
@@ -381,12 +472,48 @@
     state.payments.forEach((payment) => {
       normalizePaymentRules(payment);
       const discounted = roundPaymentMoney(total * (1 - payment.desconto_percentual / 100));
-      const withInterest = roundPaymentMoney(discounted * (1 + payment.juros_percentual / 100));
-      payment.total = withInterest;
-      payment.entrada_valor = roundPaymentMoney(payment.total * payment.entrada_percentual / 100);
-      const balance = roundPaymentMoney(payment.total - payment.entrada_valor);
-      payment.valor_parcela = balance > 0
-        ? roundPaymentMoney(balance / Math.max(payment.parcelas, 1))
+
+      // À vista/PIX: pagamento integral, sem parcelamento e sem juros.
+      if (isImmediatePaymentType(payment.tipo)) {
+        payment.juros_percentual = 0;
+        payment.total = discounted;
+        payment.entrada_valor = discounted;
+        payment.entrada_percentual = discounted > 0 ? 100 : 0;
+        payment.parcelas = 1;
+        payment.valor_parcela = 0;
+        return;
+      }
+
+      // A entrada é calculada sobre o valor após o desconto da condição.
+      if (paymentEntryMode(payment) === 'percentual') {
+        payment.entrada_percentual = Math.min(Math.max(parseNumber(payment.entrada_percentual), 0), 100);
+        payment.entrada_valor = roundPaymentMoney(discounted * payment.entrada_percentual / 100);
+      } else {
+        payment.entrada_valor = Math.min(Math.max(roundPaymentMoney(payment.entrada_valor), 0), discounted);
+        payment.entrada_percentual = discounted > 0
+          ? Math.min(roundPaymentMoney(payment.entrada_valor / discounted * 100), 100)
+          : 0;
+      }
+
+      // Se a entrada quitar 100%, não existe saldo para juros ou parcelas.
+      const fullEntry = discounted <= 0 || payment.entrada_valor >= discounted - 0.004;
+      if (fullEntry) {
+        payment.juros_percentual = 0;
+        payment.total = discounted;
+        payment.entrada_valor = discounted;
+        payment.entrada_percentual = discounted > 0 ? 100 : 0;
+        payment.parcelas = 1;
+        payment.valor_parcela = 0;
+        return;
+      }
+
+      // Juros incidem somente sobre o saldo que realmente será parcelado.
+      const financedBase = roundPaymentMoney(discounted - payment.entrada_valor);
+      const interestAmount = roundPaymentMoney(financedBase * payment.juros_percentual / 100);
+      const financedWithInterest = roundPaymentMoney(financedBase + interestAmount);
+      payment.total = roundPaymentMoney(payment.entrada_valor + financedWithInterest);
+      payment.valor_parcela = financedWithInterest > 0
+        ? roundPaymentMoney(financedWithInterest / Math.max(payment.parcelas, 1))
         : 0;
     });
   }

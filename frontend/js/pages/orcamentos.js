@@ -4,7 +4,7 @@
   // Este arquivo é apenas o carregador do módulo de Orçamentos.
   // A ordem fica explícita aqui; os nomes dos arquivos não precisam de números.
   const BASE = '/frontend/js/pages/orcamentos/';
-  const VERSION = '20260902-orcamentos-pagamento-v8';
+  const VERSION = '20260902-orcamentos-pagamento-v9';
   const MODULOS = [
     'core.js',
     'propostas.js',

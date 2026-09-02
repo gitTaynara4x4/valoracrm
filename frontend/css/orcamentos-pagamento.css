@@ -416,3 +416,184 @@
 .summary-money-field:focus-within > span {
   color: color-mix(in srgb, var(--brand, #4bc3c7) 78%, #17303b);
 }
+
+/* v9 · entrada escolhida em R$ ou % */
+.payment-entry-field {
+  display: grid;
+  grid-template-columns: 66px minmax(0, 1fr);
+  align-items: stretch;
+  width: 100%;
+}
+
+.payment-entry-field .payment-entry-mode,
+.payment-entry-field .payment-entry-input {
+  min-width: 0;
+  height: 36px;
+}
+
+.payment-entry-field .payment-entry-mode {
+  position: relative;
+  z-index: 2;
+  padding-left: 10px;
+  padding-right: 24px;
+  border-radius: 8px 0 0 8px !important;
+  font-weight: 600;
+}
+
+.payment-entry-field .payment-entry-input {
+  position: relative;
+  z-index: 1;
+  margin-left: -1px;
+  border-radius: 0 8px 8px 0 !important;
+  text-align: right;
+}
+
+.payment-entry-field .payment-entry-mode:focus,
+.payment-entry-field .payment-entry-input:focus {
+  z-index: 3;
+}
+
+.payment-entry-field:has(:disabled) {
+  opacity: .78;
+}
+
+@media (max-width: 720px) {
+  .payment-entry-field {
+    grid-template-columns: 62px minmax(0, 1fr);
+  }
+}
+
+/* =========================================================
+   v10 · correção de campos cortados / unidades visíveis
+   ========================================================= */
+
+/* Entrada: reserva espaço real para "R$" / "%" e para a seta do select. */
+.payment-option .payment-entry-field {
+  display: grid !important;
+  grid-template-columns: 82px minmax(96px, 1fr) !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: visible !important;
+}
+
+.payment-option .payment-entry-field .payment-entry-mode {
+  box-sizing: border-box !important;
+  width: 82px !important;
+  min-width: 82px !important;
+  max-width: 82px !important;
+  height: 36px !important;
+  padding: 0 30px 0 12px !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+}
+
+.payment-option .payment-entry-field .payment-entry-input {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 36px !important;
+  padding: 0 12px !important;
+  text-align: right !important;
+}
+
+/* Percentuais: impede o sufixo % de ser recortado. */
+.payment-option .payment-affix-field {
+  min-width: 0 !important;
+  overflow: visible !important;
+}
+
+.payment-option .payment-affix-field > input {
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+}
+
+.payment-option .payment-affix-field.has-suffix > input {
+  padding-right: 38px !important;
+}
+
+.payment-option .payment-field-affix.is-suffix {
+  right: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  min-width: 14px !important;
+  justify-content: center !important;
+}
+
+/* Resumo financeiro: Frete/Acréscimo viram um único campo monetário estável. */
+.budget-summary-card .summary-edit-line > .summary-money-field {
+  display: grid !important;
+  grid-template-columns: 40px minmax(86px, 1fr) !important;
+  align-items: stretch !important;
+  width: 162px !important;
+  min-width: 162px !important;
+  max-width: 100% !important;
+  gap: 0 !important;
+  overflow: visible !important;
+}
+
+.budget-summary-card .summary-money-field > span {
+  position: static !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: auto !important;
+  min-width: 40px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  transform: none !important;
+  border: 1px solid var(--border, #dbe4ea) !important;
+  border-right: 0 !important;
+  border-radius: 8px 0 0 8px !important;
+  background: color-mix(in srgb, var(--panel, #fff) 96%, var(--bg-soft, #f8fafc) 4%) !important;
+  color: var(--muted, #64748b) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+}
+
+.budget-summary-card .summary-money-field > input {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 36px !important;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  border-radius: 0 8px 8px 0 !important;
+  text-align: right !important;
+}
+
+/* O grupo Desconto também ganha largura mínima para não cortar R$ / %. */
+.budget-summary-card .summary-edit-line > div:not(.summary-money-field) {
+  min-width: 162px !important;
+}
+
+.budget-summary-card #orcamento-desconto-tipo {
+  min-width: 58px !important;
+}
+
+.budget-summary-card #orcamento-desconto-valor {
+  min-width: 82px !important;
+}
+
+@media (max-width: 720px) {
+  .payment-option .payment-entry-field {
+    grid-template-columns: 78px minmax(88px, 1fr) !important;
+  }
+
+  .payment-option .payment-entry-field .payment-entry-mode {
+    width: 78px !important;
+    min-width: 78px !important;
+    max-width: 78px !important;
+  }
+
+  .budget-summary-card .summary-edit-line > .summary-money-field,
+  .budget-summary-card .summary-edit-line > div:not(.summary-money-field) {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}

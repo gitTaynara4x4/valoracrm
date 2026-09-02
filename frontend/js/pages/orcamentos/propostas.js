@@ -576,10 +576,9 @@
     return `<ul>${selected.map((service) => `<li>${escapeHtml(service.label)}</li>`).join('')}</ul>`;
   }
 
-  function nilsonProposalHeaderHtml(client, seller, { colorMode = 'none' } = {}) {
+  function nilsonProposalHeaderHtml(client, seller) {
     const codeName = [client.codigo, client.nome].filter(Boolean).join('- ');
     const dateLabel = localDate($('orcamento-data-emissao')?.value || new Date().toISOString().slice(0, 10));
-    const colorClass = colorMode === 'all' ? 'is-reference-red' : (colorMode === 'partial' ? 'is-reference-partial-red' : '');
     return `
       <header class="nilson-reference-header">
         <img src="/frontend/img/propostas/segsis-modelo-logo.png" class="nilson-reference-logo" alt="SEG">
@@ -589,7 +588,7 @@
           <div><strong>Tel. (012) 974101924 * 3633-4871* E-mail:</strong> <u>callcenter.segsis@gmail.com</u></div>
         </div>
       </header>
-      <div class="nilson-reference-client-row ${colorClass}">
+      <div class="nilson-reference-client-row">
         <div class="nilson-reference-client-main">
           <strong><span class="nilson-reference-client-name">${escapeHtml(codeName || client.nome)}</span>${client.telefone ? `<span class="nilson-reference-client-phone">${escapeHtml(client.telefone)}</span>` : ''}</strong>
           <span>${escapeHtml(client.endereco)}</span>
@@ -619,19 +618,18 @@
   function nilsonProposalStyles() {
     return `<style>
       .nilson-proposal-sheet{box-sizing:border-box;width:210mm;height:297mm;min-height:297mm;margin:0 auto;padding:9mm 9.5mm 36mm;background:#fff;color:#000;font-family:Calibri,Arial,sans-serif;font-size:8pt;line-height:1.22;position:relative;overflow:hidden}.nilson-monitor-sheet{height:auto;min-height:297mm;padding-bottom:8mm;overflow:visible}
-      .nilson-proposal-sheet *{box-sizing:border-box}.nilson-reference-header{height:29mm;position:relative;display:flex;align-items:flex-start;padding-left:34mm}
-      .nilson-reference-logo{position:absolute;left:3mm;top:0;width:29mm;height:29mm;object-fit:contain}
-      .nilson-reference-company{width:100%;padding-top:1.5mm;text-align:center;font-family:"Times New Roman",serif}
-      .nilson-reference-company h1{margin:0;font-size:16.6pt;line-height:1;font-weight:700;white-space:nowrap}
-      .nilson-reference-company strong,.nilson-reference-company div{font-size:10.5pt;line-height:1.12}.nilson-reference-company u{color:#0563c1}
-      .nilson-reference-client-row{height:13.5mm;border-top:.35mm solid #000;border-bottom:.35mm solid #000;display:grid;grid-template-columns:1fr 30mm;font-size:9.3pt}
-      .nilson-reference-client-main{padding:1.2mm 2mm;display:flex;flex-direction:column;gap:1mm;overflow:hidden}.nilson-reference-client-main strong,.nilson-reference-client-main>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nilson-reference-client-main strong{display:flex;gap:5mm}.nilson-reference-client-name,.nilson-reference-client-phone{display:inline-block}
-      .nilson-reference-client-side{border-left:.35mm solid #000;padding:.8mm 1.3mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5mm;font-size:8.5pt}
-      .nilson-reference-client-row.is-reference-red .nilson-reference-client-main strong,.nilson-reference-client-row.is-reference-red .nilson-reference-client-main>span,.nilson-reference-client-row.is-reference-red .nilson-reference-client-side strong{color:#f00}.nilson-reference-client-row.is-reference-red .nilson-reference-client-main>span,.nilson-reference-client-row.is-reference-partial-red .nilson-reference-client-main>span{font-weight:700}.nilson-reference-client-row.is-reference-partial-red .nilson-reference-client-name,.nilson-reference-client-row.is-reference-partial-red .nilson-reference-client-side strong:nth-child(2){color:#f00}
-      .nilson-reference-title{margin:4.2mm 0 3mm;text-align:center;font-size:12.5pt;font-weight:700}
+      .nilson-proposal-sheet *{box-sizing:border-box}.nilson-reference-header{height:30mm;display:grid;grid-template-columns:29mm max-content;align-items:center;justify-content:center;column-gap:4mm;padding:0 1mm;position:relative}
+      .nilson-reference-logo{position:static;display:block;width:29mm;height:29mm;object-fit:contain}
+      .nilson-reference-company{width:auto;max-width:154mm;padding:0;text-align:center;font-family:"Times New Roman",serif;color:#000}
+      .nilson-reference-company h1{margin:0;font-size:16.6pt;line-height:1;font-weight:700;white-space:nowrap;color:#000}
+      .nilson-reference-company strong,.nilson-reference-company div{font-size:10.5pt;line-height:1.12;color:#000}.nilson-reference-company u{color:#0563c1}
+      .nilson-reference-client-row{min-height:14.5mm;height:auto;border:.35mm solid #000;display:grid;grid-template-columns:minmax(0,1fr) 31mm;font-size:9.3pt;color:#000}
+      .nilson-reference-client-main{padding:1.3mm 2.2mm;display:flex;flex-direction:column;justify-content:center;gap:1mm;overflow:hidden;color:#000}.nilson-reference-client-main strong,.nilson-reference-client-main>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#000}.nilson-reference-client-main strong{display:flex;align-items:center;gap:5mm}.nilson-reference-client-name,.nilson-reference-client-phone{display:inline-block;color:#000}
+      .nilson-reference-client-side{border-left:.35mm solid #000;padding:.9mm 1.3mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.55mm;font-size:8.5pt;color:#000}.nilson-reference-client-side strong{color:#000}
+      .nilson-reference-title{margin:3.6mm 0 3mm;text-align:center;font-size:12.5pt;font-weight:700}
       .nilson-reference-intro{font-size:8.2pt;line-height:1.3;text-align:justify}.nilson-reference-intro p{margin:0 0 2.2mm}.nilson-reference-intro strong{text-decoration:underline}
       .nilson-monitor-columns{display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:1.4mm;align-items:start}.nilson-monitor-column{min-width:0}
-      .nilson-monitor-group{margin:0 0 3.2mm;break-inside:avoid;page-break-inside:avoid}.nilson-monitor-group h3{margin:0 0 1.5mm;font-size:8.2pt;font-weight:700}.nilson-monitor-services{display:grid;gap:.8mm}
+      .nilson-monitor-group{margin:0 0 3.5mm;break-inside:avoid;page-break-inside:avoid}.nilson-monitor-group h3{margin:0 0 1.5mm;font-size:8.2pt;font-weight:700}.nilson-monitor-services{display:grid;gap:.8mm}
       .nilson-monitor-services>div{display:grid;grid-template-columns:7mm 1fr;gap:.3mm;font-size:7.75pt;line-height:1.2}.nilson-monitor-services b{font-weight:400}
       .nilson-reference-observations{margin-top:1.3mm;font-size:7.15pt;line-height:1.25}.nilson-reference-observations h4{margin:0 0 .8mm;font-size:7.7pt}.nilson-reference-observations div{margin:.35mm 0}
       .nilson-reference-footnotes{margin-top:2.2mm;font-size:6.35pt;line-height:1.22}.nilson-reference-footnotes div{margin:.28mm 0}
@@ -657,7 +655,6 @@
     const blocks = conditions.split(/\n\s*\n/);
     const observationLines = (blocks.shift() || '').split(/\r?\n/).filter(Boolean);
     const footnoteLines = blocks.join('\n').split(/\r?\n/).filter(Boolean);
-    const colorMode = 'none';
     const values = data.values || {};
     const sections = model.sections || [];
     const leftCount = Math.ceil(sections.length / 2);
@@ -666,7 +663,7 @@
 
     return `${nilsonProposalStyles()}
       <section class="nilson-proposal-sheet nilson-monitor-sheet">
-        ${nilsonProposalHeaderHtml(client, seller, { colorMode })}
+        ${nilsonProposalHeaderHtml(client, seller)}
         <h2 class="nilson-reference-title">SERVIÇOS DE MONITORAMENTO 24 HORAS</h2>
         <div class="nilson-reference-intro">
           ${String(data.introduction || model.introduction || '').split(/\n\s*\n/).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('')}
