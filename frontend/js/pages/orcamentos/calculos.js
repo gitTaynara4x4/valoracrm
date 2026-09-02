@@ -3,8 +3,41 @@
  * Pagamentos, totais, cálculos, custos, lucro e análise financeira.
  * Carregado por frontend/js/pages/orcamentos.js.
  */
+  function roundPaymentMoney(value) {
+    return Math.round((Math.max(parseNumber(value), 0) + Number.EPSILON) * 100) / 100;
+  }
+
+  function isImmediatePaymentType(type) {
+    return ['avista', 'pix'].includes(String(type || '').toLowerCase());
+  }
+
+  function normalizePaymentRules(payment, { changedField = '' } = {}) {
+    if (!payment) return payment;
+
+    payment.desconto_percentual = Math.min(Math.max(parseNumber(payment.desconto_percentual), 0), 100);
+    payment.entrada_percentual = Math.min(Math.max(parseNumber(payment.entrada_percentual), 0), 100);
+    payment.juros_percentual = Math.max(parseNumber(payment.juros_percentual), 0);
+    payment.parcelas = Math.min(Math.max(Math.trunc(Number(payment.parcelas || 1)), 1), 120);
+
+    const immediateType = isImmediatePaymentType(payment.tipo);
+    const fullEntry = payment.entrada_percentual >= 100;
+
+    if (immediateType) {
+      payment.entrada_percentual = 100;
+      payment.parcelas = 1;
+      payment.juros_percentual = 0;
+    } else if (fullEntry) {
+      // 100% de entrada quita a condição: não faz sentido manter parcelas ou juros.
+      payment.entrada_percentual = 100;
+      payment.parcelas = 1;
+      payment.juros_percentual = 0;
+    }
+
+    return payment;
+  }
+
   function normalizePayment(payment = {}) {
-    return {
+    const normalized = {
       tipo: payment.tipo || 'personalizado',
       nome: payment.nome || 'Nova condição',
       descricao: payment.descricao || '',
@@ -17,6 +50,7 @@
       total: parseNumber(payment.total),
       selecionada: Boolean(payment.selecionada),
     };
+    return normalizePaymentRules(normalized);
   }
 
   function addDefaultPayment() {
@@ -25,50 +59,287 @@
     state.payments = [normalizePayment({ ...first, selecionada: true })];
   }
 
+  function paymentInstallmentSchedule(payment, simulation = paymentSimulationData(payment)) {
+    if (simulation.singlePayment) {
+      return [{ label: 'Pagamento único', value: simulation.finalTotal, kind: 'single' }];
+    }
+
+    const schedule = [];
+    if (simulation.entry > 0) schedule.push({ label: 'Entrada', value: simulation.entry, kind: 'entry' });
+
+    const count = Math.max(simulation.installments, 1);
+    if (simulation.balance <= 0) return schedule;
+
+    const base = roundPaymentMoney(simulation.balance / count);
+    for (let i = 0; i < count; i += 1) {
+      const value = i === count - 1
+        ? roundPaymentMoney(simulation.balance - (base * (count - 1)))
+        : base;
+      schedule.push({
+        label: `${i + 1}ª parcela`,
+        value,
+        kind: 'installment',
+      });
+    }
+
+    return schedule;
+  }
+
+  function paymentSimulationData(payment) {
+    normalizePaymentRules(payment);
+
+    const budgetTotal = roundPaymentMoney(calculateTotals().total);
+    const discountPercent = Math.min(Math.max(parseNumber(payment.desconto_percentual), 0), 100);
+    const interestPercent = Math.max(parseNumber(payment.juros_percentual), 0);
+    const afterDiscount = roundPaymentMoney(budgetTotal * (1 - discountPercent / 100));
+    const discountAmount = roundPaymentMoney(budgetTotal - afterDiscount);
+    const finalTotal = roundPaymentMoney(payment.total);
+    const interestAmount = roundPaymentMoney(finalTotal - afterDiscount);
+    const entryPercent = Math.min(Math.max(parseNumber(payment.entrada_percentual), 0), 100);
+    const singlePayment = isImmediatePaymentType(payment.tipo) || entryPercent >= 100;
+    const entry = singlePayment
+      ? finalTotal
+      : Math.min(roundPaymentMoney(payment.entrada_valor), finalTotal);
+    const balance = singlePayment ? 0 : roundPaymentMoney(finalTotal - entry);
+    const installments = singlePayment ? 1 : Math.max(Number(payment.parcelas || 1), 1);
+    const installmentValue = singlePayment
+      ? finalTotal
+      : (balance > 0 ? roundPaymentMoney(balance / installments) : 0);
+    const lastInstallmentValue = singlePayment
+      ? finalTotal
+      : (balance > 0
+        ? roundPaymentMoney(balance - installmentValue * (installments - 1))
+        : 0);
+
+    return {
+      budgetTotal,
+      discountPercent,
+      discountAmount,
+      afterDiscount,
+      interestPercent,
+      interestAmount,
+      finalTotal,
+      entryPercent,
+      entry,
+      balance,
+      installments,
+      installmentValue,
+      lastInstallmentValue,
+      singlePayment,
+    };
+  }
+
+  function paymentSimulationSentence(payment, simulation = paymentSimulationData(payment)) {
+    if (simulation.singlePayment) {
+      return `Pagamento único de ${formatMoney(simulation.finalTotal)}`;
+    }
+
+    const parts = [];
+    if (simulation.entry > 0) parts.push(`Entrada de ${formatMoney(simulation.entry)}`);
+
+    if (simulation.balance > 0) {
+      if (simulation.installments > 1) {
+        parts.push(`${simulation.installments}x de ${formatMoney(simulation.installmentValue)}`);
+      } else {
+        parts.push(`1x de ${formatMoney(simulation.installmentValue)}`);
+      }
+    }
+
+    return parts.length ? parts.join(' + ') : `Pagamento de ${formatMoney(simulation.finalTotal)}`;
+  }
+
+  function paymentInstallmentMarkup(payment, simulation) {
+    const schedule = paymentInstallmentSchedule(payment, simulation);
+    if (!schedule.length) return '';
+
+    const lastDiffers = !simulation.singlePayment
+      && simulation.installments > 1
+      && Math.abs(simulation.lastInstallmentValue - simulation.installmentValue) >= 0.005;
+
+    return `
+      <div class="payment-installment-plan">
+        <div class="payment-installment-plan-head">
+          <div>
+            <span>Como o cliente vai pagar</span>
+            <small>${simulation.singlePayment
+              ? 'A condição foi tratada como pagamento à vista.'
+              : `${simulation.entry > 0 ? 'Entrada + ' : ''}${simulation.installments} ${simulation.installments === 1 ? 'parcela' : 'parcelas'}`}</small>
+          </div>
+          ${lastDiffers ? `<small class="payment-rounding-note">Última parcela ajustada em centavos para fechar o total.</small>` : ''}
+        </div>
+        <div class="payment-installment-list">
+          ${schedule.map((row) => `
+            <div class="payment-installment-row ${row.kind === 'entry' ? 'is-entry' : ''} ${row.kind === 'single' ? 'is-single' : ''}">
+              <span>${escapeHtml(row.label)}</span>
+              <strong>${formatMoney(row.value)}</strong>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  function paymentSimulationMarkup(payment, index) {
+    const simulation = paymentSimulationData(payment);
+    const hasDiscount = simulation.discountAmount > 0.004;
+    const hasInterest = simulation.interestAmount > 0.004;
+
+    return `
+      <div class="payment-simulation-head">
+        <div>
+          <span class="payment-simulation-kicker"><i class="fa-solid fa-calculator"></i> Simulação da condição</span>
+          <strong>${escapeHtml(paymentSimulationSentence(payment, simulation))}</strong>
+        </div>
+        <span class="payment-live-badge"><i class="fa-solid fa-bolt"></i> Atualização automática</span>
+      </div>
+      <div class="payment-simulation-grid">
+        <div class="payment-sim-metric">
+          <span>Total base</span>
+          <strong>${formatMoney(simulation.budgetTotal)}</strong>
+        </div>
+        <div class="payment-sim-metric ${hasDiscount ? 'is-positive' : ''}">
+          <span>Desconto da condição</span>
+          <strong>${hasDiscount ? `- ${formatMoney(simulation.discountAmount)}` : formatMoney(0)}</strong>
+        </div>
+        <div class="payment-sim-metric is-entry">
+          <span>${simulation.singlePayment ? 'Pagamento' : `Entrada ${simulation.entryPercent > 0 ? `(${formatPercent(simulation.entryPercent)})` : ''}`}</span>
+          <strong>${formatMoney(simulation.entry)}</strong>
+        </div>
+        <div class="payment-sim-metric">
+          <span>Saldo após entrada</span>
+          <strong>${formatMoney(simulation.balance)}</strong>
+        </div>
+        <div class="payment-sim-metric is-installment">
+          <span>${simulation.singlePayment ? 'Parcelamento' : `${simulation.installments} ${simulation.installments === 1 ? 'parcela' : 'parcelas'}`}</span>
+          <strong>${simulation.singlePayment ? 'À vista' : formatMoney(simulation.installmentValue)}</strong>
+          ${!simulation.singlePayment && simulation.installments > 1 && Math.abs(simulation.lastInstallmentValue - simulation.installmentValue) >= 0.005
+            ? `<small>Última: ${formatMoney(simulation.lastInstallmentValue)}</small>`
+            : ''}
+        </div>
+        <div class="payment-sim-metric ${hasInterest ? 'is-warning' : ''}">
+          <span>Juros da condição</span>
+          <strong>${hasInterest ? `+ ${formatMoney(simulation.interestAmount)}` : formatMoney(0)}</strong>
+        </div>
+      </div>
+      ${paymentInstallmentMarkup(payment, simulation)}
+      <div class="payment-simulation-total">
+        <div>
+          <span>Total final da condição</span>
+          <small>${hasInterest ? `Inclui ${formatPercent(simulation.interestPercent)} de juros` : 'Sem custo adicional de juros'}</small>
+        </div>
+        <strong>${formatMoney(simulation.finalTotal)}</strong>
+      </div>`;
+  }
+
+  function renderPaymentSimulations() {
+    state.payments.forEach((payment, index) => {
+      const card = document.querySelector(`[data-payment-index="${index}"]`);
+      const simulation = card?.querySelector('[data-payment-simulation]');
+      if (simulation) simulation.innerHTML = paymentSimulationMarkup(payment, index);
+      card?.classList.toggle('is-selected', Boolean(payment.selecionada));
+    });
+  }
+
+  function paymentControlLockedState(payment) {
+    const immediateType = isImmediatePaymentType(payment.tipo);
+    const fullEntry = parseNumber(payment.entrada_percentual) >= 100;
+    return {
+      entryLocked: immediateType,
+      installmentsLocked: immediateType || fullEntry,
+      interestLocked: immediateType || fullEntry,
+    };
+  }
+
+  function syncPaymentRuleControls(card, payment, { preserveField = '' } = {}) {
+    if (!card || !payment) return;
+    const locks = paymentControlLockedState(payment);
+    const entryInput = card.querySelector('[data-payment-field="entrada_percentual"]');
+    const installmentsInput = card.querySelector('[data-payment-field="parcelas"]');
+    const interestInput = card.querySelector('[data-payment-field="juros_percentual"]');
+
+    if (entryInput) {
+      if (preserveField !== 'entrada_percentual' || locks.entryLocked) entryInput.value = inputMoney(payment.entrada_percentual);
+      entryInput.disabled = locks.entryLocked;
+      entryInput.title = locks.entryLocked ? 'Este tipo de pagamento é considerado à vista.' : '';
+    }
+    if (installmentsInput) {
+      if (preserveField !== 'parcelas' || locks.installmentsLocked) installmentsInput.value = String(payment.parcelas);
+      installmentsInput.disabled = locks.installmentsLocked;
+      installmentsInput.title = locks.installmentsLocked ? 'Com 100% pago na entrada não há saldo para parcelar.' : '';
+    }
+    if (interestInput) {
+      if (preserveField !== 'juros_percentual' || locks.interestLocked) interestInput.value = inputMoney(payment.juros_percentual);
+      interestInput.disabled = locks.interestLocked;
+      interestInput.title = locks.interestLocked ? 'Pagamento integral não usa juros de parcelamento.' : '';
+    }
+  }
+
   function renderPayments() {
     const container = $('payment-options');
     if (!state.payments.length) addDefaultPayment();
-    container.innerHTML = state.payments.map((payment, index) => `
-      <article class="payment-option" data-payment-index="${index}">
+    recalculatePayments();
+    container.innerHTML = state.payments.map((payment, index) => {
+      const locks = paymentControlLockedState(payment);
+      return `
+      <article class="payment-option ${payment.selecionada ? 'is-selected' : ''}" data-payment-index="${index}">
         <div class="payment-option-head">
           <input type="radio" name="payment-selected" data-payment-field="selecionada" ${payment.selecionada ? 'checked' : ''} title="Destacar no orçamento" />
           <input class="payment-name" data-payment-field="nome" value="${escapeHtml(payment.nome)}" placeholder="Nome da condição" />
-          <button class="payment-remove" type="button" data-remove-payment="${index}"><i class="fa-solid fa-trash"></i></button>
+          <button class="payment-remove" type="button" data-remove-payment="${index}" title="Excluir condição"><i class="fa-solid fa-trash"></i></button>
         </div>
         <div class="payment-option-grid">
           <div><label>Tipo</label><select data-payment-field="tipo"><option value="avista" ${payment.tipo === 'avista' ? 'selected' : ''}>À vista</option><option value="entrada_parcelas" ${payment.tipo === 'entrada_parcelas' ? 'selected' : ''}>Entrada + parcelas</option><option value="cartao" ${payment.tipo === 'cartao' ? 'selected' : ''}>Cartão</option><option value="pix" ${payment.tipo === 'pix' ? 'selected' : ''}>PIX</option><option value="boleto" ${payment.tipo === 'boleto' ? 'selected' : ''}>Boleto</option><option value="personalizado" ${payment.tipo === 'personalizado' ? 'selected' : ''}>Personalizado</option></select></div>
-          <div><label>Desconto %</label><input data-payment-field="desconto_percentual" value="${inputMoney(payment.desconto_percentual)}" /></div>
-          <div><label>Entrada %</label><input data-payment-field="entrada_percentual" value="${inputMoney(payment.entrada_percentual)}" /></div>
-          <div><label>Parcelas</label><input type="number" min="1" data-payment-field="parcelas" value="${payment.parcelas}" /></div>
-          <div><label>Juros %</label><input data-payment-field="juros_percentual" value="${inputMoney(payment.juros_percentual)}" /></div>
+          <div><label>Desconto %</label><input data-payment-field="desconto_percentual" value="${inputMoney(payment.desconto_percentual)}" inputmode="decimal" /></div>
+          <div><label>Entrada %</label><input data-payment-field="entrada_percentual" value="${inputMoney(payment.entrada_percentual)}" inputmode="decimal" ${locks.entryLocked ? 'disabled' : ''} /></div>
+          <div><label>Parcelas</label><input type="number" min="1" max="120" data-payment-field="parcelas" value="${payment.parcelas}" ${locks.installmentsLocked ? 'disabled' : ''} /></div>
+          <div><label>Juros %</label><input data-payment-field="juros_percentual" value="${inputMoney(payment.juros_percentual)}" inputmode="decimal" ${locks.interestLocked ? 'disabled' : ''} /></div>
         </div>
-        <div class="form-group" style="margin-top:10px"><label>Descrição complementar</label><input data-payment-field="descricao" value="${escapeHtml(payment.descricao)}" placeholder="Ex.: Entrada no aceite e saldo em 30/60 dias" /></div>
-      </article>`).join('');
-    recalculatePayments();
+        <div class="form-group payment-description-field"><label>Descrição complementar</label><input data-payment-field="descricao" value="${escapeHtml(payment.descricao)}" placeholder="Ex.: Entrada no aceite e saldo em 30/60 dias" /></div>
+        <div class="payment-simulation" data-payment-simulation>${paymentSimulationMarkup(payment, index)}</div>
+      </article>`;
+    }).join('');
   }
 
   function updatePaymentField(input) {
     const card = input.closest('[data-payment-index]');
     const payment = state.payments[Number(card.dataset.paymentIndex)];
     const field = input.dataset.paymentField;
+    const previousType = payment.tipo;
+
     if (field === 'selecionada') {
       state.payments.forEach((item, index) => { item.selecionada = index === Number(card.dataset.paymentIndex); });
     } else if (['desconto_percentual', 'entrada_percentual', 'juros_percentual'].includes(field)) {
       payment[field] = parseNumber(input.value);
-    } else if (field === 'parcelas') payment.parcelas = Math.max(Number(input.value || 1), 1);
-    else payment[field] = input.value;
+    } else if (field === 'parcelas') {
+      payment.parcelas = Math.max(Number(input.value || 1), 1);
+    } else {
+      payment[field] = input.value;
+    }
+
+    // Ao sair de um tipo obrigatoriamente à vista, libera uma condição nova para configuração.
+    if (field === 'tipo' && isImmediatePaymentType(previousType) && !isImmediatePaymentType(payment.tipo)) {
+      payment.entrada_percentual = 0;
+      payment.parcelas = 1;
+      payment.juros_percentual = 0;
+    }
+
+    normalizePaymentRules(payment, { changedField: field });
     recalculatePayments();
+    syncPaymentRuleControls(card, payment, { preserveField: field });
+    renderPaymentSimulations();
     renderPreviewIfVisible();
   }
 
   function recalculatePayments() {
-    const total = calculateTotals().total;
+    const total = roundPaymentMoney(calculateTotals().total);
     state.payments.forEach((payment) => {
-      const discounted = total * (1 - payment.desconto_percentual / 100);
-      const withInterest = discounted * (1 + payment.juros_percentual / 100);
-      payment.total = Math.max(withInterest, 0);
-      payment.entrada_valor = payment.total * payment.entrada_percentual / 100;
-      payment.valor_parcela = Math.max((payment.total - payment.entrada_valor) / Math.max(payment.parcelas, 1), 0);
+      normalizePaymentRules(payment);
+      const discounted = roundPaymentMoney(total * (1 - payment.desconto_percentual / 100));
+      const withInterest = roundPaymentMoney(discounted * (1 + payment.juros_percentual / 100));
+      payment.total = withInterest;
+      payment.entrada_valor = roundPaymentMoney(payment.total * payment.entrada_percentual / 100);
+      const balance = roundPaymentMoney(payment.total - payment.entrada_valor);
+      payment.valor_parcela = balance > 0
+        ? roundPaymentMoney(balance / Math.max(payment.parcelas, 1))
+        : 0;
     });
   }
 
@@ -134,6 +405,7 @@
       $('analysis-margin').textContent = formatPercent(totals.margin);
     }
     recalculatePayments();
+    renderPaymentSimulations();
     renderAnalysis();
     renderPreviewIfVisible();
     scheduleServerCalculation();

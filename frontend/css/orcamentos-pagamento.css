@@ -1,0 +1,344 @@
+/*
+ * ValoraCRM · Orçamentos · pagamento
+ * Simulação financeira em tempo real das condições de pagamento.
+ */
+
+.payment-option {
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.payment-option.is-selected {
+  border-color: color-mix(in srgb, var(--brand, #4bc3c7) 42%, var(--border, #dbe4ea));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand, #4bc3c7) 12%, transparent);
+}
+
+.payment-description-field {
+  margin-top: 10px;
+}
+
+.payment-simulation {
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border, #dfe7ed);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel, #fff) 96%, var(--brand, #4bc3c7) 4%);
+}
+
+.payment-simulation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+.payment-simulation-head > div {
+  min-width: 0;
+}
+
+.payment-simulation-kicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+  color: var(--muted, #64748b);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .015em;
+}
+
+.payment-simulation-kicker i {
+  color: var(--brand, #4bc3c7);
+  font-size: 11px;
+}
+
+.payment-simulation-head strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text, #172033);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payment-live-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 27px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand, #4bc3c7) 10%, transparent);
+  color: color-mix(in srgb, var(--brand, #4bc3c7) 76%, #17303b);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.payment-live-badge i {
+  font-size: 9px;
+}
+
+.payment-simulation-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  padding: 0 8px;
+}
+
+.payment-sim-metric {
+  position: relative;
+  min-width: 0;
+  padding: 13px 10px 12px;
+}
+
+.payment-sim-metric + .payment-sim-metric::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 1px;
+  background: var(--border, #e2e8f0);
+}
+
+.payment-sim-metric span {
+  display: block;
+  overflow: hidden;
+  margin-bottom: 5px;
+  color: var(--muted, #64748b);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payment-sim-metric strong {
+  display: block;
+  color: var(--text, #172033);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.payment-sim-metric.is-entry strong,
+.payment-sim-metric.is-installment strong {
+  color: color-mix(in srgb, var(--brand, #4bc3c7) 74%, #17303b);
+}
+
+.payment-sim-metric.is-positive strong {
+  color: #18835f;
+}
+
+.payment-sim-metric.is-warning strong {
+  color: #b76c18;
+}
+
+.payment-simulation-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border, #e2e8f0);
+  background: color-mix(in srgb, var(--brand, #4bc3c7) 7%, var(--panel, #fff));
+}
+
+.payment-simulation-total > div {
+  min-width: 0;
+}
+
+.payment-simulation-total span,
+.payment-simulation-total small {
+  display: block;
+}
+
+.payment-simulation-total span {
+  margin-bottom: 2px;
+  color: var(--text, #172033);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.payment-simulation-total small {
+  color: var(--muted, #64748b);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.payment-simulation-total > strong {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--brand, #4bc3c7) 82%, #17303b);
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -.02em;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .payment-simulation-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .payment-sim-metric:nth-child(4)::before {
+    display: none;
+  }
+
+  .payment-sim-metric:nth-child(n+4) {
+    border-top: 1px solid var(--border, #e2e8f0);
+  }
+}
+
+@media (max-width: 720px) {
+  .payment-simulation-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .payment-simulation-head strong {
+    white-space: normal;
+  }
+
+  .payment-simulation-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .payment-sim-metric:nth-child(3)::before,
+  .payment-sim-metric:nth-child(5)::before {
+    display: none;
+  }
+
+  .payment-sim-metric:nth-child(n+3) {
+    border-top: 1px solid var(--border, #e2e8f0);
+  }
+
+  .payment-simulation-total {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+}
+
+/* v6 · detalhamento real das parcelas */
+.payment-sim-metric small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted, #64748b);
+  font-size: 9px;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.payment-installment-plan {
+  border-top: 1px solid var(--border, #e2e8f0);
+  background: color-mix(in srgb, var(--panel, #fff) 98%, var(--brand, #4bc3c7) 2%);
+}
+
+.payment-installment-plan-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 16px 8px;
+}
+
+.payment-installment-plan-head > div > span,
+.payment-installment-plan-head > div > small {
+  display: block;
+}
+
+.payment-installment-plan-head > div > span {
+  color: var(--text, #172033);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.payment-installment-plan-head > div > small,
+.payment-rounding-note {
+  margin-top: 2px;
+  color: var(--muted, #64748b);
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.payment-rounding-note {
+  max-width: 280px;
+  text-align: right;
+}
+
+.payment-installment-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 7px;
+  padding: 0 16px 13px;
+}
+
+.payment-installment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--panel, #fff);
+}
+
+.payment-installment-row span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted, #64748b);
+  font-size: 9px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payment-installment-row strong {
+  flex: 0 0 auto;
+  color: var(--text, #172033);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.payment-installment-row.is-entry,
+.payment-installment-row.is-single {
+  border-color: color-mix(in srgb, var(--brand, #4bc3c7) 32%, var(--border, #e2e8f0));
+  background: color-mix(in srgb, var(--brand, #4bc3c7) 6%, var(--panel, #fff));
+}
+
+.payment-installment-row.is-entry strong,
+.payment-installment-row.is-single strong {
+  color: color-mix(in srgb, var(--brand, #4bc3c7) 78%, #17303b);
+}
+
+.payment-option-grid input:disabled {
+  cursor: not-allowed;
+  opacity: .72;
+  background: color-mix(in srgb, var(--panel, #fff) 80%, var(--border, #e2e8f0) 20%);
+}
+
+@media (max-width: 720px) {
+  .payment-installment-plan-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .payment-rounding-note {
+    max-width: none;
+    text-align: left;
+  }
+
+  .payment-installment-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
