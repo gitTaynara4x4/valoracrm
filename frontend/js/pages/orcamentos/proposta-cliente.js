@@ -162,8 +162,8 @@
       servicos: proposalSelectedValues('proposal-servico'),
       planos: proposalSelectedValues('proposal-plano'),
       tipo_contrato: $('proposal-tipo-contrato').value || null,
-      valor_implantacao: parseNumber($('proposal-valor-implantacao').value),
-      valor_mensal: parseNumber($('proposal-valor-mensal').value),
+      valor_implantacao: parseInputNumber($('proposal-valor-implantacao').value),
+      valor_mensal: parseInputNumber($('proposal-valor-mensal').value),
       dia_vencimento: diaRaw ? Number(diaRaw) : null,
       forma_pagamento: $('proposal-forma-pagamento').value,
       condicao_pagamento: $('proposal-condicao-pagamento').value.trim(),
@@ -276,4 +276,3 @@
       setButtonLoading(button, false);
     }
   }
-

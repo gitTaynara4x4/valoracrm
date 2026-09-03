@@ -287,7 +287,10 @@
       }
       if (!['quantidade', 'valor_unitario', 'desconto', 'custo_unitario'].includes(field)) return;
       if (field === 'custo_unitario' && !String(event.target.value || '').trim()) event.target.value = '';
-      else event.target.value = field === 'quantidade' ? inputQuantity(event.target.value) : inputMoney(event.target.value);
+      else {
+        const numericValue = parseInputNumber(event.target.value);
+        event.target.value = field === 'quantidade' ? inputQuantity(numericValue) : inputMoney(numericValue);
+      }
       updateItemField(event.target);
     });
 
@@ -308,7 +311,7 @@
     });
 
     ['orcamento-desconto-tipo' , 'orcamento-desconto-valor', 'orcamento-frete', 'orcamento-acrescimo'].forEach((id) => $(id).addEventListener('input', updateTotals));
-    ['orcamento-desconto-valor', 'orcamento-frete', 'orcamento-acrescimo'].forEach((id) => $(id).addEventListener('blur', (event) => { event.target.value = inputMoney(event.target.value); updateTotals(); }));
+    ['orcamento-desconto-valor', 'orcamento-frete', 'orcamento-acrescimo'].forEach((id) => $(id).addEventListener('blur', (event) => { event.target.value = inputMoney(parseInputNumber(event.target.value)); updateTotals(); }));
     $('btn-adicionar-pagamento').addEventListener('click', () => { state.payments.push(normalizePayment({ nome: 'Nova condição' })); renderPayments(); });
     $('payment-options').addEventListener('input', (event) => { if (event.target.dataset.paymentField) updatePaymentField(event.target); });
     $('payment-options').addEventListener('change', (event) => { if (event.target.dataset.paymentField) updatePaymentField(event.target); });

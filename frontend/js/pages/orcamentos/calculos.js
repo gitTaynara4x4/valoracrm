@@ -401,7 +401,7 @@
       }
     } else if (field === 'entrada') {
       const mode = paymentEntryMode(payment);
-      const requested = parseNumber(input.value);
+      const requested = parseInputNumber(input.value);
 
       if (mode === 'percentual') {
         const previousPercent = Math.min(Math.max(parseNumber(payment.entrada_percentual), 0), 100);
@@ -432,7 +432,7 @@
         payment.entrada_valor = requested;
       }
     } else if (field === 'desconto_percentual') {
-      const requestedDiscountPercent = parseNumber(input.value);
+      const requestedDiscountPercent = parseInputNumber(input.value);
       if (requestedDiscountPercent < 0 || requestedDiscountPercent > 100) {
         input.value = inputMoney(Math.min(Math.max(parseNumber(payment.desconto_percentual), 0), 100));
         input.classList.add('is-payment-percent-invalid');
@@ -444,7 +444,7 @@
       input.removeAttribute('aria-invalid');
       payment.desconto_percentual = requestedDiscountPercent;
     } else if (field === 'juros_percentual') {
-      payment.juros_percentual = Math.max(parseNumber(input.value), 0);
+      payment.juros_percentual = Math.max(parseInputNumber(input.value), 0);
     } else if (field === 'parcelas') {
       payment.parcelas = Math.max(Number(input.value || 1), 1);
     } else {
@@ -521,10 +521,10 @@
   function calculateTotals() {
     const subtotal = state.items.reduce((sum, item) => sum + itemTotal(item), 0);
     const type = $('orcamento-desconto-tipo').value;
-    const discountInput = Math.max(parseNumber($('orcamento-desconto-valor').value), 0);
+    const discountInput = Math.max(parseInputNumber($('orcamento-desconto-valor').value), 0);
     const discount = type === 'percentual' ? Math.min(subtotal * discountInput / 100, subtotal) : Math.min(discountInput, subtotal);
-    const freight = Math.max(parseNumber($('orcamento-frete').value), 0);
-    const addition = Math.max(parseNumber($('orcamento-acrescimo').value), 0);
+    const freight = Math.max(parseInputNumber($('orcamento-frete').value), 0);
+    const addition = Math.max(parseInputNumber($('orcamento-acrescimo').value), 0);
     const total = Math.max(subtotal - discount + freight + addition, 0);
     const cost = state.items.reduce((sum, item) => sum + item.quantidade * parseNumber(item.custo_unitario), 0);
     const profit = total - cost;
@@ -631,4 +631,3 @@
       $('orcamento-cep').value,
     ].filter(Boolean).join(', ');
   }
-

@@ -143,7 +143,7 @@
     const row = input.closest('tr');
     const item = state.kitItems[Number(row?.dataset.kitIndex)];
     if (!item) return;
-    item.quantidade = Math.max(parseNumber(input.value), 0.0001);
+    item.quantidade = Math.max(parseInputNumber(input.value), 0.0001);
     row.querySelector('.kit-line-total').textContent = formatMoney(item.quantidade * parseNumber(item.valor_unitario));
     const estimatedTotal = state.kitItems.reduce((sum, current) => sum + parseNumber(current.quantidade) * parseNumber(current.valor_unitario), 0);
     $('kit-estimated-total').textContent = formatMoney(estimatedTotal);
@@ -268,7 +268,7 @@
   function updateTemplateItem(input) {
     const item = state.templateItems[Number(input.closest('tr').dataset.templateIndex)];
     const field = input.dataset.templateField;
-    item[field] = ['quantidade', 'valor_unitario', 'custo_unitario'].includes(field) ? parseNumber(input.value) : input.value;
+    item[field] = ['quantidade', 'valor_unitario', 'custo_unitario'].includes(field) ? parseInputNumber(input.value) : input.value;
   }
 
   async function saveTemplate() {
@@ -305,4 +305,3 @@
       renderTemplates(); renderSelects(); toast('Modelo excluído.');
     } catch (error) { toast(error.message, 'error'); }
   }
-

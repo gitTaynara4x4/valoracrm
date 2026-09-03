@@ -81,12 +81,12 @@ def _history(db: Session, budget_id: int, user: models.Usuario, action: str, des
     """), {"o": budget_id, "u": int(user.id), "n": user.nome, "a": action, "d": description, "j": json.dumps(data or {}, ensure_ascii=False)})
 
 
-@router.get("/{budget_id}/contrato/assinatura")
+@router.get("/{budget_id:int}/contrato/assinatura")
 def assinatura_status(budget_id: int, current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")), db: Session = Depends(get_db)):
     return _details(_load(db, budget_id, int(current_user.empresa_id)))
 
 
-@router.post("/{budget_id}/contrato/assinatura/enviar")
+@router.post("/{budget_id:int}/contrato/assinatura/enviar")
 def enviar_assinatura(budget_id: int, payload: dict = Body(default={}), current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")), db: Session = Depends(get_db)):
     company_id = int(current_user.empresa_id)
     row = _load(db, budget_id, company_id, lock=True)
@@ -133,7 +133,7 @@ def enviar_assinatura(budget_id: int, payload: dict = Body(default={}), current_
     return _details(_load(db, budget_id, company_id))
 
 
-@router.post("/{budget_id}/contrato/assinatura/cancelar")
+@router.post("/{budget_id:int}/contrato/assinatura/cancelar")
 def cancelar_assinatura(budget_id: int, current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")), db: Session = Depends(get_db)):
     company_id = int(current_user.empresa_id)
     row = _load(db, budget_id, company_id, lock=True)
@@ -148,7 +148,7 @@ def cancelar_assinatura(budget_id: int, current_user: models.Usuario = Depends(r
     return _details(_load(db, budget_id, company_id))
 
 
-@router.get("/{budget_id}/contrato/pdf-assinado")
+@router.get("/{budget_id:int}/contrato/pdf-assinado")
 def pdf_assinado(budget_id: int, download: bool = Query(default=False), current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")), db: Session = Depends(get_db)):
     row = _load(db, budget_id, int(current_user.empresa_id))
     if str(row.get("proposta_cliente_assinatura_status") or "") != "assinado":

@@ -266,7 +266,7 @@
         mostrar_desconto: config.mostrar_desconto !== false,
         mostrar_imagens: Boolean(config.mostrar_imagens),
         controlar_custos: $('config-controlar-custos').checked,
-        margem_minima: parseNumber($('config-margem-minima').value),
+        margem_minima: parseInputNumber($('config-margem-minima').value),
         exigir_aprovacao_margem: $('config-exigir-aprovacao').checked,
         formas_pagamento: config.formas_pagamento || [],
       };
@@ -351,4 +351,3 @@
       toast('Empresa emitente desativada.');
     } catch (error) { toast(error.message, 'error'); }
   }
-

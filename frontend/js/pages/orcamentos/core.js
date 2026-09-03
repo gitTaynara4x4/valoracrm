@@ -334,6 +334,33 @@
     return Number.isFinite(number) ? number : 0;
   }
 
+  // Valores digitados seguem pt-BR: vírgula é decimal e ponto separa milhares.
+  // Mantemos parseNumber para números já normalizados vindos da API (ex.: 1.6).
+  function parseInputNumber(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    let text = String(value ?? '').trim().replace(/[^0-9,.-]/g, '');
+    if (!text) return 0;
+
+    if (text.includes(',')) {
+      const decimalIndex = text.lastIndexOf(',');
+      const integerPart = text.slice(0, decimalIndex).replace(/[.,]/g, '');
+      const decimalPart = text.slice(decimalIndex + 1).replace(/[.,]/g, '');
+      text = decimalPart ? `${integerPart}.${decimalPart}` : integerPart;
+    } else if (text.includes('.')) {
+      const negative = text.startsWith('-');
+      const unsigned = negative ? text.slice(1) : text;
+      const groups = unsigned.split('.');
+      const isThousands = groups.length > 1
+        && /^[0-9]{1,3}$/.test(groups[0])
+        && groups[0] !== '0'
+        && groups.slice(1).every((group) => /^[0-9]{3}$/.test(group));
+      if (isThousands) text = `${negative ? '-' : ''}${groups.join('')}`;
+    }
+
+    const number = Number(text);
+    return Number.isFinite(number) ? number : 0;
+  }
+
   function formatMoney(value) {
     return parseNumber(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
@@ -879,4 +906,3 @@
     }
     popup.opener = null;
   }
-

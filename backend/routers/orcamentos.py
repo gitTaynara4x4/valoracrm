@@ -2600,7 +2600,7 @@ def budget_row(db: Session, budget_id: int, company_id: int):
     return db.execute(text(base_select() + " WHERE o.id=:id AND o.empresa_id=:e"), {"id": budget_id, "e": company_id}).mappings().first()
 
 
-@router.get("/{budget_id}")
+@router.get("/{budget_id:int}")
 def get_budget(
     budget_id: int,
     current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
@@ -2863,7 +2863,7 @@ def budget_change_details(old: dict, new_params: dict, old_items: List[dict], ne
     return changes
 
 
-@router.put("/{budget_id}")
+@router.put("/{budget_id:int}")
 def update_budget(
     budget_id: int,
     payload: BudgetUpdate,
@@ -3295,7 +3295,7 @@ def _get_proposal_link_row(db: Session, budget_id: int, company_id: int, *, lock
         raise
 
 
-@router.get("/{budget_id}/contrato")
+@router.get("/{budget_id:int}/contrato")
 def obter_contrato_cliente(
     budget_id: int,
     current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
@@ -3311,7 +3311,7 @@ def obter_contrato_cliente(
     return details
 
 
-@router.post("/{budget_id}/contrato/gerar")
+@router.post("/{budget_id:int}/contrato/gerar")
 def gerar_contrato_cliente(
     budget_id: int,
     payload: ContratoClienteGerarIn,
@@ -3403,7 +3403,7 @@ def gerar_contrato_cliente(
     return details
 
 
-@router.get("/{budget_id}/contrato/pdf")
+@router.get("/{budget_id:int}/contrato/pdf")
 def pdf_contrato_cliente(
     budget_id: int,
     download: bool = Query(default=False),
@@ -3435,7 +3435,7 @@ def pdf_contrato_cliente(
     )
 
 
-@router.put("/{budget_id}/preparacao-cliente")
+@router.put("/{budget_id:int}/preparacao-cliente")
 def salvar_preparacao_proposta_cliente(
     budget_id: int,
     payload: PropostaClientePreparacaoIn,
@@ -3541,7 +3541,7 @@ def salvar_preparacao_proposta_cliente(
     return get_budget(budget_id, current_user=current_user, db=db)
 
 
-@router.get("/{budget_id}/proposta-cliente/link")
+@router.get("/{budget_id:int}/proposta-cliente/link")
 def consultar_link_proposta_cliente(
     budget_id: int,
     request: Request,
@@ -3555,7 +3555,7 @@ def consultar_link_proposta_cliente(
     return _proposal_link_details(dict(row), request)
 
 
-@router.post("/{budget_id}/proposta-cliente/link")
+@router.post("/{budget_id:int}/proposta-cliente/link")
 def gerar_link_proposta_cliente(
     budget_id: int,
     payload: PropostaClienteLinkIn,
@@ -3637,7 +3637,7 @@ def gerar_link_proposta_cliente(
     return _proposal_link_details(dict(fresh), request)
 
 
-@router.post("/{budget_id}/proposta-cliente/link/desativar")
+@router.post("/{budget_id:int}/proposta-cliente/link/desativar")
 def desativar_link_proposta_cliente(
     budget_id: int,
     current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
@@ -3665,7 +3665,7 @@ def desativar_link_proposta_cliente(
     return {"ok": True, "status": "desativado"}
 
 
-@router.post("/{budget_id}/enviar-financeiro", status_code=status.HTTP_201_CREATED)
+@router.post("/{budget_id:int}/enviar-financeiro", status_code=status.HTTP_201_CREATED)
 def enviar_orcamento_financeiro(
     budget_id: int,
     payload: EnviarFinanceiroIn,
@@ -3754,7 +3754,7 @@ def enviar_orcamento_financeiro(
     return {"id": pendencia_id, "status": "pendente", "orcamento_id": budget_id}
 
 
-@router.post("/{budget_id}/cancelar-envio-financeiro")
+@router.post("/{budget_id:int}/cancelar-envio-financeiro")
 def cancelar_envio_financeiro(
     budget_id: int,
     payload: EnviarFinanceiroIn,
@@ -3788,7 +3788,7 @@ def cancelar_envio_financeiro(
     return {"status": "cancelado", "orcamento_id": budget_id}
 
 
-@router.post("/{budget_id}/duplicar", status_code=status.HTTP_201_CREATED)
+@router.post("/{budget_id:int}/duplicar", status_code=status.HTTP_201_CREATED)
 def duplicate_budget(
     budget_id: int,
     current_user: models.Usuario = Depends(require_permission("orcamentos", "criar")),
@@ -3823,7 +3823,7 @@ def duplicate_budget(
     return get_budget(int(created["id"]), current_user=current_user, db=db)
 
 
-@router.post("/{budget_id}/status")
+@router.post("/{budget_id:int}/status")
 def change_status(
     budget_id: int,
     payload: StatusIn,
@@ -3863,7 +3863,7 @@ def change_status(
     return get_budget(budget_id, current_user=current_user, db=db)
 
 
-@router.post("/{budget_id}/aprovar-margem")
+@router.post("/{budget_id:int}/aprovar-margem")
 def approve_margin(
     budget_id: int,
     current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
@@ -3883,7 +3883,7 @@ def approve_margin(
     return get_budget(budget_id, current_user=current_user, db=db)
 
 
-@router.delete("/{budget_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{budget_id:int}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_budget(
     budget_id: int,
     current_user: models.Usuario = Depends(require_permission("orcamentos", "excluir")),

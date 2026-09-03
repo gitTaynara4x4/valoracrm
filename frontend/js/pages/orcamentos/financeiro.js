@@ -26,9 +26,9 @@
       endereco_cidade: $('orcamento-cidade').value.trim() || null,
       endereco_estado: $('orcamento-estado').value.trim() || null,
       desconto_tipo: $('orcamento-desconto-tipo').value,
-      desconto_valor: parseNumber($('orcamento-desconto-valor').value),
-      frete: parseNumber($('orcamento-frete').value),
-      acrescimo: parseNumber($('orcamento-acrescimo').value),
+      desconto_valor: parseInputNumber($('orcamento-desconto-valor').value),
+      frete: parseInputNumber($('orcamento-frete').value),
+      acrescimo: parseInputNumber($('orcamento-acrescimo').value),
       prazo_execucao: $('orcamento-prazo-execucao').value.trim() || null,
       condicoes: $('orcamento-condicoes').value.trim() || null,
       observacoes: $('orcamento-observacoes').value.trim() || null,
@@ -246,4 +246,3 @@
       await loadBudgets();
     } catch (error) { toast(error.message, 'error'); }
   }
-

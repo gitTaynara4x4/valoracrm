@@ -623,13 +623,12 @@
     if (!item) return;
     const field = input.dataset.field;
     if (field === 'custo_unitario') {
-      item.custo_unitario = String(input.value || '').trim() === '' ? null : parseNumber(input.value);
+      item.custo_unitario = String(input.value || '').trim() === '' ? null : parseInputNumber(input.value);
       item.custo_informado = item.custo_unitario !== null;
     } else {
-      item[field] = ['quantidade', 'valor_unitario', 'desconto'].includes(field) ? parseNumber(input.value) : input.value;
+      item[field] = ['quantidade', 'valor_unitario', 'desconto'].includes(field) ? parseInputNumber(input.value) : input.value;
     }
     const totalCell = row.querySelector('.item-total-cell');
     if (totalCell) totalCell.textContent = formatMoney(itemTotal(item));
     updateTotals();
   }
-

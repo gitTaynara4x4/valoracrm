@@ -103,7 +103,7 @@
     });
     const values = {};
     $$('[data-service-proposal-value]', $('service-proposal-values')).forEach((input) => {
-      values[input.dataset.serviceProposalValue] = parseNumber(input.value);
+      values[input.dataset.serviceProposalValue] = parseInputNumber(input.value);
     });
     return {
       introduction: $('service-proposal-introduction')?.value?.trim() || '',
@@ -766,4 +766,3 @@
     if (key === 'teleassistencia_idosos') return buildNilsonTeleProposalHtml(model, data, client, seller);
     return buildNilsonMonitorProposalHtml(key, model, data, client, seller);
   }
-

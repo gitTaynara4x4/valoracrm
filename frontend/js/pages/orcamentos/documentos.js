@@ -163,7 +163,7 @@
     const code = $('orcamento-codigo').value || 'PRÉVIA';
     const totalQuantity = state.items.reduce((sum, item) => sum + parseNumber(item.quantidade), 0);
     const globalDiscountPercent = $('orcamento-desconto-tipo').value === 'percentual'
-      ? parseNumber($('orcamento-desconto-valor').value)
+      ? parseInputNumber($('orcamento-desconto-valor').value)
       : (totals.subtotal > 0 ? (totals.discount / totals.subtotal) * 100 : 0);
 
     const rows = state.items.map((item, index) => {
@@ -384,5 +384,4 @@
       return `<article class="history-item"><strong>${escapeHtml(item.usuario_nome || 'Sistema')} • ${escapeHtml((item.acao || '').replaceAll('_', ' '))}</strong><p>${escapeHtml(item.descricao || '')}</p>${details}${dateLabel ? `<small>${escapeHtml(dateLabel)}</small>` : ''}</article>`;
     }).join('') || '<div class="empty-state">O histórico será criado ao salvar o orçamento.</div>';
   }
-
 
