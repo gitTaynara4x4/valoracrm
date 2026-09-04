@@ -6,8 +6,8 @@
   <meta name="robots" content="noindex,nofollow,noarchive">
   <meta name="referrer" content="no-referrer">
   <title>Proposta comercial</title>
-  <link rel="stylesheet" href="/frontend/css/proposta-cliente.css?v=20260820-v3">
-  <script src="/frontend/js/pages/proposta-cliente.js?v=20260820-v3" defer></script>
+  <link rel="stylesheet" href="/frontend/css/proposta-cliente.css?v=20260903-v4">
+  <script src="/frontend/js/pages/proposta-cliente.js?v=20260903-v4" defer></script>
 </head>
 <body>
   <main class="proposal-page-shell">
@@ -25,23 +25,39 @@
     <article class="proposal-document" id="proposal-document" hidden>
       <header class="proposal-header">
         <div class="proposal-brand">
-          <div class="proposal-brand-mark" id="proposal-brand-mark">S</div>
-          <div>
+          <div class="proposal-brand-identity">
+            <img class="proposal-brand-logo" id="proposal-brand-logo" alt="" hidden>
+            <div class="proposal-brand-mark" id="proposal-brand-mark" aria-hidden="true">S</div>
+          </div>
+          <div class="proposal-brand-copy">
             <strong id="proposal-emitter-name">SEG Sistemas</strong>
+            <span id="proposal-emitter-address"></span>
             <span id="proposal-emitter-meta"></span>
           </div>
         </div>
-        <div class="proposal-header-reference">
-          <span>Proposta</span>
-          <strong id="proposal-code">—</strong>
+        <div class="proposal-header-side">
+          <div class="proposal-header-actions" aria-label="Ações da proposta">
+            <button class="proposal-header-action" id="btn-print-proposal" type="button" title="Imprimir ou salvar em PDF">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>
+              <span>Imprimir / PDF</span>
+            </button>
+            <a class="proposal-header-action" id="proposal-whatsapp-link" href="#" target="_blank" rel="noopener noreferrer" hidden>
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20.5 3.5A11.8 11.8 0 0 0 12.1 0C5.6 0 .3 5.3.3 11.8c0 2.1.6 4.1 1.6 5.9L.2 24l6.5-1.7a11.8 11.8 0 0 0 5.6 1.4h.1c6.5 0 11.7-5.3 11.7-11.8 0-3.1-1.3-6.1-3.6-8.4ZM12.3 21.7c-1.8 0-3.6-.5-5.1-1.4l-.4-.2-3.8 1 1-3.7-.2-.4a9.8 9.8 0 1 1 8.5 4.7Zm5.4-7.3c-.3-.1-1.8-.9-2.1-1-.3-.1-.5-.1-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-1.8-.9-3-1.6-4.2-3.7-.3-.5.3-.5.9-1.7.1-.2 0-.4 0-.6l-1-2.4c-.3-.6-.6-.5-.8-.5h-.7c-.2 0-.6.1-.9.4-.3.3-1.2 1.2-1.2 2.9s1.2 3.3 1.4 3.6c.1.2 2.4 3.7 5.9 5.2 2.2.9 3.1 1 4.2.8.7-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.3-.3-.6-.4Z"/></svg>
+              <span>WhatsApp</span>
+            </a>
+          </div>
+          <div class="proposal-header-reference">
+            <span>Proposta comercial</span>
+            <strong id="proposal-code">—</strong>
+          </div>
         </div>
       </header>
 
       <section class="proposal-hero">
         <div>
-          <span class="proposal-eyebrow">Proposta comercial</span>
+          <span class="proposal-eyebrow">Apresentação comercial</span>
           <h1 id="proposal-title">—</h1>
-          <p>Olá, <strong id="proposal-client-name">cliente</strong>. Revise os itens, valores e condições abaixo antes de confirmar.</p>
+          <p>Preparada para <strong id="proposal-client-name">cliente</strong>. Confira abaixo os itens, valores e condições desta proposta.</p>
         </div>
         <div class="proposal-total-card">
           <span>Valor total</span>

@@ -144,6 +144,7 @@ def _load_public_budget(db: Session, token: str, *, lock: bool = False):
         text(
             """
             SELECT id, empresa_id, cliente_id, codigo, titulo, status, atualizado_em,
+                   emitente_logo_documento,
                    proposta_cliente_link_versao, proposta_cliente_link_ativo,
                    proposta_cliente_link_expira_em, proposta_cliente_public_status,
                    proposta_cliente_snapshot_json, proposta_cliente_snapshot_orcamento_atualizado_em,
@@ -173,6 +174,12 @@ def _load_public_budget(db: Session, token: str, *, lock: bool = False):
     snapshot = _json_load(row.get("proposta_cliente_snapshot_json"), {})
     if not snapshot:
         raise HTTPException(status_code=409, detail="A proposta ainda não possui uma versão pública válida.")
+
+    # Links gerados antes da inclusão do logo no snapshot continuam exibindo
+    # a identidade que já estava salva no próprio orçamento.
+    emitter = snapshot.setdefault("emitente", {})
+    if isinstance(emitter, dict) and not emitter.get("logo"):
+        emitter["logo"] = row.get("emitente_logo_documento")
 
     source_updated = _aware_utc(row.get("proposta_cliente_snapshot_orcamento_atualizado_em"))
     current_updated = _aware_utc(row.get("atualizado_em"))

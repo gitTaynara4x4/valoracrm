@@ -17,6 +17,24 @@
     return Number.isNaN(dt.getTime()) ? String(value) : dt.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
   };
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+  const assetUrl = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    try {
+      const url = new URL(raw, window.location.origin);
+      return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+    } catch (_) {
+      return '';
+    }
+  };
+  const whatsappUrl = (phone) => {
+    let digits = String(phone || '').replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.startsWith('0')) digits = digits.slice(1);
+    if (digits.length === 10 || digits.length === 11) digits = `55${digits}`;
+    if (digits.length < 12 || digits.length > 13) return '';
+    return `https://wa.me/${digits}`;
+  };
 
   async function api(url, options = {}) {
     const response = await fetch(url, {
@@ -56,13 +74,41 @@
     const emitter = proposal.emitente || {};
     const commercial = proposal.comercial || {};
 
-    $('proposal-emitter-name').textContent = emitter.nome || 'SEG Sistemas';
-    $('proposal-footer-emitter').textContent = emitter.nome || 'SEG Sistemas';
-    $('proposal-brand-mark').textContent = String(emitter.nome || 'SEG').trim().charAt(0).toUpperCase() || 'S';
-    $('proposal-emitter-meta').textContent = [emitter.cnpj, emitter.telefone].filter(Boolean).join(' • ');
-    $('proposal-footer-contact').textContent = [emitter.telefone, emitter.email, emitter.site].filter(Boolean).join(' • ');
+    const emitterName = emitter.razao_social || emitter.nome || 'SEG Sistemas';
+    const emitterIdentity = [emitter.nome, emitter.razao_social].filter(Boolean).join(' ');
+    const segsisFallbackLogo = /\bsegsis\b|\bseg\s+sistemas\b|sistemas\s+e\s+gerenciamentos\s+integrados/i.test(emitterIdentity)
+      ? '/frontend/img/propostas/segsis-modelo-logo.png'
+      : '';
+    const logoUrl = assetUrl(emitter.logo || segsisFallbackLogo);
+    const logo = $('proposal-brand-logo');
+    const brandMark = $('proposal-brand-mark');
+    $('proposal-emitter-name').textContent = emitterName;
+    $('proposal-footer-emitter').textContent = emitterName;
+    brandMark.textContent = String(emitter.nome || emitterName || 'SEG').trim().charAt(0).toUpperCase() || 'S';
+    logo.hidden = !logoUrl;
+    brandMark.hidden = Boolean(logoUrl);
+    if (logoUrl) {
+      logo.src = logoUrl;
+      logo.alt = `Logo de ${emitterName}`;
+      logo.onerror = () => {
+        logo.hidden = true;
+        brandMark.hidden = false;
+      };
+    } else {
+      logo.removeAttribute('src');
+      logo.alt = '';
+    }
+    $('proposal-emitter-address').textContent = emitter.endereco || '';
+    $('proposal-emitter-address').hidden = !emitter.endereco;
+    $('proposal-emitter-meta').textContent = [emitter.cnpj, emitter.telefone, emitter.email].filter(Boolean).join(' · ');
+    $('proposal-emitter-meta').hidden = ![emitter.cnpj, emitter.telefone, emitter.email].some(Boolean);
+    $('proposal-footer-contact').textContent = [emitter.endereco, emitter.telefone, emitter.email, emitter.site].filter(Boolean).join(' · ');
+    const contactUrl = whatsappUrl(emitter.telefone);
+    $('proposal-whatsapp-link').hidden = !contactUrl;
+    $('proposal-whatsapp-link').href = contactUrl || '#';
     $('proposal-code').textContent = budget.codigo || '—';
     $('proposal-title').textContent = budget.titulo || 'Proposta comercial';
+    document.title = `${budget.codigo || 'Proposta'} — ${emitter.nome || emitterName}`;
     $('proposal-client-name').textContent = client.nome_fantasia || client.nome || 'cliente';
     $('proposal-total').textContent = money(budget.total);
     $('proposal-validity').textContent = budget.data_validade ? `Válida até ${date(budget.data_validade)}` : 'Validade conforme condições da proposta';
@@ -71,9 +117,9 @@
     $('proposal-items').innerHTML = items.length ? items.map((item) => `
       <tr>
         <td><div class="proposal-item-description"><strong>${escapeHtml(item.descricao || 'Item')}</strong><small>${escapeHtml([item.codigo, item.unidade].filter(Boolean).join(' • '))}</small></div></td>
-        <td>${escapeHtml(item.quantidade || '0')}</td>
-        <td>${money(item.valor_unitario)}</td>
-        <td>${money(item.valor_total)}</td>
+        <td data-label="Quantidade">${escapeHtml(item.quantidade || '0')}</td>
+        <td data-label="Unitário">${money(item.valor_unitario)}</td>
+        <td data-label="Total">${money(item.valor_total)}</td>
       </tr>`).join('') : '<tr><td colspan="4">Nenhum item informado.</td></tr>';
 
     const values = [
@@ -107,7 +153,7 @@
 
     const approved = response.status === 'aprovado';
     const changeRequested = response.status === 'alteracao_solicitada';
-    $('proposal-outdated-alert').hidden = !response.desatualizada;
+    $('proposal-outdated-alert').hidden = !response.desatualizada || approved || changeRequested;
     $('proposal-approved-alert').hidden = !approved;
     $('proposal-change-alert').hidden = !changeRequested;
     if (approved) $('proposal-approved-text').textContent = `Registrada em ${dateTime(response.aprovado_em)}.`;
@@ -381,6 +427,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    $('btn-print-proposal').addEventListener('click', () => window.print());
     $('proposal-accept-check').addEventListener('change', (event) => { $('btn-approve-proposal').disabled = !event.target.checked; });
     $('btn-approve-proposal').addEventListener('click', approve);
     $('btn-request-change').addEventListener('click', () => {

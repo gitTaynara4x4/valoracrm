@@ -3177,6 +3177,7 @@ def _proposal_snapshot(db: Session, budget_id: int, company_id: int) -> tuple[di
         "emitente": {
             "nome": norm_str(data.get("emitente_nome_fantasia_documento")) or norm_str(data.get("emitente_nome_documento")) or norm_str(data.get("emitente_razao_social_documento")) or "SEG Sistemas",
             "razao_social": norm_str(data.get("emitente_razao_social_documento")),
+            "logo": norm_str(data.get("emitente_logo_documento")),
             "cnpj": norm_str(data.get("emitente_cnpj_documento")),
             "telefone": norm_str(data.get("emitente_telefone_documento")),
             "email": norm_str(data.get("emitente_email_documento")),
