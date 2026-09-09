@@ -859,7 +859,7 @@ html[data-theme="dark"] .service-proposal-value-card label {
   inset: 0;
   z-index: 2000000 !important;
   padding: 18px;
-  background: rgba(15, 23, 42, .56);
+  background: rgba(0, 0, 0, .64);
   display: grid;
   place-items: center;
   opacity: 0;
@@ -995,8 +995,8 @@ html[data-theme="dark"] .service-proposal-value-card label {
 }
 
 html[data-theme="dark"] .budget-confirm-dialog {
-  border-color: #2d3945;
-  background: #171f27;
+  border-color: rgba(255, 255, 255, .10);
+  background: #262626;
   box-shadow: 0 24px 60px rgba(0, 0, 0, .46);
 }
 
@@ -1009,14 +1009,25 @@ html[data-theme="dark"] .budget-confirm-header p {
 }
 
 html[data-theme="dark"] .budget-confirm-footer {
-  border-color: #2d3945;
-  background: #141b22;
+  border-color: rgba(255, 255, 255, .10);
+  background: #212121;
 }
 
 html[data-theme="dark"] .budget-confirm-footer .btn-secondary {
-  border-color: #364553;
-  background: #1b252e;
-  color: #e2e8f0;
+  border-color: #424242;
+  background: #2f2f2f;
+  color: #e5e5e5;
+}
+
+html[data-theme="dark"] .budget-confirm-footer #budget-confirm-ok:not(.btn-danger) {
+  border-color: #2f7f83 !important;
+  background: #2f7f83 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"] .budget-confirm-footer #budget-confirm-ok:not(.btn-danger):hover {
+  border-color: #388f93 !important;
+  background: #388f93 !important;
 }
 
 html[data-theme="dark"] .budget-confirm-icon {
@@ -1441,4 +1452,148 @@ html[data-theme="dark"] .service-template-section-title-field > span {
     grid-column: 3;
     grid-row: 1 / span 2;
   }
+}
+
+
+/* =========================================================
+   DARK CHATGPT | PROPOSTA COMERCIAL / MODELOS | 2026-09-09
+   Padroniza a área de modelos de monitoramento no mesmo dark
+   neutro do Valora, removendo azuis excessivos e superfícies
+   brancas no tema escuro.
+   ========================================================= */
+html[data-theme="dark"] .service-proposal-kicker {
+  color: #cfcfcf;
+}
+
+html[data-theme="dark"] .service-proposal-source-badge,
+html[data-theme="dark"] .service-proposal-selected-count {
+  background: #333333;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #bdbdbd;
+}
+
+html[data-theme="dark"] .service-proposal-model-card,
+html[data-theme="dark"] .service-proposal-section,
+html[data-theme="dark"] .service-proposal-value-input {
+  border-color: rgba(255, 255, 255, 0.10);
+  background: #262626;
+}
+
+html[data-theme="dark"] .service-proposal-model-card:hover,
+html[data-theme="dark"] .service-proposal-section-header,
+html[data-theme="dark"] .service-proposal-standard-note,
+html[data-theme="dark"] .service-proposal-check:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #303030;
+}
+
+html[data-theme="dark"] .service-proposal-model-card.active {
+  border-color: rgba(75, 195, 199, 0.55);
+  background: #262626;
+  box-shadow: 0 0 0 3px rgba(75, 195, 199, 0.10);
+}
+
+html[data-theme="dark"] .service-proposal-model-icon {
+  background: #333333;
+  color: #d4d4d4;
+}
+
+html[data-theme="dark"] .service-proposal-model-card.active .service-proposal-model-icon {
+  background: rgba(75, 195, 199, 0.15);
+  color: #58d3d7;
+}
+
+html[data-theme="dark"] .service-proposal-model-check {
+  background: #4bc3c7;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .service-proposal-model-card strong,
+html[data-theme="dark"] .service-proposal-section-header strong,
+html[data-theme="dark"] .service-proposal-standard-note strong,
+html[data-theme="dark"] .service-proposal-editor-head h4 {
+  color: #f1f1f1;
+}
+
+html[data-theme="dark"] .service-proposal-model-card small,
+html[data-theme="dark"] .service-proposal-standard-note,
+html[data-theme="dark"] .service-proposal-editor-head p,
+html[data-theme="dark"] .service-proposal-check span,
+html[data-theme="dark"] .service-proposal-value-card label {
+  color: #b8b8b8;
+}
+
+html[data-theme="dark"] .service-proposal-standard-note {
+  background: #262626;
+}
+
+html[data-theme="dark"] .service-proposal-standard-note > i {
+  color: #6ea8ff;
+}
+
+html[data-theme="dark"] .service-proposal-editor.is-hidden {
+  display: none;
+}
+
+html[data-theme="dark"] .service-proposal-template-shell,
+html[data-theme="dark"] .service-proposal-template-body {
+  background: #212121;
+}
+
+html[data-theme="dark"] .service-proposal-template-header,
+html[data-theme="dark"] .service-proposal-template-footer,
+html[data-theme="dark"] .service-template-section-card,
+html[data-theme="dark"] .service-template-section-title-field input,
+html[data-theme="dark"] .service-template-service-row > input[type="text"],
+html[data-theme="dark"] .service-template-row-actions button {
+  border-color: rgba(255, 255, 255, 0.10);
+  background: #2f2f2f;
+  color: #ededed;
+}
+
+html[data-theme="dark"] .service-template-section-head,
+html[data-theme="dark"] .service-template-default-check,
+html[data-theme="dark"] .service-proposal-template-notice,
+html[data-theme="dark"] .service-template-add-service {
+  border-color: rgba(255, 255, 255, 0.10);
+  background: #262626;
+  color: #b8b8b8;
+}
+
+html[data-theme="dark"] .service-proposal-template-header h3,
+html[data-theme="dark"] .service-proposal-template-notice strong,
+html[data-theme="dark"] .service-template-empty-large strong {
+  color: #f1f1f1;
+}
+
+html[data-theme="dark"] .service-proposal-template-header p,
+html[data-theme="dark"] .service-proposal-template-notice p,
+html[data-theme="dark"] .service-template-empty {
+  color: #b8b8b8;
+}
+
+html[data-theme="dark"] .service-proposal-template-notice > i {
+  color: #6ea8ff;
+}
+
+html[data-theme="dark"] .service-template-section-title-field > span {
+  background: #333333;
+  color: #d4d4d4;
+}
+
+html[data-theme="dark"] .service-template-default-check input {
+  accent-color: #4bc3c7;
+}
+
+html[data-theme="dark"] .service-template-row-actions button:hover:not(:disabled),
+html[data-theme="dark"] .service-template-add-service:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #383838;
+  color: #f1f1f1;
+}
+
+html[data-theme="dark"] .service-template-row-actions button.danger:hover:not(:disabled) {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
 }

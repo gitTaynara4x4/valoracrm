@@ -106,11 +106,12 @@ function renderActionIcon(action) {
         </svg>`;
     case 'zapschat':
       return `
-        <svg viewBox="0 0 24 24" aria-hidden="true" class="cliente-action-svg cliente-action-svg-whatsapp">
-          <path d="M20.2 11.62a8.18 8.18 0 0 1-12.12 7.17L4 20l1.23-3.62a8.16 8.16 0 1 1 14.97-4.76Z"></path>
-          <path d="M8.72 8.31c.18-.4.37-.41.55-.42h.47c.16 0 .43.06.65.32.23.25.88.86.88 2.1 0 1.23-.9 2.42-1.03 2.59-.13.17-1.77 2.84-4.4 3.86" transform="scale(-1 1) translate(-24 0)"></path>
-          <path d="M9.15 8.5c-.17-.38-.35-.38-.52-.39h-.45c-.16 0-.43.06-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.39 1.01 2.56.13.17 1.75 2.8 4.33 3.81 2.13.83 2.56.67 3.03.63.47-.05 1.51-.62 1.72-1.21.21-.59.21-1.1.15-1.21-.06-.11-.22-.17-.47-.3-.25-.13-1.47-.72-1.7-.8-.22-.08-.38-.13-.54.13-.16.25-.61.8-.75.96-.14.17-.28.19-.52.06-.25-.13-1.03-.38-1.97-1.2-.73-.65-1.23-1.46-1.37-1.71-.14-.25-.02-.39.11-.52.12-.12.25-.3.38-.44.13-.15.17-.25.25-.42.08-.17.04-.31-.02-.44-.07-.13-.58-1.41-.79-1.94Z"></path>
-        </svg>`;
+        <img
+          src="/frontend/img/icon-zapschat-custom.png"
+          alt=""
+          aria-hidden="true"
+          class="cliente-action-svg cliente-action-svg-whatsapp"
+        >`;
     case 'editar':
       return `
         <svg viewBox="0 0 24 24" aria-hidden="true" class="cliente-action-svg cliente-action-svg-pencil">

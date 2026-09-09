@@ -9,15 +9,15 @@ html[data-theme="dark"] {
   color-scheme: dark;
 
   /* Base */
-  --dark-bg: #0f172a;
-  --dark-bg-soft: #111827;
-  --dark-shell: #0b1220;
-  --dark-panel: #182235;
-  --dark-panel-2: #1e293b;
-  --dark-panel-hover: #243247;
-  --dark-input: #0f1b2d;
-  --dark-input-disabled: #111827;
-  --dark-table-head: #101827;
+  --dark-bg: #212121;
+  --dark-bg-soft: #262626;
+  --dark-shell: #1b1b1b;
+  --dark-panel: #2f2f2f;
+  --dark-panel-2: #303030;
+  --dark-panel-hover: #383838;
+  --dark-input: #303030;
+  --dark-input-disabled: #282828;
+  --dark-table-head: #262626;
 
   /* Texto */
   --dark-text: #e5e7eb;
@@ -26,12 +26,12 @@ html[data-theme="dark"] {
   --dark-muted-soft: #64748b;
 
   /* Bordas e sombras */
-  --dark-border: rgba(148, 163, 184, 0.18);
-  --dark-border-strong: rgba(148, 163, 184, 0.28);
+  --dark-border: rgba(255, 255, 255, 0.10);
+  --dark-border-strong: rgba(255, 255, 255, 0.16);
   --dark-focus: rgba(75, 195, 199, 0.26);
   --dark-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
-  --dark-shadow-md: 0 18px 42px rgba(2, 6, 23, 0.34);
-  --dark-shadow-lg: 0 30px 90px rgba(2, 6, 23, 0.58);
+  --dark-shadow-md: 0 18px 42px rgba(0, 0, 0, 0.34);
+  --dark-shadow-lg: 0 30px 90px rgba(0, 0, 0, 0.58);
 
   /* Mantém a marca Valora viva, mas discreta */
   --brand: #4bc3c7;
@@ -43,8 +43,8 @@ html[data-theme="dark"] {
 
   /* Sobrescreve variáveis antigas do projeto */
   --navy: var(--dark-shell);
-  --navy-dark: #070d18;
-  --navy-soft: #121c2d;
+  --navy-dark: #171717;
+  --navy-soft: #292929;
   --bg: var(--dark-bg);
   --bg-soft: var(--dark-bg-soft);
   --panel: var(--dark-panel);
@@ -502,7 +502,7 @@ html[data-theme="dark"] .badge-codigo {
    ========================================================= */
 
 html[data-theme="dark"] .modal-overlay {
-  background: rgba(2, 6, 23, 0.74) !important;
+  background: rgba(0, 0, 0, 0.68) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -2347,7 +2347,7 @@ html[data-theme="dark"] #budget-modal .document-preview:not(.dav-preview-active)
 
 
 /* =========================================================
-   DARK | AÇÕES PRIMÁRIAS AZUL CHAPADO | 2026-08-08
+   DARK | AÇÕES PRIMÁRIAS UNIFICADAS | 2026-08-08
    Sem gradiente, glow, sombra, brilho ou deslocamento.
    Somente tema escuro. Ações destrutivas permanecem separadas.
    ========================================================= */
@@ -2356,12 +2356,12 @@ html[data-theme="dark"] :is(
   a.btn-primary,
   .btn.btn-primary
 ):not(.btn-danger):not(.danger-action):not(.btn-danger-soft) {
-  background: #1A7EEE !important;
-  background-color: #1A7EEE !important;
+  background: #2F7F83 !important;
+  background-color: #2F7F83 !important;
   background-image: none !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
-  border-color: #1A7EEE !important;
+  border-color: #2F7F83 !important;
   box-shadow: none !important;
   filter: none !important;
   transform: none !important;
@@ -2373,12 +2373,12 @@ html[data-theme="dark"] :is(
   a.btn-primary,
   .btn.btn-primary
 ):not(.btn-danger):not(.danger-action):not(.btn-danger-soft):is(:hover, :focus, :focus-visible, :active) {
-  background: #1A7EEE !important;
-  background-color: #1A7EEE !important;
+  background: #2F7F83 !important;
+  background-color: #2F7F83 !important;
   background-image: none !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
-  border-color: #1A7EEE !important;
+  border-color: #2F7F83 !important;
   box-shadow: none !important;
   filter: none !important;
   transform: none !important;
@@ -2395,11 +2395,11 @@ html[data-theme="dark"] :is(
   #modal-cotacao,
   #modal-cotacao-backdrop
 ) :is(.btn-primary, .cliente-budget-action.btn-primary):not(.btn-danger):not(.danger-action) {
-  background: #1A7EEE !important;
+  background: #2F7F83 !important;
   background-image: none !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
-  border-color: #1A7EEE !important;
+  border-color: #2F7F83 !important;
   box-shadow: none !important;
   filter: none !important;
   transform: none !important;
@@ -2409,7 +2409,7 @@ html[data-theme="dark"] :is(
 /* =========================================================
    DARK | SEM EFEITINHO EM BOTÕES/CHIPS AZUIS | 2026-08-08
    Remove glow, blur, sombra, gradiente e pseudo-elementos.
-   Azul sempre chapado #1A7EEE no tema escuro.
+   Ação primária usa um único destaque teal no tema escuro.
    ========================================================= */
 html[data-theme="dark"] :is(
   .btn,
@@ -2445,9 +2445,9 @@ html[data-theme="dark"] :is(
   .financeiro-tabs a.active,
   .financeiro-tabs button.active
 ):not(.btn-danger):not(.danger):not(.danger-action):not(.btn-danger-soft) {
-  background: #1A7EEE !important;
-  background-color: #1A7EEE !important;
-  border-color: #1A7EEE !important;
+  background: #2F7F83 !important;
+  background-color: #2F7F83 !important;
+  border-color: #2F7F83 !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
 }
@@ -2461,9 +2461,9 @@ html[data-theme="dark"] :is(
   .financeiro-tabs a.active,
   .financeiro-tabs button.active
 ):not(.btn-danger):not(.danger):not(.danger-action):not(.btn-danger-soft):is(:hover, :focus, :focus-visible, :active) {
-  background: #1A7EEE !important;
-  background-color: #1A7EEE !important;
-  border-color: #1A7EEE !important;
+  background: #2F7F83 !important;
+  background-color: #2F7F83 !important;
+  border-color: #2F7F83 !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
   box-shadow: none !important;
@@ -2830,4 +2830,463 @@ html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .forn
 html[data-theme="dark"] #modal-fornecedor-backdrop .fornecedor-sidebar-nav .fornecedor-tab-btn[data-ficha-section].active .ficha-section-tab-label {
   color: #69d4dc !important;
   font-weight: 500 !important;
+}
+
+/* =========================================================
+   VALORA | CORREÇÃO FINAL DE CASCATA DARK | 2026-09-09
+   Este bloco é deliberadamente o último do tema escuro.
+   Corrige CSS claro/azul antigo que ainda vencia por ordem ou
+   especificidade nos modais de cadastro e comercial.
+   ========================================================= */
+html[data-theme="dark"] {
+  --valora-dark-canvas: #212121;
+  --valora-dark-surface: #2f2f2f;
+  --valora-dark-surface-soft: #262626;
+  --valora-dark-surface-hover: #383838;
+  --valora-dark-border: rgba(255, 255, 255, 0.10);
+  --valora-dark-border-strong: rgba(255, 255, 255, 0.16);
+  --valora-dark-text: #ececec;
+  --valora-dark-text-soft: #d1d1d1;
+  --valora-dark-muted: #a6a6a6;
+}
+
+/* Canvas principal dos modais. */
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop,
+  #modal-fornecedor-backdrop,
+  #modal-produto-backdrop,
+  #modal-patrimonio,
+  #modal-cotacao,
+  #modal-cotacao-backdrop,
+  #budget-modal,
+  #proposal-modal
+) :is(
+  .cliente-modal-main,
+  .fornecedor-modal-main,
+  .produto-modal-main,
+  .patrimonio-modal-main,
+  .cotacao-modal-main,
+  .budget-modal-main,
+  .proposal-modal-main,
+  .cliente-modal-scroll,
+  .fornecedor-modal-scroll,
+  .produto-modal-scroll,
+  .patrimonio-modal-scroll,
+  .cotacao-modal-scroll,
+  .budget-modal-scroll,
+  .proposal-modal-scroll
+) {
+  background: var(--valora-dark-canvas) !important;
+  background-image: none !important;
+  color: var(--valora-dark-text) !important;
+}
+
+/* Topo, barra Ctrl+S e rodapé no mesmo cinza do tema atual. */
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop,
+  #modal-fornecedor-backdrop,
+  #modal-produto-backdrop,
+  #modal-patrimonio,
+  #modal-cotacao,
+  #modal-cotacao-backdrop,
+  #budget-modal,
+  #proposal-modal
+) :is(
+  .cliente-modal-topbar,
+  .fornecedor-modal-topbar,
+  .produto-modal-topbar,
+  .patrimonio-modal-topbar,
+  .cotacao-modal-topbar,
+  .budget-modal-topbar,
+  .proposal-modal-topbar,
+  .cliente-modal-workbar,
+  .fornecedor-modal-workbar,
+  .produto-modal-workbar,
+  .patrimonio-modal-workbar,
+  .cotacao-modal-workbar,
+  .budget-modal-workbar,
+  .proposal-modal-workbar,
+  .cliente-modal-footer,
+  .fornecedor-modal-footer,
+  .produto-modal-footer,
+  .patrimonio-modal-footer,
+  .cotacao-modal-footer,
+  .budget-modal-footer,
+  .proposal-modal-footer
+) {
+  background: var(--valora-dark-surface) !important;
+  background-image: none !important;
+  border-color: var(--valora-dark-border) !important;
+  color: var(--valora-dark-text) !important;
+  box-shadow: none !important;
+}
+
+/* Sidebars continuam um nível mais profundo, sem o azul legado. */
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop,
+  #modal-fornecedor-backdrop,
+  #modal-produto-backdrop,
+  #modal-patrimonio,
+  #modal-cotacao,
+  #modal-cotacao-backdrop,
+  #budget-modal,
+  #proposal-modal
+) :is(
+  .cliente-modal-sidebar,
+  .fornecedor-modal-sidebar,
+  .produto-modal-sidebar,
+  .patrimonio-modal-sidebar,
+  .cotacao-modal-sidebar,
+  .budget-modal-sidebar,
+  .proposal-modal-sidebar
+) {
+  background: #171717 !important;
+  background-image: none !important;
+  border-color: var(--valora-dark-border) !important;
+}
+
+/* Card Código/Data: impede qualquer regra clara de voltar a vencer. */
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop,
+  #modal-fornecedor-backdrop,
+  #modal-produto-backdrop,
+  #modal-patrimonio,
+  #modal-cotacao,
+  #modal-cotacao-backdrop
+) :is(
+  .ficha-principal-code-card,
+  .cliente-ficha-code-card.ficha-principal-code-card,
+  .fornecedor-ficha-code-card.ficha-principal-code-card,
+  .produto-ficha-code-card.ficha-principal-code-card,
+  .patrimonio-ficha-code-card.ficha-principal-code-card,
+  .cotacao-ficha-code-card.ficha-principal-code-card
+) {
+  background: var(--valora-dark-surface) !important;
+  background-image: none !important;
+  border-color: var(--valora-dark-border) !important;
+  color: var(--valora-dark-text) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop,
+  #modal-fornecedor-backdrop,
+  #modal-produto-backdrop,
+  #modal-patrimonio,
+  #modal-cotacao,
+  #modal-cotacao-backdrop
+) :is(
+  .ficha-principal-code-card,
+  .cliente-ficha-code-card.ficha-principal-code-card,
+  .fornecedor-ficha-code-card.ficha-principal-code-card,
+  .produto-ficha-code-card.ficha-principal-code-card,
+  .patrimonio-ficha-code-card.ficha-principal-code-card,
+  .cotacao-ficha-code-card.ficha-principal-code-card
+) :is(.ficha-principal-system-fields, .ficha-principal-code-field, .ficha-principal-date-field) label {
+  color: var(--valora-dark-muted) !important;
+}
+
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop,
+  #modal-fornecedor-backdrop,
+  #modal-produto-backdrop,
+  #modal-patrimonio,
+  #modal-cotacao,
+  #modal-cotacao-backdrop
+) :is(
+  .ficha-principal-code-card,
+  .cliente-ficha-code-card.ficha-principal-code-card,
+  .fornecedor-ficha-code-card.ficha-principal-code-card,
+  .produto-ficha-code-card.ficha-principal-code-card,
+  .patrimonio-ficha-code-card.ficha-principal-code-card,
+  .cotacao-ficha-code-card.ficha-principal-code-card
+) .ficha-principal-system-fields :is(input, select, textarea) {
+  background: var(--valora-dark-surface-soft) !important;
+  background-image: none !important;
+  border-color: var(--valora-dark-border) !important;
+  color: var(--valora-dark-text-soft) !important;
+  -webkit-text-fill-color: var(--valora-dark-text-soft) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop,
+  #modal-fornecedor-backdrop,
+  #modal-produto-backdrop,
+  #modal-patrimonio,
+  #modal-cotacao,
+  #modal-cotacao-backdrop
+) :is(
+  .ficha-principal-code-card,
+  .cliente-ficha-code-card.ficha-principal-code-card,
+  .fornecedor-ficha-code-card.ficha-principal-code-card,
+  .produto-ficha-code-card.ficha-principal-code-card,
+  .patrimonio-ficha-code-card.ficha-principal-code-card,
+  .cotacao-ficha-code-card.ficha-principal-code-card
+) .ficha-principal-system-fields :is(input, select, textarea):disabled,
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop,
+  #modal-fornecedor-backdrop,
+  #modal-produto-backdrop,
+  #modal-patrimonio,
+  #modal-cotacao,
+  #modal-cotacao-backdrop
+) :is(
+  .ficha-principal-code-card,
+  .cliente-ficha-code-card.ficha-principal-code-card,
+  .fornecedor-ficha-code-card.ficha-principal-code-card,
+  .produto-ficha-code-card.ficha-principal-code-card,
+  .patrimonio-ficha-code-card.ficha-principal-code-card,
+  .cotacao-ficha-code-card.ficha-principal-code-card
+) .ficha-principal-system-fields :is(input, select, textarea)[readonly] {
+  background: var(--valora-dark-surface-soft) !important;
+  color: #bdbdbd !important;
+  -webkit-text-fill-color: #bdbdbd !important;
+  opacity: 1 !important;
+}
+
+/* Atalho Ctrl+S: remove os tons azulados dos CSS antigos. */
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop .cliente-save-shortcut,
+  #modal-fornecedor-backdrop .fornecedor-save-shortcut,
+  #modal-produto-backdrop .produto-save-shortcut,
+  #modal-patrimonio .patrimonio-save-shortcut,
+  #modal-cotacao-backdrop .cotacao-save-shortcut,
+  #budget-modal .budget-save-shortcut,
+  #proposal-modal .proposal-save-shortcut
+) {
+  color: var(--valora-dark-muted) !important;
+}
+
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop .cliente-save-shortcut kbd,
+  #modal-fornecedor-backdrop .fornecedor-save-shortcut kbd,
+  #modal-produto-backdrop .produto-save-shortcut kbd,
+  #modal-patrimonio .patrimonio-save-shortcut kbd,
+  #modal-cotacao-backdrop .cotacao-save-shortcut kbd,
+  #budget-modal .budget-save-shortcut kbd,
+  #proposal-modal .proposal-save-shortcut kbd
+) {
+  background: var(--valora-dark-surface-soft) !important;
+  border-color: var(--valora-dark-border-strong) !important;
+  border-bottom-color: var(--valora-dark-border-strong) !important;
+  color: var(--valora-dark-text-soft) !important;
+  box-shadow: none !important;
+}
+
+/* Menus de ações/toggles dos mesmos modais. */
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop,
+  #modal-fornecedor-backdrop,
+  #modal-produto-backdrop,
+  #modal-patrimonio,
+  #modal-cotacao,
+  #modal-cotacao-backdrop,
+  #budget-modal,
+  #proposal-modal
+) :is(
+  .cliente-actions-trigger,
+  .fornecedor-actions-trigger,
+  .produto-actions-trigger,
+  .patrimonio-actions-trigger,
+  .cotacao-actions-trigger,
+  .budget-actions-trigger,
+  .proposal-actions-trigger,
+  .cliente-actions-menu,
+  .fornecedor-actions-menu,
+  .produto-actions-menu,
+  .patrimonio-actions-menu,
+  .cotacao-actions-menu,
+  .budget-actions-menu,
+  .proposal-actions-menu,
+  .cliente-ficha-toggle,
+  .fornecedor-ficha-toggle,
+  .produto-ficha-toggle,
+  .patrimonio-ficha-toggle,
+  .cotacao-ficha-toggle
+) {
+  background: var(--valora-dark-surface) !important;
+  background-image: none !important;
+  border-color: var(--valora-dark-border) !important;
+  color: var(--valora-dark-text) !important;
+}
+
+/* Propostas possui um card de código próprio. */
+html[data-theme="dark"] #proposal-modal .proposal-code-card {
+  background: var(--valora-dark-surface) !important;
+  background-image: none !important;
+  border-color: var(--valora-dark-border) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #proposal-modal .proposal-code-field label {
+  color: var(--valora-dark-muted) !important;
+}
+
+html[data-theme="dark"] #proposal-modal .proposal-code-field input {
+  background: var(--valora-dark-surface-soft) !important;
+  border-color: var(--valora-dark-border) !important;
+  color: var(--valora-dark-text-soft) !important;
+  -webkit-text-fill-color: var(--valora-dark-text-soft) !important;
+}
+
+
+/* =========================================================
+   VALORA | DARK | AÇÕES DE TOPO UNIFICADAS | v40
+   Ações, maximizar e fechar usam a mesma superfície neutra.
+   Status permanecem semânticos (verde/amarelo/vermelho/cinza).
+   ========================================================= */
+html[data-theme="dark"] {
+  --valora-top-action-bg: #2f2f2f;
+  --valora-top-action-bg-hover: #383838;
+  --valora-top-action-border: #424242;
+  --valora-top-action-border-hover: #525252;
+  --valora-top-action-text: #e5e5e5;
+  --valora-top-action-text-hover: #ffffff;
+}
+
+/* Botão Ações de todos os cadastros/comercial. */
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop .cliente-actions-trigger,
+  #modal-fornecedor-backdrop .fornecedor-actions-trigger,
+  #modal-produto-backdrop .produto-actions-trigger,
+  #modal-patrimonio .patrimonio-actions-trigger,
+  #modal-cotacao-backdrop .cotacao-actions-trigger,
+  #budget-modal .budget-actions-trigger,
+  #proposal-modal .proposal-actions-trigger
+) {
+  background: var(--valora-top-action-bg) !important;
+  background-image: none !important;
+  border: 1px solid var(--valora-top-action-border) !important;
+  color: var(--valora-top-action-text) !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop .cliente-actions-trigger,
+  #modal-fornecedor-backdrop .fornecedor-actions-trigger,
+  #modal-produto-backdrop .produto-actions-trigger,
+  #modal-patrimonio .patrimonio-actions-trigger,
+  #modal-cotacao-backdrop .cotacao-actions-trigger,
+  #budget-modal .budget-actions-trigger,
+  #proposal-modal .proposal-actions-trigger
+):hover {
+  background: var(--valora-top-action-bg-hover) !important;
+  border-color: var(--valora-top-action-border-hover) !important;
+  color: var(--valora-top-action-text-hover) !important;
+}
+
+/* Maximizar: botão global injetado pelo app + versões próprias de orçamento/proposta. */
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop .cliente-modal-top-actions > .valora-window-size-toggle,
+  #modal-fornecedor-backdrop .fornecedor-modal-top-actions > .valora-window-size-toggle,
+  #modal-produto-backdrop .produto-modal-top-actions > .valora-window-size-toggle,
+  #modal-patrimonio .patrimonio-modal-top-actions > .valora-window-size-toggle,
+  #modal-cotacao-backdrop .cotacao-modal-top-actions > .valora-window-size-toggle,
+  #budget-modal .budget-maximize-action,
+  #proposal-modal #btn-maximizar-proposta
+) {
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  flex: 0 0 40px !important;
+  padding: 0 !important;
+  border-radius: 11px !important;
+  background: var(--valora-top-action-bg) !important;
+  background-image: none !important;
+  border: 1px solid var(--valora-top-action-border) !important;
+  color: var(--valora-top-action-text) !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop .cliente-modal-top-actions > .valora-window-size-toggle,
+  #modal-fornecedor-backdrop .fornecedor-modal-top-actions > .valora-window-size-toggle,
+  #modal-produto-backdrop .produto-modal-top-actions > .valora-window-size-toggle,
+  #modal-patrimonio .patrimonio-modal-top-actions > .valora-window-size-toggle,
+  #modal-cotacao-backdrop .cotacao-modal-top-actions > .valora-window-size-toggle,
+  #budget-modal .budget-maximize-action,
+  #proposal-modal #btn-maximizar-proposta
+):hover {
+  background: var(--valora-top-action-bg-hover) !important;
+  border-color: var(--valora-top-action-border-hover) !important;
+  color: var(--valora-top-action-text-hover) !important;
+}
+
+/* Fechar: neutro em repouso, vermelho somente no hover/foco. */
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop #btn-fechar-modal-cliente,
+  #modal-fornecedor-backdrop #btn-fechar-modal-fornecedor,
+  #modal-produto-backdrop #btn-fechar-modal-produto,
+  #modal-patrimonio #btn-fechar-modal-patrimonio,
+  #modal-cotacao-backdrop #btn-fechar-modal-cotacao,
+  #budget-modal #btn-fechar-budget-modal,
+  #proposal-modal #btn-fechar-modal
+) {
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  flex: 0 0 40px !important;
+  padding: 0 !important;
+  border-radius: 11px !important;
+  background: var(--valora-top-action-bg) !important;
+  background-image: none !important;
+  border: 1px solid var(--valora-top-action-border) !important;
+  color: var(--valora-top-action-text) !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop #btn-fechar-modal-cliente,
+  #modal-fornecedor-backdrop #btn-fechar-modal-fornecedor,
+  #modal-produto-backdrop #btn-fechar-modal-produto,
+  #modal-patrimonio #btn-fechar-modal-patrimonio,
+  #modal-cotacao-backdrop #btn-fechar-modal-cotacao,
+  #budget-modal #btn-fechar-budget-modal,
+  #proposal-modal #btn-fechar-modal
+):hover,
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop #btn-fechar-modal-cliente,
+  #modal-fornecedor-backdrop #btn-fechar-modal-fornecedor,
+  #modal-produto-backdrop #btn-fechar-modal-produto,
+  #modal-patrimonio #btn-fechar-modal-patrimonio,
+  #modal-cotacao-backdrop #btn-fechar-modal-cotacao,
+  #budget-modal #btn-fechar-budget-modal,
+  #proposal-modal #btn-fechar-modal
+):focus-visible {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #f87171 !important;
+  outline: none !important;
+}
+
+/* Mantém o status Ativo como único destaque cromático do cabeçalho. */
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop .cliente-top-status,
+  #modal-fornecedor-backdrop .fornecedor-status-pill,
+  #modal-produto-backdrop .produto-status-pill
+):not(.is-inativo):not(.is-bloqueado) {
+  background: rgba(34, 197, 94, 0.10) !important;
+  border-color: rgba(34, 197, 94, 0.30) !important;
+  color: #86efac !important;
+  box-shadow: none !important;
+}
+
+/* Ícones dos três controles neutros herdam exatamente a mesma cor. */
+html[data-theme="dark"] :is(
+  #modal-cliente-backdrop .cliente-modal-top-actions,
+  #modal-fornecedor-backdrop .fornecedor-modal-top-actions,
+  #modal-produto-backdrop .produto-modal-top-actions,
+  #modal-patrimonio .patrimonio-modal-top-actions,
+  #modal-cotacao-backdrop .cotacao-modal-top-actions,
+  #budget-modal .budget-modal-top-actions,
+  #proposal-modal .proposal-modal-top-actions
+) :is(.valora-window-size-toggle, .btn-close, .proposal-top-icon-btn, .budget-maximize-action) :is(i, svg) {
+  color: inherit !important;
+  stroke: currentColor !important;
 }

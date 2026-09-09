@@ -23,6 +23,8 @@
     'identificacao_do_produto',
     'identificacao_produto',
     'nome_generico',
+    'nome_generico_do_produto',
+    'nome_generico_produto',
     'descricao',
     'descricao_do_produto',
     'descricao_produto',
@@ -477,42 +479,14 @@
     return fallback;
   }
 
-  function firstUsefulCustomValue(custom) {
-    const data = normalizeCustomFields(custom);
-    const blocked = new Set([
-      'data_cadastro',
-      'status_atual',
-      'ativo',
-      'codigo',
-      'cod_ref_id',
-      'codigo_barras',
-      'quantidade_atual',
-      'estoque_atual',
-      'preco_venda',
-      'valor_custo',
-      'valor_de_custo',
-      'custo',
-      'preco_de_custo',
-      'valor_compra',
-      'valor_de_compra',
-      'preco_compra',
-      'preco_de_compra',
-      'custo_compra',
-      'custo_de_compra',
-    ]);
-
-    for (const [key, value] of Object.entries(data)) {
-      if (blocked.has(String(key))) continue;
-      const text = String(value ?? '').trim();
-      if (text && !/^true|false$/i.test(text) && text.length >= 2) return text;
-    }
-
-    return '';
-  }
-
   function buildProdutoBaseFromCustom(customFields, fallback = {}) {
     const custom = normalizeCustomFields(customFields);
 
+    // O nome do produto nunca pode ser inferido a partir de "qualquer" campo
+    // personalizado. O fallback antigo fazia valores como "Homologado",
+    // categoria ou status substituírem Produto.nome quando a Ficha Principal
+    // estava ativa. Só aliases explicitamente reconhecidos podem alimentar o
+    // nome nativo; na ausência deles preservamos apenas o nome já existente.
     const nome = getCustomValue(custom, [
       'nome',
       'produto',
@@ -521,9 +495,9 @@
       'identificacao_do_produto',
       'identificacao_produto',
       'nome_generico',
-      'descricao_curta',
-      'titulo',
-    ], fallback.nome || '') || firstUsefulCustomValue(custom);
+      'nome_generico_do_produto',
+      'nome_generico_produto',
+    ], fallback.nome || '');
 
     const descricao = getCustomValue(custom, [
       'descricao',
@@ -624,6 +598,8 @@
       'identificacao_do_produto',
       'identificacao_produto',
       'nome_generico',
+      'nome_generico_do_produto',
+      'nome_generico_produto',
       'descricao_curta',
       'titulo',
     ], produto.nome);
@@ -1817,9 +1793,60 @@
     }
   }
 
+  function customCommercialFieldRole(slug, label = '') {
+    const candidates = [slugify(slug), slugify(label)].filter(Boolean);
+    const costAliases = new Set([
+      'custo', 'valor_custo', 'valor_de_custo', 'custo_efetivo',
+      'preco_custo', 'preco_de_custo', 'valor_compra', 'valor_de_compra',
+      'preco_compra', 'preco_de_compra', 'custo_compra', 'custo_de_compra',
+    ]);
+    const saleAliases = new Set([
+      'preco_venda', 'preco_de_venda', 'valor_venda', 'valor_de_venda',
+      'preco_final_venda_tabela_01', 'preco_final', 'venda',
+    ]);
+
+    for (const candidate of candidates) {
+      const withoutSuffix = candidate.replace(/_\d+$/, '');
+      if (costAliases.has(candidate) || costAliases.has(withoutSuffix)) return 'cost';
+      if (saleAliases.has(candidate) || saleAliases.has(withoutSuffix)) return 'sale';
+
+      const tokens = new Set(candidate.split('_').filter(Boolean));
+      if (tokens.has('venda') && (tokens.has('preco') || tokens.has('valor') || tokens.has('final'))) {
+        return 'sale';
+      }
+    }
+
+    return 'other';
+  }
+
+  function syncCustomCommercialFieldsFromNative(customFields, nativeFields) {
+    const synced = { ...normalizeCustomFields(customFields) };
+    if (usarFichaPrincipalProdutos) return synced;
+
+    const root = $('formProduto') || document;
+    root.querySelectorAll('[data-custom-field-wrapper="true"]').forEach((wrapper) => {
+      if (String(wrapper.dataset.customOrigin || '').toLowerCase() === 'sistema') return;
+      const input = wrapper.querySelector('[data-custom-field]');
+      if (!input) return;
+
+      const slug = String(input.dataset.customField || '').trim();
+      if (!slug) return;
+      const label = String(input.dataset.customLabel || '').trim();
+      const role = customCommercialFieldRole(slug, label);
+
+      if (role === 'cost') synced[slug] = String(nativeFields.custo ?? '').trim();
+      if (role === 'sale') synced[slug] = String(nativeFields.preco_venda ?? '').trim();
+    });
+
+    return synced;
+  }
+
   function buildPayloadProduto() {
-    const customFields = collectCustomFieldsValues();
     const nativeFields = getProdutoNativeValues();
+    const customFields = syncCustomCommercialFieldsFromNative(
+      collectCustomFieldsValues(),
+      nativeFields
+    );
     const customFallback = buildProdutoBaseFromCustom(customFields, produtoAtualDetalhe || {});
 
     const base = usarFichaPrincipalProdutos
@@ -1834,8 +1861,8 @@
           descricao: nativeFields.descricao || customFallback.descricao || '',
           categoria: nativeFields.categoria || customFallback.categoria || '',
           unidade: nativeFields.unidade || customFallback.unidade || '',
-          preco_venda: nativeFields.preco_venda || customFallback.preco_venda || '',
-          custo: nativeFields.custo || customFallback.custo || '',
+          preco_venda: nativeFields.preco_venda,
+          custo: nativeFields.custo,
           estoque_atual: nativeFields.estoque_atual || customFallback.estoque_atual || '',
         };
 
@@ -2621,9 +2648,9 @@
     const key = String(field?.key || '').toLowerCase();
     const slug = String(field?.slug || '').toLowerCase();
     const label = String(field?.label || '').toLowerCase();
-    const text = `${key} ${slug} ${label}`;
-    if (key === 'custo' || /(^|[_\s-])custo([_\s-]|$)/.test(text) || text.includes('preço de compra') || text.includes('preco de compra')) return 'cost';
-    if (key === 'preco_venda' || key === 'preço_venda' || text.includes('preço de venda') || text.includes('preco de venda') || text.includes('valor de venda')) return 'sale';
+    const strictRole = customCommercialFieldRole(slug || key, label);
+    if (key === 'custo' || strictRole === 'cost') return 'cost';
+    if (key === 'preco_venda' || key === 'preço_venda' || strictRole === 'sale') return 'sale';
     return 'other';
   }
 

@@ -2907,7 +2907,7 @@ html[data-theme="dark"] #modal-cliente-backdrop .cliente-sidebar-nav .cliente-ta
    ========================================================= */
 body #Valora-confirm-backdrop {
   padding: 18px !important;
-  background: rgba(15, 23, 42, 0.56) !important;
+  background: rgba(0, 0, 0, 0.64) !important;
 }
 
 body #Valora-confirm-backdrop .confirm-content {
@@ -3003,8 +3003,8 @@ body #Valora-confirm-backdrop .confirm-content .modal-field-footer .btn-primary:
 html[data-theme="dark"] body #Valora-confirm-backdrop .confirm-content,
 html[data-theme="dark"] body #Valora-confirm-backdrop .confirm-content .modal-header,
 html[data-theme="dark"] body #Valora-confirm-backdrop .confirm-content .modal-body {
-  background: #171f27 !important;
-  border-color: #2d3945 !important;
+  background: #262626 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
 }
 
 html[data-theme="dark"] body #Valora-confirm-backdrop .confirm-content .modal-header h3 {
@@ -3016,14 +3016,25 @@ html[data-theme="dark"] body #Valora-confirm-backdrop .confirm-content .modal-bo
 }
 
 html[data-theme="dark"] body #Valora-confirm-backdrop .confirm-content .modal-field-footer {
-  border-color: #2d3945 !important;
-  background: #141b22 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  background: #212121 !important;
 }
 
 html[data-theme="dark"] body #Valora-confirm-backdrop .confirm-content .modal-field-footer .btn-secondary {
-  border-color: #364553 !important;
-  background: #1b252e !important;
-  color: #e2e8f0 !important;
+  border-color: #424242 !important;
+  background: #2f2f2f !important;
+  color: #e5e5e5 !important;
+}
+
+html[data-theme="dark"] body #Valora-confirm-backdrop .confirm-content .modal-field-footer .btn-primary {
+  border-color: #2f7f83 !important;
+  background: #2f7f83 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"] body #Valora-confirm-backdrop .confirm-content .modal-field-footer .btn-primary:hover {
+  border-color: #388f93 !important;
+  background: #388f93 !important;
 }
 
 @media (max-width: 560px) {

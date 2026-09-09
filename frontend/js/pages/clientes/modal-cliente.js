@@ -396,7 +396,9 @@ function syncFichaPrincipalCadastro(dataCadastro, usarHoje = false) {
 
 function switchTab(targetId) {
   const targetPanel = targetId ? document.getElementById(targetId) : null;
-  const keepTab = targetPanel?.dataset.fichaKeep === 'true';
+  const keepTab =
+    targetPanel?.dataset.fichaKeep === 'true' ||
+    targetPanel?.dataset.fichaFixed === 'true';
   if (state.usarFichaPrincipalClientes && !keepTab) {
     targetId = 'tab-campos-personalizados';
   }
