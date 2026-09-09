@@ -38,6 +38,44 @@
 .budget-table th, .budget-table td { vertical-align: middle; }
 .budget-number { display: inline-flex; align-items: center; gap: 8px; color: var(--budget-navy); font-weight: 600; white-space: nowrap; }
 .budget-number i { color: var(--budget-blue); }
+
+/* Número e cliente abrem o mesmo modal do botão Editar. */
+.budget-record-open {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.budget-number.budget-record-open {
+  border-radius: 6px;
+  transition: color .15s ease, background-color .15s ease;
+}
+.budget-number.budget-record-open:hover {
+  color: var(--budget-blue);
+}
+.budget-client-open {
+  display: block;
+  max-width: 100%;
+  border-radius: 6px;
+}
+.budget-client-open strong {
+  transition: color .15s ease;
+}
+.budget-client-open:hover strong {
+  color: var(--budget-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.budget-record-open:focus-visible {
+  outline: 2px solid rgba(75, 195, 199, .65);
+  outline-offset: 3px;
+}
 .budget-client-cell strong, .budget-title-cell strong { display: block; color: var(--budget-navy); font-size: 12.5px; font-weight: 600; }
 .budget-client-cell small, .budget-title-cell small { display: block; margin-top: 3px; color: var(--budget-muted); font-size: 10.5px; }
 .budget-value-cell { color: var(--budget-navy); font-weight: 600; white-space: nowrap; }
@@ -4274,3 +4312,104 @@ html[data-theme="dark"] .contract-client-info strong { color: #d9e3e8; }
 .contract-signature-evidence span { color: #40515b; font-size: 9px; font-weight: 600; }
 .contract-signature-evidence code { overflow-wrap: anywhere; color: #6a7780; font-size: 7.5px; }
 html[data-theme="dark"] .contract-signature-panel { background: var(--card-bg, #202326); }
+
+
+/* =========================================================
+   ORÇAMENTOS | STATUS SECUNDÁRIOS DA LISTA | 2026-09-09
+   Evita colisão da classe global .status-aprovado e mantém
+   aprovação do cliente/contrato como metadados discretos.
+   ========================================================= */
+.budget-client-public-list,
+.budget-client-prepared-list,
+.budget-client-contract-list,
+.budget-generated-contract-list {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin-top: 5px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 9.5px !important;
+  font-weight: 500 !important;
+  line-height: 1.25 !important;
+  white-space: nowrap !important;
+}
+
+.budget-client-public-list i,
+.budget-client-prepared-list i,
+.budget-client-contract-list i,
+.budget-generated-contract-list i {
+  flex: 0 0 auto;
+  width: 12px;
+  margin: 0 !important;
+  text-align: center;
+  opacity: .9;
+}
+
+/* A classe global .status-aprovado possui fundo de badge.
+   Aqui ela representa somente uma linha informativa. */
+.budget-client-public-list.status-aprovado {
+  color: #2f7d60 !important;
+  background: transparent !important;
+}
+
+.budget-client-public-list.status-visualizado,
+.budget-client-public-list.status-aguardando,
+.budget-client-prepared-list {
+  color: #4d7489 !important;
+  background: transparent !important;
+}
+
+.budget-client-public-list.status-alteracao_solicitada {
+  color: #8b6a2f !important;
+  background: transparent !important;
+}
+
+.budget-client-contract-list,
+.budget-generated-contract-list {
+  color: #52646d !important;
+}
+
+.budget-client-contract-list i,
+.budget-generated-contract-list i {
+  color: #3d8a69 !important;
+}
+
+html[data-theme="dark"] .budget-client-public-list,
+html[data-theme="dark"] .budget-client-prepared-list,
+html[data-theme="dark"] .budget-client-contract-list,
+html[data-theme="dark"] .budget-generated-contract-list {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .budget-client-public-list.status-aprovado {
+  color: #86d6a8 !important;
+  background: transparent !important;
+}
+
+html[data-theme="dark"] .budget-client-public-list.status-visualizado,
+html[data-theme="dark"] .budget-client-public-list.status-aguardando,
+html[data-theme="dark"] .budget-client-prepared-list {
+  color: #aab8c0 !important;
+}
+
+html[data-theme="dark"] .budget-client-public-list.status-alteracao_solicitada {
+  color: #e7c777 !important;
+}
+
+html[data-theme="dark"] .budget-client-contract-list,
+html[data-theme="dark"] .budget-generated-contract-list {
+  color: #c2c8cc !important;
+}
+
+html[data-theme="dark"] .budget-client-contract-list i,
+html[data-theme="dark"] .budget-generated-contract-list i {
+  color: #78c89e !important;
+}
