@@ -1,6 +1,6 @@
 /*
  * ValoraCRM · Orçamentos · tabela de itens
- * Versão v5 — ordem com drag funcional + setas subir/descer, mantendo layout compacto.
+ * Versão v6 — ordem com drag funcional + setas maiores e mais fáceis de clicar.
  */
 
 .budget-items-table-wrap {
@@ -40,7 +40,7 @@
 
 .budget-main-items-table td {
   min-width: 0;
-  height: 56px;
+  height: 68px;
   padding: 8px 10px;
   vertical-align: middle;
   overflow: hidden;
@@ -57,7 +57,7 @@
 
 /* Larguras equivalentes ao mockup aprovado. */
 .budget-main-items-table th:nth-child(1),
-.budget-main-items-table td:nth-child(1) { width: 82px; }
+.budget-main-items-table td:nth-child(1) { width: 112px; }
 
 .budget-main-items-table th:nth-child(2),
 .budget-main-items-table td:nth-child(2) { width: 320px; }
@@ -106,7 +106,7 @@
   flex-wrap: nowrap !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  gap: 5px !important;
+  gap: 8px !important;
   width: auto !important;
   min-width: 0 !important;
   height: auto !important;
@@ -117,19 +117,19 @@
 #budget-items-body .budget-order-drag {
   all: unset;
   box-sizing: border-box;
-  flex: 0 0 14px !important;
-  width: 14px !important;
-  height: 28px !important;
+  flex: 0 0 22px !important;
+  width: 22px !important;
+  height: 34px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
-  border-radius: 6px !important;
+  border-radius: 8px !important;
   background: transparent !important;
   color: #7d91a4 !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   line-height: 1 !important;
   cursor: grab !important;
   user-select: none !important;
@@ -156,7 +156,7 @@
   box-sizing: border-box;
   display: inline-block !important;
   flex: 0 0 auto !important;
-  min-width: 18px !important;
+  min-width: 22px !important;
   width: auto !important;
   height: auto !important;
   margin: 0 !important;
@@ -167,7 +167,7 @@
   color: var(--text, #243447) !important;
   box-shadow: none !important;
   font-family: inherit !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 600 !important;
   font-variant-numeric: tabular-nums !important;
   line-height: 1 !important;
@@ -177,11 +177,11 @@
 
 #budget-items-body .budget-order-buttons {
   display: inline-grid !important;
-  grid-template-rows: repeat(2, 13px) !important;
-  flex: 0 0 20px !important;
-  width: 20px !important;
-  height: 28px !important;
-  gap: 2px !important;
+  grid-template-rows: repeat(2, 30px) !important;
+  flex: 0 0 32px !important;
+  width: 32px !important;
+  height: 64px !important;
+  gap: 4px !important;
   align-items: center !important;
   justify-items: center !important;
 }
@@ -189,17 +189,17 @@
 #budget-items-body .budget-order-button {
   all: unset;
   box-sizing: border-box;
-  width: 20px !important;
-  height: 13px !important;
+  width: 32px !important;
+  height: 30px !important;
   border: 1px solid var(--border, #dfe6ec) !important;
-  border-radius: 5px !important;
+  border-radius: 8px !important;
   background: transparent !important;
   color: var(--muted, #64748b) !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   cursor: pointer !important;
-  font-size: 7px !important;
+  font-size: 11px !important;
   line-height: 1 !important;
   transition: background .15s ease, border-color .15s ease, color .15s ease, opacity .15s ease !important;
 }
@@ -272,7 +272,7 @@ html[data-theme="dark"] #budget-items-body .budget-order-button:hover:not(:disab
   resize: none !important;
   overflow: hidden !important;
   color: var(--text, #22364a) !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 400 !important;
   line-height: 1.3 !important;
   white-space: pre-wrap !important;
@@ -283,7 +283,7 @@ html[data-theme="dark"] #budget-items-body .budget-order-button:hover:not(:disab
 #budget-items-body .budget-item-code-input {
   height: 34px !important;
   padding: 5px 7px !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 500 !important;
   font-variant-numeric: tabular-nums !important;
 }
@@ -306,7 +306,7 @@ html[data-theme="dark"] #budget-items-body .budget-order-button:hover:not(:disab
 #budget-items-body td:nth-child(9) input {
   height: 30px !important;
   padding: 3px 5px !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 400 !important;
 }
 
@@ -324,7 +324,7 @@ html[data-theme="dark"] #budget-items-body .budget-order-button:hover:not(:disab
 
 #budget-items-body .item-total-cell {
   color: var(--text, #1f2937) !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 600 !important;
   text-align: right !important;
   white-space: nowrap !important;
