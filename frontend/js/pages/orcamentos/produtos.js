@@ -469,17 +469,36 @@
       <tr data-index="${index}" class="budget-item-row">
         <td class="budget-order-cell">
           <div class="budget-order-inline">
-            <button
+            <span
               class="budget-order-drag"
-              type="button"
               draggable="true"
               data-drag-item="${index}"
               title="Arraste para alterar a ordem"
-              aria-label="Mover item ${index + 1}"
+              aria-label="Arrastar item ${index + 1}"
             >
               <i class="fa-solid fa-grip-vertical" aria-hidden="true"></i>
-            </button>
+            </span>
             <span class="budget-order-index">${String(index + 1).padStart(2, '0')}</span>
+            <span class="budget-order-buttons" aria-label="Alterar ordem do item ${index + 1}">
+              <button
+                class="budget-order-button"
+                type="button"
+                data-move-item="up"
+                data-item-index="${index}"
+                title="Subir item"
+                aria-label="Subir item ${index + 1}"
+                ${index === 0 ? 'disabled' : ''}
+              ><i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
+              <button
+                class="budget-order-button"
+                type="button"
+                data-move-item="down"
+                data-item-index="${index}"
+                title="Descer item"
+                aria-label="Descer item ${index + 1}"
+                ${index === state.items.length - 1 ? 'disabled' : ''}
+              ><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+            </span>
           </div>
         </td>
 
@@ -529,6 +548,25 @@
           </button>
         </td>
       </tr>`).join('');
+  }
+
+  function syncBudgetItemOrder() {
+    state.items.forEach((currentItem, index) => { currentItem.ordem = index; });
+  }
+
+  function moveBudgetItem(fromIndex, toIndex) {
+    const from = Number(fromIndex);
+    const to = Number(toIndex);
+    if (!Number.isInteger(from) || !Number.isInteger(to)) return false;
+    if (from < 0 || from >= state.items.length || to < 0 || to >= state.items.length || from === to) return false;
+
+    const [item] = state.items.splice(from, 1);
+    state.items.splice(to, 0, item);
+    syncBudgetItemOrder();
+    renderItems();
+    updateTotals();
+    if (typeof renderPreviewIfVisible === 'function') renderPreviewIfVisible();
+    return true;
   }
 
   let draggedBudgetItemIndex = null;
@@ -607,14 +645,9 @@
       return false;
     }
 
-    const [item] = state.items.splice(fromIndex, 1);
-    state.items.splice(insertIndex, 0, item);
-    state.items.forEach((currentItem, index) => { currentItem.ordem = index; });
-
+    const moved = moveBudgetItem(fromIndex, insertIndex);
     clearBudgetDragState();
-    renderItems();
-    updateTotals();
-    return true;
+    return moved;
   }
 
   function updateItemField(input) {

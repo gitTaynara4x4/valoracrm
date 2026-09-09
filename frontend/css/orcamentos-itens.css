@@ -1,6 +1,6 @@
 /*
  * ValoraCRM · Orçamentos · tabela de itens
- * Versão v4 — layout compacto: ordem inline (grip + 01), tipografia leve e profissional.
+ * Versão v5 — ordem com drag funcional + setas subir/descer, mantendo layout compacto.
  */
 
 .budget-items-table-wrap {
@@ -88,7 +88,7 @@
 
 /*
  * ORDEM — classes exclusivas para não herdar o layout antigo de setas.
- * O grip e 01/02/03 ficam OBRIGATORIAMENTE lado a lado.
+ * Grip, número e setas ficam lado a lado sem aumentar visualmente a linha.
  */
 .budget-main-items-table .budget-order-heading {
   padding-left: 16px !important;
@@ -106,7 +106,7 @@
   flex-wrap: nowrap !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  gap: 8px !important;
+  gap: 5px !important;
   width: auto !important;
   min-width: 0 !important;
   height: auto !important;
@@ -117,8 +117,8 @@
 #budget-items-body .budget-order-drag {
   all: unset;
   box-sizing: border-box;
-  flex: 0 0 18px !important;
-  width: 18px !important;
+  flex: 0 0 14px !important;
+  width: 14px !important;
   height: 28px !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -132,6 +132,9 @@
   font-size: 12px !important;
   line-height: 1 !important;
   cursor: grab !important;
+  user-select: none !important;
+  -webkit-user-drag: element;
+  touch-action: none;
   box-shadow: none !important;
 }
 
@@ -153,7 +156,7 @@
   box-sizing: border-box;
   display: inline-block !important;
   flex: 0 0 auto !important;
-  min-width: 20px !important;
+  min-width: 18px !important;
   width: auto !important;
   height: auto !important;
   margin: 0 !important;
@@ -165,11 +168,63 @@
   box-shadow: none !important;
   font-family: inherit !important;
   font-size: 12px !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
   font-variant-numeric: tabular-nums !important;
   line-height: 1 !important;
   text-align: left !important;
   white-space: nowrap !important;
+}
+
+#budget-items-body .budget-order-buttons {
+  display: inline-grid !important;
+  grid-template-rows: repeat(2, 13px) !important;
+  flex: 0 0 20px !important;
+  width: 20px !important;
+  height: 28px !important;
+  gap: 2px !important;
+  align-items: center !important;
+  justify-items: center !important;
+}
+
+#budget-items-body .budget-order-button {
+  all: unset;
+  box-sizing: border-box;
+  width: 20px !important;
+  height: 13px !important;
+  border: 1px solid var(--border, #dfe6ec) !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  color: var(--muted, #64748b) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-size: 7px !important;
+  line-height: 1 !important;
+  transition: background .15s ease, border-color .15s ease, color .15s ease, opacity .15s ease !important;
+}
+
+#budget-items-body .budget-order-button:hover:not(:disabled) {
+  background: var(--bg-soft, #f4f7f9) !important;
+  border-color: var(--brand, #4bc3c7) !important;
+  color: var(--brand, #319fa4) !important;
+}
+
+#budget-items-body .budget-order-button:disabled {
+  opacity: .28 !important;
+  cursor: default !important;
+}
+
+html[data-theme="dark"] #budget-items-body .budget-order-button {
+  border-color: rgba(255, 255, 255, .11) !important;
+  background: #292929 !important;
+  color: #a9a9a9 !important;
+}
+
+html[data-theme="dark"] #budget-items-body .budget-order-button:hover:not(:disabled) {
+  border-color: rgba(75, 195, 199, .48) !important;
+  background: #333333 !important;
+  color: #58d3d7 !important;
 }
 
 /* Inputs editáveis com aparência de texto quando não estão em foco. */

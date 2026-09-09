@@ -86,7 +86,7 @@
       markBudgetDirty();
     });
     $('form-orcamento')?.addEventListener('click', (event) => {
-      if (event.target.closest('#btn-adicionar-item, #btn-adicionar-pagamento, [data-remove-item], [data-remove-payment], [data-add-kit]')) markBudgetDirty();
+      if (event.target.closest('#btn-adicionar-item, #btn-adicionar-pagamento, [data-remove-item], [data-move-item], [data-remove-payment], [data-add-kit]')) markBudgetDirty();
     });
     $('btn-toggle-budget-maximize')?.addEventListener('click', toggleBudgetMaximized);
     $('btn-imprimir-analise-financeira')?.addEventListener('click', printFinancialAnalysis);
@@ -295,6 +295,9 @@
     });
 
     $('budget-items-body').addEventListener('dragstart', startBudgetItemDrag);
+    $('budget-items-body').addEventListener('dragenter', (event) => {
+      if (Number.isInteger(draggedBudgetItemIndex)) event.preventDefault();
+    });
     $('budget-items-body').addEventListener('dragover', overBudgetItemDrag);
     $('budget-items-body').addEventListener('dragend', clearBudgetDragState);
     $('budget-items-body').addEventListener('drop', (event) => {
@@ -302,10 +305,19 @@
     });
 
     $('budget-items-body').addEventListener('click', (event) => {
+      const moveButton = event.target.closest('[data-move-item]');
+      if (moveButton) {
+        const fromIndex = Number(moveButton.dataset.itemIndex);
+        const direction = moveButton.dataset.moveItem;
+        const toIndex = fromIndex + (direction === 'up' ? -1 : 1);
+        if (moveBudgetItem(fromIndex, toIndex)) markBudgetDirty();
+        return;
+      }
+
       const removeButton = event.target.closest('[data-remove-item]');
       if (!removeButton) return;
       state.items.splice(Number(removeButton.dataset.removeItem), 1);
-      state.items.forEach((item, index) => { item.ordem = index; });
+      syncBudgetItemOrder();
       renderItems();
       updateTotals();
     });
