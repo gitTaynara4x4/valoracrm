@@ -35,9 +35,9 @@
   <script src="/frontend/js/shared/ficha-principal.js?v=20260717-busca-relacao-v1" defer></script>
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <script src="/frontend/js/shared/localizar-personalizado.js?v=20260723-produtos-multiselect-relacoes-v9" defer></script>
-  <script src="/frontend/js/pages/produtos.js?v=20260831-modal-paridade-v41" defer></script>
+  <script src="/frontend/js/pages/produtos.js?v=20260909-loading-unico-v42" defer></script>
+  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
   <link rel="stylesheet" href="/frontend/css/produtos-modal-paridade.css?v=20260831-produto-cliente-v41" />
-  <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260909-cascade-dark-v46" />
 </head>
 
 <body>
@@ -141,7 +141,15 @@
 
             <tbody id="tbody-produtos">
               <tr>
-                <td colspan="6" class="empty-state">Carregando...</td>
+                <td colspan="6" class="empty-state valora-loading-host" data-valora-loading="true" data-valora-loading-kind="table" aria-live="polite" aria-busy="true">
+                  <div class="valora-loading-state" role="status">
+                    <span class="valora-loading-spinner" aria-hidden="true"></span>
+                    <span class="valora-loading-copy">
+                      <strong class="valora-loading-title">Carregando...</strong>
+                      <small class="valora-loading-subtitle">Buscando produtos no banco</small>
+                    </span>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>

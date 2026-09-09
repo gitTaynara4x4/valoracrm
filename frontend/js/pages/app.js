@@ -1703,3 +1703,136 @@ document.addEventListener('DOMContentLoaded', () => {
     start();
   }
 })();
+
+/* =========================================================
+   VALORA | LOADING GLOBAL | 2026-09-09
+   Transforma estados "Carregando..." em um loading visual
+   consistente sem exigir alterações em cada módulo.
+   ========================================================= */
+(() => {
+  'use strict';
+
+  const LOADING_SELECTOR = [
+    'td.empty-state[colspan]',
+    'td.table-loading[colspan]',
+    'td.financeiro-empty[colspan]',
+    'td.dav-empty[colspan]',
+    'div.empty-state',
+    'div.financeiro-empty-soft'
+  ].join(',');
+
+  const isLoadingText = (value) => /^carregando(?:\b|\.{3}|…)/i.test(String(value || '').trim());
+
+  function cleanupLoadingState(element) {
+    if (!(element instanceof Element)) return;
+    delete element.dataset.valoraLoading;
+    delete element.dataset.valoraLoadingKind;
+    element.classList.remove('valora-loading-host');
+    element.removeAttribute('aria-busy');
+    element.removeAttribute('aria-live');
+  }
+
+  function renderLoadingState(element) {
+    if (!(element instanceof Element)) return;
+
+    const currentText = String(element.textContent || '').replace(/\s+/g, ' ').trim();
+    const alreadyRendered =
+      element.dataset.valoraLoading === 'true' &&
+      element.querySelector(':scope > .valora-loading-state');
+
+    if (!isLoadingText(currentText)) {
+      if (element.dataset.valoraLoading === 'true') cleanupLoadingState(element);
+      return;
+    }
+
+    if (alreadyRendered) return;
+
+    const isTableCell = element.tagName === 'TD';
+    const title = currentText || 'Carregando...';
+
+    element.dataset.valoraLoading = 'true';
+    element.dataset.valoraLoadingKind = isTableCell ? 'table' : 'inline';
+    element.classList.add('valora-loading-host');
+    element.setAttribute('aria-live', 'polite');
+    element.setAttribute('aria-busy', 'true');
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'valora-loading-state';
+    wrapper.setAttribute('role', 'status');
+
+    const spinner = document.createElement('span');
+    spinner.className = 'valora-loading-spinner';
+    spinner.setAttribute('aria-hidden', 'true');
+
+    const copy = document.createElement('span');
+    copy.className = 'valora-loading-copy';
+
+    const titleNode = document.createElement('strong');
+    titleNode.className = 'valora-loading-title';
+    titleNode.textContent = title;
+
+    copy.appendChild(titleNode);
+
+    if (isTableCell) {
+      const subtitle = document.createElement('small');
+      subtitle.className = 'valora-loading-subtitle';
+      subtitle.textContent = 'Buscando dados da tabela';
+      copy.appendChild(subtitle);
+    }
+
+    wrapper.append(spinner, copy);
+    element.replaceChildren(wrapper);
+  }
+
+  function scanLoadingStates(root = document) {
+    if (root instanceof Element && root.matches(LOADING_SELECTOR)) {
+      renderLoadingState(root);
+    }
+
+    if (!root?.querySelectorAll) return;
+    root.querySelectorAll(LOADING_SELECTOR).forEach(renderLoadingState);
+  }
+
+  function startLoadingObserver() {
+    scanLoadingStates(document);
+
+    if (!window.MutationObserver || !document.body) return;
+
+    const observer = new MutationObserver((mutations) => {
+      const candidates = new Set();
+
+      for (const mutation of mutations) {
+        const target = mutation.target instanceof Element
+          ? mutation.target
+          : mutation.target?.parentElement;
+
+        if (target) {
+          const host = target.matches?.(LOADING_SELECTOR)
+            ? target
+            : target.closest?.(LOADING_SELECTOR);
+          if (host) candidates.add(host);
+        }
+
+        for (const node of mutation.addedNodes || []) {
+          if (!(node instanceof Element)) continue;
+          if (node.matches(LOADING_SELECTOR)) candidates.add(node);
+          node.querySelectorAll?.(LOADING_SELECTOR).forEach((item) => candidates.add(item));
+        }
+      }
+
+      candidates.forEach(renderLoadingState);
+    });
+
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startLoadingObserver, { once: true });
+  } else {
+    startLoadingObserver();
+  }
+})();

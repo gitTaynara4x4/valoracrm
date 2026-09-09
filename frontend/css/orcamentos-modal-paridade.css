@@ -859,7 +859,7 @@ html[data-theme="dark"] .service-proposal-value-card label {
   inset: 0;
   z-index: 2000000 !important;
   padding: 18px;
-  background: rgba(0, 0, 0, .64);
+  background: rgba(15, 23, 42, .56);
   display: grid;
   place-items: center;
   opacity: 0;
@@ -995,8 +995,8 @@ html[data-theme="dark"] .service-proposal-value-card label {
 }
 
 html[data-theme="dark"] .budget-confirm-dialog {
-  border-color: rgba(255, 255, 255, .10);
-  background: #262626;
+  border-color: #2d3945;
+  background: #171f27;
   box-shadow: 0 24px 60px rgba(0, 0, 0, .46);
 }
 
@@ -1009,25 +1009,14 @@ html[data-theme="dark"] .budget-confirm-header p {
 }
 
 html[data-theme="dark"] .budget-confirm-footer {
-  border-color: rgba(255, 255, 255, .10);
-  background: #212121;
+  border-color: #2d3945;
+  background: #141b22;
 }
 
 html[data-theme="dark"] .budget-confirm-footer .btn-secondary {
-  border-color: #424242;
-  background: #2f2f2f;
-  color: #e5e5e5;
-}
-
-html[data-theme="dark"] .budget-confirm-footer #budget-confirm-ok:not(.btn-danger) {
-  border-color: #2f7f83 !important;
-  background: #2f7f83 !important;
-  color: #ffffff !important;
-}
-
-html[data-theme="dark"] .budget-confirm-footer #budget-confirm-ok:not(.btn-danger):hover {
-  border-color: #388f93 !important;
-  background: #388f93 !important;
+  border-color: #364553;
+  background: #1b252e;
+  color: #e2e8f0;
 }
 
 html[data-theme="dark"] .budget-confirm-icon {
@@ -1454,146 +1443,239 @@ html[data-theme="dark"] .service-template-section-title-field > span {
   }
 }
 
-
 /* =========================================================
-   DARK CHATGPT | PROPOSTA COMERCIAL / MODELOS | 2026-09-09
-   Padroniza a área de modelos de monitoramento no mesmo dark
-   neutro do Valora, removendo azuis excessivos e superfícies
-   brancas no tema escuro.
+   ORÇAMENTOS | TOPBAR UNIFICADA LIGHT + DARK | 2026-09-09
+   Ações neutras com o mesmo padrão visual; status menores,
+   sem aparência de botão. Aplicado apenas ao cabeçalho.
    ========================================================= */
-html[data-theme="dark"] .service-proposal-kicker {
-  color: #cfcfcf;
+#budget-modal .budget-modal-top-actions {
+  gap: 10px !important;
+  align-items: center !important;
 }
 
-html[data-theme="dark"] .service-proposal-source-badge,
-html[data-theme="dark"] .service-proposal-selected-count {
-  background: #333333;
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #bdbdbd;
+/* AÇÕES: dropdown, maximizar e fechar pertencem à mesma família. */
+#budget-modal .budget-modal-top-actions .budget-actions-trigger,
+#budget-modal .budget-modal-top-actions .budget-maximize-action,
+#budget-modal .budget-modal-top-actions > .btn-close {
+  height: 40px !important;
+  min-height: 40px !important;
+  border: 1px solid #dfe5eb !important;
+  border-radius: 11px !important;
+  background: #ffffff !important;
+  color: #26313e !important;
+  box-shadow: none !important;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease !important;
 }
 
-html[data-theme="dark"] .service-proposal-model-card,
-html[data-theme="dark"] .service-proposal-section,
-html[data-theme="dark"] .service-proposal-value-input {
-  border-color: rgba(255, 255, 255, 0.10);
-  background: #262626;
+#budget-modal .budget-modal-top-actions .budget-actions-trigger {
+  min-width: 124px !important;
+  padding: 0 15px !important;
+  gap: 10px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
 }
 
-html[data-theme="dark"] .service-proposal-model-card:hover,
-html[data-theme="dark"] .service-proposal-section-header,
-html[data-theme="dark"] .service-proposal-standard-note,
-html[data-theme="dark"] .service-proposal-check:hover {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: #303030;
+#budget-modal .budget-modal-top-actions .budget-maximize-action,
+#budget-modal .budget-modal-top-actions > .btn-close {
+  width: 40px !important;
+  min-width: 40px !important;
+  padding: 0 !important;
 }
 
-html[data-theme="dark"] .service-proposal-model-card.active {
-  border-color: rgba(75, 195, 199, 0.55);
-  background: #262626;
-  box-shadow: 0 0 0 3px rgba(75, 195, 199, 0.10);
+#budget-modal .budget-modal-top-actions .budget-actions-trigger:hover,
+#budget-modal .budget-modal-top-actions .budget-maximize-action:hover {
+  border-color: #cfd7df !important;
+  background: #f7f9fa !important;
+  color: #111827 !important;
 }
 
-html[data-theme="dark"] .service-proposal-model-icon {
-  background: #333333;
-  color: #d4d4d4;
+#budget-modal .budget-modal-top-actions > .btn-close:hover {
+  border-color: rgba(239, 68, 68, .26) !important;
+  background: rgba(239, 68, 68, .06) !important;
+  color: #dc2626 !important;
 }
 
-html[data-theme="dark"] .service-proposal-model-card.active .service-proposal-model-icon {
-  background: rgba(75, 195, 199, 0.15);
-  color: #58d3d7;
+/* STATUS: chips menores para não parecerem botões de ação. */
+#budget-modal .budget-modal-top-actions > .budget-status,
+#budget-modal .budget-modal-top-actions > .budget-finance-status {
+  min-height: 28px !important;
+  height: 28px !important;
+  padding: 0 10px !important;
+  gap: 7px !important;
+  border-radius: 999px !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+  white-space: nowrap !important;
 }
 
-html[data-theme="dark"] .service-proposal-model-check {
-  background: #4bc3c7;
-  color: #ffffff;
+#budget-modal .budget-modal-top-actions > .budget-status::before,
+#budget-modal .budget-modal-top-actions > .budget-finance-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .9;
 }
 
-html[data-theme="dark"] .service-proposal-model-card strong,
-html[data-theme="dark"] .service-proposal-section-header strong,
-html[data-theme="dark"] .service-proposal-standard-note strong,
-html[data-theme="dark"] .service-proposal-editor-head h4 {
-  color: #f1f1f1;
+/* Status comercial — light */
+#budget-modal .budget-modal-top-actions > .budget-status.status-rascunho {
+  color: #64748b !important;
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
 }
 
-html[data-theme="dark"] .service-proposal-model-card small,
-html[data-theme="dark"] .service-proposal-standard-note,
-html[data-theme="dark"] .service-proposal-editor-head p,
-html[data-theme="dark"] .service-proposal-check span,
-html[data-theme="dark"] .service-proposal-value-card label {
-  color: #b8b8b8;
+#budget-modal .budget-modal-top-actions > .budget-status.status-enviado {
+  color: #2563a6 !important;
+  background: #edf6ff !important;
+  border-color: #cfe5fb !important;
 }
 
-html[data-theme="dark"] .service-proposal-standard-note {
-  background: #262626;
+#budget-modal .budget-modal-top-actions > .budget-status.status-em_negociacao {
+  color: #a16207 !important;
+  background: #fff8e7 !important;
+  border-color: #f4dfac !important;
 }
 
-html[data-theme="dark"] .service-proposal-standard-note > i {
-  color: #6ea8ff;
+#budget-modal .budget-modal-top-actions > .budget-status.status-aprovado {
+  color: #168454 !important;
+  background: #eaf7f1 !important;
+  border-color: #c7e8d9 !important;
 }
 
-html[data-theme="dark"] .service-proposal-editor.is-hidden {
-  display: none;
+#budget-modal .budget-modal-top-actions > .budget-status.status-recusado,
+#budget-modal .budget-modal-top-actions > .budget-status.status-cancelado {
+  color: #b42318 !important;
+  background: #fff0ee !important;
+  border-color: #f4cfcb !important;
 }
 
-html[data-theme="dark"] .service-proposal-template-shell,
-html[data-theme="dark"] .service-proposal-template-body {
-  background: #212121;
+#budget-modal .budget-modal-top-actions > .budget-status.status-expirado {
+  color: #75549a !important;
+  background: #f7f1fb !important;
+  border-color: #e5d8ef !important;
 }
 
-html[data-theme="dark"] .service-proposal-template-header,
-html[data-theme="dark"] .service-proposal-template-footer,
-html[data-theme="dark"] .service-template-section-card,
-html[data-theme="dark"] .service-template-section-title-field input,
-html[data-theme="dark"] .service-template-service-row > input[type="text"],
-html[data-theme="dark"] .service-template-row-actions button {
-  border-color: rgba(255, 255, 255, 0.10);
-  background: #2f2f2f;
-  color: #ededed;
+/* Financeiro — light */
+#budget-modal .budget-modal-top-actions > .budget-finance-status {
+  color: #64748b !important;
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
 }
 
-html[data-theme="dark"] .service-template-section-head,
-html[data-theme="dark"] .service-template-default-check,
-html[data-theme="dark"] .service-proposal-template-notice,
-html[data-theme="dark"] .service-template-add-service {
-  border-color: rgba(255, 255, 255, 0.10);
-  background: #262626;
-  color: #b8b8b8;
+#budget-modal .budget-modal-top-actions > .budget-finance-status.finance-pendente {
+  color: #b45f06 !important;
+  background: #fff7e8 !important;
+  border-color: #f4d5a5 !important;
 }
 
-html[data-theme="dark"] .service-proposal-template-header h3,
-html[data-theme="dark"] .service-proposal-template-notice strong,
-html[data-theme="dark"] .service-template-empty-large strong {
-  color: #f1f1f1;
+#budget-modal .budget-modal-top-actions > .budget-finance-status.finance-autenticado {
+  color: #168454 !important;
+  background: #eaf7f1 !important;
+  border-color: #c7e8d9 !important;
 }
 
-html[data-theme="dark"] .service-proposal-template-header p,
-html[data-theme="dark"] .service-proposal-template-notice p,
-html[data-theme="dark"] .service-template-empty {
-  color: #b8b8b8;
+#budget-modal .budget-modal-top-actions > .budget-finance-status.finance-devolvido,
+#budget-modal .budget-modal-top-actions > .budget-finance-status.finance-cancelado {
+  color: #b42318 !important;
+  background: #fff0ee !important;
+  border-color: #f4cfcb !important;
 }
 
-html[data-theme="dark"] .service-proposal-template-notice > i {
-  color: #6ea8ff;
+/* Dark: mesmas proporções, apenas troca a superfície. */
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions .budget-actions-trigger,
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions .budget-maximize-action,
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .btn-close {
+  background: #2f2f2f !important;
+  border-color: #444444 !important;
+  color: #eeeeee !important;
 }
 
-html[data-theme="dark"] .service-template-section-title-field > span {
-  background: #333333;
-  color: #d4d4d4;
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions .budget-actions-trigger:hover,
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions .budget-maximize-action:hover {
+  background: #383838 !important;
+  border-color: #525252 !important;
+  color: #ffffff !important;
 }
 
-html[data-theme="dark"] .service-template-default-check input {
-  accent-color: #4bc3c7;
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .btn-close:hover {
+  background: rgba(239, 68, 68, .12) !important;
+  border-color: rgba(239, 68, 68, .34) !important;
+  color: #f87171 !important;
 }
 
-html[data-theme="dark"] .service-template-row-actions button:hover:not(:disabled),
-html[data-theme="dark"] .service-template-add-service:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: #383838;
-  color: #f1f1f1;
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .budget-status.status-rascunho {
+  color: #c9c9c9 !important;
+  background: #303030 !important;
+  border-color: #444444 !important;
 }
 
-html[data-theme="dark"] .service-template-row-actions button.danger:hover:not(:disabled) {
-  border-color: rgba(239, 68, 68, 0.35);
-  background: rgba(239, 68, 68, 0.12);
-  color: #f87171;
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .budget-status.status-enviado {
+  color: #93c5fd !important;
+  background: rgba(59, 130, 246, .12) !important;
+  border-color: rgba(59, 130, 246, .24) !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .budget-status.status-em_negociacao {
+  color: #fcd34d !important;
+  background: rgba(245, 158, 11, .12) !important;
+  border-color: rgba(245, 158, 11, .24) !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .budget-status.status-aprovado {
+  color: #74e3a7 !important;
+  background: rgba(34, 197, 94, .12) !important;
+  border-color: rgba(34, 197, 94, .24) !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .budget-status.status-recusado,
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .budget-status.status-cancelado {
+  color: #fca5a5 !important;
+  background: rgba(239, 68, 68, .12) !important;
+  border-color: rgba(239, 68, 68, .24) !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .budget-status.status-expirado {
+  color: #c4b5fd !important;
+  background: rgba(139, 92, 246, .12) !important;
+  border-color: rgba(139, 92, 246, .24) !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .budget-finance-status {
+  color: #c9c9c9 !important;
+  background: #303030 !important;
+  border-color: #444444 !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .budget-finance-status.finance-pendente {
+  color: #f5b85c !important;
+  background: rgba(245, 158, 11, .12) !important;
+  border-color: rgba(245, 158, 11, .24) !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .budget-finance-status.finance-autenticado {
+  color: #74e3a7 !important;
+  background: rgba(34, 197, 94, .12) !important;
+  border-color: rgba(34, 197, 94, .24) !important;
+}
+
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .budget-finance-status.finance-devolvido,
+html[data-theme="dark"] #budget-modal .budget-modal-top-actions > .budget-finance-status.finance-cancelado {
+  color: #fca5a5 !important;
+  background: rgba(239, 68, 68, .12) !important;
+  border-color: rgba(239, 68, 68, .24) !important;
+}
+
+@media (max-width: 760px) {
+  #budget-modal .budget-modal-top-actions {
+    gap: 7px !important;
+  }
+
+  #budget-modal .budget-modal-top-actions .budget-actions-trigger {
+    min-width: 104px !important;
+    padding: 0 12px !important;
+  }
 }

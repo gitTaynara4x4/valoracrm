@@ -3115,3 +3115,175 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
     animation-duration: 1ms !important;
   }
 }
+
+
+/* =========================================================
+   VALORA | PAGINAÇÃO GLOBAL À ESQUERDA | 2026-09-09
+   Mantém contador + controles agrupados no início da tabela.
+   Evita que .counter-text:first-child empurre os botões para
+   a direita nas páginas de listagem.
+   ========================================================= */
+.table-pagination {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
+.table-pagination > .counter-text:first-child {
+  margin-right: 0 !important;
+}
+
+.table-pagination .pagination-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start !important;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.table-pagination .pagination-info {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+
+/* =========================================================
+   VALORA | TABELAS E PAGINAÇÃO — ALINHAMENTO ÚNICO | 2026-09-09
+   Regra de Design System:
+   - paginações começam sempre pela esquerda;
+   - estados de tabela (carregando/vazio/erro) ficam centralizados
+     no espaço completo da tabela, sem herdar a coluna Ações.
+   ========================================================= */
+body .table-pagination,
+body .table-pagination .pagination-actions {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
+body .table-pagination > .counter-text:first-child,
+body .table-pagination .counter-text,
+body .table-pagination .pagination-info,
+body .table-pagination .pagination-actions {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Estados vazios/carregando: sempre centralizados na largura da tabela. */
+body table tbody td.empty-state[colspan],
+body .valora-table tbody td.empty-state[colspan],
+body .config-table tbody td.empty-state[colspan],
+body table tbody td.table-loading[colspan],
+body .valora-table tbody td.table-loading[colspan],
+body table tbody td.financeiro-empty[colspan],
+body table tbody td.dav-empty[colspan] {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+/* Conteúdo interno do estado também fica centralizado. */
+body table tbody td.empty-state[colspan] > div,
+body table tbody td.table-loading[colspan] > div,
+body table tbody td.financeiro-empty[colspan] > div,
+body table tbody td.dav-empty[colspan] > div {
+  justify-content: center !important;
+  text-align: center !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* =========================================================
+   VALORA | LOADING GLOBAL | 2026-09-09
+   Spinner central para tabelas e loading compacto para blocos.
+   Aplicado somente enquanto o app.js identificar "Carregando".
+   ========================================================= */
+.valora-loading-host[data-valora-loading="true"] {
+  box-sizing: border-box;
+}
+
+td.valora-loading-host[data-valora-loading-kind="table"] {
+  height: 132px !important;
+  min-height: 132px !important;
+  padding: 28px 16px !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+.valora-loading-state {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text, #243447);
+}
+
+td[data-valora-loading-kind="table"] > .valora-loading-state {
+  min-height: 74px;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.valora-loading-spinner {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(100, 116, 139, .18);
+  border-top-color: var(--brand, #32aeb3);
+  border-radius: 50%;
+  animation: valora-loading-spin .72s linear infinite;
+}
+
+td[data-valora-loading-kind="table"] .valora-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+.valora-loading-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: inherit;
+  justify-content: center;
+  gap: 3px;
+}
+
+.valora-loading-title {
+  color: var(--text, #243447);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.valora-loading-subtitle {
+  color: var(--muted, #718096);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+html[data-theme="dark"] .valora-loading-spinner {
+  border-color: rgba(255, 255, 255, .12);
+  border-top-color: #58d3d7;
+}
+
+html[data-theme="dark"] .valora-loading-title {
+  color: #ededed;
+}
+
+html[data-theme="dark"] .valora-loading-subtitle {
+  color: #a9a9a9;
+}
+
+@keyframes valora-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .valora-loading-spinner {
+    animation-duration: 1.4s;
+  }
+}
