@@ -1934,3 +1934,202 @@ document.addEventListener('DOMContentLoaded', () => {
     startLoadingObserver();
   }
 })();
+
+
+/* =========================================================
+   VALORA | STATUS NATIVO NO CABEÇALHO DA FICHA | 2026-09-10
+   Mantém Código/Data somente leitura e expõe o status nativo
+   de forma compacta nos cadastros com Ficha Principal.
+   ========================================================= */
+(() => {
+  const STATUS_HEADERS = [
+    {
+      cardId: 'cliente-ficha-principal-code',
+      nativeId: 'campo-situacao',
+      proxyId: 'campo-status-ficha-principal-cliente',
+      label: 'Status do cliente',
+      options: [
+        ['ativo', 'Ativo'],
+        ['inativo', 'Inativo'],
+        ['bloqueado', 'Bloqueado']
+      ]
+    },
+    {
+      cardId: 'fornecedor-ficha-principal-code',
+      nativeId: 'campo-situacao-fornecedor',
+      proxyId: 'campo-status-ficha-principal-fornecedor',
+      label: 'Status do fornecedor',
+      options: [
+        ['ativo', 'Ativo'],
+        ['inativo', 'Inativo'],
+        ['bloqueado', 'Bloqueado']
+      ]
+    },
+    {
+      cardId: 'produto-ficha-principal-code',
+      nativeId: 'campo-ativo-produto',
+      proxyId: 'campo-status-ficha-principal-produto',
+      label: 'Status do produto',
+      options: [
+        ['true', 'Ativo'],
+        ['false', 'Inativo']
+      ]
+    },
+    {
+      cardId: 'patrimonio-ficha-principal-code',
+      nativeId: 'patrimonio-status',
+      proxyId: 'campo-status-ficha-principal-patrimonio',
+      label: 'Status do patrimônio',
+      options: [
+        ['ativo', 'Ativo'],
+        ['manutencao', 'Em manutenção'],
+        ['baixado', 'Baixado'],
+        ['extraviado', 'Extraviado']
+      ]
+    }
+  ];
+
+  const normalizeState = (config, value) => {
+    const raw = String(value ?? '').trim().toLowerCase();
+    if (config.nativeId === 'campo-ativo-produto') return raw === 'false' ? 'inativo' : 'ativo';
+    if (['inativo', 'inativa', 'desativado', 'desativada'].includes(raw)) return 'inativo';
+    if (['bloqueado', 'bloqueada', 'suspenso', 'suspensa'].includes(raw)) return 'bloqueado';
+    if (raw === 'manutencao') return 'manutencao';
+    if (raw === 'baixado') return 'baixado';
+    if (raw === 'extraviado') return 'extraviado';
+    return 'ativo';
+  };
+
+  function ensureStatusHeader(config) {
+    const card = document.getElementById(config.cardId);
+    const native = document.getElementById(config.nativeId);
+    if (!card || !native) return null;
+
+    let proxy = document.getElementById(config.proxyId);
+    if (!proxy) {
+      const fields = card.querySelector('.ficha-principal-system-fields');
+      if (!fields) return null;
+
+      const field = document.createElement('div');
+      field.className = 'form-group ficha-principal-status-field';
+
+      const label = document.createElement('label');
+      label.htmlFor = config.proxyId;
+      label.textContent = 'Status';
+
+      const control = document.createElement('div');
+      control.className = 'valora-system-status-control';
+
+      const dot = document.createElement('span');
+      dot.className = 'valora-system-status-dot';
+      dot.setAttribute('aria-hidden', 'true');
+
+      proxy = document.createElement('select');
+      proxy.id = config.proxyId;
+      proxy.className = 'valora-system-status-select';
+      proxy.setAttribute('aria-label', config.label);
+      proxy.title = `Alterar ${config.label.toLowerCase()}`;
+
+      for (const [value, text] of config.options) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = text;
+        proxy.appendChild(option);
+      }
+
+      control.append(dot, proxy);
+      field.append(label, control);
+      fields.appendChild(field);
+
+      proxy.addEventListener('change', () => {
+        const source = document.getElementById(config.nativeId);
+        if (!source) return;
+        source.value = proxy.value;
+        applyStatusHeaderState(config, proxy, source);
+        source.dispatchEvent(new Event('input', { bubbles: true }));
+        source.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+
+    syncStatusHeader(config);
+    return proxy;
+  }
+
+  function applyStatusHeaderState(config, proxy, native) {
+    const control = proxy?.closest('.valora-system-status-control');
+    if (!control || !native) return;
+    const state = normalizeState(config, native.value);
+    control.dataset.state = state;
+    proxy.dataset.state = state;
+    proxy.disabled = Boolean(native.disabled);
+    control.classList.toggle('is-disabled', proxy.disabled);
+  }
+
+  function syncStatusHeader(config) {
+    const native = document.getElementById(config.nativeId);
+    const proxy = document.getElementById(config.proxyId);
+    if (!native || !proxy) return;
+
+    const wanted = String(native.value ?? '');
+    const hasOption = Array.from(proxy.options).some((option) => option.value === wanted);
+    if (hasOption) proxy.value = wanted;
+    else if (config.nativeId === 'campo-ativo-produto') proxy.value = wanted === 'false' ? 'false' : 'true';
+    else proxy.value = 'ativo';
+
+    applyStatusHeaderState(config, proxy, native);
+  }
+
+  function syncAllStatusHeaders() {
+    for (const config of STATUS_HEADERS) {
+      ensureStatusHeader(config);
+      syncStatusHeader(config);
+    }
+  }
+
+  function startStatusHeaders() {
+    syncAllStatusHeaders();
+
+    document.addEventListener('change', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const config = STATUS_HEADERS.find((item) => item.nativeId === target.id);
+      if (config) syncStatusHeader(config);
+    }, true);
+
+    if (!window.MutationObserver || !document.body) return;
+    let queued = false;
+    const observer = new MutationObserver((mutations) => {
+      const relevant = mutations.some((mutation) => {
+        const element = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;
+        if (!element) return false;
+        return STATUS_HEADERS.some((config) =>
+          element.id === config.cardId ||
+          element.id === config.nativeId ||
+          element.closest?.(`#${config.cardId}`) ||
+          element.closest?.('#cliente-status-pill, #fornecedor-status-pill, #produto-status-pill, #patrimonio-status-pill')
+        );
+      });
+      if (!relevant || queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        syncAllStatusHeaders();
+      });
+    });
+
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['hidden', 'class', 'disabled']
+    });
+  }
+
+  window.ValoraSystemStatus = Object.freeze({ sync: syncAllStatusHeaders });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startStatusHeaders, { once: true });
+  } else {
+    startStatusHeaders();
+  }
+})();
