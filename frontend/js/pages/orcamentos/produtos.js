@@ -65,7 +65,105 @@
     };
   }
 
+
+  const PRODUCT_STATUS_FILTER_KEY = 'valora:orcamentos:product-status-filter';
+
+  function loadBudgetProductStatusFilter() {
+    try {
+      const saved = localStorage.getItem(PRODUCT_STATUS_FILTER_KEY);
+      return ['ativos', 'inativos', 'todos'].includes(saved) ? saved : 'ativos';
+    } catch (_) {
+      return 'ativos';
+    }
+  }
+
+  function saveBudgetProductStatusFilter(value) {
+    try {
+      localStorage.setItem(PRODUCT_STATUS_FILTER_KEY, value);
+    } catch (_) {}
+  }
+
+  let budgetProductStatusFilter = loadBudgetProductStatusFilter();
+
+  function updateProductStatusFilterUI() {
+    $$('[data-product-status-filter]').forEach((option) => {
+      const active = option.dataset.productStatusFilter === budgetProductStatusFilter;
+      option.classList.toggle('is-active', active);
+      option.setAttribute('aria-pressed', active ? 'true' : 'false');
+      const radio = option.querySelector('.kit-layout-radio');
+      if (radio) radio.setAttribute('aria-hidden', 'true');
+    });
+  }
+
+  function setBudgetProductStatusFilter(value) {
+    const normalized = ['ativos', 'inativos', 'todos'].includes(value) ? value : 'ativos';
+    if (budgetProductStatusFilter === normalized) {
+      updateProductStatusFilterUI();
+      return;
+    }
+
+    budgetProductStatusFilter = normalized;
+    saveBudgetProductStatusFilter(normalized);
+    updateProductStatusFilterUI();
+
+    const searchState = getProductSearchState('budget');
+    searchState.version += 1;
+    searchState.results = [];
+    searchState.offset = 0;
+    searchState.hasMore = false;
+    searchState.loading = false;
+    searchState.total = 0;
+
+    const input = $('produto-search-input');
+    const query = String(input?.value || '').trim();
+    if (query) loadProductOptions(query, 'budget', { append: false });
+    else renderBudgetProductSearchPrompt();
+  }
+
+  function ensureProductStatusFilterUI() {
+    const menu = $('product-layout-menu');
+    if (!menu) return;
+
+    if (!menu.querySelector('[data-product-status-section]')) {
+      menu.insertAdjacentHTML('beforeend', `
+        <div class="kit-layout-menu-title" data-product-status-section>Situação dos produtos</div>
+        <button class="kit-layout-option product-layout-option" type="button" data-product-status-filter="ativos" aria-pressed="false">
+          <span class="kit-layout-option-choice">
+            <span class="kit-layout-radio" aria-hidden="true"></span>
+            <span>Somente ativos</span>
+          </span>
+        </button>
+        <button class="kit-layout-option product-layout-option" type="button" data-product-status-filter="inativos" aria-pressed="false">
+          <span class="kit-layout-option-choice">
+            <span class="kit-layout-radio" aria-hidden="true"></span>
+            <span>Somente inativos</span>
+          </span>
+        </button>
+        <button class="kit-layout-option product-layout-option" type="button" data-product-status-filter="todos" aria-pressed="false">
+          <span class="kit-layout-option-choice">
+            <span class="kit-layout-radio" aria-hidden="true"></span>
+            <span>Ativos e inativos</span>
+          </span>
+        </button>
+      `);
+    }
+
+    if (menu.dataset.productStatusBound !== '1') {
+      menu.dataset.productStatusBound = '1';
+      menu.addEventListener('click', (event) => {
+        const option = event.target.closest('[data-product-status-filter]');
+        if (!option) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setBudgetProductStatusFilter(option.dataset.productStatusFilter);
+      });
+    }
+
+    updateProductStatusFilterUI();
+  }
+
   function updateProductPickerLayoutUI() {
+    ensureProductStatusFilterUI();
     const results = $('produto-search-results');
     const header = $('produto-search-list-header');
     const layout = state.productPickerLayout === 'row' ? 'row' : 'column';
@@ -136,6 +234,7 @@
   function productResultMarkup(product, target = 'budget') {
     const details = [
       product.codigo ? `Cód. ${product.codigo}` : '',
+      product.ativo === false ? 'Inativo' : '',
       product.categoria,
       product.unidade,
       product.estoque_atual !== null && product.estoque_atual !== undefined && product.estoque_atual !== ''
@@ -250,7 +349,7 @@
     try {
       const params = new URLSearchParams({
         paginated: 'true',
-        ativo: 'true',
+        situacao_produto: target === 'budget' ? budgetProductStatusFilter : 'ativos',
         limit: String(searchState.pageSize),
         offset: String(offset),
       });
@@ -379,7 +478,12 @@
   async function productByExactCode(code) {
     const normalized = String(code ?? '').trim();
     if (!normalized) return null;
-    const params = new URLSearchParams({ codigo_exato: normalized, limit: '1', offset: '0' });
+    const params = new URLSearchParams({
+      codigo_exato: normalized,
+      situacao_produto: budgetProductStatusFilter,
+      limit: '1',
+      offset: '0',
+    });
     const response = await api(`${API_BUDGET_PRODUCTS}?${params.toString()}`);
     return normalizeCollection(response)[0] || null;
   }
@@ -414,7 +518,7 @@
       const product = await productByExactCode(requestedCode);
       if (state.items[index] !== item) return;
       if (!product) {
-        throw new Error(`Nenhum produto ativo foi encontrado com o código ${requestedCode}.`);
+        throw new Error(`Nenhum produto foi encontrado com o código ${requestedCode} para a situação selecionada.`);
       }
 
       const quantity = item.quantidade;

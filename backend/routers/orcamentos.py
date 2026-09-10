@@ -1953,13 +1953,18 @@ def delete_emitter(
 def search_budget_products(
     busca: Optional[str] = Query(default=None),
     codigo_exato: Optional[str] = Query(default=None, max_length=120),
+    situacao_produto: str = Query(default="ativos", pattern="^(ativos|inativos|todos)$"),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    where = ["empresa_id=:empresa_id", "ativo=TRUE"]
+    where = ["empresa_id=:empresa_id"]
+    if situacao_produto == "ativos":
+        where.append("ativo IS TRUE")
+    elif situacao_produto == "inativos":
+        where.append("ativo IS FALSE")
     params: Dict[str, Any] = {"empresa_id": company_id}
     exact_code = norm_str(codigo_exato)
     if exact_code:
@@ -1974,7 +1979,7 @@ def search_budget_products(
     # como texto. Buscamos o conjunto filtrado, aplicamos a mesma ordem natural
     # usada pela interface e somente depois recortamos a página solicitada.
     all_rows = db.execute(text(f"""
-        SELECT id, codigo, nome, descricao, categoria, unidade, preco_venda, custo, estoque_atual
+        SELECT id, codigo, nome, descricao, categoria, unidade, preco_venda, custo, estoque_atual, ativo
         FROM produtos
         WHERE {clause}
         ORDER BY id ASC
