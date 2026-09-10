@@ -1165,3 +1165,43 @@ html[data-theme="dark"] .valora-system-status-select option {
     max-width: none;
   }
 }
+
+/* =========================================================
+   FICHA PRINCIPAL | STATUS NATIVO DARK SEM CAIXA DUPLA | 2026-09-10
+   O controle externo desenha a superfície. O <select> interno
+   permanece transparente para evitar o efeito "caixa dentro de caixa".
+   Seletores propositalmente mais específicos que o dark global.
+   ========================================================= */
+html[data-theme="dark"] #modal-cliente-backdrop .ficha-principal-system-fields .ficha-principal-status-field .valora-system-status-control,
+html[data-theme="dark"] #modal-fornecedor-backdrop .ficha-principal-system-fields .ficha-principal-status-field .valora-system-status-control,
+html[data-theme="dark"] #modal-produto-backdrop .ficha-principal-system-fields .ficha-principal-status-field .valora-system-status-control,
+html[data-theme="dark"] #modal-patrimonio .ficha-principal-system-fields .ficha-principal-status-field .valora-system-status-control {
+  background: #2f2f2f !important;
+  border-color: rgba(255, 255, 255, .11) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .ficha-principal-system-fields .ficha-principal-status-field .valora-system-status-control .valora-system-status-select,
+html[data-theme="dark"] #modal-fornecedor-backdrop .ficha-principal-system-fields .ficha-principal-status-field .valora-system-status-control .valora-system-status-select,
+html[data-theme="dark"] #modal-produto-backdrop .ficha-principal-system-fields .ficha-principal-status-field .valora-system-status-control .valora-system-status-select,
+html[data-theme="dark"] #modal-patrimonio .ficha-principal-system-fields .ficha-principal-status-field .valora-system-status-control .valora-system-status-select {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-color: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  color: #ededed !important;
+  -webkit-text-fill-color: #ededed !important;
+  padding-left: 0 !important;
+}
+
+html[data-theme="dark"] #modal-cliente-backdrop .ficha-principal-system-fields .ficha-principal-status-field .valora-system-status-control:focus-within,
+html[data-theme="dark"] #modal-fornecedor-backdrop .ficha-principal-system-fields .ficha-principal-status-field .valora-system-status-control:focus-within,
+html[data-theme="dark"] #modal-produto-backdrop .ficha-principal-system-fields .ficha-principal-status-field .valora-system-status-control:focus-within,
+html[data-theme="dark"] #modal-patrimonio .ficha-principal-system-fields .ficha-principal-status-field .valora-system-status-control:focus-within {
+  background: #333333 !important;
+  border-color: rgba(88, 211, 215, .45) !important;
+  box-shadow: 0 0 0 3px rgba(88, 211, 215, .07) !important;
+}
