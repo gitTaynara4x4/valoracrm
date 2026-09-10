@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 import json
+import logging
 import re
 import unicodedata
 
@@ -24,6 +25,7 @@ except Exception:  # pragma: no cover
 from backend.security.permissions import get_request_user, user_has_permission
 
 router = APIRouter(prefix="/api/produtos", tags=["Produtos"])
+logger = logging.getLogger(__name__)
 
 
 # O formulário de Produtos permite que a empresa renomeie o campo de custo.
@@ -92,6 +94,117 @@ except Exception:
 def norm_str(s: Optional[str]) -> Optional[str]:
     v = (s or "").strip()
     return v or None
+
+
+def _integrity_constraint_name(exc: IntegrityError) -> Optional[str]:
+    orig = getattr(exc, "orig", None)
+    diag = getattr(orig, "diag", None)
+    constraint = getattr(diag, "constraint_name", None)
+    return str(constraint).strip() if constraint else None
+
+
+def _integrity_pgcode(exc: IntegrityError) -> Optional[str]:
+    orig = getattr(exc, "orig", None)
+    code = getattr(orig, "pgcode", None) or getattr(orig, "sqlstate", None)
+    return str(code).strip() if code else None
+
+
+def raise_produto_integrity_error(
+    exc: IntegrityError,
+    *,
+    produto_id: Optional[int],
+    empresa_id: int,
+    operacao: str,
+) -> None:
+    """Não mascara qualquer IntegrityError como código duplicado.
+
+    Edição de produto não altera ``codigo``. Portanto a mensagem de código
+    duplicado só é correta quando o PostgreSQL informa explicitamente a
+    constraint ``uq_produtos_empresa_codigo``.
+    """
+    constraint = _integrity_constraint_name(exc)
+    pgcode = _integrity_pgcode(exc)
+    orig = getattr(exc, "orig", None)
+
+    logger.exception(
+        "[Produtos] IntegrityError em %s | empresa_id=%s produto_id=%s constraint=%s pgcode=%s erro=%s",
+        operacao,
+        empresa_id,
+        produto_id,
+        constraint,
+        pgcode,
+        orig or exc,
+    )
+
+    if constraint == "uq_produtos_empresa_codigo":
+        raise HTTPException(status_code=409, detail="Código de produto já existe.")
+
+    # 23505 = unique_violation. Se for outra constraint, mostre qual é em vez
+    # de culpar o código do produto, que é imutável na edição.
+    if constraint:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Não foi possível salvar o produto por conflito de integridade ({constraint}).",
+        )
+
+    raise HTTPException(
+        status_code=409,
+        detail="Não foi possível salvar o produto por conflito de integridade no banco de dados.",
+    )
+
+
+def _custom_fields_payload_tem_mudancas(
+    atuais: Optional[Dict[str, Any]],
+    payload: Optional[Dict[str, Any]],
+) -> bool:
+    """Compara somente as chaves enviadas; ``custom_fields`` é atualização parcial."""
+    if not isinstance(payload, dict) or not payload:
+        return False
+    atuais = atuais or {}
+    for slug, raw_value in payload.items():
+        key = str(slug).strip()
+        if not key:
+            continue
+        novo = "" if raw_value is None else str(raw_value).strip()
+        anterior = "" if atuais.get(key) is None else str(atuais.get(key)).strip()
+        if novo != anterior:
+            return True
+    return False
+
+
+def _assinatura_itens_kit_payload(itens: Optional[List["ProdutoKitItemIn"]]) -> List[tuple[int, str, str]]:
+    if itens is None:
+        return []
+    out: List[tuple[int, str, str]] = []
+    for item in itens:
+        out.append((
+            int(item.produto_id),
+            decimal_kit_str(decimal_kit(item.quantidade, default=Decimal("0")), 4),
+            decimal_kit_str(decimal_kit(item.perda_percentual), 4),
+        ))
+    return out
+
+
+def _assinatura_itens_kit_salvos(
+    db: Session, empresa_id: int, kit_produto_id: int
+) -> List[tuple[int, str, str]]:
+    rows = db.execute(text("""
+        SELECT componente_produto_id, quantidade, perda_percentual
+        FROM produto_kit_itens
+        WHERE empresa_id = :empresa_id AND kit_produto_id = :kit_produto_id
+        ORDER BY ordem ASC, id ASC
+    """), {
+        "empresa_id": empresa_id,
+        "kit_produto_id": kit_produto_id,
+    }).all()
+    return [
+        (
+            int(row[0]),
+            decimal_kit_str(decimal_kit(row[1], default=Decimal("0")), 4),
+            decimal_kit_str(decimal_kit(row[2]), 4),
+        )
+        for row in rows
+    ]
 
 
 def normalizar_slug_custo(value: Any) -> str:
@@ -1228,10 +1341,14 @@ def sincronizar_campos_produtos_com_formulario(
 
     O vínculo estável é gravado em ``campo_personalizado_id``. Renomear um campo
     passa a atualizar apenas o nome exibido, preservando slug, ID e todos os
-    valores já cadastrados. ``somente_slugs`` é mantido por compatibilidade; a
-    sincronização completa é intencional para também corrigir tipos antigos.
+    valores já cadastrados. Quando ``somente_slugs`` é informado, a rotina
+    sincroniza apenas os campos necessários ao salvamento atual.
     """
-    del somente_slugs  # compatibilidade com chamadas antigas
+    filtro_slugs = {
+        str(slug).strip()
+        for slug in (somente_slugs or set())
+        if str(slug).strip()
+    }
 
     modelo = _buscar_formulario_produtos(db, empresa_id, modelo_id=modelo_id)
     if not modelo:
@@ -1272,6 +1389,22 @@ def sincronizar_campos_produtos_com_formulario(
         label = campo_formulario_nome(campo_form)
         if not label:
             continue
+
+        # Quando o salvamento de um produto pede apenas alguns slugs, não
+        # sincronize o formulário inteiro. Isso evita que uma edição comum de
+        # produto crie/renomeie campos de configuração sem necessidade.
+        if filtro_slugs:
+            linked_slug = ""
+            linked_id = getattr(campo_form, "campo_personalizado_id", None)
+            try:
+                linked_id = int(linked_id) if linked_id is not None else None
+            except (TypeError, ValueError):
+                linked_id = None
+            if linked_id is not None and linked_id in por_id:
+                linked_slug = str(por_id[linked_id].slug or "").strip()
+            base_slug_filtro = slugify_formulario(label)
+            if linked_slug not in filtro_slugs and base_slug_filtro not in filtro_slugs:
+                continue
 
         tipo = normalizar_tipo_formulario(getattr(campo_form, "tipo_campo", None))
         obrigatorio = bool(getattr(campo_form, "obrigatorio", False))
@@ -1426,13 +1559,20 @@ def salvar_custom_fields_produto(
     # aceitos pelo módulo Produtos. Sem isso, o front envia custom_fields
     # do formulário e o backend responde "campos personalizados inválidos".
     slugs_payload = set(str(k).strip() for k in payload.keys() if str(k).strip())
-    campos_map = sincronizar_campos_produtos_com_formulario(
-        db=db,
-        empresa_id=empresa_id,
-        somente_slugs=slugs_payload or None,
-    )
-    slugs_validos = set(campos_map.keys())
 
+    # Caminho normal: os campos já existem. Salvar um produto não deve
+    # reconfigurar a ficha inteira em toda requisição. Só sincronize com o
+    # construtor de Formulários se o payload trouxer algum slug ainda ausente.
+    campos_map = buscar_campos_empresa_map(db, empresa_id)
+    slugs_faltantes = slugs_payload - set(campos_map.keys())
+    if slugs_faltantes:
+        campos_map = sincronizar_campos_produtos_com_formulario(
+            db=db,
+            empresa_id=empresa_id,
+            somente_slugs=slugs_faltantes,
+        )
+
+    slugs_validos = set(campos_map.keys())
     slugs_invalidos = sorted(slugs_payload - slugs_validos)
     if slugs_invalidos:
         raise HTTPException(
@@ -3235,6 +3375,8 @@ def atualizar_produto(
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
     custo_anterior = norm_str(getattr(p, "custo", None))
+    preco_venda_anterior = norm_str(getattr(p, "preco_venda", None))
+    custom_fields_anteriores = buscar_custom_fields_produto(db, empresa_id, int(p.id))
 
     custom_name_present, custom_name = extrair_nome_custom_fields_empresa(
         db, empresa_id, payload.custom_fields
@@ -3284,7 +3426,16 @@ def atualizar_produto(
         p.ativo = bool(payload.ativo)
 
     try:
-        if payload.custom_fields is not None:
+        # Primeiro persiste apenas as colunas nativas do produto. Em uma edição
+        # simples (ex.: Ativo/Inativo), não execute rotinas auxiliares sem
+        # necessidade. Isso também separa claramente um eventual erro da tabela
+        # ``produtos`` de erros de campos/KITs.
+        db.flush()
+
+        custom_fields_mudaram = _custom_fields_payload_tem_mudancas(
+            custom_fields_anteriores, payload.custom_fields
+        )
+        if payload.custom_fields is not None and custom_fields_mudaram:
             salvar_custom_fields_produto(
                 db=db,
                 empresa_id=empresa_id,
@@ -3292,18 +3443,24 @@ def atualizar_produto(
                 custom_fields=payload.custom_fields,
             )
 
+        custo_novo = norm_str(getattr(p, "custo", None))
+        preco_venda_novo = norm_str(getattr(p, "preco_venda", None))
+        custo_mudou = custo_anterior != custo_novo
+        preco_venda_mudou = preco_venda_anterior != preco_venda_novo
+
+        # Só sincroniza campos comerciais equivalentes se o valor comercial
+        # realmente mudou. Antes, qualquer PUT fazia INSERT/UPDATE auxiliar.
         sync_kwargs: Dict[str, Any] = {}
-        if custom_cost_present or payload.custo is not None:
-            sync_kwargs["custo"] = norm_str(getattr(p, "custo", None))
-        if custom_sale_present or payload.preco_venda is not None:
-            sync_kwargs["preco_venda"] = norm_str(getattr(p, "preco_venda", None))
+        if custo_mudou:
+            sync_kwargs["custo"] = custo_novo
+        if preco_venda_mudou:
+            sync_kwargs["preco_venda"] = preco_venda_novo
         if sync_kwargs:
             sincronizar_valores_comerciais_custom_produto(
                 db, empresa_id, int(p.id), **sync_kwargs
             )
 
-        custo_novo = norm_str(getattr(p, "custo", None))
-        if custo_anterior != custo_novo:
+        if custo_mudou:
             registrar_historico_preco(
                 db,
                 empresa_id=empresa_id,
@@ -3316,13 +3473,22 @@ def atualizar_produto(
                 motivo="Alteração no cadastro do produto",
             )
 
+        itens_kit_mudaram = False
         if payload.itens_kit is not None:
-            salvar_itens_kit_produto(db, empresa_id, int(p.id), payload.itens_kit)
+            assinatura_atual = _assinatura_itens_kit_salvos(db, empresa_id, int(p.id))
+            assinatura_nova = _assinatura_itens_kit_payload(payload.itens_kit)
+            itens_kit_mudaram = assinatura_atual != assinatura_nova
+            if itens_kit_mudaram:
+                salvar_itens_kit_produto(db, empresa_id, int(p.id), payload.itens_kit)
 
         db.flush()
-        if payload.itens_kit:
+
+        # KITs dependentes só precisam ser recalculados quando custo/preço ou a
+        # própria composição mudou. Nome, categoria e status não alteram totais.
+        if itens_kit_mudaram and payload.itens_kit:
             recalcular_produto_kit(db, empresa_id, int(p.id))
-        recalcular_kits_dependentes(db, empresa_id, [int(p.id)])
+        if custo_mudou or preco_venda_mudou or itens_kit_mudaram:
+            recalcular_kits_dependentes(db, empresa_id, [int(p.id)])
 
         db.commit()
         db.refresh(p)
@@ -3331,9 +3497,14 @@ def atualizar_produto(
     except HTTPException:
         db.rollback()
         raise
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Código de produto já existe.")
+        raise_produto_integrity_error(
+            e,
+            produto_id=int(produto_id),
+            empresa_id=empresa_id,
+            operacao="atualizar produto",
+        )
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Erro ao atualizar produto: {e}")
