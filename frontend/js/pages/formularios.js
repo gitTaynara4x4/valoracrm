@@ -379,6 +379,9 @@
     secaoEditando: null,
     modeloEditando: null,
     secoesAbertas: new Set(),
+    etapaAtiva: 'cadastro',
+    secaoSelecionadaId: null,
+    campoSelecionadoId: null,
   };
 
   const qs = (id) => document.getElementById(id);
@@ -574,9 +577,58 @@
     });
   }
 
+  function ensureLoadingSelectShell(select) {
+    if (!select) return null;
+
+    let shell = select.closest('.valora-select-loading-shell');
+    if (!shell) {
+      shell = document.createElement('div');
+      shell.className = 'valora-select-loading-shell';
+      select.parentNode.insertBefore(shell, select);
+      shell.appendChild(select);
+    }
+
+    let indicator = shell.querySelector('.valora-select-loading-indicator');
+    if (!indicator) {
+      indicator = document.createElement('span');
+      indicator.className = 'valora-select-loading-indicator';
+      indicator.setAttribute('aria-hidden', 'true');
+      indicator.innerHTML = `
+        <span class="valora-select-loading-spinner"></span>
+        <span class="valora-select-loading-text">Carregando...</span>
+      `;
+      shell.appendChild(indicator);
+    }
+
+    return { shell, indicator };
+  }
+
   function setLoadingSelect(select, text = 'Carregando...') {
     if (!select) return;
-    select.innerHTML = `<option value="">${escapeHtml(text)}</option>`;
+
+    const loading = ensureLoadingSelectShell(select);
+    select.innerHTML = '<option value=""></option>';
+    select.disabled = true;
+    select.setAttribute('aria-busy', 'true');
+    select.classList.add('valora-select-loading');
+
+    if (loading?.indicator) {
+      loading.indicator.hidden = false;
+      const label = loading.indicator.querySelector('.valora-select-loading-text');
+      if (label) label.textContent = text;
+    }
+  }
+
+  function clearLoadingSelect(select) {
+    if (!select) return;
+
+    select.disabled = false;
+    select.removeAttribute('aria-busy');
+    select.classList.remove('valora-select-loading');
+
+    const indicator = select.closest('.valora-select-loading-shell')
+      ?.querySelector('.valora-select-loading-indicator');
+    if (indicator) indicator.hidden = true;
   }
 
   function moduloLabel(modulo = state.modulo) {
@@ -2471,6 +2523,7 @@
   }
 
   async function carregarCamposSistema() {
+    setLoadingSelect(qs('campo-sistema'), 'Carregando campos...');
     const fallback = camposSistemaFallback(state.modulo);
 
     try {
@@ -2485,6 +2538,7 @@
   }
 
   async function carregarCamposPersonalizados() {
+    setLoadingSelect(qs('campo-personalizado'), 'Carregando campos...');
     const endpoint = MODULOS[state.modulo]?.customEndpoint;
 
     if (!endpoint) {
@@ -2509,17 +2563,160 @@
     renderCampoPersonalizadoSelect();
   }
 
+  function normalizarNomeModelo(valor = '') {
+    return String(valor || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ');
+  }
+
+  function tituloCadastroModulo(modulo = state.modulo) {
+    const titulos = {
+      clientes: 'Cadastro de clientes',
+      fornecedores: 'Cadastro de fornecedores',
+      produtos: 'Cadastro de produtos',
+      patrimonio: 'Cadastro de patrimônio',
+      cotacoes: 'Cadastro de cotações',
+      propostas: 'Cadastro de propostas',
+      contratos: 'Cadastro de contratos',
+      contas_receber: 'Contas a receber',
+      contas_pagar: 'Contas a pagar',
+    };
+
+    return titulos[modulo] || `Cadastro de ${String(MODULOS[modulo]?.label || modulo || 'itens').toLowerCase()}`;
+  }
+
+  function modeloTemNomeGenericoPadrao(modelo) {
+    const nome = normalizarNomeModelo(modelo?.nome);
+    if (!nome) return false;
+
+    const modulo = String(modelo?.modulo || state.modulo || '');
+    const aliases = {
+      clientes: [
+        'cadastro padrao clientes',
+        'cadastro padrao cliente',
+        'cadastro padrao de clientes',
+        'cadastro padrao de cliente',
+        'cadastro de clientes',
+        'cadastro de cliente',
+      ],
+      fornecedores: [
+        'cadastro padrao fornecedores',
+        'cadastro padrao fornecedor',
+        'cadastro padrao de fornecedores',
+        'cadastro padrao de fornecedor',
+        'cadastro de fornecedores',
+        'cadastro de fornecedor',
+      ],
+      produtos: [
+        'cadastro padrao produtos',
+        'cadastro padrao produto',
+        'cadastro padrao de produtos',
+        'cadastro padrao de produto',
+        'cadastro de produtos',
+        'cadastro de produto',
+      ],
+      patrimonio: [
+        'cadastro padrao patrimonio',
+        'cadastro padrao de patrimonio',
+        'cadastro de patrimonio',
+      ],
+      cotacoes: [
+        'cadastro padrao cotacoes',
+        'cadastro padrao cotacao',
+        'cadastro padrao de cotacoes',
+        'cadastro padrao de cotacao',
+        'cadastro de cotacoes',
+        'cadastro de cotacao',
+      ],
+      propostas: [
+        'cadastro padrao propostas',
+        'cadastro padrao proposta',
+        'cadastro padrao de propostas',
+        'cadastro padrao de proposta',
+        'cadastro de propostas',
+        'cadastro de proposta',
+      ],
+      contratos: [
+        'cadastro padrao contratos',
+        'cadastro padrao contrato',
+        'cadastro padrao de contratos',
+        'cadastro padrao de contrato',
+        'cadastro de contratos',
+        'cadastro de contrato',
+      ],
+    };
+
+    return (aliases[modulo] || []).includes(nome);
+  }
+
+  function modeloPrincipalDaLista(modelos = state.modelos) {
+    return modelos.find((m) => m.usar_como_ficha_principal)
+      || modelos.find((m) => m.padrao)
+      || modelos[0]
+      || null;
+  }
+
+  function modelosVisiveisNoSeletor() {
+    const modelos = Array.isArray(state.modelos) ? state.modelos : [];
+    if (!modelos.length) return [];
+
+    const principal = modeloPrincipalDaLista(modelos);
+    const existeModeloOficial = modelos.some((m) => m.padrao || m.usar_como_ficha_principal);
+    const atualId = Number(state.modeloAtual?.modelo?.id || 0);
+
+    return modelos.filter((modelo) => {
+      const id = Number(modelo.id || 0);
+
+      // O modelo efetivamente usado pelo sistema sempre aparece.
+      if (principal && id === Number(principal.id)) return true;
+
+      // Se o usuário já estiver editando um modelo específico, não o faça sumir no meio da edição.
+      if (atualId && id === atualId) return true;
+
+      // Padrão e ficha principal são configurações relevantes e nunca são ocultadas.
+      if (modelo.padrao || modelo.usar_como_ficha_principal) return true;
+
+      // Havendo um modelo oficial, modelos antigos com nomes genéricos equivalentes
+      // (ex.: "Cadastro padrão de cliente") deixam de poluir o seletor principal.
+      if (existeModeloOficial && modeloTemNomeGenericoPadrao(modelo)) return false;
+
+      // Modelos realmente personalizados continuam disponíveis normalmente.
+      return true;
+    });
+  }
+
+  function nomeModeloNoSeletor(modelo) {
+    const generico = modeloTemNomeGenericoPadrao(modelo);
+    let nome = generico ? tituloCadastroModulo(modelo?.modulo) : String(modelo?.nome || 'Formulário');
+
+    if (modelo?.usar_como_ficha_principal) {
+      nome += ' — Principal';
+    } else if (modelo?.padrao) {
+      nome += ' — Padrão';
+    }
+
+    return nome;
+  }
+
   function renderModelosSelect() {
     const select = qs('select-modelo');
     if (!select) return;
+
+    clearLoadingSelect(select);
 
     if (!state.modelos.length) {
       select.innerHTML = '<option value="">Nenhum formulário criado</option>';
       return;
     }
 
-    select.innerHTML = state.modelos.map((modelo) => {
-      return `<option value="${modelo.id}">${escapeHtml(modelo.nome)}</option>`;
+    const modelosVisiveis = modelosVisiveisNoSeletor();
+
+    select.innerHTML = modelosVisiveis.map((modelo) => {
+      return `<option value="${modelo.id}">${escapeHtml(nomeModeloNoSeletor(modelo))}</option>`;
     }).join('');
   }
 
@@ -2547,95 +2744,78 @@
 
   function renderResumoFormulario() {
     const resumo = getResumoFormulario();
-    const pairs = [
-      ['side-stat-secoes', resumo.secoes],
-      ['side-stat-campos', resumo.campos],
-      ['side-stat-custom', resumo.personalizados],
-      ['side-stat-system', resumo.sistema],
-      ['toolbar-stat-secoes', resumo.secoes],
-      ['toolbar-stat-campos', resumo.campos],
-    ];
+    const nativeFilters = PREVIEW_LOCALIZAR_NATIVO[state.modulo] || [];
+    const nativeColumns = PREVIEW_TABELA_NATIVA[state.modulo] || [];
+    const camposLocalizar = getCamposPreview(campoDeveAparecerNoLocalizarPreview);
+    const camposTabela = getCamposPreview(campoMarcadoTabela);
+    const filtros = itensPreviewFiltros(nativeFilters, camposLocalizar);
+    const colunas = itensPreviewTabela(nativeColumns, camposTabela);
+    const filtrosVisiveis = filtros.filter((field) => isItemPreviewVisivel('filters', field.origin || 'nativo', field.key, !!field.fixed)).length;
+    const colunasVisiveis = colunas.filter((col) => {
+      const origin = col.origin || 'nativo';
+      const fixed = !!col.fixed || col.key === 'acoes';
+      return isItemPreviewVisivel('columns', origin, col.key, fixed);
+    }).length;
 
-    pairs.forEach(([id, value]) => {
+    const values = {
+      'stat-cadastro-count': resumo.campos,
+      'stat-cadastro-secoes': resumo.secoes,
+      'stat-lista-count': colunasVisiveis,
+      'stat-busca-count': filtrosVisiveis,
+    };
+    Object.entries(values).forEach(([id, value]) => {
       const el = qs(id);
       if (el) el.textContent = String(value || 0);
     });
 
-    const chip = qs('form-status-chip');
     const modelo = state.modeloAtual?.modelo || null;
+    const chip = qs('form-status-chip');
     if (chip) {
-      chip.textContent = modelo?.ativo === false ? 'Inativo' : 'Ativo';
+      chip.textContent = modelo?.usar_como_ficha_principal ? 'Principal' : (modelo?.padrao ? 'Padrão' : 'Personalizado');
       chip.classList.toggle('is-off', modelo?.ativo === false);
     }
   }
 
   function renderModeloAtual() {
     const modelo = state.modeloAtual?.modelo || null;
-
     const moduloTitulo = qs('modulo-titulo');
+    const pageTitle = qs('form-page-title');
     const modeloNome = qs('modelo-nome');
     const modeloDescricao = qs('modelo-descricao');
+    const selectShell = qs('model-switcher-shell');
+    const toggleModel = qs('btn-toggle-model-select');
 
     if (moduloTitulo) moduloTitulo.textContent = moduloLabel();
+    if (pageTitle) pageTitle.textContent = `Cadastro de ${moduloLabel().toLowerCase()}`;
+    if (modeloNome) modeloNome.textContent = modelo ? nomeModeloNoSeletor(modelo) : `Cadastro de ${moduloLabel().toLowerCase()}`;
+    if (modeloDescricao) modeloDescricao.textContent = modelo?.descricao || 'Defina o que aparece no cadastro, na lista e na busca.';
 
-    if (modeloNome) {
-      modeloNome.textContent = modelo ? modelo.nome : 'Nenhum formulário selecionado';
-    }
-
-    if (modeloDescricao) {
-      if (!modelo) {
-        modeloDescricao.textContent = 'Crie um formulário padrão para começar.';
-      } else {
-        const flags = [];
-
-        if (modelo.padrao) {
-          flags.push('formulário padrão');
-        }
-
-        if (modelo.usar_como_ficha_principal) {
-          flags.push(['contas_receber', 'contas_pagar'].includes(String(modelo.modulo || ''))
-            ? 'ficha simplificada'
-            : 'ficha principal do cadastro');
-        }
-
-        const fallback = modelo.padrao
-          ? 'Modelo padrão gerado automaticamente pelo ValoraCRM.'
-          : (flags.length ? `${moduloLabel()} • ${flags.join(' • ')}` : `${moduloLabel()} • formulário personalizado`);
-
-        modeloDescricao.textContent = modelo.descricao || fallback;
-      }
+    const modelosVisiveis = modelosVisiveisNoSeletor();
+    if (toggleModel) toggleModel.hidden = modelosVisiveis.length <= 1;
+    if (selectShell) {
+      selectShell.hidden = modelosVisiveis.length <= 1 || !selectShell.classList.contains('is-open');
     }
 
     const hasModelo = !!(modelo?.id || qs('select-modelo')?.value);
-
-    const btnEditar = qs('btn-editar-modelo');
-    const btnNovaSecao = qs('btn-nova-secao');
-    const btnCampoSistema = qs('btn-campo-sistema');
-    const btnNovoCampo = qs('btn-novo-campo');
-
-    if (btnEditar) btnEditar.disabled = !hasModelo;
-
-    if (btnNovaSecao) btnNovaSecao.disabled = false;
-    if (btnCampoSistema) btnCampoSistema.disabled = false;
-    if (btnNovoCampo) btnNovoCampo.disabled = false;
+    ['btn-editar-modelo','btn-nova-secao','btn-campo-sistema','btn-novo-campo'].forEach((id) => {
+      const el = qs(id); if (el) el.disabled = !hasModelo;
+    });
 
     const empty = qs('builder-empty');
     const wrap = qs('secoes-container');
-
     if (!modelo) {
-      if (empty) empty.style.display = '';
+      if (empty) empty.hidden = false;
       if (wrap) wrap.innerHTML = '';
       renderResumoFormulario();
       renderPreviewLocalizar();
       return;
     }
-
-    if (empty) empty.style.display = 'none';
-
+    if (empty) empty.hidden = true;
     renderResumoFormulario();
     renderSecoes();
     renderSecaoSelect();
     renderPreviewLocalizar();
+    atualizarEtapasUI();
   }
 
   function camposOrdenados(campos = []) {
@@ -2648,150 +2828,103 @@
   function renderSecoes() {
     const wrap = qs('secoes-container');
     if (!wrap) return;
-
     const atual = state.modeloAtual;
-
-    if (!atual?.modelo) {
-      wrap.innerHTML = '';
-      return;
-    }
+    if (!atual?.modelo) { wrap.innerHTML = ''; return; }
 
     const secoes = getSecoes();
     const camposSemSecao = Array.isArray(atual.campos_sem_secao) ? atual.campos_sem_secao : [];
-
     if (!secoes.length && !camposSemSecao.length) {
-      wrap.innerHTML = `
-        <div class="builder-empty panel-card">
-          <i class="fa-solid fa-folder-open"></i>
-          <strong>Este formulário ainda está vazio.</strong>
-          <span>Crie uma seção primeiro. Depois coloque campos dentro dela.</span>
-        </div>
-      `;
+      wrap.innerHTML = `<div class="form-builder-empty"><i class="fa-regular fa-folder-open"></i><strong>Seu formulário ainda está vazio</strong><span>Crie a primeira seção para começar a organizar o cadastro.</span><button class="btn btn-primary" type="button" data-action="nova-secao"><i class="fa-solid fa-plus"></i> Criar primeira seção</button></div>`;
       return;
     }
 
-    let html = '';
+    const todasSecoes = [...secoes];
+    if (camposSemSecao.length) todasSecoes.push({ id: 'sem-secao', titulo: 'Campos sem seção', icone: 'fa-layer-group', campos: camposSemSecao, semSecao: true, ativo: true });
 
-    secoes.forEach((secao, index) => {
-      html += renderSecaoCard(secao, index);
-    });
+    let selecionada = todasSecoes.find(s => String(s.id) === String(state.secaoSelecionadaId));
+    if (!selecionada) selecionada = todasSecoes[0];
+    state.secaoSelecionadaId = selecionada?.id ?? null;
 
-    if (camposSemSecao.length) {
-      html += renderSecaoCard({
-        id: '',
-        titulo: 'Campos sem seção',
-        descricao: 'Campos antigos que ainda não foram organizados em uma seção.',
-        icone: 'fa-layer-group',
-        ativo: true,
-        campos: camposSemSecao,
-        semSecao: true,
-      });
-    }
+    const campos = camposOrdenados(selecionada?.campos || []);
+    let campoSelecionado = campos.find(c => Number(c.id) === Number(state.campoSelecionadoId));
+    if (!campoSelecionado) campoSelecionado = campos[0] || null;
+    state.campoSelecionadoId = campoSelecionado?.id ?? null;
 
-    wrap.innerHTML = html;
+    const secoesHtml = todasSecoes.map((secao) => {
+      const ativo = String(secao.id) === String(state.secaoSelecionadaId);
+      const count = Array.isArray(secao.campos) ? secao.campos.length : 0;
+      return `<button class="form-section-item ${ativo ? 'is-active' : ''}" type="button" data-action="selecionar-secao" data-id="${escapeHtml(secao.id)}">
+        <span class="form-section-icon"><i class="fa-solid ${escapeHtml(getIconeSecao(secao))}"></i></span>
+        <span class="form-section-copy"><strong>${escapeHtml(secao.titulo || 'Seção')}</strong><small>${count} ${count === 1 ? 'campo' : 'campos'}</small></span>
+        ${secao.semSecao ? '' : `<span class="form-section-actions"><span class="icon-btn" data-action="editar-secao" data-id="${secao.id}" title="Editar seção"><i class="fa-solid fa-ellipsis"></i></span></span>`}
+      </button>`;
+    }).join('');
+
+    const camposHtml = campos.length ? campos.map((campo) => {
+      const selecionado = Number(campo.id) === Number(state.campoSelecionadoId);
+      const tipo = tipoLabel(campo);
+      return `<button class="form-field-row ${selecionado ? 'is-active' : ''}" type="button" data-action="selecionar-campo" data-id="${campo.id}">
+        <span class="form-field-icon"><i class="fa-solid ${escapeHtml(tipoIcone(campo))}"></i></span>
+        <span class="form-field-copy"><strong>${escapeHtml(campo.label || '-')}</strong><small>${escapeHtml(tipo)}</small></span>
+        <span class="form-field-flags">${campo.obrigatorio ? '<em class="flag-required">Obrigatório</em>' : '<em>Opcional</em>'}</span>
+        <span class="form-field-status ${campo.ativo === false ? '' : 'is-on'}" aria-label="${campo.ativo === false ? 'Oculto' : 'Visível'}"></span>
+        <span class="form-field-edit" data-action="editar-campo" data-id="${campo.id}" title="Editar campo"><i class="fa-solid fa-pen"></i></span>
+      </button>`;
+    }).join('') : `<div class="fields-empty"><span>Nenhum campo nesta seção.</span><button type="button" class="btn btn-primary btn-small" data-action="novo-campo-secao"><i class="fa-solid fa-plus"></i> Adicionar campo</button></div>`;
+
+    const editorHtml = campoSelecionado ? renderEditorRapidoCampo(campoSelecionado) : `<div class="quick-editor-empty"><i class="fa-regular fa-hand-pointer"></i><strong>Selecione um campo</strong><span>Clique em um campo ao lado para editar suas opções.</span></div>`;
+
+    wrap.innerHTML = `<div class="form-builder-grid">
+      <section class="form-builder-column sections-column"><div class="builder-column-head"><div><h3>Seções do formulário</h3><p>Organize o cadastro por assuntos.</p></div><button class="btn btn-secondary btn-small" type="button" data-action="nova-secao"><i class="fa-solid fa-plus"></i> Nova seção</button></div><div class="form-sections-list">${secoesHtml}</div></section>
+      <section class="form-builder-column fields-column"><div class="builder-column-head"><div><h3>Campos desta seção</h3><p>${escapeHtml(selecionada?.titulo || '')}</p></div><button class="btn btn-primary btn-small" type="button" data-action="novo-campo-secao"><i class="fa-solid fa-plus"></i> Adicionar campo</button></div><div class="form-fields-list">${camposHtml}</div></section>
+      <aside class="form-builder-column quick-editor-column">${editorHtml}</aside>
+    </div>`;
   }
 
-  function renderSecaoCard(secao, index = 0) {
-    const campos = camposOrdenados(secao.campos || []);
-    const inactive = secao.ativo === false ? '<span class="badge off">Inativa</span>' : '';
-    const icon = getIconeSecao(secao);
-    const sid = String(secao.id || 'sem-secao');
-    const isOpen = secao.semSecao || state.secoesAbertas.has(sid);
-    const originClass = secao.semSecao ? 'neutral' : `tone-${(index % 5) + 1}`;
-
-    const actions = secao.semSecao ? '' : `
-      <div class="secao-actions" aria-label="Ações da seção">
-        <button class="secao-count-pill" type="button" data-action="toggle-secao" data-id="${secao.id}" title="Abrir ou recolher seção" aria-label="Abrir ou recolher seção">
-          <i class="fa-solid fa-list-check"></i>
-          <span>${campos.length} ${campos.length === 1 ? 'campo' : 'campos'}</span>
-          <i class="fa-solid fa-chevron-down secao-toggle-icon"></i>
-        </button>
-
-        <button class="icon-btn" type="button" data-action="editar-secao" data-id="${secao.id}" title="Editar seção" aria-label="Editar seção">
-          <i class="fa-solid fa-pen-to-square"></i>
-        </button>
-
-        <button class="icon-btn danger" type="button" data-action="excluir-secao" data-id="${secao.id}" title="Excluir seção" aria-label="Excluir seção">
-          <i class="fa-solid fa-trash-can"></i>
-        </button>
-      </div>
-    `;
-
-    const camposHtml = campos.length
-      ? campos.map(renderCampoCard).join('')
-      : `<div class="empty-section">Nenhum campo nesta seção ainda.</div>`;
-
-    return `
-      <article class="secao-card secao-card-premium ${originClass} ${isOpen ? 'is-open' : 'is-collapsed'}" data-secao-id="${escapeHtml(sid)}">
-        <div class="secao-head">
-          <div class="secao-title-wrap">
-            <h4 class="secao-title">
-              <i class="fa-solid ${escapeHtml(icon)}"></i>
-              <span>${escapeHtml(secao.titulo || 'Seção')}</span>
-              ${inactive}
-            </h4>
-
-            ${secao.descricao ? `<p class="secao-desc">${escapeHtml(secao.descricao)}</p>` : ''}
-          </div>
-
-          ${actions}
-        </div>
-
-        <div class="campos-list">
-          ${camposHtml}
-        </div>
-      </article>
-    `;
-  }
-
-  function renderCampoCard(campo) {
-    const origem = campo.origem || 'personalizado';
-    const tipo = tipoLabel(campo);
-    const tipoNormalizado = normalizarTipoCampoFrontend(campo.tipo_campo || 'texto');
-    const icon = tipoIcone(campo);
-
+  function renderEditorRapidoCampo(campo) {
     const exibicao = getCampoExibicao(campo);
-    const required = campo.obrigatorio ? '<span class="badge badge-required">Obrigatório</span>' : '';
-    const readonly = campo.somente_leitura ? '<span class="badge badge-muted">Somente leitura</span>' : '';
-    const inactive = campo.ativo === false ? '<span class="badge badge-off">Inativo</span>' : '';
-    const localizar = isFlagOn(exibicao.usar_no_localizar ?? exibicao.localizar ?? exibicao.filtro)
-      ? '<span class="badge badge-muted">Filtro</span>'
-      : '';
-    const tabela = isFlagOn(exibicao.mostrar_na_tabela ?? exibicao.tabela ?? exibicao.coluna)
-      ? '<span class="badge badge-muted">Tabela</span>'
-      : '';
-
-    const chipsDireita = [required, readonly, localizar, tabela, inactive].filter(Boolean).join('');
-    const origemAttr = escapeHtml(origem);
-
-    return `
-      <div class="campo-card campo-card-premium campo-row-clean" data-origem="${origemAttr}">
-        <span class="campo-drag" title="Arrastar campo"><i class="fa-solid fa-grip-vertical"></i></span>
-
-        <span class="campo-type-icon" aria-hidden="true"><i class="fa-solid ${escapeHtml(icon)}"></i></span>
-
-        <div class="campo-main">
-          <div class="campo-title">
-            <strong>${escapeHtml(campo.label || '-')}</strong>
-            <span class="campo-type-chip tipo-${escapeHtml(tipoNormalizado)}">${escapeHtml(tipo)}</span>
-          </div>
-
-          ${campo.ajuda ? `<div class="campo-ajuda">${escapeHtml(campo.ajuda)}</div>` : ''}
-        </div>
-
-        <div class="campo-actions">
-          <span class="campo-right-chips">${chipsDireita}</span>
-
-          <button class="icon-btn" type="button" data-action="editar-campo" data-id="${campo.id}" title="Editar campo">
-            <i class="fa-solid fa-pen"></i>
-          </button>
-
-          <button class="icon-btn danger" type="button" data-action="excluir-campo" data-id="${campo.id}" title="Excluir campo">
-            <i class="fa-solid fa-trash"></i>
-          </button>
-        </div>
+    const onBusca = isFlagOn(exibicao.usar_no_localizar ?? exibicao.localizar ?? exibicao.filtro);
+    const onLista = isFlagOn(exibicao.mostrar_na_tabela ?? exibicao.tabela ?? exibicao.coluna);
+    const origem = campo.origem === 'sistema' ? 'Campo do sistema' : (campo.origem === 'visual' ? 'Elemento visual' : 'Campo personalizado');
+    const toggle = (key, checked, label, desc='') => `<label class="quick-toggle"><span><strong>${label}</strong>${desc ? `<small>${desc}</small>` : ''}</span><input type="checkbox" data-quick-field="${key}" data-id="${campo.id}" ${checked ? 'checked' : ''}><i aria-hidden="true"></i></label>`;
+    return `<div class="quick-editor-head"><div><span class="eyebrow">Editar campo</span><h3>${escapeHtml(campo.label || 'Campo')}</h3><p>${escapeHtml(origem)} · ${escapeHtml(tipoLabel(campo))}</p></div><button class="icon-btn" type="button" data-action="editar-campo" data-id="${campo.id}" title="Abrir opções completas"><i class="fa-solid fa-pen"></i></button></div>
+      <div class="quick-editor-group"><h4>Visibilidade</h4>
+        ${toggle('ativo', campo.ativo !== false, 'Mostrar no cadastro', 'Exibe este campo na ficha.')}
+        ${toggle('mostrar_na_tabela', onLista, 'Mostrar na lista', 'Exibe como informação na listagem.')}
+        ${toggle('usar_no_localizar', onBusca, 'Usar na busca', 'Permite procurar e filtrar por ele.')}
       </div>
-    `;
+      <div class="quick-editor-group"><h4>Regra</h4>${toggle('obrigatorio', !!campo.obrigatorio, 'Obrigatório', 'Exige preenchimento antes de salvar.')}</div>
+      <button class="btn btn-secondary quick-full-edit" type="button" data-action="editar-campo" data-id="${campo.id}"><i class="fa-solid fa-sliders"></i> Mais opções do campo</button>`;
+  }
+
+  function atualizarEtapasUI() {
+    document.querySelectorAll('[data-form-step]').forEach((btn) => btn.classList.toggle('is-active', btn.dataset.formStep === state.etapaAtiva));
+    document.querySelectorAll('[data-form-pane]').forEach((pane) => pane.hidden = pane.dataset.formPane !== state.etapaAtiva);
+  }
+
+  async function atualizarCampoRapido(id, key, checked, input) {
+    const campo = findCampo(id);
+    if (!campo) return;
+    const payload = {};
+    if (key === 'ativo' || key === 'obrigatorio') {
+      payload[key] = !!checked;
+    } else {
+      const condicao = { ...getCampoCondicao(campo) };
+      condicao.exibicao = { ...(condicao.exibicao || {}), [key]: !!checked };
+      payload.condicao = condicao;
+    }
+    if (input) input.disabled = true;
+    try {
+      await apiJson(`${API_BASE}/campos/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const modeloId = state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+      await carregarModeloCompleto(modeloId);
+      toast('Alteração salva automaticamente.');
+    } catch (err) {
+      if (input) input.checked = !checked;
+      toast(err.message || 'Não foi possível alterar o campo.', true);
+    } finally {
+      if (input) input.disabled = false;
+    }
   }
 
   function renderSecaoSelect(selectedId = '') {
@@ -2814,6 +2947,8 @@
   function renderCampoSistemaSelect(selectedValue = '') {
     const select = qs('campo-sistema');
     if (!select) return;
+
+    clearLoadingSelect(select);
 
     if (!state.camposSistema.length) {
       select.innerHTML = '<option value="">Nenhum campo do sistema encontrado</option>';
@@ -2839,6 +2974,8 @@
   function renderCampoPersonalizadoSelect(selectedValue = '') {
     const select = qs('campo-personalizado');
     if (!select) return;
+
+    clearLoadingSelect(select);
 
     if (!state.camposPersonalizados.length) {
       select.innerHTML = '<option value="">Nenhum campo personalizado encontrado</option>';
@@ -3598,6 +3735,9 @@
     state.modelos = [];
     state.camposSistema = [];
     state.camposPersonalizados = [];
+    state.etapaAtiva = 'cadastro';
+    state.secaoSelecionadaId = null;
+    state.campoSelecionadoId = null;
 
     const params = new URLSearchParams(window.location.search);
     params.set('modulo', modulo);
@@ -3840,6 +3980,19 @@
 
     qs('btn-campo-sistema')?.addEventListener('click', () => abrirCampoSistema(null));
     qs('btn-novo-campo')?.addEventListener('click', () => abrirNovoCampo(null));
+
+    qs('btn-add-existing-field')?.addEventListener('click', () => {
+      const secaoId = state.secaoSelecionadaId && state.secaoSelecionadaId !== 'sem-secao' ? String(state.secaoSelecionadaId) : '';
+      closeModal('modal-adicionar-campo');
+      abrirCampoSistema(null).then(() => { if (secaoId && qs('campo-secao')) qs('campo-secao').value = secaoId; });
+    });
+
+    qs('btn-add-custom-field')?.addEventListener('click', () => {
+      const secaoId = state.secaoSelecionadaId && state.secaoSelecionadaId !== 'sem-secao' ? String(state.secaoSelecionadaId) : '';
+      closeModal('modal-adicionar-campo');
+      abrirNovoCampo(null).then(() => { if (secaoId && qs('campo-secao')) qs('campo-secao').value = secaoId; });
+    });
+
     qs('btn-salvar-campo')?.addEventListener('click', salvarCampo);
     qs('btn-excluir-campo')?.addEventListener('click', () => excluirCampo(qs('campo-id').value));
 
@@ -3948,12 +4101,56 @@
     });
     qs('campo-tipo-visual')?.addEventListener('change', atualizarCampoPreview);
 
+    document.querySelector('[data-form-steps]')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-form-step]');
+      if (!btn) return;
+      state.etapaAtiva = btn.dataset.formStep || 'cadastro';
+      atualizarEtapasUI();
+    });
+
+    qs('btn-toggle-model-select')?.addEventListener('click', () => {
+      const shell = qs('model-switcher-shell');
+      if (!shell) return;
+      shell.classList.toggle('is-open');
+      shell.hidden = !shell.classList.contains('is-open');
+      if (!shell.hidden) qs('select-modelo')?.focus();
+    });
+
+    qs('secoes-container')?.addEventListener('change', (e) => {
+      const input = e.target.closest('[data-quick-field]');
+      if (!input) return;
+      atualizarCampoRapido(input.dataset.id, input.dataset.quickField, input.checked, input);
+    });
+
     qs('secoes-container')?.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
 
       const action = btn.dataset.action;
       const id = btn.dataset.id;
+
+      if (action === 'selecionar-secao') {
+        state.secaoSelecionadaId = id;
+        state.campoSelecionadoId = null;
+        renderSecoes();
+        return;
+      }
+
+      if (action === 'selecionar-campo') {
+        state.campoSelecionadoId = id;
+        renderSecoes();
+        return;
+      }
+
+      if (action === 'nova-secao') {
+        abrirNovaSecao();
+        return;
+      }
+
+      if (action === 'novo-campo-secao') {
+        openModal('modal-adicionar-campo');
+        return;
+      }
 
       if (action === 'editar-secao') {
         const secao = findSecao(id);

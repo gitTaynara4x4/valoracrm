@@ -1705,28 +1705,68 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 
 /* =========================================================
-   VALORA | LOADING GLOBAL | 2026-09-09
-   Transforma estados "Carregando..." em um loading visual
-   consistente sem exigir alterações em cada módulo.
+   VALORA | LOADING GLOBAL | 2026-09-09 v3
+   Padrão único para carregamento de conteúdo.
+   Detecta pelo TEXTO real (Carregando/Buscando), não por uma
+   lista frágil de classes. Ignora botões/selects/opções.
    ========================================================= */
 (() => {
   'use strict';
 
-  const LOADING_SELECTOR = [
-    'td.empty-state[colspan]',
-    'td.table-loading[colspan]',
-    'td.financeiro-empty[colspan]',
-    'td.dav-empty[colspan]',
-    'div.empty-state',
-    'div.financeiro-empty-soft'
-  ].join(',');
+  const BLOCKED_SELECTOR = 'button, select, option, [role="button"], script, style, template';
+  const HOST_TAGS = new Set(['TD', 'DIV', 'SPAN', 'STRONG', 'SMALL', 'P', 'H1', 'H2', 'H3', 'H4', 'LI']);
 
-  const isLoadingText = (value) => /^carregando(?:\b|\.{3}|…)/i.test(String(value || '').trim());
+  const cleanText = (value) => String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const isLoadingText = (value) => /^(?:carregando|buscando)(?:\b|\.{3}|…)/i.test(cleanText(value));
+
+  function loadingCopy(rawText, kind) {
+    const original = cleanText(rawText)
+      .replace(/^carregando\.\.\.\s*/i, 'Carregando ')
+      .replace(/(?:\.{3}|…)\s*$/, '')
+      .trim();
+
+    let detail = '';
+    if (/^buscando\b/i.test(original)) {
+      detail = original;
+    } else {
+      const rest = original.replace(/^carregando\s*/i, '').trim();
+      if (rest) detail = `Buscando ${rest.charAt(0).toLowerCase()}${rest.slice(1)}`;
+    }
+
+    if (!detail) {
+      if (kind === 'table') detail = 'Buscando dados da tabela';
+      else if (kind === 'panel') detail = 'Preparando conteúdo';
+    }
+
+    return { title: 'Carregando...', detail };
+  }
+
+  function getLoadingKind(element) {
+    if (!element) return 'compact';
+    if (element.tagName === 'TD' || element.closest?.('td[colspan]')) return 'table';
+
+    const classes = String(element.className || '').toLowerCase();
+    if (
+      classes.includes('empty-chart') ||
+      classes.includes('empty-soft') ||
+      classes.includes('simulacao-resumo') ||
+      (element.tagName === 'DIV' && (classes.includes('empty-state') || classes.includes('loading')))
+    ) return 'panel';
+
+    if (element.tagName === 'DIV' && !element.closest?.('.autocomplete, .dropdown, .results, [role="listbox"]')) {
+      return 'panel';
+    }
+    return 'compact';
+  }
 
   function cleanupLoadingState(element) {
     if (!(element instanceof Element)) return;
     delete element.dataset.valoraLoading;
     delete element.dataset.valoraLoadingKind;
+    delete element.dataset.valoraLoadingOriginal;
     element.classList.remove('valora-loading-host');
     element.removeAttribute('aria-busy');
     element.removeAttribute('aria-live');
@@ -1734,29 +1774,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderLoadingState(element) {
     if (!(element instanceof Element)) return;
+    if (element.matches(BLOCKED_SELECTOR) || element.closest(BLOCKED_SELECTOR)) return;
 
-    const currentText = String(element.textContent || '').replace(/\s+/g, ' ').trim();
-    const alreadyRendered =
-      element.dataset.valoraLoading === 'true' &&
-      element.querySelector(':scope > .valora-loading-state');
+    const existing = element.querySelector(':scope > .valora-loading-state');
+    if (element.dataset.valoraLoading === 'true' && existing) return;
 
+    const currentText = cleanText(element.textContent);
     if (!isLoadingText(currentText)) {
       if (element.dataset.valoraLoading === 'true') cleanupLoadingState(element);
       return;
     }
 
-    if (alreadyRendered) return;
-
-    const isTableCell = element.tagName === 'TD';
-    const title = currentText || 'Carregando...';
+    const kind = getLoadingKind(element);
+    const copyText = loadingCopy(currentText, kind);
 
     element.dataset.valoraLoading = 'true';
-    element.dataset.valoraLoadingKind = isTableCell ? 'table' : 'inline';
+    element.dataset.valoraLoadingKind = kind;
+    element.dataset.valoraLoadingOriginal = currentText;
     element.classList.add('valora-loading-host');
     element.setAttribute('aria-live', 'polite');
     element.setAttribute('aria-busy', 'true');
 
-    const wrapper = document.createElement('div');
+    const wrapper = document.createElement(kind === 'table' ? 'div' : 'span');
     wrapper.className = 'valora-loading-state';
     wrapper.setAttribute('role', 'status');
 
@@ -1767,16 +1806,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const copy = document.createElement('span');
     copy.className = 'valora-loading-copy';
 
-    const titleNode = document.createElement('strong');
-    titleNode.className = 'valora-loading-title';
-    titleNode.textContent = title;
+    const title = document.createElement('strong');
+    title.className = 'valora-loading-title';
+    title.textContent = kind === 'compact' && copyText.detail ? copyText.detail : copyText.title;
+    copy.appendChild(title);
 
-    copy.appendChild(titleNode);
-
-    if (isTableCell) {
+    if (kind !== 'compact' && copyText.detail) {
       const subtitle = document.createElement('small');
       subtitle.className = 'valora-loading-subtitle';
-      subtitle.textContent = 'Buscando dados da tabela';
+      subtitle.textContent = copyText.detail;
       copy.appendChild(subtitle);
     }
 
@@ -1784,43 +1822,98 @@ document.addEventListener('DOMContentLoaded', () => {
     element.replaceChildren(wrapper);
   }
 
-  function scanLoadingStates(root = document) {
-    if (root instanceof Element && root.matches(LOADING_SELECTOR)) {
+  function hostFromTextNode(textNode) {
+    if (!(textNode instanceof Text)) return null;
+    if (!isLoadingText(textNode.nodeValue)) return null;
+
+    let element = textNode.parentElement;
+    if (!element || element.closest('.valora-loading-state')) return null;
+    if (element.matches(BLOCKED_SELECTOR) || element.closest(BLOCKED_SELECTOR)) return null;
+
+    // Em tabelas, o estado deve ocupar/centralizar a célula inteira.
+    const tableCell = element.closest('td[colspan]');
+    if (tableCell && isLoadingText(tableCell.textContent)) return tableCell;
+
+    while (element && element !== document.body) {
+      if (element.matches(BLOCKED_SELECTOR)) return null;
+      if (HOST_TAGS.has(element.tagName) && isLoadingText(element.textContent)) return element;
+      element = element.parentElement;
+    }
+    return null;
+  }
+
+  function scanNode(root) {
+    if (!root) return;
+
+    if (root instanceof Element && root.dataset.valoraLoading === 'true') {
       renderLoadingState(root);
     }
 
-    if (!root?.querySelectorAll) return;
-    root.querySelectorAll(LOADING_SELECTOR).forEach(renderLoadingState);
+    const node = root instanceof Document ? root.body : root;
+    if (!node) return;
+
+    if (node instanceof Text) {
+      const host = hostFromTextNode(node);
+      if (host) renderLoadingState(host);
+      return;
+    }
+
+    if (!(node instanceof Element)) return;
+    if (node.matches(BLOCKED_SELECTOR)) return;
+
+    // Se o próprio elemento é um host simples de loading, resolve sem caminhar tudo.
+    if (HOST_TAGS.has(node.tagName) && isLoadingText(node.textContent) && !node.querySelector('.valora-loading-state')) {
+      const directText = Array.from(node.childNodes).some((child) => child.nodeType === Node.TEXT_NODE && isLoadingText(child.nodeValue));
+      if (directText || node.tagName === 'TD') renderLoadingState(node);
+    }
+
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
+      acceptNode(textNode) {
+        if (!isLoadingText(textNode.nodeValue)) return NodeFilter.FILTER_REJECT;
+        const parent = textNode.parentElement;
+        if (!parent || parent.closest(BLOCKED_SELECTOR) || parent.closest('.valora-loading-state')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+
+    const hosts = new Set();
+    let current;
+    while ((current = walker.nextNode())) {
+      const host = hostFromTextNode(current);
+      if (host) hosts.add(host);
+    }
+    hosts.forEach(renderLoadingState);
   }
 
   function startLoadingObserver() {
-    scanLoadingStates(document);
-
+    scanNode(document);
     if (!window.MutationObserver || !document.body) return;
 
     const observer = new MutationObserver((mutations) => {
-      const candidates = new Set();
+      const roots = new Set();
 
       for (const mutation of mutations) {
-        const target = mutation.target instanceof Element
+        const targetElement = mutation.target instanceof Element
           ? mutation.target
           : mutation.target?.parentElement;
 
-        if (target) {
-          const host = target.matches?.(LOADING_SELECTOR)
-            ? target
-            : target.closest?.(LOADING_SELECTOR);
-          if (host) candidates.add(host);
+        // Se um host já convertido recebeu conteúdo real, limpa as marcas.
+        const activeHost = targetElement?.closest?.('[data-valora-loading="true"]');
+        if (activeHost && !activeHost.querySelector(':scope > .valora-loading-state') && !isLoadingText(activeHost.textContent)) {
+          cleanupLoadingState(activeHost);
         }
 
-        for (const node of mutation.addedNodes || []) {
-          if (!(node instanceof Element)) continue;
-          if (node.matches(LOADING_SELECTOR)) candidates.add(node);
-          node.querySelectorAll?.(LOADING_SELECTOR).forEach((item) => candidates.add(item));
+        if (mutation.type === 'characterData') {
+          roots.add(mutation.target);
+        } else {
+          if (targetElement) roots.add(targetElement);
+          for (const added of mutation.addedNodes || []) roots.add(added);
         }
       }
 
-      candidates.forEach(renderLoadingState);
+      roots.forEach(scanNode);
     });
 
     observer.observe(document.body, {
@@ -1829,6 +1922,11 @@ document.addEventListener('DOMContentLoaded', () => {
       characterData: true
     });
   }
+
+  window.ValoraLoading = Object.freeze({
+    scan: scanNode,
+    render: renderLoadingState
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', startLoadingObserver, { once: true });

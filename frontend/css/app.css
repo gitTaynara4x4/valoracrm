@@ -3193,9 +3193,8 @@ body table tbody td.dav-empty[colspan] > div {
 }
 
 /* =========================================================
-   VALORA | LOADING GLOBAL | 2026-09-09
-   Spinner central para tabelas e loading compacto para blocos.
-   Aplicado somente enquanto o app.js identificar "Carregando".
+   VALORA | LOADING GLOBAL | 2026-09-09 v3
+   Um único componente de loading para conteúdo interno.
    ========================================================= */
 .valora-loading-host[data-valora-loading="true"] {
   box-sizing: border-box;
@@ -3209,6 +3208,17 @@ td.valora-loading-host[data-valora-loading-kind="table"] {
   vertical-align: middle !important;
 }
 
+.valora-loading-host[data-valora-loading-kind="panel"] {
+  min-height: 112px;
+  padding: 22px 16px !important;
+  text-align: center !important;
+}
+
+.valora-loading-host[data-valora-loading-kind="compact"] {
+  min-height: 44px;
+  padding: 10px 12px !important;
+}
+
 .valora-loading-state {
   width: 100%;
   display: flex;
@@ -3218,10 +3228,18 @@ td.valora-loading-host[data-valora-loading-kind="table"] {
   color: var(--text, #243447);
 }
 
-td[data-valora-loading-kind="table"] > .valora-loading-state {
-  min-height: 74px;
+[data-valora-loading-kind="table"] > .valora-loading-state,
+[data-valora-loading-kind="panel"] > .valora-loading-state {
+  min-height: 64px;
   flex-direction: column;
-  gap: 10px;
+  gap: 9px;
+}
+
+[data-valora-loading-kind="compact"] > .valora-loading-state {
+  min-height: 24px;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 9px;
 }
 
 .valora-loading-spinner {
@@ -3235,10 +3253,17 @@ td[data-valora-loading-kind="table"] > .valora-loading-state {
   animation: valora-loading-spin .72s linear infinite;
 }
 
-td[data-valora-loading-kind="table"] .valora-loading-spinner {
+[data-valora-loading-kind="table"] .valora-loading-spinner,
+[data-valora-loading-kind="panel"] .valora-loading-spinner {
   width: 32px;
   height: 32px;
   border-width: 3px;
+}
+
+[data-valora-loading-kind="compact"] .valora-loading-spinner {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
 }
 
 .valora-loading-copy {
@@ -3250,12 +3275,21 @@ td[data-valora-loading-kind="table"] .valora-loading-spinner {
   gap: 3px;
 }
 
+[data-valora-loading-kind="compact"] .valora-loading-copy {
+  align-items: flex-start;
+}
+
 .valora-loading-title {
   color: var(--text, #243447);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
   line-height: 1.35;
+}
+
+[data-valora-loading-kind="compact"] .valora-loading-title {
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .valora-loading-subtitle {
@@ -3276,6 +3310,12 @@ html[data-theme="dark"] .valora-loading-title {
 
 html[data-theme="dark"] .valora-loading-subtitle {
   color: #a9a9a9;
+}
+
+/* Remove spinners antigos quando o host já foi convertido pelo sistema global. */
+.valora-loading-host[data-valora-loading="true"] .fa-spinner,
+.valora-loading-host[data-valora-loading="true"] .fa-spin {
+  display: none !important;
 }
 
 @keyframes valora-loading-spin {

@@ -303,7 +303,7 @@ async function carregarBase() {
 
       dom.clienteId.value = String(unicoCliente.id);
       renderClienteResumo(unicoCliente);
-      dom.statusGeral.textContent = `Cliente carregado: ${getClienteNome(unicoCliente)}. Carregando dados...`;
+      dom.statusGeral.textContent = `Carregando dados de ${getClienteNome(unicoCliente)}...`;
 
       setTimeout(() => {
         selecionarCliente(unicoCliente.id).catch((error) => {
@@ -360,7 +360,7 @@ async function selecionarCliente(clienteId) {
   state.clienteSelecionado = cliente;
 
   renderClienteResumo(cliente);
-  dom.statusGeral.textContent = `Cliente selecionado: ${getClienteNome(cliente)}. Carregando dados, acessos e histórico...`;
+  dom.statusGeral.textContent = `Carregando dados, acessos e histórico de ${getClienteNome(cliente)}...`;
 
   dom.acessoCard.hidden = false;
   dom.historicoCard.hidden = false;

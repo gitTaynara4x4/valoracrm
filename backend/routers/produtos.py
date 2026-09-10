@@ -50,8 +50,6 @@ PRODUCT_SALE_ALIASES = (
     "valor_venda",
     "valor_de_venda",
     "preco_final_venda_tabela_01",
-    "preco_final",
-    "venda",
 )
 PRODUCT_SALE_ALIAS_SET = set(PRODUCT_SALE_ALIASES)
 
@@ -198,13 +196,46 @@ def extrair_valor_custom_por_prioridade(
     return True, None
 
 
+def valor_parece_monetario(value: Any) -> bool:
+    """Impede texto contratual/descrições de serem gravados como preço."""
+    if value is None:
+        return True
+    text_value = str(value).strip()
+    if not text_value:
+        return True
+    # preco_venda/custo são VARCHAR(40), mas semanticamente são valores monetários.
+    if len(text_value) > 40:
+        return False
+    normalized = text_value.replace("\u00a0", " ").strip()
+    return bool(re.fullmatch(r"(?i)(?:R\$\s*)?[+-]?\d[\d\s.,]*", normalized))
+
+
 def extrair_preco_venda_custom_fields(
     custom_fields: Optional[Dict[str, Any]],
     field_names: Optional[Dict[str, str]] = None,
 ) -> tuple[bool, Optional[str]]:
-    return extrair_valor_custom_por_prioridade(
-        custom_fields, field_names, prioridade_campo_preco_venda
-    )
+    if not isinstance(custom_fields, dict):
+        return False, None
+
+    candidates: List[tuple[int, int, Optional[str]]] = []
+    for index, (slug, raw_value) in enumerate(custom_fields.items()):
+        priority = prioridade_campo_preco_venda(slug, (field_names or {}).get(str(slug)))
+        if priority is None:
+            continue
+        value = norm_str(None if raw_value is None else str(raw_value))
+        # Um campo pode ter nome legado ambíguo, mas seu conteúdo precisa ser monetário.
+        if value is not None and not valor_parece_monetario(value):
+            continue
+        candidates.append((priority, index, value))
+
+    if not candidates:
+        return False, None
+
+    candidates.sort(key=lambda item: (item[0], item[1]))
+    for _, _, value in candidates:
+        if value is not None:
+            return True, value
+    return True, None
 
 
 def extrair_nome_custom_fields(
@@ -2994,7 +3025,10 @@ def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depend
         db, empresa_id, payload.custom_fields
     )
     custo = custom_cost if custom_cost_present else norm_str(payload.custo)
-    preco_venda = custom_sale if custom_sale_present else norm_str(payload.preco_venda)
+    preco_payload = norm_str(payload.preco_venda)
+    if preco_payload is not None and not valor_parece_monetario(preco_payload):
+        preco_payload = None
+    preco_venda = custom_sale if custom_sale_present else preco_payload
     nome = custom_name if custom_name_present and custom_name else payload.nome.strip()
 
     p = models.Produto(
@@ -3228,7 +3262,10 @@ def atualizar_produto(
     if custom_sale_present:
         p.preco_venda = custom_sale
     elif payload.preco_venda is not None:
-        p.preco_venda = norm_str(payload.preco_venda)
+        preco_payload = norm_str(payload.preco_venda)
+        # Nunca gravar texto descritivo/contratual no campo nativo de preço.
+        if preco_payload is None or valor_parece_monetario(preco_payload):
+            p.preco_venda = preco_payload
 
     custom_cost_present, custom_cost = extrair_custo_custom_fields_empresa(
         db, empresa_id, payload.custom_fields
