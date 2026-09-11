@@ -868,6 +868,7 @@
   function cleanCustomFieldsForSave(customFields, options = {}) {
     const out = {};
     const preservarCamposFormulario = !!options.preservarCamposFormulario;
+    const preservarVazios = !!options.preservarVazios;
 
     Object.entries(customFields || {}).forEach(([key, value]) => {
       const slug = slugify(key);
@@ -878,8 +879,9 @@
       // O filtro antigo removia esses campos antes do PUT/POST.
       if (!slug || (!preservarCamposFormulario && SYSTEM_FIELD_SLUGS.has(slug))) return;
 
-      if (value !== undefined && value !== null && String(value).trim() !== '') {
-        out[slug] = value;
+      if (value !== undefined && value !== null) {
+        const text = String(value).trim();
+        if (text !== '' || preservarVazios) out[slug] = text;
       }
     });
 
@@ -951,6 +953,46 @@
     requestAnimationFrame(() => normalizarIconesSidebarCotacao());
   }
 
+  function collectCotacaoFormValues() {
+    const root = $('formCotacao') || document;
+
+    if (window.ValoraFichaPrincipal?.collectFormValues) {
+      return window.ValoraFichaPrincipal.collectFormValues(root);
+    }
+
+    const customFields = {};
+    const systemFields = {};
+
+    root.querySelectorAll('[data-custom-field]').forEach((el) => {
+      if (el.disabled || el.dataset.customReadonly === 'true') return;
+
+      const slug = String(el.getAttribute('data-custom-field') || '').trim();
+      const wrapper = el.closest('[data-custom-field-wrapper="true"]');
+      const origin = String(wrapper?.dataset?.customOrigin || '').trim().toLowerCase();
+      const systemField = String(wrapper?.dataset?.systemField || '').trim();
+
+      let value = '';
+      if (el.type === 'checkbox') {
+        value = el.checked ? 'true' : 'false';
+      } else if (el.matches('select[multiple], [data-custom-multiple="true"]')) {
+        const values = Array.from(el.selectedOptions || [])
+          .map((opt) => String(opt.value ?? '').trim())
+          .filter(Boolean);
+        value = values.length ? JSON.stringify(values) : '';
+      } else {
+        value = String(el.value ?? '').trim();
+      }
+
+      if (origin === 'sistema' && systemField) {
+        systemFields[systemField] = value;
+      } else if (slug) {
+        customFields[slug] = value;
+      }
+    });
+
+    return { customFields, systemFields };
+  }
+
   function normalizeCustomFieldsPayloadRaw() {
     if (window.ValoraFichaPrincipal?.collectCustomFieldsValues) {
       return window.ValoraFichaPrincipal.collectCustomFieldsValues(document);
@@ -971,9 +1013,8 @@
         value = String(el.value || '').trim();
       }
 
-      if (value !== '') {
-        out[slug] = value;
-      }
+      // Vazio também precisa seguir no payload para remover valor antigo.
+      out[slug] = value;
     });
 
     return out;
@@ -1791,8 +1832,33 @@
     }
   }
 
+  function applyCotacaoSystemFields(base = {}, systemFields = {}, fallback = {}) {
+    const out = { ...base };
+    const has = (key) => Object.prototype.hasOwnProperty.call(systemFields || {}, key);
+    const value = (key) => String(systemFields?.[key] ?? '').trim();
+
+    // Código é gerado/imutável no backend.
+    out.codigo = onlyDigits(fallback.codigo || out.codigo || '');
+
+    // Campos derivados da aprovação (fornecedor_vencedor_id/valor_aprovado)
+    // não são alterados pelo salvar comum da cotação.
+    if (has('item_nome')) out.item_nome = value('item_nome');
+    if (has('descricao')) out.descricao = value('descricao');
+    if (has('quantidade')) out.quantidade = value('quantidade');
+    if (has('unidade')) out.unidade = value('unidade');
+    if (has('categoria')) out.categoria = value('categoria');
+    if (has('status')) out.status = normalizeStatus(value('status'));
+    if (has('urgencia')) out.urgencia = value('urgencia') ? normalizeUrgencia(value('urgencia')) : null;
+    if (has('observacoes')) out.observacoes = value('observacoes');
+
+    return out;
+  }
+
   function payloadCotacao() {
-    const customRaw = normalizeCustomFieldsPayloadRaw();
+    const fichaValues = state.usarFichaPrincipalCotacoes
+      ? collectCotacaoFormValues()
+      : { customFields: normalizeCustomFieldsPayloadRaw(), systemFields: {} };
+    const customRaw = fichaValues.customFields;
 
     const payload = {
       codigo: onlyDigits($('cotacao-codigo')?.value),
@@ -1805,12 +1871,18 @@
       categoria: normalizeText($('cotacao-categoria')?.value),
       descricao: normalizeText($('cotacao-descricao')?.value),
       observacoes: normalizeText($('cotacao-observacoes')?.value),
-      custom_fields: cleanCustomFieldsForSave(customRaw, { preservarCamposFormulario: true }),
+      custom_fields: cleanCustomFieldsForSave(customRaw, { preservarCamposFormulario: true, preservarVazios: true }),
     };
 
     if (state.usarFichaPrincipalCotacoes) {
-      Object.assign(payload, buildBaseFromCotacaoFichaPrincipal(customRaw, payload));
-      payload.custom_fields = cleanCustomFieldsForSave(customRaw);
+      const baseFicha = buildBaseFromCotacaoFichaPrincipal(customRaw, payload);
+      Object.assign(
+        payload,
+        applyCotacaoSystemFields(baseFicha, fichaValues.systemFields, payload)
+      );
+      // customRaw já contém somente campos de origem personalizada. Mantemos
+      // inclusive valores vazios para permitir apagar um valor antigo no backend.
+      payload.custom_fields = cleanCustomFieldsForSave(customRaw, { preservarCamposFormulario: true, preservarVazios: true });
     }
 
     // O vínculo nativo com Produtos é autoritativo para a identificação do

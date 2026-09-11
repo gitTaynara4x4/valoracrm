@@ -987,6 +987,46 @@ async function renderCustomFieldsInputs(values = {}) {
   });
 }
 
+function collectFornecedorFormValues() {
+  const root = $('formFornecedor') || document;
+
+  if (window.ValoraFichaPrincipal?.collectFormValues) {
+    return window.ValoraFichaPrincipal.collectFormValues(root);
+  }
+
+  const customFields = {};
+  const systemFields = {};
+
+  root.querySelectorAll('[data-custom-field]').forEach((el) => {
+    if (el.disabled || el.dataset.customReadonly === 'true') return;
+
+    const slug = String(el.getAttribute('data-custom-field') || '').trim();
+    const wrapper = el.closest('[data-custom-field-wrapper="true"]');
+    const origin = String(wrapper?.dataset?.customOrigin || '').trim().toLowerCase();
+    const systemField = String(wrapper?.dataset?.systemField || '').trim();
+
+    let value = '';
+    if (el.type === 'checkbox') {
+      value = el.checked ? 'true' : 'false';
+    } else if (el.matches('select[multiple], [data-custom-multiple="true"]')) {
+      const values = Array.from(el.selectedOptions || [])
+        .map((opt) => String(opt.value ?? '').trim())
+        .filter(Boolean);
+      value = values.length ? JSON.stringify(values) : '';
+    } else {
+      value = String(el.value ?? '').trim();
+    }
+
+    if (origin === 'sistema' && systemField) {
+      systemFields[systemField] = value;
+    } else if (slug) {
+      customFields[slug] = value;
+    }
+  });
+
+  return { customFields, systemFields };
+}
+
 function normalizeCustomFieldsPayload() {
   if (window.ValoraFichaPrincipal?.collectCustomFieldsValues) {
     return window.ValoraFichaPrincipal.collectCustomFieldsValues(document);
@@ -1005,22 +1045,21 @@ function normalizeCustomFieldsPayload() {
       value = el.checked ? 'true' : 'false';
     } else if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
       value = String(el.value || '').trim();
-      if (value) out[slug] = value;
+      out[slug] = value;
       return;
     } else if (el.matches('select[multiple], [data-custom-multiple="true"]')) {
       const values = Array.from(el.selectedOptions || [])
         .map((opt) => String(opt.value ?? '').trim())
         .filter(Boolean);
 
-      if (values.length) out[slug] = JSON.stringify(values);
+      out[slug] = values.length ? JSON.stringify(values) : '';
       return;
     } else {
       value = String(el.value || '').trim();
     }
 
-    if (value !== '') {
-      out[slug] = value;
-    }
+    // Envia também vazio: o backend usa isso para remover valor personalizado antigo.
+    out[slug] = value;
   });
 
   return out;
@@ -1282,6 +1321,23 @@ function buildBaseFromFornecedorFichaPrincipal(customFields, fallback = {}) {
   };
 }
 
+function applyFornecedorSystemFields(base = {}, systemFields = {}, fallback = {}) {
+  const out = { ...base };
+  const has = (key) => Object.prototype.hasOwnProperty.call(systemFields || {}, key);
+  const value = (key) => String(systemFields?.[key] ?? '').trim();
+
+  // Código é gerado e imutável no backend. A ficha pode exibi-lo, mas não alterá-lo.
+  out.codigo = onlyDigits(fallback.codigo || out.codigo || '');
+
+  // Campos de origem "sistema" são autoritativos, inclusive quando vazios.
+  // Isso permite limpar um valor em vez de o fallback antigo reaparecer ao salvar.
+  if (has('nome')) out.nome = value('nome');
+  if (has('whatsapp')) out.whatsapp = value('whatsapp');
+  if (has('email')) out.email = value('email');
+
+  return out;
+}
+
 async function salvarToggleFichaPrincipalFornecedor(event) {
   const checked = !!event.target.checked;
 
@@ -1385,7 +1441,10 @@ async function fillFornecedorForm(fornecedor = {}) {
 }
 
 function buildFornecedorPayload() {
-  const customFields = normalizeCustomFieldsPayload();
+  const fichaValues = usarFichaPrincipalFornecedores
+    ? collectFornecedorFormValues()
+    : { customFields: normalizeCustomFieldsPayload(), systemFields: {} };
+  const customFields = fichaValues.customFields;
 
   const payload = {
     codigo: onlyDigits(getValue('campo-codigo-fornecedor') || getValue('campo-codigo-ficha-principal-fornecedor') || ''),
@@ -1433,7 +1492,11 @@ function buildFornecedorPayload() {
   };
 
   if (usarFichaPrincipalFornecedores) {
-    Object.assign(payload, buildBaseFromFornecedorFichaPrincipal(customFields, payload));
+    const baseFicha = buildBaseFromFornecedorFichaPrincipal(customFields, payload);
+    Object.assign(
+      payload,
+      applyFornecedorSystemFields(baseFicha, fichaValues.systemFields, payload)
+    );
   }
 
   payload.codigo = onlyDigits(payload.codigo);

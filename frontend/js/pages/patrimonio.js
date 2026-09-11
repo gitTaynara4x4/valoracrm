@@ -1041,6 +1041,46 @@
     window.ValoraCamposLongos?.enhance?.(container);
   }
 
+  function collectPatrimonioFormValues() {
+    const root = qs('formPatrimonio') || document;
+
+    if (window.ValoraFichaPrincipal?.collectFormValues) {
+      return window.ValoraFichaPrincipal.collectFormValues(root);
+    }
+
+    const customFields = {};
+    const systemFields = {};
+
+    qsa('[data-custom-field]', root).forEach((el) => {
+      if (el.disabled || el.dataset.customReadonly === 'true') return;
+
+      const slug = String(el.getAttribute('data-custom-field') || '').trim();
+      const wrapper = el.closest('[data-custom-field-wrapper="true"]');
+      const origin = String(wrapper?.dataset?.customOrigin || '').trim().toLowerCase();
+      const systemField = String(wrapper?.dataset?.systemField || '').trim();
+
+      let value = '';
+      if (el.type === 'checkbox') {
+        value = el.checked ? 'true' : 'false';
+      } else if (el.matches('select[multiple], [data-custom-multiple="true"]')) {
+        const values = Array.from(el.selectedOptions || [])
+          .map((opt) => String(opt.value ?? '').trim())
+          .filter(Boolean);
+        value = values.length ? JSON.stringify(values) : '';
+      } else {
+        value = String(el.value ?? '').trim();
+      }
+
+      if (origin === 'sistema' && systemField) {
+        systemFields[systemField] = value;
+      } else if (slug) {
+        customFields[slug] = value;
+      }
+    });
+
+    return { customFields, systemFields };
+  }
+
   function collectCustomFieldsValues() {
     if (window.ValoraFichaPrincipal?.collectCustomFieldsValues) {
       return window.ValoraFichaPrincipal.collectCustomFieldsValues(qs('formPatrimonio') || document);
@@ -1058,7 +1098,8 @@
       }
 
       const value = String(el.value ?? '').trim();
-      if (value !== '') values[key] = value;
+      // Vazio também é alteração válida: permite apagar valor antigo no backend.
+      values[key] = value;
     });
 
     return values;
@@ -1295,16 +1336,57 @@
     syncPatrimonioModalIdentity(item);
   }
 
+  function patrimonioSystemBool(value, fallback = true) {
+    if (value === undefined || value === null || value === '') return !!fallback;
+    const normalized = String(value).trim().toLowerCase();
+    return !['false', '0', 'nao', 'não', 'inativo', 'off', 'oculto'].includes(normalized);
+  }
+
+  function applyPatrimonioSystemFields(base = {}, systemFields = {}, fallback = {}) {
+    const out = { ...base };
+    const has = (key) => Object.prototype.hasOwnProperty.call(systemFields || {}, key);
+    const value = (key) => String(systemFields?.[key] ?? '').trim();
+
+    // Código é gerado/imutável no backend.
+    out.codigo = onlyDigits(fallback.codigo || out.codigo || '');
+
+    // A presença da chave é importante: string vazia significa que o usuário
+    // limpou o campo e não deve fazer o valor antigo voltar via fallback.
+    if (has('nome')) out.nome = value('nome');
+    if (has('descricao')) out.descricao = value('descricao');
+    if (has('categoria')) out.categoria = value('categoria');
+    if (has('marca')) out.marca = value('marca');
+    if (has('modelo')) out.modelo = value('modelo');
+    if (has('numero_serie')) out.numero_serie = value('numero_serie');
+    if (has('localizacao')) out.localizacao = value('localizacao');
+    if (has('responsavel')) out.responsavel = value('responsavel');
+    if (has('status')) out.status = value('status') || 'ativo';
+    if (has('valor_aquisicao')) out.valor_aquisicao = value('valor_aquisicao');
+    if (has('data_aquisicao')) out.data_aquisicao = value('data_aquisicao');
+    if (has('observacoes')) out.observacoes = value('observacoes');
+    if (has('ativo')) out.ativo = patrimonioSystemBool(systemFields.ativo, fallback.ativo !== false);
+
+    return out;
+  }
+
   function buildPayload() {
-    const customFields = collectCustomFieldsValues();
+    const fichaValues = state.usarFichaPrincipal
+      ? collectPatrimonioFormValues()
+      : { customFields: collectCustomFieldsValues(), systemFields: {} };
+    const customFields = fichaValues.customFields;
     const nativeFields = getPatrimonioNativeValues();
-    const customFallback = buildPatrimonioBaseFromCustom(customFields, state.detalheAtual || {});
+    const fallbackAtual = state.detalheAtual || nativeFields || {};
+    const customFallback = buildPatrimonioBaseFromCustom(customFields, fallbackAtual);
 
     const base = state.usarFichaPrincipal
-      ? {
-          ...customFallback,
-          codigo: onlyDigits(customFallback.codigo || nativeFields.codigo || ''),
-        }
+      ? applyPatrimonioSystemFields(
+          {
+            ...customFallback,
+            codigo: onlyDigits((state.detalheAtual?.codigo || nativeFields.codigo || customFallback.codigo || '')),
+          },
+          fichaValues.systemFields,
+          { ...fallbackAtual, codigo: state.detalheAtual?.codigo || nativeFields.codigo || '' }
+        )
       : {
           ...customFallback,
           ...nativeFields,
