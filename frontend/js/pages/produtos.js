@@ -676,12 +676,36 @@
       'situacao',
     ], statusFallback);
 
-    return custom;
+    const systemFields = {
+      codigo: produto.codigo || '',
+      nome: produto.nome || '',
+      descricao: produto.descricao || '',
+      categoria: produto.categoria || '',
+      unidade: produto.unidade || '',
+      preco_venda: produto.preco_venda || '',
+      custo: produto.custo || '',
+      estoque_atual: produto.estoque_atual || '',
+      ativo: produto.ativo === false ? 'false' : 'true',
+      data_cadastro: produto.data_cadastro || produto.criado_em || produto.created_at || '',
+    };
+
+    return {
+      ...custom,
+      __custom_fields: { ...custom },
+      __system_fields: systemFields,
+    };
   }
 
-  function buildCustomValuesNovoProduto() {
-    return {
+  function buildCustomValuesNovoProduto({ codigo = '', ativo = true } = {}) {
+    const systemFields = {
+      codigo: onlyDigits(codigo),
+      ativo: ativo === false ? 'false' : 'true',
       data_cadastro: todayISO(),
+    };
+    return {
+      data_cadastro: systemFields.data_cadastro,
+      __custom_fields: {},
+      __system_fields: systemFields,
     };
   }
 
@@ -1252,27 +1276,37 @@
     }
   }
 
-  function collectCustomFieldsValues() {
-    if (window.ValoraFichaPrincipal?.collectCustomFieldsValues) {
-      return window.ValoraFichaPrincipal.collectCustomFieldsValues($('formProduto') || document);
+  function collectProdutoFormValues() {
+    const root = $('formProduto') || document;
+
+    if (window.ValoraFichaPrincipal?.collectFormValues) {
+      return window.ValoraFichaPrincipal.collectFormValues(root);
     }
 
-    const values = {};
+    // Compatibilidade com versões antigas do componente compartilhado.
+    const customFields = {};
+    const systemFields = {};
 
-    $$('[data-custom-field]', $('formProduto') || document).forEach((el) => {
-      const key = el.getAttribute('data-custom-field');
-      if (!key) return;
+    $$('[data-custom-field]', root).forEach((el) => {
+      const slug = String(el.getAttribute('data-custom-field') || '').trim();
+      if (!slug || el.disabled || el.dataset.customReadonly === 'true') return;
 
-      if (el.type === 'checkbox') {
-        values[key] = el.checked ? 'true' : 'false';
-        return;
-      }
+      const wrapper = el.closest('[data-custom-field-wrapper="true"]');
+      const origem = String(wrapper?.dataset?.customOrigin || '').trim().toLowerCase();
+      const campoSistema = String(wrapper?.dataset?.systemField || '').trim();
+      const value = el.type === 'checkbox'
+        ? (el.checked ? 'true' : 'false')
+        : String(el.value ?? '').trim();
 
-      const value = String(el.value ?? '').trim();
-      if (value !== '') values[key] = value;
+      if (origem === 'sistema' && campoSistema) systemFields[campoSistema] = value;
+      else customFields[slug] = value;
     });
 
-    return values;
+    return { customFields, systemFields };
+  }
+
+  function collectCustomFieldsValues() {
+    return collectProdutoFormValues().customFields;
   }
 
   function focusFirstCustomField() {
@@ -1737,7 +1771,7 @@
     definirItensKitProduto([], { sincronizarCampos: false });
     limparBuscaKitProduto();
 
-    const values = buildCustomValuesNovoProduto();
+    const values = buildCustomValuesNovoProduto({ codigo: proximoCodigo, ativo: true });
     await renderCustomFieldsInputs(values);
     aplicarModoFichaProduto();
 
@@ -1869,19 +1903,55 @@
     return synced;
   }
 
+  function produtoSystemBool(value, fallback = true) {
+    if (value === undefined || value === null || value === '') return !!fallback;
+    const normalized = String(value).trim().toLowerCase();
+    return !['false', '0', 'nao', 'não', 'inativo', 'off'].includes(normalized);
+  }
+
+  function applyProdutoSystemFields(base = {}, systemFields = {}, fallback = {}) {
+    const out = { ...base };
+    const has = (key) => Object.prototype.hasOwnProperty.call(systemFields || {}, key);
+    const value = (key) => String(systemFields?.[key] ?? '').trim();
+
+    // Código é gerado/imutável no backend. Mesmo se uma ficha antiga ainda
+    // renderizar o campo, nunca tratamos o texto digitado como uma alteração.
+    out.codigo = onlyDigits(fallback.codigo || out.codigo || '');
+
+    if (has('nome')) out.nome = value('nome');
+    if (has('descricao')) out.descricao = value('descricao');
+    if (has('categoria')) out.categoria = value('categoria');
+    if (has('unidade')) out.unidade = value('unidade');
+    if (has('preco_venda')) out.preco_venda = value('preco_venda');
+    if (has('custo')) out.custo = value('custo');
+    if (has('estoque_atual')) out.estoque_atual = value('estoque_atual');
+    if (has('ativo')) out.ativo = produtoSystemBool(systemFields.ativo, fallback.ativo !== false);
+
+    return out;
+  }
+
   function buildPayloadProduto() {
     const nativeFields = getProdutoNativeValues();
+    const fichaValues = usarFichaPrincipalProdutos
+      ? collectProdutoFormValues()
+      : { customFields: collectCustomFieldsValues(), systemFields: {} };
+
     const customFields = syncCustomCommercialFieldsFromNative(
-      collectCustomFieldsValues(),
+      fichaValues.customFields,
       nativeFields
     );
-    const customFallback = buildProdutoBaseFromCustom(customFields, produtoAtualDetalhe || {});
+    const fallbackAtual = produtoAtualDetalhe || nativeFields || {};
+    const customFallback = buildProdutoBaseFromCustom(customFields, fallbackAtual);
 
     const base = usarFichaPrincipalProdutos
-      ? {
-          ...customFallback,
-          codigo: onlyDigits(customFallback.codigo || nativeFields.codigo || ''),
-        }
+      ? applyProdutoSystemFields(
+          {
+            ...customFallback,
+            codigo: onlyDigits((produtoAtualDetalhe?.codigo || nativeFields.codigo || customFallback.codigo || '')),
+          },
+          fichaValues.systemFields,
+          { ...fallbackAtual, codigo: produtoAtualDetalhe?.codigo || nativeFields.codigo || '' }
+        )
       : {
           ...customFallback,
           ...nativeFields,
@@ -1896,7 +1966,9 @@
 
     return {
       ...base,
-      codigo: onlyDigits(base.codigo),
+      codigo: onlyDigits(produtoAtualDetalhe?.codigo || base.codigo),
+      // Somente campos de origem personalizado pertencem a custom_fields.
+      // Campos do sistema já foram aplicados diretamente em `base`.
       custom_fields: filtrarCustomFieldsSistema(customFields, { preservarCamposFormulario: true }),
       itens_kit: produtoKitItens.map((item) => ({
         produto_id: Number(item.produto_id),

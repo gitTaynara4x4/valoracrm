@@ -999,11 +999,16 @@
     const valor = getValorCampo(values, campo);
     const required = campo.obrigatorio ? ' *' : '';
     const placeholder = campo.placeholder || '';
-    const disabled = campo.somente_leitura ? 'disabled' : '';
-    const fieldClass = getCampoClass(campo);
-    const readonlyAttr = campo.somente_leitura ? 'data-custom-readonly="true"' : '';
     const origem = String(campo?.origem || '').trim().toLowerCase();
     const campoSistema = String(campo?.campo_sistema || '').trim();
+    // Campos de identificação gerados pelo sistema não podem parecer editáveis.
+    // Antes, Código podia ser digitado na Ficha Principal, mas o backend o
+    // descartava por ser imutável, dando a impressão de que o Valora não salvou.
+    const sistemaSomenteLeitura = origem === 'sistema' && ['codigo', 'data_cadastro', 'criado_em'].includes(campoSistema);
+    const somenteLeitura = !!campo.somente_leitura || sistemaSomenteLeitura;
+    const disabled = somenteLeitura ? 'disabled' : '';
+    const fieldClass = getCampoClass(campo);
+    const readonlyAttr = somenteLeitura ? 'data-custom-readonly="true"' : '';
     const sectionTitle = String(context?.sectionTitle || '').trim();
     const integracoes = getCampoIntegracoes(campo);
     const cep = parseMaybeJson(integracoes.cep, null) || {};
@@ -1027,6 +1032,7 @@
               data-custom-field="${escapeHtml(slug)}"
               data-custom-label="${escapeHtml(label)}"
               data-required="${campo.obrigatorio ? 'true' : 'false'}"
+              ${readonlyAttr}
               ${checked}
               ${disabled}
             />
@@ -2174,39 +2180,73 @@
     return Array.from(groups.values());
   }
 
-  function collectCustomFieldsValues(root = document) {
-    const out = {};
+  function getRenderedFieldValueForSave(el) {
+    if (!el) return '';
+
+    if (el.type === 'checkbox') {
+      return el.checked ? 'true' : 'false';
+    }
+
+    if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
+      const values = parseMultiValor(el.value);
+      return values.length ? JSON.stringify(values) : '';
+    }
+
+    if (el.matches('select[multiple], [data-custom-multiple="true"]')) {
+      const values = Array.from(el.selectedOptions || [])
+        .map((opt) => String(opt.value ?? '').trim())
+        .filter(Boolean);
+      return values.length ? JSON.stringify(values) : '';
+    }
+
+    return String(el.value ?? '').trim();
+  }
+
+  /**
+   * Coleta a Ficha Principal mantendo campos nativos e personalizados separados.
+   *
+   * Isso é essencial porque um campo de origem="sistema" (ex.: ativo, nome,
+   * custo) deve atualizar a coluna nativa do cadastro e NÃO ser enviado como
+   * custom_fields. O coletor antigo misturava os dois grupos e fazia alguns
+   * campos parecerem salvar, mas voltarem ao valor anterior ao reabrir.
+   */
+  function collectFormValues(root = document) {
+    const customFields = {};
+    const systemFields = {};
     const fields = Array.from(root.querySelectorAll('[data-custom-field]'));
 
     groupRenderedFields(fields).forEach(({ outputKey, elements }) => {
       const el = selectPreferredRenderedField(elements);
       if (!el || el.disabled || el.dataset.customReadonly === 'true') return;
 
-      if (el.type === 'checkbox') {
-        out[outputKey] = el.checked ? 'true' : 'false';
+      const wrapper = el.closest('[data-custom-field-wrapper="true"]');
+      const origin = String(wrapper?.dataset?.customOrigin || '').trim().toLowerCase();
+      const systemField = String(wrapper?.dataset?.systemField || '').trim();
+      const slug = String(el.getAttribute('data-custom-field') || '').trim();
+      const value = getRenderedFieldValueForSave(el);
+
+      if (origin === 'sistema' && systemField) {
+        // Envia inclusive string vazia: limpar um campo nativo também é uma
+        // alteração válida. Código/data são readonly e por isso não chegam aqui.
+        systemFields[systemField] = value;
         return;
       }
 
-      if (el.matches('input.custom-multiselect-hidden[data-custom-multiple="true"]')) {
-        const values = parseMultiValor(el.value);
-        if (values.length) out[outputKey] = JSON.stringify(values);
-        return;
+      if (slug) {
+        // Mesma regra para personalizados: a presença da chave permite apagar
+        // corretamente um valor antigo quando o usuário limpa o campo.
+        customFields[slug] = value;
       }
-
-      if (el.matches('select[multiple], [data-custom-multiple="true"]')) {
-        const values = Array.from(el.selectedOptions || [])
-          .map((opt) => String(opt.value ?? '').trim())
-          .filter(Boolean);
-
-        if (values.length) out[outputKey] = JSON.stringify(values);
-        return;
-      }
-
-      const value = String(el.value ?? '').trim();
-      if (value !== '') out[outputKey] = value;
     });
 
-    return out;
+    return { customFields, systemFields };
+  }
+
+  // Compatibilidade: consumidores antigos continuam recebendo um objeto único.
+  // Novos fluxos de Ficha Principal devem usar collectFormValues().
+  function collectCustomFieldsValues(root = document) {
+    const { customFields, systemFields } = collectFormValues(root);
+    return { ...customFields, ...systemFields };
   }
 
   function validateRequiredRenderedFields({ root = document, toast = null, switchToCustomTab = null } = {}) {
@@ -2462,6 +2502,7 @@
     atualizarFichaPrincipalModelo,
     renderCustomFormSections,
     collectCustomFieldsValues,
+    collectFormValues,
     validateRequiredRenderedFields,
     showLoading,
     animateRenderedSections,
