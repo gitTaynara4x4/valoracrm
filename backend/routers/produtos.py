@@ -400,8 +400,12 @@ def extrair_custo_custom_fields(
         priority = prioridade_campo_custo(slug, (field_names or {}).get(str(slug)))
         if priority is None:
             continue
-        found = True
         value = norm_str(None if raw_value is None else str(raw_value))
+        # Campo de custo precisa conter valor monetário. Isso evita que textos
+        # descritivos/contratuais sejam copiados para a coluna nativa custo.
+        if value is not None and not valor_parece_monetario(value):
+            continue
+        found = True
         candidates.append((priority, index, value))
 
     if not candidates:
@@ -647,6 +651,50 @@ def decimal_kit_str(value: Decimal, casas: int = 2) -> str:
 _SYNC_VALUE_UNSET = object()
 
 
+def upsert_produto_campo_valor(
+    db: Session,
+    produto_id: int,
+    campo_id: int,
+    valor: Any,
+) -> None:
+    """Grava valor personalizado de Produto de forma idempotente.
+
+    SessionLocal usa autoflush=False. Usar UPSERT evita dois INSERTs do mesmo
+    (produto_id, campo_id) dentro da mesma transação e também protege contra
+    concorrência entre requisições.
+    """
+    value_str = None if valor is None else str(valor).strip()
+
+    if not value_str:
+        db.execute(
+            text("""
+                DELETE FROM produtos_campos_valores
+                WHERE produto_id = :produto_id
+                  AND campo_id = :campo_id
+            """),
+            {"produto_id": int(produto_id), "campo_id": int(campo_id)},
+        )
+        return
+
+    db.execute(
+        text("""
+            INSERT INTO produtos_campos_valores (
+                produto_id, campo_id, valor, criado_em, atualizado_em
+            )
+            VALUES (:produto_id, :campo_id, :valor, NOW(), NOW())
+            ON CONFLICT (produto_id, campo_id)
+            DO UPDATE SET
+                valor = EXCLUDED.valor,
+                atualizado_em = NOW()
+        """),
+        {
+            "produto_id": int(produto_id),
+            "campo_id": int(campo_id),
+            "valor": value_str,
+        },
+    )
+
+
 def sincronizar_valores_comerciais_custom_produto(
     db: Session,
     empresa_id: int,
@@ -669,15 +717,6 @@ def sincronizar_valores_comerciais_custom_produto(
     if not relevantes:
         return
 
-    field_ids = [int(campo.id) for campo in relevantes]
-    existentes = (
-        db.query(models.ProdutoCampoValor)
-        .filter(models.ProdutoCampoValor.produto_id == produto_id)
-        .filter(models.ProdutoCampoValor.campo_id.in_(field_ids))
-        .all()
-    )
-    existentes_map = {int(row.campo_id): row for row in existentes}
-
     for campo in relevantes:
         novo_valor: Any = _SYNC_VALUE_UNSET
         if campo_representa_custo(campo.slug, campo.nome):
@@ -688,21 +727,12 @@ def sincronizar_valores_comerciais_custom_produto(
         if novo_valor is _SYNC_VALUE_UNSET:
             continue
 
-        row = existentes_map.get(int(campo.id))
-        if novo_valor is None:
-            if row:
-                db.delete(row)
-            continue
-
-        value_str = str(novo_valor).strip()
-        if row:
-            row.valor = value_str
-        else:
-            db.add(models.ProdutoCampoValor(
-                produto_id=produto_id,
-                campo_id=int(campo.id),
-                valor=value_str,
-            ))
+        upsert_produto_campo_valor(
+            db,
+            produto_id=int(produto_id),
+            campo_id=int(campo.id),
+            valor=novo_valor,
+        )
 
 
 def carregar_itens_kit_produto(
@@ -857,12 +887,22 @@ def salvar_itens_kit_produto(
 
 def recalcular_produto_kit(db: Session, empresa_id: int, kit_produto_id: int) -> bool:
     itens = carregar_itens_kit_produto(db, empresa_id, kit_produto_id)
-    if not itens:
-        return False
-
     produto = buscar_produto_empresa(db, kit_produto_id, empresa_id)
     if not produto:
         return False
+
+    # Se a composição do KIT foi totalmente removida, não preserve os totais
+    # calculados da composição antiga.
+    if not itens:
+        custo_str = "0.00"
+        venda_str = "0.00"
+        produto.custo = custo_str
+        produto.preco_venda = venda_str
+        sincronizar_valores_comerciais_custom_produto(
+            db, empresa_id, kit_produto_id, custo=custo_str, preco_venda=venda_str
+        )
+        db.flush()
+        return True
 
     custo_total, venda_total = totais_itens_kit(itens)
     custo_str = decimal_kit_str(custo_total, 2)
@@ -948,7 +988,8 @@ class ProdutoCreate(ProdutoBase):
 
 
 class ProdutoUpdate(ProdutoBase):
-    pass
+    # Em edição parcial, ausência de ativo NÃO pode reativar o produto.
+    ativo: Optional[bool] = None
 
 
 class ProdutoOut(ProdutoBase, _Cfg):
@@ -1427,28 +1468,11 @@ def sincronizar_campos_produtos_com_formulario(
             if candidate is not None and int(candidate.id) not in ids_reivindicados:
                 campo_produto = candidate
 
-        # Recupera fichas antigas cujo rótulo foi alterado antes de existir o
-        # vínculo estável. A ordem é o identificador legado mais confiável. Se
-        # houver colisão de ordem, o tipo é usado para desambiguar; assim também
-        # preservamos os valores quando nome e tipo foram alterados juntos.
-        if campo_produto is None:
-            candidates_by_order = [
-                item
-                for item in existentes
-                if int(item.id) not in ids_reivindicados
-                and int(item.ordem or 0) == ordem
-            ]
-            if len(candidates_by_order) == 1:
-                campo_produto = candidates_by_order[0]
-            elif len(candidates_by_order) > 1:
-                candidates_by_type = [
-                    item
-                    for item in candidates_by_order
-                    if normalizar_tipo_formulario(getattr(item, "tipo", None)) == tipo
-                ]
-                if len(candidates_by_type) == 1:
-                    campo_produto = candidates_by_type[0]
-
+        # Não use ``ordem`` para descobrir identidade de campo. Ordem é apenas
+        # apresentação e pode ser alterada livremente no construtor. O vínculo
+        # seguro é campo_personalizado_id; em fichas antigas aceitamos somente
+        # slug exato. Se não houver vínculo seguro, criamos um novo campo sem
+        # remapear valores antigos para outra informação.
         if campo_produto is None:
             slug = slug_livre(base_slug or f"campo_{int(campo_form.id)}")
             campo_produto = models.CampoProduto(
@@ -1554,15 +1578,11 @@ def salvar_custom_fields_produto(
     custom_fields: Optional[Dict[str, str]],
 ) -> None:
     payload = custom_fields or {}
+    slugs_payload = {str(k).strip() for k in payload.keys() if str(k).strip()}
 
-    # Garante que campos criados no construtor de Formulários também sejam
-    # aceitos pelo módulo Produtos. Sem isso, o front envia custom_fields
-    # do formulário e o backend responde "campos personalizados inválidos".
-    slugs_payload = set(str(k).strip() for k in payload.keys() if str(k).strip())
-
-    # Caminho normal: os campos já existem. Salvar um produto não deve
-    # reconfigurar a ficha inteira em toda requisição. Só sincronize com o
-    # construtor de Formulários se o payload trouxer algum slug ainda ausente.
+    # Salvar um produto não deve reconfigurar o formulário inteiro. Normalmente
+    # os campos já existem; sincronizamos somente slugs que ainda estejam
+    # ausentes, por exemplo logo após a criação de um campo no construtor.
     campos_map = buscar_campos_empresa_map(db, empresa_id)
     slugs_faltantes = slugs_payload - set(campos_map.keys())
     if slugs_faltantes:
@@ -1580,41 +1600,14 @@ def salvar_custom_fields_produto(
             detail=f"Campos personalizados inválidos: {', '.join(slugs_invalidos)}",
         )
 
-    valores_existentes = (
-        db.query(models.ProdutoCampoValor)
-        .join(
-            models.CampoProduto,
-            models.CampoProduto.id == models.ProdutoCampoValor.campo_id,
-        )
-        .filter(models.ProdutoCampoValor.produto_id == produto_id)
-        .filter(models.CampoProduto.empresa_id == empresa_id)
-        .all()
-    )
-
-    existentes_por_campo_id = {int(v.campo_id): v for v in valores_existentes}
-
     for slug, raw_value in payload.items():
         campo = campos_map[slug]
-        campo_id = int(campo.id)
-
-        value_str = None if raw_value is None else str(raw_value).strip()
-
-        if not value_str:
-            existente = existentes_por_campo_id.get(campo_id)
-            if existente:
-                db.delete(existente)
-            continue
-
-        existente = existentes_por_campo_id.get(campo_id)
-        if existente:
-            existente.valor = value_str
-        else:
-            novo = models.ProdutoCampoValor(
-                produto_id=produto_id,
-                campo_id=campo_id,
-                valor=value_str,
-            )
-            db.add(novo)
+        upsert_produto_campo_valor(
+            db,
+            produto_id=int(produto_id),
+            campo_id=int(campo.id),
+            valor=raw_value,
+        )
 
 
 def produto_to_out(db: Session, p: models.Produto, *, include_custom_fields: bool = True) -> ProdutoOut:
@@ -3164,10 +3157,13 @@ def criar_produto(payload: ProdutoCreate, request: Request, db: Session = Depend
     custom_name_present, custom_name = extrair_nome_custom_fields_empresa(
         db, empresa_id, payload.custom_fields
     )
-    custo = custom_cost if custom_cost_present else norm_str(payload.custo)
+    custo_payload = norm_str(payload.custo)
+    if custo_payload is not None and not valor_parece_monetario(custo_payload):
+        raise HTTPException(status_code=422, detail="Custo deve conter um valor monetário válido.")
+    custo = custom_cost if custom_cost_present else custo_payload
     preco_payload = norm_str(payload.preco_venda)
     if preco_payload is not None and not valor_parece_monetario(preco_payload):
-        preco_payload = None
+        raise HTTPException(status_code=422, detail="Preço de venda deve conter um valor monetário válido.")
     preco_venda = custom_sale if custom_sale_present else preco_payload
     nome = custom_name if custom_name_present and custom_name else payload.nome.strip()
 
@@ -3406,8 +3402,9 @@ def atualizar_produto(
     elif payload.preco_venda is not None:
         preco_payload = norm_str(payload.preco_venda)
         # Nunca gravar texto descritivo/contratual no campo nativo de preço.
-        if preco_payload is None or valor_parece_monetario(preco_payload):
-            p.preco_venda = preco_payload
+        if preco_payload is not None and not valor_parece_monetario(preco_payload):
+            raise HTTPException(status_code=422, detail="Preço de venda deve conter um valor monetário válido.")
+        p.preco_venda = preco_payload
 
     custom_cost_present, custom_cost = extrair_custo_custom_fields_empresa(
         db, empresa_id, payload.custom_fields
@@ -3417,7 +3414,10 @@ def atualizar_produto(
         # corrigir produtos antigos cujo custo nativo permaneceu como zero.
         p.custo = custom_cost
     elif payload.custo is not None:
-        p.custo = norm_str(payload.custo)
+        custo_payload = norm_str(payload.custo)
+        if custo_payload is not None and not valor_parece_monetario(custo_payload):
+            raise HTTPException(status_code=422, detail="Custo deve conter um valor monetário válido.")
+        p.custo = custo_payload
 
     if payload.estoque_atual is not None:
         p.estoque_atual = norm_str(payload.estoque_atual)
@@ -3485,7 +3485,7 @@ def atualizar_produto(
 
         # KITs dependentes só precisam ser recalculados quando custo/preço ou a
         # própria composição mudou. Nome, categoria e status não alteram totais.
-        if itens_kit_mudaram and payload.itens_kit:
+        if itens_kit_mudaram:
             recalcular_produto_kit(db, empresa_id, int(p.id))
         if custo_mudou or preco_venda_mudou or itens_kit_mudaram:
             recalcular_kits_dependentes(db, empresa_id, [int(p.id)])

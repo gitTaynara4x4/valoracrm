@@ -832,6 +832,13 @@ class CampoProduto(Base):
 class ProdutoCampoValor(Base):
     __tablename__ = "produtos_campos_valores"
     __allow_unmapped__ = True
+    __table_args__ = (
+        UniqueConstraint(
+            "produto_id",
+            "campo_id",
+            name="uq_produtos_campos_valores_produto_campo",
+        ),
+    )
 
     id = Column(BigInteger, primary_key=True, index=True)
 
