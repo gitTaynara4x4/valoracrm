@@ -516,6 +516,7 @@
     if (window.ValoraModal) {
       window.ValoraModal.open(id);
       if (modal) atualizarContadoresCaracteres(modal);
+      if (modal) { enhanceValoraSelects(modal); requestAnimationFrame(() => syncAllValoraSelects(modal)); }
       if (id === 'modal-campo') scheduleCampoModalIntegrity();
       return;
     }
@@ -525,8 +526,9 @@
     modal.hidden = false;
     modal.style.display = 'flex';
     atualizarContadoresCaracteres(modal);
-
+    enhanceValoraSelects(modal);
     requestAnimationFrame(() => {
+      syncAllValoraSelects(modal);
       modal.classList.add('show');
       if (id === 'modal-campo') scheduleCampoModalIntegrity();
     });
@@ -3594,6 +3596,7 @@
 
     syncCampoOpcoesVisibility();
     atualizarCampoPreview();
+    requestAnimationFrame(() => syncAllValoraSelects(qs('modal-campo') || document));
   }
 
   function proximaOrdemSecao() {
@@ -4272,13 +4275,23 @@
     qs('btn-add-existing-field')?.addEventListener('click', () => {
       const secaoId = state.secaoSelecionadaId && state.secaoSelecionadaId !== 'sem-secao' ? String(state.secaoSelecionadaId) : '';
       closeModal('modal-adicionar-campo');
-      abrirCampoSistema(null).then(() => { if (secaoId && qs('campo-secao')) qs('campo-secao').value = secaoId; });
+      abrirCampoSistema(null).then(() => {
+        if (secaoId && qs('campo-secao')) {
+          qs('campo-secao').value = secaoId;
+          syncValoraSelect(qs('campo-secao'));
+        }
+      });
     });
 
     qs('btn-add-custom-field')?.addEventListener('click', () => {
       const secaoId = state.secaoSelecionadaId && state.secaoSelecionadaId !== 'sem-secao' ? String(state.secaoSelecionadaId) : '';
       closeModal('modal-adicionar-campo');
-      abrirNovoCampo(null).then(() => { if (secaoId && qs('campo-secao')) qs('campo-secao').value = secaoId; });
+      abrirNovoCampo(null).then(() => {
+        if (secaoId && qs('campo-secao')) {
+          qs('campo-secao').value = secaoId;
+          syncValoraSelect(qs('campo-secao'));
+        }
+      });
     });
 
     qs('btn-salvar-campo')?.addEventListener('click', salvarCampo);
@@ -4497,10 +4510,340 @@
     });
   }
 
+
+  // =========================================================
+  // Valora Select — substitui a UI nativa do Chrome dentro
+  // dos modais de Formulários sem alterar o <select> real.
+  // O select original continua sendo a fonte de verdade para
+  // toda a lógica de salvamento já existente.
+  // =========================================================
+  const valoraSelectState = {
+    currentSelect: null,
+    popover: null,
+    observer: null,
+  };
+
+  function isValoraSelectEligible(select) {
+    if (!select || select.tagName !== 'SELECT') return false;
+    if (!select.closest('.modal-overlay')) return false;
+    if (select.classList.contains('secao-icone-native')) return false;
+    if (select.getAttribute('aria-hidden') === 'true') return false;
+    if (select.hidden) return false;
+    return true;
+  }
+
+  function normalizeValoraSelectText(value = '') {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
+  function valoraSelectOptionData(select, option) {
+    const text = String(option?.textContent || '').trim();
+    const value = String(option?.value || '');
+    const label = String(option?.dataset?.label || '').trim();
+    const id = select?.id || '';
+    const technical = (id === 'campo-sistema' || id === 'campo-personalizado') && value && label
+      ? value
+      : '';
+
+    return {
+      value,
+      label: label || text || 'Selecione',
+      text: text || label || 'Selecione',
+      technical,
+      disabled: !!option?.disabled,
+    };
+  }
+
+  function getValoraSelectLabel(select) {
+    const option = select?.selectedOptions?.[0];
+    if (!option) return 'Selecione';
+    const data = valoraSelectOptionData(select, option);
+    return data.label || data.text || 'Selecione';
+  }
+
+  function closeValoraSelectPopover() {
+    const popover = valoraSelectState.popover;
+    if (popover) popover.remove();
+    valoraSelectState.popover = null;
+
+    if (valoraSelectState.currentSelect?._valoraSelect?.shell) {
+      valoraSelectState.currentSelect._valoraSelect.shell.classList.remove('is-open');
+      valoraSelectState.currentSelect._valoraSelect.trigger.setAttribute('aria-expanded', 'false');
+    }
+    valoraSelectState.currentSelect = null;
+  }
+
+  function syncValoraSelect(select) {
+    const api = select?._valoraSelect;
+    if (!api) return;
+    api.label.textContent = getValoraSelectLabel(select);
+    api.trigger.disabled = !!select.disabled;
+    api.trigger.classList.toggle('is-placeholder', !String(select.value || '').trim());
+    api.trigger.setAttribute('aria-disabled', select.disabled ? 'true' : 'false');
+  }
+
+  function syncAllValoraSelects(root = document) {
+    root.querySelectorAll?.('select.valora-select-native').forEach(syncValoraSelect);
+  }
+
+  function positionValoraSelectPopover(select) {
+    const popover = valoraSelectState.popover;
+    const trigger = select?._valoraSelect?.trigger;
+    if (!popover || !trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const viewportGap = 12;
+    const desiredWidth = Math.max(rect.width, 260);
+    const width = Math.min(desiredWidth, window.innerWidth - viewportGap * 2);
+    let left = Math.min(rect.left, window.innerWidth - width - viewportGap);
+    left = Math.max(viewportGap, left);
+
+    popover.style.width = `${width}px`;
+    popover.style.left = `${left}px`;
+
+    // Mede depois de definir largura para decidir se abre em cima ou embaixo.
+    const estimatedHeight = Math.min(popover.scrollHeight || 340, 390);
+    const spaceBelow = window.innerHeight - rect.bottom - viewportGap;
+    const spaceAbove = rect.top - viewportGap;
+
+    if (spaceBelow >= Math.min(estimatedHeight, 240) || spaceBelow >= spaceAbove) {
+      popover.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - 80)}px`;
+      popover.style.bottom = 'auto';
+      popover.classList.remove('opens-up');
+    } else {
+      popover.style.top = 'auto';
+      popover.style.bottom = `${Math.max(viewportGap, window.innerHeight - rect.top + 6)}px`;
+      popover.classList.add('opens-up');
+    }
+  }
+
+  function renderValoraSelectOptions(select, listEl, query = '') {
+    const normalizedQuery = normalizeValoraSelectText(query || '');
+    const options = Array.from(select.options || []);
+    listEl.innerHTML = '';
+
+    const visible = options.filter((option) => {
+      const data = valoraSelectOptionData(select, option);
+      if (!normalizedQuery) return true;
+      return normalizeValoraSelectText(`${data.text} ${data.label} ${data.value}`).includes(normalizedQuery);
+    });
+
+    if (!visible.length) {
+      const empty = document.createElement('div');
+      empty.className = 'valora-select-empty';
+      empty.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i><strong>Nenhuma opção encontrada</strong><span>Tente pesquisar por outro termo.</span>';
+      listEl.appendChild(empty);
+      return;
+    }
+
+    visible.forEach((option) => {
+      const data = valoraSelectOptionData(select, option);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'valora-select-option';
+      button.disabled = data.disabled;
+      button.dataset.value = data.value;
+      button.setAttribute('role', 'option');
+      button.setAttribute('aria-selected', option.selected ? 'true' : 'false');
+      if (option.selected) button.classList.add('is-selected');
+
+      const copy = document.createElement('span');
+      copy.className = 'valora-select-option-copy';
+
+      const primary = document.createElement('span');
+      primary.className = 'valora-select-option-title';
+      primary.textContent = data.label || data.text;
+      copy.appendChild(primary);
+
+      if (data.technical) {
+        const meta = document.createElement('small');
+        meta.textContent = data.technical;
+        copy.appendChild(meta);
+      }
+
+      button.appendChild(copy);
+
+      if (option.selected) {
+        const check = document.createElement('i');
+        check.className = 'fa-solid fa-check valora-select-option-check';
+        check.setAttribute('aria-hidden', 'true');
+        button.appendChild(check);
+      }
+
+      button.addEventListener('click', () => {
+        if (select.disabled || option.disabled) return;
+        select.value = data.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        syncValoraSelect(select);
+        closeValoraSelectPopover();
+        select._valoraSelect?.trigger?.focus({ preventScroll: true });
+      });
+
+      listEl.appendChild(button);
+    });
+  }
+
+  function openValoraSelectPopover(select) {
+    if (!select || select.disabled) return;
+    if (valoraSelectState.currentSelect === select) {
+      closeValoraSelectPopover();
+      return;
+    }
+
+    closeValoraSelectPopover();
+    syncValoraSelect(select);
+
+    const optionCount = Array.from(select.options || []).filter((opt) => !opt.disabled).length;
+    const searchable = select.id === 'campo-sistema' || select.id === 'campo-personalizado' || optionCount > 9;
+
+    const popover = document.createElement('div');
+    popover.className = 'valora-select-popover';
+    popover.setAttribute('role', 'listbox');
+
+    if (searchable) {
+      const searchWrap = document.createElement('div');
+      searchWrap.className = 'valora-select-search';
+      searchWrap.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
+
+      const input = document.createElement('input');
+      input.type = 'search';
+      input.autocomplete = 'off';
+      input.placeholder = select.id === 'campo-sistema' ? 'Buscar campo do sistema...' : 'Buscar opção...';
+      searchWrap.appendChild(input);
+      popover.appendChild(searchWrap);
+    }
+
+    const list = document.createElement('div');
+    list.className = 'valora-select-options';
+    popover.appendChild(list);
+    document.body.appendChild(popover);
+
+    valoraSelectState.currentSelect = select;
+    valoraSelectState.popover = popover;
+    select._valoraSelect.shell.classList.add('is-open');
+    select._valoraSelect.trigger.setAttribute('aria-expanded', 'true');
+
+    renderValoraSelectOptions(select, list);
+    positionValoraSelectPopover(select);
+
+    const input = popover.querySelector('.valora-select-search input');
+    if (input) {
+      input.addEventListener('input', () => renderValoraSelectOptions(select, list, input.value));
+      requestAnimationFrame(() => input.focus({ preventScroll: true }));
+    }
+  }
+
+  function enhanceValoraSelect(select) {
+    if (!isValoraSelectEligible(select) || select._valoraSelect) return;
+
+    const shell = document.createElement('div');
+    shell.className = 'valora-select-shell';
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'valora-select-trigger';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const label = document.createElement('span');
+    label.className = 'valora-select-trigger-label';
+
+    const chevron = document.createElement('i');
+    chevron.className = 'fa-solid fa-chevron-down valora-select-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+
+    trigger.append(label, chevron);
+
+    select.parentNode.insertBefore(shell, select);
+    shell.appendChild(select);
+    shell.appendChild(trigger);
+    select.classList.add('valora-select-native');
+
+    select._valoraSelect = { shell, trigger, label };
+
+    trigger.addEventListener('click', () => openValoraSelectPopover(select));
+    select.addEventListener('change', () => syncValoraSelect(select));
+    select.addEventListener('focus', () => {
+      trigger.focus({ preventScroll: true });
+      openValoraSelectPopover(select);
+    });
+
+    const observer = new MutationObserver(() => {
+      syncValoraSelect(select);
+      if (valoraSelectState.currentSelect === select && valoraSelectState.popover) {
+        const list = valoraSelectState.popover.querySelector('.valora-select-options');
+        const search = valoraSelectState.popover.querySelector('.valora-select-search input');
+        if (list) renderValoraSelectOptions(select, list, search?.value || '');
+      }
+    });
+    observer.observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+    select._valoraSelect.observer = observer;
+
+    syncValoraSelect(select);
+  }
+
+  function enhanceValoraSelects(root = document) {
+    root.querySelectorAll?.('.modal-overlay select').forEach(enhanceValoraSelect);
+  }
+
+  function initValoraSelectSystem() {
+    enhanceValoraSelects(document);
+
+    if (!valoraSelectState.observer) {
+      valoraSelectState.observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (!(node instanceof Element)) return;
+            if (node.matches?.('select')) enhanceValoraSelect(node);
+            enhanceValoraSelects(node);
+          });
+        });
+      });
+      valoraSelectState.observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    document.addEventListener('pointerdown', (event) => {
+      const popover = valoraSelectState.popover;
+      const trigger = valoraSelectState.currentSelect?._valoraSelect?.trigger;
+      if (!popover) return;
+      if (popover.contains(event.target) || trigger?.contains(event.target)) return;
+      closeValoraSelectPopover();
+    }, true);
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && valoraSelectState.popover) {
+        event.stopPropagation();
+        closeValoraSelectPopover();
+      }
+    });
+
+    // Alguns handlers antigos alteram outro select por JavaScript após um change.
+    // Sincroniza os triggers no fim do mesmo ciclo sem mexer na lógica existente.
+    document.addEventListener('change', (event) => {
+      if (!event.target?.closest?.('.modal-overlay')) return;
+      queueMicrotask(() => syncAllValoraSelects(event.target.closest('.modal-overlay') || document));
+    });
+
+    window.addEventListener('resize', () => {
+      if (valoraSelectState.currentSelect) positionValoraSelectPopover(valoraSelectState.currentSelect);
+    });
+
+    document.addEventListener('scroll', (event) => {
+      if (!valoraSelectState.popover) return;
+      if (valoraSelectState.popover.contains(event.target)) return;
+      closeValoraSelectPopover();
+    }, true);
+  }
+
   async function init() {
     console.log('[Formulários] JS carregou corretamente');
 
     bindEventos();
+    initValoraSelectSystem();
     renderIconeSecaoOptions('fa-layer-group');
     atualizarTriggerIconeSecao();
     fecharPickerIconesSecao();

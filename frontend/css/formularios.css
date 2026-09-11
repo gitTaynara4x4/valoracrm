@@ -8694,3 +8694,373 @@ html[data-theme="dark"] #modal-campo .modal-close:hover {
 #modal-campo [aria-hidden="true"].field-flat-divider {
   display: none !important;
 }
+
+/* =========================================================
+   VALORA SELECT | CONTROLES NÃO NATIVOS | v37
+   Mantém o <select> real como fonte de verdade, mas substitui
+   a interface aberta do Chrome por um dropdown do Valora.
+   ========================================================= */
+.modal-overlay .valora-select-shell {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.modal-overlay .valora-select-native {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 1px !important;
+  min-height: 1px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.modal-overlay .valora-select-trigger {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 13px;
+  border: 1px solid #d8e1eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #172235;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  outline: 0;
+  box-shadow: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.modal-overlay .valora-select-trigger:hover:not(:disabled) {
+  border-color: #b9c8da;
+  background: #fcfdff;
+}
+
+.modal-overlay .valora-select-shell.is-open .valora-select-trigger,
+.modal-overlay .valora-select-trigger:focus-visible {
+  border-color: rgba(22, 119, 255, .56);
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, .08);
+}
+
+.modal-overlay .valora-select-trigger.is-placeholder {
+  color: #7b8ba3;
+}
+
+.modal-overlay .valora-select-trigger:disabled {
+  cursor: not-allowed;
+  opacity: .62;
+  background: #f5f7fa;
+}
+
+.valora-select-trigger-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.valora-select-chevron {
+  flex: 0 0 auto;
+  color: #74839a;
+  font-size: 10px;
+  transition: transform .15s ease;
+}
+
+.valora-select-shell.is-open .valora-select-chevron {
+  transform: rotate(180deg);
+}
+
+.valora-select-popover {
+  position: fixed;
+  z-index: 2147483000;
+  max-height: min(390px, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border: 1px solid #dbe3ec;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #172235;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, .18), 0 4px 12px rgba(15, 23, 42, .08);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  animation: valoraSelectIn .12s ease-out;
+}
+
+@keyframes valoraSelectIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.valora-select-popover.opens-up {
+  animation-name: valoraSelectInUp;
+}
+
+@keyframes valoraSelectInUp {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.valora-select-search {
+  flex: 0 0 auto;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 5px;
+  padding: 0 11px;
+  border: 1px solid #e0e6ee;
+  border-radius: 9px;
+  background: #f8fafc;
+  color: #7a889d;
+}
+
+.valora-select-search:focus-within {
+  border-color: rgba(22, 119, 255, .38);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, .06);
+}
+
+.valora-select-search i {
+  font-size: 12px;
+}
+
+.valora-select-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: #172235 !important;
+  font: inherit !important;
+  font-size: 12.5px !important;
+  padding: 0 !important;
+}
+
+.valora-select-search input::placeholder {
+  color: #8b98aa;
+}
+
+.valora-select-options {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #b9c4d2 transparent;
+}
+
+.valora-select-options::-webkit-scrollbar {
+  width: 7px;
+}
+
+.valora-select-options::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #b9c4d2;
+}
+
+.valora-select-option {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #172235;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+}
+
+.valora-select-option:hover:not(:disabled) {
+  background: #f2f6fb;
+}
+
+.valora-select-option.is-selected {
+  background: #edf5ff;
+  color: #176fd1;
+}
+
+.valora-select-option:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.valora-select-option-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.valora-select-option-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 520;
+  line-height: 1.3;
+}
+
+.valora-select-option-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8090a5;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.valora-select-option.is-selected .valora-select-option-copy small {
+  color: #5d83b7;
+}
+
+.valora-select-option-check {
+  flex: 0 0 auto;
+  color: #1677ff;
+  font-size: 11px;
+}
+
+.valora-select-empty {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 22px;
+  color: #7d8ba0;
+  text-align: center;
+}
+
+.valora-select-empty i {
+  margin-bottom: 4px;
+  color: #8aa0ba;
+  font-size: 18px;
+}
+
+.valora-select-empty strong {
+  color: #26364c;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.valora-select-empty span {
+  font-size: 11px;
+}
+
+html[data-theme="dark"] .modal-overlay .valora-select-trigger {
+  border-color: rgba(255, 255, 255, .10);
+  background: #2b2b2b;
+  color: #ededed;
+}
+
+html[data-theme="dark"] .modal-overlay .valora-select-trigger:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, .16);
+  background: #303030;
+}
+
+html[data-theme="dark"] .modal-overlay .valora-select-shell.is-open .valora-select-trigger,
+html[data-theme="dark"] .modal-overlay .valora-select-trigger:focus-visible {
+  border-color: rgba(88, 211, 215, .46);
+  box-shadow: 0 0 0 3px rgba(88, 211, 215, .08);
+}
+
+html[data-theme="dark"] .modal-overlay .valora-select-trigger.is-placeholder,
+html[data-theme="dark"] .valora-select-chevron {
+  color: #a4a4a4;
+}
+
+html[data-theme="dark"] .modal-overlay .valora-select-trigger:disabled {
+  background: #262626;
+  color: #8f8f8f;
+}
+
+html[data-theme="dark"] .valora-select-popover {
+  border-color: rgba(255, 255, 255, .10);
+  background: #242424;
+  color: #ededed;
+  box-shadow: 0 20px 52px rgba(0, 0, 0, .46), 0 4px 14px rgba(0, 0, 0, .24);
+}
+
+html[data-theme="dark"] .valora-select-search {
+  border-color: rgba(255, 255, 255, .09);
+  background: #2b2b2b;
+  color: #a4a4a4;
+}
+
+html[data-theme="dark"] .valora-select-search:focus-within {
+  border-color: rgba(88, 211, 215, .34);
+  background: #2e2e2e;
+  box-shadow: 0 0 0 3px rgba(88, 211, 215, .06);
+}
+
+html[data-theme="dark"] .valora-select-search input {
+  color: #ededed !important;
+}
+
+html[data-theme="dark"] .valora-select-option {
+  color: #e7e7e7;
+}
+
+html[data-theme="dark"] .valora-select-option:hover:not(:disabled) {
+  background: #303030;
+}
+
+html[data-theme="dark"] .valora-select-option.is-selected {
+  background: rgba(88, 211, 215, .10);
+  color: #7de4e7;
+}
+
+html[data-theme="dark"] .valora-select-option-copy small {
+  color: #989898;
+}
+
+html[data-theme="dark"] .valora-select-option.is-selected .valora-select-option-copy small {
+  color: #69bec1;
+}
+
+html[data-theme="dark"] .valora-select-option-check {
+  color: #65dadd;
+}
+
+html[data-theme="dark"] .valora-select-options {
+  scrollbar-color: #575757 transparent;
+}
+
+html[data-theme="dark"] .valora-select-options::-webkit-scrollbar-thumb {
+  background: #575757;
+}
+
+html[data-theme="dark"] .valora-select-empty {
+  color: #999;
+}
+
+html[data-theme="dark"] .valora-select-empty strong {
+  color: #e5e5e5;
+}
+
+@media (max-width: 720px) {
+  .valora-select-popover {
+    max-width: calc(100vw - 20px);
+  }
+}
