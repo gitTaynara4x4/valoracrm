@@ -1035,9 +1035,11 @@
       // premium-form-grid foi desenhado para fluxo em bloco; não forçamos grid
       // aqui para não aumentar artificialmente a área rolável do modal.
       forceVisibleElement(form, 'block');
-      forceVisibleElement(form?.querySelector(':scope > .field-main-section'), 'block');
+      // O wrapper de configuração precisa existir nas duas abas, mas as
+      // subseções internas são controladas exclusivamente pelas abas.
       forceVisibleElement(form?.querySelector(':scope > .field-config-section'), 'block');
       forceVisibleElement(form?.querySelector(':scope > #campo-preview'), 'flex');
+      syncCampoDrawerTabContent();
     } finally {
       campoModalIntegrityLock = false;
     }
@@ -2307,20 +2309,20 @@
           field.origin === 'nativo' ? '' : 'is-custom'
         )).join('')}
       </div>
-      <div class="localizar-preview-drop-hint">
+      <button type="button" class="localizar-preview-drop-hint" data-open-preview-picker="filters">
         <i class="fa-solid fa-plus"></i>
-        <span>Arraste para organizar os filtros</span>
-      </div>
+        <span>Adicionar outro campo à busca</span>
+      </button>
     `;
 
     tableWrap.innerHTML = `
       <div class="localizar-preview-table-row">
         ${colunas.map((col) => renderPreviewColumn(col, col.origin || 'nativo')).join('')}
       </div>
-      <div class="localizar-preview-drop-hint">
+      <button type="button" class="localizar-preview-drop-hint" data-open-preview-picker="columns">
         <i class="fa-solid fa-plus"></i>
-        <span>Arraste para organizar as informações da lista</span>
-      </div>
+        <span>Adicionar outra informação à lista</span>
+      </button>
     `;
 
     const filtrosVisiveis = filtros.filter((field) => isItemPreviewVisivel('filters', field.origin || 'nativo', field.key, !!field.fixed)).length;
@@ -2333,6 +2335,167 @@
     if (filtersCount) filtersCount.textContent = `${filtrosVisiveis} ${filtrosVisiveis === 1 ? 'opção' : 'opções'}`;
     if (columnsCount) columnsCount.textContent = `${colunasVisiveis} ${colunasVisiveis === 1 ? 'item' : 'itens'}`;
     if (summary) summary.textContent = `${filtrosVisiveis} ${filtrosVisiveis === 1 ? 'campo para procurar' : 'campos para procurar'} • ${colunasVisiveis} ${colunasVisiveis === 1 ? 'informação na lista' : 'informações na lista'}`;
+  }
+
+  function campoEstaDisponivelNoPreview(area, campo) {
+    if (!campo || campo.ativo === false || campo.origem === 'visual') return false;
+    return area === 'columns' ? campoMarcadoTabela(campo) : campoDeveAparecerNoLocalizarPreview(campo);
+  }
+
+  function itensDisponiveisParaAdicionar(area) {
+    const isColumns = area === 'columns';
+    const nativeSource = isColumns
+      ? (PREVIEW_TABELA_NATIVA[state.modulo] || PREVIEW_TABELA_NATIVA.clientes)
+      : (PREVIEW_LOCALIZAR_NATIVO[state.modulo] || PREVIEW_LOCALIZAR_NATIVO.clientes);
+
+    const itens = [];
+
+    nativeSource.forEach((raw, index) => {
+      const item = typeof raw === 'string'
+        ? { key: slugLocalizar(raw), label: raw }
+        : { ...raw };
+      const key = String(item.key || slugLocalizar(item.label || '')).trim();
+      const fixed = !!item.fixed || key === 'acoes';
+      if (!key || fixed) return;
+      const visible = isItemPreviewVisivel(area, 'nativo', key, fixed);
+      if (visible) return;
+      itens.push({
+        area,
+        origin: 'nativo',
+        key,
+        label: item.label || key,
+        kind: item.kind || '',
+        campoId: null,
+        alreadyConfigured: true,
+        defaultOrder: index,
+      });
+    });
+
+    getAllCampos()
+      .filter((campo) => campo && campo.ativo !== false && campo.origem !== 'visual')
+      .forEach((campo, index) => {
+        const origin = origemCampoPreview(campo);
+        const key = chaveCampoPreview(campo);
+        if (!key) return;
+        const configured = campoEstaDisponivelNoPreview(area, campo);
+        const visible = configured && isItemPreviewVisivel(area, origin, key, false);
+        if (visible) return;
+        itens.push({
+          area,
+          origin,
+          key,
+          label: campo.label || campo.nome || 'Campo',
+          kind: campo.tipo_campo || '',
+          campoId: Number(campo.id),
+          alreadyConfigured: configured,
+          defaultOrder: 1000 + index,
+        });
+      });
+
+    return itens.sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), 'pt-BR'));
+  }
+
+  function renderPreviewPicker(area = state.previewPickerArea || 'columns') {
+    const list = qs('preview-picker-list');
+    const input = qs('preview-picker-search');
+    if (!list) return;
+
+    const termo = slugLocalizar(input?.value || '');
+    const itens = itensDisponiveisParaAdicionar(area).filter((item) => {
+      if (!termo) return true;
+      return slugLocalizar(`${item.label || ''} ${item.key || ''}`).includes(termo);
+    });
+
+    if (!itens.length) {
+      const vazio = input?.value?.trim()
+        ? 'Nenhum campo disponível corresponde à busca.'
+        : (area === 'columns'
+          ? 'Todos os campos disponíveis já estão na lista.'
+          : 'Todos os campos disponíveis já estão na busca.');
+      list.innerHTML = `<div class="preview-picker-empty"><i class="fa-regular fa-circle-check"></i><strong>${escapeHtml(vazio)}</strong><span>Você pode ocultar ou reorganizar os campos diretamente na etapa.</span></div>`;
+      return;
+    }
+
+    list.innerHTML = itens.map((item) => {
+      const originLabel = labelOrigemPreview(item.origin);
+      const icon = iconeCampoPreview({ key: item.key, label: item.label, kind: item.kind, area });
+      const action = item.alreadyConfigured ? 'Restaurar' : 'Adicionar';
+      return `<button type="button" class="preview-picker-item" data-preview-picker-add="true" data-area="${escapeHtml(area)}" data-origin="${escapeHtml(item.origin)}" data-key="${escapeHtml(item.key)}" data-campo-id="${item.campoId || ''}">
+        <span class="preview-picker-item-icon"><i class="fa-solid ${escapeHtml(icon)}"></i></span>
+        <span class="preview-picker-item-copy"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(originLabel)}</small></span>
+        <span class="preview-picker-item-action"><i class="fa-solid fa-plus"></i> ${escapeHtml(action)}</span>
+      </button>`;
+    }).join('');
+  }
+
+  function abrirPreviewPicker(area) {
+    if (!state.modeloAtual?.modelo?.id) {
+      toast('Escolha um formulário antes de adicionar campos.', true);
+      return;
+    }
+    state.previewPickerArea = area === 'filters' ? 'filters' : 'columns';
+    const isColumns = state.previewPickerArea === 'columns';
+    const title = qs('preview-picker-title');
+    const subtitle = qs('preview-picker-subtitle');
+    const search = qs('preview-picker-search');
+    if (title) title.textContent = isColumns ? 'Adicionar à lista' : 'Adicionar à busca';
+    if (subtitle) subtitle.textContent = isColumns
+      ? 'Escolha uma informação já existente no cadastro para mostrar na lista.'
+      : 'Escolha uma informação já existente no cadastro para usar na pesquisa e nos filtros.';
+    if (search) search.value = '';
+    renderPreviewPicker(state.previewPickerArea);
+    openModal('modal-preview-picker');
+    setTimeout(() => search?.focus(), 60);
+  }
+
+  async function adicionarItemAoPreview(button) {
+    const area = button?.dataset?.area === 'filters' ? 'filters' : 'columns';
+    const origin = button?.dataset?.origin || 'nativo';
+    const key = button?.dataset?.key || '';
+    const campoId = Number(button?.dataset?.campoId || 0) || null;
+    if (!key) return;
+
+    button.disabled = true;
+    const original = button.innerHTML;
+    button.querySelector('.preview-picker-item-action')?.replaceChildren(document.createTextNode('Adicionando...'));
+
+    try {
+      if (origin === 'nativo') {
+        setItemPreviewVisivel(area, origin, key, true, false);
+      } else if (campoId) {
+        const campo = findCampo(campoId);
+        if (!campo) throw new Error('Campo não encontrado no formulário atual.');
+
+        const prop = area === 'columns' ? 'mostrar_na_tabela' : 'usar_no_localizar';
+        const condicao = { ...getCampoCondicao(campo) };
+        condicao.exibicao = { ...(condicao.exibicao || {}), [prop]: true };
+
+        await apiJson(`${API_BASE}/campos/${campoId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ condicao }),
+        });
+
+        // Se o campo já havia sido removido visualmente, restaura também o layout.
+        const layout = getLayoutLocalizar();
+        const hiddenProp = area === 'columns' ? 'hiddenColumns' : 'hiddenFilters';
+        const fullKey = itemLayoutKey(origin, key);
+        layout[hiddenProp] = (layout[hiddenProp] || []).filter((item) => item !== fullKey);
+        setLayoutLocalizar(layout);
+
+        const modeloId = state.modeloAtual?.modelo?.id || qs('select-modelo')?.value;
+        await carregarModeloCompleto(modeloId);
+      }
+
+      renderPreviewLocalizar();
+      renderPreviewPicker(area);
+      toast(area === 'columns' ? 'Informação adicionada à lista.' : 'Campo adicionado à busca.');
+    } catch (err) {
+      console.error('[Formulários] erro ao adicionar campo ao preview:', err);
+      button.innerHTML = original;
+      button.disabled = false;
+      toast(err.message || 'Não foi possível adicionar o campo.', true);
+    }
   }
 
   let previewDragState = null;
@@ -2876,7 +3039,7 @@
 
     wrap.innerHTML = `<div class="form-builder-grid">
       <section class="form-builder-column sections-column"><div class="builder-column-head"><div><h3>Seções do formulário</h3><p>Organize o cadastro por assuntos.</p></div><button class="btn btn-secondary btn-small" type="button" data-action="nova-secao"><i class="fa-solid fa-plus"></i> Nova seção</button></div><div class="form-sections-list">${secoesHtml}</div></section>
-      <section class="form-builder-column fields-column"><div class="builder-column-head"><div><h3>Campos desta seção</h3><p>${escapeHtml(selecionada?.titulo || '')}</p></div><button class="btn btn-primary btn-small" type="button" data-action="novo-campo-secao"><i class="fa-solid fa-plus"></i> Adicionar campo</button></div><div class="form-fields-list">${camposHtml}</div></section>
+      <section class="form-builder-column fields-column"><div class="builder-column-head"><div><h3>Campos desta seção</h3><p>${escapeHtml(selecionada?.titulo || '')}</p></div><button class="btn btn-small builder-head-add-field" type="button" data-action="novo-campo-secao"><i class="fa-solid fa-plus"></i> Adicionar campo</button></div><div class="form-fields-list">${camposHtml}</div></section>
       <aside class="form-builder-column quick-editor-column">${editorHtml}</aside>
     </div>`;
   }
@@ -2998,6 +3161,116 @@
     }).join('');
   }
 
+  function applyCampoDrawerSectionVisibility(element, visible, display = 'block') {
+    if (!element) return;
+
+    element.hidden = !visible;
+    element.setAttribute('aria-hidden', visible ? 'false' : 'true');
+
+    // Existem regras antigas do editor com display !important e também uma
+    // rotina de integridade que já aplicou estilos inline. Por isso a aba
+    // precisa controlar o display no próprio elemento, com a mesma prioridade.
+    if (visible) {
+      element.style.setProperty('display', display, 'important');
+      element.style.setProperty('visibility', 'visible', 'important');
+      element.style.setProperty('opacity', '1', 'important');
+      element.style.setProperty('content-visibility', 'visible', 'important');
+    } else {
+      element.style.setProperty('display', 'none', 'important');
+      element.style.setProperty('visibility', 'hidden', 'important');
+      element.style.setProperty('opacity', '0', 'important');
+      element.style.setProperty('content-visibility', 'hidden', 'important');
+    }
+  }
+
+  function syncCampoDrawerTabContent() {
+    const modal = qs('modal-campo');
+    if (!modal) return;
+
+    const isAdvanced = modal.dataset.campoTab === 'avancado';
+
+    modal.querySelectorAll('.field-main-section').forEach((section) => {
+      applyCampoDrawerSectionVisibility(section, !isAdvanced, 'block');
+    });
+
+    modal.querySelectorAll('.field-flat-toggles').forEach((section) => {
+      applyCampoDrawerSectionVisibility(section, !isAdvanced, 'block');
+    });
+
+    modal.querySelectorAll('.field-flat-properties, .field-flat-automation, .field-flat-help').forEach((section) => {
+      applyCampoDrawerSectionVisibility(section, isAdvanced, 'block');
+    });
+
+    modal.querySelectorAll('.field-flat-divider').forEach((divider) => {
+      applyCampoDrawerSectionVisibility(divider, isAdvanced, 'block');
+    });
+  }
+
+  function setCampoDrawerTab(tab = 'geral') {
+    const modal = qs('modal-campo');
+    if (!modal) return;
+
+    const normalized = tab === 'avancado' ? 'avancado' : 'geral';
+    modal.dataset.campoTab = normalized;
+
+    modal.querySelectorAll('[data-campo-drawer-tab]').forEach((button) => {
+      const active = button.dataset.campoDrawerTab === normalized;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.tabIndex = active ? 0 : -1;
+    });
+
+    syncCampoDrawerTabContent();
+
+    const body = modal.querySelector('.premium-modal-body');
+    if (body) body.scrollTop = 0;
+  }
+
+  function atualizarCampoDrawerSummary() {
+    const labelEl = qs('campo-drawer-summary-label');
+    const sectionEl = qs('campo-drawer-summary-section');
+    const originBadge = qs('campo-drawer-badge-origin');
+    const activeBadge = qs('campo-drawer-badge-active');
+    const icon = document.querySelector('#campo-drawer-summary .campo-drawer-summary-icon i');
+
+    if (!labelEl || !sectionEl) return;
+
+    const origem = qs('campo-origem')?.value || 'personalizado';
+    const sectionText = qs('campo-secao')?.selectedOptions?.[0]?.textContent?.trim() || 'Selecione uma seção';
+    let label = qs('campo-label')?.value?.trim() || '';
+    let originText = 'Personalizado';
+    let iconClass = 'fa-font';
+
+    if (origem === 'sistema') {
+      const opt = qs('campo-sistema')?.selectedOptions?.[0];
+      label = label || opt?.dataset?.label || opt?.textContent?.trim() || 'Campo do sistema';
+      originText = 'Campo do sistema';
+      iconClass = 'fa-database';
+    } else if (origem === 'visual') {
+      label = label || 'Item visual';
+      originText = 'Item visual';
+      iconClass = 'fa-heading';
+    }
+
+    labelEl.textContent = label || 'Novo campo';
+    sectionEl.textContent = sectionText || 'Selecione uma seção';
+
+    if (originBadge) {
+      originBadge.textContent = originText;
+      originBadge.classList.toggle('is-system', origem === 'sistema');
+      originBadge.classList.toggle('is-visual', origem === 'visual');
+    }
+
+    if (activeBadge) {
+      const active = qs('campo-ativo')?.checked !== false;
+      activeBadge.textContent = active ? 'Campo ativo' : 'Campo oculto';
+      activeBadge.classList.toggle('is-active', active);
+      activeBadge.classList.toggle('is-inactive', !active);
+    }
+
+    if (icon) icon.className = `fa-solid ${iconClass}`;
+  }
+
   function atualizarCampoPreview() {
     const previewLabel = qs('campo-preview-label');
     const previewHint = qs('campo-preview-hint');
@@ -3054,6 +3327,8 @@
     if (previewIcon) {
       previewIcon.className = `fa-solid ${icon}`;
     }
+
+    atualizarCampoDrawerSummary();
   }
 
   function syncCampoOpcoesVisibility() {
@@ -3246,6 +3521,7 @@
 
   function resetCampoForm(campo = null, modo = 'novo') {
     state.campoEditando = campo;
+    setCampoDrawerTab('geral');
 
     const origemInicial = campo?.origem || (modo === 'sistema' ? 'sistema' : 'personalizado');
 
@@ -3895,6 +4171,12 @@
 
     const localizarPreviewCard = qs('localizar-preview-card');
     localizarPreviewCard?.addEventListener('click', (e) => {
+      const pickerBtn = e.target.closest('[data-open-preview-picker]');
+      if (pickerBtn) {
+        abrirPreviewPicker(pickerBtn.dataset.openPreviewPicker);
+        return;
+      }
+
       const toggleBtn = e.target.closest('[data-localizar-preview-toggle="true"]');
       if (toggleBtn) {
         toggleItemPreview(toggleBtn.dataset.area, toggleBtn.dataset.origin, toggleBtn.dataset.key);
@@ -3911,6 +4193,12 @@
       }
     });
     if (localizarPreviewCard) bindPreviewDrag(localizarPreviewCard);
+
+    qs('preview-picker-search')?.addEventListener('input', () => renderPreviewPicker(state.previewPickerArea || 'columns'));
+    qs('modal-preview-picker')?.addEventListener('click', async (e) => {
+      const addBtn = e.target.closest('[data-preview-picker-add="true"]');
+      if (addBtn) await adicionarItemAoPreview(addBtn);
+    });
 
     qs('btn-criar-padrao')?.addEventListener('click', criarPadrao);
 
@@ -3996,14 +4284,23 @@
     qs('btn-salvar-campo')?.addEventListener('click', salvarCampo);
     qs('btn-excluir-campo')?.addEventListener('click', () => excluirCampo(qs('campo-id').value));
 
-    qs('campo-origem')?.addEventListener('change', toggleCampoOrigem);
-    qs('campo-sistema')?.addEventListener('change', preencherLabelPorSistema);
+    qs('campo-origem')?.addEventListener('change', () => {
+      toggleCampoOrigem();
+      atualizarCampoDrawerSummary();
+    });
+    qs('campo-sistema')?.addEventListener('change', () => {
+      preencherLabelPorSistema();
+      atualizarCampoDrawerSummary();
+    });
     qs('campo-personalizado')?.addEventListener('change', preencherLabelPorPersonalizado);
     qs('campo-label')?.addEventListener('input', () => {
       syncCampoAutomationState();
       atualizarCampoPreview();
     });
-    qs('campo-secao')?.addEventListener('change', syncCampoAutomationState);
+    qs('campo-secao')?.addEventListener('change', () => {
+      syncCampoAutomationState();
+      atualizarCampoDrawerSummary();
+    });
     qs('campo-tipo-campo')?.addEventListener('change', () => {
       try {
         const tipoSelecionado = qs('campo-tipo-campo')?.value || 'texto';
@@ -4099,7 +4396,18 @@
       renderCepDestinationPreview();
       scheduleCampoModalIntegrity();
     });
-    qs('campo-tipo-visual')?.addEventListener('change', atualizarCampoPreview);
+    qs('campo-ativo')?.addEventListener('change', atualizarCampoDrawerSummary);
+
+    qs('modal-campo')?.querySelector('.campo-drawer-tabs')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-campo-drawer-tab]');
+      if (!button) return;
+      setCampoDrawerTab(button.dataset.campoDrawerTab);
+    });
+
+    qs('campo-tipo-visual')?.addEventListener('change', () => {
+      atualizarCampoPreview();
+      atualizarCampoDrawerSummary();
+    });
 
     document.querySelector('[data-form-steps]')?.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-form-step]');

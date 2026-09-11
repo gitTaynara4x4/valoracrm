@@ -15,14 +15,14 @@
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260909-loading-global-v3" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/formularios.js?v=20260910-form-builder-v30" defer></script>
+  <script src="/frontend/js/pages/formularios.js?v=20260911-field-drawer-tabs-v36" defer></script>
 
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260910-form-builder-v30" />
+  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260911-field-drawer-tabs-v36" />
 </head>
 
 <body>
@@ -107,13 +107,13 @@
             <article class="panel-card localizar-preview-card vnext-preview" id="localizar-preview-card" aria-live="polite">
               <span id="localizar-preview-summary" class="visually-hidden"></span>
               <section class="form-step-pane" data-form-pane="lista" hidden>
-                <div class="step-pane-head"><div><span class="eyebrow">Etapa 2</span><h2>O que aparece na lista</h2><p>Escolha as informações que a equipe precisa enxergar sem abrir o cadastro.</p></div><b class="localizar-preview-count" id="preview-tabela-count">0 itens</b></div>
+                <div class="step-pane-head"><div><span class="eyebrow">Etapa 2</span><h2>O que aparece na lista</h2><p>Escolha as informações que a equipe precisa enxergar sem abrir o cadastro.</p></div><div class="step-pane-head-actions"><b class="localizar-preview-count" id="preview-tabela-count">0 itens</b><button class="btn btn-primary btn-small" type="button" data-open-preview-picker="columns"><i class="fa-solid fa-plus"></i> Adicionar à lista</button></div></div>
                 <div class="step-tip"><i class="fa-solid fa-grip-vertical"></i><span>Arraste para mudar a ordem. Use o olho ou a lixeira para mostrar e ocultar.</span></div>
                 <div class="localizar-preview-table" id="preview-tabela-fields"></div>
               </section>
 
               <section class="form-step-pane" data-form-pane="busca" hidden>
-                <div class="step-pane-head"><div><span class="eyebrow">Etapa 3</span><h2>Como encontrar registros</h2><p>Defina quais informações podem ser usadas na pesquisa e nos filtros.</p></div><b class="localizar-preview-count" id="preview-localizar-count">0 filtros</b></div>
+                <div class="step-pane-head"><div><span class="eyebrow">Etapa 3</span><h2>Como encontrar registros</h2><p>Defina quais informações podem ser usadas na pesquisa e nos filtros.</p></div><div class="step-pane-head-actions"><b class="localizar-preview-count" id="preview-localizar-count">0 filtros</b><button class="btn btn-primary btn-small" type="button" data-open-preview-picker="filters"><i class="fa-solid fa-plus"></i> Adicionar filtro</button></div></div>
                 <div class="step-tip"><i class="fa-solid fa-grip-vertical"></i><span>Arraste para priorizar os filtros mais usados pela equipe.</span></div>
                 <div class="localizar-preview-fields" id="preview-localizar-fields"></div>
               </section>
@@ -126,6 +126,31 @@
 
       <div id="valora-toast" class="toast-message" aria-live="polite"></div>
     </main>
+  </div>
+
+  <!-- MODAL ADICIONAR À LISTA / BUSCA -->
+  <div class="modal-overlay" id="modal-preview-picker" hidden>
+    <div class="modal-content modal-md preview-picker-modal">
+      <div class="modal-header">
+        <div>
+          <h3 id="preview-picker-title">Adicionar informação</h3>
+          <p id="preview-picker-subtitle">Escolha um campo já existente no cadastro.</p>
+        </div>
+        <button class="modal-close" type="button" data-close-modal="modal-preview-picker" aria-label="Fechar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body preview-picker-body">
+        <label class="preview-picker-search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input id="preview-picker-search" type="search" placeholder="Buscar campo..." autocomplete="off">
+        </label>
+        <div id="preview-picker-list" class="preview-picker-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-close-modal="modal-preview-picker">Fechar</button>
+      </div>
+    </div>
   </div>
 
   <!-- MODAL MODELO -->
@@ -407,7 +432,24 @@
         </div>
       </div>
 
+      <div class="campo-drawer-tabs" role="tablist" aria-label="Configurações do campo">
+        <button type="button" class="campo-drawer-tab is-active" data-campo-drawer-tab="geral" role="tab" aria-selected="true">Geral</button>
+        <button type="button" class="campo-drawer-tab" data-campo-drawer-tab="avancado" role="tab" aria-selected="false">Avançado</button>
+      </div>
+
       <div class="modal-body premium-modal-body">
+        <div class="campo-drawer-summary" id="campo-drawer-summary">
+          <span class="campo-drawer-summary-icon"><i class="fa-solid fa-font"></i></span>
+          <div class="campo-drawer-summary-copy">
+            <strong id="campo-drawer-summary-label">Novo campo</strong>
+            <small id="campo-drawer-summary-section">Selecione uma seção</small>
+          </div>
+          <div class="campo-drawer-summary-badges">
+            <span class="campo-drawer-badge is-active" id="campo-drawer-badge-active">Campo ativo</span>
+            <span class="campo-drawer-badge" id="campo-drawer-badge-origin">Personalizado</span>
+          </div>
+        </div>
+
         <form class="valora-form premium-form-grid" onsubmit="return false;">
           <input type="hidden" id="campo-id" />
           <input type="hidden" id="campo-modo" value="novo" />
@@ -416,7 +458,7 @@
           <section class="premium-modal-section field-main-section">
             <div class="premium-section-title">
               <span><i class="fa-solid fa-pen-to-square"></i></span>
-              <h4>Dados principais</h4>
+              <h4>Informações</h4>
             </div>
 
             <div class="form-group premium-control is-wide">
@@ -465,6 +507,12 @@
                 <small class="field-hint">Uma opção por linha. Se uma opção removida estiver sendo usada em cadastros, o VALORA avisará antes de apagar esses valores definitivamente.</small>
               </div>
             </div>
+
+            <div class="form-group premium-control is-wide campo-general-placeholder">
+              <label for="campo-placeholder">Placeholder</label>
+              <input id="campo-placeholder" type="text" placeholder="Ex.: Nome do cliente" />
+              <small class="field-hint">Texto exibido como dica dentro do campo (opcional).</small>
+            </div>
           </section>
 
           <section class="premium-modal-section field-config-section field-config-flat" id="campo-avancado">
@@ -490,8 +538,8 @@
                   <input id="campo-ativo" type="checkbox" checked />
                   <span class="toggle-switch" aria-hidden="true"></span>
                   <span>
-                    <strong>Ativo</strong>
-                    <small>Mostrar no formulário.</small>
+                    <strong>Mostrar no cadastro</strong>
+                    <small>Exibe este campo no formulário.</small>
                   </span>
                 </label>
 
@@ -508,8 +556,8 @@
                   <input id="campo-usar-localizar" type="checkbox" />
                   <span class="toggle-switch" aria-hidden="true"></span>
                   <span>
-                    <strong>Usar nos filtros</strong>
-                    <small>Permite pesquisar por este campo.</small>
+                    <strong>Usar na busca</strong>
+                    <small>Permite pesquisar por este campo na lista.</small>
                   </span>
                 </label>
 
@@ -550,11 +598,6 @@
                 <div class="form-group premium-control">
                   <label for="campo-ordem">Ordem</label>
                   <input id="campo-ordem" type="number" min="0" value="0" />
-                </div>
-
-                <div class="form-group premium-control">
-                  <label for="campo-placeholder">Placeholder</label>
-                  <input id="campo-placeholder" type="text" placeholder="Ex.: (31) 99999-9999" />
                 </div>
 
                 <div class="form-group premium-control">
