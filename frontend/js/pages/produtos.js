@@ -1909,6 +1909,72 @@
     return !['false', '0', 'nao', 'não', 'inativo', 'off'].includes(normalized);
   }
 
+  function produtoSystemFieldFromTarget(target) {
+    const wrapper = target?.closest?.('[data-custom-field-wrapper="true"]');
+    return String(wrapper?.dataset?.systemField || '').trim().toLowerCase();
+  }
+
+  function setProdutoAtivoControlValue(control, ativo) {
+    if (!control) return;
+
+    if (control.type === 'checkbox') {
+      control.checked = !!ativo;
+      return;
+    }
+
+    const truthy = ['true', '1', 'sim', 'ativo', 'on'];
+    const falsy = ['false', '0', 'nao', 'não', 'inativo', 'off'];
+    const wanted = ativo ? truthy : falsy;
+
+    if (control.tagName === 'SELECT') {
+      const option = Array.from(control.options || []).find((item) =>
+        wanted.includes(String(item.value ?? '').trim().toLowerCase())
+      );
+      control.value = option ? option.value : (ativo ? 'true' : 'false');
+      return;
+    }
+
+    const current = String(control.value ?? '').trim().toLowerCase();
+    if (['ativo', 'inativo'].includes(current)) control.value = ativo ? 'ativo' : 'inativo';
+    else if (['sim', 'nao', 'não'].includes(current)) control.value = ativo ? 'sim' : 'nao';
+    else if (['1', '0'].includes(current)) control.value = ativo ? '1' : '0';
+    else control.value = ativo ? 'true' : 'false';
+  }
+
+  /**
+   * Mantém o status nativo do produto e o campo de sistema `ativo` da Ficha
+   * Principal sempre com o mesmo valor. Antes os dois controles podiam ficar
+   * divergentes e, no salvar, o valor antigo da ficha sobrescrevia o status
+   * escolhido pelo usuário.
+   */
+  function syncProdutoAtivoControls(source) {
+    if (!source) return null;
+
+    const isNative = source.id === 'campo-ativo-produto' || source.id === 'campo-status-ficha-principal-produto';
+    const isFichaAtivo = source.matches?.('[data-custom-field]') && produtoSystemFieldFromTarget(source) === 'ativo';
+    if (!isNative && !isFichaAtivo) return null;
+
+    const ativo = source.type === 'checkbox'
+      ? !!source.checked
+      : produtoSystemBool(source.value, true);
+
+    const native = $('campo-ativo-produto');
+    if (native) native.value = ativo ? 'true' : 'false';
+
+    const proxy = $('campo-status-ficha-principal-produto');
+    if (proxy) proxy.value = ativo ? 'true' : 'false';
+
+    const root = $('formProduto') || document;
+    root.querySelectorAll('[data-custom-field-wrapper="true"][data-system-field="ativo"] [data-custom-field]')
+      .forEach((control) => {
+        if (control === source) return;
+        setProdutoAtivoControlValue(control, ativo);
+      });
+
+    syncProdutoModalIdentity({ ...(produtoAtualDetalhe || {}), ativo });
+    return ativo;
+  }
+
   function applyProdutoSystemFields(base = {}, systemFields = {}, fallback = {}) {
     const out = { ...base };
     const has = (key) => Object.prototype.hasOwnProperty.call(systemFields || {}, key);
@@ -1963,6 +2029,12 @@
           custo: nativeFields.custo,
           estoque_atual: nativeFields.estoque_atual || customFallback.estoque_atual || '',
         };
+
+    // `campo-ativo-produto` é a fonte final de verdade. Alterações feitas no
+    // checkbox `ativo` da Ficha Principal são sincronizadas para ele pelos
+    // listeners abaixo. Isso impede um campo duplicado/antigo de sobrescrever
+    // o status no payload no momento de salvar.
+    base.ativo = nativeFields.ativo;
 
     return {
       ...base,
@@ -3412,7 +3484,10 @@
     $('formProduto')?.addEventListener('input', (event) => {
       const target = event.target;
       if (target?.id === 'toggle-ficha-principal-produto' || target?.id === 'busca-item-kit-produto' || target?.closest?.('#agenda-produto')) return;
-      if (target?.id === 'campo-nome-produto' || target?.id === 'campo-codigo-produto') {
+      const ativoSincronizado = syncProdutoAtivoControls(target);
+      if (ativoSincronizado !== null) {
+        syncProdutoModalIdentity({ ...(produtoAtualDetalhe || {}), ativo: ativoSincronizado });
+      } else if (target?.id === 'campo-nome-produto' || target?.id === 'campo-codigo-produto') {
         syncProdutoModalIdentity(produtoAtualDetalhe);
       } else if (usarFichaPrincipalProdutos && target?.matches?.('[data-custom-field]')) {
         const base = buildProdutoBaseFromCustom(collectCustomFieldsValues(), produtoAtualDetalhe || {});
@@ -3424,8 +3499,9 @@
     $('formProduto')?.addEventListener('change', (event) => {
       const target = event.target;
       if (target?.id === 'toggle-ficha-principal-produto' || target?.id === 'busca-item-kit-produto' || target?.closest?.('#agenda-produto')) return;
-      if (target?.id === 'campo-ativo-produto') {
-        syncProdutoModalIdentity(produtoAtualDetalhe);
+      const ativoSincronizado = syncProdutoAtivoControls(target);
+      if (ativoSincronizado !== null) {
+        syncProdutoModalIdentity({ ...(produtoAtualDetalhe || {}), ativo: ativoSincronizado });
       } else if (usarFichaPrincipalProdutos && target?.matches?.('[data-custom-field]')) {
         const base = buildProdutoBaseFromCustom(collectCustomFieldsValues(), produtoAtualDetalhe || {});
         syncProdutoModalIdentity(base);
