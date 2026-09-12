@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260820-assinatura-v5">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260912-anexos-biblioteca-geral-v6">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260804-listas-simples-v3">
   <link rel="stylesheet" href="/frontend/css/orcamentos-modal-paridade.css?v=20260901-confirm-modal-v50">
@@ -32,7 +32,7 @@
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260909-loading-global-v3" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260903-orcamentos-numeros-v10" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260912-anexos-biblioteca-geral-v11" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -455,6 +455,19 @@
                 <small id="orcamento-escala-limites" class="document-scale-limits">Faixa permitida: 70% a 125%. Este tamanho fica salvo neste orçamento.</small>
               </div>
             </div>
+            <div class="budget-section-card budget-attachments-card">
+              <div class="budget-section-heading budget-attachments-heading">
+                <div>
+                  <h4>Documentos anexos</h4>
+                  <p>Inclua PDFs ou imagens da Biblioteca Geral depois do orçamento. Eles serão impressos na sequência do documento.</p>
+                </div>
+                <button class="btn btn-secondary" id="btn-selecionar-anexos-orcamento" type="button">
+                  <i class="fa-solid fa-paperclip"></i> Selecionar documentos
+                </button>
+              </div>
+              <div id="budget-attachments-list" class="budget-attachments-list"></div>
+              <small class="budget-attachments-help" id="budget-attachments-help">Salve o orçamento para vincular documentos da Biblioteca Geral.</small>
+            </div>
             <div class="document-preview-shell"><div id="document-preview" class="document-preview"></div></div>
           </section>
 
@@ -481,6 +494,33 @@
           </footer>
         </section>
       </form>
+    </div>
+  </div>
+
+  <!-- DOCUMENTOS ANEXOS DO ORÇAMENTO -->
+  <div class="modal-overlay" id="budget-attachments-modal" hidden>
+    <div class="modal-content budget-attachments-modal-content" data-close-target="false">
+      <header class="modal-header">
+        <div>
+          <h3>Documentos anexos</h3>
+          <p class="modal-subtitle">Selecione arquivos da Biblioteca Geral para imprimir depois do orçamento.</p>
+        </div>
+        <button class="btn-close" id="btn-fechar-anexos-orcamento" type="button"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+      <div class="modal-body budget-attachments-modal-body">
+        <label class="budget-attachments-search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input id="budget-attachments-search" type="search" placeholder="Buscar pasta ou documento..." autocomplete="off" />
+        </label>
+        <div class="budget-attachments-library" id="budget-attachments-library">
+          <div class="budget-attachments-empty"><i class="fa-solid fa-spinner fa-spin"></i> Carregando documentos...</div>
+        </div>
+      </div>
+      <footer class="modal-footer footer-actions">
+        <span class="budget-attachments-selection-count" id="budget-attachments-selection-count">0 selecionados</span>
+        <button class="btn btn-secondary" id="btn-cancelar-anexos-orcamento" type="button">Cancelar</button>
+        <button class="btn btn-primary" id="btn-salvar-anexos-orcamento" type="button"><i class="fa-solid fa-check"></i> Usar selecionados</button>
+      </footer>
     </div>
   </div>
 

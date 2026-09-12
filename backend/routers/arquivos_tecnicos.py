@@ -8,7 +8,7 @@ from typing import List, Optional
 from uuid import uuid4
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_
@@ -69,12 +69,13 @@ def _supplier_for_company(db: Session, fornecedor_id: int, empresa_id: int) -> F
     return row
 
 
-def _folder_owner(folder: Pasta) -> tuple[str, int]:
+def _folder_owner(folder: Pasta) -> tuple[str, Optional[int]]:
     if getattr(folder, "fornecedor_id", None) is not None:
         return "fornecedor", int(folder.fornecedor_id)
     if getattr(folder, "cliente_id", None) is not None:
         return "cliente", int(folder.cliente_id)
-    raise HTTPException(status_code=409, detail="Pasta técnica sem vínculo com cliente ou fornecedor.")
+    # Sem cliente e sem fornecedor = biblioteca geral da empresa.
+    return "geral", None
 
 
 def _folder_for_company(db: Session, pasta_id: int, empresa_id: int) -> Pasta:
@@ -162,9 +163,16 @@ def _format_folder(folder: Pasta, arquivo_count: int = 0, total_bytes: int = 0, 
 def _format_file(row: Arquivo) -> dict:
     mime = _text(row.mime_type).lower()
     ext = _text(row.extensao).lower()
-    is_image = mime.startswith("image/") or ext in {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-    owner_type = "fornecedor" if getattr(row, "fornecedor_id", None) is not None else "cliente"
-    owner_id = int(row.fornecedor_id) if owner_type == "fornecedor" else int(row.cliente_id)
+    browser_image_exts = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    browser_image_mimes = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    is_image = mime.startswith("image/") or ext in browser_image_exts
+    if getattr(row, "fornecedor_id", None) is not None:
+        owner_type, owner_id = "fornecedor", int(row.fornecedor_id)
+    elif getattr(row, "cliente_id", None) is not None:
+        owner_type, owner_id = "cliente", int(row.cliente_id)
+    else:
+        owner_type, owner_id = "geral", None
+    printable = bool(ext in browser_image_exts or mime in browser_image_mimes or ext == ".pdf" or mime == "application/pdf")
     return {
         "id": int(row.id),
         "cliente_id": int(row.cliente_id) if row.cliente_id is not None else None,
@@ -182,6 +190,7 @@ def _format_file(row: Arquivo) -> dict:
         "criado_em": row.criado_em,
         "atualizado_em": row.atualizado_em,
         "is_image": is_image,
+        "imprimivel": printable,
         "url": f"/api/arquivos-tecnicos/arquivos/{int(row.id)}/conteudo",
         "download_url": f"/api/arquivos-tecnicos/arquivos/{int(row.id)}/conteudo?download=1",
     }
@@ -225,14 +234,156 @@ def resumo(
         func.count(func.distinct(Arquivo.fornecedor_id)),
     ).filter(Arquivo.empresa_id == empresa_id).one()
     pastas = db.query(func.count(Pasta.id)).filter(Pasta.empresa_id == empresa_id).scalar() or 0
+    arquivos_gerais = (
+        db.query(func.count(Arquivo.id))
+        .filter(
+            Arquivo.empresa_id == empresa_id,
+            Arquivo.cliente_id.is_(None),
+            Arquivo.fornecedor_id.is_(None),
+        )
+        .scalar()
+        or 0
+    )
     return {
         "clientes_com_arquivos": int(arquivos_q[2] or 0),
         "fornecedores_com_arquivos": int(arquivos_q[3] or 0),
+        "arquivos_gerais": int(arquivos_gerais),
         "cadastros_com_arquivos": int(arquivos_q[2] or 0) + int(arquivos_q[3] or 0),
         "arquivos": int(arquivos_q[0] or 0),
         "pastas": int(pastas),
         "total_bytes": int(arquivos_q[1] or 0),
     }
+
+
+@router.get("/geral")
+def biblioteca_geral(
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    empresa_id = int(current_user.empresa_id)
+    counts = (
+        db.query(
+            Arquivo.pasta_id,
+            func.count(Arquivo.id),
+            func.coalesce(func.sum(Arquivo.tamanho_bytes), 0),
+            func.max(Arquivo.criado_em),
+        )
+        .filter(
+            Arquivo.empresa_id == empresa_id,
+            Arquivo.cliente_id.is_(None),
+            Arquivo.fornecedor_id.is_(None),
+        )
+        .group_by(Arquivo.pasta_id)
+        .all()
+    )
+    count_map = {int(row[0]): row[1:] for row in counts}
+    folders = (
+        db.query(Pasta)
+        .filter(
+            Pasta.empresa_id == empresa_id,
+            Pasta.cliente_id.is_(None),
+            Pasta.fornecedor_id.is_(None),
+        )
+        .order_by(Pasta.ordem.asc(), Pasta.nome.asc(), Pasta.id.asc())
+        .all()
+    )
+    return {
+        "geral": {
+            "entidade_tipo": "geral",
+            "nome": "Biblioteca geral",
+            "descricao": "Documentos reutilizáveis em orçamentos e propostas.",
+        },
+        "pastas": [
+            _format_folder(folder, *count_map.get(int(folder.id), (0, 0, None)))
+            for folder in folders
+        ],
+    }
+
+
+@router.get("/geral/arquivos")
+def listar_arquivos_gerais(
+    somente_imprimiveis: bool = Query(default=False),
+    busca: str = Query(default="", max_length=180),
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    empresa_id = int(current_user.empresa_id)
+    q = (
+        db.query(Arquivo, Pasta.nome.label("pasta_nome"), Pasta.ordem.label("pasta_ordem"))
+        .join(Pasta, Pasta.id == Arquivo.pasta_id)
+        .filter(
+            Arquivo.empresa_id == empresa_id,
+            Pasta.empresa_id == empresa_id,
+            Arquivo.cliente_id.is_(None),
+            Arquivo.fornecedor_id.is_(None),
+            Pasta.cliente_id.is_(None),
+            Pasta.fornecedor_id.is_(None),
+        )
+    )
+    term = _text(busca)
+    if term:
+        like = f"%{term}%"
+        q = q.filter(or_(
+            Arquivo.titulo.ilike(like),
+            Arquivo.arquivo_nome.ilike(like),
+            Arquivo.descricao.ilike(like),
+            Pasta.nome.ilike(like),
+        ))
+    rows = q.order_by(Pasta.ordem.asc(), Pasta.nome.asc(), Arquivo.criado_em.desc(), Arquivo.id.desc()).all()
+    items = []
+    for row, pasta_nome, _pasta_ordem in rows:
+        item = _format_file(row)
+        item["pasta_nome"] = pasta_nome
+        if somente_imprimiveis and not item["imprimivel"]:
+            continue
+        items.append(item)
+    return {"items": items, "total": len(items)}
+
+
+@router.post("/geral/pastas", status_code=status.HTTP_201_CREATED)
+def criar_pasta_geral(
+    payload: FolderIn,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    empresa_id = int(current_user.empresa_id)
+    nome = _text(payload.nome)
+    duplicate = (
+        db.query(Pasta.id)
+        .filter(
+            Pasta.empresa_id == empresa_id,
+            Pasta.cliente_id.is_(None),
+            Pasta.fornecedor_id.is_(None),
+            func.lower(Pasta.nome) == nome.lower(),
+        )
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(status_code=409, detail="Já existe uma pasta com este nome na biblioteca geral.")
+    max_order = (
+        db.query(func.max(Pasta.ordem))
+        .filter(
+            Pasta.empresa_id == empresa_id,
+            Pasta.cliente_id.is_(None),
+            Pasta.fornecedor_id.is_(None),
+        )
+        .scalar()
+        or 0
+    )
+    folder = Pasta(
+        empresa_id=empresa_id,
+        cliente_id=None,
+        fornecedor_id=None,
+        nome=nome,
+        icone=_safe_icon(payload.icone),
+        ordem=int(max_order) + 10,
+        criado_por_id=int(current_user.id),
+        criado_por_nome=_text(current_user.nome) or None,
+    )
+    db.add(folder)
+    db.commit()
+    db.refresh(folder)
+    return _format_folder(folder)
 
 
 @router.get("/clientes")
@@ -567,20 +718,25 @@ def editar_pasta_cliente(
     folder = _folder_for_company(db, pasta_id, int(current_user.empresa_id))
     nome = _text(payload.nome)
     owner_type, owner_id = _folder_owner(folder)
-    owner_filter = (Pasta.fornecedor_id == owner_id) if owner_type == "fornecedor" else (Pasta.cliente_id == owner_id)
-    duplicate = (
-        db.query(Pasta.id)
-        .filter(
-            Pasta.empresa_id == int(current_user.empresa_id),
-            owner_filter,
-            Pasta.id != int(folder.id),
-            func.lower(Pasta.nome) == nome.lower(),
-        )
-        .first()
-    )
+    filters = [
+        Pasta.empresa_id == int(current_user.empresa_id),
+        Pasta.id != int(folder.id),
+        func.lower(Pasta.nome) == nome.lower(),
+    ]
+    if owner_type == "fornecedor":
+        filters.extend([Pasta.fornecedor_id == int(owner_id), Pasta.cliente_id.is_(None)])
+        duplicate_label = "fornecedor"
+    elif owner_type == "cliente":
+        filters.extend([Pasta.cliente_id == int(owner_id), Pasta.fornecedor_id.is_(None)])
+        duplicate_label = "cliente"
+    else:
+        filters.extend([Pasta.cliente_id.is_(None), Pasta.fornecedor_id.is_(None)])
+        duplicate_label = "biblioteca geral"
+    duplicate = db.query(Pasta.id).filter(*filters).first()
     if duplicate:
-        label = "fornecedor" if owner_type == "fornecedor" else "cliente"
-        raise HTTPException(status_code=409, detail=f"Já existe uma pasta com este nome para o {label}.")
+        if owner_type == "geral":
+            raise HTTPException(status_code=409, detail="Já existe uma pasta com este nome na biblioteca geral.")
+        raise HTTPException(status_code=409, detail=f"Já existe uma pasta com este nome para o {duplicate_label}.")
     folder.nome = nome
     if payload.icone is not None:
         folder.icone = _safe_icon(payload.icone)
@@ -632,9 +788,9 @@ def enviar_arquivos(
     folder = _folder_for_company(db, pasta_id, empresa_id)
     owner_type, owner_id = _folder_owner(folder)
     if owner_type == "fornecedor":
-        _supplier_for_company(db, owner_id, empresa_id)
-    else:
-        _client_for_company(db, owner_id, empresa_id)
+        _supplier_for_company(db, int(owner_id), empresa_id)
+    elif owner_type == "cliente":
+        _client_for_company(db, int(owner_id), empresa_id)
     if not arquivos:
         raise HTTPException(status_code=400, detail="Selecione pelo menos um arquivo.")
     if len(arquivos) > 30:
@@ -644,8 +800,10 @@ def enviar_arquivos(
     # namespace próprio para evitar qualquer colisão de IDs.
     if owner_type == "fornecedor":
         relative_dir = Path(str(empresa_id)) / "fornecedores" / str(owner_id) / str(int(folder.id))
-    else:
+    elif owner_type == "cliente":
         relative_dir = Path(str(empresa_id)) / str(owner_id) / str(int(folder.id))
+    else:
+        relative_dir = Path(str(empresa_id)) / "geral" / str(int(folder.id))
     target_dir = (STORAGE_DIR / relative_dir).resolve()
     target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -680,8 +838,8 @@ def enviar_arquivos(
                     buffer.write(chunk)
             row = Arquivo(
                 empresa_id=empresa_id,
-                cliente_id=owner_id if owner_type == "cliente" else None,
-                fornecedor_id=owner_id if owner_type == "fornecedor" else None,
+                cliente_id=int(owner_id) if owner_type == "cliente" else None,
+                fornecedor_id=int(owner_id) if owner_type == "fornecedor" else None,
                 pasta_id=int(folder.id),
                 titulo=Path(original_name).stem[:180] or None,
                 descricao=_text(descricao)[:2000] or None,
@@ -749,6 +907,68 @@ def conteudo_arquivo(
         safe_name = _text(row.arquivo_nome) or path.name
         headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(safe_name)}"
     return FileResponse(path, media_type=row.mime_type or "application/octet-stream", headers=headers)
+
+
+@router.get("/arquivos/{arquivo_id}/paginas")
+def paginas_arquivo_pdf(
+    arquivo_id: int,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = _file_for_company(db, arquivo_id, int(current_user.empresa_id))
+    ext = _text(row.extensao).lower()
+    mime = _text(row.mime_type).lower()
+    if ext != ".pdf" and mime != "application/pdf":
+        raise HTTPException(status_code=415, detail="O arquivo não é um PDF.")
+    path = _physical_path(row)
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="Arquivo físico não encontrado.")
+    try:
+        import fitz
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail="Renderização de PDF indisponível no servidor.") from exc
+    try:
+        with fitz.open(path) as document:
+            return {"arquivo_id": int(row.id), "paginas": int(document.page_count)}
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="Não foi possível ler este PDF.") from exc
+
+
+@router.get("/arquivos/{arquivo_id}/paginas/{pagina}.png")
+def renderizar_pagina_pdf(
+    arquivo_id: int,
+    pagina: int,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = _file_for_company(db, arquivo_id, int(current_user.empresa_id))
+    ext = _text(row.extensao).lower()
+    mime = _text(row.mime_type).lower()
+    if ext != ".pdf" and mime != "application/pdf":
+        raise HTTPException(status_code=415, detail="O arquivo não é um PDF.")
+    path = _physical_path(row)
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="Arquivo físico não encontrado.")
+    try:
+        import fitz
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail="Renderização de PDF indisponível no servidor.") from exc
+    try:
+        with fitz.open(path) as document:
+            if pagina < 1 or pagina > int(document.page_count):
+                raise HTTPException(status_code=404, detail="Página do PDF não encontrada.")
+            page = document.load_page(pagina - 1)
+            pixmap = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0), alpha=False)
+            content = pixmap.tobytes("png")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="Não foi possível renderizar esta página do PDF.") from exc
+    return Response(
+        content=content,
+        media_type="image/png",
+        headers={"Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.delete("/arquivos/{arquivo_id}", status_code=status.HTTP_204_NO_CONTENT)

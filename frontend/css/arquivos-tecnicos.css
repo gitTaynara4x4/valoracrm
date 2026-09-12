@@ -113,7 +113,7 @@
   margin: 0 4px 10px;
   padding: 3px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 3px;
   border: 1px solid var(--border, var(--arq-border));
   border-radius: 11px;
@@ -955,4 +955,13 @@ html[data-theme="dark"] .arquivos-tecnicos-page .arq-upload-progress {
   background: #212121 !important;
   color: #d1d1d1 !important;
   border-color: rgba(255, 255, 255, .10) !important;
+}
+
+
+/* Biblioteca geral — 2026-09-12 */
+.arquivos-tecnicos-page [hidden] { display: none !important; }
+.arquivos-tecnicos-page .arq-clients-panel.is-general-scope .arq-panel-head { padding-bottom: 2px; }
+.arquivos-tecnicos-page .arq-clients-panel.is-general-scope { min-height: 0; }
+@media (max-width: 760px) {
+  .arquivos-tecnicos-page .arq-entity-tab { padding-inline: 5px; font-size: 8.8px; }
 }

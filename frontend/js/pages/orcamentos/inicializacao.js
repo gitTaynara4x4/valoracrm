@@ -95,6 +95,29 @@
     $('btn-cancelar-envio-financeiro')?.addEventListener('click', cancelarEnvioFinanceiro);
     $('btn-abrir-financeiro-orcamento')?.addEventListener('click', abrirVendaNoFinanceiro);
     $('btn-imprimir-orcamento').addEventListener('click', printCurrent);
+    $('btn-selecionar-anexos-orcamento')?.addEventListener('click', openBudgetAttachmentPicker);
+    $('btn-fechar-anexos-orcamento')?.addEventListener('click', () => closeOverlay('budget-attachments-modal'));
+    $('btn-cancelar-anexos-orcamento')?.addEventListener('click', () => closeOverlay('budget-attachments-modal'));
+    $('btn-salvar-anexos-orcamento')?.addEventListener('click', saveBudgetAttachmentSelection);
+    $('budget-attachments-search')?.addEventListener('input', renderAttachmentPickerLibrary);
+    $('budget-attachments-library')?.addEventListener('change', (event) => {
+      const checkbox = event.target.closest('input[type="checkbox"]');
+      if (!checkbox) return;
+      const id = Number(checkbox.value);
+      const current = (state.attachmentSelection || []).map(Number);
+      if (checkbox.checked && !current.includes(id)) current.push(id);
+      if (!checkbox.checked) {
+        const index = current.indexOf(id);
+        if (index >= 0) current.splice(index, 1);
+      }
+      state.attachmentSelection = current;
+      checkbox.closest('.budget-attachment-choice')?.classList.toggle('is-selected', checkbox.checked);
+      updateAttachmentSelectionCount();
+    });
+    $('budget-attachments-list')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-remove-budget-attachment]');
+      if (button) void removeBudgetAttachment(button.dataset.removeBudgetAttachment);
+    });
     $('btn-whatsapp-orcamento').addEventListener('click', () => state.currentId && sendWhatsApp(state.currentId));
     $('btn-gerar-link-cliente')?.addEventListener('click', openProposalClientPreparation);
     $('btn-gerar-contrato-cliente')?.addEventListener('click', openContractClient);

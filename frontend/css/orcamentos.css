@@ -4413,3 +4413,253 @@ html[data-theme="dark"] .budget-client-contract-list i,
 html[data-theme="dark"] .budget-generated-contract-list i {
   color: #78c89e !important;
 }
+
+/* =========================================================
+   DOCUMENTOS ANEXOS · BIBLIOTECA GERAL · 2026-09-12
+   ========================================================= */
+.budget-attachments-card {
+  display: grid;
+  gap: 12px;
+}
+
+.budget-attachments-heading {
+  align-items: center;
+}
+
+.budget-attachments-heading .btn {
+  flex: 0 0 auto;
+}
+
+.budget-attachments-list {
+  display: grid;
+  gap: 8px;
+}
+
+.budget-attachments-empty,
+.budget-attachments-list:empty::before {
+  content: "Nenhum documento anexado.";
+  min-height: 54px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border, #dfe6eb);
+  border-radius: 10px;
+  background: var(--surface-soft, #f8fafb);
+  color: var(--muted, #72808c);
+  font-size: 11px;
+}
+
+.budget-attachment-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid var(--border, #e1e7eb);
+  border-radius: 10px;
+  background: var(--panel, #fff);
+}
+
+.budget-attachment-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(75, 195, 199, .12);
+  color: #24979c;
+  font-size: 15px;
+}
+
+.budget-attachment-copy {
+  min-width: 0;
+}
+
+.budget-attachment-copy strong,
+.budget-attachment-copy span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.budget-attachment-copy strong {
+  color: var(--text, #17212b);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.budget-attachment-copy span {
+  margin-top: 2px;
+  color: var(--muted, #73818d);
+  font-size: 9.5px;
+}
+
+.budget-attachment-remove {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted, #74818c);
+  cursor: pointer;
+}
+
+.budget-attachment-remove:hover {
+  background: #fff1f1;
+  color: #b84242;
+}
+
+.budget-attachments-help {
+  color: var(--muted, #74818c);
+  font-size: 9.5px;
+}
+
+.budget-attachments-modal-content {
+  width: min(760px, calc(100vw - 28px));
+  max-height: min(780px, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+}
+
+.budget-attachments-modal-body {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.budget-attachments-search {
+  min-height: 40px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border, #dfe6eb);
+  border-radius: 10px;
+  background: var(--panel, #fff);
+  color: var(--muted, #74818c);
+}
+
+.budget-attachments-search input {
+  width: 100%;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--text, #17212b) !important;
+  font: inherit;
+}
+
+.budget-attachments-library {
+  min-height: 260px;
+  max-height: 510px;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.budget-attachments-folder {
+  margin-bottom: 16px;
+}
+
+.budget-attachments-folder:last-child {
+  margin-bottom: 0;
+}
+
+.budget-attachments-folder-title {
+  margin: 0 0 7px;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted, #687784);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.budget-attachment-choice {
+  width: 100%;
+  min-height: 52px;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: 18px 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--border, #e1e7eb);
+  border-radius: 10px;
+  background: var(--panel, #fff);
+  cursor: pointer;
+}
+
+.budget-attachment-choice:hover {
+  border-color: rgba(75, 195, 199, .62);
+  background: rgba(75, 195, 199, .035);
+}
+
+.budget-attachment-choice.is-selected {
+  border-color: #4BC3C7;
+  background: rgba(75, 195, 199, .08);
+}
+
+.budget-attachment-choice input {
+  width: 16px;
+  height: 16px;
+  accent-color: #4BC3C7;
+}
+
+.budget-attachment-choice .budget-attachment-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.budget-attachments-selection-count {
+  margin-right: auto;
+  color: var(--muted, #74818c);
+  font-size: 10px;
+}
+
+html[data-theme="dark"] .budget-attachment-item,
+html[data-theme="dark"] .budget-attachments-search,
+html[data-theme="dark"] .budget-attachment-choice {
+  background: #2f2f2f !important;
+  border-color: rgba(255,255,255,.10) !important;
+}
+
+html[data-theme="dark"] .budget-attachments-empty,
+html[data-theme="dark"] .budget-attachments-list:empty::before {
+  background: #292929 !important;
+  border-color: rgba(255,255,255,.10) !important;
+  color: #a9a9a9 !important;
+}
+
+html[data-theme="dark"] .budget-attachment-choice.is-selected {
+  border-color: #4BC3C7 !important;
+  background: rgba(75,195,199,.10) !important;
+}
+
+html[data-theme="dark"] .budget-attachment-copy strong,
+html[data-theme="dark"] .budget-attachments-search input {
+  color: #ececec !important;
+}
+
+@media (max-width: 680px) {
+  .budget-attachments-heading {
+    align-items: stretch;
+  }
+  .budget-attachments-heading .btn {
+    width: 100%;
+  }
+  .budget-attachments-modal-content {
+    width: calc(100vw - 14px);
+    max-height: calc(100vh - 14px);
+  }
+}

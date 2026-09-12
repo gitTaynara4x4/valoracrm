@@ -69,24 +69,56 @@
     win.document.close();
   }
 
-  function printCurrent() {
-    const html = buildPreviewHtml();
+  async function printCurrent() {
     const win = window.open('', '_blank', 'width=1000,height=800');
     if (!win) { toast('Permita pop-ups para gerar o PDF.', 'error'); return; }
     try { win.opener = null; } catch (_) {}
-    win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><base href="${escapeHtml(`${window.location.origin}/`)}"><title>${escapeHtml($('orcamento-codigo').value || 'Orçamento')}</title><style>${printStyles()}</style></head><body><div class="document-preview">${html}</div><script>window.onload=()=>setTimeout(()=>window.print(),350)<\/script></body></html>`);
+
+    win.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Preparando documento...</title></head><body style="font-family:Inter,Arial,sans-serif;padding:32px;color:#52606a">Preparando orçamento e documentos anexos...</body></html>');
     win.document.close();
+
+    try {
+      const html = buildPreviewHtml();
+      const attachmentsHtml = await buildAttachmentPrintHtml(state.attachments);
+      const title = escapeHtml($('orcamento-codigo').value || 'Orçamento');
+      const waitAndPrint = `<script>
+        window.onload=()=>{
+          const images=Array.from(document.images);
+          const waits=images.map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;}));
+          Promise.all(waits).then(()=>document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(()=>setTimeout(()=>window.print(),350));
+        };
+      <\/script>`;
+      win.document.open();
+      win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><base href="${escapeHtml(`${window.location.origin}/`)}"><title>${title}</title><style>${printStyles()}${attachmentPrintStyles()}</style></head><body><div class="document-preview">${html}</div>${attachmentsHtml}${waitAndPrint}</body></html>`);
+      win.document.close();
+    } catch (error) {
+      try { win.close(); } catch (_) {}
+      toast(error.message || 'Não foi possível preparar os documentos anexos para impressão.', 'error', 5000);
+    }
   }
 
   async function printBudget(id) {
-    if (state.currentId === id && !$('budget-modal').hidden) { printCurrent(); return; }
+    if (state.currentId === id && !$('budget-modal').hidden) { await printCurrent(); return; }
     try {
       const budget = await api(`${API}/${id}`);
-      const previous = { currentId: state.currentId, current: state.current, items: state.items, payments: state.payments, client: state.selectedClient };
-      state.currentId = id; state.current = budget; state.items = (budget.itens || []).map(normalizeItem); state.payments = (budget.pagamentos || []).map(normalizePayment); state.selectedClient = null;
+      const previous = {
+        currentId: state.currentId, current: state.current, items: state.items, payments: state.payments,
+        attachments: state.attachments, attachmentSelection: state.attachmentSelection, client: state.selectedClient,
+      };
+      state.currentId = id;
+      state.current = budget;
+      state.items = (budget.itens || []).map(normalizeItem);
+      state.payments = (budget.pagamentos || []).map(normalizePayment);
+      state.attachments = Array.isArray(budget.anexos) ? budget.anexos.map((item) => ({ ...item })) : [];
+      state.attachmentSelection = state.attachments.map((item) => Number(item.id)).filter(Boolean);
+      state.selectedClient = null;
       fillBudgetForm(budget);
-      printCurrent();
-      Object.assign(state, { currentId: previous.currentId, current: previous.current, items: previous.items, payments: previous.payments, selectedClient: previous.client });
+      await printCurrent();
+      Object.assign(state, {
+        currentId: previous.currentId, current: previous.current, items: previous.items, payments: previous.payments,
+        attachments: previous.attachments, attachmentSelection: previous.attachmentSelection, selectedClient: previous.client,
+      });
+      renderBudgetAttachments();
     } catch (error) { toast(error.message, 'error'); }
   }
 

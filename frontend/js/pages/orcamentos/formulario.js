@@ -9,6 +9,9 @@
     state.appliedTemplateId = null;
     state.items = [];
     state.payments = [];
+    state.attachments = [];
+    state.attachmentLibrary = [];
+    state.attachmentSelection = [];
     state.selectedClient = null;
     state.calculation = null;
     state.serviceProposalModel = 'padrao';
@@ -52,6 +55,7 @@
     addDefaultPayment();
     renderItems();
     renderPayments();
+    renderBudgetAttachments();
     updateStatusPreview();
     updateTotals();
     renderHistory([]);
@@ -192,6 +196,8 @@
 
   function fillBudgetForm(budget) {
     state.appliedTemplateId = Number(budget?.modelo_id) || null;
+    state.attachments = Array.isArray(budget?.anexos) ? budget.anexos.map((item) => ({ ...item })) : [];
+    state.attachmentSelection = state.attachments.map((item) => Number(item.id)).filter(Boolean);
     const emitterSelect = $('orcamento-emitente-id');
     const fallbackEmitter = state.emitters.find((emitter) => emitter.padrao && emitter.ativo !== false)
       || state.emitters.find((emitter) => emitter.ativo !== false);
@@ -239,6 +245,7 @@
     renderItems();
     if (!state.payments.length) addDefaultPayment();
     renderPayments();
+    renderBudgetAttachments();
     renderHistory(budget.historico || []);
     renderServiceProposal(budget.proposta_modelo || 'padrao', budget.proposta_comercial || {});
     updateStatusPreview();

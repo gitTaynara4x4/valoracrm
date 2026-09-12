@@ -19,25 +19,24 @@
 
   const $ = (id) => document.getElementById(id);
 
-  const entityCopy = () => state.entityType === 'fornecedor'
-    ? {
-        singular: 'fornecedor',
-        singularTitle: 'Fornecedor',
-        plural: 'fornecedores',
-        pluralTitle: 'Fornecedores',
-        endpoint: 'fornecedores',
-        query: 'fornecedor',
-        icon: 'fa-truck-field',
-      }
-    : {
-        singular: 'cliente',
-        singularTitle: 'Cliente',
-        plural: 'clientes',
-        pluralTitle: 'Clientes',
-        endpoint: 'clientes',
-        query: 'cliente',
-        icon: 'fa-user-shield',
+  const entityCopy = () => {
+    if (state.entityType === 'geral') {
+      return {
+        singular: 'biblioteca', singularTitle: 'Biblioteca', plural: 'documentos gerais', pluralTitle: 'Biblioteca geral',
+        endpoint: 'geral', query: 'escopo', icon: 'fa-folder-tree',
       };
+    }
+    if (state.entityType === 'fornecedor') {
+      return {
+        singular: 'fornecedor', singularTitle: 'Fornecedor', plural: 'fornecedores', pluralTitle: 'Fornecedores',
+        endpoint: 'fornecedores', query: 'fornecedor', icon: 'fa-truck-field',
+      };
+    }
+    return {
+      singular: 'cliente', singularTitle: 'Cliente', plural: 'clientes', pluralTitle: 'Clientes',
+      endpoint: 'clientes', query: 'cliente', icon: 'fa-user-shield',
+    };
+  };
 
   const escapeHtml = (value) => String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -115,6 +114,7 @@
 
   function selectedQuery() {
     const params = new URLSearchParams(window.location.search);
+    if (params.get('escopo') === 'geral') return { type: 'geral', id: null };
     for (const type of ['fornecedor', 'cliente']) {
       const id = Number(params.get(type));
       if (Number.isInteger(id) && id > 0) return { type, id };
@@ -126,41 +126,86 @@
     const url = new URL(window.location.href);
     url.searchParams.delete('cliente');
     url.searchParams.delete('fornecedor');
-    if (id) url.searchParams.set(entityCopy().query, String(id));
+    url.searchParams.delete('escopo');
+    if (state.entityType === 'geral') url.searchParams.set('escopo', 'geral');
+    else if (id) url.searchParams.set(entityCopy().query, String(id));
     window.history.replaceState({}, '', `${url.pathname}${url.search}`);
   }
 
   function updateEntityUi() {
     const copy = entityCopy();
+    const general = state.entityType === 'geral';
     document.querySelectorAll('[data-arq-entity-type]').forEach((button) => {
       const active = button.dataset.arqEntityType === state.entityType;
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-selected', active ? 'true' : 'false');
     });
 
+    $('arq-search-box')?.toggleAttribute('hidden', general);
+    $('arq-filter-box')?.toggleAttribute('hidden', general);
+    $('arq-client-list')?.toggleAttribute('hidden', general);
+    $('arq-client-pagination')?.toggleAttribute('hidden', general);
+    document.querySelector('.arq-clients-panel')?.classList.toggle('is-general-scope', general);
+
     if ($('arq-entity-heading')) $('arq-entity-heading').textContent = copy.pluralTitle;
-    if ($('arq-entity-help')) $('arq-entity-help').textContent = 'Localize por nome, código ou endereço.';
+    if ($('arq-entity-help')) $('arq-entity-help').textContent = general
+      ? 'Documentos reutilizáveis em qualquer orçamento.'
+      : 'Localize por nome, código ou endereço.';
     if ($('arq-busca-cliente')) $('arq-busca-cliente').placeholder = `Buscar ${copy.singular}...`;
     if ($('arq-only-files-label')) $('arq-only-files-label').textContent = `Mostrar somente ${copy.plural} com arquivos`;
-    if ($('arq-empty-title')) $('arq-empty-title').textContent = `Selecione um ${copy.singular}`;
-    if ($('arq-empty-text')) $('arq-empty-text').textContent = `Escolha um ${copy.singular} ao lado para acessar as pastas, fotos e documentos dele.`;
-    if ($('stat-entidades-label')) $('stat-entidades-label').textContent = `${copy.pluralTitle} com arquivos`;
-    if ($('stat-entidades-icon')) $('stat-entidades-icon').className = `fa-solid ${state.entityType === 'fornecedor' ? 'fa-truck-field' : 'fa-user-group'}`;
-    if ($('arq-selected-icon')) $('arq-selected-icon').className = `fa-solid ${state.entityType === 'fornecedor' ? 'fa-truck-field' : 'fa-building-shield'}`;
+    if ($('arq-empty-title')) $('arq-empty-title').textContent = general ? 'Biblioteca geral' : `Selecione um ${copy.singular}`;
+    if ($('arq-empty-text')) $('arq-empty-text').textContent = general
+      ? 'Crie pastas gerais para catálogos, fichas técnicas, termos e outros documentos reutilizáveis.'
+      : `Escolha um ${copy.singular} ao lado para acessar as pastas, fotos e documentos dele.`;
+    if ($('stat-entidades-label')) $('stat-entidades-label').textContent = general ? 'Arquivos gerais' : `${copy.pluralTitle} com arquivos`;
+    if ($('stat-entidades-icon')) $('stat-entidades-icon').className = `fa-solid ${general ? 'fa-folder-tree' : (state.entityType === 'fornecedor' ? 'fa-truck-field' : 'fa-user-group')}`;
+    if ($('arq-selected-icon')) $('arq-selected-icon').className = `fa-solid ${general ? 'fa-folder-tree' : (state.entityType === 'fornecedor' ? 'fa-truck-field' : 'fa-building-shield')}`;
+    if ($('arq-folders-title')) $('arq-folders-title').textContent = general ? 'Pastas da biblioteca geral' : `Pastas do ${copy.singular}`;
+    if ($('arq-folders-help')) $('arq-folders-help').textContent = general
+      ? 'Organize documentos que poderão ser anexados aos orçamentos.'
+      : `Crie somente as pastas que fizerem sentido para este ${copy.singular}.`;
+    if ($('modal-arq-pasta-subtitle')) $('modal-arq-pasta-subtitle').textContent = general
+      ? 'Crie uma pasta independente de clientes e fornecedores.'
+      : `Crie uma pasta específica para este ${copy.singular}.`;
   }
 
   async function loadSummary() {
     try {
       const data = await api(`${API}/resumo`);
-      const count = state.entityType === 'fornecedor'
-        ? data.fornecedores_com_arquivos
-        : data.clientes_com_arquivos;
+      const count = state.entityType === 'geral'
+        ? data.arquivos_gerais
+        : (state.entityType === 'fornecedor' ? data.fornecedores_com_arquivos : data.clientes_com_arquivos);
       $('stat-clientes').textContent = Number(count || 0).toLocaleString('pt-BR');
       $('stat-arquivos').textContent = Number(data.arquivos || 0).toLocaleString('pt-BR');
       $('stat-pastas').textContent = Number(data.pastas || 0).toLocaleString('pt-BR');
       $('stat-espaco').textContent = formatBytes(data.total_bytes || 0);
     } catch (error) {
       console.error('[arquivos-tecnicos] resumo:', error);
+    }
+  }
+
+  async function loadGeneralLibrary({ reopenFolderId = null, updateUrl = true } = {}) {
+    state.loadToken += 1;
+    state.selectedEntityId = null;
+    state.selectedEntity = { entidade_tipo: 'geral', nome: 'Biblioteca geral' };
+    $('arq-empty-client').hidden = true;
+    $('arq-client-content').hidden = false;
+    $('arq-gallery-section').hidden = true;
+    $('arq-folder-grid').innerHTML = '<div class="arq-loading" style="grid-column:1/-1"><i class="fa-solid fa-spinner fa-spin"></i> Carregando biblioteca geral...</div>';
+    try {
+      const data = await api(`${API}/geral`);
+      state.folders = Array.isArray(data.pastas) ? data.pastas : [];
+      state.selectedFolder = null;
+      state.files = [];
+      $('arq-selected-code').textContent = 'BIBLIOTECA GERAL';
+      $('arq-selected-name').textContent = 'Documentos gerais';
+      $('arq-selected-address').textContent = 'Catálogos, fichas técnicas, termos e outros documentos disponíveis para os orçamentos.';
+      renderFolders();
+      if (updateUrl) syncUrlEntity(null);
+      if (reopenFolderId) await openFolder(reopenFolderId);
+    } catch (error) {
+      toast(error.message || 'Não foi possível carregar a biblioteca geral.', 'error');
+      $('arq-folder-grid').innerHTML = '<div class="arq-empty-list" style="grid-column:1/-1">Não foi possível carregar a biblioteca geral.</div>';
     }
   }
 
@@ -191,6 +236,10 @@
   }
 
   async function loadEntities({ page = state.page, preserveSelection = true } = {}) {
+    if (state.entityType === 'geral') {
+      await loadGeneralLibrary({ updateUrl: true });
+      return;
+    }
     const host = $('arq-client-list');
     const copy = entityCopy();
     const token = ++state.loadToken;
@@ -237,7 +286,10 @@
     const count = state.folders.length;
     $('arq-folder-count').textContent = `${count} ${count === 1 ? 'pasta' : 'pastas'}`;
     if (!count) {
-      host.innerHTML = `<div class="arq-empty-list" style="grid-column:1/-1"><div><i class="fa-regular fa-folder-open"></i><br><strong>Nenhuma pasta criada para este ${copy.singular}.</strong><br>Clique em “Nova pasta” para começar.</div></div>`;
+      const emptyTitle = state.entityType === 'geral'
+        ? 'Nenhuma pasta criada na biblioteca geral.'
+        : `Nenhuma pasta criada para este ${copy.singular}.`;
+      host.innerHTML = `<div class="arq-empty-list" style="grid-column:1/-1"><div><i class="fa-regular fa-folder-open"></i><br><strong>${escapeHtml(emptyTitle)}</strong><br>Clique em “Nova pasta” para começar.</div></div>`;
       return;
     }
     host.innerHTML = state.folders.map((folder) => `
@@ -338,11 +390,23 @@
   }
 
   async function refreshSelectedEntity({ reopenFolder = false } = {}) {
-    const entityId = state.selectedEntityId;
     const folderId = reopenFolder ? state.selectedFolder?.id : null;
+    if (state.entityType === 'geral') {
+      await loadGeneralLibrary({ reopenFolderId: folderId, updateUrl: false });
+      return;
+    }
+    const entityId = state.selectedEntityId;
     if (!entityId) return;
     await selectEntity(entityId, { updateUrl: false });
     if (folderId) await openFolder(folderId);
+  }
+
+  async function refreshSummaryAndEntityList() {
+    if (state.entityType === 'geral') {
+      await loadSummary();
+      return;
+    }
+    await Promise.all([loadSummary(), loadEntities({ page: state.page, preserveSelection: true })]);
   }
 
   function uploadNotice(text) {
@@ -371,7 +435,7 @@
       const result = await api(`${API}/pastas/${state.selectedFolder.id}/arquivos`, { method: 'POST', body: form });
       toast(`${Number(result.total || files.length)} arquivo(s) enviado(s) com sucesso.`);
       await refreshSelectedEntity({ reopenFolder: true });
-      await Promise.all([loadSummary(), loadEntities({ page: state.page, preserveSelection: true })]);
+      await refreshSummaryAndEntityList();
     } catch (error) {
       toast(error.message || 'Não foi possível enviar os arquivos.', 'error', 4500);
     } finally {
@@ -389,7 +453,7 @@
       await api(`${API}/arquivos/${id}`, { method: 'DELETE' });
       toast('Arquivo excluído.');
       await refreshSelectedEntity({ reopenFolder: true });
-      await Promise.all([loadSummary(), loadEntities({ page: state.page, preserveSelection: true })]);
+      await refreshSummaryAndEntityList();
     } catch (error) {
       toast(error.message || 'Não foi possível excluir o arquivo.', 'error');
     }
@@ -431,14 +495,14 @@
       state.files = [];
       $('arq-gallery-section').hidden = true;
       await refreshSelectedEntity();
-      await Promise.all([loadSummary(), loadEntities({ page: state.page, preserveSelection: true })]);
+      await refreshSummaryAndEntityList();
     } catch (error) {
       toast(error.message || 'Não foi possível excluir a pasta.', 'error');
     }
   }
 
   async function saveEntityFolder() {
-    if (!state.selectedEntityId) return;
+    if (state.entityType !== 'geral' && !state.selectedEntityId) return;
     const nome = $('arq-pasta-nome').value.trim();
     if (!nome) {
       toast('Informe o nome da pasta.', 'error');
@@ -452,7 +516,10 @@
         await api(`${API}/pastas/${state.editingFolderId}`, { method: 'PATCH', body: JSON.stringify({ nome }) });
         toast('Pasta renomeada.');
       } else {
-        await api(`${API}/${entityCopy().endpoint}/${state.selectedEntityId}/pastas`, {
+        const path = state.entityType === 'geral'
+          ? `${API}/geral/pastas`
+          : `${API}/${entityCopy().endpoint}/${state.selectedEntityId}/pastas`;
+        await api(path, {
           method: 'POST',
           body: JSON.stringify({ nome, icone: 'fa-folder' }),
         });
@@ -460,7 +527,7 @@
       }
       hideModal('modal-arq-pasta');
       await refreshSelectedEntity({ reopenFolder: false });
-      await Promise.all([loadSummary(), loadEntities({ page: state.page, preserveSelection: true })]);
+      await refreshSummaryAndEntityList();
     } catch (error) {
       toast(error.message || 'Não foi possível salvar a pasta.', 'error');
     } finally {
@@ -469,7 +536,7 @@
   }
 
   async function switchEntityType(nextType) {
-    if (!['cliente', 'fornecedor'].includes(nextType) || nextType === state.entityType) return;
+    if (!['geral', 'cliente', 'fornecedor'].includes(nextType) || nextType === state.entityType) return;
     state.entityType = nextType;
     state.page = 1;
     state.pages = 1;
@@ -477,9 +544,14 @@
     state.loadToken += 1;
     if ($('arq-busca-cliente')) $('arq-busca-cliente').value = '';
     if ($('arq-so-com-arquivos')) $('arq-so-com-arquivos').checked = false;
-    clearEntitySelection();
+    clearEntitySelection({ updateUrl: false });
     updateEntityUi();
-    await Promise.all([loadSummary(), loadEntities({ page: 1, preserveSelection: false })]);
+    if (state.entityType === 'geral') {
+      await Promise.all([loadSummary(), loadGeneralLibrary({ updateUrl: true })]);
+    } else {
+      await Promise.all([loadSummary(), loadEntities({ page: 1, preserveSelection: false })]);
+      syncUrlEntity(null);
+    }
   }
 
   function bindEvents() {
@@ -513,8 +585,13 @@
     });
 
     $('btn-atualizar-arquivos')?.addEventListener('click', async () => {
-      await Promise.all([loadSummary(), loadEntities({ page: state.page })]);
-      if (state.selectedEntityId) await refreshSelectedEntity({ reopenFolder: Boolean(state.selectedFolder) });
+      await loadSummary();
+      if (state.entityType === 'geral') {
+        await refreshSelectedEntity({ reopenFolder: Boolean(state.selectedFolder) });
+      } else {
+        await loadEntities({ page: state.page });
+        if (state.selectedEntityId) await refreshSelectedEntity({ reopenFolder: Boolean(state.selectedFolder) });
+      }
       toast('Arquivos técnicos atualizados.');
     });
 
@@ -565,8 +642,12 @@
     if (requested) state.entityType = requested.type;
     updateEntityUi();
     bindEvents();
-    await Promise.all([loadSummary(), loadEntities({ page: 1 })]);
-    if (requested) await selectEntity(requested.id, { updateUrl: false });
+    if (state.entityType === 'geral') {
+      await Promise.all([loadSummary(), loadGeneralLibrary({ updateUrl: false })]);
+    } else {
+      await Promise.all([loadSummary(), loadEntities({ page: 1 })]);
+      if (requested?.id) await selectEntity(requested.id, { updateUrl: false });
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });

@@ -1,0 +1,35 @@
+VALORACRM — BIBLIOTECA GERAL + ANEXOS DE ORÇAMENTO
+Data: 12/09/2026
+
+O que foi adicionado
+- Arquivos Técnicos: novo escopo "Geral", sem vínculo com cliente ou fornecedor.
+- Pastas e uploads independentes dentro da Biblioteca Geral.
+- Orçamentos: seção "Documentos anexos" na aba Documento.
+- Seleção persistida de PDFs/imagens da Biblioteca Geral por orçamento.
+- Impressão: orçamento primeiro e anexos em seguida, cada anexo em nova página.
+- PDFs anexos são renderizados página a página para entrarem na mesma impressão/PDF do navegador.
+- Duplicação de orçamento preserva os anexos selecionados.
+- Isolamento por empresa mantido no backend e no banco.
+
+Aplicação
+1. Copie estes arquivos por cima da raiz do projeto, preservando as pastas.
+2. Faça o deploy normalmente.
+3. No deploy Docker/EasyPanel deste projeto, entrypoint.sh já executa as migrations automaticamente.
+4. Em ambiente local, se necessário:
+   pip install -r requirements.txt
+   python -m alembic upgrade head
+
+Nova migration
+- 20260912_0038_biblioteca_geral_anexos_orcamento.py
+
+Nova dependência
+- PyMuPDF==1.26.7 (usada somente para renderizar páginas dos PDFs anexados na impressão).
+
+Fluxo
+Arquivos Técnicos > Geral > Nova pasta > enviar arquivos
+Orçamentos > abrir orçamento salvo > Documento > Documentos anexos > Selecionar documentos
+Depois: Imprimir / Gerar PDF normalmente.
+
+Observação
+- Para impressão conjunta, o seletor mostra PDF, JPG/JPEG, PNG, WEBP e GIF.
+- Outros formatos continuam podendo existir na Biblioteca Geral, mas não entram na impressão conjunta.

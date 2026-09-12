@@ -18,13 +18,13 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260909-loading-global-v3" />
-  <link rel="stylesheet" href="/frontend/css/arquivos-tecnicos.css?v=20260810-arquivos-tecnicos-fornecedores-v30" />
+  <link rel="stylesheet" href="/frontend/css/arquivos-tecnicos.css?v=20260912-biblioteca-geral-v31" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 
   <script src="/frontend/js/shared/menu-global.js?v=20260807-arquivos-tecnicos-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260909-loading-global-v3" defer></script>
-  <script src="/frontend/js/pages/arquivos-tecnicos.js?v=20260810-arquivos-tecnicos-fornecedores-v30" defer></script>
+  <script src="/frontend/js/pages/arquivos-tecnicos.js?v=20260912-biblioteca-geral-v31" defer></script>
 </head>
 <body>
   <div class="layout">
@@ -35,7 +35,7 @@
         <div class="topbar-title">
           <span class="eyebrow">Cadastros</span>
           <h1>Arquivos Técnicos</h1>
-          <p class="topbar-subtitle">Fotos, documentos e arquivos organizados por cliente ou fornecedor.</p>
+          <p class="topbar-subtitle">Fotos, documentos e arquivos organizados na biblioteca geral, por cliente ou fornecedor.</p>
         </div>
         <div class="topbar-actions">
           <button class="btn btn-secondary" id="btn-atualizar-arquivos" type="button">
@@ -72,7 +72,10 @@
             </div>
           </div>
 
-          <div class="arq-entity-tabs" role="tablist" aria-label="Tipo de cadastro">
+          <div class="arq-entity-tabs" role="tablist" aria-label="Tipo de acervo">
+            <button class="arq-entity-tab" type="button" role="tab" aria-selected="false" data-arq-entity-type="geral">
+              <i class="fa-solid fa-folder-tree"></i> Geral
+            </button>
             <button class="arq-entity-tab is-active" type="button" role="tab" aria-selected="true" data-arq-entity-type="cliente">
               <i class="fa-solid fa-user-group"></i> Clientes
             </button>
@@ -81,12 +84,12 @@
             </button>
           </div>
 
-          <label class="arq-search">
+          <label class="arq-search" id="arq-search-box">
             <i class="fa-solid fa-magnifying-glass"></i>
             <input id="arq-busca-cliente" type="search" placeholder="Buscar cliente..." autocomplete="off" />
           </label>
 
-          <label class="arq-filter-check">
+          <label class="arq-filter-check" id="arq-filter-box">
             <input id="arq-so-com-arquivos" type="checkbox" />
             <span id="arq-only-files-label">Mostrar somente clientes com arquivos</span>
           </label>
@@ -95,7 +98,7 @@
             <div class="arq-loading"><i class="fa-solid fa-spinner fa-spin"></i> Carregando clientes...</div>
           </div>
 
-          <div class="arq-client-pagination">
+          <div class="arq-client-pagination" id="arq-client-pagination">
             <button class="btn btn-secondary btn-sm" id="arq-client-prev" type="button"><i class="fa-solid fa-chevron-left"></i></button>
             <span id="arq-client-page">1 / 1</span>
             <button class="btn btn-secondary btn-sm" id="arq-client-next" type="button"><i class="fa-solid fa-chevron-right"></i></button>
@@ -129,8 +132,8 @@
             <section class="arq-folders-section">
               <div class="arq-section-head">
                 <div>
-                  <h3>Pastas do cliente</h3>
-                  <p>Crie somente as pastas que fizerem sentido para este cliente.</p>
+                  <h3 id="arq-folders-title">Pastas do cliente</h3>
+                  <p id="arq-folders-help">Crie somente as pastas que fizerem sentido para este cliente.</p>
                 </div>
                 <span id="arq-folder-count" class="counter-text">0 pastas</span>
               </div>
@@ -166,7 +169,7 @@
       <div class="modal-overlay" id="modal-arq-pasta" hidden>
         <div class="modal-content modal-sm arq-small-modal" data-close-target="false">
           <header class="modal-header">
-            <div><h3 id="modal-arq-pasta-title">Nova pasta</h3><p class="modal-subtitle">Crie uma pasta específica para este cliente.</p></div>
+            <div><h3 id="modal-arq-pasta-title">Nova pasta</h3><p class="modal-subtitle" id="modal-arq-pasta-subtitle">Crie uma pasta específica para este cliente.</p></div>
             <button class="btn-close" type="button" data-arq-close="modal-arq-pasta"><i class="fa-solid fa-xmark"></i></button>
           </header>
           <div class="modal-body">

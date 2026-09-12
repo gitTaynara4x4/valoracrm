@@ -801,6 +801,10 @@ class BudgetUpdate(BudgetBase):
     pagamentos: Optional[List[PaymentOption]] = None
 
 
+class BudgetAttachmentsIn(BaseModel):
+    arquivo_ids: List[int] = Field(default_factory=list, max_length=100)
+
+
 class CalculationIn(BudgetBase):
     titulo: str = "Prévia"
 
@@ -1401,6 +1405,48 @@ def serialize_items(
     return output
 
 
+def serialize_budget_attachments(db: Session, budget_id: int, company_id: int) -> List[dict]:
+    exists = db.execute(text("SELECT to_regclass('public.orcamento_documentos_anexos') IS NOT NULL")).scalar()
+    if not exists:
+        return []
+    rows = db.execute(text("""
+        SELECT
+            d.arquivo_id AS id, d.ordem,
+            a.pasta_id, a.titulo, a.descricao, a.arquivo_nome, a.mime_type, a.extensao,
+            a.tamanho_bytes, a.criado_em, p.nome AS pasta_nome
+        FROM public.orcamento_documentos_anexos d
+        JOIN public.arquivos_tecnicos_arquivos a
+          ON a.id=d.arquivo_id AND a.empresa_id=d.empresa_id
+        JOIN public.arquivos_tecnicos_pastas p
+          ON p.id=a.pasta_id AND p.empresa_id=d.empresa_id
+        WHERE d.empresa_id=:empresa_id
+          AND d.orcamento_id=:orcamento_id
+          AND a.cliente_id IS NULL AND a.fornecedor_id IS NULL
+          AND p.cliente_id IS NULL AND p.fornecedor_id IS NULL
+        ORDER BY d.ordem ASC, d.id ASC
+    """), {"empresa_id": company_id, "orcamento_id": budget_id}).mappings().all()
+    result: List[dict] = []
+    for row in rows:
+        item = dict(row)
+        ext = str(item.get("extensao") or "").lower()
+        mime = str(item.get("mime_type") or "").lower()
+        browser_image_exts = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+        browser_image_mimes = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+        is_image = mime.startswith("image/") or ext in browser_image_exts
+        item["is_image"] = is_image
+        item["imprimivel"] = bool(
+            ext in browser_image_exts
+            or mime in browser_image_mimes
+            or ext == ".pdf"
+            or mime == "application/pdf"
+        )
+        item["url"] = f"/api/arquivos-tecnicos/arquivos/{int(item['id'])}/conteudo"
+        item["download_url"] = f"/api/arquivos-tecnicos/arquivos/{int(item['id'])}/conteudo?download=1"
+        item["criado_em"] = iso(item.get("criado_em"))
+        result.append(item)
+    return result
+
+
 def serialize_budget(
     db: Session,
     row: dict,
@@ -1509,6 +1555,10 @@ def serialize_budget(
             out["margem_percentual"] = dec_out(q2(live_margin))
             out["itens_sem_custo"] = missing
             out["analise_confiavel"] = missing == 0
+
+        out["anexos"] = serialize_budget_attachments(
+            db, int(out["id"]), int(out.get("empresa_id") or getattr(user, "empresa_id", 0) or 0)
+        )
 
         history = db.execute(text("""
             SELECT id, usuario_id, usuario_nome, acao, status_anterior, status_novo, descricao, dados_json, criado_em
@@ -2616,6 +2666,85 @@ def get_budget(
     if not row:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
     return serialize_budget(db, dict(row), current_user, complete=True)
+
+
+@router.get("/{budget_id:int}/anexos")
+def get_budget_attachments(
+    budget_id: int,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "ver")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    if not budget_row(db, budget_id, company_id):
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
+    return {"items": serialize_budget_attachments(db, budget_id, company_id)}
+
+
+@router.put("/{budget_id:int}/anexos")
+def update_budget_attachments(
+    budget_id: int,
+    payload: BudgetAttachmentsIn,
+    current_user: models.Usuario = Depends(require_permission("orcamentos", "editar")),
+    db: Session = Depends(get_db),
+):
+    company_id = int(current_user.empresa_id)
+    if not budget_row(db, budget_id, company_id):
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
+
+    arquivo_ids: List[int] = []
+    seen: set[int] = set()
+    for raw_id in payload.arquivo_ids or []:
+        file_id = int(raw_id or 0)
+        if file_id <= 0 or file_id in seen:
+            continue
+        seen.add(file_id)
+        arquivo_ids.append(file_id)
+
+    if arquivo_ids:
+        rows = db.execute(
+            text("""
+                SELECT a.id
+                FROM public.arquivos_tecnicos_arquivos a
+                JOIN public.arquivos_tecnicos_pastas p
+                  ON p.id=a.pasta_id AND p.empresa_id=a.empresa_id
+                WHERE a.empresa_id=:empresa_id
+                  AND a.id IN :ids
+                  AND a.cliente_id IS NULL AND a.fornecedor_id IS NULL
+                  AND p.cliente_id IS NULL AND p.fornecedor_id IS NULL
+            """).bindparams(bindparam("ids", expanding=True)),
+            {"empresa_id": company_id, "ids": arquivo_ids},
+        ).scalars().all()
+        valid_ids = {int(value) for value in rows}
+        invalid = [value for value in arquivo_ids if value not in valid_ids]
+        if invalid:
+            raise HTTPException(
+                status_code=422,
+                detail="Um ou mais documentos não pertencem à biblioteca geral desta empresa.",
+            )
+
+    db.execute(text("""
+        DELETE FROM public.orcamento_documentos_anexos
+        WHERE empresa_id=:empresa_id AND orcamento_id=:orcamento_id
+    """), {"empresa_id": company_id, "orcamento_id": budget_id})
+    for ordem, file_id in enumerate(arquivo_ids):
+        db.execute(text("""
+            INSERT INTO public.orcamento_documentos_anexos
+                (empresa_id, orcamento_id, arquivo_id, ordem, criado_por_id)
+            VALUES
+                (:empresa_id, :orcamento_id, :arquivo_id, :ordem, :usuario_id)
+        """), {
+            "empresa_id": company_id,
+            "orcamento_id": budget_id,
+            "arquivo_id": file_id,
+            "ordem": ordem,
+            "usuario_id": int(current_user.id),
+        })
+    add_history(
+        db, budget_id, current_user, "anexos_atualizados",
+        f"Documentos anexos atualizados: {len(arquivo_ids)} arquivo(s).",
+    )
+    db.commit()
+    return {"items": serialize_budget_attachments(db, budget_id, company_id)}
 
 
 def save_budget_items(db: Session, budget_id: int, items: List[dict]) -> None:
@@ -3824,6 +3953,21 @@ def duplicate_budget(
         itens=source.get("itens") or [],
     )
     created = create_budget(payload, current_user=current_user, db=db)
+    source_attachments = source.get("anexos") or []
+    for ordem, attachment in enumerate(source_attachments):
+        file_id = int(attachment.get("id") or 0)
+        if not file_id:
+            continue
+        db.execute(text("""
+            INSERT INTO public.orcamento_documentos_anexos
+                (empresa_id, orcamento_id, arquivo_id, ordem, criado_por_id)
+            VALUES
+                (:empresa_id, :orcamento_id, :arquivo_id, :ordem, :usuario_id)
+            ON CONFLICT (orcamento_id, arquivo_id) DO NOTHING
+        """), {
+            "empresa_id": company_id, "orcamento_id": int(created["id"]),
+            "arquivo_id": file_id, "ordem": ordem, "usuario_id": int(current_user.id),
+        })
     add_history(db, int(created["id"]), current_user, "duplicado", f"Duplicado do orçamento {source.get('codigo')}.")
     db.commit()
     return get_budget(int(created["id"]), current_user=current_user, db=db)

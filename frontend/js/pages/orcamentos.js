@@ -4,7 +4,7 @@
   // Este arquivo é apenas o carregador do módulo de Orçamentos.
   // A ordem fica explícita aqui; os nomes dos arquivos não precisam de números.
   const BASE = '/frontend/js/pages/orcamentos/';
-  const VERSION = '20260910-produto-status-filter-v13';
+  const VERSION = '20260912-biblioteca-geral-anexos-v14';
   const MODULOS = [
     'core.js',
     'propostas.js',
@@ -13,6 +13,7 @@
     'produtos.js',
     'calculos.js',
     'documentos.js',
+    'anexos.js',
     'proposta-cliente.js',
     'contratos.js',
     'financeiro.js',
