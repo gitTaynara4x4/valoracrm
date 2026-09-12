@@ -1,10 +1,10 @@
 import { state } from './state.js';
-import { carregarClientes, carregarCamposClientes, carregarFormularioClientes, excluirClienteNoServidor } from './api.js?v=20260831-client-nav-perf-v36';
+import { carregarClientes, carregarCamposClientes, carregarFormularioClientes, excluirClienteNoServidor } from './api.js?v=20260912-client-save-v37';
 import { $, toast } from './utils.js';
 import { renderTabelaClientes } from './table.js?v=20260807-icones-lista-separados-v6';
 import { filtrarClientes, initFilters, limparFiltrosClientes } from './filters.js?v=20260715-filtros-exatos-v2';
 import { bindConfirmDialog, confirmDialog } from './confirm.js';
-import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260831-client-nav-perf-v36';
+import { bindClientModal, openClientModalNew, openClientModalEdit, openClientModalView, abrirClienteNoZapsChat } from './modal-cliente.js?v=20260912-client-save-v37';
 import { bindImportExport, exportarClientesJSON } from './import-export.js';
 
 function renderAll() {

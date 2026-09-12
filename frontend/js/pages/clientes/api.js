@@ -170,7 +170,12 @@ export async function obterClienteNoServidor(id, { forceRefresh = false } = {}) 
     if (pending) return cloneClienteDetail(await pending);
   }
 
-  const request = apiJson(`${API_CLIENTES}/${key}`)
+  const request = apiJson(`${API_CLIENTES}/${key}`, {
+    // O detalhe é dado operacional mutável. Não permite que o navegador ou
+    // algum cache intermediário devolva a versão anterior logo após um PUT.
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache' },
+  })
     .then((cliente) => {
       setCachedClienteDetail(cliente);
       return cliente;
@@ -235,9 +240,11 @@ export async function salvarClienteNoServidor(payload, editandoId) {
     body: JSON.stringify(payload),
   });
 
-  // Nunca reaproveita detalhe anterior depois de uma gravação.
+  // Remove qualquer detalhe anterior e passa a considerar a própria resposta
+  // do PUT/POST (já persistida e devolvida pelo backend) como a versão atual.
   invalidarClienteCache(editandoId);
   invalidarClienteCache(result?.id);
+  if (result?.id) setCachedClienteDetail(result);
   return result;
 }
 

@@ -382,6 +382,8 @@
     etapaAtiva: 'cadastro',
     secaoSelecionadaId: null,
     campoSelecionadoId: null,
+    campoBusca: '',
+    campoTipoFiltro: '',
   };
 
   const qs = (id) => document.getElementById(id);
@@ -510,8 +512,32 @@
     }
   }
 
+  function isDockedFieldInspector() {
+    return window.matchMedia && window.matchMedia('(min-width: 1380px)').matches;
+  }
+
+  function setDockedFieldInspectorState(open) {
+    const page = document.querySelector('main.formularios-vnext');
+    if (!page) return;
+    page.classList.toggle('campo-inspector-open', !!open && isDockedFieldInspector());
+  }
+
   function openModal(id) {
     const modal = document.getElementById(id);
+
+    if (id === 'modal-campo' && modal && isDockedFieldInspector()) {
+      modal.hidden = false;
+      modal.style.display = 'flex';
+      atualizarContadoresCaracteres(modal);
+      enhanceValoraSelects(modal);
+      setDockedFieldInspectorState(true);
+      requestAnimationFrame(() => {
+        syncAllValoraSelects(modal);
+        modal.classList.add('show');
+        scheduleCampoModalIntegrity();
+      });
+      return;
+    }
 
     if (window.ValoraModal) {
       window.ValoraModal.open(id);
@@ -550,6 +576,16 @@
       }
 
       if (sizeBtnIcon) sizeBtnIcon.className = 'fa-solid fa-up-right-and-down-left-from-center';
+    }
+
+    if (id === 'modal-campo' && modal && isDockedFieldInspector()) {
+      modal.classList.remove('show');
+      setDockedFieldInspectorState(false);
+      setTimeout(() => {
+        modal.hidden = true;
+        modal.style.display = 'none';
+      }, 150);
+      return;
     }
 
     if (window.ValoraModal) return window.ValoraModal.close(id);
@@ -2933,6 +2969,8 @@
       if (el) el.textContent = String(value || 0);
     });
 
+    atualizarContagemModuloSidebar(resumo.campos);
+
     const modelo = state.modeloAtual?.modelo || null;
     const chip = qs('form-status-chip');
     if (chip) {
@@ -2944,6 +2982,7 @@
   function renderModeloAtual() {
     const modelo = state.modeloAtual?.modelo || null;
     const moduloTitulo = qs('modulo-titulo');
+    const breadcrumbModulo = qs('workspace-breadcrumb-module');
     const pageTitle = qs('form-page-title');
     const modeloNome = qs('modelo-nome');
     const modeloDescricao = qs('modelo-descricao');
@@ -2951,6 +2990,7 @@
     const toggleModel = qs('btn-toggle-model-select');
 
     if (moduloTitulo) moduloTitulo.textContent = moduloLabel();
+    if (breadcrumbModulo) breadcrumbModulo.textContent = moduloLabel();
     if (pageTitle) pageTitle.textContent = `Cadastro de ${moduloLabel().toLowerCase()}`;
     if (modeloNome) modeloNome.textContent = modelo ? nomeModeloNoSeletor(modelo) : `Cadastro de ${moduloLabel().toLowerCase()}`;
     if (modeloDescricao) modeloDescricao.textContent = modelo?.descricao || 'Defina o que aparece no cadastro, na lista e na busca.';
@@ -2990,6 +3030,40 @@
     });
   }
 
+  function normalizarTextoWorkspace(value) {
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  }
+
+  function aplicarFiltroCamposWorkspace() {
+    const wrap = qs('secoes-container');
+    if (!wrap) return;
+
+    const buscaInput = wrap.querySelector('[data-field-search]');
+    const tipoSelect = wrap.querySelector('[data-field-type-filter]');
+    const termo = normalizarTextoWorkspace(buscaInput?.value ?? state.campoBusca);
+    const tipo = normalizarTextoWorkspace(tipoSelect?.value ?? state.campoTipoFiltro);
+
+    state.campoBusca = buscaInput?.value ?? state.campoBusca;
+    state.campoTipoFiltro = tipoSelect?.value ?? state.campoTipoFiltro;
+
+    const rows = Array.from(wrap.querySelectorAll('.form-field-row[data-field-label]'));
+    let visiveis = 0;
+    rows.forEach((row) => {
+      const label = normalizarTextoWorkspace(row.dataset.fieldLabel);
+      const rowTipo = normalizarTextoWorkspace(row.dataset.fieldType);
+      const mostrar = (!termo || label.includes(termo)) && (!tipo || rowTipo === tipo);
+      row.hidden = !mostrar;
+      if (mostrar) visiveis += 1;
+    });
+
+    const empty = wrap.querySelector('[data-field-filter-empty]');
+    if (empty) empty.hidden = rows.length === 0 || visiveis > 0;
+  }
+
   function renderSecoes() {
     const wrap = qs('secoes-container');
     if (!wrap) return;
@@ -3025,25 +3099,41 @@
       </button>`;
     }).join('');
 
-    const camposHtml = campos.length ? campos.map((campo) => {
+    const tiposDisponiveis = [...new Set(campos.map((campo) => tipoLabel(campo)).filter(Boolean))]
+      .sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
+    const tipoOptions = tiposDisponiveis.map((tipo) => `<option value="${escapeHtml(tipo)}" ${String(state.campoTipoFiltro) === String(tipo) ? 'selected' : ''}>${escapeHtml(tipo)}</option>`).join('');
+
+    const camposHtml = campos.length ? campos.map((campo, index) => {
       const selecionado = Number(campo.id) === Number(state.campoSelecionadoId);
       const tipo = tipoLabel(campo);
-      return `<button class="form-field-row ${selecionado ? 'is-active' : ''}" type="button" data-action="selecionar-campo" data-id="${campo.id}">
-        <span class="form-field-icon"><i class="fa-solid ${escapeHtml(tipoIcone(campo))}"></i></span>
-        <span class="form-field-copy"><strong>${escapeHtml(campo.label || '-')}</strong><small>${escapeHtml(tipo)}</small></span>
+      const origem = campo.origem === 'sistema' ? 'Sistema' : (campo.origem === 'visual' ? 'Visual' : 'Personalizado');
+      const ordem = index + 1;
+      return `<div class="form-field-row ${selecionado ? 'is-active' : ''} ${campo.ativo === false ? 'is-hidden-field' : ''}" role="button" tabindex="0" data-action="selecionar-campo" data-id="${campo.id}" data-field-label="${escapeHtml(`${campo.label || ''} ${origem} ${tipo}`)}" data-field-type="${escapeHtml(tipo)}" aria-pressed="${selecionado ? 'true' : 'false'}">
+        <span class="form-field-order">${escapeHtml(ordem)}</span>
+        <span class="form-field-copy"><strong>${escapeHtml(campo.label || '-')}</strong><small>${escapeHtml(origem)}${campo.ativo === false ? ' · Oculto' : ''}</small></span>
+        <span class="form-field-type-badge">${escapeHtml(tipo)}</span>
         <span class="form-field-flags">${campo.obrigatorio ? '<em class="flag-required">Obrigatório</em>' : '<em>Opcional</em>'}</span>
-        <span class="form-field-status ${campo.ativo === false ? '' : 'is-on'}" aria-label="${campo.ativo === false ? 'Oculto' : 'Visível'}"></span>
-        <span class="form-field-edit" data-action="editar-campo" data-id="${campo.id}" title="Editar campo"><i class="fa-solid fa-pen"></i></span>
-      </button>`;
+        <button class="form-field-edit" type="button" data-action="editar-campo" data-id="${campo.id}" title="Editar campo" aria-label="Editar ${escapeHtml(campo.label || 'campo')}"><i class="fa-solid fa-pen"></i></button>
+      </div>`;
     }).join('') : `<div class="fields-empty"><span>Nenhum campo nesta seção.</span><button type="button" class="btn btn-primary btn-small" data-action="novo-campo-secao"><i class="fa-solid fa-plus"></i> Adicionar campo</button></div>`;
 
-    const editorHtml = campoSelecionado ? renderEditorRapidoCampo(campoSelecionado) : `<div class="quick-editor-empty"><i class="fa-regular fa-hand-pointer"></i><strong>Selecione um campo</strong><span>Clique em um campo ao lado para editar suas opções.</span></div>`;
-
-    wrap.innerHTML = `<div class="form-builder-grid">
-      <section class="form-builder-column sections-column"><div class="builder-column-head"><div><h3>Seções do formulário</h3><p>Organize o cadastro por assuntos.</p></div><button class="btn btn-secondary btn-small" type="button" data-action="nova-secao"><i class="fa-solid fa-plus"></i> Nova seção</button></div><div class="form-sections-list">${secoesHtml}</div></section>
-      <section class="form-builder-column fields-column"><div class="builder-column-head"><div><h3>Campos desta seção</h3><p>${escapeHtml(selecionada?.titulo || '')}</p></div><button class="btn btn-small builder-head-add-field" type="button" data-action="novo-campo-secao"><i class="fa-solid fa-plus"></i> Adicionar campo</button></div><div class="form-fields-list">${camposHtml}</div></section>
-      <aside class="form-builder-column quick-editor-column">${editorHtml}</aside>
+    wrap.innerHTML = `<div class="form-builder-grid workspace-builder-grid">
+      <section class="form-builder-column sections-column">
+        <div class="builder-column-head"><div><h3>Seções do formulário</h3><p>Organize o cadastro por assuntos.</p></div><button class="btn btn-secondary btn-small" type="button" data-action="nova-secao"><i class="fa-solid fa-plus"></i> Nova seção</button></div>
+        <div class="form-sections-list">${secoesHtml}</div>
+      </section>
+      <section class="form-builder-column fields-column">
+        <div class="builder-column-head"><div><h3>Campos da seção</h3><p>${escapeHtml(selecionada?.titulo || '')} · ${campos.length} ${campos.length === 1 ? 'campo' : 'campos'}</p></div><button class="btn btn-primary btn-small builder-head-add-field" type="button" data-action="novo-campo-secao"><i class="fa-solid fa-plus"></i> Adicionar campo</button></div>
+        ${campos.length ? `<div class="workspace-field-tools">
+          <label class="workspace-field-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" data-field-search placeholder="Buscar campo..." autocomplete="off" value="${escapeHtml(state.campoBusca)}"></label>
+          <select class="workspace-field-type" data-field-type-filter aria-label="Filtrar por tipo"><option value="">Todos os tipos</option>${tipoOptions}</select>
+        </div>
+        <div class="workspace-field-table-head" aria-hidden="true"><span>Ordem</span><span>Nome do campo</span><span>Tipo</span><span>Regra</span><span>Ações</span></div>` : ''}
+        <div class="form-fields-list">${camposHtml}${campos.length ? '<div class="workspace-filter-empty" data-field-filter-empty hidden><i class="fa-solid fa-magnifying-glass"></i><strong>Nenhum campo encontrado</strong><span>Tente outro nome ou tipo.</span></div>' : ''}</div>
+      </section>
     </div>`;
+
+    aplicarFiltroCamposWorkspace();
   }
 
   function renderEditorRapidoCampo(campo) {
@@ -3997,13 +4087,146 @@
     return getAllCampos().find((c) => Number(c.id) === Number(id));
   }
 
-  function marcarModuloAtivo() {
-    document.querySelectorAll('.module-card').forEach((btn) => {
-      btn.classList.toggle('is-active', btn.dataset.modulo === state.modulo);
+  const MODULE_SIDEBAR_STORAGE = 'valora_formularios_sidebar_groups_v1';
+
+  function normalizarBuscaSidebar(value = '') {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+  }
+
+  function salvarEstadoGruposSidebar() {
+    try {
+      const data = {};
+      document.querySelectorAll('.module-group[data-module-group]').forEach((group) => {
+        data[group.dataset.moduleGroup] = group.classList.contains('is-collapsed');
+      });
+      localStorage.setItem(MODULE_SIDEBAR_STORAGE, JSON.stringify(data));
+    } catch (_) {
+      // Preferência visual: falhar silenciosamente não afeta o formulário.
+    }
+  }
+
+  function definirGrupoSidebarRecolhido(group, collapsed, persist = true) {
+    if (!group) return;
+    group.classList.toggle('is-collapsed', !!collapsed);
+
+    const toggle = group.querySelector('[data-module-group-toggle]');
+    if (toggle) toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+
+    if (persist) salvarEstadoGruposSidebar();
+  }
+
+  function restaurarEstadoGruposSidebar() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(MODULE_SIDEBAR_STORAGE) || '{}');
+      document.querySelectorAll('.module-group[data-module-group]').forEach((group) => {
+        definirGrupoSidebarRecolhido(group, saved[group.dataset.moduleGroup] === true, false);
+      });
+    } catch (_) {
+      document.querySelectorAll('.module-group[data-module-group]').forEach((group) => {
+        definirGrupoSidebarRecolhido(group, false, false);
+      });
+    }
+  }
+
+  function atualizarContagemModuloSidebar(total = null) {
+    const count = Number.isFinite(Number(total)) ? Number(total) : getResumoFormulario().campos;
+    const badge = document.querySelector(`[data-module-count="${state.modulo}"]`);
+    if (!badge) return;
+
+    badge.textContent = `${count} campo${count === 1 ? '' : 's'}`;
+    badge.hidden = false;
+  }
+
+  function filtrarModulosSidebar(value = '') {
+    const sidebar = qs('modulos-grid');
+    const empty = qs('module-search-empty');
+    const query = normalizarBuscaSidebar(value);
+    let visibleCount = 0;
+
+    sidebar?.classList.toggle('is-searching', !!query);
+
+    document.querySelectorAll('.module-group[data-module-group]').forEach((group) => {
+      let groupVisible = 0;
+
+      group.querySelectorAll('.module-card[data-modulo]').forEach((btn) => {
+        const label = normalizarBuscaSidebar(btn.querySelector('strong')?.textContent || btn.dataset.modulo);
+        const visible = !query || label.includes(query);
+        btn.hidden = !visible;
+        if (visible) {
+          groupVisible += 1;
+          visibleCount += 1;
+        }
+      });
+
+      group.hidden = groupVisible === 0;
     });
 
+    if (empty) empty.hidden = visibleCount > 0;
+  }
+
+  function initModuleSidebar() {
+    const sidebar = qs('modulos-grid');
+    const search = qs('module-sidebar-search');
+    if (!sidebar || sidebar.dataset.interactiveReady === 'true') return;
+    sidebar.dataset.interactiveReady = 'true';
+
+    restaurarEstadoGruposSidebar();
+
+    sidebar.querySelectorAll('[data-module-group-toggle]').forEach((toggle) => {
+      toggle.addEventListener('click', () => {
+        const group = toggle.closest('.module-group');
+        if (!group) return;
+        definirGrupoSidebarRecolhido(group, !group.classList.contains('is-collapsed'));
+      });
+    });
+
+    search?.addEventListener('input', () => filtrarModulosSidebar(search.value));
+    search?.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (search.value) {
+        search.value = '';
+        filtrarModulosSidebar('');
+      } else {
+        search.blur();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return;
+      if (document.querySelector('.modal-overlay:not([hidden])')) return;
+      event.preventDefault();
+      search?.focus({ preventScroll: true });
+      search?.select();
+    });
+  }
+
+  function marcarModuloAtivo() {
+    let activeButton = null;
+
+    document.querySelectorAll('.module-card').forEach((btn) => {
+      const active = btn.dataset.modulo === state.modulo;
+      btn.classList.toggle('is-active', active);
+      if (active) {
+        btn.setAttribute('aria-current', 'page');
+        activeButton = btn;
+      } else {
+        btn.removeAttribute('aria-current');
+      }
+    });
+
+    const activeGroup = activeButton?.closest('.module-group');
+    if (activeGroup?.classList.contains('is-collapsed')) {
+      definirGrupoSidebarRecolhido(activeGroup, false, false);
+    }
+
     const titulo = qs('modulo-titulo');
+    const breadcrumbModulo = qs('workspace-breadcrumb-module');
     if (titulo) titulo.textContent = moduloLabel();
+    if (breadcrumbModulo) breadcrumbModulo.textContent = moduloLabel();
   }
 
   async function trocarModulo(modulo) {
@@ -4017,6 +4240,8 @@
     state.etapaAtiva = 'cadastro';
     state.secaoSelecionadaId = null;
     state.campoSelecionadoId = null;
+    state.campoBusca = '';
+    state.campoTipoFiltro = '';
 
     const params = new URLSearchParams(window.location.search);
     params.set('modulo', modulo);
@@ -4034,7 +4259,17 @@
       carregarLayoutLocalizarServidor(modulo),
     ]);
 
+    // Ao trocar de módulo, mantém o inspetor fechado.
+    // Ele só deve abrir quando o usuário clicar explicitamente no lápis de um campo.
+    closeModal('modal-campo');
     await carregarModelos();
+  }
+
+  function abrirInspectorCampoSelecionado() {
+    if (!isDockedFieldInspector()) return;
+    const campo = findCampo(state.campoSelecionadoId);
+    if (!campo) return;
+    abrirCampoParaEditar(campo);
   }
 
   function podeAbrirCampo() {
@@ -4437,10 +4672,32 @@
       if (!shell.hidden) qs('select-modelo')?.focus();
     });
 
+    qs('secoes-container')?.addEventListener('input', (e) => {
+      const input = e.target.closest('[data-field-search]');
+      if (!input) return;
+      state.campoBusca = input.value;
+      aplicarFiltroCamposWorkspace();
+    });
+
     qs('secoes-container')?.addEventListener('change', (e) => {
+      const typeFilter = e.target.closest('[data-field-type-filter]');
+      if (typeFilter) {
+        state.campoTipoFiltro = typeFilter.value;
+        aplicarFiltroCamposWorkspace();
+        return;
+      }
+
       const input = e.target.closest('[data-quick-field]');
       if (!input) return;
       atualizarCampoRapido(input.dataset.id, input.dataset.quickField, input.checked, input);
+    });
+
+    qs('secoes-container')?.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const row = e.target.closest('.form-field-row[data-action="selecionar-campo"]');
+      if (!row || e.target.closest('button')) return;
+      e.preventDefault();
+      row.click();
     });
 
     qs('secoes-container')?.addEventListener('click', (e) => {
@@ -4453,11 +4710,15 @@
       if (action === 'selecionar-secao') {
         state.secaoSelecionadaId = id;
         state.campoSelecionadoId = null;
+        state.campoBusca = '';
+        state.campoTipoFiltro = '';
         renderSecoes();
         return;
       }
 
       if (action === 'selecionar-campo') {
+        // Selecionar a linha não abre o editor.
+        // O painel "Editar campo" abre somente pelo botão de lápis.
         state.campoSelecionadoId = id;
         renderSecoes();
         return;
@@ -4843,6 +5104,7 @@
     console.log('[Formulários] JS carregou corretamente');
 
     bindEventos();
+    initModuleSidebar();
     initValoraSelectSystem();
     renderIconeSecaoOptions('fa-layer-group');
     atualizarTriggerIconeSecao();
@@ -4857,6 +5119,16 @@
       ]);
 
       await carregarModelos();
+
+      // A página sempre inicia com o inspetor de campo fechado.
+      // O usuário abre o painel apenas clicando no lápis de um campo.
+      const campoModal = qs('modal-campo');
+      if (campoModal) {
+        campoModal.classList.remove('show');
+        campoModal.hidden = true;
+        campoModal.style.display = 'none';
+      }
+      setDockedFieldInspectorState(false);
     } catch (err) {
       console.error('[Formulários] erro no init:', err);
       toast(err.message || 'Erro ao carregar formulários.', true, 5000);

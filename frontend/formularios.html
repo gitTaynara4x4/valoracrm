@@ -10,19 +10,19 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-  <link rel="stylesheet" href="/frontend/css/app.css?v=20260909-loading-global-v3" />
+  <link rel="stylesheet" href="/frontend/css/app.css?v=20260912-pagination-spacing-v5" />
   <link rel="stylesheet" href="/frontend/css/validacao.css?v=20260614-required-circle" />
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260909-loading-global-v3" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/formularios.js?v=20260911-valora-select-v37" defer></script>
+  <script src="/frontend/js/pages/formularios.js?v=20260912-inspector-manual-v8" defer></script>
 
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260911-valora-select-v37" />
+  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260912-single-blue-v14" />
 </head>
 
 <body>
@@ -37,48 +37,128 @@
           <p class="topbar-subtitle">Configure os cadastros do seu jeito, sem precisar entender a estrutura técnica do sistema.</p>
         </div>
         <div class="topbar-actions">
-          <button class="btn btn-secondary btn-help" type="button" id="btn-ajuda-formularios"><i class="fa-solid fa-circle-question"></i> Ajuda</button>
           <button class="sr-only-action" type="button" id="btn-atualizar" hidden>Atualizar</button>
           <button class="sr-only-action" type="button" id="btn-novo-modelo" hidden>Novo formulário</button>
         </div>
       </header>
 
       <div class="formularios-workspace">
-        <aside class="modules-grid" id="modulos-grid" aria-label="Escolha o cadastro">
-          <div class="modules-intro"><strong>O que você quer configurar?</strong><span>Escolha um módulo.</span></div>
-          <button class="module-card is-active" type="button" data-modulo="clientes"><span class="module-icon"><i class="fa-solid fa-user-group"></i></span><strong>Clientes</strong></button>
-          <button class="module-card" type="button" data-modulo="fornecedores"><span class="module-icon"><i class="fa-solid fa-truck"></i></span><strong>Fornecedores</strong></button>
-          <button class="module-card" type="button" data-modulo="produtos"><span class="module-icon"><i class="fa-solid fa-box-open"></i></span><strong>Produtos</strong></button>
-          <button class="module-card" type="button" data-modulo="patrimonio"><span class="module-icon"><i class="fa-solid fa-tags"></i></span><strong>Patrimônio</strong></button>
-          <button class="module-card" type="button" data-modulo="cotacoes"><span class="module-icon"><i class="fa-solid fa-scale-balanced"></i></span><strong>Cotações</strong></button>
-          <button class="module-card" type="button" data-modulo="propostas"><span class="module-icon"><i class="fa-solid fa-file-signature"></i></span><strong>Propostas</strong></button>
-          <button class="module-card" type="button" data-modulo="contratos"><span class="module-icon"><i class="fa-solid fa-file-contract"></i></span><strong>Contratos</strong></button>
-          <div class="module-group-label" role="separator"><span>Financeiro</span></div>
-          <button class="module-card" type="button" data-modulo="contas_receber"><span class="module-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><strong>Contas a receber</strong></button>
-          <button class="module-card" type="button" data-modulo="contas_pagar"><span class="module-icon"><i class="fa-solid fa-money-bill-transfer"></i></span><strong>Contas a pagar</strong></button>
+        <aside class="modules-grid form-modules-sidebar" id="modulos-grid" aria-label="Módulos de formulários">
+          <div class="module-sidebar-head">
+            <span class="module-sidebar-logo" aria-hidden="true"><i class="fa-solid fa-file-lines"></i></span>
+            <div>
+              <strong>Formulários</strong>
+              <span>Personalize os campos de cada módulo.</span>
+            </div>
+          </div>
+
+          <label class="module-sidebar-search" for="module-sidebar-search">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input id="module-sidebar-search" type="search" placeholder="Buscar módulo..." autocomplete="off" />
+            <kbd>Ctrl K</kbd>
+          </label>
+
+          <div class="module-group" data-module-group="cadastros">
+            <button class="module-group-toggle" type="button" data-module-group-toggle aria-expanded="true">
+              <span>Cadastros</span><i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
+            </button>
+            <div class="module-group-list">
+              <button class="module-card is-active" type="button" data-modulo="clientes">
+                <span class="module-icon"><i class="fa-solid fa-user-group"></i></span><strong>Clientes</strong><span class="module-meta" data-module-count="clientes" hidden></span>
+              </button>
+              <button class="module-card" type="button" data-modulo="fornecedores">
+                <span class="module-icon"><i class="fa-solid fa-truck"></i></span><strong>Fornecedores</strong><span class="module-meta" data-module-count="fornecedores" hidden></span>
+              </button>
+              <button class="module-card" type="button" data-modulo="produtos">
+                <span class="module-icon"><i class="fa-solid fa-box-open"></i></span><strong>Produtos</strong><span class="module-meta" data-module-count="produtos" hidden></span>
+              </button>
+              <button class="module-card" type="button" data-modulo="patrimonio">
+                <span class="module-icon"><i class="fa-solid fa-tags"></i></span><strong>Patrimônio</strong><span class="module-meta" data-module-count="patrimonio" hidden></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="module-group" data-module-group="comercial">
+            <button class="module-group-toggle" type="button" data-module-group-toggle aria-expanded="true">
+              <span>Comercial</span><i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
+            </button>
+            <div class="module-group-list">
+              <button class="module-card" type="button" data-modulo="cotacoes">
+                <span class="module-icon"><i class="fa-solid fa-scale-balanced"></i></span><strong>Cotações</strong><span class="module-meta" data-module-count="cotacoes" hidden></span>
+              </button>
+              <button class="module-card" type="button" data-modulo="propostas">
+                <span class="module-icon"><i class="fa-solid fa-file-signature"></i></span><strong>Propostas</strong><span class="module-meta" data-module-count="propostas" hidden></span>
+              </button>
+              <button class="module-card" type="button" data-modulo="contratos">
+                <span class="module-icon"><i class="fa-solid fa-file-contract"></i></span><strong>Contratos</strong><span class="module-meta" data-module-count="contratos" hidden></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="module-group" data-module-group="financeiro">
+            <button class="module-group-toggle" type="button" data-module-group-toggle aria-expanded="true">
+              <span>Financeiro</span><i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
+            </button>
+            <div class="module-group-list">
+              <button class="module-card" type="button" data-modulo="contas_receber">
+                <span class="module-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><strong>Contas a receber</strong><span class="module-meta" data-module-count="contas_receber" hidden></span>
+              </button>
+              <button class="module-card" type="button" data-modulo="contas_pagar">
+                <span class="module-icon"><i class="fa-solid fa-money-bill-transfer"></i></span><strong>Contas a pagar</strong><span class="module-meta" data-module-count="contas_pagar" hidden></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="module-search-empty" id="module-search-empty" hidden>
+            <i class="fa-regular fa-folder-open"></i><span>Nenhum módulo encontrado.</span>
+          </div>
+
+          <div class="module-sidebar-tip">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            <div><strong>Dica</strong><span>Clique em um módulo para personalizar os campos do formulário.</span></div>
+          </div>
         </aside>
 
         <section class="builder-layout builder-layout-clean">
           <section class="builder-main">
-            <article class="panel-card form-context-card">
+            <nav class="workspace-breadcrumb" aria-label="Navegação do formulário">
+              <span class="workspace-breadcrumb-home"><i class="fa-solid fa-house" aria-hidden="true"></i></span>
+              <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              <span>Formulários</span>
+              <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              <strong id="workspace-breadcrumb-module">Clientes</strong>
+            </nav>
+
+            <article class="panel-card form-context-card workspace-context-card">
               <div class="form-context-main">
                 <span class="form-context-icon"><i class="fa-solid fa-rectangle-list"></i></span>
-                <div>
+                <div class="form-context-copy">
                   <div class="form-context-title-line"><h2 id="form-page-title">Cadastro de clientes</h2><span class="form-status-chip" id="form-status-chip">Principal</span></div>
                   <p id="modelo-descricao">Defina o que aparece no cadastro, na lista e na busca.</p>
                   <span id="modelo-nome" class="visually-hidden"></span><span id="modulo-titulo" class="visually-hidden">Clientes</span>
                 </div>
               </div>
-              <div class="model-switcher-area">
-                <button class="btn btn-secondary btn-small" type="button" id="btn-toggle-model-select" hidden><i class="fa-solid fa-arrow-right-arrow-left"></i> Trocar modelo</button>
-                <div class="model-switcher-shell" id="model-switcher-shell" hidden>
-                  <label for="select-modelo">Modelo</label>
-                  <div class="valora-select-loading-shell">
-                    <select id="select-modelo" class="valora-select-loading" disabled aria-busy="true"><option value=""></option></select>
-                    <span class="valora-select-loading-indicator" aria-hidden="true"><span class="valora-select-loading-spinner"></span><span class="valora-select-loading-text">Carregando...</span></span>
+
+              <div class="workspace-context-right">
+                <div class="workspace-metrics" aria-label="Resumo do formulário">
+                  <span class="workspace-metric"><strong id="stat-cadastro-count">0</strong><small>campos</small></span>
+                  <span class="workspace-metric"><strong id="stat-cadastro-secoes">0</strong><small>seções</small></span>
+                  <span class="workspace-metric"><strong id="stat-lista-count">0</strong><small>na lista</small></span>
+                  <span class="workspace-metric"><strong id="stat-busca-count">0</strong><small>na busca</small></span>
+                </div>
+                <span class="workspace-save-state" id="workspace-save-state"><i class="fa-solid fa-circle-check"></i><span><strong>Salvo</strong><small>Alterações persistidas</small></span></span>
+                <div class="model-switcher-area">
+                  <button class="btn btn-secondary btn-small" type="button" id="btn-toggle-model-select" hidden><i class="fa-solid fa-arrow-right-arrow-left"></i> Trocar modelo</button>
+                  <div class="model-switcher-shell" id="model-switcher-shell" hidden>
+                    <label for="select-modelo">Modelo</label>
+                    <div class="valora-select-loading-shell">
+                      <select id="select-modelo" class="valora-select-loading" disabled aria-busy="true"><option value=""></option></select>
+                      <span class="valora-select-loading-indicator" aria-hidden="true"><span class="valora-select-loading-spinner"></span><span class="valora-select-loading-text">Carregando...</span></span>
+                    </div>
                   </div>
                 </div>
               </div>
+
               <button class="sr-only-action" type="button" id="btn-criar-padrao" hidden>Criar padrão</button>
               <button class="sr-only-action" type="button" id="btn-editar-modelo" hidden disabled>Editar formulário</button>
               <button class="sr-only-action" type="button" id="btn-campo-sistema" hidden disabled>Campo do sistema</button>
@@ -86,17 +166,11 @@
               <button class="sr-only-action" type="button" id="btn-nova-secao" hidden disabled>Nova seção</button>
             </article>
 
-            <nav class="form-step-nav" data-form-steps aria-label="Etapas da configuração">
-              <button class="form-step-card is-active" type="button" data-form-step="cadastro"><b>1</b><span><strong>Cadastro</strong><small>Campos e seções da ficha</small></span></button>
-              <button class="form-step-card" type="button" data-form-step="lista"><b>2</b><span><strong>Lista</strong><small>Informações exibidas na tela</small></span></button>
-              <button class="form-step-card" type="button" data-form-step="busca"><b>3</b><span><strong>Busca e filtros</strong><small>Como a equipe encontra registros</small></span></button>
+            <nav class="form-step-nav workspace-tabs" data-form-steps aria-label="Etapas da configuração">
+              <button class="form-step-card is-active" type="button" data-form-step="cadastro"><i class="fa-solid fa-table-list" aria-hidden="true"></i><span><strong>Cadastro</strong><small>Ficha e campos</small></span></button>
+              <button class="form-step-card" type="button" data-form-step="lista"><i class="fa-solid fa-list" aria-hidden="true"></i><span><strong>Lista</strong><small>Informações exibidas</small></span></button>
+              <button class="form-step-card" type="button" data-form-step="busca"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span><strong>Busca e filtros</strong><small>Localização de registros</small></span></button>
             </nav>
-
-            <section class="form-summary-grid" aria-label="Resumo do formulário">
-              <article><span><i class="fa-regular fa-file-lines"></i></span><div><strong id="stat-cadastro-count">0</strong><p>campos no cadastro</p><small><b id="stat-cadastro-secoes">0</b> seções organizadas</small></div></article>
-              <article><span><i class="fa-solid fa-table-columns"></i></span><div><strong id="stat-lista-count">0</strong><p>informações na lista</p><small>visíveis na tela do módulo</small></div></article>
-              <article><span><i class="fa-solid fa-magnifying-glass"></i></span><div><strong id="stat-busca-count">0</strong><p>campos na busca</p><small>usados para localizar e filtrar</small></div></article>
-            </section>
 
             <div id="builder-empty" class="builder-empty panel-card" hidden><i class="fa-solid fa-wand-magic-sparkles"></i><strong>Nenhum formulário disponível.</strong><span>Crie o formulário padrão para começar.</span></div>
 
@@ -119,7 +193,6 @@
               </section>
             </article>
 
-            <footer class="form-autosave-bar"><span><i class="fa-solid fa-circle-check"></i><strong>Alterações salvas automaticamente</strong><small>Você pode sair desta tela sem perder o que já foi configurado.</small></span></footer>
           </section>
         </section>
       </div>

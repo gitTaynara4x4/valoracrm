@@ -3108,6 +3108,14 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   to { opacity: 1; }
 }
 
+
+/* Paginação inferior ganha respiro antes do rodapé / fim do card. */
+.panel-card-table > .table-pagination:not(.table-pagination-top),
+.proposal-list-wrap > .table-pagination:not(.table-pagination-top),
+.budget-list-shell > .table-pagination:not(.table-pagination-top) {
+  padding: 14px 16px 18px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(root),
   ::view-transition-old(root),
@@ -3118,57 +3126,82 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
 
 
 /* =========================================================
-   VALORA | PAGINAÇÃO GLOBAL À ESQUERDA | 2026-09-09
-   Mantém contador + controles agrupados no início da tabela.
-   Evita que .counter-text:first-child empurre os botões para
-   a direita nas páginas de listagem.
+   VALORA | PAGINAÇÃO GLOBAL À DIREITA | 2026-09-12
+   Regra de Design System no desktop:
+   - controles de navegação ficam agrupados à direita;
+   - contador real de registros, quando existir, permanece à esquerda;
+   - "Página X de Y" faz parte dos controles de navegação;
+   - mobile mantém o layout compacto definido nos CSS responsivos.
    ========================================================= */
-.table-pagination {
-  justify-content: flex-start !important;
-  text-align: left !important;
-}
+@media (min-width: 761px) {
+  body .table-pagination {
+    justify-content: flex-end !important;
+    text-align: right !important;
+  }
 
-.table-pagination > .counter-text:first-child {
-  margin-right: 0 !important;
-}
+  /* Cotações possui um contador real de registros separado da navegação. */
+  body .table-pagination > .counter-text:not(.pagination-info):first-child {
+    margin-left: 0 !important;
+    margin-right: auto !important;
+    text-align: left !important;
+  }
 
-.table-pagination .pagination-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start !important;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-}
+  /* Quando os controles estão agrupados em um wrapper, ele vai para a direita. */
+  body .table-pagination .pagination-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end !important;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-left: auto !important;
+    margin-right: 0 !important;
+    text-align: right !important;
+  }
 
-.table-pagination .pagination-info {
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-}
+  body .table-pagination .pagination-info {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    white-space: nowrap;
+  }
 
+  /*
+     Algumas telas renderizam "Página X de Y" antes dos botões no HTML.
+     A ordem visual abaixo padroniza todas sem alterar JavaScript nem eventos.
+  */
+  body .table-pagination > [data-page-action="first"],
+  body .table-pagination > [data-price-page="first"],
+  body .table-pagination > [data-budget-page="first"] {
+    order: 10;
+  }
+
+  body .table-pagination > [data-page-action="prev"],
+  body .table-pagination > [data-price-page="prev"],
+  body .table-pagination > [data-budget-page="prev"] {
+    order: 20;
+  }
+
+  body .table-pagination > .pagination-info {
+    order: 30;
+  }
+
+  body .table-pagination > [data-page-action="next"],
+  body .table-pagination > [data-price-page="next"],
+  body .table-pagination > [data-budget-page="next"] {
+    order: 40;
+  }
+
+  body .table-pagination > [data-page-action="last"],
+  body .table-pagination > [data-price-page="last"],
+  body .table-pagination > [data-budget-page="last"] {
+    order: 50;
+  }
+}
 
 /* =========================================================
-   VALORA | TABELAS E PAGINAÇÃO — ALINHAMENTO ÚNICO | 2026-09-09
-   Regra de Design System:
-   - paginações começam sempre pela esquerda;
-   - estados de tabela (carregando/vazio/erro) ficam centralizados
-     no espaço completo da tabela, sem herdar a coluna Ações.
+   VALORA | ESTADOS DE TABELA — ALINHAMENTO ÚNICO
+   Carregando/vazio/erro continuam centralizados na largura
+   completa da tabela; esta regra é independente da paginação.
    ========================================================= */
-body .table-pagination,
-body .table-pagination .pagination-actions {
-  justify-content: flex-start !important;
-  text-align: left !important;
-}
-
-body .table-pagination > .counter-text:first-child,
-body .table-pagination .counter-text,
-body .table-pagination .pagination-info,
-body .table-pagination .pagination-actions {
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-}
-
 /* Estados vazios/carregando: sempre centralizados na largura da tabela. */
 body table tbody td.empty-state[colspan],
 body .valora-table tbody td.empty-state[colspan],

@@ -154,9 +154,9 @@ export function normalizeCustomFieldsPayload() {
       value = String(el.value || '').trim();
     }
 
-    if (value !== '') {
-      customFields[slug] = value;
-    }
+    // Envia também valor vazio. A presença da chave informa ao backend que
+    // o usuário limpou esse campo e o valor antigo deve ser removido.
+    customFields[slug] = value;
   });
 
   return customFields;

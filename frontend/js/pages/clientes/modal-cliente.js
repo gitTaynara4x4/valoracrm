@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { obterClienteNoServidor, obterClienteNaPosicaoDaLista, prefetchClienteNoServidor, carregarFormularioClientes, salvarClienteNoServidor, apiJson } from './api.js?v=20260831-client-nav-perf-v36';
+import { obterClienteNoServidor, obterClienteNaPosicaoDaLista, prefetchClienteNoServidor, carregarFormularioClientes, salvarClienteNoServidor, apiJson } from './api.js?v=20260912-client-save-v37';
 import { $, $$, escapeHtml, toast, openModal, closeModal } from './utils.js';
 import { confirmDialog } from './confirm.js';
 import {
@@ -1178,6 +1178,31 @@ function chooseRenderedField(records = []) {
 
 function collectFichaValues() {
   const root = $('custom-fields-container');
+
+  // Usa a mesma fonte de verdade já aplicada em Produtos/Patrimônio.
+  // O coletor compartilhado separa campos de origem "sistema" dos
+  // personalizados, inclusive checkbox, multiselect e relações. Sem isso,
+  // alguns campos podiam aparentar alteração na tela, o PUT retornava 200,
+  // mas o valor editado não ia para a propriedade correta do payload.
+  if (root && window.ValoraFichaPrincipal?.collectFormValues) {
+    const collected = window.ValoraFichaPrincipal.collectFormValues(root) || {};
+    const customFields = collected.customFields && typeof collected.customFields === 'object'
+      ? { ...collected.customFields }
+      : {};
+    const systemFieldsRaw = collected.systemFields && typeof collected.systemFields === 'object'
+      ? collected.systemFields
+      : {};
+    const systemFields = {};
+
+    Object.entries(systemFieldsRaw).forEach(([rawKey, value]) => {
+      const key = normalizeFichaKey(rawKey);
+      if (!CLIENT_SYSTEM_FIELDS.has(key)) return;
+      systemFields[key] = value;
+    });
+
+    return { customFields, systemFields };
+  }
+
   const elements = root ? Array.from(root.querySelectorAll('[data-custom-field]')) : [];
 
   if (!elements.length) {
@@ -1187,6 +1212,8 @@ function collectFichaValues() {
     };
   }
 
+  // Fallback para navegadores que ainda estejam com uma versão antiga do
+  // componente compartilhado em cache.
   const validCustomSlugs = new Set(
     (state.camposClientes || [])
       .map((campo) => String(campo?.slug || '').trim())
@@ -3127,6 +3154,14 @@ export async function saveCliente(e) {
 
     const clienteSalvo = await salvarClienteComConfirmacaoDeDuplicidade(payload);
     clienteFoiSalvo = true;
+
+    // Mantém a resposta confirmada pelo banco como estado atual do modal.
+    // Isso evita qualquer rotina posterior trabalhar com o detalhe anterior.
+    if (clienteSalvo?.id) {
+      state.clienteEditandoId = Number(clienteSalvo.id);
+      currentDetail = { ...defaultCliente(), ...clienteSalvo };
+    }
+
     await _afterSave();
 
     if (agendaDraft) {

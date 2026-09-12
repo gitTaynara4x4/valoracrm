@@ -9064,3 +9064,2943 @@ html[data-theme="dark"] .valora-select-empty strong {
     max-width: calc(100vw - 20px);
   }
 }
+
+/* =========================================================
+   FORMULÁRIOS | SIDEBAR INTERATIVO V1 | 2026-09-12
+   Escopo propositalmente restrito ao sidebar de módulos.
+   ========================================================= */
+.formularios-vnext .formularios-workspace {
+  grid-template-columns: 282px minmax(0, 1fr);
+  gap: 20px;
+}
+
+.formularios-vnext .form-modules-sidebar {
+  position: sticky;
+  top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: calc(100vh - 36px);
+  padding: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  border: 1px solid var(--fv-border);
+  border-radius: 18px;
+  background: var(--fv-panel);
+  box-shadow: 0 10px 34px rgba(15, 23, 42, .055);
+}
+
+.formularios-vnext .form-modules-sidebar::-webkit-scrollbar { width: 6px; }
+.formularios-vnext .form-modules-sidebar::-webkit-scrollbar-track { background: transparent; }
+.formularios-vnext .form-modules-sidebar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+
+.formularios-vnext .module-sidebar-head {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 2px 2px 14px;
+}
+
+.formularios-vnext .module-sidebar-logo {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: linear-gradient(180deg, #eef7ff 0%, #e4f1ff 100%);
+  color: var(--fv-blue);
+  font-size: 20px;
+  box-shadow: inset 0 0 0 1px rgba(22, 119, 255, .05);
+}
+
+.formularios-vnext .module-sidebar-head > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.formularios-vnext .module-sidebar-head strong {
+  color: var(--fv-text);
+  font-size: 18px;
+  line-height: 1.1;
+  font-weight: 700 !important;
+  letter-spacing: -.025em;
+}
+
+.formularios-vnext .module-sidebar-head span:not(.module-sidebar-logo) {
+  color: var(--fv-muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.formularios-vnext .module-sidebar-search {
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 14px;
+  padding: 0 10px;
+  border: 1px solid var(--fv-border-strong, #dbe3ec);
+  border-radius: 11px;
+  background: var(--fv-panel);
+  color: var(--fv-muted);
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.formularios-vnext .module-sidebar-search:focus-within {
+  border-color: rgba(22, 119, 255, .38);
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, .075);
+}
+
+.formularios-vnext .module-sidebar-search > i {
+  font-size: 13px;
+  text-align: center;
+}
+
+.formularios-vnext .module-sidebar-search input {
+  min-width: 0;
+  width: 100%;
+  height: 38px;
+  padding: 0;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--fv-text);
+  font-size: 11.5px;
+}
+
+.formularios-vnext .module-sidebar-search input::placeholder { color: #94a3b8; }
+
+.formularios-vnext .module-sidebar-search kbd {
+  padding: 3px 6px;
+  border: 1px solid var(--fv-border);
+  border-bottom-color: #cbd5e1;
+  border-radius: 6px;
+  background: var(--fv-soft);
+  color: #64748b;
+  font: 500 9px/1.2 "Inter", sans-serif;
+  white-space: nowrap;
+}
+
+.formularios-vnext .module-group {
+  border-top: 1px solid transparent;
+}
+
+.formularios-vnext .module-group + .module-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top-color: var(--fv-border);
+}
+
+.formularios-vnext .module-group-toggle {
+  width: 100%;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 7px 6px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.formularios-vnext .module-group-toggle span {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+
+.formularios-vnext .module-group-toggle i {
+  font-size: 9px;
+  transition: transform .18s ease, color .18s ease;
+}
+
+.formularios-vnext .module-group-toggle:hover { color: var(--fv-text); }
+.formularios-vnext .module-group.is-collapsed .module-group-toggle i { transform: rotate(180deg); }
+.formularios-vnext .module-group.is-collapsed .module-group-list { display: none; }
+.formularios-vnext .form-modules-sidebar.is-searching .module-group.is-collapsed .module-group-list { display: grid; }
+
+.formularios-vnext .module-group-list {
+  display: grid;
+  gap: 4px;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card {
+  position: relative;
+  width: 100%;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: #52627a;
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card::after {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background: transparent;
+  transition: background .15s ease;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card:hover {
+  background: #f7faff;
+  color: var(--fv-text);
+  transform: translateX(1px);
+}
+
+.formularios-vnext .form-modules-sidebar .module-card:hover .module-icon {
+  color: #356fb1;
+  transform: translateX(1px);
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active {
+  background: linear-gradient(90deg, rgba(22,119,255,.105) 0%, rgba(22,119,255,.07) 100%);
+  border-color: rgba(22, 119, 255, .16);
+  color: #0d6fe8;
+  box-shadow: none;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active::after {
+  background: #1677ff;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card strong {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: 11.5px;
+  font-weight: 600 !important;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formularios-vnext .form-modules-sidebar .module-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  transition: color .15s ease, transform .15s ease, background .15s ease;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon {
+  background: rgba(22,119,255,.07);
+  color: #1677ff;
+}
+
+.formularios-vnext .module-meta {
+  max-width: 76px;
+  padding: 4px 7px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #f1f5f9;
+  color: #607089;
+  font-size: 8.5px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formularios-vnext .module-card.is-active .module-meta {
+  background: rgba(22,119,255,.09);
+  color: #1265c5;
+}
+
+.formularios-vnext .module-search-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 8px;
+  padding: 10px;
+  border: 1px dashed var(--fv-border);
+  border-radius: 10px;
+  color: var(--fv-muted);
+  font-size: 10px;
+}
+
+.formularios-vnext .module-sidebar-tip {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 9px;
+  margin-top: 14px;
+  padding: 11px 12px;
+  border: 1px solid rgba(22, 119, 255, .08);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(22,119,255,.045), rgba(22,119,255,.025));
+  color: #4f6581;
+}
+
+.formularios-vnext .module-sidebar-tip > i {
+  margin-top: 1px;
+  color: #1677ff;
+  font-size: 14px;
+}
+
+.formularios-vnext .module-sidebar-tip > div {
+  display: grid;
+  gap: 3px;
+}
+
+.formularios-vnext .module-sidebar-tip strong {
+  color: #20334e;
+  font-size: 10.5px;
+  font-weight: 700 !important;
+}
+
+.formularios-vnext .module-sidebar-tip span {
+  color: #667b97;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+/* Dark: mesmo desenho, sem clarear demais o painel. */
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar {
+  scrollbar-color: #505050 transparent;
+  background: #2b2b2b;
+}
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar::-webkit-scrollbar-thumb { background: #505050; }
+html[data-theme="dark"] .formularios-vnext .module-sidebar-logo {
+  background: rgba(88,211,215,.10);
+  color: #7de4e7;
+  box-shadow: inset 0 0 0 1px rgba(88,211,215,.08);
+}
+html[data-theme="dark"] .formularios-vnext .module-sidebar-search {
+  background: #292929;
+  border-color: rgba(255,255,255,.10);
+}
+html[data-theme="dark"] .formularios-vnext .module-sidebar-search:focus-within {
+  border-color: rgba(88,211,215,.34);
+  box-shadow: 0 0 0 3px rgba(88,211,215,.06);
+}
+html[data-theme="dark"] .formularios-vnext .module-sidebar-search input { color: #ededed; }
+html[data-theme="dark"] .formularios-vnext .module-sidebar-search kbd {
+  border-color: rgba(255,255,255,.09);
+  border-bottom-color: rgba(255,255,255,.16);
+  background: #333;
+  color: #aaa;
+}
+html[data-theme="dark"] .formularios-vnext .module-group-toggle { color: #999; }
+html[data-theme="dark"] .formularios-vnext .module-group-toggle:hover { color: #eee; }
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card { color: #c3c3c3; }
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card:hover {
+  background: #303030;
+  color: #f0f0f0;
+}
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active {
+  background: rgba(88,211,215,.10);
+  border-color: rgba(88,211,215,.19);
+  color: #7de4e7;
+  box-shadow: none;
+}
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active::after { background: #58d3d7; }
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-icon { background: transparent; color: #aaa; }
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon {
+  background: rgba(88,211,215,.08);
+  color: #7de4e7;
+}
+html[data-theme="dark"] .formularios-vnext .module-meta {
+  background: #363636;
+  color: #aaa;
+}
+html[data-theme="dark"] .formularios-vnext .module-card.is-active .module-meta {
+  background: rgba(88,211,215,.10);
+  color: #7de4e7;
+}
+html[data-theme="dark"] .formularios-vnext .module-sidebar-tip {
+  border-color: rgba(88,211,215,.09);
+  background: rgba(88,211,215,.045);
+}
+html[data-theme="dark"] .formularios-vnext .module-sidebar-tip > i,
+html[data-theme="dark"] .formularios-vnext .module-sidebar-tip strong { color: #7de4e7; }
+html[data-theme="dark"] .formularios-vnext .module-sidebar-tip span { color: #aaa; }
+
+@media (max-width: 1250px) and (min-width: 901px) {
+  .formularios-vnext .formularios-workspace { grid-template-columns: 248px minmax(0, 1fr); }
+  .formularios-vnext .form-modules-sidebar { padding: 13px; }
+  .formularios-vnext .module-sidebar-head { grid-template-columns: 40px minmax(0, 1fr); gap: 10px; }
+  .formularios-vnext .module-sidebar-logo { width: 40px; height: 40px; font-size: 17px; }
+  .formularios-vnext .module-sidebar-head strong { font-size: 16px; }
+  .formularios-vnext .module-sidebar-search kbd { display: none; }
+}
+
+@media (max-width: 900px) {
+  .formularios-vnext .formularios-workspace { grid-template-columns: 1fr; }
+  .formularios-vnext .form-modules-sidebar {
+    position: static;
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    max-height: none;
+    padding: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-radius: 13px;
+  }
+  .formularios-vnext .module-sidebar-head,
+  .formularios-vnext .module-sidebar-search,
+  .formularios-vnext .module-group-toggle,
+  .formularios-vnext .module-sidebar-tip,
+  .formularios-vnext .module-search-empty { display: none !important; }
+  .formularios-vnext .module-group,
+  .formularios-vnext .module-group-list { display: contents !important; }
+  .formularios-vnext .form-modules-sidebar .module-card {
+    width: auto;
+    min-width: max-content;
+    grid-template-columns: 28px auto;
+    min-height: 40px;
+    padding: 5px 10px 5px 7px;
+  }
+  .formularios-vnext .form-modules-sidebar .module-card::after { top: 8px; bottom: 8px; }
+  .formularios-vnext .form-modules-sidebar .module-icon { width: 28px; height: 28px; }
+  .formularios-vnext .form-modules-sidebar .module-meta { display: none !important; }
+}
+
+
+/* =========================================================
+   FORMULÁRIOS | AJUSTE DA DICA DO SIDEBAR | 2026-09-12
+   Evita contato visual com o rodapé e corrige legibilidade.
+   ========================================================= */
+@media (min-width: 901px) {
+  .formularios-vnext .formularios-workspace {
+    margin-bottom: 20px;
+  }
+
+  .formularios-vnext .module-sidebar-tip {
+    flex: 0 0 auto;
+    min-height: 64px;
+    margin-top: 18px;
+    margin-bottom: 4px;
+    padding: 12px 13px;
+    align-items: start;
+  }
+
+  .formularios-vnext .module-sidebar-tip > i {
+    margin-top: 2px;
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  .formularios-vnext .module-sidebar-tip > div {
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .formularios-vnext .module-sidebar-tip strong {
+    font-size: 11.5px;
+    line-height: 1.25;
+  }
+
+  .formularios-vnext .module-sidebar-tip span {
+    display: block;
+    font-size: 10px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* =========================================================
+   FORMULÁRIOS | SIDEBAR — CORREÇÃO ESTRUTURAL DEFINITIVA | 2026-09-12
+   Neutraliza regras antigas de .modules-grid que forçavam
+   height:100% e overflow:visible e faziam o sidebar invadir o footer.
+   ========================================================= */
+@media (min-width: 901px) {
+  .formularios-vnext .formularios-workspace {
+    align-items: start !important;
+    padding-bottom: 24px;
+    margin-bottom: 0 !important;
+  }
+
+  .formularios-vnext .formularios-workspace > .form-modules-sidebar.modules-grid {
+    position: sticky !important;
+    top: 18px !important;
+    align-self: start !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: calc(100vh - 36px) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    box-sizing: border-box;
+  }
+
+  .formularios-vnext .form-modules-sidebar .module-sidebar-tip {
+    flex: 0 0 auto;
+    margin-top: 18px;
+    margin-bottom: 0;
+  }
+}
+
+
+/* =========================================================
+   FORMULÁRIOS | WORKSPACE COMPACTO DE TELA INTEIRA | 2026-09-12
+   Em desktops altos, mantém contexto, etapas e resumo visíveis
+   e concentra a rolagem dentro das três colunas do construtor.
+   Não altera o fluxo mobile/tablet nem a lógica JavaScript.
+   ========================================================= */
+@media (min-width: 1260px) and (min-height: 840px) {
+  .formularios-vnext {
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+  }
+
+  /* Cabeçalho da página: mesma informação, bem menos altura. */
+  .formularios-vnext .formularios-topbar {
+    min-height: 48px !important;
+    margin-bottom: 10px !important;
+    align-items: center !important;
+  }
+
+  .formularios-vnext .formularios-topbar h1 {
+    margin: 2px 0 3px !important;
+    font-size: 20px !important;
+    line-height: 1.08 !important;
+  }
+
+  .formularios-vnext .formularios-topbar .eyebrow {
+    font-size: 8.5px !important;
+  }
+
+  .formularios-vnext .formularios-topbar .topbar-subtitle {
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+  }
+
+  .formularios-vnext .formularios-topbar .btn {
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 0 12px !important;
+  }
+
+  .formularios-vnext .formularios-workspace {
+    gap: 14px !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* Sidebar acompanha a área útil da tela sem invadir o footer. */
+  .formularios-vnext .formularios-workspace > .form-modules-sidebar.modules-grid {
+    top: 12px !important;
+    max-height: calc(100vh - 118px) !important;
+  }
+
+  /* Contexto do módulo. */
+  .formularios-vnext .form-context-card {
+    min-height: 56px;
+    padding: 9px 13px !important;
+    gap: 12px !important;
+    border-radius: 13px !important;
+  }
+
+  .formularios-vnext .form-context-main {
+    gap: 10px !important;
+  }
+
+  .formularios-vnext .form-context-icon {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 9px !important;
+    font-size: 14px !important;
+  }
+
+  .formularios-vnext .form-context-title-line {
+    gap: 7px !important;
+  }
+
+  .formularios-vnext .form-context-title-line h2 {
+    font-size: 15px !important;
+    line-height: 1.15 !important;
+  }
+
+  .formularios-vnext .form-context-main p {
+    margin-top: 2px !important;
+    max-width: 920px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 9.5px !important;
+  }
+
+  .formularios-vnext .form-status-chip {
+    height: 20px !important;
+    padding: 0 7px !important;
+    font-size: 8.5px !important;
+  }
+
+  /* Etapas mais densas: continuam legíveis, sem gastar 70px por cartão. */
+  .formularios-vnext .form-step-nav {
+    gap: 8px !important;
+    margin: 8px 0 !important;
+  }
+
+  .formularios-vnext .form-step-card {
+    min-height: 48px !important;
+    padding: 7px 11px !important;
+    gap: 9px !important;
+    border-radius: 11px !important;
+  }
+
+  .formularios-vnext .form-step-card > b {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 9.5px !important;
+  }
+
+  .formularios-vnext .form-step-card span {
+    gap: 1px !important;
+  }
+
+  .formularios-vnext .form-step-card strong {
+    font-size: 10.5px !important;
+  }
+
+  .formularios-vnext .form-step-card small {
+    font-size: 8.5px !important;
+  }
+
+  /* Resumo permanece visível, mas vira uma faixa compacta. */
+  .formularios-vnext .form-summary-grid {
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .formularios-vnext .form-summary-grid article {
+    min-height: 48px !important;
+    padding: 7px 11px !important;
+    gap: 9px !important;
+    border-radius: 11px !important;
+  }
+
+  .formularios-vnext .form-summary-grid article > span {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 8px !important;
+    font-size: 11px !important;
+  }
+
+  .formularios-vnext .form-summary-grid article strong {
+    font-size: 18px !important;
+  }
+
+  .formularios-vnext .form-summary-grid article p {
+    font-size: 9px !important;
+  }
+
+  .formularios-vnext .form-summary-grid article small {
+    margin-top: 1px !important;
+    font-size: 7.8px !important;
+  }
+
+  /* Área principal: altura ligada à tela. A página não precisa descer
+     para navegar entre seções/campos. */
+  .formularios-vnext .form-builder-grid {
+    height: clamp(410px, calc(100vh - 450px), 620px) !important;
+    min-height: 410px !important;
+    max-height: 620px !important;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .formularios-vnext .form-builder-column {
+    min-height: 0 !important;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .formularios-vnext .builder-column-head {
+    flex: 0 0 auto;
+    min-height: 54px !important;
+    padding: 8px 11px !important;
+    background: var(--fv-panel);
+    position: relative;
+    z-index: 2;
+  }
+
+  .formularios-vnext .builder-column-head h3 {
+    font-size: 11px !important;
+  }
+
+  .formularios-vnext .builder-column-head p {
+    margin-top: 2px !important;
+    font-size: 8.5px !important;
+  }
+
+  .formularios-vnext .builder-column-head .btn,
+  .formularios-vnext .fields-column .builder-head-add-field {
+    min-height: 30px !important;
+    height: 30px !important;
+    padding: 0 10px !important;
+    font-size: 9.5px !important;
+  }
+
+  /* A rolagem passa a existir dentro de cada lista. O cabeçalho da coluna
+     nunca some enquanto o usuário percorre dezenas de campos. */
+  .formularios-vnext .form-sections-list,
+  .formularios-vnext .form-fields-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    align-content: start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .formularios-vnext .form-sections-list::-webkit-scrollbar,
+  .formularios-vnext .form-fields-list::-webkit-scrollbar,
+  .formularios-vnext .quick-editor-column::-webkit-scrollbar {
+    width: 7px;
+  }
+
+  .formularios-vnext .form-sections-list::-webkit-scrollbar-thumb,
+  .formularios-vnext .form-fields-list::-webkit-scrollbar-thumb,
+  .formularios-vnext .quick-editor-column::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: #cbd5e1;
+    background-clip: padding-box;
+  }
+
+  .formularios-vnext .quick-editor-column {
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+    padding: 11px !important;
+  }
+
+  .formularios-vnext .quick-editor-head {
+    padding-bottom: 9px !important;
+  }
+
+  .formularios-vnext .quick-editor-head h3 {
+    margin: 3px 0 2px !important;
+    font-size: 12px !important;
+  }
+
+  .formularios-vnext .quick-editor-group {
+    padding: 9px 0 !important;
+  }
+
+  .formularios-vnext .quick-toggle {
+    min-height: 39px !important;
+  }
+
+  .formularios-vnext .quick-full-edit {
+    margin-top: 10px !important;
+  }
+
+  /* Barra de autosave deixa de roubar altura da área de trabalho. */
+  .formularios-vnext .form-autosave-bar {
+    min-height: 38px !important;
+    margin-top: 8px !important;
+    padding: 6px 11px !important;
+    border-radius: 10px !important;
+  }
+
+  .formularios-vnext .form-autosave-bar i {
+    font-size: 15px !important;
+  }
+
+  .formularios-vnext .form-autosave-bar strong {
+    font-size: 9px !important;
+  }
+
+  .formularios-vnext .form-autosave-bar small {
+    font-size: 7.8px !important;
+  }
+
+  /* Footer global continua aparecendo, apenas com menos espaço desperdiçado. */
+  .formularios-vnext > .valora-footer {
+    padding-top: 10px !important;
+  }
+}
+
+@media (min-width: 1260px) and (min-height: 840px) {
+  html[data-theme="dark"] .formularios-vnext .form-sections-list,
+  html[data-theme="dark"] .formularios-vnext .form-fields-list,
+  html[data-theme="dark"] .formularios-vnext .quick-editor-column {
+    scrollbar-color: #505050 transparent;
+  }
+
+  html[data-theme="dark"] .formularios-vnext .form-sections-list::-webkit-scrollbar-thumb,
+  html[data-theme="dark"] .formularios-vnext .form-fields-list::-webkit-scrollbar-thumb,
+  html[data-theme="dark"] .formularios-vnext .quick-editor-column::-webkit-scrollbar-thumb {
+    background: #505050;
+    background-clip: padding-box;
+  }
+}
+
+/* =========================================================
+   FORMULÁRIOS | WORKSPACE CONFORTÁVEL V5 | 2026-09-12
+   Mantém tudo visível no primeiro enquadramento sem miniaturizar
+   a interface. A economia de altura vem da estrutura, não da fonte.
+   ========================================================= */
+@media (min-width: 1260px) and (min-height: 780px) {
+  .formularios-vnext {
+    padding-top: 10px !important;
+    padding-bottom: 14px !important;
+  }
+
+  /* Cabeçalho da página em uma única faixa, sem desperdiçar altura. */
+  .formularios-vnext .formularios-topbar {
+    min-height: 42px !important;
+    margin-bottom: 8px !important;
+    align-items: center !important;
+    gap: 14px !important;
+  }
+
+  .formularios-vnext .formularios-topbar .topbar-title {
+    min-width: 0;
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap;
+    column-gap: 14px;
+    row-gap: 2px;
+  }
+
+  .formularios-vnext .formularios-topbar .eyebrow {
+    display: none !important;
+  }
+
+  .formularios-vnext .formularios-topbar h1 {
+    flex: 0 0 auto;
+    margin: 0 !important;
+    font-size: 20px !important;
+    line-height: 1.15 !important;
+  }
+
+  .formularios-vnext .formularios-topbar .topbar-subtitle {
+    min-width: 0;
+    max-width: min(760px, 55vw) !important;
+    margin: 0 !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+  }
+
+  .formularios-vnext .formularios-topbar .btn {
+    min-height: 36px !important;
+    height: 36px !important;
+    padding: 0 13px !important;
+    font-size: 11px !important;
+  }
+
+  .formularios-vnext .formularios-workspace {
+    gap: 14px !important;
+    padding-bottom: 0 !important;
+  }
+
+  .formularios-vnext .formularios-workspace > .form-modules-sidebar.modules-grid {
+    top: 10px !important;
+    max-height: calc(100vh - 84px) !important;
+  }
+
+  /* Contexto do módulo: compacto, mas com tipografia normal. */
+  .formularios-vnext .form-context-card {
+    min-height: 60px !important;
+    padding: 10px 14px !important;
+    gap: 14px !important;
+    border-radius: 14px !important;
+  }
+
+  .formularios-vnext .form-context-main {
+    gap: 11px !important;
+  }
+
+  .formularios-vnext .form-context-icon {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 10px !important;
+    font-size: 16px !important;
+  }
+
+  .formularios-vnext .form-context-title-line {
+    gap: 8px !important;
+  }
+
+  .formularios-vnext .form-context-title-line h2 {
+    font-size: 16px !important;
+    line-height: 1.2 !important;
+  }
+
+  .formularios-vnext .form-context-main p {
+    margin-top: 3px !important;
+    max-width: 960px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10.5px !important;
+    line-height: 1.35 !important;
+  }
+
+  .formularios-vnext .form-status-chip {
+    height: 23px !important;
+    padding: 0 8px !important;
+    font-size: 9.5px !important;
+  }
+
+  /* Etapas: só um pouco mais baixas que o desenho original. */
+  .formularios-vnext .form-step-nav {
+    gap: 8px !important;
+    margin: 8px 0 !important;
+  }
+
+  .formularios-vnext .form-step-card {
+    min-height: 54px !important;
+    padding: 8px 12px !important;
+    gap: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .formularios-vnext .form-step-card > b {
+    width: 27px !important;
+    height: 27px !important;
+    font-size: 10.5px !important;
+  }
+
+  .formularios-vnext .form-step-card span {
+    gap: 2px !important;
+  }
+
+  .formularios-vnext .form-step-card strong {
+    font-size: 11.5px !important;
+  }
+
+  .formularios-vnext .form-step-card small {
+    font-size: 9.5px !important;
+  }
+
+  /* Indicadores continuam legíveis e passam a usar só uma faixa curta. */
+  .formularios-vnext .form-summary-grid {
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .formularios-vnext .form-summary-grid article {
+    min-height: 56px !important;
+    padding: 8px 12px !important;
+    gap: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .formularios-vnext .form-summary-grid article > span {
+    width: 31px !important;
+    height: 31px !important;
+    border-radius: 9px !important;
+    font-size: 12px !important;
+  }
+
+  .formularios-vnext .form-summary-grid article strong {
+    font-size: 20px !important;
+  }
+
+  .formularios-vnext .form-summary-grid article p {
+    font-size: 10px !important;
+  }
+
+  .formularios-vnext .form-summary-grid article small {
+    margin-top: 2px !important;
+    font-size: 8.7px !important;
+  }
+
+  /* O construtor recebe a maior parte da altura disponível da janela. */
+  .formularios-vnext .form-builder-grid {
+    height: clamp(470px, calc(100vh - 365px), 670px) !important;
+    min-height: 470px !important;
+    max-height: 670px !important;
+  }
+
+  .formularios-vnext .form-builder-column {
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .formularios-vnext .builder-column-head {
+    flex: 0 0 auto;
+    min-height: 58px !important;
+    padding: 10px 13px !important;
+  }
+
+  .formularios-vnext .builder-column-head h3 {
+    font-size: 12px !important;
+  }
+
+  .formularios-vnext .builder-column-head p {
+    margin-top: 3px !important;
+    font-size: 9.5px !important;
+  }
+
+  .formularios-vnext .builder-column-head .btn,
+  .formularios-vnext .fields-column .builder-head-add-field {
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 0 12px !important;
+    font-size: 10.5px !important;
+  }
+
+  /* Cabeçalhos permanecem visíveis; só o conteúdo de cada coluna rola. */
+  .formularios-vnext .form-sections-list,
+  .formularios-vnext .form-fields-list {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+  }
+
+  .formularios-vnext .quick-editor-column {
+    min-height: 0 !important;
+    padding: 14px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+  }
+
+  .formularios-vnext .quick-editor-head {
+    padding-bottom: 12px !important;
+  }
+
+  .formularios-vnext .quick-editor-head h3 {
+    margin: 4px 0 3px !important;
+    font-size: 14px !important;
+  }
+
+  .formularios-vnext .quick-editor-group {
+    padding: 12px 0 !important;
+  }
+
+  .formularios-vnext .quick-toggle {
+    min-height: 44px !important;
+  }
+
+  .formularios-vnext .quick-full-edit {
+    margin-top: 12px !important;
+  }
+
+  /* Quando Cadastro está ativo, o card vazio de Lista/Busca não existe visualmente. */
+  .formularios-vnext #localizar-preview-card:not(:has(.form-step-pane:not([hidden]))) {
+    display: none !important;
+  }
+
+  /* Autosave vira uma faixa fina, sem roubar espaço do construtor. */
+  .formularios-vnext .form-autosave-bar {
+    min-height: 36px !important;
+    margin-top: 8px !important;
+    padding: 6px 11px !important;
+    border-radius: 10px !important;
+  }
+
+  .formularios-vnext .form-autosave-bar i {
+    font-size: 15px !important;
+  }
+
+  .formularios-vnext .form-autosave-bar strong {
+    font-size: 9.5px !important;
+  }
+
+  .formularios-vnext .form-autosave-bar small {
+    font-size: 8.3px !important;
+  }
+
+  .formularios-vnext > .valora-footer {
+    padding-top: 14px !important;
+  }
+}
+
+/* =========================================================
+   FORMULÁRIOS | WORKSPACE PROFISSIONAL EM 2 COLUNAS | v6
+   2026-09-12
+   - resumo consolidado no cabeçalho do módulo;
+   - etapas em abas compactas;
+   - seções + campos ocupam a área principal;
+   - editor completo continua sendo o drawer lateral existente;
+   - busca/filtro de campos são apenas visuais (não alteram dados).
+   ========================================================= */
+
+/* Componentes novos também funcionam em resoluções intermediárias. */
+.workspace-context-card {
+  min-width: 0;
+}
+
+.form-context-copy {
+  min-width: 0;
+}
+
+.workspace-context-right {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.workspace-metrics {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.workspace-metric {
+  min-width: 62px;
+  padding: 1px 13px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  border-left: 1px solid var(--fv-border);
+}
+
+.workspace-metric strong {
+  color: var(--fv-text);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.workspace-metric small {
+  color: var(--fv-muted);
+  font-size: 9px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.workspace-save-state {
+  flex: 0 0 auto;
+  min-width: 112px;
+  min-height: 44px;
+  padding-left: 14px;
+  border-left: 1px solid var(--fv-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #14845e;
+}
+
+.workspace-save-state > i {
+  font-size: 18px;
+}
+
+.workspace-save-state > span {
+  display: grid;
+  gap: 2px;
+}
+
+.workspace-save-state strong {
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.workspace-save-state small {
+  color: var(--fv-muted);
+  font-size: 8.5px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.workspace-field-tools {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(130px, 190px);
+  gap: 10px;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--fv-border);
+  background: var(--fv-panel);
+}
+
+.workspace-field-search {
+  min-width: 0;
+  height: 38px;
+  padding: 0 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--fv-border);
+  border-radius: 9px;
+  background: var(--fv-panel);
+  color: var(--fv-muted);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.workspace-field-search:focus-within {
+  border-color: rgba(22,119,255,.55);
+  box-shadow: 0 0 0 3px rgba(22,119,255,.08);
+}
+
+.workspace-field-search i {
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+
+.workspace-field-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--fv-text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.workspace-field-search input::placeholder {
+  color: #94a3b8;
+}
+
+.workspace-field-type {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 34px 0 11px;
+  border: 1px solid var(--fv-border);
+  border-radius: 9px;
+  background: var(--fv-panel);
+  color: var(--fv-text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.workspace-field-table-head {
+  flex: 0 0 auto;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: 54px minmax(180px, 1.35fr) minmax(110px, .7fr) 104px 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--fv-border);
+  background: color-mix(in srgb, var(--fv-soft) 72%, var(--fv-panel));
+  color: #7b8ba1;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.workspace-field-table-head span:last-child {
+  text-align: center;
+}
+
+.workspace-filter-empty {
+  min-height: 220px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--fv-muted);
+  text-align: center;
+}
+
+.workspace-filter-empty i {
+  margin-bottom: 4px;
+  color: #94a3b8;
+  font-size: 20px;
+}
+
+.workspace-filter-empty strong {
+  color: var(--fv-text);
+  font-size: 12px;
+}
+
+.workspace-filter-empty span {
+  font-size: 10px;
+}
+
+.form-field-order {
+  justify-self: center;
+  color: #708299;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.form-field-type-badge {
+  min-width: 0;
+  overflow: hidden;
+  color: #5e7188;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.form-field-row.is-hidden-field {
+  opacity: .68;
+}
+
+/* Drawer sob demanda: mais estreito e com fundo da página ainda perceptível. */
+#modal-campo.modal-overlay {
+  background: rgba(15, 23, 42, .20) !important;
+  backdrop-filter: none !important;
+}
+
+#modal-campo .modal-content.modal-field-editor {
+  width: min(500px, 96vw) !important;
+  max-width: 500px !important;
+  box-shadow: -18px 0 50px rgba(15, 23, 42, .16) !important;
+}
+
+html[data-theme="dark"] .workspace-field-search,
+html[data-theme="dark"] .workspace-field-type {
+  background: #292929;
+  border-color: rgba(255,255,255,.10);
+}
+
+html[data-theme="dark"] .workspace-field-table-head {
+  background: #303030;
+  color: #a4a4a4;
+}
+
+html[data-theme="dark"] .workspace-save-state {
+  color: #65d4a8;
+}
+
+@media (min-width: 1181px) {
+  /* Cabeçalho da página: curto, sem criar um "andar" inteiro antes do editor. */
+  .formularios-vnext .formularios-topbar {
+    min-height: 54px !important;
+    margin-bottom: 10px !important;
+    padding: 0 2px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 18px !important;
+  }
+
+  .formularios-vnext .formularios-topbar .topbar-title {
+    min-width: 0;
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 15px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .formularios-vnext .formularios-topbar .eyebrow {
+    display: none !important;
+  }
+
+  .formularios-vnext .formularios-topbar h1 {
+    flex: 0 0 auto;
+    margin: 0 !important;
+    font-size: 20px !important;
+    line-height: 1.15 !important;
+  }
+
+  .formularios-vnext .formularios-topbar .topbar-subtitle {
+    min-width: 0;
+    max-width: 700px !important;
+    margin: 0 !important;
+    overflow: hidden;
+    color: var(--fv-muted) !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .formularios-vnext .formularios-workspace {
+    grid-template-columns: 252px minmax(0, 1fr) !important;
+    gap: 16px !important;
+    align-items: start !important;
+    padding-bottom: 18px !important;
+  }
+
+  .formularios-vnext .formularios-workspace > .form-modules-sidebar.modules-grid {
+    top: 10px !important;
+    max-height: calc(100vh - 82px) !important;
+  }
+
+  .formularios-vnext .builder-main {
+    min-height: 0 !important;
+  }
+
+  /* Uma única faixa concentra contexto + números + estado de salvamento. */
+  .formularios-vnext .workspace-context-card {
+    min-height: 78px !important;
+    padding: 12px 16px !important;
+    gap: 18px !important;
+    border-radius: 14px !important;
+  }
+
+  .formularios-vnext .form-context-main {
+    flex: 1 1 auto;
+    min-width: 260px;
+    gap: 12px !important;
+  }
+
+  .formularios-vnext .form-context-icon {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 11px !important;
+    font-size: 17px !important;
+  }
+
+  .formularios-vnext .form-context-title-line h2 {
+    font-size: 18px !important;
+    line-height: 1.2 !important;
+  }
+
+  .formularios-vnext .form-context-main p {
+    max-width: 700px !important;
+    margin-top: 4px !important;
+    overflow: hidden;
+    font-size: 10.5px !important;
+    line-height: 1.35 !important;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .formularios-vnext .workspace-context-right {
+    flex: 0 0 auto;
+  }
+
+  .formularios-vnext .model-switcher-area:has(> #btn-toggle-model-select[hidden]) {
+    display: none !important;
+  }
+
+  /* Etapas viram tabs; não competem visualmente com o conteúdo. */
+  .formularios-vnext .workspace-tabs.form-step-nav {
+    min-height: 48px !important;
+    margin: 10px 0 !important;
+    padding: 0 10px !important;
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 20px !important;
+    border: 1px solid var(--fv-border);
+    border-radius: 12px;
+    background: var(--fv-panel);
+    box-shadow: 0 5px 18px rgba(15,23,42,.025);
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card {
+    position: relative;
+    width: auto !important;
+    min-height: 46px !important;
+    padding: 0 7px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #64748b !important;
+    transform: none !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    border-radius: 999px 999px 0 0;
+    background: transparent;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card > i {
+    width: 18px;
+    color: #7789a0;
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card span {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 6px !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card strong {
+    color: inherit !important;
+    font-size: 11.5px !important;
+    font-weight: 650 !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card small {
+    display: none !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card.is-active {
+    color: var(--fv-blue) !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card.is-active::after {
+    background: var(--fv-blue);
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card.is-active > i {
+    color: var(--fv-blue);
+  }
+
+  /* Área de trabalho de verdade: só duas colunas e espaço amplo para os campos. */
+  .formularios-vnext .workspace-builder-grid.form-builder-grid {
+    grid-template-columns: minmax(250px, 31%) minmax(0, 69%) !important;
+    height: clamp(540px, calc(100vh - 295px), 730px) !important;
+    min-height: 540px !important;
+    max-height: 730px !important;
+    border-radius: 14px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-builder-column {
+    height: 100% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .builder-column-head {
+    flex: 0 0 auto !important;
+    min-height: 64px !important;
+    padding: 11px 13px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .builder-column-head h3 {
+    font-size: 13.5px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .builder-column-head p {
+    margin-top: 3px !important;
+    font-size: 10px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-sections-list,
+  .formularios-vnext .workspace-builder-grid .form-fields-list {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-sections-list {
+    padding: 9px !important;
+    gap: 6px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-section-item {
+    min-height: 55px !important;
+    padding: 7px 9px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-section-copy strong {
+    font-size: 11.5px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-section-copy small {
+    font-size: 9.5px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field {
+    min-height: 36px !important;
+    height: 36px !important;
+    padding: 0 13px !important;
+    border-color: var(--fv-blue) !important;
+    background: var(--fv-blue) !important;
+    color: #fff !important;
+    box-shadow: 0 5px 12px rgba(22,119,255,.14) !important;
+    font-size: 10.5px !important;
+    font-weight: 650 !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field:hover {
+    border-color: #0f69e7 !important;
+    background: #0f69e7 !important;
+    color: #fff !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-fields-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+    padding: 0 12px 10px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-row {
+    flex: 0 0 auto;
+    min-height: 50px !important;
+    display: grid !important;
+    grid-template-columns: 54px minmax(180px, 1.35fr) minmax(110px, .7fr) 104px 44px !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 6px 0 !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--fv-border) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    outline: none;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-row:hover {
+    background: color-mix(in srgb, var(--fv-soft) 62%, transparent) !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-row.is-active {
+    background: color-mix(in srgb, var(--fv-blue-soft) 70%, transparent) !important;
+    box-shadow: inset 3px 0 0 var(--fv-blue);
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-row:focus-visible {
+    box-shadow: inset 0 0 0 2px rgba(22,119,255,.35), inset 3px 0 0 var(--fv-blue);
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-copy {
+    gap: 3px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-copy strong {
+    font-size: 11.5px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-copy small {
+    font-size: 9px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-flags {
+    justify-self: start;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-flags em {
+    height: 22px !important;
+    padding: 0 8px !important;
+    font-size: 8.5px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-edit {
+    justify-self: center;
+    width: 30px !important;
+    height: 30px !important;
+    border: 1px solid var(--fv-border) !important;
+    border-radius: 8px !important;
+    background: var(--fv-panel) !important;
+    color: #61758e !important;
+    cursor: pointer;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-edit:hover {
+    border-color: #b6d6ff !important;
+    color: var(--fv-blue) !important;
+  }
+
+  /* Lista/Busca continuam usando os componentes existentes, mas ocupam a mesma área visual. */
+  .formularios-vnext .vnext-preview .form-step-pane {
+    min-height: clamp(540px, calc(100vh - 295px), 730px) !important;
+    border-radius: 14px !important;
+  }
+
+  .formularios-vnext #localizar-preview-card:not(:has(.form-step-pane:not([hidden]))) {
+    display: none !important;
+  }
+
+  .formularios-vnext > .valora-footer {
+    padding-top: 14px !important;
+  }
+}
+
+/* Ajuste de largura para notebook sem voltar à terceira coluna. */
+@media (max-width: 1180px) and (min-width: 761px) {
+  .workspace-context-right {
+    flex-wrap: wrap;
+  }
+
+  .workspace-metric {
+    min-width: 54px;
+    padding-inline: 9px;
+  }
+
+  .workspace-save-state {
+    display: none;
+  }
+
+  .workspace-field-table-head,
+  .form-builder-grid .form-field-row {
+    grid-template-columns: 48px minmax(160px, 1fr) minmax(100px, .65fr) 98px 40px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .workspace-context-right {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .workspace-metrics {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-top: 1px solid var(--fv-border);
+    padding-top: 10px;
+  }
+
+  .workspace-metric {
+    min-width: 0;
+    padding: 0 6px;
+  }
+
+  .workspace-save-state {
+    display: none;
+  }
+
+  .workspace-field-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-field-table-head {
+    display: none;
+  }
+
+  .form-builder-grid .form-field-row {
+    min-height: 58px;
+    grid-template-columns: 34px minmax(0, 1fr) auto 34px !important;
+    gap: 7px !important;
+  }
+
+  .form-builder-grid .form-field-order {
+    grid-column: 1;
+  }
+
+  .form-builder-grid .form-field-copy {
+    grid-column: 2;
+  }
+
+  .form-builder-grid .form-field-type-badge {
+    display: none;
+  }
+
+  .form-builder-grid .form-field-flags {
+    grid-column: 3;
+  }
+
+  .form-builder-grid .form-field-edit {
+    grid-column: 4;
+  }
+}
+
+
+/* =========================================================
+   FORMULÁRIOS | PARIDADE VISUAL COM O MOCKUP | v7
+   Desktop amplo: navegação lateral + seções + campos +
+   inspetor de campo encaixado à direita, sem bloquear a tela.
+   ========================================================= */
+.workspace-breadcrumb {
+  display: none;
+}
+
+@media (min-width: 1380px) {
+  .formularios-vnext.formularios-page {
+    padding-top: 12px !important;
+    padding-bottom: 18px !important;
+  }
+
+  /* No mockup o contexto é o próprio workspace; elimina o cabeçalho redundante. */
+  .formularios-vnext .formularios-topbar {
+    display: none !important;
+  }
+
+  .formularios-vnext .formularios-workspace {
+    grid-template-columns: 292px minmax(0, 1fr) !important;
+    gap: 20px !important;
+    align-items: start !important;
+    padding-right: 0;
+    transition: padding-right .18s ease;
+  }
+
+  .formularios-vnext.campo-inspector-open .formularios-workspace {
+    padding-right: 398px !important;
+  }
+
+  .formularios-vnext .form-modules-sidebar {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-height: calc(100vh - 82px) !important;
+    padding: 16px 14px 14px !important;
+    border-radius: 16px !important;
+  }
+
+  .formularios-vnext .module-sidebar-head {
+    min-height: 62px !important;
+    gap: 12px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .formularios-vnext .module-sidebar-logo {
+    width: 46px !important;
+    height: 46px !important;
+    border-radius: 13px !important;
+    font-size: 17px !important;
+  }
+
+  .formularios-vnext .module-sidebar-head strong {
+    font-size: 17px !important;
+  }
+
+  .formularios-vnext .module-sidebar-head span:not(.module-sidebar-logo) {
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+  }
+
+  .formularios-vnext .module-sidebar-search {
+    min-height: 43px !important;
+    margin: 0 0 14px !important;
+    border-radius: 10px !important;
+  }
+
+  .formularios-vnext .form-modules-sidebar .module-card {
+    min-height: 48px !important;
+    padding: 0 10px !important;
+    border-radius: 10px !important;
+  }
+
+  .formularios-vnext .form-modules-sidebar .module-card strong {
+    font-size: 12px !important;
+  }
+
+  .formularios-vnext .form-modules-sidebar .module-meta {
+    min-height: 24px !important;
+    padding: 3px 8px !important;
+    font-size: 9.5px !important;
+  }
+
+  .formularios-vnext .builder-layout,
+  .formularios-vnext .builder-main {
+    min-width: 0 !important;
+  }
+
+  .formularios-vnext .workspace-breadcrumb {
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 9px;
+    padding: 0 4px;
+    color: #718198;
+    font-size: 11px;
+  }
+
+  .formularios-vnext .workspace-breadcrumb > i {
+    color: #a0adbd;
+    font-size: 8px;
+  }
+
+  .formularios-vnext .workspace-breadcrumb-home {
+    color: #6b7f98;
+    font-size: 12px;
+  }
+
+  .formularios-vnext .workspace-breadcrumb strong {
+    color: #18243a;
+    font-weight: 650;
+  }
+
+  .formularios-vnext .workspace-context-card {
+    min-height: 96px !important;
+    padding: 16px 18px !important;
+    gap: 18px !important;
+    border-radius: 15px !important;
+  }
+
+  .formularios-vnext .form-context-main {
+    gap: 14px !important;
+  }
+
+  .formularios-vnext .form-context-icon {
+    width: 52px !important;
+    height: 52px !important;
+    flex: 0 0 52px !important;
+    border-radius: 14px !important;
+    font-size: 20px !important;
+  }
+
+  .formularios-vnext .form-context-title-line h2 {
+    font-size: 21px !important;
+    line-height: 1.18 !important;
+    letter-spacing: -.025em !important;
+  }
+
+  .formularios-vnext .form-status-chip {
+    min-height: 24px !important;
+    padding: 3px 9px !important;
+    font-size: 9.5px !important;
+  }
+
+  .formularios-vnext .form-context-main p {
+    max-width: 620px !important;
+    margin-top: 5px !important;
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+  }
+
+  .formularios-vnext .workspace-context-right {
+    gap: 12px !important;
+  }
+
+  .formularios-vnext .workspace-metrics {
+    min-height: 54px !important;
+  }
+
+  .formularios-vnext .workspace-metric {
+    min-width: 62px !important;
+    padding: 0 12px !important;
+  }
+
+  .formularios-vnext .workspace-metric strong {
+    font-size: 20px !important;
+    line-height: 1 !important;
+  }
+
+  .formularios-vnext .workspace-metric small {
+    margin-top: 5px !important;
+    font-size: 9.5px !important;
+  }
+
+  .formularios-vnext .workspace-save-state {
+    min-width: 94px !important;
+    min-height: 52px !important;
+    padding-left: 12px !important;
+  }
+
+  .formularios-vnext .workspace-save-state > i {
+    font-size: 18px !important;
+  }
+
+  .formularios-vnext .workspace-save-state strong {
+    font-size: 11px !important;
+  }
+
+  .formularios-vnext .workspace-save-state small {
+    font-size: 9px !important;
+  }
+
+  .formularios-vnext .workspace-tabs.form-step-nav {
+    min-height: 54px !important;
+    margin: 10px 0 12px !important;
+    padding: 0 13px !important;
+    gap: 30px !important;
+    border-radius: 13px !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card {
+    min-height: 52px !important;
+    gap: 9px !important;
+    padding: 0 5px !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card > i {
+    width: 20px !important;
+    font-size: 13px !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card strong {
+    font-size: 12px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid.form-builder-grid {
+    grid-template-columns: minmax(310px, 37%) minmax(0, 63%) !important;
+    height: calc(100vh - 292px) !important;
+    min-height: 520px !important;
+    max-height: 720px !important;
+    border-radius: 15px !important;
+    overflow: hidden !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .builder-column-head {
+    min-height: 68px !important;
+    padding: 12px 14px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .builder-column-head h3 {
+    font-size: 14px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .builder-column-head p {
+    font-size: 10.5px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-sections-list {
+    padding: 10px !important;
+    gap: 6px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-section-item {
+    min-height: 52px !important;
+    padding: 7px 9px !important;
+    border-radius: 10px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-section-icon {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 9px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-section-copy strong {
+    font-size: 11.5px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-section-copy small {
+    font-size: 9.5px !important;
+  }
+
+  .formularios-vnext .workspace-field-tools {
+    grid-template-columns: minmax(180px, 1fr) 170px !important;
+    gap: 10px !important;
+    padding: 10px 12px !important;
+  }
+
+  .formularios-vnext .workspace-field-search,
+  .formularios-vnext .workspace-field-type {
+    min-height: 40px !important;
+    border-radius: 9px !important;
+    font-size: 11px !important;
+  }
+
+  .formularios-vnext .workspace-field-table-head,
+  .formularios-vnext .workspace-builder-grid .form-field-row {
+    grid-template-columns: 48px minmax(180px, 1.35fr) minmax(120px, .72fr) 108px 48px !important;
+    gap: 10px !important;
+  }
+
+  .formularios-vnext .workspace-field-table-head {
+    min-height: 34px !important;
+    padding: 0 12px !important;
+    font-size: 8.5px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-fields-list {
+    padding: 0 12px 10px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-row {
+    min-height: 48px !important;
+    padding: 5px 0 !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-copy strong {
+    font-size: 11.5px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-copy small,
+  .formularios-vnext .workspace-builder-grid .form-field-type-badge {
+    font-size: 9.5px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-flags em {
+    min-height: 22px !important;
+    padding: 3px 8px !important;
+    font-size: 8.5px !important;
+  }
+
+  .formularios-vnext .workspace-builder-grid .form-field-edit {
+    width: 31px !important;
+    height: 31px !important;
+  }
+
+  /* Inspetor realmente encaixado: sem backdrop e sem bloquear a tela atrás. */
+  #modal-campo.modal-overlay {
+    top: 48px !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: auto !important;
+    width: 386px !important;
+    height: auto !important;
+    padding: 10px 10px 10px 0 !important;
+    align-items: stretch !important;
+    justify-content: flex-end !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    pointer-events: none !important;
+  }
+
+  #modal-campo .modal-content.modal-field-editor {
+    width: 376px !important;
+    max-width: 376px !important;
+    height: 100% !important;
+    max-height: none !important;
+    border: 1px solid #dce4ee !important;
+    border-radius: 15px !important;
+    box-shadow: 0 12px 36px rgba(15, 23, 42, .12) !important;
+    pointer-events: auto !important;
+  }
+
+  #modal-campo .modal-premium-header {
+    min-height: 68px !important;
+    padding: 15px 18px 13px !important;
+  }
+
+  #modal-campo .modal-premium-header h3 {
+    font-size: 17px !important;
+  }
+
+  #modal-campo .modal-premium-header p {
+    max-width: 260px !important;
+    font-size: 10.5px !important;
+  }
+
+  #modal-campo .campo-drawer-tabs {
+    min-height: 42px !important;
+    padding: 0 18px !important;
+    gap: 20px !important;
+  }
+
+  #modal-campo .campo-drawer-tab {
+    min-height: 42px !important;
+    font-size: 10.5px !important;
+  }
+
+  #modal-campo .premium-modal-body {
+    padding: 14px 18px 22px !important;
+  }
+
+  #modal-campo .campo-drawer-summary {
+    min-height: 58px !important;
+    grid-template-columns: 36px minmax(0, 1fr) !important;
+    margin-bottom: 15px !important;
+    padding: 10px 11px !important;
+  }
+
+  #modal-campo .campo-drawer-summary-icon {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 9px !important;
+  }
+
+  #modal-campo .campo-drawer-summary-copy strong {
+    font-size: 12px !important;
+  }
+
+  #modal-campo .campo-drawer-summary-copy small {
+    font-size: 9.5px !important;
+  }
+
+  #modal-campo .campo-drawer-summary-badges {
+    display: none !important;
+  }
+
+  #modal-campo .premium-control {
+    margin-bottom: 12px !important;
+  }
+
+  #modal-campo .premium-control label {
+    margin-bottom: 5px !important;
+    font-size: 10.5px !important;
+  }
+
+  #modal-campo .premium-control input:not([type="checkbox"]),
+  #modal-campo .premium-control select,
+  #modal-campo .premium-control textarea,
+  #modal-campo .valora-select-trigger {
+    min-height: 39px !important;
+    font-size: 11px !important;
+  }
+
+  #modal-campo .premium-modal-footer {
+    padding: 12px 18px !important;
+    gap: 8px !important;
+  }
+
+  #modal-campo .premium-modal-footer .btn {
+    min-height: 39px !important;
+    font-size: 10.5px !important;
+  }
+
+  html[data-theme="dark"] .workspace-breadcrumb strong {
+    color: #ededed;
+  }
+}
+
+@media (max-width: 1379px) {
+  .formularios-vnext.campo-inspector-open .formularios-workspace {
+    padding-right: 0 !important;
+  }
+}
+
+/* =========================================================
+   FORMULÁRIOS V9 — DARK COM A MESMA IDENTIDADE AZUL DO LIGHT
+   2026-09-12
+   Azul = interação/seleção. Verde fica restrito a sucesso/status.
+   ========================================================= */
+html[data-theme="dark"] .formularios-vnext {
+  --fv-blue: #1A7EEE !important;
+  --fv-blue-soft: rgba(26, 126, 238, .14) !important;
+  --fv-teal: #1A7EEE !important;
+}
+
+/* Sidebar / módulos */
+html[data-theme="dark"] .formularios-vnext .module-sidebar-logo {
+  background: rgba(26, 126, 238, .12) !important;
+  color: #78b8ff !important;
+  box-shadow: inset 0 0 0 1px rgba(26, 126, 238, .10) !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .module-sidebar-search:focus-within {
+  border-color: rgba(26, 126, 238, .52) !important;
+  box-shadow: 0 0 0 3px rgba(26, 126, 238, .10) !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .module-card.is-active,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active {
+  background: rgba(26, 126, 238, .14) !important;
+  border-color: rgba(26, 126, 238, .25) !important;
+  color: #78b8ff !important;
+  box-shadow: inset 3px 0 0 #1A7EEE !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .module-card.is-active::after,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active::after {
+  background: #1A7EEE !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .module-card.is-active .module-icon,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon {
+  background: rgba(26, 126, 238, .10) !important;
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .module-card.is-active .module-meta {
+  background: rgba(26, 126, 238, .14) !important;
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .module-sidebar-tip {
+  border-color: rgba(26, 126, 238, .10) !important;
+  background: rgba(26, 126, 238, .05) !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .module-sidebar-tip > i,
+html[data-theme="dark"] .formularios-vnext .module-sidebar-tip strong {
+  color: #78b8ff !important;
+}
+
+/* Contexto e navegação */
+html[data-theme="dark"] .formularios-vnext .form-context-icon {
+  background: rgba(26, 126, 238, .12) !important;
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-step-card.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card.is-active {
+  background: rgba(26, 126, 238, .08) !important;
+  border-color: rgba(26, 126, 238, .30) !important;
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card.is-active::after {
+  background: #1A7EEE !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card.is-active > i,
+html[data-theme="dark"] .formularios-vnext .form-step-card.is-active strong {
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-step-card.is-active > b {
+  background: #1A7EEE !important;
+  color: #fff !important;
+}
+
+/* Seções e campos ativos */
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active,
+html[data-theme="dark"] .formularios-vnext .form-field-row.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active {
+  background: rgba(26, 126, 238, .10) !important;
+  border-color: rgba(26, 126, 238, .32) !important;
+  box-shadow: inset 3px 0 0 #1A7EEE !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-icon {
+  background: rgba(26, 126, 238, .13) !important;
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-field-row:focus-visible,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(26, 126, 238, .38), inset 3px 0 0 #1A7EEE !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-field-edit:hover {
+  border-color: rgba(26, 126, 238, .40) !important;
+  color: #78b8ff !important;
+}
+
+/* Ações principais do builder */
+html[data-theme="dark"] .formularios-vnext .fields-column .builder-head-add-field,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field {
+  background: #1A7EEE !important;
+  border-color: #1A7EEE !important;
+  color: #fff !important;
+  box-shadow: 0 5px 14px rgba(26, 126, 238, .18) !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .fields-column .builder-head-add-field:hover,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field:hover {
+  background: #176fd8 !important;
+  border-color: #176fd8 !important;
+  color: #fff !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .quick-toggle input:checked + i {
+  background: #1A7EEE !important;
+}
+
+/* Resumos e dicas de interação */
+html[data-theme="dark"] .formularios-vnext .form-summary-grid article > span {
+  background: rgba(26, 126, 238, .11) !important;
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .step-tip i {
+  color: #78b8ff !important;
+}
+
+/* Drawer Editar campo */
+html[data-theme="dark"] .campo-drawer-summary {
+  border-color: rgba(26, 126, 238, .20) !important;
+}
+
+html[data-theme="dark"] .campo-drawer-summary-icon {
+  background: rgba(26, 126, 238, .12) !important;
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .campo-drawer-tab.is-active {
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .campo-drawer-tab.is-active::after {
+  background: #1A7EEE !important;
+}
+
+/* Selects e buscas do editor */
+html[data-theme="dark"] .valora-select-search:focus-within {
+  border-color: rgba(26, 126, 238, .46) !important;
+  box-shadow: 0 0 0 3px rgba(26, 126, 238, .09) !important;
+}
+
+html[data-theme="dark"] .valora-select-option.is-selected {
+  background: rgba(26, 126, 238, .13) !important;
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .valora-select-option.is-selected .valora-select-option-copy small,
+html[data-theme="dark"] .valora-select-option-check {
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .vnext-preview .localizar-preview-drop-hint:hover {
+  border-color: rgba(26, 126, 238, .42) !important;
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .preview-picker-item-icon,
+html[data-theme="dark"] .preview-picker-item-action {
+  color: #78b8ff !important;
+}
+
+html[data-theme="dark"] .preview-picker-item:hover:not(:disabled) .preview-picker-item-action {
+  background: rgba(26, 126, 238, .10) !important;
+}
+
+/* =========================================================
+   FORMULÁRIOS | ATIVOS SEM "CAIXA" | v10
+   2026-09-12
+   Objetivo:
+   - menu superior ativo sem bloco preenchido;
+   - etapas Cadastro/Lista/Busca sem card externo;
+   - estado ativo comunicado por cor + underline;
+   - não altera sidebar, builder, tabela ou drawer.
+   ========================================================= */
+
+/* Menu global: nesta página, o item ativo vira uma aba limpa. */
+html body #valora-menu-root .nav-link.is-active,
+html body #valora-menu-root .nav-link.is-active:hover {
+  position: relative !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+}
+
+html body #valora-menu-root .nav-link.is-active::after {
+  content: '';
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: -10px;
+  height: 2px;
+  border-radius: 999px;
+  background: #65acde;
+  pointer-events: none;
+}
+
+html[data-theme="dark"] body #valora-menu-root .nav-link.is-active,
+html[data-theme="dark"] body #valora-menu-root .nav-link.is-active:hover {
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"] body #valora-menu-root .nav-link.is-active::after {
+  background: #78b8ff;
+}
+
+/* Desktop: as etapas deixam de morar dentro de um card arredondado. */
+@media (min-width: 1181px) {
+  .formularios-vnext .workspace-tabs.form-step-nav {
+    min-height: 44px !important;
+    margin: 8px 0 6px !important;
+    padding: 0 4px !important;
+    gap: 22px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card,
+  .formularios-vnext .workspace-tabs .form-step-card:hover,
+  .formularios-vnext .workspace-tabs .form-step-card.is-active,
+  html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card,
+  html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card:hover,
+  html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card.is-active {
+    min-height: 44px !important;
+    padding: 0 8px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card:hover {
+    color: var(--fv-text) !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card.is-active {
+    color: var(--fv-blue) !important;
+  }
+
+  html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card:hover {
+    color: #d8e8fb !important;
+  }
+
+  html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card.is-active {
+    color: #78b8ff !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card::after {
+    left: 6px !important;
+    right: 6px !important;
+    bottom: 0 !important;
+    height: 2px !important;
+    background: transparent !important;
+  }
+
+  .formularios-vnext .workspace-tabs .form-step-card.is-active::after {
+    background: var(--fv-blue) !important;
+  }
+
+  html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card.is-active::after {
+    background: #1A7EEE !important;
+  }
+}
+
+/* =========================================================
+   FORMULÁRIOS V11 — SELEÇÃO COM COR REAL / ALTO CONTRASTE
+   2026-09-12
+   Estados ativos deixam de usar azul lavado/transparente.
+   ========================================================= */
+:root {
+  --form-active-blue: #1677ff;
+  --form-active-blue-hover: #0f69e7;
+  --form-active-row: #155fb8;
+}
+
+/* Módulo ativo — azul sólido */
+.formularios-vnext .form-modules-sidebar .module-card.is-active,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active {
+  background: var(--form-active-blue) !important;
+  border-color: var(--form-active-blue) !important;
+  color: #ffffff !important;
+  box-shadow: 0 5px 14px rgba(22, 119, 255, .22) !important;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active::after,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active::after {
+  background: #ffffff !important;
+  opacity: .95;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon {
+  background: rgba(255, 255, 255, .15) !important;
+  color: #ffffff !important;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta {
+  background: rgba(255, 255, 255, .16) !important;
+  color: #ffffff !important;
+}
+
+/* Seção ativa — azul sólido */
+.formularios-vnext .form-section-item.is-active,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active {
+  background: var(--form-active-blue) !important;
+  border-color: var(--form-active-blue) !important;
+  color: #ffffff !important;
+  box-shadow: 0 5px 14px rgba(22, 119, 255, .20) !important;
+}
+
+.formularios-vnext .form-section-item.is-active .form-section-icon,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-icon {
+  background: rgba(255, 255, 255, .15) !important;
+  color: #ffffff !important;
+}
+
+.formularios-vnext .form-section-item.is-active .form-section-copy strong,
+.formularios-vnext .form-section-item.is-active .form-section-copy small,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-copy strong,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-copy small {
+  color: #ffffff !important;
+}
+
+.formularios-vnext .form-section-item.is-active .form-section-copy small,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-copy small {
+  opacity: .82;
+}
+
+.formularios-vnext .form-section-item.is-active .form-section-actions .icon-btn,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-actions .icon-btn {
+  border-color: rgba(255, 255, 255, .28) !important;
+  background: rgba(0, 0, 0, .10) !important;
+  color: #ffffff !important;
+}
+
+.formularios-vnext .form-section-item.is-active .form-section-actions .icon-btn:hover,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-actions .icon-btn:hover {
+  background: rgba(0, 0, 0, .18) !important;
+}
+
+/* Campo selecionado — azul forte, um nível abaixo da seção para preservar leitura da tabela */
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active {
+  background: var(--form-active-row) !important;
+  color: #ffffff !important;
+  box-shadow: inset 4px 0 0 #5ea7ff !important;
+}
+
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy strong,
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy small,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy strong,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy small {
+  color: #ffffff !important;
+}
+
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy small,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy small {
+  opacity: .80;
+}
+
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active > *,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active > * {
+  color: #ffffff;
+}
+
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit {
+  border-color: rgba(255, 255, 255, .26) !important;
+  background: rgba(0, 0, 0, .12) !important;
+  color: #ffffff !important;
+}
+
+/* Ação principal segue o mesmo azul real */
+.formularios-vnext .fields-column .builder-head-add-field,
+.formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field,
+html[data-theme="dark"] .formularios-vnext .fields-column .builder-head-add-field,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field {
+  background: var(--form-active-blue) !important;
+  border-color: var(--form-active-blue) !important;
+  color: #ffffff !important;
+}
+
+/* =========================================================
+   FORMULÁRIOS V12 — PALETA OFICIAL DA LOGO VALORA
+   2026-09-12
+   Cores extraídas da marca:
+   - azul principal: #2C8BE4
+   - azul claro:     #5FAEE5
+   - azul escuro:    #115AA0
+   - ciano:          #5BD3DD
+   ========================================================= */
+:root {
+  --valora-logo-blue: #2C8BE4;
+  --valora-logo-blue-light: #5FAEE5;
+  --valora-logo-blue-dark: #115AA0;
+  --valora-logo-cyan: #5BD3DD;
+
+  /* Mantém compatibilidade com os estados definidos na v11. */
+  --form-active-blue: var(--valora-logo-blue);
+  --form-active-blue-hover: var(--valora-logo-blue-dark);
+  --form-active-row: var(--valora-logo-blue-dark);
+}
+
+/* Menu superior: underline usa o azul da marca. */
+html body #valora-menu-root .nav-link.is-active::after,
+html[data-theme="dark"] body #valora-menu-root .nav-link.is-active::after {
+  background: var(--valora-logo-blue) !important;
+}
+
+/* Abas Cadastro / Lista / Busca e filtros. */
+.formularios-vnext .workspace-tabs .form-step-card.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card.is-active {
+  color: var(--valora-logo-blue-light) !important;
+}
+
+.formularios-vnext .workspace-tabs .form-step-card.is-active::after,
+html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card.is-active::after {
+  background: var(--valora-logo-blue) !important;
+}
+
+/* Módulo e seção selecionados — azul principal oficial. */
+.formularios-vnext .form-modules-sidebar .module-card.is-active,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active,
+.formularios-vnext .form-section-item.is-active,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active {
+  background: var(--valora-logo-blue) !important;
+  border-color: var(--valora-logo-blue) !important;
+  box-shadow: 0 5px 14px rgba(44, 139, 228, .22) !important;
+}
+
+/* Badge do módulo ativo usa azul escuro da mesma marca. */
+.formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta {
+  background: var(--valora-logo-blue-dark) !important;
+  color: #ffffff !important;
+}
+
+/* Campo selecionado — azul escuro da logo, com filete azul claro. */
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active {
+  background: var(--valora-logo-blue-dark) !important;
+  box-shadow: inset 4px 0 0 var(--valora-logo-blue-light) !important;
+  color: #ffffff !important;
+}
+
+/* Botão principal do construtor. */
+.formularios-vnext .fields-column .builder-head-add-field,
+.formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field,
+html[data-theme="dark"] .formularios-vnext .fields-column .builder-head-add-field,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field {
+  background: var(--valora-logo-blue) !important;
+  border-color: var(--valora-logo-blue) !important;
+  color: #ffffff !important;
+}
+
+.formularios-vnext .fields-column .builder-head-add-field:hover,
+.formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field:hover,
+html[data-theme="dark"] .formularios-vnext .fields-column .builder-head-add-field:hover,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field:hover {
+  background: var(--valora-logo-blue-dark) !important;
+  border-color: var(--valora-logo-blue-dark) !important;
+}
+
+/* Foco e seleção em controles passam a usar a família de azuis da marca. */
+.formularios-vnext input:focus,
+.formularios-vnext select:focus,
+.formularios-vnext textarea:focus,
+html[data-theme="dark"] .formularios-vnext input:focus,
+html[data-theme="dark"] .formularios-vnext select:focus,
+html[data-theme="dark"] .formularios-vnext textarea:focus,
+html[data-theme="dark"] .valora-select-search:focus-within {
+  border-color: rgba(44, 139, 228, .62) !important;
+  box-shadow: 0 0 0 3px rgba(44, 139, 228, .12) !important;
+}
+
+html[data-theme="dark"] .campo-drawer-tab.is-active,
+html[data-theme="dark"] .valora-select-option.is-selected,
+html[data-theme="dark"] .valora-select-option.is-selected .valora-select-option-copy small,
+html[data-theme="dark"] .valora-select-option-check,
+html[data-theme="dark"] .preview-picker-item-icon,
+html[data-theme="dark"] .preview-picker-item-action {
+  color: var(--valora-logo-blue-light) !important;
+}
+
+html[data-theme="dark"] .campo-drawer-tab.is-active::after {
+  background: var(--valora-logo-blue) !important;
+}
+
+html[data-theme="dark"] .valora-select-option.is-selected {
+  background: rgba(44, 139, 228, .14) !important;
+}
+
+/* O ciano da logo fica apenas como detalhe secundário, nunca como cor principal. */
+.formularios-vnext .form-save-status.is-saved i,
+.formularios-vnext .form-save-status.is-saved .status-dot {
+  color: var(--valora-logo-cyan) !important;
+}
+
+
+/* =========================================================
+   FORMULÁRIOS V13 — UMA COR SÓ (AZUL DA MARCA)
+   2026-09-12
+   Regra: usar apenas #2C8BE4 como cor de destaque.
+   Sem azul claro, sem azul escuro, sem ciano.
+   ========================================================= */
+:root {
+  --valora-single-blue: #2C8BE4;
+}
+
+/* compatibilidade */
+:root {
+  --form-active-blue: var(--valora-single-blue);
+  --form-active-blue-hover: var(--valora-single-blue);
+  --form-active-row: var(--valora-single-blue);
+}
+
+html body #valora-menu-root .nav-link.is-active,
+html[data-theme="dark"] body #valora-menu-root .nav-link.is-active {
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+html body #valora-menu-root .nav-link.is-active::after,
+html[data-theme="dark"] body #valora-menu-root .nav-link.is-active::after {
+  background: var(--valora-single-blue) !important;
+}
+
+.formularios-vnext .workspace-tabs .form-step-card.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card.is-active {
+  color: var(--valora-single-blue) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.formularios-vnext .workspace-tabs .form-step-card.is-active::after,
+html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card.is-active::after {
+  background: var(--valora-single-blue) !important;
+}
+
+/* Módulo ativo e seção ativa: mesma cor, fundo suave e sem outro tom secundário */
+.formularios-vnext .form-modules-sidebar .module-card.is-active,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active,
+.formularios-vnext .form-section-item.is-active,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active {
+  background: rgba(44, 139, 228, .18) !important;
+  border-color: var(--valora-single-blue) !important;
+  box-shadow: inset 3px 0 0 var(--valora-single-blue), 0 6px 16px rgba(44, 139, 228, .12) !important;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active > *,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active > *,
+.formularios-vnext .form-section-item.is-active > *,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active > * {
+  color: #ffffff !important;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+.formularios-vnext .form-section-item.is-active .section-icon,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .section-icon {
+  color: #ffffff !important;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta {
+  background: rgba(44, 139, 228, .24) !important;
+  border: 1px solid rgba(44, 139, 228, .55) !important;
+  color: #ffffff !important;
+}
+
+/* Linha ativa da tabela: mesma cor, mais elegante */
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active {
+  background: rgba(44, 139, 228, .20) !important;
+  box-shadow: inset 4px 0 0 var(--valora-single-blue) !important;
+  border-color: rgba(44, 139, 228, .32) !important;
+}
+
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active > *,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active > * {
+  color: #ffffff !important;
+}
+
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit {
+  border-color: rgba(44, 139, 228, .55) !important;
+  background: rgba(44, 139, 228, .14) !important;
+  color: #ffffff !important;
+}
+
+/* Botão principal */
+.formularios-vnext .fields-column .builder-head-add-field,
+.formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field,
+html[data-theme="dark"] .formularios-vnext .fields-column .builder-head-add-field,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field {
+  background: var(--valora-single-blue) !important;
+  border-color: var(--valora-single-blue) !important;
+  color: #ffffff !important;
+}
+
+.formularios-vnext .fields-column .builder-head-add-field:hover,
+.formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field:hover,
+html[data-theme="dark"] .formularios-vnext .fields-column .builder-head-add-field:hover,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field:hover {
+  background: var(--valora-single-blue) !important;
+  border-color: var(--valora-single-blue) !important;
+  filter: brightness(1.05);
+}
+
+/* Foco e controles */
+.formularios-vnext input:focus,
+.formularios-vnext select:focus,
+.formularios-vnext textarea:focus,
+html[data-theme="dark"] .formularios-vnext input:focus,
+html[data-theme="dark"] .formularios-vnext select:focus,
+html[data-theme="dark"] .formularios-vnext textarea:focus,
+html[data-theme="dark"] .valora-select-search:focus-within {
+  border-color: rgba(44, 139, 228, .75) !important;
+  box-shadow: 0 0 0 3px rgba(44, 139, 228, .12) !important;
+}
+
+html[data-theme="dark"] .campo-drawer-tab.is-active,
+html[data-theme="dark"] .valora-select-option.is-selected,
+html[data-theme="dark"] .valora-select-option.is-selected .valora-select-option-copy small,
+html[data-theme="dark"] .valora-select-option-check,
+html[data-theme="dark"] .preview-picker-item-icon,
+html[data-theme="dark"] .preview-picker-item-action {
+  color: var(--valora-single-blue) !important;
+}
+
+html[data-theme="dark"] .campo-drawer-tab.is-active::after {
+  background: var(--valora-single-blue) !important;
+}
+
+html[data-theme="dark"] .valora-select-option.is-selected {
+  background: rgba(44, 139, 228, .14) !important;
+}
+
+
+/* =========================================================
+   FORMULÁRIOS V14 — UM ÚNICO AZUL VISÍVEL
+   2026-09-12
+   Sem tint/rgba azul em fundos de seleção.
+   O único azul visível é #2C8BE4 puro.
+   ========================================================= */
+:root {
+  --valora-single-blue: #2C8BE4;
+}
+
+/* Módulo ativo: fundo neutro + uma única cor azul */
+.formularios-vnext .form-modules-sidebar .module-card.is-active,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active {
+  background: var(--panel, #242424) !important;
+  border-color: var(--valora-single-blue) !important;
+  box-shadow: inset 3px 0 0 var(--valora-single-blue) !important;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active strong,
+.formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active strong,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon {
+  color: var(--valora-single-blue) !important;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta {
+  background: var(--valora-single-blue) !important;
+  border-color: var(--valora-single-blue) !important;
+  color: #ffffff !important;
+}
+
+/* Seção ativa: fundo totalmente neutro; azul só na borda/barra/ícone. */
+.formularios-vnext .form-section-item.is-active,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active {
+  background: var(--panel, #242424) !important;
+  border-color: var(--valora-single-blue) !important;
+  box-shadow: inset 3px 0 0 var(--valora-single-blue) !important;
+}
+
+.formularios-vnext .form-section-item.is-active .section-icon,
+.formularios-vnext .form-section-item.is-active strong,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .section-icon,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active strong {
+  color: var(--valora-single-blue) !important;
+}
+
+.formularios-vnext .form-section-item.is-active small,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active small {
+  color: var(--muted, #a7b0ba) !important;
+}
+
+/* Campo ativo da tabela: sem preenchimento azul. */
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: inset 4px 0 0 var(--valora-single-blue) !important;
+}
+
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active > *,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active > * {
+  color: inherit !important;
+}
+
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-main strong,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-main strong,
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit {
+  color: var(--valora-single-blue) !important;
+}
+
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit {
+  background: transparent !important;
+  border-color: var(--valora-single-blue) !important;
+}
+
+/* Nenhum glow/tint azul em hover dos ativos; permanece a mesma cor única. */
+.formularios-vnext .form-modules-sidebar .module-card.is-active:hover,
+.formularios-vnext .form-section-item.is-active:hover,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active:hover,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active:hover {
+  background: var(--panel, #242424) !important;
+  border-color: var(--valora-single-blue) !important;
+}

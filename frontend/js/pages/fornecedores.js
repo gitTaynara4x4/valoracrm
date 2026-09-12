@@ -482,6 +482,88 @@ function defaultFornecedor() {
   };
 }
 
+
+const FORNECEDOR_SYSTEM_FIELDS = new Set([
+  'tipo_fornecedor', 'situacao', 'nome', 'nome_fantasia', 'cpf_cnpj',
+  'inscricao_estadual', 'inscricao_municipal', 'contato', 'telefone',
+  'whatsapp', 'fax', 'email', 'site', 'cep', 'endereco', 'numero',
+  'complemento', 'bairro', 'cidade', 'estado', 'pais',
+  'codigo_ibge_cidade', 'codigo_ibge_uf', 'limite_compras',
+  'classificacao', 'plano_contas', 'observacoes',
+]);
+
+const FORNECEDOR_SYSTEM_FIELD_ALIASES = {
+  tipo: 'tipo_fornecedor',
+  status: 'situacao',
+  fornecedor: 'nome',
+  nome_razao_social: 'nome',
+  razao_social: 'nome',
+  documento: 'cpf_cnpj',
+  cnpj: 'cpf_cnpj',
+  cpf: 'cpf_cnpj',
+  ie: 'inscricao_estadual',
+  im: 'inscricao_municipal',
+  responsavel: 'contato',
+  telefone_contato: 'telefone',
+  telefone_principal: 'telefone',
+  telefone_celular: 'whatsapp',
+  e_mail: 'email',
+  home_page: 'site',
+  logradouro: 'endereco',
+  uf: 'estado',
+  ibge_cidade: 'codigo_ibge_cidade',
+  ibge_uf: 'codigo_ibge_uf',
+  limite_de_compras: 'limite_compras',
+  plano_de_contas: 'plano_contas',
+  observacao: 'observacoes',
+};
+
+function normalizeFornecedorSystemKey(value) {
+  const key = slugify(value);
+  return FORNECEDOR_SYSTEM_FIELD_ALIASES[key] || key;
+}
+
+function buildFornecedorFichaRenderValues(data = {}) {
+  const customFields = data?.custom_fields && typeof data.custom_fields === 'object'
+    ? { ...data.custom_fields }
+    : {};
+  const systemFields = {
+    ...data,
+    // Compatibilidade com fichas antigas que usavam aliases para campos nativos.
+    tipo: data?.tipo_fornecedor ?? data?.tipo ?? '',
+    status: data?.situacao ?? '',
+    fornecedor: data?.nome ?? '',
+    razao_social: data?.nome ?? '',
+    documento: data?.cpf_cnpj ?? '',
+    cnpj: data?.cpf_cnpj ?? '',
+    cpf: data?.cpf_cnpj ?? '',
+    ie: data?.inscricao_estadual ?? '',
+    im: data?.inscricao_municipal ?? '',
+    responsavel: data?.contato ?? '',
+    telefone_contato: data?.telefone ?? '',
+    telefone_principal: data?.telefone ?? '',
+    telefone_celular: data?.whatsapp ?? '',
+    e_mail: data?.email ?? '',
+    home_page: data?.site ?? '',
+    logradouro: data?.endereco ?? '',
+    uf: data?.estado ?? '',
+    ibge_cidade: data?.codigo_ibge_cidade ?? '',
+    ibge_uf: data?.codigo_ibge_uf ?? '',
+    limite_de_compras: data?.limite_compras ?? '',
+    plano_de_contas: data?.plano_contas ?? '',
+    observacao: data?.observacoes ?? '',
+    data_cadastro: data?.data_cadastro || data?.criado_em || data?.created_at || '',
+  };
+
+  return {
+    ...data,
+    ...customFields,
+    data_cadastro: systemFields.data_cadastro,
+    __custom_fields: customFields,
+    __system_fields: systemFields,
+  };
+}
+
 function generateNextFornecedorCode() {
   const proximoId = fornecedores.length > 0
     ? Math.max(...fornecedores.map((f) => Number(f.id) || 0)) + 1
@@ -991,7 +1073,19 @@ function collectFornecedorFormValues() {
   const root = $('formFornecedor') || document;
 
   if (window.ValoraFichaPrincipal?.collectFormValues) {
-    return window.ValoraFichaPrincipal.collectFormValues(root);
+    const collected = window.ValoraFichaPrincipal.collectFormValues(root) || {};
+    const customFields = collected.customFields && typeof collected.customFields === 'object'
+      ? { ...collected.customFields }
+      : {};
+    const systemFields = {};
+
+    Object.entries(collected.systemFields || {}).forEach(([rawKey, value]) => {
+      const key = normalizeFornecedorSystemKey(rawKey);
+      if (!FORNECEDOR_SYSTEM_FIELDS.has(key)) return;
+      systemFields[key] = value;
+    });
+
+    return { customFields, systemFields };
   }
 
   const customFields = {};
@@ -1323,17 +1417,36 @@ function buildBaseFromFornecedorFichaPrincipal(customFields, fallback = {}) {
 
 function applyFornecedorSystemFields(base = {}, systemFields = {}, fallback = {}) {
   const out = { ...base };
-  const has = (key) => Object.prototype.hasOwnProperty.call(systemFields || {}, key);
-  const value = (key) => String(systemFields?.[key] ?? '').trim();
 
-  // Código é gerado e imutável no backend. A ficha pode exibi-lo, mas não alterá-lo.
+  // Código é gerado e imutável no backend. A Ficha Principal pode exibi-lo,
+  // mas nunca deve permitir que uma edição do formulário altere esse código.
   out.codigo = onlyDigits(fallback.codigo || out.codigo || '');
 
-  // Campos de origem "sistema" são autoritativos, inclusive quando vazios.
-  // Isso permite limpar um valor em vez de o fallback antigo reaparecer ao salvar.
-  if (has('nome')) out.nome = value('nome');
-  if (has('whatsapp')) out.whatsapp = value('whatsapp');
-  if (has('email')) out.email = value('email');
+  Object.entries(systemFields || {}).forEach(([rawKey, rawValue]) => {
+    const key = normalizeFornecedorSystemKey(rawKey);
+    if (!FORNECEDOR_SYSTEM_FIELDS.has(key)) return;
+
+    const value = String(rawValue ?? '').trim();
+
+    // A presença da chave é autoritativa, inclusive quando o valor é vazio.
+    // Assim, limpar CPF/CNPJ, telefone, endereço etc. realmente remove o valor
+    // em vez de fazer o dado antigo reaparecer após salvar e reabrir.
+    if (key === 'situacao') {
+      out.situacao = normalizeSituacao(value);
+      return;
+    }
+
+    out[key] = value;
+  });
+
+  // Mantém aliases usados por partes antigas da tela sincronizados com o
+  // payload canônico aceito pelo backend.
+  out.tipo = out.tipo_fornecedor || '';
+  out.ie = out.inscricao_estadual || '';
+  out.im = out.inscricao_municipal || '';
+  out.uf = out.estado || '';
+  out.ibge_cidade = out.codigo_ibge_cidade || '';
+  out.ibge_uf = out.codigo_ibge_uf || '';
 
   return out;
 }
@@ -1344,7 +1457,7 @@ async function salvarToggleFichaPrincipalFornecedor(event) {
   try {
     if (!formularioFornecedores?.modelo?.id) {
       await carregarFormularioFornecedores();
-      await renderCustomFieldsInputs({ ...(fornecedorAtualDetalhe?.custom_fields || {}), ...(fornecedorAtualDetalhe || {}), data_cadastro: fornecedorAtualDetalhe?.data_cadastro || fornecedorAtualDetalhe?.criado_em || fornecedorAtualDetalhe?.created_at || '' });
+      await renderCustomFieldsInputs(buildFornecedorFichaRenderValues(fornecedorAtualDetalhe || {}));
     }
 
     const modelo = formularioFornecedores?.modelo;
@@ -1376,7 +1489,7 @@ async function salvarToggleFichaPrincipalFornecedor(event) {
       },
     };
 
-    await renderCustomFieldsInputs({ ...(fornecedorAtualDetalhe?.custom_fields || {}), ...(fornecedorAtualDetalhe || {}), data_cadastro: fornecedorAtualDetalhe?.data_cadastro || fornecedorAtualDetalhe?.criado_em || fornecedorAtualDetalhe?.created_at || '' });
+    await renderCustomFieldsInputs(buildFornecedorFichaRenderValues(fornecedorAtualDetalhe || {}));
     aplicarModoFichaFornecedor();
 
     toast(
@@ -1433,7 +1546,7 @@ async function fillFornecedorForm(fornecedor = {}) {
   setValue('campo-plano-contas-fornecedor', data.plano_contas);
   setValue('campo-observacoes-fornecedor', data.observacoes);
 
-  await renderCustomFieldsInputs({ ...(data.custom_fields || {}), ...data, data_cadastro: data.data_cadastro || data.criado_em || data.created_at || '' });
+  await renderCustomFieldsInputs(buildFornecedorFichaRenderValues(data));
   syncFornecedorFichaCode(onlyDigits(data.codigo) || onlyDigits(getValue('campo-codigo-fornecedor')));
   aplicarModoFichaFornecedor();
   switchFornecedorTab(usarFichaPrincipalFornecedores ? 'tab-fornecedor-campos' : 'tab-fornecedor-cadastro');
@@ -1579,7 +1692,10 @@ async function abrirModalFornecedorEditar(id) {
   closeFornecedorActionsMenu();
   setFornecedorModalReadonly(false);
   try {
-    const full = await apiJson(`${API_FORNECEDORES}/${id}`);
+    const full = await apiJson(`${API_FORNECEDORES}/${id}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' },
+    });
 
     fornecedorEditandoId = full.id;
 
@@ -1599,7 +1715,10 @@ async function abrirModalFornecedorEditar(id) {
 async function abrirModalFornecedorVisualizar(id) {
   closeFornecedorActionsMenu();
   try {
-    const full = await apiJson(`${API_FORNECEDORES}/${id}`);
+    const full = await apiJson(`${API_FORNECEDORES}/${id}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' },
+    });
 
     fornecedorEditandoId = full.id;
     $('modal-fornecedor-titulo').textContent = 'Visualizar fornecedor';
@@ -1650,11 +1769,19 @@ async function salvarFornecedor(event) {
       ? `${API_FORNECEDORES}/${fornecedorEditandoId}`
       : API_FORNECEDORES;
 
-    await apiJson(url, {
+    const fornecedorSalvo = await apiJson(url, {
       method: fornecedorEditandoId ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+
+    if (fornecedorSalvo?.id) {
+      fornecedorEditandoId = Number(fornecedorSalvo.id);
+      fornecedorAtualDetalhe = { ...defaultFornecedor(), ...fornecedorSalvo };
+
+      const index = fornecedores.findIndex((item) => Number(item?.id) === Number(fornecedorSalvo.id));
+      if (index >= 0) fornecedores[index] = { ...fornecedores[index], ...fornecedorSalvo };
+    }
 
     if (!listaFornecedoresAdiadaAteFecharModal) {
       listaFornecedoresAdiadaAteFecharModal = true;
