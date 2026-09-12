@@ -12004,3 +12004,216 @@ html[data-theme="dark"] .formularios-vnext .form-section-item.is-active:hover {
   background: var(--panel, #242424) !important;
   border-color: var(--valora-single-blue) !important;
 }
+
+
+/* =========================================================
+   FORMULÁRIOS V15 — SOMENTE O AZUL FECHADO
+   2026-09-12
+   Cor escolhida a partir do preenchimento aprovado: #2B3C4C.
+   Remove o azul vivo #2C8BE4 dos estados ativos.
+   ========================================================= */
+:root {
+  --form-selected-color: #2B3C4C;
+}
+
+/* Menu superior e abas: mesma cor única, sem azul vivo. */
+html body #valora-menu-root .nav-link.is-active::after,
+html[data-theme="dark"] body #valora-menu-root .nav-link.is-active::after,
+.formularios-vnext .workspace-tabs .form-step-card.is-active::after,
+html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card.is-active::after {
+  background: var(--form-selected-color) !important;
+}
+
+.formularios-vnext .workspace-tabs .form-step-card.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-tabs .form-step-card.is-active {
+  color: #ffffff !important;
+}
+
+/* Módulo e seção selecionados: apenas #2B3C4C. */
+.formularios-vnext .form-modules-sidebar .module-card.is-active,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active,
+.formularios-vnext .form-section-item.is-active,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active {
+  background: var(--form-selected-color) !important;
+  border-color: var(--form-selected-color) !important;
+  box-shadow: none !important;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active *,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active *,
+.formularios-vnext .form-section-item.is-active *,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active * {
+  color: #ffffff !important;
+}
+
+.formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta {
+  background: var(--form-selected-color) !important;
+  border-color: rgba(255,255,255,.18) !important;
+  color: #ffffff !important;
+}
+
+/* Campo selecionado: o mesmo preenchimento, sem filete de outra cor. */
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active {
+  background: var(--form-selected-color) !important;
+  border-color: var(--form-selected-color) !important;
+  box-shadow: none !important;
+}
+
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active > *,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active > *,
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-main strong,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-main strong {
+  color: #ffffff !important;
+}
+
+.formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit {
+  background: var(--form-selected-color) !important;
+  border-color: rgba(255,255,255,.20) !important;
+  color: #ffffff !important;
+}
+
+/* Botão principal também segue a única cor escolhida. */
+.formularios-vnext .fields-column .builder-head-add-field,
+.formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field,
+html[data-theme="dark"] .formularios-vnext .fields-column .builder-head-add-field,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field {
+  background: var(--form-selected-color) !important;
+  border-color: var(--form-selected-color) !important;
+  color: #ffffff !important;
+}
+
+.formularios-vnext .fields-column .builder-head-add-field:hover,
+.formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field:hover,
+html[data-theme="dark"] .formularios-vnext .fields-column .builder-head-add-field:hover,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field:hover {
+  background: var(--form-selected-color) !important;
+  border-color: var(--form-selected-color) !important;
+  filter: brightness(1.08);
+}
+
+/* Foco e opções selecionadas sem introduzir um segundo azul. */
+.formularios-vnext input:focus,
+.formularios-vnext select:focus,
+.formularios-vnext textarea:focus,
+html[data-theme="dark"] .formularios-vnext input:focus,
+html[data-theme="dark"] .formularios-vnext select:focus,
+html[data-theme="dark"] .formularios-vnext textarea:focus,
+html[data-theme="dark"] .valora-select-search:focus-within {
+  border-color: var(--form-selected-color) !important;
+  box-shadow: 0 0 0 2px rgba(43, 60, 76, .35) !important;
+}
+
+html[data-theme="dark"] .campo-drawer-tab.is-active,
+html[data-theme="dark"] .valora-select-option.is-selected,
+html[data-theme="dark"] .valora-select-option.is-selected .valora-select-option-copy small,
+html[data-theme="dark"] .valora-select-option-check,
+html[data-theme="dark"] .preview-picker-item-icon,
+html[data-theme="dark"] .preview-picker-item-action {
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"] .campo-drawer-tab.is-active::after {
+  background: var(--form-selected-color) !important;
+}
+
+html[data-theme="dark"] .valora-select-option.is-selected {
+  background: var(--form-selected-color) !important;
+}
+
+/* =========================================================
+   FORMULÁRIOS V16 — LIGHT CORRIGIDO
+   2026-09-12
+   O azul fechado #2B3C4C continua sendo a única cor de destaque,
+   mas no tema claro não é usado como preenchimento de áreas grandes.
+   O dark permanece com o preenchimento aprovado da V15.
+   ========================================================= */
+html:not([data-theme="dark"]) .formularios-vnext .workspace-tabs .form-step-card.is-active {
+  color: var(--form-selected-color) !important;
+  background: transparent !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .workspace-tabs .form-step-card.is-active::after {
+  background: var(--form-selected-color) !important;
+}
+
+/* Sidebar: selecionado claro e limpo. */
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active {
+  background: #ffffff !important;
+  border-color: var(--form-selected-color) !important;
+  box-shadow: inset 3px 0 0 var(--form-selected-color) !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active strong,
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon {
+  color: var(--form-selected-color) !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta {
+  background: var(--form-selected-color) !important;
+  border-color: var(--form-selected-color) !important;
+  color: #ffffff !important;
+}
+
+/* Seção: sem bloco escuro no light. */
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active {
+  background: #ffffff !important;
+  border-color: var(--form-selected-color) !important;
+  box-shadow: inset 3px 0 0 var(--form-selected-color) !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active strong,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .section-icon {
+  color: var(--form-selected-color) !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active small {
+  color: var(--muted) !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .section-menu,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active button {
+  color: var(--form-selected-color) !important;
+}
+
+/* Campo selecionado: linha clara + barra única na cor aprovada. */
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active {
+  background: #ffffff !important;
+  border-color: transparent !important;
+  box-shadow: inset 4px 0 0 var(--form-selected-color) !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active > * {
+  color: inherit !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-main strong {
+  color: var(--text) !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-main small {
+  color: var(--muted) !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit {
+  background: #ffffff !important;
+  border-color: var(--form-selected-color) !important;
+  color: var(--form-selected-color) !important;
+}
+
+/* Hover dos selecionados no light não escurece o card inteiro. */
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active:hover,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active:hover {
+  background: #ffffff !important;
+  border-color: var(--form-selected-color) !important;
+}
+
+/* O botão principal pode ser preenchido: é uma ação, não um estado de seleção. */
+html:not([data-theme="dark"]) .formularios-vnext .fields-column .builder-head-add-field,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .fields-column .builder-head-add-field {
+  background: var(--form-selected-color) !important;
+  border-color: var(--form-selected-color) !important;
+  color: #ffffff !important;
+}
