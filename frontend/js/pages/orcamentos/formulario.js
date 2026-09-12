@@ -13,6 +13,7 @@
     state.attachmentLibrary = [];
     state.attachmentSelection = [];
     state.attachmentImageLayout = 1;
+    state.attachmentFolderExpanded = {};
     state.selectedClient = null;
     state.calculation = null;
     state.serviceProposalModel = 'padrao';

@@ -4586,24 +4586,103 @@ html[data-theme="dark"] .budget-generated-contract-list i {
 }
 
 .budget-attachments-folder {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border, #dfe6eb);
+  border-radius: 12px;
+  background: var(--panel, #fff);
+  overflow: hidden;
 }
 
 .budget-attachments-folder:last-child {
   margin-bottom: 0;
 }
 
-.budget-attachments-folder-title {
-  margin: 0 0 7px;
-  padding: 0 2px;
+.budget-attachments-folder-toggle {
+  width: 100%;
+  padding: 12px 14px;
   display: flex;
   align-items: center;
-  gap: 7px;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color .18s ease;
+}
+
+.budget-attachments-folder-toggle:hover {
+  background: rgba(75, 195, 199, .05);
+}
+
+.budget-attachments-folder-title {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--muted, #687784);
-  font-size: 9.5px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .04em;
+}
+
+.budget-attachments-folder-title span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.budget-attachments-folder-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.budget-attachments-folder-count {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(75, 195, 199, .12);
+  color: #178f93;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.budget-attachments-folder-chevron {
+  color: var(--muted, #7a8994);
+  font-size: 10px;
+  transition: transform .22s ease;
+}
+
+.budget-attachments-folder.is-open .budget-attachments-folder-chevron {
+  transform: rotate(180deg);
+}
+
+.budget-attachments-folder-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows .24s ease;
+}
+
+.budget-attachments-folder.is-open .budget-attachments-folder-panel {
+  grid-template-rows: 1fr;
+}
+
+.budget-attachments-folder-panel-inner {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 10px 0;
+}
+
+.budget-attachments-folder.is-open .budget-attachments-folder-panel-inner {
+  padding-bottom: 10px;
 }
 
 .budget-attachment-choice {
@@ -4653,6 +4732,28 @@ html[data-theme="dark"] .budget-attachments-search,
 html[data-theme="dark"] .budget-attachment-choice {
   background: #2f2f2f !important;
   border-color: rgba(255,255,255,.10) !important;
+}
+
+html[data-theme="dark"] .budget-attachments-folder {
+  background: #262626 !important;
+  border-color: rgba(255,255,255,.10) !important;
+}
+
+html[data-theme="dark"] .budget-attachments-folder-toggle:hover {
+  background: rgba(75,195,199,.06) !important;
+}
+
+html[data-theme="dark"] .budget-attachments-folder-title {
+  color: #c4cbd2 !important;
+}
+
+html[data-theme="dark"] .budget-attachments-folder-count {
+  background: rgba(75,195,199,.16) !important;
+  color: #8fe5e8 !important;
+}
+
+html[data-theme="dark"] .budget-attachments-folder-chevron {
+  color: #a9a9a9 !important;
 }
 
 html[data-theme="dark"] .budget-attachments-empty,

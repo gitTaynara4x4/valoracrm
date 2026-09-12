@@ -28,6 +28,7 @@
     attachmentLibrary: [],
     attachmentSelection: [],
     attachmentImageLayout: 1,
+    attachmentFolderExpanded: {},
     selectedClient: null,
     clients: [],
     clientResults: [],

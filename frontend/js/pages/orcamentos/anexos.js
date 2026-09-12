@@ -90,6 +90,26 @@
       .toLowerCase();
   }
 
+  function attachmentFolderKey(folder) {
+    return String(folder || 'sem-pasta')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-');
+  }
+
+  function isAttachmentFolderExpanded(folder, forceOpen = false) {
+    if (forceOpen) return true;
+    const key = attachmentFolderKey(folder);
+    return Boolean(state.attachmentFolderExpanded?.[key]);
+  }
+
+  function toggleAttachmentFolder(folder) {
+    const key = attachmentFolderKey(folder);
+    state.attachmentFolderExpanded = { ...(state.attachmentFolderExpanded || {}), [key]: !state.attachmentFolderExpanded?.[key] };
+    renderAttachmentPickerLibrary();
+  }
+
   function renderAttachmentPickerLibrary() {
     const host = $('budget-attachments-library');
     if (!host) return;
@@ -111,23 +131,40 @@
       groups.get(key).push(file);
     });
 
-    host.innerHTML = Array.from(groups.entries()).map(([folder, group]) => `
-      <section class="budget-attachments-folder">
-        <h4 class="budget-attachments-folder-title"><i class="fa-solid fa-folder"></i> ${escapeHtml(folder)}</h4>
-        ${group.map((file) => {
-          const checked = selected.has(Number(file.id));
-          return `
-            <label class="budget-attachment-choice ${checked ? 'is-selected' : ''}" data-attachment-choice="${Number(file.id)}">
-              <input type="checkbox" value="${Number(file.id)}" ${checked ? 'checked' : ''} />
-              <span class="budget-attachment-icon"><i class="fa-solid ${attachmentIcon(file)}"></i></span>
-              <span class="budget-attachment-copy">
-                <strong>${escapeHtml(file.titulo || file.arquivo_nome || 'Documento')}</strong>
-                <span>${escapeHtml(file.arquivo_nome || '')} • ${formatAttachmentBytes(file.tamanho_bytes)}</span>
-              </span>
-            </label>`;
-        }).join('')}
-      </section>
-    `).join('');
+    host.innerHTML = Array.from(groups.entries()).map(([folder, group]) => {
+      const forceOpen = Boolean(search);
+      const open = isAttachmentFolderExpanded(folder, forceOpen);
+      const folderKey = attachmentFolderKey(folder);
+      return `
+      <section class="budget-attachments-folder ${open ? 'is-open' : ''}" data-attachment-folder="${escapeHtml(folderKey)}">
+        <button class="budget-attachments-folder-toggle" type="button" data-attachment-folder-toggle="${escapeHtml(folder)}" aria-expanded="${open ? 'true' : 'false'}">
+          <span class="budget-attachments-folder-title">
+            <i class="fa-solid fa-folder"></i>
+            <span>${escapeHtml(folder)}</span>
+          </span>
+          <span class="budget-attachments-folder-meta">
+            <span class="budget-attachments-folder-count">${group.length}</span>
+            <i class="fa-solid fa-chevron-down budget-attachments-folder-chevron" aria-hidden="true"></i>
+          </span>
+        </button>
+        <div class="budget-attachments-folder-panel">
+          <div class="budget-attachments-folder-panel-inner">
+            ${group.map((file) => {
+              const checked = selected.has(Number(file.id));
+              return `
+                <label class="budget-attachment-choice ${checked ? 'is-selected' : ''}" data-attachment-choice="${Number(file.id)}">
+                  <input type="checkbox" value="${Number(file.id)}" ${checked ? 'checked' : ''} />
+                  <span class="budget-attachment-icon"><i class="fa-solid ${attachmentIcon(file)}"></i></span>
+                  <span class="budget-attachment-copy">
+                    <strong>${escapeHtml(file.titulo || file.arquivo_nome || 'Documento')}</strong>
+                    <span>${escapeHtml(file.arquivo_nome || '')} • ${formatAttachmentBytes(file.tamanho_bytes)}</span>
+                  </span>
+                </label>`;
+            }).join('')}
+          </div>
+        </div>
+      </section>`;
+    }).join('');
     updateAttachmentSelectionCount();
   }
 
@@ -238,6 +275,7 @@
     const files = (Array.isArray(attachments) ? attachments : []).filter((file) => file?.imprimivel !== false);
     if (!files.length) return '';
     const pages = [];
+    const skipped = [];
     const imageLayout = normalizeAttachmentImageLayout(imagesPerPage);
     let imageBatch = [];
 
@@ -263,7 +301,8 @@
         try {
           info = await api(`/api/arquivos-tecnicos/arquivos/${id}/paginas`);
         } catch (error) {
-          throw new Error(`Não foi possível preparar “${file.arquivo_nome || file.titulo || 'PDF'}” para impressão: ${error.message || 'erro no PDF'}`);
+          skipped.push(file.arquivo_nome || file.titulo || 'PDF');
+          continue;
         }
         const pageCount = Number(info?.paginas || 0);
         for (let page = 1; page <= pageCount; page += 1) {
@@ -272,6 +311,11 @@
       }
     }
     flushImages();
+    if (skipped.length) {
+      const preview = skipped.slice(0, 3).join(', ');
+      const extra = skipped.length > 3 ? ` e mais ${skipped.length - 3}` : '';
+      toast(`Alguns anexos não foram encontrados no armazenamento e foram ignorados: ${preview}${extra}.`, 'warning');
+    }
     return pages.join('');
   }
 

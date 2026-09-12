@@ -1,12 +1,15 @@
-ValoraCRM - Correção impressão dos itens do orçamento - 12/09/2026
+CORREÇÃO — Arquivo físico não encontrado nos anexos do orçamento
+
+O erro HTTP 404 vinha da rota de PDF porque o registro existia no banco,
+mas o arquivo físico não era encontrado no diretório atual.
 
 Correções:
-- Não imprime a referência abaixo da descrição quando os dois textos são iguais.
-- Se a descrição do item for personalizada e a referência original for diferente, a referência continua aparecendo.
-- Colunas do DAV passaram a usar larguras fixas via colgroup.
-- Descrições longas quebram linha dentro da própria coluna e não invadem UND., QTDE. ou valores.
-- Células numéricas ficam contidas nas respectivas colunas.
-- Cache-busting atualizado para carregar os JS/CSS corrigidos.
+- procura o arquivo também em raízes antigas/legadas do Valora;
+- procura pelo nome físico UUID dentro das raízes conhecidas como fallback;
+- arquivos ausentes deixam de aparecer no seletor de anexos imprimíveis;
+- se um anexo já salvo no orçamento estiver ausente, somente ele é ignorado;
+- a impressão do restante do orçamento/anexos continua normalmente;
+- cache-busting atualizado do módulo Orçamentos.
 
-Não há migration de banco nesta correção.
-Depois de substituir os arquivos, reinicie o servidor e use Ctrl+F5 no navegador.
+Não há migration.
+Reinicie o backend e faça Ctrl+F5.

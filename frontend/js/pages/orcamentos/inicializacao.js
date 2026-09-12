@@ -100,6 +100,12 @@
     $('btn-cancelar-anexos-orcamento')?.addEventListener('click', () => closeOverlay('budget-attachments-modal'));
     $('btn-salvar-anexos-orcamento')?.addEventListener('click', saveBudgetAttachmentSelection);
     $('budget-attachments-search')?.addEventListener('input', renderAttachmentPickerLibrary);
+    $('budget-attachments-library')?.addEventListener('click', (event) => {
+      const toggle = event.target.closest('[data-attachment-folder-toggle]');
+      if (!toggle) return;
+      event.preventDefault();
+      toggleAttachmentFolder(toggle.dataset.attachmentFolderToggle);
+    });
     $('budget-attachments-library')?.addEventListener('change', (event) => {
       const checkbox = event.target.closest('input[type="checkbox"]');
       if (!checkbox) return;

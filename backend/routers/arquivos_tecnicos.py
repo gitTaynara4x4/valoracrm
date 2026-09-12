@@ -191,19 +191,73 @@ def _format_file(row: Arquivo) -> dict:
         "atualizado_em": row.atualizado_em,
         "is_image": is_image,
         "imprimivel": printable,
+        "disponivel": _file_available(row),
         "url": f"/api/arquivos-tecnicos/arquivos/{int(row.id)}/conteudo",
         "download_url": f"/api/arquivos-tecnicos/arquivos/{int(row.id)}/conteudo?download=1",
     }
 
 
+def _storage_roots() -> list[Path]:
+    """Raízes conhecidas para compatibilidade com instalações antigas."""
+    roots: list[Path] = []
+    candidates = [
+        STORAGE_DIR,
+        (BASE_DIR / "uploads" / "arquivos_tecnicos").resolve(),
+        (BASE_DIR / "backend" / "uploads" / "arquivos_tecnicos").resolve(),
+        (Path.cwd() / "uploads" / "arquivos_tecnicos").resolve(),
+    ]
+    for candidate in candidates:
+        if candidate not in roots:
+            roots.append(candidate)
+    return roots
+
+
 def _physical_path(row: Arquivo) -> Path:
-    relative = Path(_text(row.arquivo_path))
-    candidate = (STORAGE_DIR / relative).resolve()
+    relative_text = _text(row.arquivo_path)
+    if not relative_text:
+        return (STORAGE_DIR / "__arquivo_inexistente__").resolve()
+    relative = Path(relative_text)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise HTTPException(status_code=400, detail="Caminho de arquivo inválido.")
+
+    roots = _storage_roots()
+    primary = (roots[0] / relative).resolve()
+    for root in roots:
+        candidate = (root / relative).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            continue
+        if candidate.exists() and candidate.is_file():
+            return candidate
+
+    # Compatibilidade extra: em versões antigas alguns arquivos acabaram
+    # preservados em outra raiz, mas mantiveram o mesmo nome físico UUID.
+    stored_name = relative.name
+    if stored_name:
+        for root in roots:
+            if not root.exists():
+                continue
+            try:
+                for candidate in root.rglob(stored_name):
+                    resolved = candidate.resolve()
+                    try:
+                        resolved.relative_to(root)
+                    except ValueError:
+                        continue
+                    if resolved.is_file():
+                        return resolved
+            except OSError:
+                continue
+    return primary
+
+
+def _file_available(row: Arquivo) -> bool:
     try:
-        candidate.relative_to(STORAGE_DIR)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Caminho de arquivo inválido.") from exc
-    return candidate
+        path = _physical_path(row)
+        return path.exists() and path.is_file()
+    except HTTPException:
+        return False
 
 
 class FolderIn(BaseModel):
@@ -334,7 +388,7 @@ def listar_arquivos_gerais(
     for row, pasta_nome, _pasta_ordem in rows:
         item = _format_file(row)
         item["pasta_nome"] = pasta_nome
-        if somente_imprimiveis and not item["imprimivel"]:
+        if somente_imprimiveis and (not item["imprimivel"] or not item.get("disponivel", False)):
             continue
         items.append(item)
     return {"items": items, "total": len(items)}
