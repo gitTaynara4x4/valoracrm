@@ -27,6 +27,7 @@
     attachments: [],
     attachmentLibrary: [],
     attachmentSelection: [],
+    attachmentImageLayout: 1,
     selectedClient: null,
     clients: [],
     clientResults: [],

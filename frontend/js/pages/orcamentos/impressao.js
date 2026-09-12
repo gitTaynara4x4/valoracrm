@@ -103,7 +103,8 @@
       const budget = await api(`${API}/${id}`);
       const previous = {
         currentId: state.currentId, current: state.current, items: state.items, payments: state.payments,
-        attachments: state.attachments, attachmentSelection: state.attachmentSelection, client: state.selectedClient,
+        attachments: state.attachments, attachmentSelection: state.attachmentSelection,
+        attachmentImageLayout: state.attachmentImageLayout, client: state.selectedClient,
       };
       state.currentId = id;
       state.current = budget;
@@ -111,12 +112,16 @@
       state.payments = (budget.pagamentos || []).map(normalizePayment);
       state.attachments = Array.isArray(budget.anexos) ? budget.anexos.map((item) => ({ ...item })) : [];
       state.attachmentSelection = state.attachments.map((item) => Number(item.id)).filter(Boolean);
+      state.attachmentImageLayout = [1, 2, 4, 6].includes(Number(budget.anexos_imagens_por_pagina))
+        ? Number(budget.anexos_imagens_por_pagina)
+        : 1;
       state.selectedClient = null;
       fillBudgetForm(budget);
       await printCurrent();
       Object.assign(state, {
         currentId: previous.currentId, current: previous.current, items: previous.items, payments: previous.payments,
-        attachments: previous.attachments, attachmentSelection: previous.attachmentSelection, selectedClient: previous.client,
+        attachments: previous.attachments, attachmentSelection: previous.attachmentSelection,
+        attachmentImageLayout: previous.attachmentImageLayout, selectedClient: previous.client,
       });
       renderBudgetAttachments();
     } catch (error) { toast(error.message, 'error'); }

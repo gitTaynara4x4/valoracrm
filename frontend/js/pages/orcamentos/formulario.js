@@ -12,6 +12,7 @@
     state.attachments = [];
     state.attachmentLibrary = [];
     state.attachmentSelection = [];
+    state.attachmentImageLayout = 1;
     state.selectedClient = null;
     state.calculation = null;
     state.serviceProposalModel = 'padrao';
@@ -198,6 +199,9 @@
     state.appliedTemplateId = Number(budget?.modelo_id) || null;
     state.attachments = Array.isArray(budget?.anexos) ? budget.anexos.map((item) => ({ ...item })) : [];
     state.attachmentSelection = state.attachments.map((item) => Number(item.id)).filter(Boolean);
+    state.attachmentImageLayout = [1, 2, 4, 6].includes(Number(budget?.anexos_imagens_por_pagina))
+      ? Number(budget.anexos_imagens_por_pagina)
+      : 1;
     const emitterSelect = $('orcamento-emitente-id');
     const fallbackEmitter = state.emitters.find((emitter) => emitter.padrao && emitter.ativo !== false)
       || state.emitters.find((emitter) => emitter.ativo !== false);

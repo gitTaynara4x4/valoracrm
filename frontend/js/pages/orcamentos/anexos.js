@@ -1,12 +1,24 @@
 /*
  * ValoraCRM · Orçamentos · anexos.js
- * Biblioteca Geral, seleção persistida e preparação dos documentos anexos para impressão.
+ * Biblioteca Geral, seleção persistida, layout em mosaico e preparação dos anexos para impressão.
  * Carregado por frontend/js/pages/orcamentos.js.
  */
+  const BUDGET_ATTACHMENT_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
+
+  function normalizeAttachmentImageLayout(value) {
+    const layout = Number(value || 1);
+    return [1, 2, 4, 6].includes(layout) ? layout : 1;
+  }
+
+  function isImageAttachment(file) {
+    const ext = String(file?.extensao || '').toLowerCase();
+    return BUDGET_ATTACHMENT_IMAGE_EXTENSIONS.has(ext) || Boolean(file?.is_image);
+  }
+
   function attachmentIcon(file) {
     const ext = String(file?.extensao || '').toLowerCase();
     if (ext === '.pdf') return 'fa-file-pdf';
-    if (['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext) || file?.is_image) return 'fa-file-image';
+    if (isImageAttachment(file)) return 'fa-file-image';
     if (['.doc', '.docx'].includes(ext)) return 'fa-file-word';
     if (['.xls', '.xlsx'].includes(ext)) return 'fa-file-excel';
     return 'fa-file-lines';
@@ -20,6 +32,23 @@
     return `${(value / 1024 ** 3).toFixed(2)} GB`;
   }
 
+  function attachmentLayoutLabel(value = state.attachmentImageLayout) {
+    const layout = normalizeAttachmentImageLayout(value);
+    return layout === 1 ? '1 imagem por folha' : `${layout} imagens por folha`;
+  }
+
+  function selectedAttachmentImageLayoutFromPicker() {
+    const checked = document.querySelector('input[name="budget-attachments-image-layout"]:checked');
+    return normalizeAttachmentImageLayout(checked?.value || state.attachmentImageLayout);
+  }
+
+  function syncAttachmentImageLayoutPicker(value = state.attachmentImageLayout) {
+    const layout = normalizeAttachmentImageLayout(value);
+    document.querySelectorAll('input[name="budget-attachments-image-layout"]').forEach((input) => {
+      input.checked = Number(input.value) === layout;
+    });
+  }
+
   function renderBudgetAttachments() {
     const host = $('budget-attachments-list');
     const button = $('btn-selecionar-anexos-orcamento');
@@ -29,7 +58,7 @@
     button.disabled = !state.currentId;
     button.title = state.currentId ? 'Selecionar documentos da Biblioteca Geral' : 'Salve o orçamento primeiro';
     help.textContent = state.currentId
-      ? 'Somente PDFs e imagens podem ser impressos junto com o orçamento.'
+      ? `PDFs são impressos normalmente. Imagens: ${attachmentLayoutLabel()}.`
       : 'Salve o orçamento para vincular documentos da Biblioteca Geral.';
 
     const items = Array.isArray(state.attachments) ? state.attachments : [];
@@ -116,6 +145,8 @@
     }
     state.attachmentSelection = (state.attachments || []).map((item) => Number(item.id)).filter(Boolean);
     state.attachmentLibrary = [];
+    state.attachmentImageLayout = normalizeAttachmentImageLayout(state.attachmentImageLayout);
+    syncAttachmentImageLayoutPicker();
     if ($('budget-attachments-search')) $('budget-attachments-search').value = '';
     $('budget-attachments-library').innerHTML = '<div class="budget-attachments-empty"><i class="fa-solid fa-spinner fa-spin"></i>&nbsp; Carregando documentos...</div>';
     updateAttachmentSelectionCount();
@@ -133,17 +164,25 @@
   async function saveBudgetAttachmentSelection() {
     if (!state.currentId) return;
     const button = $('btn-salvar-anexos-orcamento');
+    const imageLayout = selectedAttachmentImageLayoutFromPicker();
     try {
       setButtonLoading(button, true, 'Salvando...');
       const result = await api(`${API}/${state.currentId}/anexos`, {
         method: 'PUT',
-        body: JSON.stringify({ arquivo_ids: state.attachmentSelection || [] }),
+        body: JSON.stringify({
+          arquivo_ids: state.attachmentSelection || [],
+          imagens_por_pagina: imageLayout,
+        }),
       });
       state.attachments = Array.isArray(result?.items) ? result.items : [];
-      if (state.current) state.current.anexos = state.attachments.map((item) => ({ ...item }));
+      state.attachmentImageLayout = normalizeAttachmentImageLayout(result?.imagens_por_pagina || imageLayout);
+      if (state.current) {
+        state.current.anexos = state.attachments.map((item) => ({ ...item }));
+        state.current.anexos_imagens_por_pagina = state.attachmentImageLayout;
+      }
       renderBudgetAttachments();
       closeOverlay('budget-attachments-modal');
-      toast('Documentos anexos atualizados.');
+      toast(`Documentos anexos atualizados • ${attachmentLayoutLabel()}.`);
     } catch (error) {
       toast(error.message || 'Não foi possível salvar os documentos anexos.', 'error');
     } finally {
@@ -162,7 +201,11 @@
       });
       state.attachments = Array.isArray(result?.items) ? result.items : [];
       state.attachmentSelection = state.attachments.map((item) => Number(item.id)).filter(Boolean);
-      if (state.current) state.current.anexos = state.attachments.map((item) => ({ ...item }));
+      state.attachmentImageLayout = normalizeAttachmentImageLayout(result?.imagens_por_pagina || state.attachmentImageLayout);
+      if (state.current) {
+        state.current.anexos = state.attachments.map((item) => ({ ...item }));
+        state.current.anexos_imagens_por_pagina = state.attachmentImageLayout;
+      }
       renderBudgetAttachments();
       toast('Documento removido do orçamento.');
     } catch (error) {
@@ -170,19 +213,51 @@
     }
   }
 
-  async function buildAttachmentPrintHtml(attachments = state.attachments) {
+  function renderAttachmentImagePage(files, layout) {
+    const normalizedLayout = normalizeAttachmentImageLayout(layout);
+    if (normalizedLayout === 1 && files.length === 1) {
+      const file = files[0];
+      const id = Number(file.id);
+      const title = escapeHtml(file.titulo || file.arquivo_nome || 'Imagem anexa');
+      const src = escapeHtml(file.url || `/api/arquivos-tecnicos/arquivos/${id}/conteudo`);
+      return `<section class="budget-print-attachment"><div class="budget-print-attachment-label">${title}</div><img src="${src}" alt="${title}" /></section>`;
+    }
+
+    const rows = normalizedLayout === 2 ? 2 : (normalizedLayout === 4 ? 2 : 3);
+    const columns = normalizedLayout === 2 ? 1 : 2;
+    const tiles = files.map((file) => {
+      const id = Number(file.id);
+      const title = escapeHtml(file.titulo || file.arquivo_nome || 'Imagem anexa');
+      const src = escapeHtml(file.url || `/api/arquivos-tecnicos/arquivos/${id}/conteudo`);
+      return `<div class="budget-print-attachment-tile"><img src="${src}" alt="${title}" /><div class="budget-print-attachment-tile-label">${title}</div></div>`;
+    }).join('');
+    return `<section class="budget-print-attachment budget-print-attachment-mosaic" style="--mosaic-cols:${columns};--mosaic-rows:${rows}">${tiles}</section>`;
+  }
+
+  async function buildAttachmentPrintHtml(attachments = state.attachments, imagesPerPage = state.attachmentImageLayout) {
     const files = (Array.isArray(attachments) ? attachments : []).filter((file) => file?.imprimivel !== false);
     if (!files.length) return '';
     const pages = [];
+    const imageLayout = normalizeAttachmentImageLayout(imagesPerPage);
+    let imageBatch = [];
+
+    const flushImages = () => {
+      if (!imageBatch.length) return;
+      pages.push(renderAttachmentImagePage(imageBatch, imageLayout));
+      imageBatch = [];
+    };
 
     for (const file of files) {
       const id = Number(file.id);
       const ext = String(file.extensao || '').toLowerCase();
       const title = escapeHtml(file.titulo || file.arquivo_nome || 'Documento anexo');
-      if (['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)) {
-        pages.push(`<section class="budget-print-attachment"><div class="budget-print-attachment-label">${title}</div><img src="${escapeHtml(file.url || `/api/arquivos-tecnicos/arquivos/${id}/conteudo`)}" alt="${title}" /></section>`);
+      if (isImageAttachment(file)) {
+        imageBatch.push(file);
+        if (imageBatch.length >= imageLayout) flushImages();
         continue;
       }
+
+      flushImages();
       if (ext === '.pdf' || String(file.mime_type || '').toLowerCase() === 'application/pdf') {
         let info;
         try {
@@ -196,14 +271,22 @@
         }
       }
     }
+    flushImages();
     return pages.join('');
   }
 
   function attachmentPrintStyles() {
     return `
       .budget-print-attachment{break-before:page;page-break-before:always;width:100%;height:276mm;display:flex;align-items:center;justify-content:center;position:relative;background:#fff;overflow:hidden}
-      .budget-print-attachment img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
+      .budget-print-attachment>img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
       .budget-print-attachment-label{position:absolute;left:0;right:0;bottom:0;padding:1.5mm 2mm;background:rgba(255,255,255,.92);color:#66727b;font:7pt Inter,Arial,sans-serif;text-align:right}
-      @media print{.budget-print-attachment{-webkit-print-color-adjust:exact;print-color-adjust:exact}.budget-print-attachment-label{display:none!important}}
+      .budget-print-attachment-mosaic{display:grid;grid-template-columns:repeat(var(--mosaic-cols),minmax(0,1fr));grid-template-rows:repeat(var(--mosaic-rows),minmax(0,1fr));gap:3mm;padding:1mm;align-items:stretch;justify-items:stretch}
+      .budget-print-attachment-tile{min-width:0;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:2mm;border:.25mm solid #dfe5e8;border-radius:1.5mm;background:#fff;overflow:hidden}
+      .budget-print-attachment-tile img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
+      .budget-print-attachment-tile-label{position:absolute;left:1.5mm;right:1.5mm;bottom:1mm;padding:1mm 1.5mm;border-radius:1mm;background:rgba(255,255,255,.90);color:#66727b;font:6.5pt Inter,Arial,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+      @media print{
+        .budget-print-attachment{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        .budget-print-attachment-label,.budget-print-attachment-tile-label{display:none!important}
+      }
     `;
   }

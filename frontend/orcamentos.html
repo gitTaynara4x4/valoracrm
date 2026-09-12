@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="/frontend/css/forms-respiro.css?v=20260614-bitrix-layout">
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar">
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
-  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260912-anexos-biblioteca-geral-v6">
+  <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260912-anexos-mosaico-v1">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260804-listas-simples-v3">
   <link rel="stylesheet" href="/frontend/css/orcamentos-modal-paridade.css?v=20260901-confirm-modal-v50">
@@ -32,7 +32,7 @@
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260909-loading-global-v3" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260912-anexos-biblioteca-geral-v11" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260912-anexos-mosaico-v1" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -512,6 +512,32 @@
           <i class="fa-solid fa-magnifying-glass"></i>
           <input id="budget-attachments-search" type="search" placeholder="Buscar pasta ou documento..." autocomplete="off" />
         </label>
+
+        <section class="budget-attachments-layout-card" aria-labelledby="budget-attachments-layout-title">
+          <div class="budget-attachments-layout-copy">
+            <strong id="budget-attachments-layout-title">Imagens por folha</strong>
+            <span>PDFs continuam normais. Esta opção agrupa somente imagens.</span>
+          </div>
+          <div class="budget-attachments-layout-options" role="radiogroup" aria-label="Quantidade de imagens por folha">
+            <label class="budget-attachments-layout-option">
+              <input type="radio" name="budget-attachments-image-layout" value="1" checked />
+              <span>Original</span>
+            </label>
+            <label class="budget-attachments-layout-option">
+              <input type="radio" name="budget-attachments-image-layout" value="2" />
+              <span>2</span>
+            </label>
+            <label class="budget-attachments-layout-option">
+              <input type="radio" name="budget-attachments-image-layout" value="4" />
+              <span>4</span>
+            </label>
+            <label class="budget-attachments-layout-option">
+              <input type="radio" name="budget-attachments-image-layout" value="6" />
+              <span>6</span>
+            </label>
+          </div>
+        </section>
+
         <div class="budget-attachments-library" id="budget-attachments-library">
           <div class="budget-attachments-empty"><i class="fa-solid fa-spinner fa-spin"></i> Carregando documentos...</div>
         </div>

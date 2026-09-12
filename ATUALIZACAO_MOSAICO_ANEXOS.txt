@@ -1,0 +1,24 @@
+ValoraCRM — Mosaico de imagens nos anexos do orçamento
+Data: 2026-09-12
+
+Arquivos deste pacote: somente os alterados nesta atualização.
+
+O que mudou:
+- Modal Documentos anexos ganhou: Original, 2, 4 ou 6 imagens por folha.
+- Original = 1 imagem por folha.
+- 2 = grade 1x2.
+- 4 = grade 2x2.
+- 6 = grade 2x3.
+- PDFs continuam sendo impressos página por página e não entram no mosaico.
+- O layout escolhido fica salvo no próprio orçamento.
+- Ao duplicar um orçamento, o layout dos anexos também é copiado.
+- A tela Documento mostra o layout salvo das imagens.
+
+Depois de substituir os arquivos, execute na raiz do ValoraCRM:
+
+    python scripts/migrate.py
+
+Depois reinicie o Uvicorn/servidor e faça Ctrl+F5 no navegador.
+
+Migration nova:
+20260912_0039_layout_mosaico_anexos_orcamento.py

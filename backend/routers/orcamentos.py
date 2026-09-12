@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import bindparam, text
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
@@ -803,6 +803,16 @@ class BudgetUpdate(BudgetBase):
 
 class BudgetAttachmentsIn(BaseModel):
     arquivo_ids: List[int] = Field(default_factory=list, max_length=100)
+    imagens_por_pagina: Optional[int] = Field(default=None)
+
+    @field_validator("imagens_por_pagina")
+    @classmethod
+    def validate_imagens_por_pagina(cls, value: Optional[int]) -> Optional[int]:
+        if value is None:
+            return None
+        if int(value) not in {1, 2, 4, 6}:
+            raise ValueError("Use 1, 2, 4 ou 6 imagens por página.")
+        return int(value)
 
 
 class CalculationIn(BudgetBase):
@@ -2675,9 +2685,13 @@ def get_budget_attachments(
     db: Session = Depends(get_db),
 ):
     company_id = int(current_user.empresa_id)
-    if not budget_row(db, budget_id, company_id):
+    row = budget_row(db, budget_id, company_id)
+    if not row:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
-    return {"items": serialize_budget_attachments(db, budget_id, company_id)}
+    return {
+        "items": serialize_budget_attachments(db, budget_id, company_id),
+        "imagens_por_pagina": int(row.get("anexos_imagens_por_pagina") or 1),
+    }
 
 
 @router.put("/{budget_id:int}/anexos")
@@ -2739,12 +2753,33 @@ def update_budget_attachments(
             "ordem": ordem,
             "usuario_id": int(current_user.id),
         })
+    if payload.imagens_por_pagina is not None:
+        db.execute(text("""
+            UPDATE public.orcamentos
+            SET anexos_imagens_por_pagina=:imagens_por_pagina, atualizado_em=NOW()
+            WHERE id=:orcamento_id AND empresa_id=:empresa_id
+        """), {
+            "empresa_id": company_id,
+            "orcamento_id": budget_id,
+            "imagens_por_pagina": int(payload.imagens_por_pagina),
+        })
+
+    layout = int(payload.imagens_por_pagina or 0)
+    layout_text = f" • imagens: {layout} por página" if layout else ""
     add_history(
         db, budget_id, current_user, "anexos_atualizados",
-        f"Documentos anexos atualizados: {len(arquivo_ids)} arquivo(s).",
+        f"Documentos anexos atualizados: {len(arquivo_ids)} arquivo(s){layout_text}.",
     )
     db.commit()
-    return {"items": serialize_budget_attachments(db, budget_id, company_id)}
+    saved_layout = db.execute(text("""
+        SELECT anexos_imagens_por_pagina
+        FROM public.orcamentos
+        WHERE id=:orcamento_id AND empresa_id=:empresa_id
+    """), {"orcamento_id": budget_id, "empresa_id": company_id}).scalar()
+    return {
+        "items": serialize_budget_attachments(db, budget_id, company_id),
+        "imagens_por_pagina": int(saved_layout or 1),
+    }
 
 
 def save_budget_items(db: Session, budget_id: int, items: List[dict]) -> None:
@@ -3953,6 +3988,18 @@ def duplicate_budget(
         itens=source.get("itens") or [],
     )
     created = create_budget(payload, current_user=current_user, db=db)
+    source_attachment_layout = int(source.get("anexos_imagens_por_pagina") or 1)
+    if source_attachment_layout not in {1, 2, 4, 6}:
+        source_attachment_layout = 1
+    db.execute(text("""
+        UPDATE public.orcamentos
+        SET anexos_imagens_por_pagina=:imagens_por_pagina
+        WHERE id=:orcamento_id AND empresa_id=:empresa_id
+    """), {
+        "empresa_id": company_id,
+        "orcamento_id": int(created["id"]),
+        "imagens_por_pagina": source_attachment_layout,
+    })
     source_attachments = source.get("anexos") or []
     for ordem, attachment in enumerate(source_attachments):
         file_id = int(attachment.get("id") or 0)
