@@ -3,6 +3,14 @@
  * Preview do orçamento, DAV, escala do documento e histórico.
  * Carregado por frontend/js/pages/orcamentos.js.
  */
+  function printableItemReference(item) {
+    const description = String(item?.descricao || '').trim().replace(/\s+/g, ' ');
+    const reference = String(item?.referencia || '').trim().replace(/\s+/g, ' ');
+    if (!reference) return '';
+    if (description && reference.localeCompare(description, 'pt-BR', { sensitivity: 'base' }) === 0) return '';
+    return reference;
+  }
+
   function buildStandardPreviewHtml() {
     const totals = calculateTotals();
     const company = documentCompanyData();
@@ -12,15 +20,18 @@
     const title = $('orcamento-titulo').value || 'Orçamento comercial';
     const clientName = $('orcamento-cliente-busca').value || 'Cliente não selecionado';
     const logo = company.logo ? `<img src="${escapeHtml(company.logo)}" alt="Logo">` : '';
-    const rows = state.items.map((item, index) => `
+    const rows = state.items.map((item, index) => {
+      const reference = printableItemReference(item);
+      return `
       <tr>
         ${state.meta.configuracao?.mostrar_codigo !== false ? `<td>${escapeHtml(item.codigo || String(index + 1).padStart(4, '0'))}</td>` : ''}
-        <td><strong>${escapeHtml(item.descricao || 'Item')}</strong>${item.referencia ? `<small>${escapeHtml(item.referencia)}</small>` : ''}</td>
+        <td><strong>${escapeHtml(item.descricao || 'Item')}</strong>${reference ? `<small>${escapeHtml(reference)}</small>` : ''}</td>
         <td style="text-align:center">${inputMoney(item.quantidade)}</td>
         <td style="text-align:center">${escapeHtml(item.unidade)}</td>
         <td style="text-align:right">${formatMoney(item.valor_unitario)}</td>
         <td style="text-align:right">${formatMoney(itemTotal(item))}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     const payments = state.payments.map((payment) => `<li><strong>${escapeHtml(payment.nome)}</strong>: ${escapeHtml(paymentDescription(payment))}</li>`).join('');
     const itemsAndSummary = state.items.length ? `
       <table class="preview-items"><thead><tr>${state.meta.configuracao?.mostrar_codigo !== false ? '<th>Código</th>' : ''}<th>Descrição</th><th style="text-align:center">Qtd.</th><th style="text-align:center">Un.</th><th style="text-align:right">Unitário</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table>
@@ -172,9 +183,10 @@
       const lineDiscount = Math.max(parseNumber(item.desconto), 0);
       const discountUnit = quantity > 0 ? lineDiscount / quantity : 0;
       const unitAfterDiscount = Math.max(unitValue - discountUnit, 0);
+      const reference = printableItemReference(item);
       return `<tr>
         <td class="dav-code">${escapeHtml(item.codigo || String(index + 1).padStart(6, '0'))}</td>
-        <td class="dav-description"><strong>${escapeHtml(item.descricao || 'Item')}</strong>${item.referencia ? `<small>${escapeHtml(item.referencia)}</small>` : ''}</td>
+        <td class="dav-description"><strong>${escapeHtml(item.descricao || 'Item')}</strong>${reference ? `<small>${escapeHtml(reference)}</small>` : ''}</td>
         <td class="dav-center">${escapeHtml(item.unidade || 'UN')}</td>
         <td class="dav-center">${formatDavQuantity(quantity)}</td>
         <td class="dav-number">${formatDavValue(unitValue)}</td>
@@ -219,6 +231,16 @@
       <div class="dav-reference-line">${escapeHtml($('orcamento-titulo').value || '')}${state.categories.find((category) => String(category.id) === $('orcamento-categoria').value)?.nome ? ` • ${escapeHtml(state.categories.find((category) => String(category.id) === $('orcamento-categoria').value)?.nome)}` : ''}</div>
 
       <table class="dav-items-table">
+        <colgroup>
+          <col class="dav-col-code" />
+          <col class="dav-col-description" />
+          <col class="dav-col-unit" />
+          <col class="dav-col-quantity" />
+          <col class="dav-col-unit-value" />
+          <col class="dav-col-discount" />
+          <col class="dav-col-net-value" />
+          <col class="dav-col-total" />
+        </colgroup>
         <thead><tr><th>CÓDIGO<br>PRODUTO:</th><th>DESCRIÇÃO DOS PRODUTOS:<br><span>REFERÊNCIA</span></th><th>UND.</th><th>QTDE:</th><th>VALOR(SD)<br>UNITÁRIO:</th><th>VALOR<br>DESCONTO:</th><th>VALOR(CD)<br>UNITÁRIO:</th><th>VALOR<br>TOTAL:</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="8" class="dav-empty">Nenhum item adicionado.</td></tr>'}</tbody>
       </table>

@@ -1038,14 +1038,15 @@ html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab.active {
   vertical-align: bottom;
 }
 
-.dav-items-table th:nth-child(1) { width: 9%; }
-.dav-items-table th:nth-child(2) { width: 35%; text-align: left; }
-.dav-items-table th:nth-child(3) { width: 6%; }
-.dav-items-table th:nth-child(4) { width: 7%; }
-.dav-items-table th:nth-child(5) { width: 11%; }
-.dav-items-table th:nth-child(6) { width: 10%; }
-.dav-items-table th:nth-child(7) { width: 11%; }
-.dav-items-table th:nth-child(8) { width: 11%; }
+.dav-items-table .dav-col-code { width: 8%; }
+.dav-items-table .dav-col-description { width: 39%; }
+.dav-items-table .dav-col-unit { width: 5.5%; }
+.dav-items-table .dav-col-quantity { width: 6.5%; }
+.dav-items-table .dav-col-unit-value { width: 10.5%; }
+.dav-items-table .dav-col-discount { width: 9%; }
+.dav-items-table .dav-col-net-value { width: 10.5%; }
+.dav-items-table .dav-col-total { width: 11%; }
+.dav-items-table th:nth-child(2) { text-align: left; }
 
 .dav-items-table th span {
   font-weight: 400;
@@ -1053,7 +1054,9 @@ html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab.active {
 
 .dav-items-table td {
   height: 31px;
+  min-width: 0;
   padding: 4px 3px;
+  overflow: hidden;
   border: 0;
   font-size: 7.5px;
   line-height: 1.2;
@@ -1064,17 +1067,35 @@ html[data-theme="dark"] #budget-modal .budget-sidebar-nav .budget-tab.active {
   border-bottom: 1px solid #000;
 }
 
+.dav-description {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.dav-description strong,
+.dav-description small {
+  display: block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
 .dav-description strong {
   font-weight: 400;
 }
 
 .dav-description small {
-  display: block;
   margin-top: 2px;
   font-size: 6.5px;
 }
 
-.dav-center { text-align: center; }
+.dav-code,
+.dav-center,
+.dav-number { overflow: hidden; }
+.dav-center { text-align: center; white-space: nowrap; }
 .dav-number { text-align: right; white-space: nowrap; }
 .dav-empty { text-align: center; }
 

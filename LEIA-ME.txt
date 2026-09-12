@@ -1,0 +1,12 @@
+ValoraCRM - Correção impressão dos itens do orçamento - 12/09/2026
+
+Correções:
+- Não imprime a referência abaixo da descrição quando os dois textos são iguais.
+- Se a descrição do item for personalizada e a referência original for diferente, a referência continua aparecendo.
+- Colunas do DAV passaram a usar larguras fixas via colgroup.
+- Descrições longas quebram linha dentro da própria coluna e não invadem UND., QTDE. ou valores.
+- Células numéricas ficam contidas nas respectivas colunas.
+- Cache-busting atualizado para carregar os JS/CSS corrigidos.
+
+Não há migration de banco nesta correção.
+Depois de substituir os arquivos, reinicie o servidor e use Ctrl+F5 no navegador.
