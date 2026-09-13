@@ -1,15 +1,23 @@
-CORREÇÃO — Arquivo físico não encontrado nos anexos do orçamento
+VALORACRM — BOTÕES AZUIS V2
 
-O erro HTTP 404 vinha da rota de PDF porque o registro existia no banco,
-mas o arquivo físico não era encontrado no diretório atual.
+Correção da primeira versão da padronização global.
 
-Correções:
-- procura o arquivo também em raízes antigas/legadas do Valora;
-- procura pelo nome físico UUID dentro das raízes conhecidas como fallback;
-- arquivos ausentes deixam de aparecer no seletor de anexos imprimíveis;
-- se um anexo já salvo no orçamento estiver ausente, somente ele é ignorado;
-- a impressão do restante do orçamento/anexos continua normalmente;
-- cache-busting atualizado do módulo Orçamentos.
+O que foi corrigido:
+- Botões primários agora vencem overrides antigos com !important (ex.: Formulários > Adicionar campo).
+- Escopo restrito a botões/links de ação: não altera menu, abas, cards, chips ou itens selecionados.
+- Excluir/danger continua vermelho.
+- WhatsApp/success continua com cor semântica própria.
+- Warning continua com cor semântica própria.
+- Botão Novo orçamento do menu global também usa o azul Valora.
+- Light e dark usam #3098F8 para ação primária.
+- Hover #2387E8; active #176FCA.
 
-Não há migration.
-Reinicie o backend e faça Ctrl+F5.
+Arquivos:
+frontend/css/buttons-valora.css
+frontend/js/pages/app.js
+
+Depois de substituir:
+1. Reinicie o Valora.
+2. No navegador use Ctrl + F5.
+
+Sem migration.

@@ -2133,3 +2133,19 @@ document.addEventListener('DOMContentLoaded', () => {
     startStatusHeaders();
   }
 })();
+
+
+// ==========================================
+// BOTÕES GLOBAIS VALORA
+// Carregado por último para padronizar ações em light/dark sem depender
+// da ordem dos CSS específicos de cada módulo.
+// ==========================================
+(() => {
+  'use strict';
+  if (document.querySelector('link[data-valora-buttons-css]')) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '/frontend/css/buttons-valora.css?v=20260912-valora-blue-v2';
+  link.dataset.valoraButtonsCss = 'true';
+  document.head.appendChild(link);
+})();

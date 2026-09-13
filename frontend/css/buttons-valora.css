@@ -1,0 +1,316 @@
+/* =========================================================
+   VALORACRM · BOTÕES GLOBAIS · 2026-09-12 · V2
+   Escopo seguro: somente botões/links de ação.
+   NÃO altera menus, tabs, cards, chips ou estados selecionados.
+   ========================================================= */
+
+:root {
+  --valora-action: #3098F8;
+  --valora-action-hover: #2387E8;
+  --valora-action-active: #176FCA;
+  --valora-action-ring: rgba(48, 152, 248, .24);
+  --valora-action-shadow: 0 7px 18px rgba(48, 152, 248, .18);
+
+  --valora-button-radius: 9px;
+  --valora-button-height: 36px;
+  --valora-button-font-size: 12.5px;
+  --valora-button-font-weight: 600;
+
+  --valora-secondary-bg: #FFFFFF;
+  --valora-secondary-bg-hover: #F6F8FB;
+  --valora-secondary-bg-active: #EEF2F6;
+  --valora-secondary-border: #D9E1E8;
+  --valora-secondary-border-hover: #C7D2DC;
+  --valora-secondary-text: #152238;
+  --valora-secondary-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+}
+
+html[data-theme="dark"] {
+  --valora-secondary-bg: #2B2B2B;
+  --valora-secondary-bg-hover: #353535;
+  --valora-secondary-bg-active: #3B3B3B;
+  --valora-secondary-border: #444444;
+  --valora-secondary-border-hover: #5A5A5A;
+  --valora-secondary-text: #F1F3F5;
+  --valora-secondary-shadow: 0 1px 2px rgba(0, 0, 0, .22);
+}
+
+/* ---------------------------------------------------------
+   BASE · classes que realmente representam ações
+   --------------------------------------------------------- */
+button.btn,
+a.btn,
+button.primary-button,
+a.primary-button,
+button.proposal-btn,
+a.proposal-btn,
+button.financeiro-jcc-action,
+a.financeiro-jcc-action,
+button.dashboard-apply-button,
+a.dashboard-apply-button,
+button.provider-button,
+a.provider-button,
+button.back-btn,
+a.back-btn,
+button.price-back-button,
+a.price-back-button,
+#valora-menu-root button.new-action,
+#valora-menu-root a.new-action {
+  min-height: var(--valora-button-height) !important;
+  border-radius: var(--valora-button-radius) !important;
+  font-size: var(--valora-button-font-size) !important;
+  font-weight: var(--valora-button-font-weight) !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease !important;
+}
+
+button.btn:not(.btn-icon):not(.btn-icon-only),
+a.btn:not(.btn-icon):not(.btn-icon-only) {
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+}
+
+button.btn-sm,
+a.btn-sm,
+button.btn-small,
+a.btn-small,
+button.financeiro-btn-compact,
+a.financeiro-btn-compact {
+  min-height: 32px !important;
+  padding-left: 11px !important;
+  padding-right: 11px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+}
+
+/* ---------------------------------------------------------
+   PRIMÁRIO · azul Valora.
+   O :is() com ID sentinela eleva a especificidade sem depender
+   de cada CSS de módulo. O ID não precisa existir no DOM.
+   --------------------------------------------------------- */
+button.btn-primary:is(#valora-action-priority, .btn-primary):not(.btn-danger):not(.btn-danger-soft):not(.danger-action):not(.btn-whatsapp):not(.btn-success):not(.btn-warning),
+a.btn-primary:is(#valora-action-priority, .btn-primary):not(.btn-danger):not(.btn-danger-soft):not(.danger-action):not(.btn-whatsapp):not(.btn-success):not(.btn-warning),
+button.btn-blue:is(#valora-action-priority, .btn-blue),
+a.btn-blue:is(#valora-action-priority, .btn-blue),
+button.primary-button:is(#valora-action-priority, .primary-button),
+a.primary-button:is(#valora-action-priority, .primary-button),
+button.proposal-btn-primary:is(#valora-action-priority, .proposal-btn-primary),
+a.proposal-btn-primary:is(#valora-action-priority, .proposal-btn-primary),
+button.dashboard-apply-button:is(#valora-action-priority, .dashboard-apply-button),
+a.dashboard-apply-button:is(#valora-action-priority, .dashboard-apply-button),
+button.financeiro-jcc-action.is-primary:is(#valora-action-priority, .is-primary),
+a.financeiro-jcc-action.is-primary:is(#valora-action-priority, .is-primary),
+#valora-menu-root button.new-action:is(#valora-action-priority, .new-action),
+#valora-menu-root a.new-action:is(#valora-action-priority, .new-action) {
+  background: var(--valora-action) !important;
+  background-image: none !important;
+  border-color: var(--valora-action) !important;
+  color: #FFFFFF !important;
+  box-shadow: var(--valora-action-shadow) !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+button.btn-primary:is(#valora-action-priority, .btn-primary):not(.btn-danger):not(.btn-danger-soft):not(.danger-action):not(.btn-whatsapp):not(.btn-success):not(.btn-warning):hover:not(:disabled),
+a.btn-primary:is(#valora-action-priority, .btn-primary):not(.btn-danger):not(.btn-danger-soft):not(.danger-action):not(.btn-whatsapp):not(.btn-success):not(.btn-warning):hover:not(:disabled),
+button.btn-blue:is(#valora-action-priority, .btn-blue):hover:not(:disabled),
+a.btn-blue:is(#valora-action-priority, .btn-blue):hover:not(:disabled),
+button.primary-button:is(#valora-action-priority, .primary-button):hover:not(:disabled),
+a.primary-button:is(#valora-action-priority, .primary-button):hover:not(:disabled),
+button.proposal-btn-primary:is(#valora-action-priority, .proposal-btn-primary):hover:not(:disabled),
+a.proposal-btn-primary:is(#valora-action-priority, .proposal-btn-primary):hover:not(:disabled),
+button.dashboard-apply-button:is(#valora-action-priority, .dashboard-apply-button):hover:not(:disabled),
+a.dashboard-apply-button:is(#valora-action-priority, .dashboard-apply-button):hover:not(:disabled),
+button.financeiro-jcc-action.is-primary:is(#valora-action-priority, .is-primary):hover:not(:disabled),
+a.financeiro-jcc-action.is-primary:is(#valora-action-priority, .is-primary):hover:not(:disabled),
+#valora-menu-root button.new-action:is(#valora-action-priority, .new-action):hover:not(:disabled),
+#valora-menu-root a.new-action:is(#valora-action-priority, .new-action):hover {
+  background: var(--valora-action-hover) !important;
+  background-image: none !important;
+  border-color: var(--valora-action-hover) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 9px 20px rgba(35, 135, 232, .20) !important;
+  filter: none !important;
+  transform: translateY(-1px) !important;
+}
+
+button.btn-primary:is(#valora-action-priority, .btn-primary):not(.btn-danger):not(.btn-danger-soft):not(.danger-action):not(.btn-whatsapp):not(.btn-success):not(.btn-warning):active:not(:disabled),
+a.btn-primary:is(#valora-action-priority, .btn-primary):not(.btn-danger):not(.btn-danger-soft):not(.danger-action):not(.btn-whatsapp):not(.btn-success):not(.btn-warning):active:not(:disabled),
+button.btn-blue:is(#valora-action-priority, .btn-blue):active:not(:disabled),
+a.btn-blue:is(#valora-action-priority, .btn-blue):active:not(:disabled),
+button.primary-button:is(#valora-action-priority, .primary-button):active:not(:disabled),
+a.primary-button:is(#valora-action-priority, .primary-button):active:not(:disabled),
+button.proposal-btn-primary:is(#valora-action-priority, .proposal-btn-primary):active:not(:disabled),
+a.proposal-btn-primary:is(#valora-action-priority, .proposal-btn-primary):active:not(:disabled),
+button.dashboard-apply-button:is(#valora-action-priority, .dashboard-apply-button):active:not(:disabled),
+a.dashboard-apply-button:is(#valora-action-priority, .dashboard-apply-button):active:not(:disabled),
+button.financeiro-jcc-action.is-primary:is(#valora-action-priority, .is-primary):active:not(:disabled),
+a.financeiro-jcc-action.is-primary:is(#valora-action-priority, .is-primary):active:not(:disabled),
+#valora-menu-root button.new-action:is(#valora-action-priority, .new-action):active:not(:disabled),
+#valora-menu-root a.new-action:is(#valora-action-priority, .new-action):active {
+  background: var(--valora-action-active) !important;
+  background-image: none !important;
+  border-color: var(--valora-action-active) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 3px 9px rgba(23, 111, 202, .20) !important;
+  filter: none !important;
+  transform: translateY(0) !important;
+}
+
+/* ---------------------------------------------------------
+   SECUNDÁRIO · neutro. Sem capturar danger/success/whatsapp.
+   --------------------------------------------------------- */
+button.btn-secondary:is(#valora-action-secondary, .btn-secondary):not(.btn-danger):not(.btn-danger-soft):not(.btn-danger-confirm):not(.danger-action):not(.premium-danger-link):not(.btn-whatsapp):not(.btn-success):not(.btn-warning),
+a.btn-secondary:is(#valora-action-secondary, .btn-secondary):not(.btn-danger):not(.btn-danger-soft):not(.btn-danger-confirm):not(.danger-action):not(.premium-danger-link):not(.btn-whatsapp):not(.btn-success):not(.btn-warning),
+button.proposal-btn-secondary:is(#valora-action-secondary, .proposal-btn-secondary),
+a.proposal-btn-secondary:is(#valora-action-secondary, .proposal-btn-secondary),
+button.financeiro-jcc-action:not(.is-primary):is(#valora-action-secondary, .financeiro-jcc-action),
+a.financeiro-jcc-action:not(.is-primary):is(#valora-action-secondary, .financeiro-jcc-action),
+button.back-btn:is(#valora-action-secondary, .back-btn),
+a.back-btn:is(#valora-action-secondary, .back-btn),
+button.price-back-button:is(#valora-action-secondary, .price-back-button),
+a.price-back-button:is(#valora-action-secondary, .price-back-button),
+button.provider-button:is(#valora-action-secondary, .provider-button),
+a.provider-button:is(#valora-action-secondary, .provider-button) {
+  background: var(--valora-secondary-bg) !important;
+  background-image: none !important;
+  border: 1px solid var(--valora-secondary-border) !important;
+  color: var(--valora-secondary-text) !important;
+  box-shadow: var(--valora-secondary-shadow) !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+button.btn-secondary:is(#valora-action-secondary, .btn-secondary):not(.btn-danger):not(.btn-danger-soft):not(.btn-danger-confirm):not(.danger-action):not(.premium-danger-link):not(.btn-whatsapp):not(.btn-success):not(.btn-warning):hover:not(:disabled),
+a.btn-secondary:is(#valora-action-secondary, .btn-secondary):not(.btn-danger):not(.btn-danger-soft):not(.btn-danger-confirm):not(.danger-action):not(.premium-danger-link):not(.btn-whatsapp):not(.btn-success):not(.btn-warning):hover:not(:disabled),
+button.proposal-btn-secondary:is(#valora-action-secondary, .proposal-btn-secondary):hover:not(:disabled),
+a.proposal-btn-secondary:is(#valora-action-secondary, .proposal-btn-secondary):hover:not(:disabled),
+button.financeiro-jcc-action:not(.is-primary):is(#valora-action-secondary, .financeiro-jcc-action):hover:not(:disabled),
+a.financeiro-jcc-action:not(.is-primary):is(#valora-action-secondary, .financeiro-jcc-action):hover:not(:disabled),
+button.back-btn:is(#valora-action-secondary, .back-btn):hover:not(:disabled),
+a.back-btn:is(#valora-action-secondary, .back-btn):hover:not(:disabled),
+button.price-back-button:is(#valora-action-secondary, .price-back-button):hover:not(:disabled),
+a.price-back-button:is(#valora-action-secondary, .price-back-button):hover:not(:disabled),
+button.provider-button:is(#valora-action-secondary, .provider-button):hover:not(:disabled),
+a.provider-button:is(#valora-action-secondary, .provider-button):hover:not(:disabled) {
+  background: var(--valora-secondary-bg-hover) !important;
+  border-color: var(--valora-secondary-border-hover) !important;
+  color: var(--valora-secondary-text) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Ghost */
+button.btn-ghost:is(#valora-action-ghost, .btn-ghost),
+a.btn-ghost:is(#valora-action-ghost, .btn-ghost),
+button.proposal-btn-ghost:is(#valora-action-ghost, .proposal-btn-ghost),
+a.proposal-btn-ghost:is(#valora-action-ghost, .proposal-btn-ghost) {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: var(--valora-secondary-text) !important;
+  box-shadow: none !important;
+}
+
+/* Ícones compactos */
+button.btn-icon,
+a.btn-icon,
+button.btn-icon-only,
+a.btn-icon-only,
+button.icon-button,
+a.icon-button,
+button.arq-icon-btn,
+a.arq-icon-btn,
+button.cotacao-icon-btn,
+a.cotacao-icon-btn,
+button.proposal-top-icon-btn,
+a.proposal-top-icon-btn,
+button.budget-client-edit-btn,
+a.budget-client-edit-btn,
+button.eye-btn,
+a.eye-btn {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+button.btn-icon,
+a.btn-icon,
+button.btn-icon-only,
+a.btn-icon-only {
+  padding: 0 !important;
+}
+
+/* Semânticos: a camada global NÃO troca suas cores. */
+button.btn-danger,
+a.btn-danger,
+button.btn-danger-soft,
+a.btn-danger-soft,
+button.btn-danger-confirm,
+a.btn-danger-confirm,
+button.danger-action,
+a.danger-action,
+button.premium-danger-link,
+a.premium-danger-link,
+button.btn-whatsapp,
+a.btn-whatsapp,
+button.btn-success,
+a.btn-success,
+button.btn-warning,
+a.btn-warning {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Foco */
+button.btn:focus-visible,
+a.btn:focus-visible,
+button.primary-button:focus-visible,
+a.primary-button:focus-visible,
+button.proposal-btn:focus-visible,
+a.proposal-btn:focus-visible,
+button.financeiro-jcc-action:focus-visible,
+a.financeiro-jcc-action:focus-visible,
+#valora-menu-root .new-action:focus-visible {
+  outline: 3px solid var(--valora-action-ring) !important;
+  outline-offset: 2px !important;
+}
+
+/* Desabilitado */
+button.btn:disabled,
+button.primary-button:disabled,
+button.proposal-btn:disabled,
+button.financeiro-jcc-action:disabled,
+button.dashboard-apply-button:disabled,
+button.provider-button:disabled,
+#valora-menu-root button.new-action:disabled {
+  opacity: .52 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: not-allowed !important;
+}
+
+/* Ícones acompanham o texto do botão. */
+button.btn i,
+a.btn i,
+button.primary-button i,
+a.primary-button i,
+button.proposal-btn i,
+a.proposal-btn i,
+button.financeiro-jcc-action i,
+a.financeiro-jcc-action i,
+#valora-menu-root .new-action i {
+  color: currentColor !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.btn,
+  a.btn,
+  button.primary-button,
+  a.primary-button,
+  button.proposal-btn,
+  a.proposal-btn,
+  button.financeiro-jcc-action,
+  a.financeiro-jcc-action,
+  #valora-menu-root .new-action {
+    transition: none !important;
+  }
+}
