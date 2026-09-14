@@ -15,14 +15,14 @@
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260909-loading-global-v3" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="/frontend/js/pages/formularios.js?v=20260912-inspector-manual-v8" defer></script>
+  <script src="/frontend/js/pages/formularios.js?v=20260914-secao-click-v29" defer></script>
 
   <link rel="stylesheet" href="/frontend/css/campos-longos.css?v=20260614-global-inline" />
   <script src="/frontend/js/shared/campos-longos.js?v=20260614-global-inline" defer></script>
   <link rel="stylesheet" href="/frontend/css/layout-compacto.css?v=20260615-tipografia-sem-centralizar" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
-  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260914-secao-drawer-v25" />
+  <link rel="stylesheet" href="/frontend/css/formularios.css?v=20260914-secao-click-v29" />
 </head>
 
 <body>
@@ -309,8 +309,8 @@
   </div>
 
   <!-- MODAL SEÇÃO -->
-  <div class="modal-overlay" id="modal-secao" hidden>
-    <div class="modal-content modal-lg modal-premium modal-section-editor">
+  <div class="modal-overlay" id="modal-secao" data-secao-tab="geral" hidden>
+    <div class="modal-content modal-xl modal-premium modal-section-editor formulario-editor-drawer">
       <div class="modal-header modal-premium-header">
         <div class="modal-title-wrap">
           <span class="modal-title-icon">
@@ -318,7 +318,7 @@
           </span>
           <div>
             <h3 id="modal-secao-title">Nova seção</h3>
-            <p>Edite as informações e configurações desta seção.</p>
+            <p id="modal-secao-subtitle">Configure as informações desta seção.</p>
           </div>
         </div>
 
@@ -333,11 +333,28 @@
         </div>
       </div>
 
+      <div class="campo-drawer-tabs secao-drawer-tabs" role="tablist" aria-label="Configurações da seção">
+        <button type="button" class="campo-drawer-tab is-active" data-secao-drawer-tab="geral" role="tab" aria-selected="true">Geral</button>
+        <button type="button" class="campo-drawer-tab" data-secao-drawer-tab="avancado" role="tab" aria-selected="false">Avançado</button>
+      </div>
+
       <div class="modal-body premium-modal-body">
+        <div class="campo-drawer-summary" id="secao-drawer-summary">
+          <span class="campo-drawer-summary-icon"><i class="fa-solid fa-table-list"></i></span>
+          <div class="campo-drawer-summary-copy">
+            <strong id="secao-drawer-summary-label">Nova seção</strong>
+            <small id="secao-drawer-summary-subtitle">Seção do formulário</small>
+          </div>
+          <div class="campo-drawer-summary-badges">
+            <span class="campo-drawer-badge is-active" id="secao-drawer-badge-active">Seção ativa</span>
+            <span class="campo-drawer-badge">Seção</span>
+          </div>
+        </div>
+
         <form class="valora-form premium-form-grid" onsubmit="return false;">
           <input type="hidden" id="secao-id" />
 
-          <section class="premium-modal-section premium-section-info">
+          <section class="premium-modal-section premium-section-info secao-drawer-geral">
             <div class="premium-section-title">
               <span><i class="fa-solid fa-circle-info"></i></span>
               <h4>Informações</h4>
@@ -356,16 +373,17 @@
             </div>
           </section>
 
-          <section class="premium-modal-section premium-section-icon">
-            <div class="premium-section-title">
-              <span><i class="fa-solid fa-shield-halved"></i></span>
-              <h4>Ícone</h4>
+          <section class="premium-modal-section premium-section-icon secao-drawer-geral">
+            <div class="field-flat-heading secao-flat-heading">
+              <div>
+                <h4>Ícone da seção</h4>
+                <p>Escolha como esta seção será identificada no formulário.</p>
+              </div>
             </div>
 
             <div class="premium-icon-layout">
               <div class="form-group premium-control">
-                <label for="secao-icone">Ícone da seção</label>
-                <small class="field-hint">Escolha um ícone para representar esta seção.</small>
+                <label for="secao-icone">Ícone</label>
 
                 <select id="secao-icone" class="secao-icone-native" aria-hidden="true" tabindex="-1">
                   <option value="fa-layer-group">fa-layer-group</option>
@@ -408,24 +426,27 @@
             </div>
           </section>
 
-          <section class="premium-modal-section premium-section-config">
-            <div class="premium-section-title">
-              <span><i class="fa-solid fa-gear"></i></span>
-              <h4>Configurações</h4>
+          <section class="premium-modal-section premium-section-config secao-drawer-avancado" hidden>
+            <div class="field-flat-heading secao-flat-heading">
+              <div>
+                <h4>Comportamento e exibição</h4>
+                <p>Defina a ordem e a visibilidade desta seção.</p>
+              </div>
             </div>
 
             <div class="premium-config-row">
               <div class="form-group premium-control">
                 <label for="secao-ordem">Ordem</label>
                 <input id="secao-ordem" type="number" min="0" value="0" />
+                <small class="field-hint">Posição da seção dentro do formulário.</small>
               </div>
 
-              <label class="premium-toggle-card">
+              <label class="premium-toggle-card secao-flat-toggle">
                 <input id="secao-ativo" type="checkbox" checked />
                 <span class="toggle-switch" aria-hidden="true"></span>
                 <span>
-                  <strong>Ativa</strong>
-                  <small>Seção visível no formulário.</small>
+                  <strong>Mostrar no formulário</strong>
+                  <small>Exibe esta seção para os usuários.</small>
                 </span>
               </label>
             </div>

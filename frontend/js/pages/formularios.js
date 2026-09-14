@@ -525,7 +525,17 @@
   function openModal(id) {
     const modal = document.getElementById(id);
 
-    if (id === 'modal-campo' && modal && isDockedFieldInspector()) {
+    // Campo e seção usam o mesmo inspetor lateral. Nunca deixe os dois
+    // abertos ao mesmo tempo, evitando dois painéis sobrepostos à direita.
+    if (id === 'modal-secao') {
+      const campoModal = document.getElementById('modal-campo');
+      if (campoModal && !campoModal.hidden) closeModal('modal-campo');
+    } else if (id === 'modal-campo') {
+      const secaoModal = document.getElementById('modal-secao');
+      if (secaoModal && !secaoModal.hidden) closeModal('modal-secao');
+    }
+
+    if ((id === 'modal-campo' || id === 'modal-secao') && modal && isDockedFieldInspector()) {
       modal.hidden = false;
       modal.style.display = 'flex';
       atualizarContadoresCaracteres(modal);
@@ -534,7 +544,7 @@
       requestAnimationFrame(() => {
         syncAllValoraSelects(modal);
         modal.classList.add('show');
-        scheduleCampoModalIntegrity();
+        if (id === 'modal-campo') scheduleCampoModalIntegrity();
       });
       return;
     }
@@ -578,7 +588,7 @@
       if (sizeBtnIcon) sizeBtnIcon.className = 'fa-solid fa-up-right-and-down-left-from-center';
     }
 
-    if (id === 'modal-campo' && modal && isDockedFieldInspector()) {
+    if ((id === 'modal-campo' || id === 'modal-secao') && modal && isDockedFieldInspector()) {
       modal.classList.remove('show');
       setDockedFieldInspectorState(false);
       setTimeout(() => {
@@ -3092,11 +3102,11 @@
     const secoesHtml = todasSecoes.map((secao) => {
       const ativo = String(secao.id) === String(state.secaoSelecionadaId);
       const count = Array.isArray(secao.campos) ? secao.campos.length : 0;
-      return `<button class="form-section-item ${ativo ? 'is-active' : ''}" type="button" data-action="selecionar-secao" data-id="${escapeHtml(secao.id)}">
+      return `<div class="form-section-item ${ativo ? 'is-active' : ''}" role="button" tabindex="0" data-section-row data-id="${escapeHtml(secao.id)}" aria-pressed="${ativo ? 'true' : 'false'}">
         <span class="form-section-icon"><i class="fa-solid ${escapeHtml(getIconeSecao(secao))}"></i></span>
         <span class="form-section-copy"><strong>${escapeHtml(secao.titulo || 'Seção')}</strong><small>${count} ${count === 1 ? 'campo' : 'campos'}</small></span>
-        ${secao.semSecao ? '' : `<span class="form-section-actions"><span class="icon-btn" data-action="editar-secao" data-id="${secao.id}" title="Editar seção"><i class="fa-solid fa-ellipsis"></i></span></span>`}
-      </button>`;
+        ${secao.semSecao ? '' : `<span class="form-section-actions"><button class="icon-btn form-section-edit-button" type="button" data-section-edit="${escapeHtml(secao.id)}" title="Editar seção" aria-label="Editar ${escapeHtml(secao.titulo || 'seção')}"><i class="fa-solid fa-ellipsis"></i></button></span>`}
+      </div>`;
     }).join('');
 
     const tiposDisponiveis = [...new Set(campos.map((campo) => tipoLabel(campo)).filter(Boolean))]
@@ -3352,7 +3362,7 @@
 
     const titulo = qs('secao-titulo')?.value?.trim() || (state.secaoEditando ? 'Editar seção' : 'Nova seção');
     labelEl.textContent = titulo;
-    if (subtitleEl) subtitleEl.textContent = state.modulo ? `Seção de ${tituloModulo(state.modulo)}` : 'Seção do formulário';
+    if (subtitleEl) subtitleEl.textContent = state.modulo ? `Seção de ${moduloLabel(state.modulo)}` : 'Seção do formulário';
 
     const ativo = qs('secao-ativo')?.checked !== false;
     if (activeBadge) {
@@ -3641,6 +3651,18 @@
     setSecaoDrawerTab('geral');
 
     qs('modal-secao-title').textContent = secao ? 'Editar seção' : 'Nova seção';
+    const secaoSubtitle = qs('modal-secao-subtitle');
+    const secaoSaveButton = qs('btn-salvar-secao');
+    if (secaoSubtitle) {
+      secaoSubtitle.textContent = secao
+        ? 'Altere as informações desta seção.'
+        : 'Configure as informações desta seção.';
+    }
+    if (secaoSaveButton) {
+      secaoSaveButton.innerHTML = secao
+        ? '<i class="fa-solid fa-floppy-disk"></i> Salvar alterações'
+        : '<i class="fa-solid fa-floppy-disk"></i> Salvar seção';
+    }
     qs('secao-id').value = secao?.id || '';
     qs('secao-titulo').value = secao?.titulo || '';
     qs('secao-descricao').value = secao?.descricao || '';
@@ -4129,7 +4151,43 @@
   }
 
   function findSecao(id) {
-    return getSecoes().find((s) => Number(s.id) === Number(id));
+    const targetId = String(id ?? '').trim();
+    if (!targetId) return null;
+
+    return getSecoes().find((s) => String(s?.id ?? '').trim() === targetId) || null;
+  }
+
+  function abrirSecaoParaEditar(id) {
+    const secao = findSecao(id);
+
+    if (!secao) {
+      console.warn('[Formulários] seção não encontrada para edição:', id);
+      toast('Não foi possível abrir esta seção. Atualize a página e tente novamente.', true);
+      return false;
+    }
+
+    state.secaoSelecionadaId = secao.id;
+
+    try {
+      resetSecaoForm(secao);
+      openModal('modal-secao');
+
+      // Garantia adicional: o editor de seção é um drawer próprio e deve
+      // ficar visível mesmo se outro controlador global de modais estiver ativo.
+      const modal = qs('modal-secao');
+      if (modal) {
+        modal.hidden = false;
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+        requestAnimationFrame(() => modal.classList.add('show'));
+      }
+
+      return true;
+    } catch (err) {
+      console.error('[Formulários] erro ao abrir editor de seção:', err);
+      toast('Erro ao abrir a edição da seção.', true);
+      return false;
+    }
   }
 
   function findCampo(id) {
@@ -4754,6 +4812,14 @@
 
     qs('secoes-container')?.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
+
+      const sectionRow = e.target.closest('[data-section-row]');
+      if (sectionRow && !e.target.closest('button')) {
+        e.preventDefault();
+        sectionRow.click();
+        return;
+      }
+
       const row = e.target.closest('.form-field-row[data-action="selecionar-campo"]');
       if (!row || e.target.closest('button')) return;
       e.preventDefault();
@@ -4761,20 +4827,47 @@
     });
 
     qs('secoes-container')?.addEventListener('click', (e) => {
+      // O botão de três pontos tem um caminho próprio. Isso evita conflito
+      // entre selecionar a seção e abrir o drawer de edição.
+      const sectionEdit = e.target.closest('[data-section-edit]');
+      if (sectionEdit) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const id = sectionEdit.dataset.sectionEdit;
+        if (abrirSecaoParaEditar(id)) {
+          state.campoSelecionadoId = null;
+          state.campoBusca = '';
+          state.campoTipoFiltro = '';
+          renderSecoes();
+        }
+        return;
+      }
+
+      // Clicar em qualquer área da linha também abre a edição da seção.
+      const sectionRow = e.target.closest('[data-section-row]');
+      if (sectionRow) {
+        e.preventDefault();
+
+        const id = sectionRow.dataset.id;
+        const secao = findSecao(id);
+
+        state.secaoSelecionadaId = id;
+        state.campoSelecionadoId = null;
+        state.campoBusca = '';
+        state.campoTipoFiltro = '';
+
+        // "Campos sem seção" é somente um agrupamento virtual.
+        if (secao) abrirSecaoParaEditar(id);
+        renderSecoes();
+        return;
+      }
+
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
 
       const action = btn.dataset.action;
       const id = btn.dataset.id;
-
-      if (action === 'selecionar-secao') {
-        state.secaoSelecionadaId = id;
-        state.campoSelecionadoId = null;
-        state.campoBusca = '';
-        state.campoTipoFiltro = '';
-        renderSecoes();
-        return;
-      }
 
       if (action === 'selecionar-campo') {
         // Selecionar a linha não abre o editor.
@@ -4795,12 +4888,8 @@
       }
 
       if (action === 'editar-secao') {
-        const secao = findSecao(id);
-
-        if (secao) {
-          resetSecaoForm(secao);
-          openModal('modal-secao');
-        }
+        abrirSecaoParaEditar(id);
+        return;
       }
 
       if (action === 'toggle-secao') {
