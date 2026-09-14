@@ -69,268 +69,62 @@
     win.document.close();
   }
 
-  function openBudgetExportDialog(budgetId = state.currentId) {
-    state.exportBudgetId = Number(budgetId || state.currentId || 0) || null;
-    const backdrop = $('budget-export-backdrop');
-    if (!backdrop) {
-      toast('Não foi possível abrir as opções de download.', 'error');
-      return;
-    }
-    const status = $('budget-export-status');
-    if (status) status.textContent = 'Selecione um formato para iniciar o download.';
-    backdrop.hidden = false;
-    backdrop.setAttribute('aria-hidden', 'false');
-    requestAnimationFrame(() => backdrop.classList.add('show'));
-  }
-
-  function closeBudgetExportDialog({ force = false } = {}) {
-    if (state.exportBusy && !force) return;
-    const backdrop = $('budget-export-backdrop');
-    if (!backdrop) return;
-    backdrop.classList.remove('show');
-    backdrop.setAttribute('aria-hidden', 'true');
-    setTimeout(() => {
-      backdrop.hidden = true;
-      if (!state.exportBusy) state.exportBudgetId = null;
-    }, 160);
-  }
-
-  function setBudgetExportBusy(busy, message = '') {
-    state.exportBusy = Boolean(busy);
-    const backdrop = $('budget-export-backdrop');
-    backdrop?.classList.toggle('is-busy', Boolean(busy));
-    $$('#budget-export-options [data-budget-export-format]').forEach((button) => {
-      button.disabled = Boolean(busy);
-    });
-    const close = $('btn-close-budget-export');
-    if (close) close.disabled = Boolean(busy);
-    const status = $('budget-export-status');
-    if (status && message) status.textContent = message;
-  }
-
-  function safeExportFilename(value, fallback = 'documento') {
-    const clean = String(value || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .replace(/[. ]+$/g, '')
-      .slice(0, 110);
-    return clean || fallback;
-  }
-
-  function currentExportFilename() {
-    const code = $('orcamento-codigo')?.value?.trim() || state.current?.codigo || 'orcamento';
-    const documentName = state.current?.nome_documento || $('orcamento-titulo')?.value?.trim() || 'Orçamento';
-    return safeExportFilename(`${documentName} - ${code}`, 'orcamento');
-  }
-
-  function downloadBlobFile(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1200);
-  }
-
-  function blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(reader.error || new Error('Falha ao ler imagem.'));
-      reader.readAsDataURL(blob);
-    });
-  }
-
-  async function buildDownloadDocument() {
-    const previewHtml = buildPreviewHtml();
-    const attachmentsHtml = await buildAttachmentPrintHtml(state.attachments);
-    const title = escapeHtml($('orcamento-codigo')?.value || 'Orçamento');
-    const styles = `${printStyles()}${attachmentPrintStyles()}\n.budget-print-attachment-label,.budget-print-attachment-tile-label{display:none!important}`;
-    const content = `<div class="document-preview">${previewHtml}</div>${attachmentsHtml}`;
-    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><base href="${escapeHtml(`${window.location.origin}/`)}"><title>${title}</title><style>${styles}</style></head><body>${content}</body></html>`;
-    return { html, title, filename: currentExportFilename() };
-  }
-
-  function waitForFrameDocument(frame) {
-    return new Promise((resolve) => {
-      const doc = frame.contentDocument;
-      const finish = async () => {
-        try {
-          const images = Array.from(doc?.images || []);
-          await Promise.all(images.map((img) => img.complete
-            ? Promise.resolve()
-            : new Promise((done) => {
-                img.addEventListener('load', done, { once: true });
-                img.addEventListener('error', done, { once: true });
-              })));
-          if (doc?.fonts?.ready) await doc.fonts.ready;
-        } catch (_) {}
-        resolve();
-      };
-      if (doc?.readyState === 'complete') finish();
-      else frame.addEventListener('load', finish, { once: true });
-      setTimeout(finish, 3500);
-    });
-  }
-
-  async function exportCurrentAsPdf(documentData) {
-    if (typeof window.html2pdf !== 'function') {
-      throw new Error('O gerador de PDF não carregou. Atualize a página e tente novamente.');
-    }
-
-    const frame = document.createElement('iframe');
-    frame.setAttribute('aria-hidden', 'true');
-    frame.tabIndex = -1;
-    Object.assign(frame.style, {
-      position: 'fixed',
-      left: '-12000px',
-      top: '0',
-      width: '794px',
-      height: '1123px',
-      border: '0',
-      opacity: '0',
-      pointerEvents: 'none',
-      background: '#fff',
-    });
-    document.body.appendChild(frame);
-
-    try {
-      const doc = frame.contentDocument;
-      doc.open();
-      doc.write(documentData.html);
-      doc.close();
-      await waitForFrameDocument(frame);
-
-      const margin = usesDavDocument() ? 8 : 10;
-      const target = frame.contentDocument.body;
-      await window.html2pdf()
-        .set({
-          margin: [margin, margin, margin, margin],
-          filename: `${documentData.filename}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            allowTaint: false,
-            backgroundColor: '#ffffff',
-            logging: false,
-            scrollX: 0,
-            scrollY: 0,
-          },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-          pagebreak: { mode: ['css', 'legacy'] },
-        })
-        .from(target)
-        .save();
-    } finally {
-      frame.remove();
-    }
-  }
-
-  async function exportCurrentAsWord(documentData) {
-    const parsed = new DOMParser().parseFromString(documentData.html, 'text/html');
-    const images = Array.from(parsed.images || []);
-    await Promise.all(images.map(async (img) => {
-      const source = img.getAttribute('src');
-      if (!source || source.startsWith('data:')) return;
-      try {
-        const absoluteUrl = new URL(source, window.location.origin).href;
-        const response = await fetch(absoluteUrl, { credentials: 'same-origin', cache: 'no-cache' });
-        if (!response.ok) return;
-        img.src = await blobToDataUrl(await response.blob());
-      } catch (_) {}
-    }));
-
-    parsed.querySelectorAll('.budget-print-attachment-label,.budget-print-attachment-tile-label').forEach((element) => element.remove());
-    const wordHtml = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><meta name="ProgId" content="Word.Document"><title>${escapeHtml(documentData.title)}</title>${parsed.head.querySelector('style')?.outerHTML || ''}<xml><w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml></head><body>${parsed.body.innerHTML}</body></html>`;
-    const blob = new Blob(['\ufeff', wordHtml], { type: 'application/msword;charset=utf-8' });
-    downloadBlobFile(blob, `${documentData.filename}.doc`);
-  }
-
-  async function withBudgetExportContext(budgetId, callback) {
-    const id = Number(budgetId || state.currentId || 0);
-    if (!id || (state.currentId === id && state.current)) return callback();
-
-    const budget = await api(`${API}/${id}`);
-    const previous = {
-      currentId: state.currentId,
-      current: state.current,
-      items: state.items,
-      payments: state.payments,
-      attachments: state.attachments,
-      attachmentSelection: state.attachmentSelection,
-      attachmentImageLayout: state.attachmentImageLayout,
-      client: state.selectedClient,
-      serviceProposalModel: state.serviceProposalModel,
-      serviceProposalData: state.serviceProposalData,
-    };
-
-    state.currentId = id;
-    state.current = budget;
-    state.items = (budget.itens || []).map(normalizeItem);
-    state.payments = (budget.pagamentos || []).map(normalizePayment);
-    state.attachments = Array.isArray(budget.anexos) ? budget.anexos.map((item) => ({ ...item })) : [];
-    state.attachmentSelection = state.attachments.map((item) => Number(item.id)).filter(Boolean);
-    state.attachmentImageLayout = [1, 2, 4, 6].includes(Number(budget.anexos_imagens_por_pagina))
-      ? Number(budget.anexos_imagens_por_pagina)
-      : 1;
-    state.selectedClient = null;
-    fillBudgetForm(budget);
-
-    try {
-      return await callback();
-    } finally {
-      Object.assign(state, {
-        currentId: previous.currentId,
-        current: previous.current,
-        items: previous.items,
-        payments: previous.payments,
-        attachments: previous.attachments,
-        attachmentSelection: previous.attachmentSelection,
-        attachmentImageLayout: previous.attachmentImageLayout,
-        selectedClient: previous.client,
-        serviceProposalModel: previous.serviceProposalModel,
-        serviceProposalData: previous.serviceProposalData,
-      });
-      renderBudgetAttachments();
-    }
-  }
-
-  async function downloadBudgetExport(format) {
-    if (state.exportBusy) return;
-    const normalized = String(format || '').toLowerCase();
-    if (!['pdf', 'word'].includes(normalized)) return;
-
-    const targetId = state.exportBudgetId || state.currentId;
-    setBudgetExportBusy(true, normalized === 'pdf' ? 'Gerando PDF…' : 'Preparando arquivo do Word…');
-    try {
-      await withBudgetExportContext(targetId, async () => {
-        const documentData = await buildDownloadDocument();
-        if (normalized === 'pdf') await exportCurrentAsPdf(documentData);
-        else await exportCurrentAsWord(documentData);
-      });
-      setBudgetExportBusy(false, 'Download iniciado.');
-      setTimeout(() => closeBudgetExportDialog({ force: true }), 350);
-      toast(normalized === 'pdf' ? 'PDF baixado.' : 'Documento do Word baixado.', 'success');
-    } catch (error) {
-      console.error('[orcamentos] Falha ao exportar documento:', error);
-      setBudgetExportBusy(false, 'Não foi possível gerar o arquivo.');
-      toast(error.message || 'Não foi possível gerar o arquivo.', 'error', 5000);
-    }
-  }
-
   async function printCurrent() {
-    openBudgetExportDialog(state.currentId);
+    const win = window.open('', '_blank', 'width=1000,height=800');
+    if (!win) { toast('Permita pop-ups para gerar o PDF.', 'error'); return; }
+    try { win.opener = null; } catch (_) {}
+
+    win.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Preparando documento...</title></head><body style="font-family:Inter,Arial,sans-serif;padding:32px;color:#52606a">Preparando orçamento e documentos anexos...</body></html>');
+    win.document.close();
+
+    try {
+      const html = buildPreviewHtml();
+      const attachmentsHtml = await buildAttachmentPrintHtml(state.attachments);
+      const title = escapeHtml($('orcamento-codigo').value || 'Orçamento');
+      const waitAndPrint = `<script>
+        window.onload=()=>{
+          const images=Array.from(document.images);
+          const waits=images.map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;}));
+          Promise.all(waits).then(()=>document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(()=>setTimeout(()=>window.print(),350));
+        };
+      <\/script>`;
+      win.document.open();
+      win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><base href="${escapeHtml(`${window.location.origin}/`)}"><title>${title}</title><style>${printStyles()}${attachmentPrintStyles()}</style></head><body><div class="document-preview">${html}</div>${attachmentsHtml}${waitAndPrint}</body></html>`);
+      win.document.close();
+    } catch (error) {
+      try { win.close(); } catch (_) {}
+      toast(error.message || 'Não foi possível preparar os documentos anexos para impressão.', 'error', 5000);
+    }
   }
 
   async function printBudget(id) {
-    openBudgetExportDialog(id);
+    if (state.currentId === id && !$('budget-modal').hidden) { await printCurrent(); return; }
+    try {
+      const budget = await api(`${API}/${id}`);
+      const previous = {
+        currentId: state.currentId, current: state.current, items: state.items, payments: state.payments,
+        attachments: state.attachments, attachmentSelection: state.attachmentSelection,
+        attachmentImageLayout: state.attachmentImageLayout, client: state.selectedClient,
+      };
+      state.currentId = id;
+      state.current = budget;
+      state.items = (budget.itens || []).map(normalizeItem);
+      state.payments = (budget.pagamentos || []).map(normalizePayment);
+      state.attachments = Array.isArray(budget.anexos) ? budget.anexos.map((item) => ({ ...item })) : [];
+      state.attachmentSelection = state.attachments.map((item) => Number(item.id)).filter(Boolean);
+      state.attachmentImageLayout = [1, 2, 4, 6].includes(Number(budget.anexos_imagens_por_pagina))
+        ? Number(budget.anexos_imagens_por_pagina)
+        : 1;
+      state.selectedClient = null;
+      fillBudgetForm(budget);
+      await printCurrent();
+      Object.assign(state, {
+        currentId: previous.currentId, current: previous.current, items: previous.items, payments: previous.payments,
+        attachments: previous.attachments, attachmentSelection: previous.attachmentSelection,
+        attachmentImageLayout: previous.attachmentImageLayout, selectedClient: previous.client,
+      });
+      renderBudgetAttachments();
+    } catch (error) { toast(error.message, 'error'); }
   }
 
   function printStyles() {

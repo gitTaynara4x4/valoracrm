@@ -25,15 +25,14 @@
   <link rel="stylesheet" href="/frontend/css/orcamentos.css?v=20260912-anexos-mosaico-v1">
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11">
   <link rel="stylesheet" href="/frontend/css/orcamentos-configuracoes.css?v=20260804-listas-simples-v3">
-  <link rel="stylesheet" href="/frontend/css/orcamentos-modal-paridade.css?v=20260914-export-download-v1">
+  <link rel="stylesheet" href="/frontend/css/orcamentos-modal-paridade.css?v=20260901-confirm-modal-v50">
   <link rel="stylesheet" href="/frontend/css/orcamentos-itens.css?v=20260902-itens-compacto-v4">
   <link rel="stylesheet" href="/frontend/css/orcamentos-pagamento.css?v=20260902-pagamento-campos-visiveis-v10">
 
   <script src="/frontend/js/shared/menu-global.js?v=20260806-direct-menu-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260909-loading-global-v3" defer></script>
   <script src="/frontend/js/shared/validacao.js?v=20260614-required-circle" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
-  <script src="/frontend/js/pages/orcamentos.js?v=20260914-export-download-v1" defer></script>
+  <script src="/frontend/js/pages/orcamentos.js?v=20260912-dav-itens-v2" defer></script>
 </head>
 <body data-page="orcamentos">
   <div class="layout">
@@ -168,7 +167,7 @@
                 </button>
                 <div class="budget-actions-menu" id="budget-actions-menu" role="menu" hidden>
                   <button class="budget-actions-menu-item is-hidden budget-head-action" id="btn-aprovar-margem" type="button" role="menuitem" title="Aprovar margem"><i class="fa-solid fa-user-check"></i><span>Aprovar margem</span></button>
-                  <button class="budget-actions-menu-item is-hidden budget-head-action" id="btn-imprimir-orcamento" type="button" role="menuitem" title="Baixar em PDF ou Word"><i class="fa-solid fa-download"></i><span>Baixar documento</span></button>
+                  <button class="budget-actions-menu-item is-hidden budget-head-action" id="btn-imprimir-orcamento" type="button" role="menuitem" title="Imprimir ou salvar em PDF"><i class="fa-solid fa-print"></i><span>Imprimir / PDF</span></button>
                   <button class="budget-actions-menu-item is-hidden budget-head-action" id="btn-whatsapp-orcamento" type="button" role="menuitem" title="Enviar pelo WhatsApp"><i class="fa-brands fa-whatsapp"></i><span>Enviar pelo WhatsApp</span></button>
                   <button class="budget-actions-menu-item is-hidden budget-head-action" id="btn-gerar-link-cliente" type="button" role="menuitem" title="Preparar proposta para aprovação do cliente"><i class="fa-solid fa-link"></i><span>Gerar link para cliente</span></button>
                   <button class="budget-actions-menu-item is-hidden budget-head-action" id="btn-gerar-contrato-cliente" type="button" role="menuitem" title="Gerar contrato a partir da proposta aprovada"><i class="fa-solid fa-file-signature"></i><span>Gerar contrato</span></button>
@@ -1213,34 +1212,6 @@
         <button class="btn btn-primary" id="btn-salvar-settings" type="button"><i class="fa-solid fa-floppy-disk"></i> Salvar configurações</button>
       </footer>
     </div>
-  </div>
-
-  <div id="budget-export-backdrop" class="budget-export-backdrop" hidden aria-hidden="true">
-    <section class="budget-export-dialog" role="dialog" aria-modal="true" aria-labelledby="budget-export-title" aria-describedby="budget-export-description">
-      <header class="budget-export-header">
-        <span class="budget-export-header-icon" aria-hidden="true"><i class="fa-solid fa-download"></i></span>
-        <div>
-          <h3 id="budget-export-title">Baixar documento</h3>
-          <p id="budget-export-description">Escolha o formato. O arquivo será baixado direto, sem abrir a tela de impressão do navegador.</p>
-        </div>
-        <button type="button" class="budget-export-close" id="btn-close-budget-export" title="Fechar" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
-      </header>
-      <div class="budget-export-options" id="budget-export-options">
-        <button type="button" class="budget-export-option" data-budget-export-format="pdf">
-          <span class="budget-export-option-icon is-pdf"><i class="fa-solid fa-file-pdf"></i></span>
-          <span class="budget-export-option-copy"><strong>PDF</strong><small>Documento pronto para enviar ou arquivar.</small></span>
-          <i class="fa-solid fa-arrow-down budget-export-option-arrow" aria-hidden="true"></i>
-        </button>
-        <button type="button" class="budget-export-option" data-budget-export-format="word">
-          <span class="budget-export-option-icon is-word"><i class="fa-solid fa-file-word"></i></span>
-          <span class="budget-export-option-copy"><strong>Word</strong><small>Arquivo .doc editável no Microsoft Word.</small></span>
-          <i class="fa-solid fa-arrow-down budget-export-option-arrow" aria-hidden="true"></i>
-        </button>
-      </div>
-      <footer class="budget-export-footer">
-        <span class="budget-export-status" id="budget-export-status">Selecione um formato para iniciar o download.</span>
-      </footer>
-    </section>
   </div>
 
   <div id="budget-confirm-backdrop" class="budget-confirm-backdrop" hidden aria-hidden="true">

@@ -62,8 +62,6 @@
     kitPickerLayout: loadKitPickerLayout(),
     productPickerLayout: loadProductPickerLayout(),
     budgetDirty: false,
-    exportBudgetId: null,
-    exportBusy: false,
     serviceProposalModel: 'padrao',
     serviceProposalData: {},
     serviceProposalTemplateDraft: null,
