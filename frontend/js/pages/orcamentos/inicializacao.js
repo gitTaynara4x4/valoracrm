@@ -25,6 +25,15 @@
     $('budget-confirm-backdrop')?.addEventListener('click', (event) => {
       if (event.target === $('budget-confirm-backdrop')) closeBudgetConfirm(false);
     });
+    $('budget-export-backdrop')?.addEventListener('click', (event) => {
+      if (event.target === $('budget-export-backdrop')) closeBudgetExportDialog();
+    });
+    $('btn-close-budget-export')?.addEventListener('click', () => closeBudgetExportDialog());
+    $('budget-export-options')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-budget-export-format]');
+      if (!button || button.disabled) return;
+      void downloadBudgetExport(button.dataset.budgetExportFormat);
+    });
 
     $('btn-novo-orcamento').addEventListener('click', openNewBudget);
     $('btn-atualizar-orcamentos').addEventListener('click', () => loadBudgets());
