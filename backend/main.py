@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Thread
 import os
 import re
 from urllib.parse import quote
@@ -41,7 +42,7 @@ from backend.routers.assinatura_contrato import router as assinatura_contrato_ro
 from backend.routers.asaas_webhook import router as asaas_webhook_router
 from backend.routers.exportacoes import router as exportacoes_router
 from backend.routers.agenda import router as agenda_router
-from backend.routers.arquivos_tecnicos import router as arquivos_tecnicos_router
+from backend.routers.arquivos_tecnicos import router as arquivos_tecnicos_router, migrate_legacy_files_to_database
 from backend.agenda_push import start_push_dispatcher, stop_push_dispatcher
 from backend.financeiro_recorrencia import start_financeiro_recorrencia_dispatcher, stop_financeiro_recorrencia_dispatcher
 from backend.financeiro_cobranca_automacao import start_financeiro_cobranca_dispatcher, stop_financeiro_cobranca_dispatcher
@@ -118,9 +119,22 @@ def ensure_each_company_has_owner() -> None:
         db.close()
 
 
+def _migrate_legacy_files_background() -> None:
+    try:
+        result = migrate_legacy_files_to_database(limit=5000)
+        migrated = int(result.get("migrados") or 0)
+        pending = int(result.get("pendentes") or 0)
+        if migrated or pending:
+            print(f"[ARQUIVOS TÉCNICOS] legado -> banco: {migrated} migrado(s), {pending} pendente(s).")
+    except Exception as exc:
+        # Nunca impede o Valora de subir por causa de um arquivo legado.
+        print(f"[ARQUIVOS TÉCNICOS] Não foi possível executar o autorreparo em background: {exc}")
+
+
 @app.on_event("startup")
 async def start_agenda_push_background() -> None:
     ensure_each_company_has_owner()
+    Thread(target=_migrate_legacy_files_background, name="valora-arquivos-legados", daemon=True).start()
     await start_push_dispatcher()
     await start_financeiro_recorrencia_dispatcher()
     await start_financeiro_cobranca_dispatcher()

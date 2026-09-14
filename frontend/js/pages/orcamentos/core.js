@@ -28,6 +28,7 @@
     attachmentLibrary: [],
     attachmentSelection: [],
     attachmentImageLayout: 1,
+    attachmentExportSkipped: [],
     attachmentFolderExpanded: {},
     selectedClient: null,
     clients: [],
@@ -62,6 +63,10 @@
     kitPickerLayout: loadKitPickerLayout(),
     productPickerLayout: loadProductPickerLayout(),
     budgetDirty: false,
+    exportBudgetId: null,
+    exportBusy: false,
+    exportLastFormat: null,
+    exportMissingAttachments: [],
     serviceProposalModel: 'padrao',
     serviceProposalData: {},
     serviceProposalTemplateDraft: null,
@@ -552,11 +557,12 @@
   }
 
   async function api(url, options = {}) {
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const response = await fetch(url, {
       credentials: 'include',
       headers: {
         Accept: 'application/json',
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.body && !isFormData ? { 'Content-Type': 'application/json' } : {}),
         ...(options.headers || {}),
       },
       ...options,

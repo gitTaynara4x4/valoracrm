@@ -15,6 +15,7 @@
     files: [],
     editingFolderId: null,
     loadToken: 0,
+    legacyPending: 0,
   };
 
   const $ = (id) => document.getElementById(id);
@@ -79,6 +80,62 @@
       throw new Error(msg || `Erro HTTP ${response.status}`);
     }
     return payload;
+  }
+
+  function updateLegacyRepairButton(pending) {
+    state.legacyPending = Math.max(0, Number(pending || 0));
+    const button = $('btn-reparar-arquivos-antigos');
+    const label = $('arq-legacy-repair-label');
+    if (!button) return;
+    button.hidden = state.legacyPending <= 0;
+    if (label) {
+      label.textContent = state.legacyPending === 1
+        ? 'Corrigir 1 arquivo antigo'
+        : `Corrigir ${state.legacyPending} arquivos antigos`;
+    }
+  }
+
+  async function refreshLegacyStatus({ attemptMigration = false } = {}) {
+    try {
+      if (attemptMigration) {
+        await api(`${API}/legados/migrar`, { method: 'POST' });
+      }
+      const status = await api(`${API}/legados/status`);
+      updateLegacyRepairButton(status?.pendentes || 0);
+      return status;
+    } catch (error) {
+      console.warn('[arquivos-tecnicos] Não foi possível verificar arquivos antigos:', error);
+      return null;
+    }
+  }
+
+  async function repairLegacyFiles(fileList) {
+    const files = Array.from(fileList || []).filter(Boolean);
+    if (!files.length) return;
+    const form = new FormData();
+    files.forEach((file) => form.append('arquivos', file, file.name));
+    const button = $('btn-reparar-arquivos-antigos');
+    const closeNotice = uploadNotice(`Corrigindo arquivos antigos com ${files.length} arquivo(s)...`);
+    if (button) button.disabled = true;
+    try {
+      const result = await api(`${API}/legados/reparar`, { method: 'POST', body: form });
+      const repaired = Number(result?.registros_reparados || 0);
+      const pending = Number(result?.pendentes || 0);
+      updateLegacyRepairButton(pending);
+      if (repaired > 0) {
+        toast(`${repaired} registro(s) antigo(s) recuperado(s) no banco.`);
+        await refreshSelectedEntity({ reopenFolder: Boolean(state.selectedFolder) });
+        await refreshSummaryAndEntityList();
+      } else {
+        toast('Nenhum dos arquivos selecionados corresponde aos arquivos antigos pendentes.', 'error', 4300);
+      }
+    } catch (error) {
+      toast(error.message || 'Não foi possível corrigir os arquivos antigos.', 'error', 4500);
+    } finally {
+      closeNotice();
+      if (button) button.disabled = false;
+      if ($('input-reparar-arquivos-antigos')) $('input-reparar-arquivos-antigos').value = '';
+    }
   }
 
   function formatBytes(bytes) {
@@ -349,19 +406,25 @@
       return;
     }
     host.innerHTML = state.files.map((file) => {
-      const preview = file.is_image
-        ? `<img src="${escapeHtml(file.url)}" alt="${escapeHtml(file.titulo || file.arquivo_nome)}" loading="lazy" />`
-        : `<span class="arq-file-generic"><i class="fa-solid ${fileIcon(file)}"></i></span>`;
+      const missing = file.disponivel === false || file.precisa_reparo === true;
+      const preview = missing
+        ? `<span class="arq-file-generic"><i class="fa-solid fa-box-archive"></i></span>`
+        : (file.is_image
+          ? `<img src="${escapeHtml(file.url)}" alt="${escapeHtml(file.titulo || file.arquivo_nome)}" loading="lazy" />`
+          : `<span class="arq-file-generic"><i class="fa-solid ${fileIcon(file)}"></i></span>`);
+      const downloadAction = missing
+        ? `<button class="arq-icon-btn" type="button" data-file-repair-trigger="${file.id}" title="Recuperar arquivo"><i class="fa-solid fa-wand-magic-sparkles"></i></button>`
+        : `<a class="arq-icon-btn" href="${escapeHtml(file.download_url)}" title="Baixar"><i class="fa-solid fa-download"></i></a>`;
       return `
-        <article class="arq-file-card" data-file-id="${file.id}">
-          <button class="arq-file-preview" type="button" data-file-preview="${file.id}" aria-label="Visualizar ${escapeHtml(file.arquivo_nome)}">${preview}</button>
+        <article class="arq-file-card${missing ? ' is-missing' : ''}" data-file-id="${file.id}">
+          <button class="arq-file-preview" type="button" ${missing ? `data-file-repair-trigger="${file.id}"` : `data-file-preview="${file.id}"`} aria-label="${missing ? 'Recuperar' : 'Visualizar'} ${escapeHtml(file.arquivo_nome)}">${preview}</button>
           <div class="arq-file-body">
             <h4 title="${escapeHtml(file.arquivo_nome)}">${escapeHtml(file.titulo || file.arquivo_nome)}</h4>
-            <p>${escapeHtml(file.descricao || 'Sem descrição')}</p>
+            <p>${missing ? 'Arquivo antigo • selecione o arquivo original para recuperar' : escapeHtml(file.descricao || 'Sem descrição')}</p>
             <div class="arq-file-meta"><span>${escapeHtml(formatDate(file.criado_em))}</span><span>${formatBytes(file.tamanho_bytes)}</span></div>
           </div>
           <div class="arq-file-actions">
-            <a class="arq-icon-btn" href="${escapeHtml(file.download_url)}" title="Baixar"><i class="fa-solid fa-download"></i></a>
+            ${downloadAction}
             <button class="arq-icon-btn is-danger" type="button" data-file-delete="${file.id}" title="Excluir"><i class="fa-regular fa-trash-can"></i></button>
           </div>
         </article>`;
@@ -578,6 +641,8 @@
       if (button) void openFolder(button.dataset.folderId);
     });
     $('arq-file-grid')?.addEventListener('click', (event) => {
+      const repair = event.target.closest('[data-file-repair-trigger]');
+      if (repair) { $('input-reparar-arquivos-antigos')?.click(); return; }
       const preview = event.target.closest('[data-file-preview]');
       if (preview) { previewFile(preview.dataset.filePreview); return; }
       const del = event.target.closest('[data-file-delete]');
@@ -594,6 +659,9 @@
       }
       toast('Arquivos técnicos atualizados.');
     });
+
+    $('btn-reparar-arquivos-antigos')?.addEventListener('click', () => $('input-reparar-arquivos-antigos')?.click());
+    $('input-reparar-arquivos-antigos')?.addEventListener('change', (event) => repairLegacyFiles(event.target.files));
 
     $('btn-nova-pasta-cliente')?.addEventListener('click', () => openFolderModal());
     $('btn-editar-pasta')?.addEventListener('click', () => state.selectedFolder && openFolderModal(state.selectedFolder));
@@ -642,6 +710,7 @@
     if (requested) state.entityType = requested.type;
     updateEntityUi();
     bindEvents();
+    void refreshLegacyStatus({ attemptMigration: true });
     if (state.entityType === 'geral') {
       await Promise.all([loadSummary(), loadGeneralLibrary({ updateUrl: false })]);
     } else {

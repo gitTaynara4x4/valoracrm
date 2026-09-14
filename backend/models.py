@@ -10,12 +10,15 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
     UniqueConstraint,
     func,
 )
+from sqlalchemy.orm import deferred
+
 from backend.database import Base
 
 
@@ -1692,6 +1695,12 @@ class ArquivoTecnicoArquivo(Base):
     descricao = Column(Text, nullable=True)
     arquivo_nome = Column(String(255), nullable=False)
     arquivo_path = Column(Text, nullable=False)
+    # Conteúdo binário persistido no PostgreSQL. O campo é deferred para que
+    # listagens não carreguem PDFs/imagens inteiros desnecessariamente.
+    arquivo_conteudo = deferred(Column(LargeBinary, nullable=True))
+    conteudo_no_banco = Column(Boolean, nullable=False, server_default="false")
+    # Hash do conteúdo para deduplicação e autorreparo de registros legados.
+    arquivo_sha256 = Column(String(64), nullable=True, index=True)
     mime_type = Column(String(120), nullable=True)
     extensao = Column(String(20), nullable=True)
     tamanho_bytes = Column(BigInteger, nullable=False, server_default="0")

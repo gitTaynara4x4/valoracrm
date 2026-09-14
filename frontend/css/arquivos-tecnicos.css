@@ -965,3 +965,14 @@ html[data-theme="dark"] .arquivos-tecnicos-page .arq-upload-progress {
 @media (max-width: 760px) {
   .arquivos-tecnicos-page .arq-entity-tab { padding-inline: 5px; font-size: 8.8px; }
 }
+
+/* V34 · arquivos legados: reparo integrado, sem quebrar preview/download */
+.arquivos-tecnicos-page .arq-file-card.is-missing {
+  border-style: dashed;
+}
+.arquivos-tecnicos-page .arq-file-card.is-missing .arq-file-preview {
+  background: color-mix(in srgb, var(--panel, #fff) 88%, #eaf3f7 12%);
+}
+.arquivos-tecnicos-page .arq-file-card.is-missing .arq-file-body p {
+  color: var(--muted, #667085);
+}

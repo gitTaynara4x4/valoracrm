@@ -272,6 +272,7 @@
   }
 
   async function buildAttachmentPrintHtml(attachments = state.attachments, imagesPerPage = state.attachmentImageLayout) {
+    state.attachmentExportSkipped = [];
     const files = (Array.isArray(attachments) ? attachments : []).filter((file) => file?.imprimivel !== false);
     if (!files.length) return '';
     const pages = [];
@@ -311,11 +312,7 @@
       }
     }
     flushImages();
-    if (skipped.length) {
-      const preview = skipped.slice(0, 3).join(', ');
-      const extra = skipped.length > 3 ? ` e mais ${skipped.length - 3}` : '';
-      toast(`Alguns anexos não foram encontrados no armazenamento e foram ignorados: ${preview}${extra}.`, 'warning');
-    }
+    state.attachmentExportSkipped = skipped.slice();
     return pages.join('');
   }
 

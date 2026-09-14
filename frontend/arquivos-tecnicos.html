@@ -18,13 +18,13 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <link rel="stylesheet" href="/frontend/css/app.css?v=20260909-loading-global-v3" />
-  <link rel="stylesheet" href="/frontend/css/arquivos-tecnicos.css?v=20260912-biblioteca-geral-v31" />
+  <link rel="stylesheet" href="/frontend/css/arquivos-tecnicos.css?v=20260914-autorreparo-v34" />
   <link rel="stylesheet" href="/frontend/css/responsivo-global.css?v=20260615-mobile-real" />
   <link rel="stylesheet" href="/frontend/css/dark-chatgpt-fix.css?v=20260630-dark-pro-v11" />
 
   <script src="/frontend/js/shared/menu-global.js?v=20260807-arquivos-tecnicos-v1" defer></script>
   <script src="/frontend/js/pages/app.js?v=20260909-loading-global-v3" defer></script>
-  <script src="/frontend/js/pages/arquivos-tecnicos.js?v=20260912-biblioteca-geral-v31" defer></script>
+  <script src="/frontend/js/pages/arquivos-tecnicos.js?v=20260914-autorreparo-v34" defer></script>
 </head>
 <body>
   <div class="layout">
@@ -38,6 +38,10 @@
           <p class="topbar-subtitle">Fotos, documentos e arquivos organizados na biblioteca geral, por cliente ou fornecedor.</p>
         </div>
         <div class="topbar-actions">
+          <button class="btn btn-secondary arq-legacy-repair-btn" id="btn-reparar-arquivos-antigos" type="button" hidden>
+            <i class="fa-solid fa-wand-magic-sparkles"></i> <span id="arq-legacy-repair-label">Corrigir arquivos antigos</span>
+          </button>
+          <input id="input-reparar-arquivos-antigos" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.heic,.heif" hidden />
           <button class="btn btn-secondary" id="btn-atualizar-arquivos" type="button">
             <i class="fa-solid fa-rotate"></i> Atualizar
           </button>
