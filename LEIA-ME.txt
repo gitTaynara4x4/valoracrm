@@ -1,23 +1,19 @@
-VALORACRM — BOTÕES AZUIS V2
+ATUALIZAÇÃO — Formulários · Editar seção em drawer lateral
 
-Correção da primeira versão da padronização global.
+Alterações:
+- Editar seção deixa de abrir como modal central largo.
+- Agora abre como painel lateral à direita, seguindo o Editar campo.
+- Altura total da tela e conteúdo interno rolável.
+- Informações, ícone, pré-visualização e configurações reorganizados em 1 coluna.
+- Rodapé com Excluir/Cancelar/Salvar permanece fixo e acessível.
+- Animação leve: 14px pela direita + fade em 180ms.
+- Light e dark suportados.
+- Mobile ocupa 100% da largura.
+- Respeita prefers-reduced-motion.
 
-O que foi corrigido:
-- Botões primários agora vencem overrides antigos com !important (ex.: Formulários > Adicionar campo).
-- Escopo restrito a botões/links de ação: não altera menu, abas, cards, chips ou itens selecionados.
-- Excluir/danger continua vermelho.
-- WhatsApp/success continua com cor semântica própria.
-- Warning continua com cor semântica própria.
-- Botão Novo orçamento do menu global também usa o azul Valora.
-- Light e dark usam #3098F8 para ação primária.
-- Hover #2387E8; active #176FCA.
+Arquivos alterados:
+- frontend/css/formularios.css
+- frontend/formularios.html
 
-Arquivos:
-frontend/css/buttons-valora.css
-frontend/js/pages/app.js
-
-Depois de substituir:
-1. Reinicie o Valora.
-2. No navegador use Ctrl + F5.
-
-Sem migration.
+Não precisa migration.
+Depois de substituir os arquivos, reinicie o Valora e faça Ctrl + F5.

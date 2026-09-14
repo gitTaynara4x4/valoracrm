@@ -3318,6 +3318,53 @@
     if (body) body.scrollTop = 0;
   }
 
+  function setSecaoDrawerTab(tab = 'geral') {
+    const modal = qs('modal-secao');
+    if (!modal) return;
+
+    const normalized = tab === 'avancado' ? 'avancado' : 'geral';
+    modal.dataset.secaoTab = normalized;
+
+    modal.querySelectorAll('[data-secao-drawer-tab]').forEach((button) => {
+      const active = button.dataset.secaoDrawerTab === normalized;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.tabIndex = active ? 0 : -1;
+    });
+
+    modal.querySelectorAll('.secao-drawer-geral').forEach((section) => {
+      section.hidden = normalized !== 'geral';
+    });
+    modal.querySelectorAll('.secao-drawer-avancado').forEach((section) => {
+      section.hidden = normalized !== 'avancado';
+    });
+
+    const body = modal.querySelector('.premium-modal-body');
+    if (body) body.scrollTop = 0;
+  }
+
+  function atualizarSecaoDrawerSummary() {
+    const labelEl = qs('secao-drawer-summary-label');
+    const subtitleEl = qs('secao-drawer-summary-subtitle');
+    const activeBadge = qs('secao-drawer-badge-active');
+    const icon = document.querySelector('#secao-drawer-summary .campo-drawer-summary-icon i');
+    if (!labelEl) return;
+
+    const titulo = qs('secao-titulo')?.value?.trim() || (state.secaoEditando ? 'Editar seção' : 'Nova seção');
+    labelEl.textContent = titulo;
+    if (subtitleEl) subtitleEl.textContent = state.modulo ? `Seção de ${tituloModulo(state.modulo)}` : 'Seção do formulário';
+
+    const ativo = qs('secao-ativo')?.checked !== false;
+    if (activeBadge) {
+      activeBadge.textContent = ativo ? 'Seção ativa' : 'Seção oculta';
+      activeBadge.classList.toggle('is-active', ativo);
+      activeBadge.classList.toggle('is-inactive', !ativo);
+    }
+
+    const iconClass = normalizarIconeSecao(qs('secao-icone')?.value) || 'fa-table-list';
+    if (icon) icon.className = `fa-solid ${iconClass}`;
+  }
+
   function atualizarCampoDrawerSummary() {
     const labelEl = qs('campo-drawer-summary-label');
     const sectionEl = qs('campo-drawer-summary-section');
@@ -3591,6 +3638,7 @@
 
   function resetSecaoForm(secao = null) {
     state.secaoEditando = secao;
+    setSecaoDrawerTab('geral');
 
     qs('modal-secao-title').textContent = secao ? 'Editar seção' : 'Nova seção';
     qs('secao-id').value = secao?.id || '';
@@ -3609,6 +3657,7 @@
     }
 
     atualizarPreviewIconeSecao();
+    atualizarSecaoDrawerSummary();
   }
 
   function resetCampoForm(campo = null, modo = 'novo') {
@@ -4475,9 +4524,20 @@
       }
 
       atualizarPreviewIconeSecao();
+      atualizarSecaoDrawerSummary();
     });
 
-    qs('secao-icone')?.addEventListener('change', atualizarPreviewIconeSecao);
+    qs('secao-icone')?.addEventListener('change', () => {
+      atualizarPreviewIconeSecao();
+      atualizarSecaoDrawerSummary();
+    });
+    qs('secao-ativo')?.addEventListener('change', atualizarSecaoDrawerSummary);
+
+    qs('modal-secao')?.querySelector('.secao-drawer-tabs')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-secao-drawer-tab]');
+      if (!button) return;
+      setSecaoDrawerTab(button.dataset.secaoDrawerTab);
+    });
 
     qs('btn-abrir-icones-secao')?.addEventListener('click', (e) => {
       e.stopPropagation();

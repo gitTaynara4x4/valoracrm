@@ -12367,3 +12367,665 @@ html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-r
   opacity: 1 !important;
   filter: none !important;
 }
+
+
+/* =========================================================
+   FORMULÁRIOS · ACTIVE STATES CLEAN (sem bloco escuro)
+   2026-09-12
+   Módulos, seções e campos ativos voltam ao padrão leve,
+   com destaque lateral azul e conteúdo legível.
+   ========================================================= */
+:root {
+  --form-active-accent: #3098F8;
+  --form-active-accent-hover: #2387E8;
+  --form-active-light-bg: rgba(48, 152, 248, .10);
+  --form-active-light-border: rgba(48, 152, 248, .26);
+  --form-active-light-icon-bg: rgba(48, 152, 248, .14);
+  --form-active-light-text: #184A78;
+  --form-active-light-muted: #5E7EA0;
+  --form-active-light-chip-bg: rgba(48, 152, 248, .12);
+  --form-active-light-chip-border: rgba(48, 152, 248, .24);
+  --form-active-dark-bg: rgba(48, 152, 248, .12);
+  --form-active-dark-border: rgba(48, 152, 248, .28);
+  --form-active-dark-icon-bg: rgba(48, 152, 248, .16);
+  --form-active-dark-text: #EAF4FF;
+  --form-active-dark-muted: #B9CDE2;
+  --form-active-dark-chip-bg: rgba(48, 152, 248, .14);
+  --form-active-dark-chip-border: rgba(48, 152, 248, .22);
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-hidden-field.is-active {
+  background: var(--form-active-light-bg) !important;
+  border-color: var(--form-active-light-border) !important;
+  box-shadow: inset 3px 0 0 var(--form-active-accent) !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active:hover,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active:hover,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active:hover,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-hidden-field.is-active:hover {
+  background: rgba(48, 152, 248, .13) !important;
+  border-color: rgba(48, 152, 248, .30) !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active::after,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active::after,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active::after {
+  background: var(--form-active-accent) !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active > strong,
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .form-section-copy strong,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .form-section-copy small,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .form-section-icon,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-order,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy strong,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy small,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-type-badge {
+  color: var(--form-active-light-text) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .form-section-copy small,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy small,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-type-badge {
+  color: var(--form-active-light-muted) !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .form-section-icon,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-icon,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .section-menu,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .icon-btn {
+  background: var(--form-active-light-icon-bg) !important;
+  border-color: rgba(48, 152, 248, .24) !important;
+  color: var(--form-active-accent) !important;
+  box-shadow: none !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta {
+  background: var(--form-active-light-chip-bg) !important;
+  border: 1px solid var(--form-active-light-chip-border) !important;
+  color: var(--form-active-accent) !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-hidden-field.is-active {
+  background: var(--form-active-dark-bg) !important;
+  border-color: var(--form-active-dark-border) !important;
+  box-shadow: inset 3px 0 0 var(--form-active-accent) !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active:hover,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active:hover,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active:hover,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-hidden-field.is-active:hover {
+  background: rgba(48, 152, 248, .16) !important;
+  border-color: rgba(48, 152, 248, .34) !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active::after,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active::after,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active::after {
+  background: var(--form-active-accent) !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active > strong,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-copy strong,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-copy small,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-icon,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-order,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy strong,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy small,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-type-badge {
+  color: var(--form-active-dark-text) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-copy small,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy small,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-type-badge {
+  color: var(--form-active-dark-muted) !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-icon,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-icon,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .section-menu,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .icon-btn {
+  background: var(--form-active-dark-icon-bg) !important;
+  border-color: var(--form-active-dark-border) !important;
+  color: #8DCDFF !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta {
+  background: var(--form-active-dark-chip-bg) !important;
+  border: 1px solid var(--form-active-dark-chip-border) !important;
+  color: #8DCDFF !important;
+}
+
+
+/* =========================================================
+   FORMULÁRIOS · SELEÇÃO MONOCROMÁTICA V21
+   2026-09-12
+   Uma única superfície azul suave. Sem faixa lateral,
+   sem segundo azul em ícones, badges, bordas ou menus.
+   ========================================================= */
+:root {
+  --form-selected-single-light: #EAF4FF;
+  --form-selected-single-dark: #17334F;
+}
+
+/* LIGHT — somente um fundo de seleção. */
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-hidden-field.is-active,
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active:hover,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active:hover,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active:hover,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-hidden-field.is-active:hover {
+  background: var(--form-selected-single-light) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+/* Remove qualquer faixa/indicador lateral colorido. */
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active::after,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active::after,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active::after {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Componentes internos não criam outra superfície azul. */
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .form-section-icon,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .section-menu,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .icon-btn,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-icon,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-type-badge {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active > strong,
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .form-section-copy strong,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .form-section-copy small,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .form-section-icon,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .section-menu,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .icon-btn,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-order,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy strong,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy small,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-type-badge,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-icon,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit {
+  color: #23415E !important;
+  opacity: 1 !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .form-section-copy small,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy small,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-type-badge,
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta {
+  color: #607B95 !important;
+}
+
+/* DARK — também uma única superfície, sem segundo azul. */
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-hidden-field.is-active,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active:hover,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active:hover,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active:hover,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-hidden-field.is-active:hover {
+  background: var(--form-selected-single-dark) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active::after,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active::after,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active::after {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-icon,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .section-menu,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .icon-btn,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-icon,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-type-badge {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active > strong,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-copy strong,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-copy small,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-icon,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .section-menu,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .icon-btn,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-order,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy strong,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy small,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-type-badge,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-icon,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit {
+  color: #E9F3FC !important;
+  opacity: 1 !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-copy small,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-copy small,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-type-badge,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-meta {
+  color: #B8C9D8 !important;
+}
+
+
+/* =========================================================
+   FORMULÁRIOS · ÍCONES ATIVOS VISÍVEIS V22
+   2026-09-12
+   Mantém a seleção monocromática e usa o MESMO azul #3098F8
+   nos ícones/ações, sem criar uma segunda superfície de cor.
+   ========================================================= */
+:root {
+  --form-selected-accent: #3098F8;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .form-section-icon,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .section-menu,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .icon-btn,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-icon,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-icon,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .section-menu,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .icon-btn,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-icon,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--form-selected-accent) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  box-shadow: none !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon i,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .form-section-icon i,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .section-menu i,
+html:not([data-theme="dark"]) .formularios-vnext .form-section-item.is-active .icon-btn i,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-icon i,
+html:not([data-theme="dark"]) .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit i,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon i,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .form-section-icon i,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .section-menu i,
+html[data-theme="dark"] .formularios-vnext .form-section-item.is-active .icon-btn i,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-icon i,
+html[data-theme="dark"] .formularios-vnext .workspace-builder-grid .form-field-row.is-active .form-field-edit i {
+  color: var(--form-selected-accent) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* =========================================================
+   FORMULÁRIOS · ÍCONES DO SIDEBAR MAIS SUAVES V23
+   2026-09-14
+   Ícones inativos ficam discretos; apenas o módulo ativo usa
+   o azul principal #3098F8 com força total.
+   ========================================================= */
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card:not(.is-active) .module-icon {
+  background: transparent !important;
+  color: #7B899D !important;
+  opacity: .78 !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card:not(.is-active) .module-icon i {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card:not(.is-active):hover .module-icon {
+  color: #66768D !important;
+  opacity: .92 !important;
+}
+
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html:not([data-theme="dark"]) .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon i {
+  color: #3098F8 !important;
+  opacity: 1 !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card:not(.is-active) .module-icon {
+  background: transparent !important;
+  color: #8793A5 !important;
+  opacity: .80 !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card:not(.is-active) .module-icon i {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card:not(.is-active):hover .module-icon {
+  color: #A0ADBF !important;
+  opacity: .95 !important;
+}
+
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon,
+html[data-theme="dark"] .formularios-vnext .form-modules-sidebar .module-card.is-active .module-icon i {
+  color: #3098F8 !important;
+  opacity: 1 !important;
+}
+
+/* =========================================================
+   FORMULÁRIOS · DRAWER EDITAR CAMPO · ANIMAÇÃO LEVE V24
+   2026-09-14
+   Entrada curta pela direita + fade, sem blur/zoom pesado.
+   ========================================================= */
+@keyframes valoraCampoDrawerIn {
+  from {
+    transform: translate3d(14px, 0, 0);
+    opacity: 0;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes valoraCampoOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+#modal-campo:not([hidden]) {
+  animation: valoraCampoOverlayIn 140ms ease-out both;
+}
+
+#modal-campo:not([hidden]) > .modal-content.modal-field-editor {
+  will-change: transform, opacity;
+  animation: valoraCampoDrawerIn 180ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #modal-campo:not([hidden]),
+  #modal-campo:not([hidden]) > .modal-content.modal-field-editor {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* =========================================================
+   FORMULÁRIOS · EDITAR SEÇÃO EM DRAWER LATERAL V25
+   2026-09-14
+   Mesmo padrão do editor de campo: painel à direita, leve e rápido.
+   ========================================================= */
+@keyframes valoraSecaoDrawerIn {
+  from {
+    transform: translate3d(14px, 0, 0);
+    opacity: 0;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes valoraSecaoOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+#modal-secao.modal-overlay {
+  padding: 0 !important;
+  align-items: stretch !important;
+  justify-content: flex-end !important;
+  background: rgba(15, 23, 42, .20) !important;
+  backdrop-filter: none !important;
+}
+
+#modal-secao .modal-content.modal-section-editor {
+  width: min(520px, 96vw) !important;
+  max-width: 520px !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-left: 1px solid #e3e9f1 !important;
+  border-radius: 0 !important;
+  background: #ffffff !important;
+  box-shadow: -18px 0 50px rgba(15, 23, 42, .16) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#modal-secao:not([hidden]) {
+  animation: valoraSecaoOverlayIn 140ms ease-out both;
+}
+
+#modal-secao:not([hidden]) > .modal-content.modal-section-editor {
+  will-change: transform, opacity;
+  animation: valoraSecaoDrawerIn 180ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+#modal-secao .modal-premium-header {
+  flex: 0 0 auto !important;
+  min-height: 84px !important;
+  padding: 18px 22px 16px !important;
+  border-bottom: 1px solid #edf1f5 !important;
+  background: #ffffff !important;
+}
+
+#modal-secao .modal-title-wrap {
+  gap: 0 !important;
+}
+
+#modal-secao .modal-title-icon,
+#modal-secao .modal-size-toggle {
+  display: none !important;
+}
+
+#modal-secao .modal-premium-header h3 {
+  margin: 0 !important;
+  color: #111827 !important;
+  font-size: 21px !important;
+  font-weight: 650 !important;
+  line-height: 1.2 !important;
+  letter-spacing: -.02em !important;
+}
+
+#modal-secao .modal-premium-header p {
+  margin: 5px 0 0 !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+
+#modal-secao .modal-close {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  border-radius: 10px !important;
+}
+
+#modal-secao .premium-modal-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 14px 16px 18px !important;
+  background: #f7f9fc !important;
+}
+
+#modal-secao .premium-form-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+
+#modal-secao .premium-modal-section {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 16px !important;
+  border-radius: 12px !important;
+}
+
+#modal-secao .premium-section-info {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 13px !important;
+}
+
+#modal-secao .premium-section-info .premium-section-title,
+#modal-secao .premium-section-info .premium-control,
+#modal-secao .premium-section-info .premium-control.is-wide {
+  grid-column: 1 !important;
+}
+
+#modal-secao .premium-section-title {
+  margin-bottom: 12px !important;
+}
+
+#modal-secao .premium-section-info .premium-section-title {
+  margin-bottom: 0 !important;
+}
+
+#modal-secao .premium-control input,
+#modal-secao .premium-control select,
+#modal-secao .premium-control textarea {
+  width: 100% !important;
+}
+
+#modal-secao .premium-section-info textarea {
+  min-height: 88px !important;
+}
+
+#modal-secao .premium-icon-layout {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 14px !important;
+  align-items: stretch !important;
+}
+
+#modal-secao .premium-preview-card {
+  width: 100% !important;
+}
+
+#modal-secao .secao-icone-preview {
+  min-height: 78px !important;
+  justify-content: flex-start !important;
+}
+
+#modal-secao .premium-config-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 13px !important;
+  align-items: stretch !important;
+}
+
+#modal-secao .premium-toggle-card {
+  width: 100% !important;
+  min-height: 50px !important;
+  align-self: stretch !important;
+}
+
+#modal-secao .premium-modal-footer {
+  flex: 0 0 auto !important;
+  min-height: 68px !important;
+  padding: 11px 16px !important;
+  border-top: 1px solid #edf1f5 !important;
+  background: #ffffff !important;
+}
+
+#modal-secao .premium-modal-footer .btn {
+  min-height: 40px !important;
+}
+
+html[data-theme="dark"] #modal-secao.modal-overlay {
+  background: rgba(0, 0, 0, .34) !important;
+}
+
+html[data-theme="dark"] #modal-secao .modal-content.modal-section-editor {
+  background: #212121 !important;
+  border: 0 !important;
+  border-left: 1px solid rgba(255,255,255,.10) !important;
+  box-shadow: -18px 0 50px rgba(0,0,0,.36) !important;
+}
+
+html[data-theme="dark"] #modal-secao .modal-premium-header,
+html[data-theme="dark"] #modal-secao .premium-modal-footer {
+  background: #292929 !important;
+}
+
+html[data-theme="dark"] #modal-secao .premium-modal-body {
+  background: #212121 !important;
+}
+
+@media (max-width: 680px) {
+  #modal-secao .modal-content.modal-section-editor {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
+  #modal-secao .modal-premium-header {
+    padding-left: 18px !important;
+    padding-right: 14px !important;
+  }
+
+  #modal-secao .premium-modal-body {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #modal-secao:not([hidden]),
+  #modal-secao:not([hidden]) > .modal-content.modal-section-editor {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
