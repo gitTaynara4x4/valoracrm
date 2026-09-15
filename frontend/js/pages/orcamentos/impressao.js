@@ -224,10 +224,9 @@
 .budget-print-attachment-label,.budget-print-attachment-tile-label{display:none!important}`;
     const content = `<div class="document-preview">${previewHtml}</div>${attachmentsHtml}`;
 
-    // O html2pdf clona apenas o elemento enviado para ele. Quando o CSS fica
-    // somente no <head> do iframe, a cópia criada pelo html2pdf perde essas
-    // regras e passa a herdar o CSS da tela do Valora. Mantemos o CSS também
-    // dentro da raiz exportada para ele viajar junto com o clone do canvas.
+    // Mantemos o CSS também dentro da raiz exportada para que o documento
+    // renderizado no iframe tenha exatamente as regras do DAV, sem herdar o
+    // layout da tela principal do Valora.
     const exportRoot = `<div class="budget-export-root"><style data-budget-export-style>${styles}</style>${content}</div>`;
     const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><base href="${escapeHtml(`${window.location.origin}/`)}"><title>${title}</title><style>${styles}</style></head><body>${exportRoot}</body></html>`;
     return { html, title, filename: currentExportFilename(), skippedAttachments };
@@ -258,30 +257,49 @@
     });
   }
 
-  function html2PdfScriptSource() {
-    const loadedScript = Array.from(document.scripts || []).find((script) => /html2pdf(?:\.bundle)?(?:\.min)?\.js/i.test(script.src || ''));
-    return loadedScript?.src || 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+  function frameLibraryScriptSource(kind) {
+    const patterns = {
+      html2canvas: /html2canvas(?:\.min)?\.js/i,
+      jspdf: /jspdf(?:\.umd)?(?:\.min)?\.js/i,
+    };
+    const fallbacks = {
+      html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+      jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    };
+    const pattern = patterns[kind];
+    const loadedScript = Array.from(document.scripts || []).find((script) => pattern?.test(script.src || ''));
+    return loadedScript?.src || fallbacks[kind];
   }
 
-  async function ensureFrameHtml2Pdf(frame) {
+  function loadFrameScript(doc, src, label) {
+    return new Promise((resolve, reject) => {
+      const script = doc.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`Não foi possível carregar ${label}.`));
+      doc.head.appendChild(script);
+    });
+  }
+
+  async function ensureFramePdfLibraries(frame) {
     const win = frame?.contentWindow;
     const doc = frame?.contentDocument;
     if (!win || !doc) throw new Error('Não foi possível preparar o gerador de PDF.');
-    if (typeof win.html2pdf === 'function') return win.html2pdf;
 
-    await new Promise((resolve, reject) => {
-      const script = doc.createElement('script');
-      script.src = html2PdfScriptSource();
-      script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Não foi possível carregar o gerador de PDF.'));
-      doc.head.appendChild(script);
-    });
+    if (typeof win.html2canvas !== 'function') {
+      await loadFrameScript(doc, frameLibraryScriptSource('html2canvas'), 'o renderizador do PDF');
+    }
+    if (!(win.jspdf?.jsPDF || win.jsPDF)) {
+      await loadFrameScript(doc, frameLibraryScriptSource('jspdf'), 'o gerador do PDF');
+    }
 
-    if (typeof win.html2pdf !== 'function') {
+    const html2canvas = win.html2canvas;
+    const jsPDF = win.jspdf?.jsPDF || win.jsPDF;
+    if (typeof html2canvas !== 'function' || typeof jsPDF !== 'function') {
       throw new Error('O gerador de PDF não ficou disponível. Atualize a página e tente novamente.');
     }
-    return win.html2pdf;
+    return { html2canvas, jsPDF };
   }
 
   function stabilizeDavPdfLayout(doc) {
@@ -291,11 +309,8 @@
     if (!root || !preview || !dav) return root || doc?.body;
 
     // 194 mm = 210 mm do A4 - 8 mm de margem de cada lado.
-    // A versão anterior chamava o html2pdf da janela principal passando um
-    // elemento pertencente ao iframe. O html2pdf clonava esse nó para OUTRO
-    // document e acabava calculando a largura/posição de forma errada,
-    // deixando no PDF somente a parte direita do DAV. Agora o html2pdf roda
-    // dentro do próprio iframe e recebe uma árvore com largura física fixa.
+    // Mantemos a árvore em largura física fixa. O PDF V39 não usa mais o
+    // Worker do html2pdf; ele renderiza o canvas e pagina manualmente com jsPDF.
     const width = '194mm';
     [doc.documentElement, doc.body, root, preview, dav].forEach((element) => {
       if (!element) return;
@@ -336,11 +351,97 @@
     return root;
   }
 
-  async function exportCurrentAsPdf(documentData) {
-    if (typeof window.html2pdf !== 'function') {
-      throw new Error('O gerador de PDF não carregou. Atualize a página e tente novamente.');
+  function collectPdfBreakRanges(target, canvas) {
+    const targetRect = target.getBoundingClientRect();
+    const cssHeight = Math.max(1, target.scrollHeight || target.offsetHeight || targetRect.height || 1);
+    const scaleY = canvas.height / cssHeight;
+    const ranges = [];
+    const hardBreaks = [];
+
+    const addRange = (element) => {
+      const rect = element.getBoundingClientRect();
+      const topCss = rect.top - targetRect.top + (target.scrollTop || 0);
+      const bottomCss = rect.bottom - targetRect.top + (target.scrollTop || 0);
+      const top = Math.max(0, Math.round(topCss * scaleY));
+      const bottom = Math.min(canvas.height, Math.round(bottomCss * scaleY));
+      if (bottom > top) ranges.push({ top, bottom });
+    };
+
+    target.querySelectorAll('.dav-items-table tbody tr,.dav-totals-table,.dav-observations,.dav-footer').forEach(addRange);
+    target.querySelectorAll('.budget-print-attachment').forEach((element) => {
+      addRange(element);
+      const rect = element.getBoundingClientRect();
+      const topCss = rect.top - targetRect.top + (target.scrollTop || 0);
+      const top = Math.max(0, Math.round(topCss * scaleY));
+      if (top > 0) hardBreaks.push(top);
+    });
+
+    return {
+      ranges: ranges.sort((a, b) => a.top - b.top),
+      hardBreaks: hardBreaks.sort((a, b) => a - b),
+    };
+  }
+
+  function choosePdfSliceEnd(start, naturalEnd, pageHeightPx, breakData, canvasHeight) {
+    let end = Math.min(naturalEnd, canvasHeight);
+    if (end >= canvasHeight) return canvasHeight;
+
+    // Anexos sempre começam em página nova quando o início deles estiver
+    // dentro da página atual.
+    const hardBreak = breakData.hardBreaks.find((point) => point > start + 8 && point < end - 8);
+    if (hardBreak) end = hardBreak;
+
+    // Evita partir linhas/totais/observações exatamente na quebra de página.
+    const containing = breakData.ranges.find((range) => range.top < end && range.bottom > end);
+    if (containing) {
+      const minimumUsefulHeight = pageHeightPx * 0.28;
+      if (containing.top - start >= minimumUsefulHeight) end = containing.top;
     }
 
+    // Segurança contra loop infinito em elementos maiores que uma página.
+    if (end <= start + 8) end = Math.min(start + pageHeightPx, canvasHeight);
+    return end;
+  }
+
+  async function saveCanvasAsA4Pdf({ canvas, target, doc, jsPDF, filename, marginMm }) {
+    const pageWidthMm = 210;
+    const pageHeightMm = 297;
+    const contentWidthMm = pageWidthMm - (marginMm * 2);
+    const contentHeightMm = pageHeightMm - (marginMm * 2);
+    const pxPerMm = canvas.width / contentWidthMm;
+    const naturalPageHeightPx = Math.max(1, Math.floor(contentHeightMm * pxPerMm));
+    const breakData = collectPdfBreakRanges(target, canvas);
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+
+    let start = 0;
+    let pageIndex = 0;
+    while (start < canvas.height) {
+      const naturalEnd = Math.min(start + naturalPageHeightPx, canvas.height);
+      const end = choosePdfSliceEnd(start, naturalEnd, naturalPageHeightPx, breakData, canvas.height);
+      const sliceHeight = Math.max(1, end - start);
+      const slice = doc.createElement('canvas');
+      slice.width = canvas.width;
+      slice.height = sliceHeight;
+      const context = slice.getContext('2d', { alpha: false });
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, slice.width, slice.height);
+      context.drawImage(canvas, 0, start, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+
+      if (pageIndex > 0) pdf.addPage('a4', 'portrait');
+      const sliceHeightMm = sliceHeight / pxPerMm;
+      pdf.addImage(slice.toDataURL('image/jpeg', 0.985), 'JPEG', marginMm, marginMm, contentWidthMm, sliceHeightMm, undefined, 'FAST');
+
+      // Libera a memória do canvas temporário antes da próxima página.
+      slice.width = 1;
+      slice.height = 1;
+      start = end;
+      pageIndex += 1;
+    }
+
+    pdf.save(`${filename}.pdf`);
+  }
+
+  async function exportCurrentAsPdf(documentData) {
     const frame = document.createElement('iframe');
     frame.setAttribute('aria-hidden', 'true');
     frame.tabIndex = -1;
@@ -364,13 +465,9 @@
       doc.close();
       await waitForFrameDocument(frame);
 
-      // IMPORTANTE: carregamos e executamos o html2pdf DENTRO do iframe.
-      // Assim o elemento exportado, os estilos e o documento usado pelo
-      // html2canvas são todos o mesmo document. Isso elimina o corte lateral
-      // visto nas versões anteriores.
-      const frameHtml2Pdf = await ensureFrameHtml2Pdf(frame);
+      const { html2canvas, jsPDF } = await ensureFramePdfLibraries(frame);
       const davMode = usesDavDocument();
-      const margin = davMode ? 8 : 10;
+      const marginMm = davMode ? 8 : 10;
       const target = davMode
         ? stabilizeDavPdfLayout(doc)
         : (doc.querySelector('.budget-export-root') || doc.body);
@@ -384,34 +481,40 @@
         Math.ceil(target.offsetWidth || 0),
         Math.ceil(rect.width || 0),
       );
+      const renderHeight = Math.max(
+        1,
+        Math.ceil(target.scrollHeight || 0),
+        Math.ceil(target.offsetHeight || 0),
+        Math.ceil(rect.height || 0),
+      );
 
-      await frameHtml2Pdf()
-        .set({
-          margin: [margin, margin, margin, margin],
-          filename: `${documentData.filename}.pdf`,
-          image: { type: 'jpeg', quality: 0.99 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            allowTaint: false,
-            backgroundColor: '#ffffff',
-            logging: false,
-            scrollX: 0,
-            scrollY: 0,
-            width: renderWidth,
-            windowWidth: renderWidth,
-          },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-          pagebreak: davMode
-            ? {
-                mode: ['css', 'legacy'],
-                before: ['.budget-print-attachment'],
-                avoid: ['.dav-totals-table', '.dav-observations', '.dav-footer', '.budget-print-attachment'],
-              }
-            : { mode: ['css', 'legacy'] },
-        })
-        .from(target)
-        .save();
+      // V39: renderização direta. Não chamamos html2pdf().set(), portanto o
+      // Worker que gerava "Invalid margin array" não participa mais do fluxo.
+      const canvas = await html2canvas(target, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+        width: renderWidth,
+        height: renderHeight,
+        windowWidth: renderWidth,
+        windowHeight: Math.max(renderHeight, 1123),
+      });
+
+      await saveCanvasAsA4Pdf({
+        canvas,
+        target,
+        doc,
+        jsPDF,
+        filename: documentData.filename,
+        marginMm,
+      });
+
+      canvas.width = 1;
+      canvas.height = 1;
     } finally {
       frame.remove();
     }
@@ -432,7 +535,7 @@
     }));
 
     parsed.querySelectorAll('.budget-print-attachment-label,.budget-print-attachment-tile-label').forEach((element) => element.remove());
-    // O CSS duplicado dentro da raiz existe só para o clone do html2pdf. No
+    // O CSS duplicado dentro da raiz garante que a exportação isolada mantenha
     // Word mantemos apenas a cópia do <head>, evitando uma folha de estilo
     // repetida dentro do corpo do documento.
     parsed.querySelectorAll('style[data-budget-export-style]').forEach((element) => element.remove());
