@@ -4,7 +4,7 @@
   // Este arquivo é apenas o carregador do módulo de Orçamentos.
   // A ordem fica explícita aqui; os nomes dos arquivos não precisam de números.
   const BASE = '/frontend/js/pages/orcamentos/';
-  const VERSION = '20260914-autorreparo-v34';
+  const VERSION = '20260914-pdf-a4-v37';
   const MODULOS = [
     'core.js',
     'propostas.js',

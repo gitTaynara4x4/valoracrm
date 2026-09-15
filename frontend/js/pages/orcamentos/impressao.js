@@ -220,16 +220,26 @@
       ? state.attachmentExportSkipped.slice()
       : [];
     const title = escapeHtml($('orcamento-codigo')?.value || 'Orçamento');
-    const styles = `${printStyles()}${attachmentPrintStyles()}\n.budget-print-attachment-label,.budget-print-attachment-tile-label{display:none!important}`;
+    const styles = `${printStyles()}${attachmentPrintStyles()}
+.budget-print-attachment-label,.budget-print-attachment-tile-label{display:none!important}`;
     const content = `<div class="document-preview">${previewHtml}</div>${attachmentsHtml}`;
-    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><base href="${escapeHtml(`${window.location.origin}/`)}"><title>${title}</title><style>${styles}</style></head><body>${content}</body></html>`;
+
+    // O html2pdf clona apenas o elemento enviado para ele. Quando o CSS fica
+    // somente no <head> do iframe, a cópia criada pelo html2pdf perde essas
+    // regras e passa a herdar o CSS da tela do Valora. Mantemos o CSS também
+    // dentro da raiz exportada para ele viajar junto com o clone do canvas.
+    const exportRoot = `<div class="budget-export-root"><style data-budget-export-style>${styles}</style>${content}</div>`;
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><base href="${escapeHtml(`${window.location.origin}/`)}"><title>${title}</title><style>${styles}</style></head><body>${exportRoot}</body></html>`;
     return { html, title, filename: currentExportFilename(), skippedAttachments };
   }
 
   function waitForFrameDocument(frame) {
     return new Promise((resolve) => {
       const doc = frame.contentDocument;
+      let finished = false;
       const finish = async () => {
+        if (finished) return;
+        finished = true;
         try {
           const images = Array.from(doc?.images || []);
           await Promise.all(images.map((img) => img.complete
@@ -248,6 +258,84 @@
     });
   }
 
+  function html2PdfScriptSource() {
+    const loadedScript = Array.from(document.scripts || []).find((script) => /html2pdf(?:\.bundle)?(?:\.min)?\.js/i.test(script.src || ''));
+    return loadedScript?.src || 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+  }
+
+  async function ensureFrameHtml2Pdf(frame) {
+    const win = frame?.contentWindow;
+    const doc = frame?.contentDocument;
+    if (!win || !doc) throw new Error('Não foi possível preparar o gerador de PDF.');
+    if (typeof win.html2pdf === 'function') return win.html2pdf;
+
+    await new Promise((resolve, reject) => {
+      const script = doc.createElement('script');
+      script.src = html2PdfScriptSource();
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Não foi possível carregar o gerador de PDF.'));
+      doc.head.appendChild(script);
+    });
+
+    if (typeof win.html2pdf !== 'function') {
+      throw new Error('O gerador de PDF não ficou disponível. Atualize a página e tente novamente.');
+    }
+    return win.html2pdf;
+  }
+
+  function stabilizeDavPdfLayout(doc) {
+    const root = doc?.querySelector('.budget-export-root');
+    const preview = doc?.querySelector('.document-preview');
+    const dav = doc?.querySelector('.dav-document');
+    if (!root || !preview || !dav) return root || doc?.body;
+
+    // 194 mm = 210 mm do A4 - 8 mm de margem de cada lado.
+    // A versão anterior chamava o html2pdf da janela principal passando um
+    // elemento pertencente ao iframe. O html2pdf clonava esse nó para OUTRO
+    // document e acabava calculando a largura/posição de forma errada,
+    // deixando no PDF somente a parte direita do DAV. Agora o html2pdf roda
+    // dentro do próprio iframe e recebe uma árvore com largura física fixa.
+    const width = '194mm';
+    [doc.documentElement, doc.body, root, preview, dav].forEach((element) => {
+      if (!element) return;
+      element.style.boxSizing = 'border-box';
+      element.style.marginLeft = '0';
+      element.style.marginRight = '0';
+      element.style.maxWidth = 'none';
+      element.style.transform = 'none';
+      element.style.zoom = '1';
+    });
+
+    doc.documentElement.style.width = width;
+    doc.documentElement.style.minWidth = width;
+    doc.body.style.width = width;
+    doc.body.style.minWidth = width;
+    doc.body.style.overflow = 'visible';
+
+    root.style.width = width;
+    root.style.minWidth = width;
+    root.style.padding = '0';
+    root.style.overflow = 'visible';
+
+    preview.style.width = width;
+    preview.style.minWidth = width;
+    preview.style.padding = '0';
+    preview.style.overflow = 'visible';
+
+    dav.style.width = width;
+    dav.style.minWidth = width;
+    dav.style.height = 'auto';
+    dav.style.minHeight = '0';
+    dav.style.padding = '0';
+    dav.style.position = 'static';
+    dav.style.left = 'auto';
+    dav.style.top = 'auto';
+    dav.style.overflow = 'visible';
+
+    return root;
+  }
+
   async function exportCurrentAsPdf(documentData) {
     if (typeof window.html2pdf !== 'function') {
       throw new Error('O gerador de PDF não carregou. Atualize a página e tente novamente.');
@@ -260,7 +348,7 @@
       position: 'fixed',
       left: '-12000px',
       top: '0',
-      width: '794px',
+      width: usesDavDocument() ? '194mm' : '794px',
       height: '1123px',
       border: '0',
       opacity: '0',
@@ -276,13 +364,32 @@
       doc.close();
       await waitForFrameDocument(frame);
 
-      const margin = usesDavDocument() ? 8 : 10;
-      const target = frame.contentDocument.body;
-      await window.html2pdf()
+      // IMPORTANTE: carregamos e executamos o html2pdf DENTRO do iframe.
+      // Assim o elemento exportado, os estilos e o documento usado pelo
+      // html2canvas são todos o mesmo document. Isso elimina o corte lateral
+      // visto nas versões anteriores.
+      const frameHtml2Pdf = await ensureFrameHtml2Pdf(frame);
+      const davMode = usesDavDocument();
+      const margin = davMode ? 8 : 10;
+      const target = davMode
+        ? stabilizeDavPdfLayout(doc)
+        : (doc.querySelector('.budget-export-root') || doc.body);
+
+      await new Promise((resolve) => frame.contentWindow.requestAnimationFrame(() => frame.contentWindow.requestAnimationFrame(resolve)));
+
+      const rect = target.getBoundingClientRect();
+      const renderWidth = Math.max(
+        1,
+        Math.ceil(target.scrollWidth || 0),
+        Math.ceil(target.offsetWidth || 0),
+        Math.ceil(rect.width || 0),
+      );
+
+      await frameHtml2Pdf()
         .set({
           margin: [margin, margin, margin, margin],
           filename: `${documentData.filename}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
+          image: { type: 'jpeg', quality: 0.99 },
           html2canvas: {
             scale: 2,
             useCORS: true,
@@ -291,9 +398,17 @@
             logging: false,
             scrollX: 0,
             scrollY: 0,
+            width: renderWidth,
+            windowWidth: renderWidth,
           },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-          pagebreak: { mode: ['css', 'legacy'] },
+          pagebreak: davMode
+            ? {
+                mode: ['css', 'legacy'],
+                before: ['.budget-print-attachment'],
+                avoid: ['.dav-totals-table', '.dav-observations', '.dav-footer', '.budget-print-attachment'],
+              }
+            : { mode: ['css', 'legacy'] },
         })
         .from(target)
         .save();
@@ -317,6 +432,10 @@
     }));
 
     parsed.querySelectorAll('.budget-print-attachment-label,.budget-print-attachment-tile-label').forEach((element) => element.remove());
+    // O CSS duplicado dentro da raiz existe só para o clone do html2pdf. No
+    // Word mantemos apenas a cópia do <head>, evitando uma folha de estilo
+    // repetida dentro do corpo do documento.
+    parsed.querySelectorAll('style[data-budget-export-style]').forEach((element) => element.remove());
     const wordHtml = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><meta name="ProgId" content="Word.Document"><title>${escapeHtml(documentData.title)}</title>${parsed.head.querySelector('style')?.outerHTML || ''}<xml><w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml></head><body>${parsed.body.innerHTML}</body></html>`;
     const blob = new Blob(['\ufeff', wordHtml], { type: 'application/msword;charset=utf-8' });
     downloadBlobFile(blob, `${documentData.filename}.doc`);
@@ -429,9 +548,9 @@
     const scale = currentDocumentScale();
     const s = (base, unit = 'pt') => scaledCssValue(base, unit, scale);
     if (usesDavDocument()) {
-      return `*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;font-family:Arial,sans-serif;color:#000}.document-preview{width:auto;margin:0;background:#fff}.dav-document{width:100%;padding:0;background:#fff;color:#000;font-family:Arial,sans-serif;font-size:${s(9.5)}}.dav-header{position:relative;min-height:${s(18,'mm')};padding:0 31mm ${s(2,'mm')} 0;border-bottom:1px solid #000}.dav-company-title{text-align:center}.dav-company-title>strong{display:inline-block;padding:0 ${s(2,'mm')};border-bottom:1px solid #000;font-size:${s(13)};font-weight:600}.dav-company-title>span{display:block;margin-top:${s(1,'mm')};font-size:${s(9)}}.dav-company-title h1{margin:${s(3,'mm')} 0 0;font-size:${s(16)};line-height:1.1}.dav-document-meta{position:absolute;top:0;right:0;width:30mm;font-size:${s(8.5)}}.dav-document-meta div{display:grid;grid-template-columns:12mm 1fr;gap:${s(1,'mm')};min-height:${s(4,'mm')};align-items:center}.dav-document-meta b,.dav-document-meta span{text-align:right}.dav-client-table,.dav-items-table,.dav-totals-table{width:100%;border-collapse:collapse;table-layout:fixed}.dav-client-table td{min-height:${s(8,'mm')};padding:${s(1,'mm')} ${s(1.2,'mm')};border:1px solid #000;vertical-align:top}.dav-client-table label{display:block;font-size:${s(8)};font-weight:700;line-height:1.15}.dav-client-table strong{display:block;margin-top:${s(.6,'mm')};font-size:${s(9)};font-weight:400;line-height:1.25;overflow-wrap:anywhere}.dav-reference-line{min-height:${s(7,'mm')};padding:${s(1.5,'mm')} ${s(1,'mm')};border:1px solid #000;border-top:0;font-size:${s(9)};overflow-wrap:anywhere}.dav-items-table thead{display:table-header-group}.dav-items-table tr{break-inside:avoid;page-break-inside:avoid}.dav-items-table th{padding:${s(1.2,'mm')} ${s(.7,'mm')};border-bottom:1px solid #000;font-size:${s(8)};line-height:1.15;text-align:center;vertical-align:bottom}.dav-items-table .dav-col-code{width:8%}.dav-items-table .dav-col-description{width:39%}.dav-items-table .dav-col-unit{width:5.5%}.dav-items-table .dav-col-quantity{width:6.5%}.dav-items-table .dav-col-unit-value{width:10.5%}.dav-items-table .dav-col-discount{width:9%}.dav-items-table .dav-col-net-value{width:10.5%}.dav-items-table .dav-col-total{width:11%}.dav-items-table th:nth-child(2){text-align:left}.dav-items-table td{min-width:0;padding:${s(1.5,'mm')} ${s(.8,'mm')};overflow:hidden;border-bottom:.25mm solid #aaa;font-size:${s(8.6)};line-height:1.25;vertical-align:top}.dav-description{min-width:0;white-space:normal;overflow-wrap:anywhere;word-break:normal}.dav-description strong,.dav-description small{display:block;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:normal}.dav-description strong{font-weight:400}.dav-description small{margin-top:${s(.5,'mm')};font-size:${s(7.6)}}.dav-code,.dav-center,.dav-number{overflow:hidden}.dav-center{text-align:center;white-space:nowrap}.dav-number{text-align:right;white-space:nowrap}.dav-empty{text-align:center}.dav-totals-table,.dav-observations,.dav-footer{break-inside:avoid;page-break-inside:avoid}.dav-totals-table td{min-height:${s(15,'mm')};border:1px solid #000;vertical-align:middle}.dav-total-spacer{width:13%}.dav-order-total{width:50%;padding:${s(1.5,'mm')} ${s(2,'mm')}}.dav-order-total>div{width:48%;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:${s(1,'mm')};vertical-align:middle}.dav-order-total b,.dav-note-total b{font-size:${s(8.5)}}.dav-order-total strong,.dav-note-total strong{font-size:${s(9.5)}}.dav-order-total span{font-size:${s(8)}}.dav-total-middle{width:15%}.dav-note-total{width:22%;padding:${s(1,'mm')} ${s(2,'mm')}}.dav-note-total div{display:flex;justify-content:space-between;gap:${s(2,'mm')};padding:${s(.7,'mm')} 0}.dav-observations{min-height:${s(35,'mm')};padding:${s(2.5,'mm')} ${s(2,'mm')};border:1px solid #000;border-top:0}.dav-observations h2{margin:0 0 ${s(4,'mm')};font-size:${s(9)}}.dav-observation-lines{font-size:${s(9)};line-height:1.45}.dav-footer{min-height:${s(5,'mm')};padding:${s(1,'mm')};border:1px solid #000;border-top:0;background:#edf7fc;text-align:center;font-size:${s(8)}}@page{size:A4 portrait;margin:8mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+      return `*{box-sizing:border-box}html,body{margin:0!important;padding:0!important;width:auto!important;min-width:0!important;max-width:none!important;background:#fff!important;font-family:Arial,sans-serif;color:#000;overflow:visible!important}.budget-export-root{width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;padding:0!important;background:#fff!important;overflow:visible!important}.document-preview{width:100%!important;min-width:0!important;max-width:none!important;min-height:0!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;overflow:visible!important}.dav-document{width:100%!important;min-width:0!important;max-width:none!important;min-height:0!important;height:auto!important;margin:0!important;padding:0!important;display:block!important;flex:none!important;background:#fff;color:#000;font-family:Arial,sans-serif;font-size:${s(9.5)}}.dav-header{position:relative;min-height:${s(18,'mm')};padding:0 31mm ${s(2,'mm')} 0;border-bottom:1px solid #000}.dav-company-title{text-align:center}.dav-company-title>strong{display:inline-block;padding:0 ${s(2,'mm')};border-bottom:1px solid #000;font-size:${s(13)};font-weight:600}.dav-company-title>span{display:block;margin-top:${s(1,'mm')};font-size:${s(9)}}.dav-company-title h1{margin:${s(3,'mm')} 0 0;font-size:${s(16)};line-height:1.1}.dav-document-meta{position:absolute;top:0;right:0;width:30mm;font-size:${s(8.5)}}.dav-document-meta div{display:grid;grid-template-columns:12mm 1fr;gap:${s(1,'mm')};min-height:${s(4,'mm')};align-items:center}.dav-document-meta b,.dav-document-meta span{text-align:right}.dav-client-table,.dav-items-table,.dav-totals-table{width:100%;border-collapse:collapse;table-layout:fixed}.dav-client-table td{height:auto!important;min-height:${s(8,'mm')};padding:${s(1,'mm')} ${s(1.2,'mm')};border:1px solid #000;vertical-align:top}.dav-client-table label{display:block;font-size:${s(8)};font-weight:700;line-height:1.15}.dav-client-table strong{display:block;margin-top:${s(.6,'mm')};font-size:${s(9)};font-weight:400;line-height:1.25;overflow-wrap:anywhere}.dav-reference-line{height:auto!important;min-height:${s(7,'mm')};padding:${s(1.5,'mm')} ${s(1,'mm')};border:1px solid #000;border-top:0;font-size:${s(9)};overflow-wrap:anywhere;white-space:normal!important;text-overflow:clip!important}.dav-items-table thead{display:table-header-group}.dav-items-table tr{break-inside:avoid;page-break-inside:avoid}.dav-items-table th{height:auto!important;padding:${s(1.2,'mm')} ${s(.7,'mm')};border-bottom:1px solid #000;font-size:${s(8)};line-height:1.15;text-align:center;vertical-align:bottom}.dav-items-table .dav-col-code{width:8%}.dav-items-table .dav-col-description{width:39%}.dav-items-table .dav-col-unit{width:5.5%}.dav-items-table .dav-col-quantity{width:6.5%}.dav-items-table .dav-col-unit-value{width:10.5%}.dav-items-table .dav-col-discount{width:9%}.dav-items-table .dav-col-net-value{width:10.5%}.dav-items-table .dav-col-total{width:11%}.dav-items-table th:nth-child(2){text-align:left}.dav-items-table td{height:auto!important;min-width:0;padding:${s(1.5,'mm')} ${s(.8,'mm')};overflow:hidden;border-bottom:.25mm solid #aaa;font-size:${s(8.6)};line-height:1.25;vertical-align:top}.dav-description{min-width:0;white-space:normal;overflow-wrap:anywhere;word-break:normal}.dav-description strong,.dav-description small{display:block;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:normal}.dav-description strong{font-weight:400}.dav-description small{margin-top:${s(.5,'mm')};font-size:${s(7.6)}}.dav-code,.dav-center,.dav-number{overflow:hidden}.dav-center{text-align:center;white-space:nowrap}.dav-number{text-align:right;white-space:nowrap}.dav-empty{text-align:center}.dav-totals-table,.dav-observations,.dav-footer{break-inside:avoid;page-break-inside:avoid}.dav-totals-table td{min-height:${s(15,'mm')};border:1px solid #000;vertical-align:middle}.dav-total-spacer{width:13%}.dav-order-total{width:50%;white-space:normal!important;padding:${s(1.5,'mm')} ${s(2,'mm')}}.dav-order-total>div{width:48%;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:${s(1,'mm')};vertical-align:middle}.dav-order-total b,.dav-note-total b{font-size:${s(8.5)}}.dav-order-total strong,.dav-note-total strong{font-size:${s(9.5)}}.dav-order-total span{font-size:${s(8)}}.dav-total-middle{width:15%}.dav-note-total{width:22%;padding:${s(1,'mm')} ${s(2,'mm')}}.dav-note-total div{display:flex;justify-content:space-between;gap:${s(2,'mm')};padding:${s(.7,'mm')} 0}.dav-observations{min-height:${s(35,'mm')};height:auto!important;flex:none!important;padding:${s(2.5,'mm')} ${s(2,'mm')};border:1px solid #000;border-top:0}.dav-observations h2{margin:0 0 ${s(4,'mm')};font-size:${s(9)}}.dav-observation-lines{font-size:${s(9)};line-height:1.45}.dav-footer{min-height:${s(5,'mm')};padding:${s(1,'mm')};border:1px solid #000;border-top:0;background:#edf7fc;text-align:center;font-size:${s(8)}}@page{size:A4 portrait;margin:8mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
     }
-    return `*{box-sizing:border-box}body{margin:0;background:#fff;font-family:Arial,sans-serif;color:#263746}.document-preview{width:auto;margin:0;background:#fff}.preview-cover{min-height:265mm;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always}.preview-cover-brand,.preview-doc-brand{display:flex;align-items:center;gap:${s(16,'px')}}.preview-cover-brand img{width:${s(76,'px')};max-height:${s(76,'px')};object-fit:contain}.preview-cover-title{margin:auto 0}.preview-cover-title h1{margin:0 0 ${s(14,'px')};color:var(--preview-color);font-size:${s(42,'px')}}.preview-cover-title p{color:#667783;font-size:${s(18,'px')}}.preview-cover-client{padding-top:${s(24,'px')};border-top:2px solid var(--preview-color)}.preview-doc-header{display:flex;justify-content:space-between;gap:${s(20,'px')};padding-bottom:${s(20,'px')};border-bottom:3px solid var(--preview-color)}.preview-doc-brand img{width:${s(58,'px')};max-height:${s(58,'px')};object-fit:contain}.preview-doc-brand h2{margin:0 0 ${s(4,'px')};font-size:${s(18,'px')}}.preview-doc-brand p,.preview-doc-meta p{margin:${s(2,'px')} 0;color:#687884;font-size:${s(10,'px')}}.preview-doc-meta{text-align:right}.preview-doc-meta h1{margin:0 0 ${s(6,'px')};color:var(--preview-color);font-size:${s(22,'px')}}.preview-title{margin:${s(22,'px')} 0 ${s(15,'px')}}.preview-title h3{margin:0 0 ${s(4,'px')};font-size:${s(17,'px')}}.preview-title p{margin:0;color:#71808b;font-size:${s(10,'px')}}.preview-client-box{display:grid;grid-template-columns:1fr 1fr;gap:${s(8,'px')} ${s(24,'px')};margin-bottom:${s(18,'px')};padding:${s(14,'px')} ${s(16,'px')};border:1px solid #dfe6ea;border-radius:8px;background:#f8fafb}.preview-field label{display:block;color:#82909a;font-size:${s(8,'px')};text-transform:uppercase}.preview-field strong,.preview-field span{font-size:${s(10,'px')}}.preview-items{width:100%;border-collapse:collapse}.preview-items thead{display:table-header-group}.preview-items tr{break-inside:avoid;page-break-inside:avoid}.preview-items th{padding:${s(8,'px')} ${s(7,'px')};color:#fff;background:#365465;font-size:${s(8,'px')};text-align:left}.preview-items td{padding:${s(9,'px')} ${s(7,'px')};border-bottom:1px solid #e2e8eb;font-size:${s(9,'px')};vertical-align:top}.preview-items td small{display:block;margin-top:${s(3,'px')};color:#84919a}.preview-summary{width:310px;margin:${s(18,'px')} 0 0 auto}.preview-summary-row{display:flex;justify-content:space-between;padding:${s(7,'px')} 0;border-bottom:1px solid #e2e8eb;font-size:${s(9,'px')}}.preview-summary-total{margin-top:${s(8,'px')};padding:${s(12,'px')} ${s(14,'px')};border-radius:7px;color:#fff;background:var(--preview-color)}.preview-summary-total span{font-size:${s(8,'px')}}.preview-summary-total strong{display:block;margin-top:${s(3,'px')};font-size:${s(17,'px')}}.preview-section{margin-top:${s(18,'px')};padding:${s(13,'px')} ${s(15,'px')};border:1px solid #dfe6ea;border-radius:8px;break-inside:avoid;page-break-inside:avoid}.preview-section h4{margin:0 0 ${s(7,'px')};font-size:${s(10,'px')}}.preview-section p,.preview-section li{font-size:${s(9,'px')};line-height:1.55;white-space:pre-line}.preview-footer{margin-top:${s(24,'px')};padding-top:${s(12,'px')};border-top:1px solid #e0e7eb;display:flex;justify-content:space-between;gap:${s(20,'px')};color:#88949c;font-size:${s(8,'px')}}.preview-service-proposal{margin:${s(18,'px')} 0;display:grid;gap:${s(12,'px')}}.preview-service-proposal-intro{padding:${s(12,'px')} ${s(14,'px')};border:1px solid #e5eaf0;border-radius:8px;background:#fbfcfd;break-inside:avoid}.preview-service-proposal-intro h4{margin:0 0 ${s(6,'px')};color:var(--preview-color);font-size:${s(11,'px')}}.preview-service-proposal-intro p,.preview-service-proposal-note p{margin:0;white-space:pre-line;color:#445066;font-size:${s(8.5,'px')};line-height:1.5}.preview-service-proposal-grid{display:grid;grid-template-columns:1fr 1fr;gap:${s(8,'px')}}.preview-service-proposal-section{border:1px solid #dfe5eb;border-radius:8px;overflow:hidden;break-inside:avoid;page-break-inside:avoid}.preview-service-proposal-section h5{margin:0;padding:${s(7,'px')} ${s(9,'px')};background:#f6f8fa;color:#26354a;font-size:${s(9,'px')}}.preview-service-proposal-section ul{margin:0;padding:${s(7,'px')} ${s(9,'px')} ${s(8,'px')} ${s(22,'px')}}.preview-service-proposal-section li{margin:0 0 ${s(2,'px')};color:#3e4a5f;font-size:${s(8,'px')};line-height:1.35}.preview-service-proposal-values{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #dfe6ed;border-radius:8px;overflow:hidden;break-inside:avoid;page-break-inside:avoid}.preview-service-proposal-value{padding:${s(9,'px')} ${s(10,'px')};border-right:1px solid #e3e9ef}.preview-service-proposal-value:last-child{border-right:0}.preview-service-proposal-value span,.preview-service-proposal-value strong{display:block}.preview-service-proposal-value span{color:#78869a;font-size:${s(7,'px')};text-transform:uppercase}.preview-service-proposal-value strong{margin-top:${s(3,'px')};color:#1d2a3d;font-size:${s(10,'px')}}.preview-service-proposal-note{padding:${s(10,'px')} ${s(12,'px')};border-left:3px solid var(--preview-color);background:#fafcfd;break-inside:avoid;page-break-inside:avoid}.preview-service-proposal-note h5{margin:0 0 ${s(4,'px')};font-size:${s(8.5,'px')}}@page{size:A4 portrait;margin:10mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+    return `*{box-sizing:border-box}html,body{margin:0!important;padding:0!important;width:auto!important;min-width:0!important;max-width:none!important;background:#fff!important;font-family:Arial,sans-serif;color:#263746;overflow:visible!important}.budget-export-root{width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;padding:0!important;background:#fff!important;overflow:visible!important}.document-preview{width:100%!important;min-width:0!important;max-width:none!important;min-height:0!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;overflow:visible!important}.preview-cover{min-height:265mm;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always}.preview-cover-brand,.preview-doc-brand{display:flex;align-items:center;gap:${s(16,'px')}}.preview-cover-brand img{width:${s(76,'px')};max-height:${s(76,'px')};object-fit:contain}.preview-cover-title{margin:auto 0}.preview-cover-title h1{margin:0 0 ${s(14,'px')};color:var(--preview-color);font-size:${s(42,'px')}}.preview-cover-title p{color:#667783;font-size:${s(18,'px')}}.preview-cover-client{padding-top:${s(24,'px')};border-top:2px solid var(--preview-color)}.preview-doc-header{display:flex;justify-content:space-between;gap:${s(20,'px')};padding-bottom:${s(20,'px')};border-bottom:3px solid var(--preview-color)}.preview-doc-brand img{width:${s(58,'px')};max-height:${s(58,'px')};object-fit:contain}.preview-doc-brand h2{margin:0 0 ${s(4,'px')};font-size:${s(18,'px')}}.preview-doc-brand p,.preview-doc-meta p{margin:${s(2,'px')} 0;color:#687884;font-size:${s(10,'px')}}.preview-doc-meta{text-align:right}.preview-doc-meta h1{margin:0 0 ${s(6,'px')};color:var(--preview-color);font-size:${s(22,'px')}}.preview-title{margin:${s(22,'px')} 0 ${s(15,'px')}}.preview-title h3{margin:0 0 ${s(4,'px')};font-size:${s(17,'px')}}.preview-title p{margin:0;color:#71808b;font-size:${s(10,'px')}}.preview-client-box{display:grid;grid-template-columns:1fr 1fr;gap:${s(8,'px')} ${s(24,'px')};margin-bottom:${s(18,'px')};padding:${s(14,'px')} ${s(16,'px')};border:1px solid #dfe6ea;border-radius:8px;background:#f8fafb}.preview-field label{display:block;color:#82909a;font-size:${s(8,'px')};text-transform:uppercase}.preview-field strong,.preview-field span{font-size:${s(10,'px')}}.preview-items{width:100%;border-collapse:collapse}.preview-items thead{display:table-header-group}.preview-items tr{break-inside:avoid;page-break-inside:avoid}.preview-items th{padding:${s(8,'px')} ${s(7,'px')};color:#fff;background:#365465;font-size:${s(8,'px')};text-align:left}.preview-items td{padding:${s(9,'px')} ${s(7,'px')};border-bottom:1px solid #e2e8eb;font-size:${s(9,'px')};vertical-align:top}.preview-items td small{display:block;margin-top:${s(3,'px')};color:#84919a}.preview-summary{width:310px;margin:${s(18,'px')} 0 0 auto}.preview-summary-row{display:flex;justify-content:space-between;padding:${s(7,'px')} 0;border-bottom:1px solid #e2e8eb;font-size:${s(9,'px')}}.preview-summary-total{margin-top:${s(8,'px')};padding:${s(12,'px')} ${s(14,'px')};border-radius:7px;color:#fff;background:var(--preview-color)}.preview-summary-total span{font-size:${s(8,'px')}}.preview-summary-total strong{display:block;margin-top:${s(3,'px')};font-size:${s(17,'px')}}.preview-section{margin-top:${s(18,'px')};padding:${s(13,'px')} ${s(15,'px')};border:1px solid #dfe6ea;border-radius:8px;break-inside:avoid;page-break-inside:avoid}.preview-section h4{margin:0 0 ${s(7,'px')};font-size:${s(10,'px')}}.preview-section p,.preview-section li{font-size:${s(9,'px')};line-height:1.55;white-space:pre-line}.preview-footer{margin-top:${s(24,'px')};padding-top:${s(12,'px')};border-top:1px solid #e0e7eb;display:flex;justify-content:space-between;gap:${s(20,'px')};color:#88949c;font-size:${s(8,'px')}}.preview-service-proposal{margin:${s(18,'px')} 0;display:grid;gap:${s(12,'px')}}.preview-service-proposal-intro{padding:${s(12,'px')} ${s(14,'px')};border:1px solid #e5eaf0;border-radius:8px;background:#fbfcfd;break-inside:avoid}.preview-service-proposal-intro h4{margin:0 0 ${s(6,'px')};color:var(--preview-color);font-size:${s(11,'px')}}.preview-service-proposal-intro p,.preview-service-proposal-note p{margin:0;white-space:pre-line;color:#445066;font-size:${s(8.5,'px')};line-height:1.5}.preview-service-proposal-grid{display:grid;grid-template-columns:1fr 1fr;gap:${s(8,'px')}}.preview-service-proposal-section{border:1px solid #dfe5eb;border-radius:8px;overflow:hidden;break-inside:avoid;page-break-inside:avoid}.preview-service-proposal-section h5{margin:0;padding:${s(7,'px')} ${s(9,'px')};background:#f6f8fa;color:#26354a;font-size:${s(9,'px')}}.preview-service-proposal-section ul{margin:0;padding:${s(7,'px')} ${s(9,'px')} ${s(8,'px')} ${s(22,'px')}}.preview-service-proposal-section li{margin:0 0 ${s(2,'px')};color:#3e4a5f;font-size:${s(8,'px')};line-height:1.35}.preview-service-proposal-values{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #dfe6ed;border-radius:8px;overflow:hidden;break-inside:avoid;page-break-inside:avoid}.preview-service-proposal-value{padding:${s(9,'px')} ${s(10,'px')};border-right:1px solid #e3e9ef}.preview-service-proposal-value:last-child{border-right:0}.preview-service-proposal-value span,.preview-service-proposal-value strong{display:block}.preview-service-proposal-value span{color:#78869a;font-size:${s(7,'px')};text-transform:uppercase}.preview-service-proposal-value strong{margin-top:${s(3,'px')};color:#1d2a3d;font-size:${s(10,'px')}}.preview-service-proposal-note{padding:${s(10,'px')} ${s(12,'px')};border-left:3px solid var(--preview-color);background:#fafcfd;break-inside:avoid;page-break-inside:avoid}.preview-service-proposal-note h5{margin:0 0 ${s(4,'px')};font-size:${s(8.5,'px')}}@page{size:A4 portrait;margin:10mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
   }
 
   async function sendWhatsApp(id) {
