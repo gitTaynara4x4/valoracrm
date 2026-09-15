@@ -403,6 +403,33 @@
     return end;
   }
 
+  function downloadGeneratedBlob(blob, filename) {
+    if (!blob || typeof blob.size !== 'number' || blob.size <= 0) {
+      throw new Error('O PDF foi gerado vazio e o download foi cancelado.');
+    }
+
+    // IMPORTANTE: o jsPDF é carregado dentro do iframe de renderização, mas o
+    // download precisa ser disparado pela janela principal. pdf.save() tentava
+    // clicar a partir do iframe oculto e, em Chrome/Opera, podia simplesmente
+    // não iniciar download nenhum apesar de não lançar erro.
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = filename;
+    anchor.rel = 'noopener';
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+
+    try {
+      anchor.click();
+    } finally {
+      anchor.remove();
+      // Não revoga imediatamente: alguns navegadores só começam a consumir a
+      // URL depois que a pilha atual termina.
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 15000);
+    }
+  }
+
   async function saveCanvasAsA4Pdf({ canvas, target, doc, jsPDF, filename, marginMm }) {
     const pageWidthMm = 210;
     const pageHeightMm = 297;
@@ -438,7 +465,10 @@
       pageIndex += 1;
     }
 
-    pdf.save(`${filename}.pdf`);
+    const safeFilename = `${String(filename || 'documento').replace(/[\\/:*?"<>|]+/g, '-').trim() || 'documento'}.pdf`;
+    const blob = pdf.output('blob');
+    downloadGeneratedBlob(blob, safeFilename);
+    return { filename: safeFilename, size: blob.size };
   }
 
   async function exportCurrentAsPdf(documentData) {
@@ -488,8 +518,8 @@
         Math.ceil(rect.height || 0),
       );
 
-      // V39: renderização direta. Não chamamos html2pdf().set(), portanto o
-      // Worker que gerava "Invalid margin array" não participa mais do fluxo.
+      // V40: renderização direta + download disparado pela janela principal. O
+      // Worker do html2pdf não participa do fluxo e o iframe não tenta baixar o arquivo.
       const canvas = await html2canvas(target, {
         scale: 2,
         useCORS: true,
